@@ -1,8 +1,0 @@
-{
-  "compilerOptions": {
-    "lib": ["deno.ns", "dom"]
-  },
-  "imports": {
-    "npm:stripe@13": "npm:stripe@13"
-  }
-}
