@@ -29,7 +29,7 @@ export default function AffiliateSettingsPage() {
     }
   }, [user]);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!user?.email) return alert('User not authenticated');
 
