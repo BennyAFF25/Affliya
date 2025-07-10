@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allowed_headers": ["*"],
+    "exposed_headers": ["*"],
+    "allowed_methods": ["POST"],
+    "auth": "none"
+  }
+}
