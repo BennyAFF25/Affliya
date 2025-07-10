@@ -64,3 +64,4 @@ export default function TopupSuccessPage() {
     </div>
   );
 }
+export const dynamic = 'force-dynamic';
