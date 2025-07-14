@@ -171,7 +171,14 @@ export default function AdIdeasPage() {
         body: JSON.stringify(payload),
       });
 
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+      } catch (jsonError) {
+        console.error('[❌ Failed to parse JSON response]', jsonError);
+        data = null;
+      }
+
       console.log('[📉 Status Code]', response.status);
       console.log('[⚠️ Meta Upload Response]', data);
 

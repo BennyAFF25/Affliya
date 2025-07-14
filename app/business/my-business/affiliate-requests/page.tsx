@@ -28,6 +28,8 @@ export default function AffiliateRequestsPage() {
   const user = session?.user;
 
   useEffect(() => {
+    if (!session) return;
+
     const fetchOffersAndRequests = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user?.email) return;
@@ -50,7 +52,7 @@ export default function AffiliateRequestsPage() {
     };
 
     fetchOffersAndRequests();
-  }, []);
+  }, [session]);
 
   const handleUpdateStatus = async (requestId: string, newStatus: string) => {
     console.log('Updating request:', requestId, 'to:', newStatus);
