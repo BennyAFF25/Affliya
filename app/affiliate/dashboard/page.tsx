@@ -87,6 +87,7 @@ function AffiliateDashboardContent() {
   const [adIdeas, setAdIdeas] = useState<any[]>([]);
 
   useEffect(() => {
+    if (session === undefined) return;
     if (session === null) {
       router.push('/');
     }
