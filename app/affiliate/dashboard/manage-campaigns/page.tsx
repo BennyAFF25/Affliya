@@ -14,6 +14,11 @@ const ManageCampaigns = () => {
   const [adIdeas, setAdIdeas] = useState<any[]>([]);
 
   useEffect(() => {
+    if (session === undefined) return;
+    if (session === null) {
+      router.push('/');
+      return;
+    }
     if (!user) return;
 
     const fetchAdIdeas = async () => {

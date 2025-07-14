@@ -94,7 +94,7 @@ function AffiliateDashboardContent() {
   }, [session, router]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!session || !user) return;
 
     const loadInitialData = async () => {
       // Fetch live offers from Supabase
@@ -145,7 +145,7 @@ function AffiliateDashboardContent() {
     };
 
     loadInitialData();
-  }, [user]);
+  }, [session, user]);
 
   const approvedOffers = offers.filter((offer) => approvedIds.includes(offer.id));
 

@@ -5,19 +5,29 @@ import { useParams, useRouter } from 'next/navigation';
 import { useSession } from '@supabase/auth-helpers-react';
 import { supabase } from 'utils/supabase/pages-client';
 
+interface Campaign {
+  id: string;
+  budget: string | null;
+  targeting: string | null;
+  cta: string | null;
+  image_url?: string | null;
+  video_url?: string | null;
+  [key: string]: any;
+}
+
 const CampaignDetailPage = () => {
   const { campaignId } = useParams();
   const session = useSession();
   const user = session?.user;
   const router = useRouter();
 
-  const [campaign, setCampaign] = useState<any>(null);
+  const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [budget, setBudget] = useState('');
   const [targeting, setTargeting] = useState('');
   const [cta, setCta] = useState('');
 
   useEffect(() => {
-    if (!user) return;
+    if (session === undefined) return;
 
     const fetchCampaign = async () => {
       const { data, error } = await supabase
@@ -26,18 +36,27 @@ const CampaignDetailPage = () => {
         .eq('id', campaignId)
         .single();
 
-      if (!error && data) {
+      if (error) {
+        console.error('[❌ Fetch failed]', error.message);
+        return;
+      }
+
+      if (data) {
         setCampaign(data);
-        setBudget(data.budget || '');
-        setTargeting(data.targeting || '');
-        setCta(data.cta || '');
-      } else {
-        console.error('[❌ Fetch failed]', error);
+        setBudget(data.budget ?? '');
+        setTargeting(data.targeting ?? '');
+        setCta(data.cta ?? '');
       }
     };
 
     fetchCampaign();
-  }, [campaignId, user]);
+  }, [campaignId, session]);
+
+  useEffect(() => {
+    if (session === null) {
+      router.push('/login');
+    }
+  }, [session, router]);
 
   const handleSave = async () => {
     const { error } = await supabase
@@ -54,7 +73,7 @@ const CampaignDetailPage = () => {
       alert('Changes saved and submitted for reapproval.');
       router.push('/affiliate/dashboard/manage-campaigns');
     } else {
-      console.error('[❌ Save failed]', error);
+      console.error('[❌ Save failed]', error.message);
     }
   };
 
@@ -70,7 +89,7 @@ const CampaignDetailPage = () => {
             <source src={campaign.video_url} type="video/mp4" />
           </video>
         ) : (
-          <img src={campaign.image_url} alt="Ad" className="rounded-lg w-full mb-4" />
+          <img src={campaign.image_url ?? ''} alt="Ad" className="rounded-lg w-full mb-4" />
         )
       ) : (
         <div className="bg-gray-100 p-6 rounded-lg mb-4 text-center">No media preview</div>

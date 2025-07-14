@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../../../utils/supabase/pages-client';
 import { useSession } from '@supabase/auth-helpers-react';
+import { useRouter } from 'next/navigation';
 
 interface Request {
   id: string;
@@ -26,18 +27,23 @@ export default function AffiliateRequestsPage() {
   const [requests, setRequests] = useState<Request[]>([]);
   const session = useSession();
   const user = session?.user;
+  const router = useRouter();
 
   useEffect(() => {
-    if (!session) return;
+    if (session === undefined) return;
+    if (session === null) {
+      router.push('/');
+      return;
+    }
 
     const fetchOffersAndRequests = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
       if (!user?.email) return;
 
       const { data: offersData } = await supabase
         .from('offers')
         .select('*')
         .eq('business_email', user.email);
+
       setOffers(offersData || []);
 
       const { data: requestsData, error } = await supabase
@@ -52,7 +58,7 @@ export default function AffiliateRequestsPage() {
     };
 
     fetchOffersAndRequests();
-  }, [session]);
+  }, [session, user, router]);
 
   const handleUpdateStatus = async (requestId: string, newStatus: string) => {
     console.log('Updating request:', requestId, 'to:', newStatus);

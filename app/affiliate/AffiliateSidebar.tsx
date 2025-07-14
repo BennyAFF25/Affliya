@@ -12,12 +12,24 @@ import {
   LifeBuoy,
 } from 'lucide-react';
 import { useSession } from '@supabase/auth-helpers-react';
+import { useRouter } from 'next/navigation';
 
 export default function AffiliateSidebar() {
   const pathname = usePathname();
   const [hasNotification, setHasNotification] = useState(false);
 
   const session = useSession();
+  const router = useRouter();
+
+  if (session === undefined) {
+    return null; // Wait for session to be determined
+  }
+
+  if (session === null) {
+    router.push('/');
+    return null;
+  }
+
   const user = session?.user;
 
   useEffect(() => {

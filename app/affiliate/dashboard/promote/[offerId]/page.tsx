@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useParams } from 'next/navigation';
 import { supabase } from '@/../utils/supabase/pages-client';
@@ -12,6 +12,14 @@ export default function PromoteOfferPage() {
   const offerId = params.offerId as string;
   const session = useSession();
   const userEmail = session?.user?.email || '';
+
+  // Redirect unauthenticated users to '/' (prevent looping)
+  useEffect(() => {
+    if (session === undefined) return;
+    if (session === null) {
+      router.push('/');
+    }
+  }, [session, router]);
 
   const [formData, setFormData] = useState({
     headline: '',

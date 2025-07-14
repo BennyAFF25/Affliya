@@ -2,12 +2,24 @@
 
 import AffiliateSidebar from './AffiliateSidebar';
 import Topbar from '@/components/Topbar';
-import { SessionContextProvider } from '@supabase/auth-helpers-react';
+import { SessionContextProvider, useSession } from '@supabase/auth-helpers-react';
 import { createPagesBrowserClient } from '@supabase/auth-helpers-nextjs';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function AffiliateLayout({ children }: { children: React.ReactNode }) {
   const [supabaseClient] = useState(() => createPagesBrowserClient());
+  const session = useSession();
+  const router = useRouter();
+
+  if (session === undefined) {
+    return null;
+  }
+
+  if (session === null) {
+    router.push('/');
+    return null;
+  }
 
   return (
     <div className="flex flex-col min-h-screen bg-white text-black">

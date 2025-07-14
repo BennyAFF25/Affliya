@@ -30,47 +30,43 @@ export default function BusinessDashboard() {
   const [expanded, setExpanded] = useState(false);
   const [activeCampaigns, setActiveCampaigns] = useState<any[]>([]);
   const [selectedIdea, setSelectedIdea] = useState<any | null>(null);
-  useEffect(() => {
-    const fetchActiveCampaigns = async () => {
-      if (!user) return;
-
-      const { data, error } = await supabase
-        .from('ad_ideas')
-        .select('*')
-        .eq('business_email', user.email)
-        .eq('status', 'approved');
-
-      if (!error && data) {
-        setActiveCampaigns(data);
-      } else {
-        console.error('[❌ Failed to fetch active campaigns]', error);
-      }
-    };
-
-    fetchActiveCampaigns();
-  }, [user]);
 
   useEffect(() => {
     if (session === undefined) return;
     if (session === null) {
       router.push('/');
+      return;
     }
-  }, [session, router]);
 
-  useEffect(() => {
-    const fetchApprovedAffiliates = async () => {
-      const { data, error } = await supabase
-        .from('affiliate_requests')
-        .select('*')
-        .eq('status', 'approved');
+    const fetchData = async () => {
+      const [activeCampaignsRes, approvedAffiliatesRes] = await Promise.all([
+        supabase
+          .from('ad_ideas')
+          .select('*')
+          .eq('business_email', user?.email)
+          .eq('status', 'approved'),
 
-      if (!error && data) {
-        setApprovedAffiliates(data);
+        supabase
+          .from('affiliate_requests')
+          .select('*')
+          .eq('status', 'approved')
+      ]);
+
+      if (!activeCampaignsRes.error && activeCampaignsRes.data) {
+        setActiveCampaigns(activeCampaignsRes.data);
+      } else {
+        console.error('[❌ Failed to fetch active campaigns]', activeCampaignsRes.error);
+      }
+
+      if (!approvedAffiliatesRes.error && approvedAffiliatesRes.data) {
+        setApprovedAffiliates(approvedAffiliatesRes.data);
+      } else {
+        console.error('[❌ Failed to fetch approved affiliates]', approvedAffiliatesRes.error);
       }
     };
 
-    fetchApprovedAffiliates();
-  }, []);
+    fetchData();
+  }, [session, router, user]);
 
   const renderMedia = (idea: any) => {
     const file = idea.file_url;

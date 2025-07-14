@@ -4,6 +4,7 @@ import axios from 'axios';
 import { useSession } from '@supabase/auth-helpers-react';
 import { useEffect, useState } from 'react';
 import { supabase } from 'utils/supabase/pages-client';
+import { useRouter } from 'next/navigation';
 
 interface AdIdea {
   meta_ad_id?: string;
@@ -37,8 +38,15 @@ export default function AdIdeasPage() {
   const [selectedIdea, setSelectedIdea] = useState<AdIdea | null>(null);
   const session = useSession();
   const user = session?.user;
+  const router = useRouter();
 
   useEffect(() => {
+    if (session === undefined) return;
+    if (session === null) {
+      router.push('/');
+      return;
+    }
+
     const loadOffersMap = async () => {
       if (!user?.email) return;
 
@@ -63,9 +71,15 @@ export default function AdIdeasPage() {
     if (user?.email) {
       loadOffersMap();
     }
-  }, [user]);
+  }, [session, user, router]);
 
   useEffect(() => {
+    if (session === undefined) return;
+    if (session === null) {
+      router.push('/');
+      return;
+    }
+
     const fetchIdeas = async () => {
       if (!user?.email) return;
 
@@ -91,7 +105,7 @@ export default function AdIdeasPage() {
     if (Object.keys(offersMap).length > 0) {
       fetchIdeas();
     }
-  }, [offersMap, user]);
+  }, [offersMap, session, user, router]);
 
   const handleStatusChange = async (id: string, newStatus: string) => {
     if (!user?.email) return;

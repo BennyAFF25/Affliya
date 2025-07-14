@@ -30,6 +30,16 @@ export default function AffiliateWalletPage() {
   const [refundLoading, setRefundLoading] = useState(false);
   const [walletDeductions, setWalletDeductions] = useState<any[]>([]);
 
+  // Early return for session: if undefined, return null; if null, redirect to '/'
+  useEffect(() => {
+    if (session === null) {
+      window.location.href = '/';
+    }
+  }, [session]);
+  if (session === undefined) {
+    return null;
+  }
+
   // Fetch live wallet balance (wallets table)
   useEffect(() => {
     const fetchWalletBalance = async () => {
