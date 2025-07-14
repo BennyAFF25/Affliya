@@ -51,10 +51,10 @@ export default function BusinessDashboard() {
   }, [user]);
 
   useEffect(() => {
-    if (!user) {
+    if (session === null) {
       router.push('/');
     }
-  }, [user, router]);
+  }, [session, router]);
 
   useEffect(() => {
     const fetchApprovedAffiliates = async () => {

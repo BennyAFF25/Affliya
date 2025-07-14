@@ -87,10 +87,10 @@ function AffiliateDashboardContent() {
   const [adIdeas, setAdIdeas] = useState<any[]>([]);
 
   useEffect(() => {
-    if (!user) {
+    if (session === null) {
       router.push('/');
     }
-  }, [user, router]);
+  }, [session, router]);
 
   useEffect(() => {
     if (!user) return;
