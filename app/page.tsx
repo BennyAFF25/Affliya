@@ -3,10 +3,10 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/../utils/supabase/pages-client';
-import { useSession } from '@supabase/auth-helpers-react';
+import { useSessionContext } from '@supabase/auth-helpers-react';
 
 export default function Home() {
-  const session = useSession();
+  const { session, isLoading } = useSessionContext();
   const user = session?.user ?? null;
   const router = useRouter();
   const [userType, setUserType] = useState<'business' | 'affiliate' | null>(null);
@@ -15,11 +15,12 @@ export default function Home() {
   const [showAffWhy, setShowAffWhy] = useState(false);
 
   useEffect(() => {
+    if (isLoading) return;
     const storedUserType = localStorage.getItem('userType') as 'business' | 'affiliate' | null;
     if (user && storedUserType) {
       router.push(storedUserType === 'business' ? '/business/dashboard' : '/affiliate/dashboard');
     }
-  }, [user, router]);
+  }, [user, isLoading, router]);
 
   const handleLogin = async (type: 'business' | 'affiliate') => {
     setUserType(type);
