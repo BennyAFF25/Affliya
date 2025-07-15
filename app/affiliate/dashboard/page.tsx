@@ -94,7 +94,7 @@ function AffiliateDashboardContent() {
   }, [session, router]);
 
   useEffect(() => {
-    if (!session || !user) return;
+    if (!session || !session.user) return;
 
     const loadInitialData = async () => {
       // Fetch live offers from Supabase
@@ -112,7 +112,7 @@ function AffiliateDashboardContent() {
       const { data: approved, error: approvedError } = await supabase
         .from('affiliate_requests')
         .select('offer_id')
-        .eq('affiliate_email', user.email)
+        .eq('affiliate_email', session.user.email)
         .eq('status', 'approved');
 
       if (approvedError) {
@@ -133,7 +133,7 @@ function AffiliateDashboardContent() {
           status,
           caption
         `)
-        .eq('affiliate_email', user.email)
+        .eq('affiliate_email', session.user.email)
         .eq('status', 'approved');
 
       if (ideasError) {
@@ -145,7 +145,7 @@ function AffiliateDashboardContent() {
     };
 
     loadInitialData();
-  }, [session, user]);
+  }, [session]);
 
   const approvedOffers = offers.filter((offer) => approvedIds.includes(offer.id));
 

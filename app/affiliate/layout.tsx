@@ -4,13 +4,11 @@ import AffiliateSidebar from './AffiliateSidebar';
 import Topbar from '@/components/Topbar';
 import { SessionContextProvider, useSession } from '@supabase/auth-helpers-react';
 import { createPagesBrowserClient } from '@supabase/auth-helpers-nextjs';
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 
 export default function AffiliateLayout({ children }: { children: React.ReactNode }) {
   const [supabaseClient] = useState(() => createPagesBrowserClient());
   const session = useSession();
-  const router = useRouter();
 
   if (session === undefined) {
     return <div className="w-full flex justify-center items-center py-12">Loading...</div>;
@@ -19,16 +17,10 @@ export default function AffiliateLayout({ children }: { children: React.ReactNod
   if (session === null) {
     return (
       <div className="w-full flex justify-center items-center py-12">
-        <p>Redirecting to home...</p>
+        <p>You must be logged in to view this page.</p>
       </div>
     );
   }
-
-  useEffect(() => {
-    if (session === null) {
-      router.push('/');
-    }
-  }, [session, router]);
 
   return (
     <div className="flex flex-col min-h-screen bg-white text-black">
