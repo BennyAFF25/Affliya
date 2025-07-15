@@ -4,7 +4,7 @@ import AffiliateSidebar from './AffiliateSidebar';
 import Topbar from '@/components/Topbar';
 import { SessionContextProvider, useSession } from '@supabase/auth-helpers-react';
 import { createPagesBrowserClient } from '@supabase/auth-helpers-nextjs';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function AffiliateLayout({ children }: { children: React.ReactNode }) {
@@ -13,13 +13,22 @@ export default function AffiliateLayout({ children }: { children: React.ReactNod
   const router = useRouter();
 
   if (session === undefined) {
-    return null;
+    return <div className="w-full flex justify-center items-center py-12">Loading...</div>;
   }
 
   if (session === null) {
-    router.push('/');
-    return null;
+    return (
+      <div className="w-full flex justify-center items-center py-12">
+        <p>Redirecting to home...</p>
+      </div>
+    );
   }
+
+  useEffect(() => {
+    if (session === null) {
+      router.push('/');
+    }
+  }, [session, router]);
 
   return (
     <div className="flex flex-col min-h-screen bg-white text-black">

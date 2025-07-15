@@ -30,14 +30,18 @@ export default function AffiliateWalletPage() {
   const [refundLoading, setRefundLoading] = useState(false);
   const [walletDeductions, setWalletDeductions] = useState<any[]>([]);
 
-  // Early return for session: if undefined, return null; if null, redirect to '/'
-  useEffect(() => {
-    if (session === null) {
-      window.location.href = '/';
-    }
-  }, [session]);
+  // Early return for session: fallback UI instead of redirect to avoid loops
   if (session === undefined) {
-    return null;
+    // Still loading
+    return <div className="w-full flex items-center justify-center py-12">Loading...</div>;
+  }
+
+  if (session === null) {
+    return (
+      <div className="w-full flex items-center justify-center py-12 text-center">
+        <p>You are not logged in. <a href="/" className="text-blue-500 underline">Go to home</a></p>
+      </div>
+    );
   }
 
   // Fetch live wallet balance (wallets table)

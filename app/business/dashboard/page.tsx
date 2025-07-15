@@ -104,156 +104,160 @@ export default function BusinessDashboard() {
   };
 
   return (
-    <div className="w-full">
-      <div className="p-10 max-w-7xl mx-auto">
-        <h1 className="text-3xl font-bold text-[#00C2CB] text-center mb-1">Business Dashboard</h1>
-        <p className="text-center text-gray-600 mb-8">
-          Welcome back, <span className="font-semibold">{user?.email}</span>
-        </p>
+    <div className="w-full min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-8 py-10">
+        {/* Header */}
+        <div className="mb-8 flex flex-col items-start sm:items-center sm:flex-row sm:justify-between gap-2">
+          <div>
+            <h1 className="text-3xl font-bold text-[#00C2CB]">Business Dashboard</h1>
+            <p className="text-gray-600 mt-1">
+              Welcome back, <span className="font-semibold">{user?.email}</span>
+            </p>
+          </div>
+        </div>
 
-        {/* Stat Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mb-6">
-          <div className="bg-white border border-[#00C2CB] rounded-2xl p-4 shadow-md">
-            <div className="flex items-center gap-4">
-              <div className="bg-[#e0fafa] p-3 rounded-full text-[#00C2CB]">
-                <Users className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Active Affiliates</p>
-                <p className="text-2xl font-bold">24</p>
-              </div>
+        {/* Stat cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="bg-white rounded-xl shadow border border-[#00C2CB] flex items-center p-5">
+            <div className="flex-shrink-0 bg-[#e0fafa] text-[#00C2CB] rounded-full p-3 mr-4">
+              <Users className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="text-xs text-gray-500 font-medium">Active Affiliates</div>
+              <div className="text-2xl font-bold tracking-tight mt-1">24</div>
             </div>
           </div>
-
-          <div className="bg-white border border-yellow-400 rounded-2xl p-4 shadow-md">
-            <div className="flex items-center gap-4">
-              <div className="bg-yellow-100 p-3 rounded-full text-yellow-500">
-                <ClipboardList className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Pending Requests</p>
-                <p className="text-2xl font-bold">6</p>
-              </div>
+          <div className="bg-white rounded-xl shadow border border-yellow-400 flex items-center p-5">
+            <div className="flex-shrink-0 bg-yellow-100 text-yellow-500 rounded-full p-3 mr-4">
+              <ClipboardList className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="text-xs text-gray-500 font-medium">Pending Requests</div>
+              <div className="text-2xl font-bold tracking-tight mt-1">6</div>
             </div>
           </div>
-
-          <div className="bg-white border border-green-400 rounded-2xl p-4 shadow-md">
-            <div className="flex items-center gap-4">
-              <div className="bg-green-100 p-3 rounded-full text-green-600">
-                <DollarSign className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Total Revenue</p>
-                <p className="text-2xl font-bold text-green-600">$12,400</p>
-              </div>
+          <div className="bg-white rounded-xl shadow border border-green-400 flex items-center p-5">
+            <div className="flex-shrink-0 bg-green-100 text-green-600 rounded-full p-3 mr-4">
+              <DollarSign className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="text-xs text-gray-500 font-medium">Total Revenue</div>
+              <div className="text-2xl font-bold tracking-tight mt-1 text-green-600">$12,400</div>
             </div>
           </div>
-
-          <div className="bg-white border border-purple-400 rounded-2xl p-4 shadow-md">
-            <div className="flex items-center gap-4">
-              <div className="bg-purple-100 p-3 rounded-full text-purple-600">
-                <LayoutGrid className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-600">Live Offers</p>
-                <p className="text-2xl font-bold text-purple-600">4</p>
-              </div>
+          <div className="bg-white rounded-xl shadow border border-purple-400 flex items-center p-5">
+            <div className="flex-shrink-0 bg-purple-100 text-purple-600 rounded-full p-3 mr-4">
+              <LayoutGrid className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="text-xs text-gray-500 font-medium">Live Offers</div>
+              <div className="text-2xl font-bold tracking-tight mt-1 text-purple-600">4</div>
             </div>
           </div>
         </div>
 
-        {/* Top Affiliate Card */}
-        <div className="bg-[#e0fafa] border border-[#00C2CB] rounded-xl p-6 shadow mb-8">
-          <div className="flex justify-between items-center mb-2">
-            <h2 className="text-lg font-semibold text-[#00C2CB]">Top Performing Affiliate</h2>
-            <a href="#" className="text-sm text-[#00C2CB] underline hover:text-[#009ba3]">Export to CSV</a>
+        {/* Charts row */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          <div className="bg-white rounded-xl shadow border border-[#00C2CB] p-6 flex flex-col">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-800">Affiliate Growth</h3>
+              <span className="text-xs text-gray-400">Last 30 Days</span>
+            </div>
+            <div className="flex-1">
+              <ResponsiveContainer width="100%" height={220}>
+                <AreaChart data={affiliateData} margin={{ top: 20, right: 20, left: 0, bottom: 10 }}>
+                  <defs>
+                    <linearGradient id="colorAffiliates" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#00C2CB" stopOpacity={0.8} />
+                      <stop offset="95%" stopColor="#00C2CB" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis dataKey="name" padding={{ left: 20, right: 20 }} interval="preserveStartEnd" />
+                  <YAxis domain={['dataMin - 5', 'auto']} />
+                  <Tooltip />
+                  <Area type="monotone" dataKey="value" stroke="#00C2CB" fillOpacity={1} fill="url(#colorAffiliates)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm text-gray-700">
-            <p><span className="font-bold">Email:</span> jane.doe@example.com</p>
-            <p><span className="font-bold">Revenue:</span> $2,120</p>
-            <p><span className="font-bold">Leads:</span> 78</p>
-            <p><span className="font-bold">Conversion Rate:</span> 26.9%</p>
+          <div className="bg-white rounded-xl shadow border border-[#00C2CB] p-6 flex flex-col">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-800">Sales Performance</h3>
+              <span className="text-xs text-gray-400">Last 30 Days</span>
+            </div>
+            <div className="flex-1">
+              <ResponsiveContainer width="100%" height={220}>
+                <AreaChart data={salesData} margin={{ top: 20, right: 20, left: 0, bottom: 10 }}>
+                  <defs>
+                    <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#00C2CB" stopOpacity={0.8} />
+                      <stop offset="95%" stopColor="#00C2CB" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis dataKey="name" padding={{ left: 20, right: 20 }} interval="preserveStartEnd" />
+                  <YAxis domain={['dataMin - 5', 'auto']} />
+                  <Tooltip />
+                  <Area type="monotone" dataKey="value" stroke="#00C2CB" fillOpacity={1} fill="url(#colorSales)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
           </div>
         </div>
 
-        {/* Approved Affiliates */}
-        <div className="mb-10">
-          <button
-            onClick={() => setExpanded(!expanded)}
-            className="w-full text-left bg-white border border-[#00C2CB] px-6 py-4 rounded-xl shadow-sm hover:shadow-md transition flex justify-between items-center"
-          >
-            <h2 className="text-lg font-semibold text-[#00C2CB]">Approved Affiliates ({approvedAffiliates.length})</h2>
-            <span className="text-[#00C2CB] text-sm">{expanded ? 'Hide' : 'View All'}</span>
-          </button>
-
-          {expanded && (
-            <div className="mt-4 bg-white border border-[#00C2CB]/30 rounded-xl shadow p-4 space-y-4">
-              {approvedAffiliates.length > 0 ? approvedAffiliates.map((a) => (
-                <div
-                  key={a.id}
-                  className="flex justify-between items-center border border-[#e0fafa] rounded-lg px-4 py-3"
-                >
-                  <div>
-                    <p className="text-sm text-gray-700 font-semibold">{a.affiliate_email}</p>
-                    <p className="text-xs text-gray-400">Approved: {new Date(a.created_at).toLocaleDateString()}</p>
+        {/* Affiliates & Recent Requests row */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          {/* Top Affiliate Card */}
+          <div className="bg-white rounded-xl shadow border border-[#00C2CB] p-6 flex flex-col mb-6 lg:mb-0">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-lg font-semibold text-[#00C2CB]">Top Performing Affiliate</h2>
+              <a href="#" className="text-sm text-[#00C2CB] underline hover:text-[#009ba3]">Export to CSV</a>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 md:grid-cols-4 mt-2 text-sm text-gray-700">
+              <p><span className="font-bold">Email:</span> jane.doe@example.com</p>
+              <p><span className="font-bold">Revenue:</span> $2,120</p>
+              <p><span className="font-bold">Leads:</span> 78</p>
+              <p><span className="font-bold">Conversion Rate:</span> 26.9%</p>
+            </div>
+          </div>
+          {/* Approved Affiliates */}
+          <div className="flex flex-col">
+            <button
+              onClick={() => setExpanded(!expanded)}
+              className="w-full text-left bg-white border border-[#00C2CB] px-6 py-4 rounded-xl shadow-sm hover:shadow-md transition flex justify-between items-center"
+            >
+              <h2 className="text-lg font-semibold text-[#00C2CB]">Approved Affiliates ({approvedAffiliates.length})</h2>
+              <span className="text-[#00C2CB] text-sm">{expanded ? 'Hide' : 'View All'}</span>
+            </button>
+            {expanded && (
+              <div className="mt-4 bg-white border border-[#00C2CB]/30 rounded-xl shadow p-4 space-y-4">
+                {approvedAffiliates.length > 0 ? approvedAffiliates.map((a) => (
+                  <div
+                    key={a.id}
+                    className="flex justify-between items-center border border-[#e0fafa] rounded-lg px-4 py-3"
+                  >
+                    <div>
+                      <p className="text-sm text-gray-700 font-semibold">{a.affiliate_email}</p>
+                      <p className="text-xs text-gray-400">Approved: {new Date(a.created_at).toLocaleDateString()}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button className="text-yellow-600 bg-yellow-100 px-3 py-1 text-xs rounded flex items-center gap-1">
+                        <Pause size={12} /> Pause
+                      </button>
+                      <button className="text-red-600 bg-red-100 px-3 py-1 text-xs rounded flex items-center gap-1">
+                        <X size={12} /> Disable
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex gap-2">
-                    <button className="text-yellow-600 bg-yellow-100 px-3 py-1 text-xs rounded flex items-center gap-1">
-                      <Pause size={12} /> Pause
-                    </button>
-                    <button className="text-red-600 bg-red-100 px-3 py-1 text-xs rounded flex items-center gap-1">
-                      <X size={12} /> Disable
-                    </button>
-                  </div>
-                </div>
-              )) : (
-                <p className="text-sm text-gray-500">No approved affiliates yet.</p>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Charts */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-white border border-[#00C2CB] rounded-2xl p-4 shadow">
-            <h3 className="text-md font-semibold mb-2">Affiliate Growth (Last 30 Days)</h3>
-            <ResponsiveContainer width="100%" height={250}>
-              <AreaChart data={affiliateData} margin={{ top: 20, right: 20, left: 20, bottom: 10 }}>
-                <defs>
-                  <linearGradient id="colorAffiliates" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#00C2CB" stopOpacity={0.8} />
-                    <stop offset="95%" stopColor="#00C2CB" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="name" padding={{ left: 20, right: 20 }} interval="preserveStartEnd" />
-                <YAxis domain={['dataMin - 5', 'auto']} />
-                <Tooltip />
-                <Area type="monotone" dataKey="value" stroke="#00C2CB" fillOpacity={1} fill="url(#colorAffiliates)" />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-
-          <div className="bg-white border border-[#00C2CB] rounded-2xl p-4 shadow">
-            <h3 className="text-md font-semibold mb-2">Sales Performance (Last 30 Days)</h3>
-            <ResponsiveContainer width="100%" height={250}>
-              <AreaChart data={salesData} margin={{ top: 20, right: 20, left: 20, bottom: 10 }}>
-                <defs>
-                  <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#00C2CB" stopOpacity={0.8} />
-                    <stop offset="95%" stopColor="#00C2CB" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="name" padding={{ left: 20, right: 20 }} interval="preserveStartEnd" />
-                <YAxis domain={['dataMin - 5', 'auto']} />
-                <Tooltip />
-                <Area type="monotone" dataKey="value" stroke="#00C2CB" fillOpacity={1} fill="url(#colorSales)" />
-              </AreaChart>
-            </ResponsiveContainer>
+                )) : (
+                  <p className="text-sm text-gray-500">No approved affiliates yet.</p>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
         {/* Active Campaigns */}
-        <div className="mb-10">
+        <div className="bg-white rounded-xl shadow border border-[#00C2CB] p-6 mb-12">
           <h2 className="text-lg font-semibold text-[#00C2CB] mb-6">Active Campaigns ({activeCampaigns.length})</h2>
           <div className="space-y-4">
             {activeCampaigns.length > 0 ? activeCampaigns.map((c) => (
@@ -261,35 +265,37 @@ export default function BusinessDashboard() {
                 key={c.id}
                 className="space-y-2"
               >
-                {/* Details Right */}
                 <div className="flex-1 space-y-2">
-                  {/* <p className="text-sm text-[#00C2CB] font-semibold break-all">
-                    Offer ID: {c.offer_id}
-                  </p>
-                  <p className="text-sm text-gray-500">Affiliate: {c.affiliate_email}</p> */}
-                  {/* Stats Pill Row */}
-                  <div className="flex justify-evenly items-center bg-[#4A4A4A] text-[#00C2CB] rounded-full px-12 py-6 text-[17px] font-semibold">
-                    <div className="flex items-center gap-1">
-                      <PlayCircle className="w-8 h-8" />
-                      <span>12,340</span>
+                  <div className="flex flex-col md:flex-row md:justify-between md:items-center bg-[#f6fafd] rounded-lg px-6 py-4 border border-[#e0fafa]">
+                    <div className="flex flex-col mb-4 md:mb-0">
+                      {/* <p className="text-sm text-[#00C2CB] font-semibold break-all">
+                        Offer ID: {c.offer_id}
+                      </p>
+                      <p className="text-sm text-gray-500">Affiliate: {c.affiliate_email}</p> */}
                     </div>
-                    <div className="flex items-center gap-1 ml-6">
-                      <MousePointerClick className="w-8 h-8" />
-                      <span>921</span>
-                    </div>
-                    <button
-                      onClick={() => setSelectedIdea(c)}
-                      className="text-[#00C2CB] hover:underline font-semibold"
-                    >
-                      View Campaign
-                    </button>
-                    <div className="flex items-center gap-1 mr-6">
-                      <ShoppingCart className="w-8 h-8" />
-                      <span>53</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <BarChart2 className="w-8 h-8" />
-                      <span>$1,278</span>
+                    <div className="flex flex-wrap gap-6 items-center justify-between w-full md:w-auto">
+                      <div className="flex items-center gap-2">
+                        <PlayCircle className="w-6 h-6 text-[#00C2CB]" />
+                        <span className="text-[17px] font-semibold text-[#00C2CB]">12,340</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <MousePointerClick className="w-6 h-6 text-[#00C2CB]" />
+                        <span className="text-[17px] font-semibold text-[#00C2CB]">921</span>
+                      </div>
+                      <button
+                        onClick={() => setSelectedIdea(c)}
+                        className="text-[#00C2CB] hover:underline font-semibold text-[17px]"
+                      >
+                        View Campaign
+                      </button>
+                      <div className="flex items-center gap-2">
+                        <ShoppingCart className="w-6 h-6 text-[#00C2CB]" />
+                        <span className="text-[17px] font-semibold text-[#00C2CB]">53</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <BarChart2 className="w-6 h-6 text-[#00C2CB]" />
+                        <span className="text-[17px] font-semibold text-[#00C2CB]">$1,278</span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -388,25 +394,27 @@ export default function BusinessDashboard() {
         </div>
       )}
       {/* Test Deduct & Payout Button */}
-      <button
-        onClick={async () => {
-          const res = await fetch('/api/wallet/deduct-and-transfer', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              affiliateEmail: 'ben@falconx.com.au',
-              businessStripeAccountId: 'acct_1RhoAxIk3BumxMp4',
-              amount: 10
-            })
-          });
-          const data = await res.json();
-          console.log('[✅ Deduct & Transfer Result]', data);
-          alert(`Done: ${JSON.stringify(data)}`);
-        }}
-        className="bg-[#00C2CB] hover:bg-[#00b0b8] text-white px-4 py-2 rounded mt-6"
-      >
-        Test Deduct & Payout $10
-      </button>
+      <div className="max-w-7xl mx-auto px-4 sm:px-8 pb-8">
+        <button
+          onClick={async () => {
+            const res = await fetch('/api/wallet/deduct-and-transfer', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                affiliateEmail: 'ben@falconx.com.au',
+                businessStripeAccountId: 'acct_1RhoAxIk3BumxMp4',
+                amount: 10
+              })
+            });
+            const data = await res.json();
+            console.log('[✅ Deduct & Transfer Result]', data);
+            alert(`Done: ${JSON.stringify(data)}`);
+          }}
+          className="bg-[#00C2CB] hover:bg-[#00b0b8] text-white px-4 py-2 rounded shadow"
+        >
+          Test Deduct & Payout $10
+        </button>
+      </div>
     </div>
   );
 }

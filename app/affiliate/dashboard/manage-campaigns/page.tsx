@@ -14,18 +14,18 @@ const ManageCampaigns = () => {
   const [adIdeas, setAdIdeas] = useState<any[]>([]);
 
   useEffect(() => {
-    if (session === undefined) return;
+    if (session === undefined) return; // Wait for session to resolve
     if (session === null) {
       router.push('/');
       return;
     }
-    if (!user) return;
+    if (!session.user) return;
 
     const fetchAdIdeas = async () => {
       const { data, error } = await supabase
         .from('ad_ideas')
         .select('*')
-        .eq('affiliate_email', user.email)
+        .eq('affiliate_email', session.user.email)
         .eq('status', 'approved');
 
       if (!error && data) {
@@ -36,7 +36,7 @@ const ManageCampaigns = () => {
     };
 
     fetchAdIdeas();
-  }, [user]);
+  }, [session]);
 
   return (
     <div className="p-10 max-w-6xl mx-auto">

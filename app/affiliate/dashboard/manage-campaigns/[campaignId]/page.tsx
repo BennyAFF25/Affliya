@@ -53,6 +53,7 @@ const CampaignDetailPage = () => {
   }, [campaignId, session]);
 
   useEffect(() => {
+    // Only redirect if session is explicitly null (not undefined)
     if (session === null) {
       router.push('/login');
     }
