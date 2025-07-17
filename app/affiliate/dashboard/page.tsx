@@ -88,10 +88,12 @@ function AffiliateDashboardContent() {
 
   useEffect(() => {
     if (session === undefined) return;
+
     if (session === null) {
-      router.push('/');
+      console.warn('[🔁 Session null — showing landing instead of redirect]');
+      return; // prevent redirect loops during session check
     }
-  }, [session, router]);
+  }, [session]);
 
   useEffect(() => {
     if (!session || !session.user) return;
@@ -146,6 +148,12 @@ function AffiliateDashboardContent() {
 
     loadInitialData();
   }, [session]);
+
+  useEffect(() => {
+    if (approvedIds.length === 0 && session?.user) {
+      console.warn('[⚠️ No approved offers — user still stays on dashboard]');
+    }
+  }, [approvedIds, session]);
 
   const approvedOffers = offers.filter((offer) => approvedIds.includes(offer.id));
 

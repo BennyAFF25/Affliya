@@ -1,15 +1,26 @@
 "use client";
 import React from "react";
-import { supabase } from "@/../utils/supabase/pages-client";
+import { useRouter } from "next/navigation";
+import { createPagesBrowserClient } from "@supabase/auth-helpers-nextjs";
 
 export default function LoginPage() {
+  const router = useRouter();
+  const supabase = createPagesBrowserClient();
+
   const handleLogin = async (userType: "affiliate" | "business") => {
-    // Optional: store user type in localStorage if needed for routing post-login
+    // Store user type in localStorage for post-login role switching if needed
     localStorage.setItem("userType", userType);
 
-    await supabase.auth.signInWithOAuth({
+    const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
+      options: {
+        redirectTo: `${window.location.origin}/redirect`, // 👈 this handles smart routing
+      },
     });
+
+    if (error) {
+      console.error("❌ Login error:", error.message);
+    }
   };
 
   return (
