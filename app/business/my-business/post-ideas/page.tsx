@@ -35,36 +35,45 @@ export default function PostIdeasPage() {
 
   useEffect(() => {
     const localOffers = localStorage.getItem('my-offers');
-    if (localOffers) {
+    if (localOffers && user?.email) {
       const parsedOffers: Offer[] = JSON.parse(localOffers);
+      // Only map offers belonging to the current user
       const map: Record<string, string> = {};
       parsedOffers.forEach((o) => {
-        map[o.id] = o.businessEmail;
+        if (o.businessEmail === user.email) {
+          map[o.id] = o.businessName;
+        }
       });
       setOffersMap(map);
     }
-  }, []);
+  }, [user?.email]);
 
   useEffect(() => {
-    const fetchPosts = async () => {
-      if (!user?.email || Object.keys(offersMap).length === 0) return;
+    const fetchOrganicPosts = async () => {
+      try {
+        if (!session?.user?.email) {
+          console.warn("[⚠️ No session email]");
+          return;
+        }
 
-      const { data, error } = await supabase
-        .from('organic_posts')
-        .select('*')
-        .in('offer_id', Object.keys(offersMap))
-        .order('created_at', { ascending: false });
-      
+        const { data, error } = await supabase
+          .from("organic_posts")
+          .select("*")
+          .eq("business_email", session.user.email);
 
-      if (error) {
-        console.error('[❌ Fetch Error]', error.message);
-      } else {
-        setPosts(data || []);
+        if (error) {
+          console.error("[❌ Error fetching organic posts]", error);
+        } else {
+          console.log("[✅ Fetched Organic Posts]", data);
+          setPosts(data);
+        }
+      } catch (err) {
+        console.error("[❌ Unexpected error fetching posts]", err);
       }
     };
 
-    fetchPosts();
-  }, [offersMap]);
+    fetchOrganicPosts();
+  }, [session]);
 
   const handleStatusChange = async (id: string, newStatus: string) => {
     const { error } = await supabase
@@ -125,6 +134,29 @@ export default function PostIdeasPage() {
                 <div className="text-xs text-gray-500 mt-2">
                   Offer: {offersMap[post.offer_id] || 'Unknown'}
                 </div>
+                {/* Post image preview (clickable for modal) */}
+                {post.image_url && (
+                  <img
+                    src={post.image_url}
+                    alt="Post Image"
+                    className="mt-3 w-full max-h-60 object-contain rounded cursor-pointer border border-gray-200"
+                    referrerPolicy="no-referrer"
+                    loading="lazy"
+                    data-testid="organic-post-image"
+                    onClick={() => {
+                      setSelectedPost(post);
+                      setIsOpen(true);
+                    }}
+                    onError={(e) => {
+                      const target = e.currentTarget;
+                      if (!target.dataset.fallbackUsed) {
+                        console.warn('[🧨 Image Load Error]', target.src);
+                        target.src = '/fallback-organic-post.png';
+                        target.dataset.fallbackUsed = 'true';
+                      }
+                    }}
+                  />
+                )}
                 {/* View Detail button */}
                 <button
                   onClick={() => {
@@ -161,17 +193,16 @@ export default function PostIdeasPage() {
       <Dialog open={isOpen} onClose={() => setIsOpen(false)} className="fixed z-50 inset-0 flex items-center justify-center">
         <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
         <div className="bg-gradient-to-b from-[#1f1f1f] to-[#111111] text-white p-0 rounded-lg shadow-lg z-50 max-w-sm w-full overflow-hidden border border-gray-800">
-          {selectedPost && selectedPost.platform === 'Instagram' && (
+          {selectedPost && (
             <div className="flex flex-col bg-gradient-to-b from-gray-800 to-gray-900 text-white">
-              {/* Mocked Instagram header */}
               <div className="flex items-center gap-3 p-4 border-b border-gray-100">
                 <div className="w-8 h-8 rounded-full bg-gradient-to-r from-[#ff5757] to-[#8c52ff] text-white flex items-center justify-center font-bold text-sm">
                   {selectedPost.affiliate_email.charAt(0).toUpperCase()}
                 </div>
                 <div className="text-sm font-semibold">@{selectedPost.affiliate_email.split('@')[0]}</div>
               </div>
-              {/* [🖼 Image/Video]: selectedPost.video_url or selectedPost.image_url */}
-              {selectedPost.video_url ? (
+
+              {selectedPost.video_url?.toLowerCase().endsWith('.mp4') ? (
                 <video
                   src={selectedPost.video_url}
                   controls
@@ -184,121 +215,6 @@ export default function PostIdeasPage() {
                   className="w-full h-auto max-h-[500px] object-contain bg-gray-800"
                   referrerPolicy="no-referrer"
                   loading="lazy"
-                  data-testid="organic-post-image"
-                  onError={(e) => {
-                    const target = e.currentTarget;
-                    if (!target.dataset.fallbackUsed) {
-                      console.warn('[🧨 Image Load Error]', target.src);
-                      target.src = '/fallback-organic-post.png';
-                      target.dataset.fallbackUsed = 'true';
-                    }
-                  }}
-                />
-              )}
-              <div className="px-4 py-2 text-sm">
-                <div className="flex items-center gap-2 mb-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-500" viewBox="0 0 20 20" fill="currentColor">
-                    <path d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 18.657l-6.828-6.829a4 4 0 010-5.656z" />
-                  </svg>
-                  <span>123 likes</span>
-                </div>
-                {/* Caption */}
-                <p>
-                  <span className="font-semibold">
-                    @{selectedPost.affiliate_email.split('@')[0]}
-                  </span>{' '}
-                  {selectedPost.caption}
-                </p>
-                {/* Mock comments */}
-                <div className="text-sm text-white/80">
-                  <p className="mb-1">
-                    <span className="font-semibold">@marketingguru</span> Great post! 🔥
-                  </p>
-                  <p>
-                    <span className="font-semibold">@growthhacks</span> This will crush on reels.
-                  </p>
-                </div>
-              </div>
-              {/* Caption & Info */}
-              <div className="px-4 py-3 text-sm space-y-1">
-                <div className="text-xs text-white/60">
-                  Platform: {selectedPost.platform}
-                </div>
-                <div className="text-xs">
-                  Status:{' '}
-                  <span
-                    className={`font-semibold ${
-                      selectedPost.status === 'approved'
-                        ? 'text-green-600'
-                        : selectedPost.status === 'rejected'
-                        ? 'text-red-600'
-                        : 'text-yellow-600'
-                    }`}
-                  >
-                    {selectedPost.status}
-                  </span>
-                </div>
-              </div>
-
-              {/* Approve / Reject Buttons */}
-              {selectedPost?.status === 'pending' && (
-                <div className="flex gap-4 px-4 pt-4 pb-2">
-                  <button
-                    onClick={async () => {
-                      await handleStatusChange(selectedPost.id, 'approved');
-                      setSelectedPost((prev) => prev ? { ...prev, status: 'approved' } : null);
-                      setIsOpen(false);
-                    }}
-                    className="w-full py-2 rounded bg-[#00C2CB] hover:bg-[#00b0b8] text-white font-medium text-sm"
-                  >
-                    Approve
-                  </button>
-                  <button
-                    onClick={async () => {
-                      await handleStatusChange(selectedPost.id, 'rejected');
-                      setSelectedPost((prev) => prev ? { ...prev, status: 'rejected' } : null);
-                      setIsOpen(false);
-                    }}
-                    className="w-full py-2 rounded bg-red-500 hover:bg-red-600 text-white font-medium text-sm"
-                  >
-                    Reject
-                  </button>
-                </div>
-              )}
-              {/* Close Button */}
-              <div className="p-4 border-t border-gray-100">
-                <button
-                  className="w-full py-2 rounded bg-[#00C2CB] hover:bg-[#00b0b8] text-white font-medium text-sm"
-                  onClick={() => setIsOpen(false)}
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          )}
-
-          {selectedPost && selectedPost.platform === 'Facebook' && (
-            <div className="flex flex-col bg-gradient-to-b from-gray-800 to-gray-900 text-white">
-              <div className="flex items-center gap-3 p-4 border-b border-gray-100">
-                <div className="w-8 h-8 rounded-full bg-[#1877F2] text-white flex items-center justify-center font-bold text-sm">
-                  {selectedPost.affiliate_email.charAt(0).toUpperCase()}
-                </div>
-                <div className="text-sm font-semibold">@{selectedPost.affiliate_email.split('@')[0]}</div>
-              </div>
-              {selectedPost.video_url ? (
-                <video
-                  src={selectedPost.video_url}
-                  controls
-                  className="w-full h-auto max-h-[500px] object-cover bg-black"
-                />
-              ) : (
-                <img
-                  src={selectedPost.image_url}
-                  alt="Post Image"
-                  className="w-full h-auto max-h-[500px] object-contain bg-gray-800"
-                  referrerPolicy="no-referrer"
-                  loading="lazy"
-                  data-testid="organic-post-image"
                   onError={(e) => {
                     const target = e.currentTarget;
                     if (!target.dataset.fallbackUsed) {
@@ -308,30 +224,16 @@ export default function PostIdeasPage() {
                   }}
                 />
               )}
+
               <div className="px-4 py-2 text-sm">
-                <div className="flex items-center gap-2 mb-2">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
-                    <path d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 18.657l-6.828-6.829a4 4 0 010-5.656z" />
-                  </svg>
-                  <span>89 likes</span>
-                </div>
                 <p>
                   <span className="font-semibold">@{selectedPost.affiliate_email.split('@')[0]}</span>{' '}
                   {selectedPost.caption}
                 </p>
-                <div className="text-sm text-white/80 mt-2">
-                  <p className="mb-1">
-                    <span className="font-semibold">@socialking</span> Looking good! 👍
-                  </p>
-                  <p>
-                    <span className="font-semibold">@adexperts</span> This could convert well.
-                  </p>
-                </div>
               </div>
+
               <div className="px-4 py-3 text-sm space-y-1">
-                <div className="text-xs text-white/60">
-                  Platform: {selectedPost.platform}
-                </div>
+                <div className="text-xs text-white/60">Platform: {selectedPost.platform}</div>
                 <div className="text-xs">
                   Status:{' '}
                   <span
@@ -348,13 +250,12 @@ export default function PostIdeasPage() {
                 </div>
               </div>
 
-              {selectedPost?.status === 'pending' && (
+              {selectedPost.status === 'pending' && (
                 <div className="flex gap-4 px-4 pt-4 pb-2">
                   <button
                     onClick={async () => {
                       await handleStatusChange(selectedPost.id, 'approved');
                       setSelectedPost((prev) => prev ? { ...prev, status: 'approved' } : null);
-                      setIsOpen(false);
                     }}
                     className="w-full py-2 rounded bg-[#00C2CB] hover:bg-[#00b0b8] text-white font-medium text-sm"
                   >
@@ -364,7 +265,6 @@ export default function PostIdeasPage() {
                     onClick={async () => {
                       await handleStatusChange(selectedPost.id, 'rejected');
                       setSelectedPost((prev) => prev ? { ...prev, status: 'rejected' } : null);
-                      setIsOpen(false);
                     }}
                     className="w-full py-2 rounded bg-red-500 hover:bg-red-600 text-white font-medium text-sm"
                   >

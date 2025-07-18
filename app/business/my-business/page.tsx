@@ -17,6 +17,7 @@ interface Offer {
 
 export default function MyBusinessPage() {
   const [offers, setOffers] = useState<Offer[]>([]);
+  const [loadingDeleteId, setLoadingDeleteId] = useState<string | null>(null);
   const session = useSession();
   const user = session?.user;
   const supabase = createClientComponentClient();
@@ -40,11 +41,29 @@ export default function MyBusinessPage() {
     fetchOffers();
   }, [user]);
 
-  const handleDelete = (id: string) => {
-    const updated = offers.filter((offer) => offer.id !== id);
-    setOffers(updated);
-    localStorage.setItem('my-offers', JSON.stringify(updated));
-    localStorage.setItem('marketplace-offers', JSON.stringify(updated));
+  const handleDelete = async (id: string) => {
+    console.log('[🗑 Attempting to delete offer]', id);
+    setLoadingDeleteId(id);
+    try {
+      const { error: deleteError } = await supabase.from('offers').delete().eq('id', id);
+      if (deleteError) throw deleteError;
+
+      const { data: updated, error: refetchError } = await supabase
+        .from('offers')
+        .select('id,title,description,commission,type')
+        .eq('business_email', user?.email);
+
+      if (refetchError) throw refetchError;
+
+      setOffers(updated ? updated : []);
+      localStorage.setItem('my-offers', JSON.stringify(updated || []));
+      localStorage.setItem('marketplace-offers', JSON.stringify(updated || []));
+      console.log('[✅ Offer deleted and offers updated]');
+    } catch (err: any) {
+      console.error('[❌ Delete Error]', err.message || err);
+    } finally {
+      setLoadingDeleteId(null);
+    }
   };
 
   return (
@@ -196,9 +215,10 @@ export default function MyBusinessPage() {
                 </Link>
                 <button
                   onClick={() => handleDelete(offer.id)}
-                  className="bg-gray-800 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded shadow"
+                  disabled={loadingDeleteId === offer.id}
+                  className="bg-gray-800 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-2 px-4 rounded shadow"
                 >
-                  Delete Offer
+                  {loadingDeleteId === offer.id ? 'Deleting...' : 'Delete Offer'}
                 </button>
               </div>
             </div>

@@ -49,9 +49,11 @@ export default function PromoteOfferPage() {
     ad_name: '',
     page_id: '',
     instagram_id: '',
+    platform: '',
   });
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
+  const [organicFile, setOrganicFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [mediaType, setMediaType] = useState<'VIDEO' | 'IMAGE'>('VIDEO');
 
@@ -59,10 +61,11 @@ export default function PromoteOfferPage() {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'video' | 'thumbnail') => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'video' | 'thumbnail' | 'organic') => {
     const file = e.target.files?.[0];
     if (type === 'video') setVideoFile(file || null);
-    else setThumbnailFile(file || null);
+    else if (type === 'thumbnail') setThumbnailFile(file || null);
+    else if (type === 'organic') setOrganicFile(file || null);
   };
 
   const uploadToSupabase = async (file: File, folder: string) => {
@@ -145,6 +148,60 @@ export default function PromoteOfferPage() {
     } catch (err) {
       console.error('[❌ Submit Error]', err);
       alert('Failed to submit ad idea.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!organicFile) {
+      alert('Please upload an image or video file.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const filePath = `${Date.now()}_${organicFile.name}`;
+      const { data, error } = await supabase.storage
+        .from('organic-posts')
+        .upload(filePath, organicFile, {
+          cacheControl: '3600',
+          upsert: false,
+        });
+
+      if (error) throw new Error(error.message);
+
+      const publicUrl = supabase.storage.from('organic-posts').getPublicUrl(filePath).data.publicUrl;
+
+      const { data: offerData, error: offerError } = await supabase
+        .from('offers')
+        .select('business_email')
+        .eq('id', offerId)
+        .single();
+
+      if (offerError || !offerData) throw new Error('Failed to fetch offer');
+
+      const isVideo = organicFile.type.startsWith('video');
+      const insertPayload = {
+        platform: formData.platform,
+        caption: formData.caption,
+        affiliate_email: userEmail,
+        business_email: offerData.business_email,
+        offer_id: offerId,
+        status: 'pending',
+        image_url: isVideo ? null : publicUrl,
+        video_url: isVideo ? publicUrl : null,
+        user_id: session?.user?.id || ''
+      };
+      const { error: insertError } = await supabase.from('organic_posts').insert(insertPayload);
+
+      if (insertError) throw new Error(insertError.message);
+
+      alert('Organic post submitted!');
+      router.refresh();
+    } catch (err) {
+      console.error('[❌ Organic Upload Error]', err);
+      alert('Failed to upload organic post.');
     } finally {
       setLoading(false);
     }
@@ -238,6 +295,28 @@ export default function PromoteOfferPage() {
         className="bg-[#00C2CB] w-full text-white py-2 rounded hover:bg-[#00b0b8] disabled:opacity-50"
       >
         {loading ? 'Submitting...' : 'Submit Ad Idea'}
+      </button>
+
+      {/* Organic Post Submission */}
+      <hr className="my-6 border-t border-gray-300" />
+      <h2 className="text-xl font-bold text-[#00C2CB] mb-2">Submit Organic Post</h2>
+
+      <select name="platform" onChange={handleInput} value={formData.platform || ''} className="w-full border p-2 rounded">
+        <option value="">Select Platform</option>
+        <option value="facebook">Facebook</option>
+        <option value="instagram">Instagram</option>
+      </select>
+
+      <input name="caption" onChange={handleInput} value={formData.caption} placeholder="Caption" className="w-full border p-2 rounded mt-2" />
+
+      <input type="file" accept="image/*,video/*" onChange={(e) => handleFileChange(e, 'organic')} className="w-full border p-2 rounded mt-2" />
+
+      <button
+        disabled={loading}
+        onClick={handleUpload}
+        className="bg-[#00C2CB] w-full text-white py-2 rounded hover:bg-[#00b0b8] mt-2 disabled:opacity-50"
+      >
+        {loading ? 'Uploading...' : 'Submit Organic Post'}
       </button>
     </div>
   );

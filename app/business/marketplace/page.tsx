@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import OfferCard from '@/components/OfferCard';
+import { supabase } from '@/../utils/supabase/pages-client';
 
 interface Offer {
   id: string;
@@ -15,18 +16,16 @@ export default function BusinessMarketplace() {
   const [offers, setOffers] = useState<Offer[]>([]);
 
   useEffect(() => {
-    const savedOffers = localStorage.getItem('my-offers');
-    if (savedOffers) {
-      try {
-        const parsed = JSON.parse(savedOffers) as Offer[];
-        const filtered = parsed.filter((offer) =>
-          offer.id && offer.businessName && offer.description
-        );
-        setOffers(filtered);
-      } catch (error) {
-        console.error('Failed to parse offers from localStorage:', error);
+    const fetchOffers = async () => {
+      const { data, error } = await supabase.from('offers').select('*');
+      if (error) {
+        console.error('[❌ Error fetching offers]', error.message);
+      } else if (data) {
+        setOffers(data);
       }
-    }
+    };
+
+    fetchOffers();
   }, []);
 
   return (
