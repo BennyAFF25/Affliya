@@ -6,7 +6,7 @@ import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
 
 const META_APP_ID = process.env.NEXT_PUBLIC_META_APP_ID!
 const META_APP_SECRET = process.env.META_APP_SECRET!
-const REDIRECT_URI = 'http://localhost:3000/api/meta/callback'
+const REDIRECT_URI = `${process.env.NEXT_PUBLIC_BASE_URL}/api/meta/callback`
 
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
@@ -63,7 +63,7 @@ export async function GET(req: NextRequest) {
       access_token,
     })
 
-    return NextResponse.redirect('http://localhost:3000/business/my-business')
+    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_BASE_URL}/business/my-business`)
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Unknown error' }, { status: 500 })
   }
