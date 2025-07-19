@@ -26,7 +26,7 @@ export default function ConnectMetaPage() {
         This is a placeholder screen where businesses will connect their Meta Ads accounts.
       </p>
       <a
-        href={`https://www.facebook.com/v19.0/dialog/oauth?client_id=${process.env.NEXT_PUBLIC_META_APP_ID}&redirect_uri=${process.env.NEXT_PUBLIC_META_REDIRECT_URI}&scope=pages_show_list,ads_management,business_management,pages_read_engagement,pages_read_user_content,ads_read,pages_manage_ads&response_type=code`}
+        href={`https://www.facebook.com/v19.0/dialog/oauth?client_id=${process.env.NEXT_PUBLIC_META_APP_ID}&redirect_uri=https://affliya.vercel.app/api/meta/callback&scope=pages_show_list,ads_management,business_management,pages_read_engagement,pages_read_user_content,ads_read,pages_manage_ads&response_type=code`}
         className="bg-blue-600 text-white px-4 py-2 rounded-xl inline-block"
       >
         Connect Meta Business Manager
