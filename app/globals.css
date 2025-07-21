@@ -39,3 +39,12 @@
 body {
   font-family: 'Satoshi', sans-serif;
 }
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background-color: #111827; /* Match your dark dashboard background */
+  min-height: 100%;
+  width: 100%;
+}
