@@ -1,6 +1,8 @@
+// eslint-disable-next-line
 'use client';
 
 import { useState, useEffect } from 'react';
+import { fetchReachEstimate } from '@/../utils/meta/fetchReachEstimate';
 import { useRouter } from 'next/navigation';
 import { useParams } from 'next/navigation';
 import { supabase } from '@/../utils/supabase/pages-client';
@@ -59,6 +61,127 @@ export default function PromoteOfferPage() {
   const [activeTab, setActiveTab] = useState<'ad' | 'organic'>('ad');
   // Step state for ad idea submission
   const [step, setStep] = useState(1);
+
+  // Reach estimate state
+  const [reachEstimate, setReachEstimate] = useState<number | null>(null);
+
+  // --- Estimated Reach Metrics (Potential Reach, Conversion Rate, Estimated Spend) ---
+  // Dynamic state for conversion rate and estimated reach
+  const [conversionRate, setConversionRate] = useState(3.2);
+  const [estimatedReach, setEstimatedReach] = useState({ min: 12000, max: 25000 });
+  // Use budget from formData or default to 50 if not set
+  const budget = Number(formData.budget_amount) || 50;
+
+  useEffect(() => {
+    if (budget < 25) {
+      setEstimatedReach({ min: 3000, max: 7000 });
+      setConversionRate(1.4);
+    } else if (budget < 50) {
+      setEstimatedReach({ min: 8000, max: 16000 });
+      setConversionRate(2.3);
+    } else {
+      setEstimatedReach({ min: 12000, max: 25000 });
+      setConversionRate(3.2);
+    }
+  }, [budget]);
+
+  // Estimated Spend: based on budget and ad type
+  let minSpend = 18, maxSpend = 64;
+  if (formData.budget_amount) {
+    const base = Number(formData.budget_amount) || 18;
+    minSpend = Math.round(base * 0.8);
+    maxSpend = Math.round(base * 2.4);
+  }
+
+  // --- Targeting selection state for reach estimate ---
+  // For demonstration, derive targeting selections from formData and state
+  // Extract and parse targeting selections for the reach estimate
+  // For a real app, these would be more structured and validated.
+  // Countries: from location string (comma separated to array)
+  const selectedCountries = formData.location
+    ? formData.location.split(',').map((c) => c.trim()).filter(Boolean)
+    : [];
+  // Age min/max: from age_range string "18-65"
+  const [selectedAgeMin, selectedAgeMax] = (() => {
+    const [min, max] = (formData.age_range || '').split('-').map(Number);
+    return [
+      isNaN(min) ? 18 : min,
+      isNaN(max) ? 65 : max
+    ];
+  })();
+  // Gender: from formData.gender, convert to array of ints per Meta API
+  // Meta: 1 = male, 2 = female
+  const selectedGenders =
+    formData.gender === 'Male'
+      ? [1]
+      : formData.gender === 'Female'
+      ? [2]
+      : formData.gender === 'All' || !formData.gender
+      ? []
+      : [];
+  // Interests: from formData.interests (comma separated to array)
+  const selectedInterests = formData.interests
+    ? formData.interests.split(',').map((i) => i.trim()).filter(Boolean)
+    : [];
+  // Convert interests to objects with id and name
+  const interestObjects = selectedInterests.map((interest) => ({
+    id: interest,
+    name: interest,
+  }));
+
+  // Business info: get from offer (simulate, as not available in current state)
+  // In a real app, this would come from context or a fetch. Here, we'll simulate.
+  const [business, setBusiness] = useState<{access_token: string; ad_account_id: string} | null>(null);
+
+  // Fetch business info from offer on mount (simulate)
+  useEffect(() => {
+    // Only fetch once
+    if (business) return;
+    // Fetch offer info to get business access_token and ad_account_id
+    const fetchBusiness = async () => {
+      const { data, error } = await supabase
+        .from('offers')
+        .select('business_access_token, business_ad_account_id')
+        .eq('id', offerId)
+        .single();
+      if (data && data.business_access_token && data.business_ad_account_id) {
+        setBusiness({
+          access_token: data.business_access_token,
+          ad_account_id: data.business_ad_account_id
+        });
+      }
+    };
+    fetchBusiness();
+    // eslint-disable-next-line
+  }, [offerId]);
+
+  // Fetch reach estimate when targeting selections change
+  useEffect(() => {
+    if (!business?.access_token || !business?.ad_account_id) return;
+
+    const fetchEstimate = async () => {
+      const estimate = await fetchReachEstimate({
+        access_token: business.access_token,
+        ad_account_id: business.ad_account_id,
+        countries: selectedCountries,
+        age_min: selectedAgeMin,
+        age_max: selectedAgeMax,
+        genders: selectedGenders,
+        interests: interestObjects,
+        optimization_goal: 'REACH',
+        currency: 'AUD'
+      });
+
+      if (estimate?.users) {
+        setReachEstimate(estimate.users);
+      } else {
+        setReachEstimate(null);
+      }
+    };
+
+    fetchEstimate();
+    // eslint-disable-next-line
+  }, [business, selectedCountries, selectedAgeMin, selectedAgeMax, selectedGenders, selectedInterests]);
 
   const handleInput = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -211,53 +334,105 @@ export default function PromoteOfferPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white py-12 px-6">
+    <div className="min-h-screen py-12 px-6">
       {/* Centered tab buttons */}
-      <div className="flex justify-center gap-4 mb-4">
+      <div className="flex justify-center gap-4 mb-8">
         <button
           onClick={() => setActiveTab('ad')}
-          className={`px-4 py-2 rounded ${activeTab === 'ad' ? 'bg-[#00C2CB] text-white' : 'bg-white border text-[#00C2CB]'}`}
+          className={`px-5 py-2 rounded-lg font-semibold transition-colors ${
+            activeTab === 'ad'
+              ? 'bg-[#00C2CB] text-white shadow'
+              : 'bg-[#181818] text-[#00C2CB] border border-[#00C2CB] hover:bg-[#232323]'
+          }`}
         >
           Submit Ad Idea
         </button>
         <button
           onClick={() => setActiveTab('organic')}
-          className={`px-4 py-2 rounded ${activeTab === 'organic' ? 'bg-[#00C2CB] text-white' : 'bg-white border text-[#00C2CB]'}`}
+          className={`px-5 py-2 rounded-lg font-semibold transition-colors ${
+            activeTab === 'organic'
+              ? 'bg-[#00C2CB] text-white shadow'
+              : 'bg-[#181818] text-[#00C2CB] border border-[#00C2CB] hover:bg-[#232323]'
+          }`}
         >
           Submit Organic Post
         </button>
       </div>
 
       {activeTab === 'ad' && (
-        <div className="flex justify-center items-start gap-12 mt-10">
-          {/* Left: Stepper Form */}
-          <div className="flex-1 max-w-2xl">
-            <div className="bg-white rounded-lg shadow-lg p-8 border border-gray-200">
-              <h1 className="text-2xl font-bold text-[#00C2CB] mb-4">Submit Your Ad Idea</h1>
-              {/* Stepper indicator */}
-              <div className="flex items-center mb-6 space-x-2 text-xs font-medium">
-                {['Basic Info', 'Objective & Budget', 'Targeting', 'Media', 'Ad Details'].map((label, idx) => (
-                  <div key={label} className="flex items-center">
-                    <div className={`w-8 h-8 flex items-center justify-center rounded-full 
-    ${step === idx+1 ? 'bg-[#00C2CB] text-white' : 'bg-gray-200 text-gray-600'}`}>
-                      {idx+1}
-                    </div>
-                    {idx < 4 && <div className="w-8 h-0.5 bg-gray-300 mx-1"></div>}
+        <div className="flex flex-col lg:flex-row gap-10 justify-center items-start max-w-[1400px] mx-auto">
+          {/* Left: form */}
+          <div className="flex-1 max-w-2xl w-full bg-[#181818] rounded-2xl px-10 py-10 shadow-xl border border-[#232323]">
+            {/* Stepper with labels below circles */}
+            <div className="flex justify-between w-full max-w-lg mx-auto mb-8">
+              {[
+                { label: 'Basic Info' },
+                { label: 'Objective' },
+                { label: 'Targeting' },
+                { label: 'Media' },
+                { label: 'Details' },
+              ].map((stepObj, idx) => (
+                <div key={idx} className="flex flex-col items-center flex-1">
+                  <div
+                    className={`rounded-full w-8 h-8 flex items-center justify-center font-bold text-base border-2 transition-colors ${
+                      step === idx + 1
+                        ? 'bg-[#00C2CB] text-white border-[#00C2CB]'
+                        : 'bg-[#232323] text-gray-400 border-[#232323]'
+                    }`}
+                  >
+                    {idx + 1}
                   </div>
-                ))}
-              </div>
-              {/* Step content */}
+                  <span className="text-xs text-gray-400 font-medium mt-2 text-center">
+                    {stepObj.label}
+                  </span>
+                  {idx < 4 && (
+                    <div className="absolute top-4 right-0 left-full flex-1 h-1 mx-1 bg-[#232323] rounded hidden" />
+                  )}
+                </div>
+              ))}
+            </div>
+            {/* Form Step Content */}
+            <div className="mb-8">
               {step === 1 && (
-                <div className="space-y-3">
-                  <input name="headline" onChange={handleInput} value={formData.headline} placeholder="Headline" className="transition-all duration-200 focus:ring-[#00C2CB] focus:border-[#00C2CB] w-full border p-2 rounded" />
-                  <textarea name="caption" onChange={handleInput} value={formData.caption} placeholder="Caption" className="transition-all duration-200 focus:ring-[#00C2CB] focus:border-[#00C2CB] w-full border p-2 rounded" />
-                  <textarea name="description" onChange={handleInput} value={formData.description} placeholder="Description" className="transition-all duration-200 focus:ring-[#00C2CB] focus:border-[#00C2CB] w-full border p-2 rounded" />
-                  <input name="display_link" onChange={handleInput} value={formData.display_link} placeholder="Destination Link" className="transition-all duration-200 focus:ring-[#00C2CB] focus:border-[#00C2CB] w-full border p-2 rounded" />
+                <div className="space-y-6">
+                  <input
+                    name="headline"
+                    onChange={handleInput}
+                    value={formData.headline}
+                    placeholder="Headline"
+                    className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full placeholder-gray-400"
+                  />
+                  <textarea
+                    name="caption"
+                    onChange={handleInput}
+                    value={formData.caption}
+                    placeholder="Caption"
+                    className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full placeholder-gray-400"
+                  />
+                  <textarea
+                    name="description"
+                    onChange={handleInput}
+                    value={formData.description}
+                    placeholder="Description"
+                    className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full placeholder-gray-400"
+                  />
+                  <input
+                    name="display_link"
+                    onChange={handleInput}
+                    value={formData.display_link}
+                    placeholder="Destination Link"
+                    className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full placeholder-gray-400"
+                  />
                 </div>
               )}
               {step === 2 && (
-                <div className="space-y-3">
-                  <select name="objective" onChange={handleInput} value={formData.objective} className="transition-all duration-200 focus:ring-[#00C2CB] focus:border-[#00C2CB] w-full border p-2 rounded">
+                <div className="space-y-6">
+                  <select
+                    name="objective"
+                    onChange={handleInput}
+                    value={formData.objective}
+                    className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full"
+                  >
                     <option value="OUTCOME_AWARENESS">Awareness</option>
                     <option value="OUTCOME_TRAFFIC">Traffic</option>
                     <option value="OUTCOME_ENGAGEMENT">Engagement</option>
@@ -270,100 +445,186 @@ export default function PromoteOfferPage() {
                     <option value="OUTCOME_MESSAGES">Messages</option>
                     <option value="OUTCOME_STORE_TRAFFIC">Store Traffic</option>
                   </select>
-                  <select name="call_to_action" onChange={handleInput} value={formData.call_to_action} className="transition-all duration-200 focus:ring-[#00C2CB] focus:border-[#00C2CB] w-full border p-2 rounded">
+                  <select
+                    name="call_to_action"
+                    onChange={handleInput}
+                    value={formData.call_to_action}
+                    className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full"
+                  >
                     <option value="LEARN_MORE">Learn More</option>
                     <option value="SHOP_NOW">Shop Now</option>
                     <option value="SIGN_UP">Sign Up</option>
                   </select>
-                  <input name="budget_amount" onChange={handleInput} value={formData.budget_amount} placeholder="Budget Amount" type="number" className="transition-all duration-200 focus:ring-[#00C2CB] focus:border-[#00C2CB] w-full border p-2 rounded" />
-                  <select name="budget_type" onChange={handleInput} value={formData.budget_type} className="transition-all duration-200 focus:ring-[#00C2CB] focus:border-[#00C2CB] w-full border p-2 rounded">
+                  <input
+                    name="budget_amount"
+                    onChange={handleInput}
+                    value={formData.budget_amount}
+                    placeholder="Budget Amount"
+                    type="number"
+                    className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full placeholder-gray-400"
+                  />
+                  <select
+                    name="budget_type"
+                    onChange={handleInput}
+                    value={formData.budget_type}
+                    className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full"
+                  >
                     <option value="DAILY">Daily</option>
                     <option value="LIFETIME">Lifetime</option>
                   </select>
                 </div>
               )}
               {step === 3 && (
-                <div className="space-y-3">
-                  <input name="start_time" onChange={handleInput} value={formData.start_time} placeholder="Start DateTime" type="datetime-local" className="transition-all duration-200 focus:ring-[#00C2CB] focus:border-[#00C2CB] w-full border p-2 rounded" />
-                  <input name="end_time" onChange={handleInput} value={formData.end_time} placeholder="End DateTime" type="datetime-local" className="transition-all duration-200 focus:ring-[#00C2CB] focus:border-[#00C2CB] w-full border p-2 rounded" />
-                  <input name="audience" onChange={handleInput} value={formData.audience} placeholder="Audience" className="transition-all duration-200 focus:ring-[#00C2CB] focus:border-[#00C2CB] w-full border p-2 rounded" />
-                  <input name="location" onChange={handleInput} value={formData.location} placeholder="Location" className="transition-all duration-200 focus:ring-[#00C2CB] focus:border-[#00C2CB] w-full border p-2 rounded" />
-                  <input name="age_range" onChange={handleInput} value={formData.age_range} placeholder="Age Range (e.g., 25-35)" className="transition-all duration-200 focus:ring-[#00C2CB] focus:border-[#00C2CB] w-full border p-2 rounded" />
-                  <input name="gender" onChange={handleInput} value={formData.gender} placeholder="Gender" className="transition-all duration-200 focus:ring-[#00C2CB] focus:border-[#00C2CB] w-full border p-2 rounded" />
-                  <input name="interests" onChange={handleInput} value={formData.interests} placeholder="Interests" className="transition-all duration-200 focus:ring-[#00C2CB] focus:border-[#00C2CB] w-full border p-2 rounded" />
+                <div className="space-y-6">
+                  <input
+                    name="start_time"
+                    onChange={handleInput}
+                    value={formData.start_time}
+                    placeholder="Start DateTime"
+                    type="datetime-local"
+                    className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full placeholder-gray-400"
+                  />
+                  <input
+                    name="end_time"
+                    onChange={handleInput}
+                    value={formData.end_time}
+                    placeholder="End DateTime"
+                    type="datetime-local"
+                    className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full placeholder-gray-400"
+                  />
+                  <select
+                    name="audience"
+                    onChange={handleInput}
+                    value={formData.audience}
+                    className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full"
+                  >
+                    <option value="">Select Audience</option>
+                    <option value="Core">Core (Demographic/Interest/Behavior)</option>
+                    <option value="Custom">Custom Audience</option>
+                    <option value="Lookalike">Lookalike Audience</option>
+                  </select>
+                  <input
+                    name="location"
+                    onChange={handleInput}
+                    value={formData.location}
+                    placeholder="Location"
+                    className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full placeholder-gray-400"
+                  />
+                  {/* Age Range */}
+                  <div>
+                    <label className="block text-xs font-semibold mb-2 text-[#00C2CB]">
+                      Age Range: {formData.age_range || '18-65'}
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="range"
+                        min="18"
+                        max="65"
+                        step="1"
+                        value={formData.age_range.split('-')[0] || 18}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            age_range: `${e.target.value}-${prev.age_range.split('-')[1] || 65}`,
+                          }))
+                        }
+                        className="w-full accent-[#00C2CB]"
+                      />
+                      <input
+                        type="range"
+                        min="18"
+                        max="65"
+                        step="1"
+                        value={formData.age_range.split('-')[1] || 65}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            age_range: `${prev.age_range.split('-')[0] || 18}-${e.target.value}`,
+                          }))
+                        }
+                        className="w-full accent-[#00C2CB]"
+                      />
+                    </div>
+                  </div>
+                  <select
+                    name="gender"
+                    onChange={handleInput}
+                    value={formData.gender}
+                    className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full"
+                  >
+                    <option value="">Select Gender</option>
+                    <option value="All">All</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                  </select>
+                  <input
+                    name="interests"
+                    onChange={handleInput}
+                    value={formData.interests}
+                    placeholder="Interests (e.g., Fitness, Tech, Travel)"
+                    className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full placeholder-gray-400"
+                  />
                 </div>
               )}
               {step === 4 && (
-                <div className="flex flex-col md:flex-row gap-10 items-start w-full mt-6">
-                  {/* Upload Card */}
-                  <div className="bg-white p-6 rounded-lg shadow-md w-full max-w-xl">
-                    <h3 className="text-lg font-semibold text-[#00C2CB] mb-4">Step 4: Upload Media</h3>
-
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Ad Media Type</label>
-                    <select
-                      className="transition-all duration-200 focus:ring-[#00C2CB] focus:border-[#00C2CB] w-full mb-4 border rounded-md p-2"
-                      value={mediaType}
-                      onChange={(e) => setMediaType(e.target.value as 'VIDEO' | 'IMAGE')}
-                    >
-                      <option value="VIDEO">Video</option>
-                      <option value="IMAGE">Image</option>
-                      <option value="CAROUSEL">Carousel</option>
-                    </select>
-
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      {mediaType === 'VIDEO' ? 'Upload Video' : mediaType === 'IMAGE' ? 'Upload Image' : 'Upload Video/Image'}
-                    </label>
-                    <input
-                      type="file"
-                      accept={mediaType === 'VIDEO' ? 'video/*' : mediaType === 'IMAGE' ? 'image/*' : 'video/*,image/*'}
-                      onChange={(e) => handleFileChange(e, 'video')}
-                      className="transition-all duration-200 focus:ring-[#00C2CB] focus:border-[#00C2CB] w-full mb-4 border p-2 rounded-md"
-                    />
-
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Upload Thumbnail</label>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => handleFileChange(e, 'thumbnail')}
-                      className="transition-all duration-200 focus:ring-[#00C2CB] focus:border-[#00C2CB] w-full mb-4 border p-2 rounded-md"
-                    />
-
-                    <div className="flex justify-between mt-4">
-                      <button
-                        className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded hover:bg-gray-100"
-                        onClick={() => setStep((s) => Math.max(1, s - 1))}
-                        type="button"
-                      >
-                        Back
-                      </button>
-                      <button
-                        className="px-4 py-2 bg-[#00C2CB] text-white rounded hover:bg-[#00b0b8]"
-                        onClick={() => setStep((s) => Math.min(5, s + 1))}
-                        type="button"
-                      >
-                        Next
-                      </button>
+                <div>
+                  {/* Drag and drop upload box */}
+                  <div className="mb-8">
+                    <div className="bg-[#232323] border-2 border-dashed border-[#00C2CB] rounded-xl flex flex-col items-center justify-center py-10 px-4">
+                      <span className="text-[#00C2CB] font-semibold text-lg mb-2">
+                        Drag and drop your image or video
+                      </span>
+                      <span className="text-gray-400 mb-4 text-xs">
+                        or click below to upload
+                      </span>
+                      <div className="flex flex-col gap-3 w-full max-w-xs mx-auto">
+                        <label className="block text-xs text-gray-400 mb-1">Ad Media Type</label>
+                        <select
+                          className="bg-[#181818] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-2 w-full mb-2"
+                          value={mediaType}
+                          onChange={(e) => setMediaType(e.target.value as 'VIDEO' | 'IMAGE')}
+                        >
+                          <option value="VIDEO">Video</option>
+                          <option value="IMAGE">Image</option>
+                        </select>
+                        <label className="block text-xs text-gray-400 mb-1">
+                          {mediaType === 'VIDEO'
+                            ? 'Upload Video'
+                            : 'Upload Image'}
+                        </label>
+                        <input
+                          type="file"
+                          accept={mediaType === 'VIDEO' ? 'video/*' : 'image/*'}
+                          onChange={(e) => handleFileChange(e, 'video')}
+                          className="bg-[#181818] border border-[#232323] text-white rounded-lg px-4 py-2 w-full mb-2"
+                        />
+                        <label className="block text-xs text-gray-400 mb-1">Upload Thumbnail</label>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => handleFileChange(e, 'thumbnail')}
+                          className="bg-[#181818] border border-[#232323] text-white rounded-lg px-4 py-2 w-full"
+                        />
+                      </div>
                     </div>
-                  </div>
-
-                  {/* Preview Card */}
-                  <div className="bg-white rounded-md shadow-md border border-gray-100 p-6 max-w-sm w-full">
-                    <div className="w-full h-48 bg-gray-100 rounded mb-4 flex items-center justify-center text-gray-400">
-                      Thumbnail preview
-                    </div>
-                    <div className="w-full mt-4">
-                      <h3 className="text-lg font-semibold w-full">Ad Headline Preview</h3>
-                    </div>
-                    <p className="text-sm text-gray-600 mb-2">Ad caption preview…</p>
-                    <p className="text-sm text-[#00C2CB] hover:underline cursor-pointer">LEARN MORE</p>
                   </div>
                 </div>
               )}
               {step === 5 && (
-                <div className="space-y-3">
-                  <input name="campaign_name" onChange={handleInput} value={formData.campaign_name} placeholder="Campaign Name" className="transition-all duration-200 focus:ring-[#00C2CB] focus:border-[#00C2CB] w-full border p-2 rounded" />
-                  {/* Special Ad Category dropdown */}
-                  <select name="special_ad_category" onChange={handleInput} value={formData.special_ad_category} className="transition-all duration-200 focus:ring-[#00C2CB] focus:border-[#00C2CB] w-full border p-2 rounded form-input">
+                <div className="space-y-6">
+                  <input
+                    name="campaign_name"
+                    onChange={handleInput}
+                    value={formData.campaign_name}
+                    placeholder="Campaign Name"
+                    className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full placeholder-gray-400"
+                  />
+                  <select
+                    name="special_ad_category"
+                    onChange={handleInput}
+                    value={formData.special_ad_category}
+                    className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full"
+                  >
                     <option value="">Select Special Ad Category</option>
                     <option value="NONE">NONE</option>
                     <option value="EMPLOYMENT">EMPLOYMENT</option>
@@ -371,76 +632,210 @@ export default function PromoteOfferPage() {
                     <option value="CREDIT">CREDIT</option>
                     <option value="POLITICAL">POLITICAL</option>
                   </select>
-                  <input name="ad_set_name" onChange={handleInput} value={formData.ad_set_name} placeholder="Ad Set Name" className="transition-all duration-200 focus:ring-[#00C2CB] focus:border-[#00C2CB] w-full border p-2 rounded" />
-                  {/* Conversion Location dropdown */}
-                  <select name="conversion_location" onChange={handleInput} value={formData.conversion_location} className="transition-all duration-200 focus:ring-[#00C2CB] focus:border-[#00C2CB] w-full border p-2 rounded form-input">
+                  <input
+                    name="ad_set_name"
+                    onChange={handleInput}
+                    value={formData.ad_set_name}
+                    placeholder="Ad Set Name"
+                    className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full placeholder-gray-400"
+                  />
+                  <select
+                    name="conversion_location"
+                    onChange={handleInput}
+                    value={formData.conversion_location}
+                    className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full"
+                  >
                     <option value="">Select Conversion Location</option>
                     <option value="WEBSITE">Website</option>
                     <option value="APP">App</option>
                     <option value="MESSENGER">Messenger</option>
                   </select>
-                  <input name="dataset_id" onChange={handleInput} value={formData.dataset_id} placeholder="Dataset / Pixel ID" className="transition-all duration-200 focus:ring-[#00C2CB] focus:border-[#00C2CB] w-full border p-2 rounded" />
-                  <input name="conversion_event" onChange={handleInput} value={formData.conversion_event} placeholder="Conversion Event" className="transition-all duration-200 focus:ring-[#00C2CB] focus:border-[#00C2CB] w-full border p-2 rounded" />
-                  {/* Performance Goal dropdown */}
-                  <select name="performance_goal" onChange={handleInput} value={formData.performance_goal} className="transition-all duration-200 focus:ring-[#00C2CB] focus:border-[#00C2CB] w-full border p-2 rounded form-input">
+                  <select
+                    name="dataset_id"
+                    onChange={handleInput}
+                    value={formData.dataset_id}
+                    className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full"
+                  >
+                    <option value="">Select Pixel/Dataset</option>
+                    <option value="pixel_001">Pixel #001</option>
+                    <option value="pixel_002">Pixel #002</option>
+                    <option value="pixel_custom">My Custom Pixel</option>
+                  </select>
+                  <select
+                    name="conversion_event"
+                    onChange={handleInput}
+                    value={formData.conversion_event}
+                    className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full"
+                  >
+                    <option value="">Select Conversion Event</option>
+                    <option value="PURCHASE">Purchase</option>
+                    <option value="LEAD">Lead</option>
+                    <option value="ADD_TO_CART">Add to Cart</option>
+                    <option value="COMPLETE_REGISTRATION">Complete Registration</option>
+                    <option value="SUBSCRIBE">Subscribe</option>
+                    <option value="INITIATE_CHECKOUT">Initiate Checkout</option>
+                    <option value="VIEW_CONTENT">View Content</option>
+                  </select>
+                  <select
+                    name="performance_goal"
+                    onChange={handleInput}
+                    value={formData.performance_goal}
+                    className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full"
+                  >
                     <option value="">Select Performance Goal</option>
                     <option value="REACH">Reach</option>
                     <option value="LINK_CLICKS">Link Clicks</option>
                     <option value="CONVERSIONS">Conversions</option>
                     <option value="LEAD_GENERATION">Lead Generation</option>
                   </select>
-                  {/* Placements Type dropdown */}
-                  <select name="placements_type" onChange={handleInput} value={formData.placements_type} className="transition-all duration-200 focus:ring-[#00C2CB] focus:border-[#00C2CB] w-full border p-2 rounded form-input">
+                  <select
+                    name="placements_type"
+                    onChange={handleInput}
+                    value={formData.placements_type}
+                    className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full"
+                  >
                     <option value="">Select Placements Type</option>
                     <option value="AUTO">Automatic</option>
                     <option value="MANUAL">Manual</option>
                   </select>
-                  <input name="ad_name" onChange={handleInput} value={formData.ad_name} placeholder="Ad Name" className="transition-all duration-200 focus:ring-[#00C2CB] focus:border-[#00C2CB] w-full border p-2 rounded" />
-                  <input name="page_id" onChange={handleInput} value={formData.page_id} placeholder="Facebook Page ID" className="transition-all duration-200 focus:ring-[#00C2CB] focus:border-[#00C2CB] w-full border p-2 rounded" />
-                  <input name="instagram_id" onChange={handleInput} value={formData.instagram_id} placeholder="Instagram Account ID" className="transition-all duration-200 focus:ring-[#00C2CB] focus:border-[#00C2CB] w-full border p-2 rounded" />
+                  <input
+                    name="ad_name"
+                    onChange={handleInput}
+                    value={formData.ad_name}
+                    placeholder="Ad Name"
+                    className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full placeholder-gray-400"
+                  />
+                  <input
+                    name="page_id"
+                    onChange={handleInput}
+                    value={formData.page_id}
+                    placeholder="Facebook Page ID"
+                    className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full placeholder-gray-400"
+                  />
+                  <input
+                    name="instagram_id"
+                    onChange={handleInput}
+                    value={formData.instagram_id}
+                    placeholder="Instagram Account ID"
+                    className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full placeholder-gray-400"
+                  />
                 </div>
               )}
-              {/* Navigation Buttons */}
-              <div className="w-full h-[1px] bg-gray-100 my-6" />
-              <div className="flex justify-center gap-4 mt-6">
-                <button
-                  className="px-6 py-2 rounded border text-[#00C2CB] disabled:opacity-50 min-w-[96px]"
-                  disabled={step === 1}
-                  onClick={() => setStep((s) => Math.max(1, s - 1))}
-                >
-                  Back
-                </button>
-                {step < 5 ? (
-                  <button
-                    className="px-6 py-2 rounded bg-[#00C2CB] text-white hover:bg-[#00b0b8] min-w-[96px]"
-                    onClick={() => setStep((s) => Math.min(5, s + 1))}
-                  >
-                    Next
-                  </button>
-                ) : (
-                  <button
-                    disabled={loading}
-                    onClick={handleSubmit}
-                    className="px-6 py-2 rounded bg-[#00C2CB] text-white hover:bg-[#00b0b8] disabled:opacity-50 min-w-[96px]"
-                  >
-                    {loading ? 'Submitting...' : 'Submit Ad Idea'}
-                  </button>
-                )}
+            </div>
+            {/* Reach Estimate */}
+            {reachEstimate !== null && (
+              <div className="mb-8 p-4 rounded-xl bg-[#232323] border border-[#232323] text-white shadow-sm flex flex-col gap-1">
+                <span className="text-xs text-gray-400">Estimated Audience Reach</span>
+                <span className="text-2xl font-bold text-[#00C2CB]">
+                  {reachEstimate.toLocaleString()} people
+                </span>
               </div>
+            )}
+            {/* Navigation Buttons */}
+            <div className="flex justify-between mt-10 gap-4">
+              <button
+                className="px-8 py-2 rounded-lg border border-[#00C2CB] text-[#00C2CB] font-semibold bg-[#181818] hover:bg-[#232323] transition disabled:opacity-40"
+                disabled={step === 1}
+                onClick={() => setStep((s) => Math.max(1, s - 1))}
+              >
+                Back
+              </button>
+              {step < 5 ? (
+                <button
+                  className="px-8 py-2 rounded-lg bg-[#00C2CB] text-white font-semibold hover:bg-[#00b0b8] transition"
+                  onClick={() => setStep((s) => Math.min(5, s + 1))}
+                >
+                  Next
+                </button>
+              ) : (
+                <button
+                  disabled={loading}
+                  onClick={handleSubmit}
+                  className="px-8 py-2 rounded-lg bg-[#00C2CB] text-white font-semibold hover:bg-[#00b0b8] transition disabled:opacity-40"
+                >
+                  {loading ? 'Submitting...' : 'Submit Ad Idea'}
+                </button>
+              )}
             </div>
           </div>
-          {/* Right: Sticky Preview */}
-          <div className="hidden lg:block w-96">
-            <div className="sticky top-24">
-              <div className="bg-white rounded-md shadow-md border border-gray-100 p-6 max-w-sm w-full">
-                <div className="w-full h-48 bg-gray-100 rounded mb-4 flex items-center justify-center text-gray-400">
-                  Thumbnail preview
+          {/* Right: Estimated Reach Box */}
+          <div className="w-full max-w-sm lg:ml-8 mt-10 lg:mt-0">
+            <div className="bg-[#181818] rounded-2xl border border-[#232323] shadow-xl p-8 flex flex-col gap-6">
+              {/* Metrics */}
+              <div>
+                <h2 className="text-xl font-bold text-[#00C2CB] mb-6">Estimated Reach</h2>
+                {/* 
+                  --- Reach Metrics ---
+                  Now using dynamic state for reach and conversion rate.
+                */}
+                <div className="mb-5">
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="text-gray-300">Potential Reach</span>
+                    <p className="text-white text-sm">
+                      {estimatedReach.min.toLocaleString()}–{estimatedReach.max.toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="w-full h-2 rounded bg-[#232323]">
+                    <div className="h-2 rounded bg-[#00C2CB]" style={{ width: '72%' }} />
+                  </div>
                 </div>
-                <div className="w-full mt-4">
-                  <h3 className="text-lg font-semibold w-full">{formData.headline || 'Ad Headline Preview'}</h3>
+                <div className="mb-5">
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="text-gray-300">Conversion Rate</span>
+                    <p className="text-white text-sm">{conversionRate}%</p>
+                  </div>
+                  <div className="w-full h-2 rounded bg-[#232323]">
+                    <div className="h-2 rounded bg-[#00C2CB]" style={{ width: '32%' }} />
+                  </div>
                 </div>
-                <p className="text-sm text-gray-600 mb-2">{formData.caption || 'Ad caption preview…'}</p>
-                <p className="text-sm text-[#00C2CB] hover:underline cursor-pointer">{formData.call_to_action.replace('_', ' ').toUpperCase() || 'LEARN MORE'}</p>
+                <div className="mb-7">
+                  <div className="flex justify-between text-xs mb-1">
+                    <span className="text-gray-300">Estimated Spend</span>
+                    <p className="text-white text-sm">${minSpend}—${maxSpend}</p>
+                  </div>
+                  <div className="w-full h-2 rounded bg-[#232323]">
+                    <div className="h-2 rounded bg-[#00C2CB]" style={{ width: '44%' }} />
+                  </div>
+                </div>
+              </div>
+              {/* Preview Card */}
+              <div className="rounded-xl bg-[#232323] p-6 shadow flex flex-col items-center mt-1">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-10 h-10 rounded-full bg-[#00C2CB] flex items-center justify-center text-white font-bold text-lg">
+                    {/* Profile Initials Placeholder */}
+                    P
+                  </div>
+                  <div>
+                    <div className="text-sm text-white font-semibold">Profile Name</div>
+                    <div className="text-xs text-gray-400">Sponsored</div>
+                  </div>
+                </div>
+                <div className="w-full h-44 rounded-lg bg-[#181818] border border-[#232323] flex items-center justify-center mb-4 overflow-hidden">
+                  {/* Ad Image/Video Placeholder */}
+                  {mediaType === 'VIDEO' && videoFile ? (
+                    <video controls className="w-full h-full object-cover rounded-lg">
+                      <source src={URL.createObjectURL(videoFile)} type={videoFile.type} />
+                      Your browser does not support the video tag.
+                    </video>
+                  ) : mediaType === 'IMAGE' && videoFile ? (
+                    <img src={URL.createObjectURL(videoFile)} alt="Ad Preview" className="w-full h-full object-cover rounded-lg" />
+                  ) : thumbnailFile ? (
+                    <img src={URL.createObjectURL(thumbnailFile)} alt="Thumbnail" className="w-full h-full object-cover rounded-lg" />
+                  ) : (
+                    <span className="text-gray-500">Ad Image/Video</span>
+                  )}
+                </div>
+                <div className="w-full">
+                  <div className="text-base font-semibold text-white truncate">
+                    {formData.headline || 'Ad Headline Preview'}
+                  </div>
+                  <div className="text-sm text-gray-400 truncate mb-2">
+                    {formData.caption || 'Ad caption preview…'}
+                  </div>
+                  <button className="w-full mt-2 py-2 rounded-lg bg-[#00C2CB] text-white font-bold text-sm hover:bg-[#00b0b8] transition">
+                    {formData.call_to_action.replace('_', ' ').toUpperCase() || 'LEARN MORE'}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -448,23 +843,48 @@ export default function PromoteOfferPage() {
       )}
 
       {activeTab === 'organic' && (
-        <div className="max-w-2xl">
-          <div className="w-full h-[1px] bg-gray-100 my-6" />
-          <h2 className="text-xl font-bold text-[#00C2CB] mb-2">Submit Organic Post</h2>
-          <select name="platform" onChange={handleInput} value={formData.platform || ''} className="transition-all duration-200 focus:ring-[#00C2CB] focus:border-[#00C2CB] w-full border p-2 rounded">
-            <option value="">Select Platform</option>
-            <option value="facebook">Facebook</option>
-            <option value="instagram">Instagram</option>
-          </select>
-          <input name="caption" onChange={handleInput} value={formData.caption} placeholder="Caption" className="transition-all duration-200 focus:ring-[#00C2CB] focus:border-[#00C2CB] w-full border p-2 rounded mt-2" />
-          <input type="file" accept="image/*,video/*" onChange={(e) => handleFileChange(e, 'organic')} className="transition-all duration-200 focus:ring-[#00C2CB] focus:border-[#00C2CB] w-full border p-2 rounded mt-2" />
-          <button
-            disabled={loading}
-            onClick={handleUpload}
-            className="bg-[#00C2CB] w-full text-white py-2 rounded hover:bg-[#00b0b8] mt-2 disabled:opacity-50"
-          >
-            {loading ? 'Uploading...' : 'Submit Organic Post'}
-          </button>
+        <div className="max-w-lg mx-auto bg-[#181818] rounded-2xl shadow-xl border border-[#232323] p-10 mt-12">
+          <h2 className="text-2xl font-bold text-[#00C2CB] mb-6">Submit Organic Post</h2>
+          <div className="space-y-6">
+            <select
+              name="platform"
+              onChange={handleInput}
+              value={formData.platform || ''}
+              className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full"
+            >
+              <option value="">Select Platform</option>
+              <option value="facebook">Facebook</option>
+              <option value="instagram">Instagram</option>
+            </select>
+            <input
+              name="caption"
+              onChange={handleInput}
+              value={formData.caption}
+              placeholder="Caption"
+              className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full placeholder-gray-400"
+            />
+            <div className="bg-[#232323] border-2 border-dashed border-[#00C2CB] rounded-xl flex flex-col items-center justify-center py-8 px-4">
+              <span className="text-[#00C2CB] font-semibold text-base mb-2">
+                Drag and drop your image or video
+              </span>
+              <span className="text-gray-400 mb-3 text-xs">
+                or click below to upload
+              </span>
+              <input
+                type="file"
+                accept="image/*,video/*"
+                onChange={(e) => handleFileChange(e, 'organic')}
+                className="bg-[#181818] border border-[#232323] text-white rounded-lg px-4 py-2 w-full"
+              />
+            </div>
+            <button
+              disabled={loading}
+              onClick={handleUpload}
+              className="w-full py-3 rounded-lg bg-[#00C2CB] text-white font-semibold text-base hover:bg-[#00b0b8] transition disabled:opacity-50"
+            >
+              {loading ? 'Uploading...' : 'Submit Organic Post'}
+            </button>
+          </div>
         </div>
       )}
     </div>
