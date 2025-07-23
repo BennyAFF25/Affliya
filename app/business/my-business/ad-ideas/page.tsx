@@ -36,6 +36,9 @@ export default function AdIdeasPage() {
   const [ideas, setIdeas] = useState<AdIdea[]>([]);
   const [offersMap, setOffersMap] = useState<Record<string, string>>({});
   const [selectedIdea, setSelectedIdea] = useState<AdIdea | null>(null);
+  const [showRejectionInput, setShowRejectionInput] = useState<string | null>(null);
+  const [selectedReason, setSelectedReason] = useState<string>('');
+  const [customReason, setCustomReason] = useState<string>('');
   const session = useSession();
   const user = session?.user;
   const router = useRouter();
@@ -107,12 +110,17 @@ export default function AdIdeasPage() {
     }
   }, [offersMap, session, user, router]);
 
-  const handleStatusChange = async (id: string, newStatus: string) => {
+  const handleStatusChange = async (id: string, newStatus: string, rejectionReason?: string) => {
     if (!user?.email) return;
+
+    const updateData: any = { status: newStatus };
+    if (newStatus === 'rejected' && rejectionReason) {
+      updateData.rejection_reason = rejectionReason;
+    }
 
     const { error } = await supabase
       .from('ad_ideas')
-      .update({ status: newStatus })
+      .update(updateData)
       .eq('id', id)
       .eq('business_email', user.email);
 
@@ -122,6 +130,11 @@ export default function AdIdeasPage() {
           idea.id === id ? { ...idea, status: newStatus } : idea
         )
       );
+      if (newStatus === 'rejected') {
+        setShowRejectionInput(null);
+        setSelectedReason('');
+        setCustomReason('');
+      }
     }
   };
 
@@ -254,23 +267,57 @@ export default function AdIdeasPage() {
               </button>
 
               {idea.status === 'pending' && (
-                <div className="flex gap-4 mt-4">
-                  <button
-                    onClick={async () => {
-                      await handleStatusChange(idea.id, 'approved');
-                      await sendToMeta(idea.id);
-                    }}
-                    className="bg-[#00C2CB] hover:bg-[#00b0b8] text-white px-4 py-2 rounded"
-                  >
-                    Approve
-                  </button>
-                  <button
-                    onClick={() => handleStatusChange(idea.id, 'rejected')}
-                    className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded"
-                  >
-                    Reject
-                  </button>
-                </div>
+                <>
+                  <div className="flex gap-4 mt-4">
+                    <button
+                      onClick={async () => {
+                        await handleStatusChange(idea.id, 'approved');
+                        await sendToMeta(idea.id);
+                      }}
+                      className="bg-[#00C2CB] hover:bg-[#00b0b8] text-white px-4 py-2 rounded"
+                    >
+                      Approve
+                    </button>
+                    <button
+                      onClick={() => setShowRejectionInput(idea.id)}
+                      className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded"
+                    >
+                      Reject
+                    </button>
+                  </div>
+                  {showRejectionInput === idea.id && (
+                    <div className="flex flex-col gap-3 mt-4">
+                      <select
+                        className="border border-gray-300 rounded px-3 py-2 text-sm"
+                        onChange={(e) => setSelectedReason(e.target.value)}
+                        value={selectedReason}
+                      >
+                        <option value="">Select a reason</option>
+                        <option value="Not aligned with brand">Not aligned with brand</option>
+                        <option value="Inappropriate content">Inappropriate content</option>
+                        <option value="Low quality creative">Low quality creative</option>
+                        <option value="Other">Other</option>
+                      </select>
+                      {selectedReason === 'Other' && (
+                        <textarea
+                          className="border border-gray-300 rounded px-3 py-2 text-sm"
+                          placeholder="Custom reason..."
+                          value={customReason}
+                          onChange={(e) => setCustomReason(e.target.value)}
+                        />
+                      )}
+                      <button
+                        onClick={async () => {
+                          const finalReason = selectedReason === 'Other' ? customReason : selectedReason;
+                          await handleStatusChange(idea.id, 'rejected', finalReason);
+                        }}
+                        className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded"
+                      >
+                        Confirm Rejection
+                      </button>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           ))}

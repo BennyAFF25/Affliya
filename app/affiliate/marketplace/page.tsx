@@ -104,11 +104,11 @@ export default function AffiliateMarketplace() {
   });
 
   return (
-    <div className="flex justify-center px-6 py-10">
+    <div className="flex justify-center px-6 py-10 bg-[#121212] text-white min-h-screen">
       <div className="w-full max-w-7xl">
         <div className="mb-8 text-center">
           <h1 className="text-3xl font-bold text-[#00C2CB] mb-2">Affiliate Marketplace</h1>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-400">
             Choose offers aligned with your strengths and audience. Send a note to stand out.
           </p>
         </div>
@@ -121,14 +121,14 @@ export default function AffiliateMarketplace() {
               placeholder="Search by business name..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-10 pr-4 py-2 w-full rounded-lg border border-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#00C2CB]"
+              className="pl-10 pr-4 py-2 w-full rounded-lg border border-[#333] bg-[#1a1a1a] text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#00C2CB]"
             />
           </div>
 
           <select
             value={filterType}
             onChange={(e) => setFilterType(e.target.value)}
-            className="p-2 rounded-lg border border-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#00C2CB]"
+            className="p-2 rounded-lg border border-[#333] bg-[#1a1a1a] text-white focus:outline-none focus:ring-2 focus:ring-[#00C2CB]"
           >
             <option value="All">All</option>
             <option value="Recurring">Recurring</option>
@@ -138,7 +138,7 @@ export default function AffiliateMarketplace() {
           <select
             value={sortOrder}
             onChange={(e) => setSortOrder(e.target.value)}
-            className="p-2 rounded-lg border border-gray-300 shadow-sm focus:outline-none focus:ring-2 focus:ring-[#00C2CB]"
+            className="p-2 rounded-lg border border-[#333] bg-[#1a1a1a] text-white focus:outline-none focus:ring-2 focus:ring-[#00C2CB]"
           >
             <option value="None">None</option>
             <option value="Highest Commission">Highest Commission</option>

@@ -54,7 +54,7 @@ import { useSession } from '@supabase/auth-helpers-react';
 
 interface Offer {
   id: string;
-  businessName: string;
+  title: string;
   description: string;
   commission: number;
   type: string;
@@ -288,7 +288,7 @@ function AffiliateDashboardContent() {
                       className="flex items-center justify-between bg-[#121212] p-3 rounded-md mb-3 border border-[#00C2CB]"
                     >
                       <div className="flex flex-col">
-                        <p className="text-[#00C2CB] font-semibold">{offer.businessName}</p>
+                        <p className="text-[#00C2CB] font-semibold">{offer.title}</p>
                         <div className="flex items-center">
                           <RocketLaunchIcon className="w-5 h-5 text-[#00C2CB] mr-2" />
                           <span className="truncate font-semibold">Ad Campaign: {offer.ideaId?.slice(0, 8)}...</span>
@@ -310,14 +310,23 @@ function AffiliateDashboardContent() {
                   </div>
                 ) : (
                   approvedOffers.map((offer) => (
-                    <div key={`${offer.id}-${offer.businessName}`} className="bg-[#121212] p-4 rounded-md mb-3">
-                      <div className="flex justify-between items-center mb-2">
-                        <span className="text-white font-medium">{offer.businessName}</span>
-                        <span className="bg-green-600 text-xs px-2 py-1 rounded-full text-white">Approved</span>
+                    <div
+                      key={`${offer.id}-${offer.title}`}
+                      className="flex items-center justify-between bg-[#121212] p-3 rounded-md mb-3 border border-[#00C2CB]"
+                    >
+                      <div className="flex flex-col">
+                        <p className="text-[#00C2CB] font-semibold">{offer.title}</p>
+                        <div className="flex items-center">
+                          <RocketLaunchIcon className="w-5 h-5 text-[#00C2CB] mr-2" />
+                          <span className="truncate font-semibold">Commission: {offer.commission}% | Type: {offer.payoutType}</span>
+                        </div>
                       </div>
-                      <p className="text-sm text-gray-300">Commission: {offer.commission}%</p>
-                      <p className="text-sm text-gray-300 mb-3">Type: {offer.payoutType}</p>
-                      <button className="bg-[#00C2CB] hover:bg-[#00b0b8] text-white text-sm px-4 py-2 rounded-md">Promote</button>
+                      <Link
+                        href={`/affiliate/dashboard/promote/${offer.id}`}
+                        className="text-sm text-[#00C2CB] hover:underline"
+                      >
+                        Promote
+                      </Link>
                     </div>
                   ))
                 )}

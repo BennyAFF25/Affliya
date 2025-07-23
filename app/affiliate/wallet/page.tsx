@@ -321,7 +321,7 @@ export default function AffiliateWalletPage() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-white">
+    <div className="min-h-screen w-full bg-[#111111]">
       <div className="w-full grid grid-cols-1 md:grid-cols-[1fr_3fr] gap-8 px-4 sm:px-8 py-12">
         {/* Balance Card */}
         <div className="w-full md:col-span-3 rounded-2xl bg-gradient-to-tr from-[#00C2CB] to-[#00B1E7] shadow-xl px-8 py-8 flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
@@ -362,18 +362,18 @@ export default function AffiliateWalletPage() {
         </div>
 
         {/* Main Row: Refund, Top Up, and Activity */}
-        <div className="col-span-3 grid grid-cols-1 md:grid-cols-[1fr_3fr] gap-8">
+        <div className="col-span-3 grid grid-cols-1 lg:grid-cols-[1fr_3fr] gap-8">
           {/* Left: Refund & Top Up */}
           <div className="flex flex-col gap-8 col-span-1 min-w-0">
             {/* Refund Card */}
-            <div className="w-full md:w-[360px] bg-white rounded-2xl shadow-lg p-6 flex flex-col gap-4">
+            <div className="w-full md:w-[360px] bg-[#1f1f1f] rounded-2xl shadow-lg p-6 flex flex-col gap-4">
               <div className="flex items-center gap-3 mb-2">
                 {/* Refund icon */}
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 text-[#00C2CB]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M4 17v-2a4 4 0 014-4h12" />
                   <path strokeLinecap="round" strokeLinejoin="round" d="M8 13l-4 4 4 4" />
                 </svg>
-                <h2 className="text-lg font-semibold text-gray-900">Request Refund</h2>
+                <h2 className="text-lg font-semibold text-[#00C2CB]">Request Refund</h2>
               </div>
               <div className="text-sm text-gray-600 mb-1">
                 Available: <span className="font-bold text-gray-900">{currencySymbols[currency] ?? '$'}{totalNetAmount.toFixed(2)}</span>
@@ -411,13 +411,13 @@ export default function AffiliateWalletPage() {
               </div>
             </div>
             {/* Top Up Card */}
-            <div className="w-full md:w-[360px] bg-white rounded-2xl shadow-lg p-6 flex flex-col gap-4">
+            <div className="w-full md:w-[360px] bg-[#1f1f1f] rounded-2xl shadow-lg p-6 flex flex-col gap-4">
               <div className="flex items-center gap-3 mb-2">
                 {/* Top-up icon */}
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 text-[#00C2CB]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
                 </svg>
-                <h2 className="text-lg font-semibold text-gray-900">Top Up Wallet</h2>
+                <h2 className="text-lg font-semibold text-[#00C2CB]">Top Up Wallet</h2>
               </div>
               <input
                 type="number"
@@ -447,11 +447,11 @@ export default function AffiliateWalletPage() {
           </div>
           {/* Right: Wallet Activity Table */}
           <div className="w-full col-span-1 md:col-span-1 self-stretch flex flex-col">
-            <div className="flex-1 w-full bg-white rounded-2xl shadow-lg p-6 flex flex-col">
+            <div className="flex-1 w-full bg-[#1f1f1f] rounded-2xl shadow-lg p-6 flex flex-col">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold text-gray-900">Wallet Activity</h2>
+                <h2 className="text-xl font-semibold text-[#00C2CB]">Wallet Activity</h2>
               </div>
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto w-full">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead>
                     <tr>

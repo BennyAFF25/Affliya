@@ -78,10 +78,10 @@ const CampaignDetailPage = () => {
     }
   };
 
-  if (!campaign) return <div className="p-6">Loading...</div>;
+  if (!campaign) return <div className="p-6 text-gray-300 bg-[#1a1a1a]">Loading...</div>;
 
   return (
-    <div className="p-10 max-w-3xl mx-auto">
+    <div className="p-10 max-w-3xl mx-auto bg-[#1a1a1a] min-h-screen">
       <h1 className="text-2xl font-bold text-[#00C2CB] mb-6">Edit Campaign</h1>
 
       {campaign.image_url || campaign.video_url ? (
@@ -93,39 +93,39 @@ const CampaignDetailPage = () => {
           <img src={campaign.image_url ?? ''} alt="Ad" className="rounded-lg w-full mb-4" />
         )
       ) : (
-        <div className="bg-gray-100 p-6 rounded-lg mb-4 text-center">No media preview</div>
+        <div className="bg-[#1a1a1a] p-6 rounded-lg mb-4 text-center text-gray-400">No media preview</div>
       )}
 
       <div className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700">Budget</label>
+          <label className="block text-sm font-medium text-gray-400">Budget</label>
           <input
             type="text"
             value={budget}
             onChange={(e) => setBudget(e.target.value)}
-            className="mt-1 block w-full rounded-lg border border-gray-300 p-2"
+            className="mt-1 block w-full rounded-lg border border-[#333] bg-[#1a1a1a] text-white placeholder-gray-400 p-2 focus:ring-2 focus:ring-[#00C2CB]"
             placeholder="e.g. $50/day"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700">Targeting</label>
+          <label className="block text-sm font-medium text-gray-400">Targeting</label>
           <input
             type="text"
             value={targeting}
             onChange={(e) => setTargeting(e.target.value)}
-            className="mt-1 block w-full rounded-lg border border-gray-300 p-2"
+            className="mt-1 block w-full rounded-lg border border-[#333] bg-[#1a1a1a] text-white placeholder-gray-400 p-2 focus:ring-2 focus:ring-[#00C2CB]"
             placeholder="e.g. Male, 18-25, Australia"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700">Call to Action</label>
+          <label className="block text-sm font-medium text-gray-400">Call to Action</label>
           <input
             type="text"
             value={cta}
             onChange={(e) => setCta(e.target.value)}
-            className="mt-1 block w-full rounded-lg border border-gray-300 p-2"
+            className="mt-1 block w-full rounded-lg border border-[#333] bg-[#1a1a1a] text-white placeholder-gray-400 p-2 focus:ring-2 focus:ring-[#00C2CB]"
             placeholder="e.g. Shop Now"
           />
         </div>

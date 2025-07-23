@@ -23,26 +23,16 @@ export default function AffiliateLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div className="flex flex-col min-h-screen text-black bg-white">
+    <div className="flex flex-col min-h-screen text-white">
       <Topbar />
       <div className="flex flex-1">
         <div className="min-h-screen w-64 bg-[#1F1F1F] text-white">
           <AffiliateSidebar />
         </div>
-        <main className={`flex-1 p-0 ${
-          typeof window !== 'undefined' && window.location.pathname === '/affiliate/dashboard'
-            ? 'bg-[#0a0a0a]'
-            : 'bg-white'
-        }`}>
-          <div className={`min-h-screen p-10 ${
-            typeof window !== 'undefined' && window.location.pathname === '/affiliate/dashboard'
-              ? 'bg-[#0a0a0a]'
-              : 'bg-white'
-          }`}>
-            <SessionContextProvider supabaseClient={supabaseClient}>
-              {children}
-            </SessionContextProvider>
-          </div>
+        <main className="flex-1 bg-white text-black">
+          <SessionContextProvider supabaseClient={supabaseClient}>
+            {children}
+          </SessionContextProvider>
         </main>
       </div>
     </div>

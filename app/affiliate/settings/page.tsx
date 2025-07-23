@@ -72,8 +72,8 @@ export default function AffiliateSettingsPage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-10">
-      <div className="bg-white shadow-lg border border-gray-200 rounded-xl p-10">
+    <div className="w-full min-h-screen bg-[#121212] text-white p-10">
+      <div className="bg-[#1e1e1e] shadow-lg border border-gray-700 rounded-xl p-10">
         <div className="flex items-center gap-3 mb-6">
           <Save className="text-[#00C2CB]" size={26} />
           <h1 className="text-3xl font-bold text-[#00C2CB]">Affiliate Settings</h1>
@@ -88,7 +88,7 @@ export default function AffiliateSettingsPage() {
                 type="text"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00C2CB]"
+                className="w-full p-3 border border-[#00C2CB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00C2CB] bg-[#1e1e1e] text-white"
                 placeholder="Your name"
                 required
               />
@@ -98,7 +98,7 @@ export default function AffiliateSettingsPage() {
                 type="email"
                 value={user?.email || ''}
                 disabled
-                className="w-full p-3 border border-gray-200 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
+                className="w-full p-3 border border-gray-600 rounded-lg bg-[#1e1e1e] text-gray-400 cursor-not-allowed"
               />
             </div>
 
@@ -108,7 +108,7 @@ export default function AffiliateSettingsPage() {
               <select
                 value={defaultCurrency}
                 onChange={(e) => setDefaultCurrency(e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00C2CB]"
+                className="w-full p-3 border border-[#00C2CB] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00C2CB] bg-[#1e1e1e] text-white"
               >
                 <option value="AUD">AUD - Australian Dollar</option>
                 <option value="USD">USD - US Dollar</option>
@@ -144,7 +144,7 @@ export default function AffiliateSettingsPage() {
               </div>
             </div>
 
-            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+            <div className="bg-[#2a2a2a] p-4 rounded-lg border border-gray-600">
               <p className="text-sm text-gray-600">
                 All transactions are automatically converted to your selected default currency for display.
               </p>

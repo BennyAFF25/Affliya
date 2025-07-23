@@ -39,7 +39,7 @@ export default function AffiliateSupportPage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-10">
+    <div className="min-h-screen p-10 bg-[#0f0f0f] text-white">
       <h1 className="text-3xl font-bold text-[#00C2CB] mb-2">Affiliate Support</h1>
       <p className="text-gray-600 mb-8">
         Need help? Start with these common questions, or send us a message directly.
@@ -48,17 +48,17 @@ export default function AffiliateSupportPage() {
       {/* FAQ Section */}
       <div className="space-y-4 mb-12">
         {faqs.map((faq, index) => (
-          <div key={index} className="border border-[#00C2CB]/30 rounded-xl bg-white shadow">
+          <div key={index} className="border border-[#00C2CB]/20 rounded-xl bg-[#1a1a1a] shadow">
             <button
               onClick={() => toggle(index)}
-              className="w-full px-6 py-4 text-left flex justify-between items-center hover:bg-[#f0fdfd] rounded-t-xl transition"
+              className="w-full px-6 py-4 text-left flex justify-between items-center hover:bg-[#112f2f] rounded-t-xl transition"
             >
               <span className="font-semibold text-[#00C2CB]">{faq.question}</span>
               <span className="text-[#00C2CB] text-xl">{openIndex === index ? '-' : '+'}</span>
             </button>
 
             {openIndex === index && (
-              <div className="px-6 pb-4 pt-2 text-sm text-gray-700">
+              <div className="px-6 pb-4 pt-2 text-sm text-gray-300">
                 {faq.answer}
               </div>
             )}
@@ -67,13 +67,13 @@ export default function AffiliateSupportPage() {
       </div>
 
       {/* Contact Card */}
-      <div className="bg-white border border-[#00C2CB]/30 rounded-xl p-6 shadow max-w-xl mx-auto">
+      <div className="bg-[#1a1a1a] border border-[#00C2CB]/20 rounded-xl p-6 shadow max-w-xl mx-auto">
         <h2 className="text-xl font-semibold text-[#00C2CB] mb-2">Still need help?</h2>
-        <p className="text-sm text-gray-600 mb-4">Send us a message and our support team will reach out.</p>
+        <p className="text-sm text-gray-400 mb-4">Send us a message and our support team will reach out.</p>
 
         <textarea
           placeholder="Write your message here..."
-          className="w-full border border-gray-300 rounded-lg p-3 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-[#00C2CB]"
+          className="w-full border border-[#00C2CB]/30 bg-[#121212] text-white rounded-lg p-3 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-[#00C2CB]"
           rows={4}
           value={message}
           onChange={(e) => setMessage(e.target.value)}
