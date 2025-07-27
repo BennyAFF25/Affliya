@@ -15,10 +15,16 @@ export default function Home() {
   const [showAffWhy, setShowAffWhy] = useState(false);
 
   useEffect(() => {
-    if (isLoading) return;
+    if (isLoading || !session?.user) return;
     // Optional debug log:
     console.log('[🧠 Session]', session);
-  }, [isLoading]);
+    const storedType = localStorage.getItem('userType');
+    if (storedType === 'affiliate') {
+      router.push('/affiliate/dashboard');
+    } else if (storedType === 'business') {
+      router.push('/business/dashboard');
+    }
+  }, [isLoading, session, router]);
 
   const handleLogin = async (type: 'business' | 'affiliate') => {
     setUserType(type);
