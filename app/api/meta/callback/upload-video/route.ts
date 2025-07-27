@@ -40,7 +40,9 @@ export async function POST(req: Request) {
       .from('meta_connections')
       .select('ad_account_id, page_id, access_token')
       .eq('business_email', businessEmail)
-      .single();
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
 
     if (connectionError || !connection) {
       console.error('[❌ Meta Connection Lookup Error]', connectionError?.message || 'No connection found');
@@ -239,6 +241,17 @@ export async function POST(req: Request) {
             console.error('[❌ Ad Creation Failed]', adRes);
           } else {
             console.log('[✅ Ad Created]', adRes);
+            // Insert a row into live_ads with campaign metadata
+            await supabase.from('live_ads').insert({
+              ad_idea_id: adIdeaId,
+              meta_ad_id: adRes.id,
+              campaign_id: campaignData.id,
+              ad_set_id: adSetRes.id,
+              creative_id: creativeRes.id,
+              affiliate_email: payload.affiliate_email,
+              business_email: businessEmail,
+              status: 'active',
+            });
           }
         }
       }

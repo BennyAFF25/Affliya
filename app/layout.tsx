@@ -1,6 +1,7 @@
 import './globals.css'
 import Providers from './Providers'
 import ThemeWrapper from '@/components/ThemeWrapper'
+import TidioChat from '@/components/TidioChat'
 
 export const metadata = {
   title: 'Affliya',
@@ -31,6 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <ThemeWrapper>
             {children}
           </ThemeWrapper>
+          <TidioChat />
         </Providers>
       </body>
     </html>

@@ -54,11 +54,18 @@ const ManageCampaigns = () => {
                 <p className="font-semibold text-[#00C2CB] text-lg">{idea.business_name || 'Campaign'}</p>
                 <p className="text-sm text-gray-400">Status: Approved</p>
               </div>
-              <Link href={`/affiliate/dashboard/manage-campaigns/${idea.id}`}>
-                <button className="bg-[#00C2CB] hover:bg-[#00b0b8] text-white px-4 py-2 rounded-lg text-sm font-medium">
-                  Edit Campaign
-                </button>
-              </Link>
+              <div className="flex gap-3">
+                <Link href={`/affiliate/dashboard/manage-campaigns/${idea.id}`}>
+                  <button className="bg-white text-[#00C2CB] border border-[#00C2CB] hover:bg-[#e0fafa] px-4 py-2 rounded-lg text-sm font-medium">
+                    View Campaign
+                  </button>
+                </Link>
+                <Link href={`/affiliate/dashboard/manage-campaigns/${idea.id}`}>
+                  <button className="bg-[#00C2CB] hover:bg-[#00b0b8] text-white px-4 py-2 rounded-lg text-sm font-medium">
+                    Edit Campaign
+                  </button>
+                </Link>
+              </div>
             </div>
           ))}
         </div>

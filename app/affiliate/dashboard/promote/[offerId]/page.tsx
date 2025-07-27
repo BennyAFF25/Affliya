@@ -15,6 +15,9 @@ export default function PromoteOfferPage() {
   const session = useSession();
   const userEmail = session?.user?.email || '';
 
+  // --- Tracking Link for Affiliate ---
+  const trackingLink = `https://affliya.com/go/${offerId}___${userEmail}`;
+
   // Redirect unauthenticated users to '/' (prevent looping)
   useEffect(() => {
     if (session === undefined) return;
@@ -299,6 +302,10 @@ export default function PromoteOfferPage() {
 
       const publicUrl = supabase.storage.from('organic-posts').getPublicUrl(filePath).data.publicUrl;
 
+      // --- Insert tracking link in caption if not already present ---
+      const trackingLink = `https://affliya.com/go/${offerId}___${userEmail}`;
+      const finalCaption = formData.caption.includes('affliya.com/go') ? formData.caption : `${formData.caption}\n\n${trackingLink}`;
+
       const { data: offerData, error: offerError } = await supabase
         .from('offers')
         .select('business_email')
@@ -310,7 +317,7 @@ export default function PromoteOfferPage() {
       const isVideo = organicFile.type.startsWith('video');
       const insertPayload = {
         platform: formData.platform,
-        caption: formData.caption,
+        caption: finalCaption,
         affiliate_email: userEmail,
         business_email: offerData.business_email,
         offer_id: offerId,
@@ -334,7 +341,7 @@ export default function PromoteOfferPage() {
   };
 
   return (
-    <div className="min-h-screen py-12 px-6">
+    <div className="min-h-screen py-12 px-6 bg-[#0e0e0e]">
       {/* Centered tab buttons */}
       <div className="flex justify-center gap-4 mb-8">
         <button
@@ -362,7 +369,7 @@ export default function PromoteOfferPage() {
       {activeTab === 'ad' && (
         <div className="flex flex-col lg:flex-row gap-10 justify-center items-start max-w-[1400px] mx-auto">
           {/* Left: form */}
-          <div className="flex-1 max-w-2xl w-full bg-[#181818] rounded-2xl px-10 py-10 shadow-xl border border-[#232323]">
+          <div className="flex-1 max-w-2xl w-full bg-[#1a1a1a] rounded-2xl px-10 py-10 shadow-xl border border-[#232323]">
             {/* Stepper with labels below circles */}
             <div className="flex justify-between w-full max-w-lg mx-auto mb-8">
               {[
@@ -409,6 +416,24 @@ export default function PromoteOfferPage() {
                     placeholder="Caption"
                     className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full placeholder-gray-400"
                   />
+                  {/* Tracking Link and Copy Button */}
+                  <div className="flex items-center gap-2 mt-2">
+                    <input
+                      type="text"
+                      value={trackingLink}
+                      readOnly
+                      className="bg-[#101010] border border-[#232323] text-white rounded-lg px-4 py-2 w-full text-sm opacity-80"
+                    />
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(trackingLink);
+                        alert('Tracking link copied!');
+                      }}
+                      className="px-4 py-2 rounded-lg bg-[#00C2CB] text-white text-sm font-semibold hover:bg-[#00b0b8] transition"
+                    >
+                      Copy
+                    </button>
+                  </div>
                   <textarea
                     name="description"
                     onChange={handleInput}
@@ -760,7 +785,7 @@ export default function PromoteOfferPage() {
           </div>
           {/* Right: Estimated Reach Box */}
           <div className="w-full max-w-sm lg:ml-8 mt-10 lg:mt-0">
-            <div className="bg-[#181818] rounded-2xl border border-[#232323] shadow-xl p-8 flex flex-col gap-6">
+            <div className="bg-[#1a1a1a] rounded-2xl border border-[#232323] shadow-xl p-8 flex flex-col gap-6">
               {/* Metrics */}
               <div>
                 <h2 className="text-xl font-bold text-[#00C2CB] mb-6">Estimated Reach</h2>
@@ -810,7 +835,7 @@ export default function PromoteOfferPage() {
                     <div className="text-xs text-gray-400">Sponsored</div>
                   </div>
                 </div>
-                <div className="w-full h-44 rounded-lg bg-[#181818] border border-[#232323] flex items-center justify-center mb-4 overflow-hidden">
+                <div className="w-full h-44 rounded-lg bg-[#1a1a1a] border border-[#232323] flex items-center justify-center mb-4 overflow-hidden">
                   {/* Ad Image/Video Placeholder */}
                   {mediaType === 'VIDEO' && videoFile ? (
                     <video controls className="w-full h-full object-cover rounded-lg">
@@ -843,47 +868,124 @@ export default function PromoteOfferPage() {
       )}
 
       {activeTab === 'organic' && (
-        <div className="max-w-lg mx-auto bg-[#181818] rounded-2xl shadow-xl border border-[#232323] p-10 mt-12">
-          <h2 className="text-2xl font-bold text-[#00C2CB] mb-6">Submit Organic Post</h2>
-          <div className="space-y-6">
-            <select
-              name="platform"
-              onChange={handleInput}
-              value={formData.platform || ''}
-              className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full"
-            >
-              <option value="">Select Platform</option>
-              <option value="facebook">Facebook</option>
-              <option value="instagram">Instagram</option>
-            </select>
-            <input
-              name="caption"
-              onChange={handleInput}
-              value={formData.caption}
-              placeholder="Caption"
-              className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full placeholder-gray-400"
-            />
-            <div className="bg-[#232323] border-2 border-dashed border-[#00C2CB] rounded-xl flex flex-col items-center justify-center py-8 px-4">
-              <span className="text-[#00C2CB] font-semibold text-base mb-2">
-                Drag and drop your image or video
-              </span>
-              <span className="text-gray-400 mb-3 text-xs">
-                or click below to upload
-              </span>
+        <div className="flex flex-col lg:flex-row gap-10 justify-center items-start max-w-[1400px] mx-auto mt-12">
+          {/* Left: Organic Form */}
+          <div className="max-w-lg w-full bg-[#1a1a1a] rounded-2xl shadow-xl border border-[#232323] p-10">
+            <h2 className="text-2xl font-bold text-[#00C2CB] mb-6">Submit Organic Post</h2>
+            <div className="space-y-6">
+              <select
+                name="platform"
+                onChange={handleInput}
+                value={formData.platform || ''}
+                className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full"
+              >
+                <option value="">Select Platform</option>
+                <option value="facebook">Facebook</option>
+                <option value="instagram">Instagram</option>
+              </select>
               <input
-                type="file"
-                accept="image/*,video/*"
-                onChange={(e) => handleFileChange(e, 'organic')}
-                className="bg-[#181818] border border-[#232323] text-white rounded-lg px-4 py-2 w-full"
+                name="caption"
+                onChange={handleInput}
+                value={formData.caption}
+                placeholder="Caption"
+                className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full placeholder-gray-400"
               />
+              {/* Tracking Link and Copy Button for Organic */}
+              <div className="flex items-center gap-2 mt-2">
+                <input
+                  type="text"
+                  value={trackingLink}
+                  readOnly
+                  className="bg-[#101010] border border-[#232323] text-white rounded-lg px-4 py-2 w-full text-sm opacity-80"
+                />
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(trackingLink);
+                    alert('Tracking link copied!');
+                  }}
+                  className="px-4 py-2 rounded-lg bg-[#00C2CB] text-white text-sm font-semibold hover:bg-[#00b0b8] transition"
+                >
+                  Copy
+                </button>
+              </div>
+              <div className="bg-[#232323] border-2 border-dashed border-[#00C2CB] rounded-xl flex flex-col items-center justify-center py-8 px-4">
+                <span className="text-[#00C2CB] font-semibold text-base mb-2">
+                  Drag and drop your image or video
+                </span>
+                <span className="text-gray-400 mb-3 text-xs">
+                  or click below to upload
+                </span>
+                <input
+                  type="file"
+                  accept="image/*,video/*"
+                  onChange={(e) => handleFileChange(e, 'organic')}
+                  className="bg-[#181818] border border-[#232323] text-white rounded-lg px-4 py-2 w-full"
+                />
+                {organicFile && (
+                  <div className="mt-4 w-full rounded-lg overflow-hidden">
+                    {organicFile.type.includes('video') ? (
+                      <video
+                        src={URL.createObjectURL(organicFile)}
+                        controls
+                        className="w-full h-auto rounded-lg"
+                      />
+                    ) : (
+                      <img
+                        src={URL.createObjectURL(organicFile)}
+                        alt="Organic preview"
+                        className="w-full h-auto rounded-lg"
+                      />
+                    )}
+                  </div>
+                )}
+              </div>
+              <button
+                disabled={loading}
+                onClick={handleUpload}
+                className="w-full py-3 rounded-lg bg-[#00C2CB] text-white font-semibold text-base hover:bg-[#00b0b8] transition disabled:opacity-50"
+              >
+                {loading ? 'Uploading...' : 'Submit Organic Post'}
+              </button>
             </div>
-            <button
-              disabled={loading}
-              onClick={handleUpload}
-              className="w-full py-3 rounded-lg bg-[#00C2CB] text-white font-semibold text-base hover:bg-[#00b0b8] transition disabled:opacity-50"
-            >
-              {loading ? 'Uploading...' : 'Submit Organic Post'}
-            </button>
+          </div>
+
+          {/* Right: Preview Card */}
+          <div className="w-full max-w-sm lg:ml-2 mt-10 lg:mt-0">
+            <div className="bg-[#1a1a1a] rounded-2xl border border-[#232323] shadow-xl p-6 flex flex-col items-center">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-full bg-[#00C2CB] flex items-center justify-center text-white font-bold text-lg">
+                  P
+                </div>
+                <div>
+                  <div className="text-sm text-white font-semibold">Profile Name</div>
+                  <div className="text-xs text-gray-400">Sponsored</div>
+                </div>
+              </div>
+              <div className="w-full h-44 rounded-lg bg-[#1a1a1a] border border-[#232323] flex items-center justify-center mb-4 overflow-hidden">
+                {organicFile ? (
+                  organicFile.type.includes('video') ? (
+                    <video controls className="w-full h-full object-cover rounded-lg">
+                      <source src={URL.createObjectURL(organicFile)} type={organicFile.type} />
+                    </video>
+                  ) : (
+                    <img src={URL.createObjectURL(organicFile)} alt="Preview" className="w-full h-full object-cover rounded-lg" />
+                  )
+                ) : (
+                  <span className="text-gray-500">Ad Image/Video</span>
+                )}
+              </div>
+              <div className="w-full">
+                <div className="text-base font-semibold text-white truncate">
+                  {formData.caption || 'Ad Headline Preview'}
+                </div>
+                <div className="text-sm text-gray-400 truncate mb-2">
+                  Organic Post Preview
+                </div>
+                <button className="w-full mt-2 py-2 rounded-lg bg-[#00C2CB] text-white font-bold text-sm hover:bg-[#00b0b8] transition">
+                  {formData.platform ? formData.platform.toUpperCase() : 'LEARN MORE'}
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

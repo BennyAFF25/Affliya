@@ -80,14 +80,18 @@ const ManageCampaignsBusiness = () => {
                   </div>
                 )}
 
-                <button
-                  onClick={() => handleToggleStatus(campaign.id, campaign.status)}
-                  className={`px-4 py-1 rounded text-white font-medium text-sm ${
-                    campaign.status === 'approved' ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'
-                  }`}
-                >
-                  {campaign.status === 'approved' ? 'Pause' : 'Resume'}
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    className="bg-[#00C2CB] hover:bg-[#00b0b8] text-white px-4 py-1 rounded font-medium text-sm"
+                  >
+                    View Campaign
+                  </button>
+                  <button
+                    className="bg-white hover:bg-gray-100 text-[#00C2CB] border border-[#00C2CB] px-4 py-1 rounded font-medium text-sm"
+                  >
+                    Edit Campaign
+                  </button>
+                </div>
               </div>
             </div>
           ))}

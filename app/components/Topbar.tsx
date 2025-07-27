@@ -12,7 +12,7 @@ export default function Topbar() {
   const { theme, toggleTheme } = useTheme();
 
   return (
-    <header className="w-full bg-[#121212] shadow-sm px-6 py-4 border-b border-gray-800 flex justify-between items-center">
+    <header className="w-full bg-[#1F1F1F] shadow-sm px-6 py-2 border-b border-gray-800 flex justify-between items-center">
       <Link href="/" className="text-2xl font-bold text-[#00C2CB] tracking-tight">
         Affliya
       </Link>
