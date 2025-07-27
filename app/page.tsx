@@ -16,11 +16,9 @@ export default function Home() {
 
   useEffect(() => {
     if (isLoading) return;
-    const storedUserType = localStorage.getItem('userType') as 'business' | 'affiliate' | null;
-    if (user && storedUserType) {
-      router.push(storedUserType === 'business' ? '/business/dashboard' : '/affiliate/dashboard');
-    }
-  }, [user, isLoading, router]);
+    // Optional debug log:
+    console.log('[🧠 Session]', session);
+  }, [isLoading]);
 
   const handleLogin = async (type: 'business' | 'affiliate') => {
     setUserType(type);
