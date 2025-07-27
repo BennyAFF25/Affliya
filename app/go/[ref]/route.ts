@@ -4,9 +4,9 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { ref: string } }
+  context: { params: { ref: string } }
 ) {
-  const { ref } = params;
+  const { ref } = context.params;
 
   console.log('[🔗 Redirecting from tracking link]', { ref });
 
