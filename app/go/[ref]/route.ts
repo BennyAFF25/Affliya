@@ -1,9 +1,5 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
-export async function GET(
-  request: NextRequest,
-  context: { params: Record<string, string> }
-) {
+export async function GET(request: NextRequest, context: any) {
   return NextResponse.redirect('https://google.com', 307);
 }
