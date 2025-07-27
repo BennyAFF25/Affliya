@@ -16,7 +16,7 @@ export default function PromoteOfferPage() {
   const userEmail = session?.user?.email || '';
 
   // --- Tracking Link for Affiliate ---
-  const trackingLink = `https://affliya.com/go/${offerId}___${userEmail}`;
+  const trackingLink = `https://affliya.vercel.app/go/${offerId}___${userEmail}`;
 
   // Redirect unauthenticated users to '/' (prevent looping)
   useEffect(() => {
@@ -303,7 +303,7 @@ export default function PromoteOfferPage() {
       const publicUrl = supabase.storage.from('organic-posts').getPublicUrl(filePath).data.publicUrl;
 
       // --- Insert tracking link in caption if not already present ---
-      const trackingLink = `https://affliya.com/go/${offerId}___${userEmail}`;
+      const trackingLink = `https://affliya.vercel.app/go/${offerId}___${userEmail}`;
       const finalCaption = formData.caption.includes('affliya.com/go') ? formData.caption : `${formData.caption}\n\n${trackingLink}`;
 
       const { data: offerData, error: offerError } = await supabase
