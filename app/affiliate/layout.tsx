@@ -23,7 +23,7 @@ function AuthenticatedAffiliateLayout({ children }: { children: React.ReactNode 
 
   useEffect(() => {
     if (session === null) {
-      router.push('/login/affiliate');
+      router.push('/login');
     }
   }, [session, router]);
 
