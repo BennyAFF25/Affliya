@@ -2,8 +2,8 @@ import supabase from '@/../utils/supabase/server-client';
 import { NextRequest, NextResponse } from 'next/server';
 
 
-export async function GET(request: NextRequest, context: { params: { ref: string } }) {
-  const { ref } = context.params;
+export async function GET(request: NextRequest, { params }: { params: { ref: string } }) {
+  const { ref } = params;
 
   console.log('[🔗 Redirecting from tracking link]', { ref });
 
