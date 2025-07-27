@@ -23,10 +23,6 @@ export default function AffiliateLayout({ children }: { children: React.ReactNod
     return <div className="w-full flex justify-center items-center py-12">Loading...</div>;
   }
 
-  if (session === null) {
-    return null; // prevent flashing fallback
-  }
-
   return (
     <div className="flex flex-col min-h-screen text-white">
       <Topbar />
