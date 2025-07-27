@@ -16,6 +16,8 @@ export async function GET(request: NextRequest, context: any) {
 
   const offerId = ref.substring(0, splitIndex);
   const affiliateId = ref.substring(splitIndex + 3);
+  console.log('[🧠 Offer ID]', offerId);
+  console.log('[👤 Affiliate ID]', affiliateId);
   const ipAddress =
     request.headers.get('x-forwarded-for') || request.headers.get('X-Real-IP') || 'unknown';
 
@@ -28,6 +30,12 @@ export async function GET(request: NextRequest, context: any) {
   console.log('[📦 Supabase Offer Response]', { data, error });
 
   if (error || !data?.website) {
+    console.error('[❌ No Website Found]', {
+      offerId,
+      affiliateId,
+      error,
+      result: data,
+    });
     return NextResponse.redirect(fallbackUrl, 307);
   }
 
