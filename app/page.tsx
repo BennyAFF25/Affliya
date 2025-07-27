@@ -29,7 +29,12 @@ export default function Home() {
   const handleLogin = async (type: 'business' | 'affiliate') => {
     setUserType(type);
     localStorage.setItem('userType', type);
-    await supabase.auth.signInWithOAuth({ provider: 'google' });
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/redirect?type=${type}`,
+      },
+    });
   };
 
   const handleLogout = async () => {

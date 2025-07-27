@@ -8,13 +8,13 @@ export default function LoginPage() {
   const supabase = createPagesBrowserClient();
 
   const handleLogin = async (userType: "affiliate" | "business") => {
-    // Store user type in localStorage for post-login role switching if needed
+    // Store user type to use after login redirection
     localStorage.setItem("userType", userType);
 
     const { error } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${window.location.origin}/redirect`, // 👈 this handles smart routing
+        redirectTo: `${window.location.origin}/redirect?type=${userType}`, // 👈 this handles smart routing
       },
     });
 
