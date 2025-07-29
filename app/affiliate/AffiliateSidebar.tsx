@@ -21,15 +21,18 @@ export default function AffiliateSidebar() {
   const session = useSession();
   const router = useRouter();
 
-  if (session === undefined) {
-    return null; // Wait for session to be determined
-  }
+  const [isClient, setIsClient] = useState(false);
 
-  if (session === null) {
-    router.push('/');
-    return null;
-  }
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
+  useEffect(() => {
+    if (isClient && session === null) {
+      router.push('/');
+    }
+  }, [isClient, session, router]);
+  
   const user = session?.user;
 
   useEffect(() => {

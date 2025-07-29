@@ -15,14 +15,25 @@ export default function Home() {
   const [showAffWhy, setShowAffWhy] = useState(false);
 
   useEffect(() => {
-    if (isLoading || !session?.user) return;
-    // Optional debug log:
-    console.log('[🧠 Session]', session);
+    if (isLoading) return;
+
+    const redirectFromOAuth =
+      window.location.pathname === '/' &&
+      !session?.user?.email?.endsWith('@example.com');
     const storedType = localStorage.getItem('userType');
-    if (storedType === 'affiliate') {
-      router.push('/affiliate/dashboard');
-    } else if (storedType === 'business') {
-      router.push('/business/dashboard');
+
+    if (redirectFromOAuth && session?.user && storedType) {
+      const alreadyRedirected =
+        (storedType === 'affiliate' && window.location.pathname === '/affiliate/dashboard') ||
+        (storedType === 'business' && window.location.pathname === '/business/dashboard');
+
+      if (!alreadyRedirected) {
+        if (storedType === 'affiliate') {
+          router.push('/affiliate/dashboard');
+        } else if (storedType === 'business') {
+          router.push('/business/dashboard');
+        }
+      }
     }
   }, [isLoading, session, router]);
 

@@ -8,7 +8,13 @@ export async function middleware(req: NextRequest) {
   const res = NextResponse.next()
 
   // Creates a Supabase client with cookie context
-  await createMiddlewareClient({ req, res })
+  const supabase = createMiddlewareClient({ req, res })
+  await supabase.auth.getSession()
 
   return res
+}
+
+// ✅ Only run middleware for protected routes:
+export const config = {
+  matcher: ['/affiliate/:path*', '/business/:path*'],
 }

@@ -1,0 +1,143 @@
+.
+├── app
+│   ├── affiliate
+│   │   ├── AffiliateSidebar.tsx
+│   │   ├── dashboard
+│   │   │   ├── manage-campaigns
+│   │   │   │   ├── [campaignId]
+│   │   │   │   │   └── page.tsx
+│   │   │   │   └── page.tsx
+│   │   │   ├── page.tsx
+│   │   │   └── promote
+│   │   │       └── [offerId]
+│   │   │           └── page.tsx
+│   │   ├── inbox
+│   │   │   └── page.tsx
+│   │   ├── layout.tsx
+│   │   ├── marketplace
+│   │   │   └── page.tsx
+│   │   ├── settings
+│   │   │   └── page.tsx
+│   │   ├── support
+│   │   │   └── page.tsx
+│   │   ├── topup-success
+│   │   │   └── page.tsx
+│   │   └── wallet
+│   │       └── page.tsx
+│   ├── api
+│   │   ├── affiliate
+│   │   ├── meta
+│   │   │   ├── callback
+│   │   │   │   ├── route.ts
+│   │   │   │   └── upload-video
+│   │   │   │       └── route.ts
+│   │   │   └── estimate-reach
+│   │   │       └── route.ts
+│   │   ├── send-tracking-code
+│   │   │   └── route.ts
+│   │   ├── stripe
+│   │   │   ├── create-business-account-link
+│   │   │   │   └── route.ts
+│   │   │   ├── create-checkout-session
+│   │   │   │   └── route.ts
+│   │   │   ├── create-payment-intent
+│   │   │   │   └── route.ts
+│   │   │   ├── create-topup-session
+│   │   │   │   └── route.ts
+│   │   │   ├── refund
+│   │   │   │   └── route.ts
+│   │   │   ├── transfer-ad-spend
+│   │   │   │   └── route.ts
+│   │   │   └── webhook
+│   │   │       └── route.ts
+│   │   └── stripe-session
+│   │       └── route.ts
+│   ├── business
+│   │   ├── BusinessSidebar.tsx
+│   │   ├── dashboard
+│   │   │   └── page.tsx
+│   │   ├── inbox
+│   │   │   └── page.tsx
+│   │   ├── layout.tsx
+│   │   ├── manage-campaigns
+│   │   │   └── page.tsx
+│   │   ├── marketplace
+│   │   │   └── page.tsx
+│   │   ├── my-business
+│   │   │   ├── ad-ideas
+│   │   │   │   └── page.tsx
+│   │   │   ├── affiliate-requests
+│   │   │   │   └── page.tsx
+│   │   │   ├── connect-meta
+│   │   │   │   └── page.tsx
+│   │   │   ├── create-offer
+│   │   │   │   └── page.tsx
+│   │   │   ├── edit-offer
+│   │   │   │   ├── [offerId]
+│   │   │   │   │   └── page.tsx
+│   │   │   │   └── page.tsx
+│   │   │   ├── page.tsx
+│   │   │   ├── post-ideas
+│   │   │   │   └── page.tsx
+│   │   │   └── publish-creatives
+│   │   │       └── page.tsx
+│   │   ├── settings
+│   │   │   └── page.tsx
+│   │   ├── setup-tracking
+│   │   │   └── page.tsx
+│   │   └── support
+│   │       └── page.tsx
+│   ├── components
+│   │   ├── ConnectStripeButton.tsx
+│   │   ├── OfferCard.tsx
+│   │   ├── ThemeWrapper.tsx
+│   │   ├── TidioChat.tsx
+│   │   ├── Topbar.tsx
+│   │   ├── TopUpWallet.tsx
+│   │   └── WonderchatScript.tsx
+│   ├── deno.json
+│   ├── globals.css
+│   ├── go
+│   │   └── [ref]
+│   │       └── route.ts
+│   ├── layout.tsx
+│   ├── login
+│   │   └── page.tsx
+│   ├── meta-auth-callback
+│   │   └── page.tsx
+│   ├── page.tsx
+│   ├── Providers.tsx
+│   └── redirect
+│       └── page.tsx
+├── context
+│   └── ThemeContext.tsx
+├── env.d.ts
+├── firebase.js
+├── middleware.ts
+├── next-env.d.ts
+├── next.config.js
+├── package-lock.json
+├── package.json
+├── postcss.config.js
+├── structure.txt
+├── supabase
+├── tailwind.config.js
+├── tsconfig.json
+├── types
+│   ├── supabase-session.d.ts
+│   └── supabase.ts
+└── utils
+    ├── hooks
+    │   └── useUserSettings.ts
+    ├── meta
+    │   └── fetchReachEstimate.ts
+    ├── stripe
+    │   └── client.ts
+    ├── stripe.ts
+    └── supabase
+        ├── getRefundableBalance.ts
+        ├── pages-client.ts
+        ├── server-client.ts
+        └── withToken.ts
+
+62 directories, 79 files

@@ -5,14 +5,16 @@ import { useUser } from '@supabase/auth-helpers-react';
 import { supabase } from '@/../utils/supabase/pages-client';
 import { LogOut } from 'lucide-react';
 import { useTheme } from '@/../context/ThemeContext';
+import { useRouter } from 'next/navigation';
 
 export default function Topbar() {
   const user = useUser();
   const userInitials = user?.email?.charAt(0).toUpperCase() || 'F';
   const { theme, toggleTheme } = useTheme();
+  const router = useRouter();
 
   return (
-    <header className="w-full bg-[#1F1F1F] shadow-sm px-6 py-2 border-b border-gray-800 flex justify-between items-center">
+    <header className="w-full bg-[#1F1F1F] px-6 py-2 border-b border-gray-800 flex justify-between items-center">
       <Link href="/" className="text-2xl font-bold text-[#00C2CB] tracking-tight">
         Affliya
       </Link>
@@ -31,11 +33,14 @@ export default function Topbar() {
 
         {user && (
           <>
-            <div className="w-9 h-9 rounded-full bg-[#00C2CB]/20 flex items-center justify-center text-[#00C2CB] font-semibold text-sm shadow-inner">
+            <div className="w-9 h-9 rounded-full bg-[#1F1F1F]/20 flex items-center justify-center text-[#00C2CB] font-semibold text-sm shadow-inner">
               {userInitials}
             </div>
             <button
-              onClick={() => supabase.auth.signOut()}
+              onClick={async () => {
+                await supabase.auth.signOut();
+                router.push('/');
+              }}
               className="flex items-center gap-2 bg-[#00C2CB] hover:bg-[#00b0b8] text-white px-4 py-2 rounded-lg text-sm transition"
             >
               <LogOut size={16} />

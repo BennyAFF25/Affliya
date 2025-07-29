@@ -98,32 +98,32 @@ export default function BusinessDashboard() {
   };
 
   return (
-    <div className="p-4 sm:p-6 bg-white min-h-screen pt-2">
+    <div className="min-h-screen w-full bg-[#0a0a0a] text-white px-4 py-6">
       {/* Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-6 mt-2">
-        <div className="bg-[#e0fafa]/40 shadow-md border-2 border-[#66d2d6] p-5 rounded-lg hover:shadow-[0_0_8px_#66d2d6] transition ring-2 ring-[#66d2d6]/40">
-          <p className="text-sm text-[#00C2CB]">Active Affiliates</p>
-          <p className="text-2xl font-bold text-[#00C2CB]">{approved.length}</p>
+        <div className="bg-[#121212] text-[#00C2CB] rounded-md p-4 border border-[#00C2CB]/40">
+          <p className="text-sm">Active Affiliates</p>
+          <h2 className="text-2xl font-bold">{approved.length}</h2>
         </div>
-        <div className="bg-[#fff7db]/40 shadow-md border-2 border-[#f9e28d] p-5 rounded-lg hover:shadow-[0_0_8px_#f9e28d] transition ring-2 ring-[#f9e28d]/40">
-          <p className="text-sm text-[#00C2CB]">Pending Requests</p>
-          <p className="text-2xl font-bold text-yellow-500">{pendingRequests.length}</p>
+        <div className="bg-[#121212] text-[#fbbf24] rounded-md p-4 border border-[#FACC15]/40">
+          <p className="text-sm">Pending Requests</p>
+          <h2 className="text-2xl font-bold">{pendingRequests.length}</h2>
         </div>
-        <div className="bg-[#dcfce7]/40 shadow-md border-2 border-[#6ee7b7] p-5 rounded-lg hover:shadow-[0_0_8px_#6ee7b7] transition ring-2 ring-[#6ee7b7]/40">
-          <p className="text-sm text-[#00C2CB]">Total Revenue</p>
-          <p className="text-2xl font-bold text-green-600">${mockData.totalRevenue.toLocaleString()}</p>
+        <div className="bg-[#121212] text-[#10b981] rounded-md p-4 border border-[#4ADE80]/40">
+          <p className="text-sm">Total Revenue</p>
+          <h2 className="text-2xl font-bold">${mockData.totalRevenue.toLocaleString()}</h2>
         </div>
-        <div className="bg-[#f3f0ff]/40 shadow-md border-2 border-[#c4b5fd] p-5 rounded-lg hover:shadow-[0_0_8px_#c4b5fd] transition ring-2 ring-[#c4b5fd]/40">
-          <p className="text-sm text-[#00C2CB]">Live Offers</p>
-          <p className="text-2xl font-bold text-purple-600">{liveOffersCount}</p>
+        <div className="bg-[#121212] text-[#a78bfa] rounded-md p-4 border border-[#A78BFA]/40">
+          <p className="text-sm">Live Offers</p>
+          <h2 className="text-2xl font-bold">{liveOffersCount}</h2>
         </div>
       </div>
 
       {/* Graphs */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
-        <div className="bg-white rounded-lg shadow border border-[#66d2d6] ring-1 ring-[#66d2d6]/25 p-6">
+        <div className="bg-[#121212] rounded-md p-6 border border-[#00C2CB]/30 ring-1 ring-[#66d2d6]/25">
           <h2 className="text-xl font-semibold text-[#00C2CB] mb-4">Affiliate Growth</h2>
-          <div className="h-40 bg-white rounded-md flex items-center justify-center text-gray-400">
+          <div className="h-40 bg-[#121212] rounded-md flex items-center justify-center text-gray-400">
             <ResponsiveContainer width="100%" height={160}>
               <BarChart data={affiliateData}>
                 <XAxis dataKey="name" hide />
@@ -132,9 +132,9 @@ export default function BusinessDashboard() {
             </ResponsiveContainer>
           </div>
         </div>
-        <div className="bg-white rounded-lg shadow border border-[#66d2d6] ring-1 ring-[#66d2d6]/25 p-6">
+        <div className="bg-[#121212] rounded-md p-6 border border-[#00C2CB]/30 ring-1 ring-[#66d2d6]/25">
           <h2 className="text-xl font-semibold text-[#00C2CB] mb-4">Sales Performance</h2>
-          <div className="h-40 bg-white rounded-md flex items-center justify-center text-gray-400">
+          <div className="h-40 bg-[#121212] rounded-md flex items-center justify-center text-gray-400">
             <ResponsiveContainer width="100%" height={160}>
               <BarChart data={salesData}>
                 <XAxis dataKey="name" hide />
@@ -146,18 +146,18 @@ export default function BusinessDashboard() {
       </div>
 
       {/* Active Campaigns Section */}
-      <div className="bg-[#3a3a3a] rounded-lg shadow border border-[#66d2d6] ring-1 ring-[#66d2d6]/25 p-6">
+      <div className="bg-[#121212] rounded-lg shadow border border-[#00C2CB]/30 ring-1 ring-[#66d2d6]/25 p-6">
         <h2 className="text-lg font-semibold text-[#00C2CB] mb-2">Active Campaigns (0)</h2>
         <p className="text-[#00C2CB]">No active campaigns yet.</p>
       </div>
 
       {/* Affiliate Activity and Transaction History */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-        <div className="bg-[#3a3a3a] rounded-lg shadow border border-[#66d2d6] ring-1 ring-[#66d2d6]/25 p-6">
+        <div className="bg-[#121212] rounded-lg shadow border border-[#00C2CB]/30 ring-1 ring-[#66d2d6]/25 p-6">
           <h2 className="text-lg font-semibold text-[#00C2CB] mb-2">Affiliate Activity</h2>
           <p className="text-[#00C2CB]">No recent affiliate activity.</p>
         </div>
-        <div className="bg-[#3a3a3a] rounded-lg shadow border border-[#66d2d6] ring-1 ring-[#66d2d6]/25 p-6">
+        <div className="bg-[#121212] rounded-lg shadow border border-[#00C2CB]/30 ring-1 ring-[#66d2d6]/25 p-6">
           <h2 className="text-lg font-semibold text-[#00C2CB] mb-2">Transaction History</h2>
           <p className="text-[#00C2CB]">No recent transactions.</p>
         </div>

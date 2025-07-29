@@ -12,10 +12,19 @@ export default function BusinessLayout({ children }: { children: React.ReactNode
 
   useEffect(() => {
     const currentPath = window.location.pathname;
-    if (session === null && currentPath !== '/' && currentPath !== '/login') {
-      router.push('/login');
+    const isBusinessRoute = currentPath.startsWith('/business');
+    const isPublic = ['/', '/redirect'].includes(currentPath);
+
+    if (session === undefined) return;
+
+    if (!session && isBusinessRoute && !isPublic) {
+      router.push('/redirect');
     }
   }, [session, router]);
+
+  if (session === undefined) {
+    return <div className="w-full flex justify-center items-center py-12 text-black">Redirecting...</div>;
+  }
 
   return (
     <div className="flex flex-col min-h-screen bg-white text-black">
@@ -24,7 +33,7 @@ export default function BusinessLayout({ children }: { children: React.ReactNode
         <div className="min-h-screen w-64 bg-[#1F1F1F] text-white">
           <BusinessSidebar />
         </div>
-        <main className="flex-1 p-10">{children}</main>
+        <main className="flex-1 bg-white text-black">{children}</main>
       </div>
     </div>
   );

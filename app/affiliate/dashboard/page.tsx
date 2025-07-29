@@ -1,5 +1,6 @@
 'use client';
 
+import { useSession } from '@supabase/auth-helpers-react';
 import { RocketLaunchIcon } from '@heroicons/react/24/outline';
 
 const renderMedia = (idea: any) => {
@@ -50,7 +51,6 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts';
-import { useSession } from '@supabase/auth-helpers-react';
 
 interface Offer {
   id: string;
@@ -84,8 +84,8 @@ const conversionData = [
 
 function AffiliateDashboardContent() {
   const session = useSession();
-  const user = session?.user;
   const router = useRouter();
+
   const [offers, setOffers] = useState<Offer[]>([]);
   const [approvedIds, setApprovedIds] = useState<string[]>([]);
   const [adIdeas, setAdIdeas] = useState<any[]>([]);
@@ -154,10 +154,12 @@ function AffiliateDashboardContent() {
   }, [session]);
 
   useEffect(() => {
-    if (approvedIds.length === 0 && session?.user) {
+    if (session?.user && approvedIds.length === 0) {
       console.warn('[⚠️ No approved offers — user still stays on dashboard]');
     }
-  }, [approvedIds, session]);
+  }, [session, approvedIds]);
+
+  const user = session?.user;
 
   const approvedOffers = offers.filter((offer) => approvedIds.includes(offer.id));
   const activeOffers = adIdeas.map((idea) => {
