@@ -39,6 +39,7 @@ export default function AdIdeasPage() {
   const [showRejectionInput, setShowRejectionInput] = useState<string | null>(null);
   const [selectedReason, setSelectedReason] = useState<string>('');
   const [customReason, setCustomReason] = useState<string>('');
+  const [showRecent, setShowRecent] = useState(false);
   const session = useSession();
   const user = session?.user;
   const router = useRouter();
@@ -220,75 +221,73 @@ export default function AdIdeasPage() {
   };
 
   return (
-    <div className="p-10">
-      <h1 className="text-3xl font-bold text-[#00C2CB] mb-6">Submitted Ad Ideas</h1>
+    <div className="p-10 bg-[#0a0a0a] min-h-screen">
+      <h1 className="text-3xl font-bold text-[#00C2CB] mb-6">Affiliate Promotion Requests</h1>
 
       {ideas.length === 0 ? (
         <p className="text-gray-600">No ad ideas submitted yet.</p>
       ) : (
-        <div className="space-y-6">
-          {ideas.map((idea) => (
-            <div
-              key={idea.id}
-              className="bg-white border border-gray-200 shadow rounded-lg p-6 border border-[#00C2CB] hover:shadow-[0_0_8px_#00C2CB] transition-shadow"
-            >
-              <div className="flex justify-between items-center mb-2">
-                <p className="text-[#00C2CB] font-semibold">
-                  Affiliate: {idea.affiliate_email}
-                </p>
-                <span
-                  className={`px-2 py-1 rounded text-sm font-medium ${
-                    idea.status === 'approved'
-                      ? 'bg-green-100 text-green-600'
-                      : idea.status === 'rejected'
-                      ? 'bg-red-100 text-red-600'
-                      : 'bg-yellow-100 text-yellow-600'
-                  }`}
-                >
-                  {idea.status}
-                </span>
-              </div>
-
-              <p className="text-sm text-gray-700 mb-1">
-                <strong>Audience:</strong> {idea.audience}
-              </p>
-              <p className="text-sm text-gray-700 mb-1">
-                <strong>Location:</strong> {idea.location}
-              </p>
-              <p className="text-xs text-gray-500 italic mt-2">
-                Offer: {offersMap[idea.offer_id] || 'Unknown'}
-              </p>
-
-              <button
-                onClick={() => setSelectedIdea(idea)}
-                className="mt-3 text-[#00C2CB] hover:underline"
+        <>
+          <h2 className="text-xl font-semibold text-white mb-4">No new ads to review</h2>
+          <div className="space-y-6">
+            {ideas.filter(i => i.status === 'pending').map((idea) => (
+              <div
+                key={idea.id}
+                className="bg-[#1f1f1f] border border-[#2c2c2c] rounded-xl px-6 py-5 shadow-md flex justify-between items-center hover:shadow-[0_0_8px_#00C2CB] transition-all"
               >
-                View Detail
-              </button>
-
-              {idea.status === 'pending' && (
-                <>
-                  <div className="flex gap-4 mt-4">
-                    <button
-                      onClick={async () => {
-                        await handleStatusChange(idea.id, 'approved');
-                        await sendToMeta(idea.id);
-                      }}
-                      className="bg-[#00C2CB] hover:bg-[#00b0b8] text-white px-4 py-2 rounded"
-                    >
-                      Approve
-                    </button>
-                    <button
-                      onClick={() => setShowRejectionInput(idea.id)}
-                      className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded"
-                    >
-                      Reject
-                    </button>
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-full bg-[#00C2CB]/20 flex items-center justify-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 text-[#00C2CB]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
                   </div>
+                  <div className="flex flex-col">
+                    <h2 className="text-xl font-semibold text-white">{offersMap[idea.offer_id] || 'Unknown Offer'}</h2>
+                    <p className="text-sm text-gray-400">{idea.audience} - {idea.location}</p>
+                    <div className="flex items-center gap-3 mt-2">
+                      <p className="text-sm text-gray-400">
+                        <span className="font-semibold text-white">Affiliate:</span> {idea.affiliate_email}
+                      </p>
+                      <button
+                        onClick={() => setSelectedIdea(idea)}
+                        className="text-sm text-[#00C2CB] hover:underline"
+                      >
+                        View Detail
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex flex-col items-end gap-2">
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    idea.status === 'approved' ? 'bg-green-500/20 text-green-300'
+                    : idea.status === 'rejected' ? 'bg-red-500/20 text-red-400'
+                    : 'bg-yellow-400/20 text-yellow-300'
+                  }`}>
+                    {idea.status}
+                  </span>
+                  {idea.status === 'pending' && (
+                    <div className="flex gap-3">
+                      <button
+                        onClick={async () => {
+                          await handleStatusChange(idea.id, 'approved');
+                          await sendToMeta(idea.id);
+                        }}
+                        className="bg-[#00C2CB] text-black hover:bg-[#00b0b8] px-4 py-2 rounded-lg text-sm font-semibold"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        onClick={() => setShowRejectionInput(idea.id)}
+                        className="bg-[#2c2c2c] text-gray-300 hover:bg-[#3a3a3a] px-4 py-2 rounded-lg text-sm"
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  )}
                   {showRejectionInput === idea.id && (
-                    <div className="flex flex-col gap-3 mt-4">
+                    <div className="flex flex-col gap-3 mt-2 w-48">
                       <select
-                        className="border border-gray-300 rounded px-3 py-2 text-sm"
+                        className="border border-gray-300 rounded px-3 py-2 text-sm bg-[#181818] text-white"
                         onChange={(e) => setSelectedReason(e.target.value)}
                         value={selectedReason}
                       >
@@ -300,7 +299,7 @@ export default function AdIdeasPage() {
                       </select>
                       {selectedReason === 'Other' && (
                         <textarea
-                          className="border border-gray-300 rounded px-3 py-2 text-sm"
+                          className="border border-gray-300 rounded px-3 py-2 text-sm bg-[#181818] text-white"
                           placeholder="Custom reason..."
                           value={customReason}
                           onChange={(e) => setCustomReason(e.target.value)}
@@ -311,17 +310,67 @@ export default function AdIdeasPage() {
                           const finalReason = selectedReason === 'Other' ? customReason : selectedReason;
                           await handleStatusChange(idea.id, 'rejected', finalReason);
                         }}
-                        className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded"
+                        className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded text-sm"
                       >
                         Confirm Rejection
                       </button>
                     </div>
                   )}
-                </>
-              )}
+                </div>
+              </div>
+            ))}
+          </div>
+          {/* Recent Ads dropdown */}
+          <div className="mt-8">
+            <div
+              onClick={() => setShowRecent((prev) => !prev)}
+              className="cursor-pointer mt-10 bg-[#1f1f1f] hover:bg-[#2a2a2a] text-[#00C2CB] font-semibold px-6 py-3 rounded-lg text-center shadow transition-all"
+            >
+              {showRecent ? 'Hide Recent Ads' : 'Show Recent Ads'}
             </div>
-          ))}
-        </div>
+            {showRecent && (
+              <div className="space-y-6 mt-4">
+                {ideas.filter(i => i.status !== 'pending').map((idea) => (
+                  <div
+                    key={idea.id}
+                    className="bg-[#1f1f1f] border border-[#2c2c2c] rounded-xl px-6 py-5 shadow-md flex justify-between items-center"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 rounded-full bg-[#00C2CB]/20 flex items-center justify-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 text-[#00C2CB]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                      </div>
+                      <div className="flex flex-col">
+                        <h2 className="text-xl font-semibold text-white">{offersMap[idea.offer_id] || 'Unknown Offer'}</h2>
+                        <p className="text-sm text-gray-400">{idea.audience} - {idea.location}</p>
+                        <div className="flex items-center gap-3 mt-2">
+                          <p className="text-sm text-gray-400">
+                            <span className="font-semibold text-white">Affiliate:</span> {idea.affiliate_email}
+                          </p>
+                          <button
+                            onClick={() => setSelectedIdea(idea)}
+                            className="text-sm text-[#00C2CB] hover:underline"
+                          >
+                            View Detail
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-2">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        idea.status === 'approved' ? 'bg-green-500/20 text-green-300'
+                        : 'bg-red-500/20 text-red-400'
+                      }`}>
+                        {idea.status}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
       )}
 
       {selectedIdea && (
@@ -376,13 +425,14 @@ export default function AdIdeasPage() {
                       selectedIdea.status === 'approved'
                         ? 'text-green-600'
                         : selectedIdea.status === 'rejected'
-                        ? 'text-red-600'
+                        ? 'text-red-500'
                         : 'text-yellow-600'
                     }`}
                   >
                     {selectedIdea.status}
                   </span>
                 </div>
+                <p className="mt-2 text-sm text-gray-400 italic">Requested recently</p>
               </div>
 
               {selectedIdea.status === 'pending' && (

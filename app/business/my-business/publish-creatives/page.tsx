@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useSession } from '@supabase/auth-helpers-react';
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from 'utils/supabase/pages-client';
+import { FiZap, FiBox, FiEdit3, FiUpload, FiUsers, FiMapPin, FiFolder, FiImage } from 'react-icons/fi';
 
 const BusinessCreativesPage = () => {
   const session = useSession();
@@ -104,23 +105,34 @@ const BusinessCreativesPage = () => {
   };
 
   return (
-    <div className="p-10 max-w-4xl mx-auto">
-      <h1 className="text-2xl font-bold text-[#00C2CB] mb-6">Upload Creatives</h1>
+    <div className="bg-[#0e0e0e] min-h-screen w-full p-10">
+      <h1 className="text-3xl font-bold text-[#00C2CB] mb-8 flex items-center gap-2">
+        <FiImage className="text-[#00C2CB]" />
+        Upload Creatives
+      </h1>
 
-      <div className="grid grid-cols-1 gap-4 mb-10">
+      <div className="bg-[#1f1f1f] p-6 rounded-lg shadow-md border border-[#00C2CB] mb-10 space-y-4">
+        <label className="text-white flex items-center gap-2 mb-2">
+          <FiZap className="text-[#00C2CB]" />
+          Creative Type
+        </label>
         <select
           value={type}
           onChange={(e) => setType(e.target.value as 'winning' | 'suggested')}
-          className="border border-gray-300 p-2 rounded"
+          className="bg-black text-white border border-gray-600 p-3 rounded w-full"
         >
           <option value="winning">Winning Creative</option>
           <option value="suggested">Suggested Creative</option>
         </select>
 
+        <label className="text-white flex items-center gap-2 mb-2">
+          <FiBox className="text-[#00C2CB]" />
+          Offer
+        </label>
         <select
           value={selectedOfferId}
           onChange={(e) => setSelectedOfferId(e.target.value)}
-          className="border border-gray-300 p-2 rounded"
+          className="bg-black text-white border border-gray-600 p-3 rounded w-full"
         >
           <option value="">Select Offer</option>
           {offers.map((offer) => (
@@ -130,67 +142,86 @@ const BusinessCreativesPage = () => {
           ))}
         </select>
 
+        <label className="text-white flex items-center gap-2 mb-2">
+          <FiEdit3 className="text-[#00C2CB]" />
+          Caption
+        </label>
         <input
           type="text"
           placeholder="Caption"
           value={caption}
           onChange={(e) => setCaption(e.target.value)}
-          className="border border-gray-300 p-2 rounded"
+          className="bg-black text-white border border-gray-600 p-3 rounded w-full"
         />
 
         {type === 'winning' && (
           <>
+            <label className="text-white flex items-center gap-2 mb-2">
+              <FiUsers className="text-[#00C2CB]" />
+              Audience (e.g. Males 18-24)
+            </label>
             <input
               type="text"
               placeholder="Audience (e.g. Males 18-24)"
               value={audience}
               onChange={(e) => setAudience(e.target.value)}
-              className="border border-gray-300 p-2 rounded"
+              className="bg-black text-white border border-gray-600 p-3 rounded w-full"
             />
+            <label className="text-white flex items-center gap-2 mb-2">
+              <FiMapPin className="text-[#00C2CB]" />
+              Location (e.g. Australia)
+            </label>
             <input
               type="text"
               placeholder="Location (e.g. Australia)"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
-              className="border border-gray-300 p-2 rounded"
+              className="bg-black text-white border border-gray-600 p-3 rounded w-full"
             />
           </>
         )}
 
+        <label className="text-white flex items-center gap-2 mb-2">
+          Media File
+        </label>
         <input
           type="file"
           onChange={(e) => setFile(e.target.files?.[0] || null)}
-          className="border border-gray-300 p-2 rounded"
+          className="bg-black text-[#00C2CB] placeholder-gray-400 border border-gray-600 p-3 rounded w-full file:bg-[#00C2CB] file:text-black file:font-semibold file:border-none file:rounded file:px-4 file:py-2"
         />
 
         <button
           onClick={handleUpload}
           disabled={uploading}
-          className="bg-[#00C2CB] text-white font-semibold px-4 py-2 rounded"
+          className="bg-[#00C2CB] hover:bg-[#00b0b8] text-white font-semibold px-6 py-3 rounded w-full flex items-center justify-center gap-2 transition duration-200"
         >
+          <FiUpload className="text-white" />
           {uploading ? 'Uploading...' : 'Upload Creative'}
         </button>
       </div>
 
-      <h2 className="text-xl font-semibold text-[#00C2CB] mb-4">Your Uploaded Creatives</h2>
+      <h2 className="text-2xl font-semibold text-[#00C2CB] mb-4 flex items-center gap-2">
+        <FiFolder className="text-[#00C2CB]" />
+        Your Uploaded Creatives
+      </h2>
       <div className="grid grid-cols-1 gap-4">
         {creatives.map((creative) => (
-          <div key={creative.id} className="border p-4 rounded shadow-sm">
-            <p className="font-bold text-[#00C2CB] capitalize">{creative.type}</p>
-            <p className="text-sm text-gray-600 mb-2">{creative.caption}</p>
+          <div key={creative.id} className="bg-[#1f1f1f] p-4 rounded-lg shadow-md border border-gray-700">
+            <p className="font-bold text-[#00C2CB] capitalize mb-1">📌 {creative.type}</p>
+            <p className="text-sm text-gray-300 mb-2">{creative.caption}</p>
             {creative.audience && (
-              <p className="text-xs text-gray-500">Audience: {creative.audience}</p>
+              <p className="text-xs text-gray-400">🎯 Audience: {creative.audience}</p>
             )}
             {creative.location && (
-              <p className="text-xs text-gray-500">Location: {creative.location}</p>
+              <p className="text-xs text-gray-400">🌍 Location: {creative.location}</p>
             )}
             {creative.media_url && (
               creative.media_url.includes('.mp4') ? (
-                <video controls className="w-full rounded mt-2">
+                <video controls className="w-full rounded mt-3 border border-gray-700">
                   <source src={creative.media_url} type="video/mp4" />
                 </video>
               ) : (
-                <img src={creative.media_url} alt="Creative" className="w-full rounded mt-2" />
+                <img src={creative.media_url} alt="Creative" className="w-full rounded mt-3 border border-gray-700" />
               )
             )}
           </div>
