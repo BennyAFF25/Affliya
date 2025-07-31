@@ -21,6 +21,8 @@ export async function POST(req: Request) {
 
     const currencyToUse = currency?.toLowerCase() || 'usd';
 
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL?.startsWith('http') ? process.env.NEXT_PUBLIC_BASE_URL : 'http://localhost:3000';
+
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       mode: 'payment',
@@ -37,8 +39,8 @@ export async function POST(req: Request) {
           quantity: 1,
         },
       ],
-      success_url: `${process.env.NEXT_PUBLIC_BASE_URL || 'https://affliya.com'}/affiliate/wallet?status=success`,
-      cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL || 'https://affliya.com'}/affiliate/wallet?status=cancel`,
+      success_url: `${baseUrl}/affiliate/wallet?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${baseUrl}/affiliate/wallet?status=cancel`,
       metadata: { email, amount: parsedAmount.toString(), currency: currencyToUse },
       payment_intent_data: {
         metadata: {

@@ -1,106 +1,92 @@
-import Stripe from 'stripe';
-import supabase from '@/../utils/supabase/server-client';
+// app/api/stripe/refund/route.ts
 import { NextResponse } from 'next/server';
+import Stripe from 'stripe';
+import supabase from '@/../utils/supabase/server-client'; // ✅ corrected default import
+import { createClient } from '@supabase/supabase-js';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2025-05-28.basil',
 });
 
 export async function POST(req: Request) {
+  const { email, refundAmount } = await req.json();
+
+  console.log('[🧪 Refund Payload]', { email, refundAmount });
+
+  if (!email || refundAmount === undefined) {
+    console.error('[❌ Refund API Error] Missing parameters', { email, refundAmount });
+    return NextResponse.json({ error: 'Missing parameters' }, { status: 400 });
+  }
+
+  // Get all top-ups and filter refundable ones manually
+  const { data: topups, error } = await supabase
+    .from('wallet_topups')
+    .select('*')
+    .eq('affiliate_email', email)
+    .order('created_at', { ascending: false });
+
+  if (error || !topups) {
+    return NextResponse.json({ error: 'Failed to fetch top-ups' }, { status: 500 });
+  }
+
+  const topup = topups.find(t => Number(t.amount_refunded || 0) < Number(t.amount_net));
+
+  if (!topup) {
+    return NextResponse.json({ error: 'No refundable top-up found' }, { status: 404 });
+  }
+
+  const remaining = Number(topup.amount_net) - Number(topup.amount_refunded || 0);
+
+  if (refundAmount > remaining) {
+    return NextResponse.json(
+      { error: `Refund amount ($${refundAmount}) exceeds remaining refund balance ($${remaining})` },
+      { status: 400 }
+    );
+  }
 
   try {
-    const body = await req.json();
-    const { email, amount } = body;
+    let refund;
 
-    if (!email || amount === undefined || amount === null) {
-      return NextResponse.json(
-        { error: 'Missing email or amount.' },
-        { status: 400 }
-      );
+    if (topup.stripe_id.startsWith('ch_')) {
+      // Refund using charge ID
+      refund = await stripe.refunds.create({
+        amount: Math.round(refundAmount * 100),
+        charge: topup.stripe_id,
+      });
+    } else if (topup.stripe_id.startsWith('pi_')) {
+      // Refund using payment intent with reverse transfer
+      const pi: Stripe.Response<Stripe.PaymentIntent> = await stripe.paymentIntents.retrieve(topup.stripe_id, {
+        expand: ['charges'],
+      });
+
+      const chargeId = (pi as any)?.charges?.data?.[0]?.id;
+
+      if (!chargeId) {
+        throw new Error('No charge found for the given Payment Intent.');
+      }
+
+      refund = await stripe.refunds.create({
+        amount: Math.round(refundAmount * 100),
+        charge: chargeId,
+      });
+    } else {
+      throw new Error('Invalid stripe_id format. Must be a charge or payment intent ID.');
     }
 
-    const parsedAmount = Number(amount);
-    if (isNaN(parsedAmount) || parsedAmount <= 0) {
-      return NextResponse.json(
-        { error: 'Invalid amount value.' },
-        { status: 400 }
-      );
-    }
-
-    // Sum all top-ups
-    const { data: topups, error: topupError } = await supabase
+    // Update the topup row with new refund info
+    const { error: updateError } = await supabase
       .from('wallet_topups')
-      .select('*')
-      .eq('affiliate_email', email)
-      .eq('status', 'succeeded');
+      .update({
+        amount_refunded: (Number(topup.amount_refunded) || 0) + refundAmount,
+        status: 'refunded',
+      })
+      .eq('id', topup.id);
 
-    if (topupError || !topups) {
-      return NextResponse.json(
-        { error: 'Failed to fetch top-ups' },
-        { status: 500 }
-      );
-    }
-
-    const totalTopups = topups.reduce((sum, t) => sum + (t.amount_net ?? 0), 0);
-
-    // Sum all refunds
-    const { data: refunds, error: refundError } = await supabase
-      .from('wallet_refunds')
-      .select('*')
-      .eq('affiliate_email', email);
-
-    if (refundError || !refunds) {
-      return NextResponse.json(
-        { error: 'Failed to fetch refunds' },
-        { status: 500 }
-      );
-    }
-
-    const totalRefunds = refunds.reduce((sum, r) => sum + (r.amount ?? 0), 0);
-
-    const available = totalTopups - totalRefunds;
-
-    if (parsedAmount > available) {
-      return NextResponse.json(
-        { error: `Refund amount exceeds available balance (${available.toFixed(2)}).` },
-        { status: 400 }
-      );
-    }
-
-    // Find the most recent top-up for refund reference (for now)
-    const mostRecentTopup = topups[0];
-    if (!mostRecentTopup) {
-      return NextResponse.json(
-        { error: 'No successful top-up to refund.' },
-        { status: 400 }
-      );
-    }
-
-    // Create Stripe refund
-    const refund = await stripe.refunds.create({
-      payment_intent: mostRecentTopup.stripe_id,
-      amount: Math.round(parsedAmount * 100),
-    });
-
-    // Insert refund record
-    const { error: insertError } = await supabase.from('wallet_refunds').insert({
-      affiliate_email: email,
-      amount: parsedAmount,
-      stripe_refund_id: refund.id,
-      status: refund.status,
-      created_at: new Date().toISOString(),
-    });
-
-    if (insertError) {
-      return NextResponse.json(
-        { error: 'Refund created but failed to record.' },
-        { status: 500 }
-      );
-    }
+    if (updateError) throw updateError;
 
     return NextResponse.json({ success: true, refund });
-  } catch (err) {
+  } catch (err: any) {
     console.error('[❌ Refund Error]', err);
-    return NextResponse.json({ error: 'Internal server error.' }, { status: 500 });
+    return NextResponse.json({ error: err.message || 'Refund failed' }, { status: 500 });
   }
 }

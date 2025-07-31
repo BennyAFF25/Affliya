@@ -18,6 +18,7 @@ export default function AffiliateWalletPage() {
   const session = useSession();
   const user = session?.user;
   const { settings, isLoading: settingsLoading } = useUserSettings();
+
   const [amount, setAmount] = useState('');
   const [currency, setCurrency] = useState('');
   const [loading, setLoading] = useState(false);
@@ -30,30 +31,23 @@ export default function AffiliateWalletPage() {
   const [refundLoading, setRefundLoading] = useState(false);
   const [walletDeductions, setWalletDeductions] = useState<any[]>([]);
 
-  // Early return for session: fallback UI instead of redirect to avoid loops
-  if (session === undefined) {
-    // Still loading
-    return <div className="w-full flex items-center justify-center py-12">Loading...</div>;
-  }
-
-  if (session === null) {
-    return (
-      <div className="w-full flex items-center justify-center py-12 text-center">
-        <p>You are not logged in. <a href="/" className="text-blue-500 underline">Go to home</a></p>
-      </div>
-    );
-  }
-
   // Fetch live wallet balance (wallets table)
   useEffect(() => {
     const fetchWalletBalance = async () => {
       if (!user?.email) return;
-      const { data } = await supabase
+      const { data, error, status } = await supabase
         .from('wallets')
         .select('*')
-        .eq('email', user?.email)
+        .eq('email', user.email)
+        .limit(1)
         .single();
-      setWallet(data);
+
+      if (error && status !== 406) {
+        console.error('[❌ Wallet Balance Fetch Error]', error.message);
+        return;
+      }
+
+      setWallet(data || null);
     };
     fetchWalletBalance();
   }, [user]);
@@ -93,58 +87,7 @@ export default function AffiliateWalletPage() {
     fetchWalletDeductions();
   }, [user]);
 
-  const handleConnectStripe = async () => {
-    setConnectLoading(true);
-    try {
-      const res = await fetch('/api/stripe/create-account', {
-        method: 'POST',
-      });
-      const data = await res.json();
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        alert('Failed to create Stripe account.');
-      }
-    } catch (err) {
-      console.error('[❌ Stripe Connect Error]', err);
-      alert('Stripe connection failed.');
-    } finally {
-      setConnectLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    const fetchWallet = async () => {
-      if (!user || !user.email) return;
-
-      const { data, error } = await supabase
-        .from('wallet_topups')
-        .select('amount_gross, amount_net, stripe_fees, stripe_id, status, created_at')
-        .eq('affiliate_email', user.email)
-        .order('created_at', { ascending: false });
-      console.log('[💳 Wallet Fetch Result]', data);
-
-      if (error) {
-        console.error('[❌ Wallet Fetch Error]', error.message);
-        return;
-      }
-
-      setWalletData(data);
-
-      if (data && data.length > 0) {
-        const totalNet = data.reduce((sum, item) => sum + (item.amount_net ?? 0), 0);
-        const totalRefunded = refunds.reduce((sum, r) => sum + (r.amount ?? 0), 0);
-        const totalDeductions = walletDeductions.reduce((sum, d) => sum + (d.amount ?? 0), 0);
-        const availableBalance = totalNet - totalRefunded - totalDeductions;
-        setTotalNetAmount(availableBalance >= 0 ? availableBalance : 0);
-      } else {
-        setTotalNetAmount(0);
-      }
-    };
-
-    fetchWallet();
-  }, [user, refunds, walletDeductions]);
-
+  // Insert Stripe transaction if pending session exists (moved above early returns)
   useEffect(() => {
     const insertTransaction = async () => {
       const sessionId = localStorage.getItem('pending_stripe_session');
@@ -198,6 +141,75 @@ export default function AffiliateWalletPage() {
 
     insertTransaction();
   }, [user]);
+
+  // Fetch wallet topups and set total net amount (move above early returns)
+  useEffect(() => {
+    const fetchWallet = async () => {
+      if (!user || !user.email) return;
+
+      const { data, error } = await supabase
+        .from('wallet_topups')
+        .select('amount_gross, amount_net, stripe_fees, stripe_id, status, created_at')
+        .eq('affiliate_email', user.email)
+        .order('created_at', { ascending: false });
+      console.log('[💳 Wallet Fetch Result]', data);
+
+      if (error) {
+        console.error('[❌ Wallet Fetch Error]', error.message);
+        return;
+      }
+
+      setWalletData(data);
+
+      if (data && data.length > 0) {
+        const totalNet = data.reduce((sum, item) => sum + (item.amount_net ?? 0), 0);
+        const totalRefunded = refunds.reduce((sum, r) => sum + (r.amount ?? 0), 0);
+        const totalDeductions = walletDeductions.reduce((sum, d) => sum + (d.amount ?? 0), 0);
+        const availableBalance = totalNet - totalRefunded - totalDeductions;
+        setTotalNetAmount(availableBalance >= 0 ? availableBalance : 0);
+      } else {
+        setTotalNetAmount(0);
+      }
+    };
+
+    fetchWallet();
+  }, [user, refunds, walletDeductions]);
+
+  // Early return for session: fallback UI instead of redirect to avoid loops
+  if (session === undefined) {
+    // Still loading
+    return <div className="w-full flex items-center justify-center py-12">Loading...</div>;
+  }
+
+  if (session === null) {
+    return (
+      <div className="w-full flex items-center justify-center py-12 text-center">
+        <p>You are not logged in. <a href="/" className="text-blue-500 underline">Go to home</a></p>
+      </div>
+    );
+  }
+
+  const handleConnectStripe = async () => {
+    setConnectLoading(true);
+    try {
+      const res = await fetch('/api/stripe/create-account', {
+        method: 'POST',
+      });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        alert('Failed to create Stripe account.');
+      }
+    } catch (err) {
+      console.error('[❌ Stripe Connect Error]', err);
+      alert('Stripe connection failed.');
+    } finally {
+      setConnectLoading(false);
+    }
+  };
+
+
 
   const handleTopUp = async () => {
     const amountInDollars = parseFloat(amount);
@@ -270,6 +282,35 @@ export default function AffiliateWalletPage() {
 
     setRefundLoading(true);
     try {
+      // Step: Find the top-up to refund from
+      const { data: topups, error: topupError } = await supabase
+        .from('wallet_topups')
+        .select('*')
+        .eq('affiliate_email', user.email)
+        .order('created_at', { ascending: false });
+
+      // Find a refundable topup in JS since we can't compare columns in Supabase JS client
+      const validTopup = topups?.find(t => (t.amount_refunded ?? 0) < (t.amount_net ?? 0));
+      if (!validTopup) {
+        alert('No refundable top-up found.');
+        setRefundLoading(false);
+        return;
+      }
+
+      // Log payload before sending
+      console.log('[🧪 Refund Payload]', {
+        email: user.email,
+        refundAmount: refundAmt,
+        stripe_charge_id: validTopup.stripe_id,
+      });
+
+      // Check for missing/null/undefined values before sending
+      if (!refundAmt || !validTopup?.stripe_id || !user.email) {
+        alert('Missing required refund parameters.');
+        setRefundLoading(false);
+        return;
+      }
+
       const response = await fetch('/api/stripe/refund', {
         method: 'POST',
         headers: {
@@ -277,7 +318,8 @@ export default function AffiliateWalletPage() {
         },
         body: JSON.stringify({
           email: user.email,
-          amount: refundAmt,
+          refundAmount: refundAmt,
+          stripe_charge_id: validTopup.stripe_id,
         }),
       });
 
@@ -321,8 +363,8 @@ export default function AffiliateWalletPage() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-[#111111]">
-      <div className="w-full grid grid-cols-1 md:grid-cols-[1fr_3fr] gap-8 px-4 sm:px-8 py-12">
+    <div className="min-h-screen w-full bg-[#111111] overflow-x-hidden">
+      <div className="w-full flex flex-col gap-8 px-4 sm:px-6 py-12">
         {/* Balance Card */}
         <div className="w-full md:col-span-3 rounded-2xl bg-gradient-to-tr from-[#00C2CB] to-[#00B1E7] shadow-xl px-8 py-8 flex flex-col md:flex-row items-center justify-between gap-6 relative overflow-hidden">
           <div className="flex flex-col gap-2">
@@ -362,9 +404,9 @@ export default function AffiliateWalletPage() {
         </div>
 
         {/* Main Row: Refund, Top Up, and Activity */}
-        <div className="col-span-3 grid grid-cols-1 lg:grid-cols-[1fr_3fr] gap-8">
+        <div className="w-full flex flex-col-reverse lg:flex-row gap-6 flex-wrap">
           {/* Left: Refund & Top Up */}
-          <div className="flex flex-col gap-8 col-span-1 min-w-0">
+          <div className="flex flex-col gap-8 w-full lg:w-[360px]">
             {/* Refund Card */}
             <div className="w-full md:w-[360px] bg-[#1f1f1f] rounded-2xl shadow-lg p-6 flex flex-col gap-4">
               <div className="flex items-center gap-3 mb-2">
@@ -446,7 +488,7 @@ export default function AffiliateWalletPage() {
             </div>
           </div>
           {/* Right: Wallet Activity Table */}
-          <div className="w-full col-span-1 md:col-span-1 self-stretch flex flex-col">
+          <div className="flex-1 min-w-0">
             <div className="flex-1 w-full bg-[#1f1f1f] rounded-2xl shadow-lg p-6 flex flex-col">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-xl font-semibold text-[#00C2CB]">Wallet Activity</h2>
