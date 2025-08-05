@@ -33,6 +33,8 @@ export default function BusinessInbox() {
   const [requests, setRequests] = useState<AffiliateRequest[]>([]);
   const [adIdeas, setAdIdeas] = useState<AdIdea[]>([]);
   const [offers, setOffers] = useState<Offer[]>([]);
+  const [showRequests, setShowRequests] = useState(true);
+  const [showAdIdeas, setShowAdIdeas] = useState(true);
 
   useEffect(() => {
     const fetchOffers = async () => {
@@ -77,84 +79,110 @@ export default function BusinessInbox() {
   };
 
   return (
-    <div className="flex justify-center px-6 py-10">
-      <div className="w-full max-w-3xl">
-        <h1 className="text-3xl font-bold text-[#00C2CB] mb-2 text-center">Inbox</h1>
-        <p className="text-gray-500 mb-8 text-center">Review pending affiliate requests and ad submissions.</p>
+    <div className="min-h-screen bg-[#0e0e0e] text-white px-12 pt-12 pb-24 w-full">
+      <div className="w-full max-w-6xl mx-auto">
+        <div className="mb-12">
+          <h1 className="text-5xl font-extrabold text-[#00C2CB] tracking-tight">Inbox</h1>
+          <p className="text-gray-400 mt-2 text-lg">Affiliate requests and ad idea submissions for your offers.</p>
+        </div>
 
         {/* Affiliate Requests */}
-        <section className="mb-12">
-          <h2 className="text-xl font-semibold text-[#00C2CB] mb-4">Affiliate Requests</h2>
-
-          {requests.length > 0 ? (
-            requests.map((req) => (
-              <div
-                key={req.id}
-                className="bg-white border-l-4 border-[#00C2CB] rounded-xl p-5 shadow-sm mb-5 transition hover:shadow-md"
-              >
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="text-sm text-gray-600 mb-1">
-                      <span className="font-medium text-[#00C2CB]">{req.affiliate_email}</span> wants to promote{' '}
+        {requests.length > 0 && (
+          <section className="mb-14">
+            <div
+              onClick={() => setShowRequests(!showRequests)}
+              className="bg-[#121212] hover:bg-[#1c1c1c] px-6 py-4 rounded-md shadow border border-[#222] cursor-pointer flex items-center justify-between mb-4"
+            >
+              <h2 className="text-xl font-bold text-[#00C2CB]">Affiliate Requests</h2>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-[#00C2CB] bg-[#00C2CB]/10 px-2 py-0.5 rounded-full font-medium">
+                  {requests.length}
+                </span>
+                <span className="text-lg text-[#00C2CB]">{showRequests ? '−' : '+'}</span>
+              </div>
+            </div>
+            {showRequests && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {requests.map((req) => (
+                  <div
+                    key={req.id}
+                    className="bg-[#121212] rounded-xl p-7 border-l-4 border-[#00C2CB] hover:ring-1 hover:ring-[#00C2CB] shadow-md transition"
+                  >
+                    <p className="text-sm text-gray-400 mb-1">
+                      <span className="font-semibold text-[#00C2CB]">{req.affiliate_email}</span> wants to promote{' '}
                       <span className="underline">{getOfferName(req.offer_id)}</span>
                     </p>
                     {req.notes && (
-                      <p className="text-sm italic text-gray-500">“{req.notes}”</p>
+                      <p className="text-sm italic text-gray-500 mt-1">“{req.notes}”</p>
                     )}
-                    <p className="text-xs text-gray-400 mt-2">
+                    <p className="text-xs text-gray-500 mt-2">
                       Requested on {new Date(req.created_at).toLocaleDateString()}
                     </p>
+                    <div className="mt-4">
+                      <Link href="/business/my-business/affiliate-requests">
+                        <button className="px-4 py-1.5 bg-[#00C2CB] hover:bg-[#00b0b8] text-white rounded-md text-sm shadow-md transition">
+                          Manage Requests
+                        </button>
+                      </Link>
+                    </div>
                   </div>
-                  <div className="flex flex-col items-end gap-2">
-                    <span className="bg-yellow-100 text-yellow-700 px-3 py-1 rounded-full text-xs font-medium">
-                      Pending
-                    </span>
-                    <Link href="/business/my-business/affiliate-requests">
-                      <button className="bg-[#00C2CB] hover:bg-[#00b0b8] text-white px-4 py-2 rounded text-sm">
-                        View Request
-                      </button>
-                    </Link>
-                  </div>
-                </div>
+                ))}
               </div>
-            ))
-          ) : (
-            <p className="text-sm text-gray-500 text-center">No pending affiliate requests.</p>
-          )}
-        </section>
+            )}
+          </section>
+        )}
 
         {/* Ad Idea Submissions */}
-        <section>
-          <h2 className="text-xl font-semibold text-green-600 mb-4">Ad Idea Submissions</h2>
-
-          {adIdeas.length > 0 ? (
-            adIdeas.map((ad) => (
-              <div
-                key={ad.id}
-                className="bg-white border-l-4 border-green-400 rounded-xl p-5 shadow-sm mb-5 transition hover:shadow-md"
-              >
-                <div className="flex justify-between items-start">
-                  <div>
-                    <p className="text-sm text-green-700 font-medium">
+        {adIdeas.length > 0 && (
+          <section className="mb-14">
+            <div
+              onClick={() => setShowAdIdeas(!showAdIdeas)}
+              className="bg-[#121212] hover:bg-[#1c1c1c] px-6 py-4 rounded-md shadow border border-[#222] cursor-pointer flex items-center justify-between mb-4"
+            >
+              <h2 className="text-xl font-bold text-green-400">Ad Ideas</h2>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-green-400 bg-green-400/10 px-2 py-0.5 rounded-full font-medium">
+                  {adIdeas.length}
+                </span>
+                <span className="text-lg text-green-400">{showAdIdeas ? '−' : '+'}</span>
+              </div>
+            </div>
+            {showAdIdeas && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {adIdeas.map((ad) => (
+                  <div
+                    key={ad.id}
+                    className="bg-[#121212] rounded-xl p-7 border-l-4 border-green-500 hover:ring-1 hover:ring-green-500 shadow-md transition"
+                  >
+                    <p className="text-sm text-green-400 font-medium">
                       New ad submitted for <span className="underline">{getOfferName(ad.offer_id)}</span>
                     </p>
-                    <p className="text-sm text-gray-600 mt-1">
+                    <p className="text-sm text-gray-400 mt-1">
                       From: {ad.affiliate_email}
                     </p>
-                    <p className="text-xs text-gray-400 mt-2">
+                    <p className="text-xs text-gray-500 mt-2">
                       Submitted on {new Date(ad.created_at).toLocaleDateString()}
                     </p>
+                    <div className="mt-4">
+                      <Link href="/business/my-business/ad-ideas">
+                        <button className="px-4 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-md text-sm shadow-md transition">
+                          Review Ads
+                        </button>
+                      </Link>
+                    </div>
                   </div>
-                  <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-xs font-medium h-fit mt-1">
-                    Pending
-                  </span>
-                </div>
+                ))}
               </div>
-            ))
-          ) : (
-            <p className="text-sm text-gray-500 text-center">No new ad submissions.</p>
-          )}
-        </section>
+            )}
+          </section>
+        )}
+
+        {requests.length === 0 && adIdeas.length === 0 && (
+          <div className="text-center mt-32 text-gray-500">
+            <h3 className="text-2xl font-bold">Nothing new yet</h3>
+            <p className="mt-2 text-md">All affiliate and ad submissions will appear here once received.</p>
+          </div>
+        )}
       </div>
     </div>
   );

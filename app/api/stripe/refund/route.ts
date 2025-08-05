@@ -54,12 +54,13 @@ export async function POST(req: Request) {
         charge: topup.stripe_id,
       });
     } else if (topup.stripe_id.startsWith('pi_')) {
-      // Refund using payment intent with reverse transfer
-      const pi: Stripe.Response<Stripe.PaymentIntent> = await stripe.paymentIntents.retrieve(topup.stripe_id, {
-        expand: ['charges'],
+      // Refund using charge retrieved from the payment intent
+      const charges = await stripe.charges.list({
+        payment_intent: topup.stripe_id,
+        limit: 1,
       });
 
-      const chargeId = (pi as any)?.charges?.data?.[0]?.id;
+      const chargeId = charges.data[0]?.id;
 
       if (!chargeId) {
         throw new Error('No charge found for the given Payment Intent.');

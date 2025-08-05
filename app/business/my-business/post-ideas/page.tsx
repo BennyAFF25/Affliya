@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Fragment } from 'react';
 import { useSession } from '@supabase/auth-helpers-react';
 import { supabase } from '@/../utils/supabase/pages-client';
-import { Dialog } from '@headlessui/react';
+import { Listbox, Transition, Dialog } from '@headlessui/react';
+import { CheckIcon, ChevronUpDownIcon } from '@heroicons/react/20/solid';
 
 interface PostIdea {
   id: string;
@@ -32,12 +33,13 @@ export default function PostIdeasPage() {
 
   const [selectedPost, setSelectedPost] = useState<PostIdea | null>(null);
   const [isOpen, setIsOpen] = useState(false);
+  const [selectedPostInDropdown, setSelectedPostInDropdown] = useState<PostIdea | null>(null);
+  const [showRecent, setShowRecent] = useState(false);
 
   useEffect(() => {
     const localOffers = localStorage.getItem('my-offers');
     if (localOffers && user?.email) {
       const parsedOffers: Offer[] = JSON.parse(localOffers);
-      // Only map offers belonging to the current user
       const map: Record<string, string> = {};
       parsedOffers.forEach((o) => {
         if (o.businessEmail === user.email) {
@@ -59,13 +61,16 @@ export default function PostIdeasPage() {
         const { data, error } = await supabase
           .from("organic_posts")
           .select("*")
-          .eq("business_email", session.user.email);
+          .eq("business_email", session.user.email)
+          .order('created_at', { ascending: false });
 
         if (error) {
           console.error("[❌ Error fetching organic posts]", error);
         } else {
-          console.log("[✅ Fetched Organic Posts]", data);
           setPosts(data);
+          if (data && data.length > 0) {
+            setSelectedPostInDropdown(data[0]);
+          }
         }
       } catch (err) {
         console.error("[❌ Unexpected error fetching posts]", err);
@@ -74,6 +79,12 @@ export default function PostIdeasPage() {
 
     fetchOrganicPosts();
   }, [session]);
+
+  const statusColors = {
+    approved: 'bg-green-600 text-green-100',
+    rejected: 'bg-red-600 text-red-100',
+    pending: 'bg-yellow-600 text-yellow-100',
+  };
 
   const handleStatusChange = async (id: string, newStatus: string) => {
     const { error } = await supabase
@@ -87,113 +98,141 @@ export default function PostIdeasPage() {
           post.id === id ? { ...post, status: newStatus } : post
         )
       );
+      if (selectedPost && selectedPost.id === id) {
+        setSelectedPost({ ...selectedPost, status: newStatus });
+      }
+      if (selectedPostInDropdown && selectedPostInDropdown.id === id) {
+        setSelectedPostInDropdown({ ...selectedPostInDropdown, status: newStatus });
+      }
     } else {
       console.error(`[❌ Update Error] Failed to update status:`, error.message);
     }
   };
 
   return (
-    <div className="p-10">
-      <h1 className="text-3xl font-bold text-[#00C2CB] mb-6">Submitted Organic Posts</h1>
+    <div className="min-h-screen bg-[#0a0a0a] p-10 text-white">
+      <h1 className="text-3xl font-bold text-[#00C2CB] mb-6">Affiliate Post Requests</h1>
 
       {posts.length === 0 ? (
-        <p className="text-gray-600">No organic posts submitted yet.</p>
+        <p className="text-gray-600">No post ideas submitted yet.</p>
       ) : (
-        <div className="space-y-6">
-          {posts.map((post) => {
-            // [🖼 Image URL]: post.image_url
-            return (
+        <>
+          <h2 className="text-xl font-semibold text-white mb-4">No new posts to review</h2>
+          <div className="space-y-6">
+            {posts.filter(p => p.status === 'pending').map((post) => (
               <div
                 key={post.id}
-                className="bg-white border border-[#00C2CB]/20 shadow-md rounded-lg p-6 transition duration-300 hover:shadow-lg hover:border-[#00C2CB] hover:ring-2 hover:ring-[#00C2CB]/40"
+                className="bg-[#1f1f1f] border border-[#2c2c2c] rounded-xl px-6 py-5 shadow-md flex justify-between items-center hover:shadow-[0_0_8px_#00C2CB] transition-all"
               >
-                {/* Header: flex row with affiliate email left, status badge right */}
-                <div className="flex items-center justify-between mb-4">
-                  <div className="font-semibold text-gray-800 text-sm">
-                    {post.affiliate_email}
+                <div className="flex items-center gap-4">
+                  <div className="w-8 h-8 flex items-center justify-center bg-[#00C2CB]/20 rounded-full">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-[#00C2CB]" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M5 3a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V8.828a2 2 0 00-.586-1.414l-5.828-5.828A2 2 0 0013.172 1H5zm7 0v6h6l-6-6z" />
+                    </svg>
                   </div>
-                  <span
-                    className={`text-xs px-2 py-1 rounded-full ${
-                      post.status === 'approved'
-                        ? 'bg-green-100 text-green-600'
-                        : post.status === 'rejected'
-                        ? 'bg-red-100 text-red-600'
-                        : 'bg-yellow-100 text-yellow-600'
-                    }`}
-                  >
+                  <div className="flex flex-col">
+                    <h2 className="text-xl font-semibold text-white">{offersMap[post.offer_id] || 'Unknown Offer'}</h2>
+                    <p className="text-sm text-gray-400">{post.platform}</p>
+                    <div className="flex items-center gap-3 mt-2">
+                      <p className="text-sm text-gray-400">
+                        <span className="font-semibold text-white">Affiliate:</span> {post.affiliate_email}
+                      </p>
+                      <button
+                        onClick={() => setSelectedPost(post)}
+                        className="text-sm text-[#00C2CB] hover:underline"
+                      >
+                        View Detail
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex flex-col items-end gap-2">
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    post.status === 'approved' ? 'bg-green-500/20 text-green-300'
+                    : post.status === 'rejected' ? 'bg-red-500/20 text-red-400'
+                    : 'bg-yellow-400/20 text-yellow-300'
+                  }`}>
                     {post.status}
                   </span>
-                </div>
-                {/* Main content: platform, caption, and offer */}
-                <div className="text-sm text-gray-800">
-                  <span className="inline text-[13px] text-gray-600 font-medium mr-2">
-                    {post.platform}
-                  </span>
-                  {post.caption}
-                </div>
-                <div className="text-xs text-gray-500 mt-2">
-                  Offer: {offersMap[post.offer_id] || 'Unknown'}
-                </div>
-                {/* Post image preview (clickable for modal) */}
-                {post.image_url && (
-                  <img
-                    src={post.image_url}
-                    alt="Post Image"
-                    className="mt-3 w-full max-h-60 object-contain rounded cursor-pointer border border-gray-200"
-                    referrerPolicy="no-referrer"
-                    loading="lazy"
-                    data-testid="organic-post-image"
-                    onClick={() => {
-                      setSelectedPost(post);
-                      setIsOpen(true);
-                    }}
-                    onError={(e) => {
-                      const target = e.currentTarget;
-                      if (!target.dataset.fallbackUsed) {
-                        console.warn('[🧨 Image Load Error]', target.src);
-                        target.src = '/fallback-organic-post.png';
-                        target.dataset.fallbackUsed = 'true';
-                      }
-                    }}
-                  />
-                )}
-                {/* View Detail button */}
-                <button
-                  onClick={() => {
-                    setSelectedPost(post);
-                    setIsOpen(true);
-                  }}
-                  className="mt-3 text-[#00C2CB] hover:underline"
-                >
-                  View Detail
-                </button>
-                {/* Approve/Reject buttons */}
-                {post.status === 'pending' && (
-                  <div className="flex gap-4 mt-4">
+                  <div className="flex gap-3">
                     <button
                       onClick={() => handleStatusChange(post.id, 'approved')}
-                      className="bg-[#00C2CB] hover:bg-[#00b0b8] text-white px-4 py-2 rounded"
+                      className="bg-[#00C2CB] text-black hover:bg-[#00b0b8] px-4 py-2 rounded-lg text-sm font-semibold"
                     >
                       Approve
                     </button>
                     <button
                       onClick={() => handleStatusChange(post.id, 'rejected')}
-                      className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded"
+                      className="bg-[#2c2c2c] text-gray-300 hover:bg-[#3a3a3a] px-4 py-2 rounded-lg text-sm"
                     >
                       Reject
                     </button>
                   </div>
-                )}
+                </div>
               </div>
-            );
-          })}
-        </div>
+            ))}
+          </div>
+          <div className="mt-8">
+            <div
+              onClick={() => setShowRecent((prev) => !prev)}
+              className="cursor-pointer mt-10 bg-[#1f1f1f] hover:bg-[#2a2a2a] text-[#00C2CB] font-semibold px-6 py-3 rounded-lg text-center shadow transition-all"
+            >
+              {showRecent ? 'Hide Recent Posts' : 'Show Recent Posts'}
+            </div>
+            {showRecent && (
+              <div className="space-y-6 mt-4">
+                {posts.filter(p => p.status !== 'pending').map((post) => (
+                  <div
+                    key={post.id}
+                    className="bg-[#1f1f1f] border border-[#2c2c2c] rounded-xl px-6 py-5 shadow-md flex justify-between items-center"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="w-8 h-8 flex items-center justify-center bg-[#00C2CB]/20 rounded-full">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-[#00C2CB]" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M5 3a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V8.828a2 2 0 00-.586-1.414l-5.828-5.828A2 2 0 0013.172 1H5zm7 0v6h6l-6-6z" />
+                        </svg>
+                      </div>
+                      <div className="flex flex-col">
+                        <h2 className="text-xl font-semibold text-white">{offersMap[post.offer_id] || 'Unknown Offer'}</h2>
+                        <p className="text-sm text-gray-400">{post.platform}</p>
+                        <div className="flex items-center gap-3 mt-2">
+                          <p className="text-sm text-gray-400">
+                            <span className="font-semibold text-white">Affiliate:</span> {post.affiliate_email}
+                          </p>
+                          <button
+                            onClick={() => setSelectedPost(post)}
+                            className="text-sm text-[#00C2CB] hover:underline"
+                          >
+                            View Detail
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end gap-2">
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        post.status === 'approved' ? 'bg-green-500/20 text-green-300'
+                        : 'bg-red-500/20 text-red-400'
+                      }`}>
+                        {post.status}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
       )}
+      <section className="mt-12 text-center text-gray-500">
+        {posts.length === 0 && (
+          <p>No post ideas have been submitted yet. Once affiliates submit posts, they will appear here for review.</p>
+        )}
+      </section>
 
-      <Dialog open={isOpen} onClose={() => setIsOpen(false)} className="fixed z-50 inset-0 flex items-center justify-center">
-        <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
-        <div className="bg-gradient-to-b from-[#1f1f1f] to-[#111111] text-white p-0 rounded-lg shadow-lg z-50 max-w-sm w-full overflow-hidden border border-gray-800">
-          {selectedPost && (
+      {selectedPost && (
+        <div className="fixed z-50 inset-0 flex items-center justify-center">
+          <div className="fixed inset-0 bg-black/30" aria-hidden="true" onClick={() => setSelectedPost(null)} />
+          <div className="bg-gradient-to-b from-[#1f1f1f] to-[#111111] text-white p-0 rounded-lg shadow-lg z-50 max-w-sm w-full overflow-hidden border border-gray-800">
             <div className="flex flex-col bg-gradient-to-b from-gray-800 to-gray-900 text-white">
               <div className="flex items-center gap-3 p-4 border-b border-gray-100">
                 <div className="w-8 h-8 rounded-full bg-gradient-to-r from-[#ff5757] to-[#8c52ff] text-white flex items-center justify-center font-bold text-sm">
@@ -202,7 +241,7 @@ export default function PostIdeasPage() {
                 <div className="text-sm font-semibold">@{selectedPost.affiliate_email.split('@')[0]}</div>
               </div>
 
-              {selectedPost.video_url?.toLowerCase().endsWith('.mp4') ? (
+              {selectedPost.video_url ? (
                 <video
                   src={selectedPost.video_url}
                   controls
@@ -228,63 +267,34 @@ export default function PostIdeasPage() {
               <div className="px-4 py-2 text-sm">
                 <p>
                   <span className="font-semibold">@{selectedPost.affiliate_email.split('@')[0]}</span>{' '}
-                  {selectedPost.caption}
+                  posted on {selectedPost.platform}
                 </p>
               </div>
 
               <div className="px-4 py-3 text-sm space-y-1">
-                <div className="text-xs text-white/60">Platform: {selectedPost.platform}</div>
-                <div className="text-xs">
-                  Status:{' '}
-                  <span
-                    className={`font-semibold ${
-                      selectedPost.status === 'approved'
-                        ? 'text-green-600'
-                        : selectedPost.status === 'rejected'
-                        ? 'text-red-600'
-                        : 'text-yellow-600'
-                    }`}
-                  >
-                    {selectedPost.status}
-                  </span>
-                </div>
+                <div className="text-xs text-white/60">Link: {selectedPost.link}</div>
+                <div className="text-xs">Status: <span className={`font-semibold ${
+                  selectedPost.status === 'approved'
+                    ? 'text-green-600'
+                    : selectedPost.status === 'rejected'
+                    ? 'text-red-500'
+                    : 'text-yellow-600'
+                }`}>{selectedPost.status}</span></div>
+                <p className="mt-2 text-sm text-gray-400 italic">Submitted on {new Date(selectedPost.created_at).toLocaleDateString()}</p>
               </div>
-
-              {selectedPost.status === 'pending' && (
-                <div className="flex gap-4 px-4 pt-4 pb-2">
-                  <button
-                    onClick={async () => {
-                      await handleStatusChange(selectedPost.id, 'approved');
-                      setSelectedPost((prev) => prev ? { ...prev, status: 'approved' } : null);
-                    }}
-                    className="w-full py-2 rounded bg-[#00C2CB] hover:bg-[#00b0b8] text-white font-medium text-sm"
-                  >
-                    Approve
-                  </button>
-                  <button
-                    onClick={async () => {
-                      await handleStatusChange(selectedPost.id, 'rejected');
-                      setSelectedPost((prev) => prev ? { ...prev, status: 'rejected' } : null);
-                    }}
-                    className="w-full py-2 rounded bg-red-500 hover:bg-red-600 text-white font-medium text-sm"
-                  >
-                    Reject
-                  </button>
-                </div>
-              )}
 
               <div className="p-4 border-t border-gray-100">
                 <button
                   className="w-full py-2 rounded bg-[#00C2CB] hover:bg-[#00b0b8] text-white font-medium text-sm"
-                  onClick={() => setIsOpen(false)}
+                  onClick={() => setSelectedPost(null)}
                 >
                   Close
                 </button>
               </div>
             </div>
-          )}
+          </div>
         </div>
-      </Dialog>
+      )}
     </div>
   );
 }

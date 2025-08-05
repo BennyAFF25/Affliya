@@ -20,8 +20,8 @@ export default function BusinessSettingsPage() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto p-10">
-      <div className="bg-white shadow-md border border-gray-200 rounded-xl p-8">
+    <div className="min-h-screen bg-[#0e0e0e] text-white px-8 py-12">
+      <div className="bg-[#1a1a1a] shadow-md border border-[#222] rounded-xl p-8">
         <div className="flex items-center gap-2 mb-6">
           <Building2 className="text-[#00C2CB]" size={24} />
           <h1 className="text-2xl font-bold text-[#00C2CB]">Business Settings</h1>
@@ -30,42 +30,42 @@ export default function BusinessSettingsPage() {
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Business Info */}
           <div>
-            <h2 className="text-sm font-semibold text-gray-500 mb-2">Business Info</h2>
+            <h2 className="text-sm font-semibold text-gray-300 mb-2">Business Info</h2>
 
-            <label className="block font-medium mb-1">Business Name</label>
+            <label className="block font-medium mb-1 text-white">Business Name</label>
             <input
               type="text"
               value={businessName}
               onChange={(e) => setBusinessName(e.target.value)}
-              className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00C2CB]"
+              className="w-full p-3 bg-[#121212] border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00C2CB] text-white placeholder-gray-500"
               placeholder="e.g. FalconX Pty Ltd"
               required
             />
 
-            <label className="block font-medium mt-4 mb-1">Email Address</label>
+            <label className="block font-medium mt-4 mb-1 text-white">Email Address</label>
             <input
               type="email"
               value={user?.email || ''}
               disabled
-              className="w-full p-3 border border-gray-200 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
+              className="w-full p-3 bg-[#1e1e1e] border border-gray-600 rounded-lg text-gray-500 cursor-not-allowed"
             />
 
-            <label className="block font-medium mt-4 mb-1">Website (optional)</label>
+            <label className="block font-medium mt-4 mb-1 text-white">Website (optional)</label>
             <input
               type="url"
               value={website}
               onChange={(e) => setWebsite(e.target.value)}
-              className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00C2CB]"
+              className="w-full p-3 bg-[#121212] border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00C2CB] text-white placeholder-gray-500"
               placeholder="https://yourwebsite.com"
             />
           </div>
 
           {/* Payment Preferences */}
           <div>
-            <h2 className="text-sm font-semibold text-gray-500 mb-2">Payout Method</h2>
+            <h2 className="text-sm font-semibold text-gray-300 mb-2">Payout Method</h2>
 
             <div className="flex items-center gap-4 mb-4">
-              <label className="flex items-center gap-2">
+              <label className="flex items-center gap-2 text-white">
                 <input
                   type="radio"
                   name="payment"
@@ -74,7 +74,7 @@ export default function BusinessSettingsPage() {
                 />
                 Bank Transfer
               </label>
-              <label className="flex items-center gap-2">
+              <label className="flex items-center gap-2 text-white">
                 <input
                   type="radio"
                   name="payment"
@@ -94,7 +94,7 @@ export default function BusinessSettingsPage() {
                   ? 'Bank account or BSB/Acct #'
                   : 'Stripe email or payout link'
               }
-              className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00C2CB]"
+              className="w-full p-3 bg-[#121212] border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00C2CB] text-white placeholder-gray-500"
               required
             />
           </div>

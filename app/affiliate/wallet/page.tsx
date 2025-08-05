@@ -30,6 +30,9 @@ export default function AffiliateWalletPage() {
   const [refundAmount, setRefundAmount] = useState('');
   const [refundLoading, setRefundLoading] = useState(false);
   const [walletDeductions, setWalletDeductions] = useState<any[]>([]);
+  // New state for refundable topups and selected topup
+  const [refundableTopups, setRefundableTopups] = useState<any[]>([]);
+  const [selectedTopupId, setSelectedTopupId] = useState<string | null>(null);
 
   // Fetch live wallet balance (wallets table)
   useEffect(() => {
@@ -142,14 +145,14 @@ export default function AffiliateWalletPage() {
     insertTransaction();
   }, [user]);
 
-  // Fetch wallet topups and set total net amount (move above early returns)
+  // Fetch wallet topups and set total net amount and refundable topups
   useEffect(() => {
     const fetchWallet = async () => {
       if (!user || !user.email) return;
 
       const { data, error } = await supabase
         .from('wallet_topups')
-        .select('amount_gross, amount_net, stripe_fees, stripe_id, status, created_at')
+        .select('amount_gross, amount_net, stripe_fees, stripe_id, status, created_at, amount_refunded')
         .eq('affiliate_email', user.email)
         .order('created_at', { ascending: false });
       console.log('[💳 Wallet Fetch Result]', data);
@@ -161,7 +164,17 @@ export default function AffiliateWalletPage() {
 
       setWalletData(data);
 
+      // Derive refundable topups, sorted by created_at desc, filtered by amount_refunded < amount_net
       if (data && data.length > 0) {
+        const refundable = data
+          .filter(t => (t.amount_refunded ?? 0) < (t.amount_net ?? 0))
+          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        setRefundableTopups(refundable);
+        // Set default selected topup if not already set
+        if (!selectedTopupId && refundable.length > 0) {
+          setSelectedTopupId(refundable[0].stripe_id);
+        }
+
         const totalNet = data.reduce((sum, item) => sum + (item.amount_net ?? 0), 0);
         const totalRefunded = refunds.reduce((sum, r) => sum + (r.amount ?? 0), 0);
         const totalDeductions = walletDeductions.reduce((sum, d) => sum + (d.amount ?? 0), 0);
@@ -169,10 +182,12 @@ export default function AffiliateWalletPage() {
         setTotalNetAmount(availableBalance >= 0 ? availableBalance : 0);
       } else {
         setTotalNetAmount(0);
+        setRefundableTopups([]);
       }
     };
 
     fetchWallet();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, refunds, walletDeductions]);
 
   // Early return for session: fallback UI instead of redirect to avoid loops
@@ -279,33 +294,24 @@ export default function AffiliateWalletPage() {
       alert('User not authenticated.');
       return;
     }
+    // Find the selected topup
+    const selectedTopup = refundableTopups.find(t => t.stripe_id === selectedTopupId);
+    if (!selectedTopup) {
+      alert('Please select a top-up to refund from.');
+      return;
+    }
 
     setRefundLoading(true);
     try {
-      // Step: Find the top-up to refund from
-      const { data: topups, error: topupError } = await supabase
-        .from('wallet_topups')
-        .select('*')
-        .eq('affiliate_email', user.email)
-        .order('created_at', { ascending: false });
-
-      // Find a refundable topup in JS since we can't compare columns in Supabase JS client
-      const validTopup = topups?.find(t => (t.amount_refunded ?? 0) < (t.amount_net ?? 0));
-      if (!validTopup) {
-        alert('No refundable top-up found.');
-        setRefundLoading(false);
-        return;
-      }
-
       // Log payload before sending
       console.log('[🧪 Refund Payload]', {
         email: user.email,
         refundAmount: refundAmt,
-        stripe_charge_id: validTopup.stripe_id,
+        stripe_charge_id: selectedTopup.stripe_id,
       });
 
       // Check for missing/null/undefined values before sending
-      if (!refundAmt || !validTopup?.stripe_id || !user.email) {
+      if (!refundAmt || !selectedTopup?.stripe_id || !user.email) {
         alert('Missing required refund parameters.');
         setRefundLoading(false);
         return;
@@ -319,7 +325,7 @@ export default function AffiliateWalletPage() {
         body: JSON.stringify({
           email: user.email,
           refundAmount: refundAmt,
-          stripe_charge_id: validTopup.stripe_id,
+          stripe_charge_id: selectedTopup.stripe_id,
         }),
       });
 
@@ -339,13 +345,23 @@ export default function AffiliateWalletPage() {
         // Refresh wallet data as well
         const { data: walletTopupsData, error: walletError } = await supabase
           .from('wallet_topups')
-          .select('amount_gross, amount_net, stripe_fees, stripe_id, status, created_at')
+          .select('amount_gross, amount_net, stripe_fees, stripe_id, status, created_at, amount_refunded')
           .eq('affiliate_email', user.email)
           .order('created_at', { ascending: false });
         if (!walletError) {
           setWalletData(walletTopupsData);
+          // Also update refundableTopups and selectedTopupId after refund
+          const refundable = walletTopupsData
+            .filter((t: any) => (t.amount_refunded ?? 0) < (t.amount_net ?? 0))
+            .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+          setRefundableTopups(refundable);
+          if (refundable.length > 0) {
+            setSelectedTopupId(refundable[0].stripe_id);
+          } else {
+            setSelectedTopupId(null);
+          }
           if (walletTopupsData && walletTopupsData.length > 0) {
-            const totalNet = walletTopupsData.reduce((sum, item) => sum + (item.amount_net ?? 0), 0);
+            const totalNet = walletTopupsData.reduce((sum: number, item: any) => sum + (item.amount_net ?? 0), 0);
             setTotalNetAmount(totalNet);
           } else {
             setTotalNetAmount(0);
@@ -420,6 +436,24 @@ export default function AffiliateWalletPage() {
               <div className="text-sm text-gray-600 mb-1">
                 Available: <span className="font-bold text-gray-900">{currencySymbols[currency] ?? '$'}{totalNetAmount.toFixed(2)}</span>
               </div>
+              {/* Refundable topups dropdown */}
+              {refundableTopups.length > 0 && (
+                <select
+                  value={selectedTopupId ?? ''}
+                  onChange={(e) => setSelectedTopupId(e.target.value)}
+                  className="border border-gray-200 px-4 py-2 rounded-lg w-full text-sm mb-2 bg-white"
+                >
+                  {refundableTopups.map((topup) => {
+                    const remaining = (topup.amount_net ?? 0) - (topup.amount_refunded ?? 0);
+                    return (
+                      <option key={topup.stripe_id} value={topup.stripe_id}>
+                        {currencySymbols[currency] ?? '$'}
+                        {remaining.toFixed(2)} available from {new Date(topup.created_at).toLocaleDateString()}
+                      </option>
+                    );
+                  })}
+                </select>
+              )}
               <input
                 type="number"
                 min="0"
