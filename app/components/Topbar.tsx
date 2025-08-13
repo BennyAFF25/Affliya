@@ -16,7 +16,7 @@ export default function Topbar() {
   return (
     <header className="w-full bg-[#1F1F1F] px-6 py-2 border-b border-gray-800 flex justify-between items-center">
       <Link href="/" className="text-2xl font-bold text-[#00C2CB] tracking-tight">
-        Affliya
+        Nettmark
       </Link>
 
       <div className="flex items-center gap-4">

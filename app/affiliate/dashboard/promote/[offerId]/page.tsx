@@ -1,994 +1,1334 @@
 // eslint-disable-next-line
 'use client';
 
-import { useState, useEffect } from 'react';
-import { fetchReachEstimate } from '@/../utils/meta/fetchReachEstimate';
-import { useRouter } from 'next/navigation';
-import { useParams } from 'next/navigation';
-import { supabase } from '@/../utils/supabase/pages-client';
+import { useState, useEffect, useMemo, useRef, type ReactNode } from 'react';
+import { useRouter, useParams } from 'next/navigation';
 import { useSession } from '@supabase/auth-helpers-react';
+import { supabase } from '@/../utils/supabase/pages-client';
+import { fetchReachEstimate } from '@/../utils/meta/fetchReachEstimate';
+
+type GenderOpt = '' | '1' | '2'; // 1=Male, 2=Female
+
+type PlacementKey =
+  | 'facebook_feed'
+  | 'instagram_feed'
+  | 'instagram_reels'
+  | 'facebook_reels'
+  | 'facebook_stories'
+  | 'instagram_stories';
 
 export default function PromoteOfferPage() {
   const router = useRouter();
   const params = useParams();
   const offerId = params.offerId as string;
+
   const session = useSession();
   const userEmail = session?.user?.email || '';
 
-  // --- Tracking Link for Affiliate ---
-  const trackingLink = `https://affliya.vercel.app/go/${offerId}___${userEmail}`;
-
-  // Redirect unauthenticated users to '/' (prevent looping)
+  // ─────────────────────────────
+  // Auth guard (avoid loop)
+  // ─────────────────────────────
   useEffect(() => {
     if (session === undefined) return;
-    if (session === null) {
-      router.push('/');
-    }
+    if (session === null) router.push('/');
   }, [session, router]);
 
-  const [formData, setFormData] = useState({
-    headline: '',
-    caption: '',
-    description: '',
-    display_link: '',
-    thumbnail_url: '',
-    call_to_action: 'LEARN_MORE',
+  // ─────────────────────────────
+  // Derived tracking link
+  // ─────────────────────────────
+  const trackingLink = useMemo(
+    () => `https://affliya.vercel.app/go/${offerId}___${userEmail}`,
+    [offerId, userEmail]
+  );
+
+  // ─────────────────────────────
+  // Simplified, Meta-aligned form state
+  // (campaign → ad set → ad creative)
+  // ─────────────────────────────
+  const [form, setForm] = useState({
+    // Campaign
+    campaign_name: '',
     objective: 'OUTCOME_TRAFFIC',
-    budget_amount: 1000,
-    budget_type: 'DAILY',
+
+    // Ad Set
+    budget_amount_dollars: 10, // UI in dollars; we will save as cents in DB
+    budget_type: 'DAILY', // DAILY | LIFETIME
     start_time: '',
     end_time: '',
-    audience: '',
-    location: '',
-    age_range: '',
-    gender: '',
-    interests: '',
-    campaign_name: '',
-    special_ad_category: '',
-    ad_set_name: '',
-    conversion_location: '',
-    dataset_id: '',
-    conversion_event: '',
-    performance_goal: '',
-    placements_type: '',
-    ad_name: '',
-    page_id: '',
-    instagram_id: '',
-    platform: '',
+    location_countries: 'AU', // comma-separated ISO codes (e.g., AU,US)
+    age_min: 18,
+    age_max: 65,
+    gender: '' as GenderOpt, // '' = All, '1'=Male, '2'=Female
+    interests_csv: '', // comma-separated
+
+    // Placements (jsonb)
+    placements: {
+      facebook_feed: true,
+      instagram_feed: true,
+      instagram_reels: true,
+      facebook_reels: false,
+      facebook_stories: false,
+      instagram_stories: false,
+    } as Record<PlacementKey, boolean>,
+
+    // Ad Creative
+    headline: '',
+    caption: '',
+    call_to_action: 'LEARN_MORE',
+    display_link: '',
   });
+
+  // Media
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
-  const [organicFile, setOrganicFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
-  const [mediaType, setMediaType] = useState<'VIDEO' | 'IMAGE'>('VIDEO');
-  const [activeTab, setActiveTab] = useState<'ad' | 'organic'>('ad');
-  // Step state for ad idea submission
-  const [step, setStep] = useState(1);
 
-  // Reach estimate state
-  const [reachEstimate, setReachEstimate] = useState<number | null>(null);
+  // Brand preview data (from offers table / offer-logos bucket)
+  const [brandName, setBrandName] = useState<string>('Your Brand Name');
+  const [brandLogoUrl, setBrandLogoUrl] = useState<string | null>(null);
 
-  // --- Estimated Reach Metrics (Potential Reach, Conversion Rate, Estimated Spend) ---
-  // Dynamic state for conversion rate and estimated reach
-  const [conversionRate, setConversionRate] = useState(3.2);
-  const [estimatedReach, setEstimatedReach] = useState({ min: 12000, max: 25000 });
-  // Use budget from formData or default to 50 if not set
-  const budget = Number(formData.budget_amount) || 50;
+  // Local preview URLs for selected files
+  const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
+  const [thumbPreviewUrl, setThumbPreviewUrl] = useState<string | null>(null);
+
+  // Meta business connection (for reach estimate)
+  const [biz, setBiz] = useState<{ access_token: string; ad_account_id: string } | null>(null);
 
   useEffect(() => {
-    if (budget < 25) {
-      setEstimatedReach({ min: 3000, max: 7000 });
-      setConversionRate(1.4);
-    } else if (budget < 50) {
-      setEstimatedReach({ min: 8000, max: 16000 });
-      setConversionRate(2.3);
-    } else {
-      setEstimatedReach({ min: 12000, max: 25000 });
-      setConversionRate(3.2);
-    }
-  }, [budget]);
+    if (session === undefined || session === null) return;
 
-  // Estimated Spend: based on budget and ad type
-  let minSpend = 18, maxSpend = 64;
-  if (formData.budget_amount) {
-    const base = Number(formData.budget_amount) || 18;
-    minSpend = Math.round(base * 0.8);
-    maxSpend = Math.round(base * 2.4);
+    const go = async () => {
+      // 1) Offer core fields
+      const { data: offer, error: offerErr } = await supabase
+        .from('offers')
+        .select('title, logo_url, business_email')
+        .eq('id', offerId)
+        .single();
+
+      if (offerErr) {
+        console.error('[offer fetch error]', offerErr);
+        return;
+      }
+
+      // Preview title + logo
+      setBrandName(offer?.title || 'Your Brand Name');
+      setBrandLogoUrl(offer?.logo_url || null);
+
+      // 2) Meta creds by business_email (from meta_connections)
+      if (offer?.business_email) {
+        const { data: mc, error: mcErr } = await supabase
+          .from('meta_connections')
+          .select('access_token, ad_account_id')
+          .eq('business_email', offer.business_email)
+          .single();
+
+        if (mcErr) {
+          console.warn('[meta_connections fetch warn]', mcErr);
+        } else if (mc?.access_token && mc?.ad_account_id) {
+          setBiz({ access_token: mc.access_token, ad_account_id: mc.ad_account_id });
+        }
+      }
+    };
+
+    go();
+  }, [offerId, session]);
+
+  // Debounce helper – prevents spamming Graph while typing
+  function useDebounce(fn: (...args: any[]) => void, delay = 600) {
+    const t = useRef<number | null>(null);
+    return (...args: any[]) => {
+      if (t.current) window.clearTimeout(t.current);
+      t.current = window.setTimeout(() => fn(...args), delay) as unknown as number;
+    };
   }
 
-  // --- Targeting selection state for reach estimate ---
-  // For demonstration, derive targeting selections from formData and state
-  // Extract and parse targeting selections for the reach estimate
-  // For a real app, these would be more structured and validated.
-  // Countries: from location string (comma separated to array)
-  const selectedCountries = formData.location
-    ? formData.location.split(',').map((c) => c.trim()).filter(Boolean)
-    : [];
-  // Age min/max: from age_range string "18-65"
-  const [selectedAgeMin, selectedAgeMax] = (() => {
-    const [min, max] = (formData.age_range || '').split('-').map(Number);
-    return [
-      isNaN(min) ? 18 : min,
-      isNaN(max) ? 65 : max
-    ];
-  })();
-  // Gender: from formData.gender, convert to array of ints per Meta API
-  // Meta: 1 = male, 2 = female
-  const selectedGenders =
-    formData.gender === 'Male'
-      ? [1]
-      : formData.gender === 'Female'
-      ? [2]
-      : formData.gender === 'All' || !formData.gender
-      ? []
-      : [];
-  // Interests: from formData.interests (comma separated to array)
-  const selectedInterests = formData.interests
-    ? formData.interests.split(',').map((i) => i.trim()).filter(Boolean)
-    : [];
-  // Convert interests to objects with id and name
-  const interestObjects = selectedInterests.map((interest) => ({
-    id: interest,
-    name: interest,
-  }));
+  // Map our placements to Meta positions (publisher_platforms + *_positions)
+  function buildPlacementTargeting(placements: Record<PlacementKey, boolean>) {
+    const publisher_platforms: string[] = [];
+    const facebook_positions: string[] = [];
+    const instagram_positions: string[] = [];
 
-  // Business info: get from offer (simulate, as not available in current state)
-  // In a real app, this would come from context or a fetch. Here, we'll simulate.
-  const [business, setBusiness] = useState<{access_token: string; ad_account_id: string} | null>(null);
+    if (placements.facebook_feed) { if (!publisher_platforms.includes('facebook')) publisher_platforms.push('facebook'); facebook_positions.push('feed'); }
+    if (placements.facebook_stories) { if (!publisher_platforms.includes('facebook')) publisher_platforms.push('facebook'); facebook_positions.push('story'); }
+    if (placements.facebook_reels) { if (!publisher_platforms.includes('facebook')) publisher_platforms.push('facebook'); facebook_positions.push('facebook_reels'); }
 
-  // Fetch business info from offer on mount (simulate)
-  useEffect(() => {
-    // Only fetch once
-    if (business) return;
-    // Fetch offer info to get business access_token and ad_account_id
-    const fetchBusiness = async () => {
-      const { data, error } = await supabase
-        .from('offers')
-        .select('business_access_token, business_ad_account_id')
-        .eq('id', offerId)
-        .single();
-      if (data && data.business_access_token && data.business_ad_account_id) {
-        setBusiness({
-          access_token: data.business_access_token,
-          ad_account_id: data.business_ad_account_id
-        });
-      }
-    };
-    fetchBusiness();
-    // eslint-disable-next-line
-  }, [offerId]);
+    if (placements.instagram_feed) { if (!publisher_platforms.includes('instagram')) publisher_platforms.push('instagram'); instagram_positions.push('stream'); }
+    if (placements.instagram_stories) { if (!publisher_platforms.includes('instagram')) publisher_platforms.push('instagram'); instagram_positions.push('story'); }
+    if (placements.instagram_reels) { if (!publisher_platforms.includes('instagram')) publisher_platforms.push('instagram'); instagram_positions.push('reels'); }
 
-  // Fetch reach estimate when targeting selections change
-  useEffect(() => {
-    if (!business?.access_token || !business?.ad_account_id) return;
+    const out: any = { publisher_platforms };
+    if (facebook_positions.length) out.facebook_positions = facebook_positions;
+    if (instagram_positions.length) out.instagram_positions = instagram_positions;
+    return out;
+  }
 
-    const fetchEstimate = async () => {
-      const estimate = await fetchReachEstimate({
-        access_token: business.access_token,
-        ad_account_id: business.ad_account_id,
-        countries: selectedCountries,
-        age_min: selectedAgeMin,
-        age_max: selectedAgeMax,
-        genders: selectedGenders,
-        interests: interestObjects,
+  // ─────────────────────────────
+  // Reach estimate (optional) - split daily/monthly
+  // ─────────────────────────────
+  const [reachDaily, setReachDaily] = useState<number | null>(null);
+  const [reachMonthly, setReachMonthly] = useState<number | null>(null);
+  const [interestsIgnored, setInterestsIgnored] = useState(false);
+  const [assumeCPM, setAssumeCPM] = useState<number>(10); // $10 CPM default
+  const [assumeCTR, setAssumeCTR] = useState<number>(1);  // 1% CTR default
+  const [assumeCVR, setAssumeCVR] = useState<number>(3);  // 3% CVR default
+
+  const impressions = useMemo(() => {
+    const budget = Number(form?.budget_amount_dollars || 0);
+    return assumeCPM > 0 ? (budget / assumeCPM) * 1000 : 0;
+  }, [form.budget_amount_dollars, assumeCPM]);
+
+  const clicks = useMemo(() => impressions * (assumeCTR / 100), [impressions, assumeCTR]);
+  const dailyConversions = useMemo(() => clicks * (assumeCVR / 100), [clicks, assumeCVR]);
+  const monthlyConversions = useMemo(() => dailyConversions * 30, [dailyConversions]);
+
+  // Sparkline for 30-day projection (tiny sideways line chart)
+  function buildSparkPath(values: number[], w = 120, h = 36, pad = 2) {
+    const max = Math.max(1, ...values);
+    const n = values.length;
+    if (n === 0) return '';
+    const innerW = w - pad * 2;
+    const innerH = h - pad * 2;
+    return values
+      .map((val, i) => {
+        const x = pad + (i * innerW) / (n - 1 || 1);
+        const y = h - pad - (Math.max(0, val) / max) * innerH;
+        return `${i === 0 ? 'M' : 'L'}${x},${y}`;
+      })
+      .join(' ');
+  }
+
+  const sparkValues = useMemo(() => {
+    const v = Number.isFinite(dailyConversions) ? Math.max(0, dailyConversions) : 0;
+    // 30 points flat projection (daily × 30). Keep flat to avoid fake volatility.
+    return Array.from({ length: 30 }, () => v);
+  }, [dailyConversions]);
+
+  const sparkPath = useMemo(() => buildSparkPath(sparkValues), [sparkValues]);
+
+  const triggerReach = useDebounce(async () => {
+    try {
+      if (!biz?.access_token || !biz?.ad_account_id) return;
+
+      // Normalize ad account id: ensure numeric only (server will prefix act_ once)
+      const numericAd = String(biz.ad_account_id).replace(/^act_/, '');
+      if (!numericAd) return;
+
+      const countries = form.location_countries
+        .split(',')
+        .map((c) => c.trim())
+        .filter(Boolean);
+      if (countries.length === 0) return; // wait until user picks at least one
+
+      const age_min = Number(form.age_min || 18);
+      const age_max = Number(form.age_max || 65);
+      if (age_min < 13 || age_max < age_min) return;
+
+      const genders = form.gender === '' ? [] : [Number(form.gender)];
+
+      const interests = form.interests_csv
+        ? form.interests_csv
+            .split(',')
+            .map((s) => s.trim())
+            .filter(Boolean)
+            .map((i) => ({ id: i, name: i }))
+        : [];
+
+      // (Future) placements – server can merge into targeting_spec if supported
+      const placementSpec = buildPlacementTargeting(form.placements);
+
+      const est = await fetchReachEstimate({
+        access_token: biz.access_token,
+        ad_account_id: numericAd,
+        countries,
+        age_min,
+        age_max,
+        genders,
+        interests,
         optimization_goal: 'REACH',
-        currency: 'AUD'
-      });
+        currency: 'AUD', // ignored by server route
+        placementSpec, // ← added to send placements
+      } as any);
 
-      if (estimate?.users) {
-        setReachEstimate(estimate.users);
-      } else {
-        setReachEstimate(null);
+      // Graph returns: { data: [{ estimate_dau, estimate_mau, estimate_ready, ... }] }
+      const first = Array.isArray(est?.data) ? est.data[0] : null as any;
+      setInterestsIgnored(Boolean((est as any)?.meta?.interests_ignored));
+
+      function extractEstimate(val: any): number | null {
+        if (val == null) return null;
+        if (typeof val === 'number' && isFinite(val)) return val;
+        if (typeof val === 'object') {
+          // common shapes: { estimate }, { value }, { lower_bound, upper_bound }
+          if (typeof val.estimate === 'number' && isFinite(val.estimate)) return val.estimate;
+          if (typeof val.value === 'number' && isFinite(val.value)) return val.value;
+          if (typeof val.lower_bound === 'number' && typeof val.upper_bound === 'number') {
+            // pick midpoint when a range is provided
+            const mid = (val.lower_bound + val.upper_bound) / 2;
+            return isFinite(mid) ? mid : null;
+          }
+        }
+        return null;
       }
+
+      const dau = extractEstimate(first?.estimate_dau);
+      const mau = extractEstimate(first?.estimate_mau);
+
+      setReachDaily(dau);
+      setReachMonthly(mau);
+    } catch (e) {
+      console.warn('[Reach Estimate Error]', e);
+      setReachDaily(null);
+      setReachMonthly(null);
+    }
+  }, 600);
+
+  useEffect(() => {
+    triggerReach();
+    // include placements so toggling them updates estimate
+  }, [
+    biz,
+    form.location_countries,
+    form.age_min,
+    form.age_max,
+    form.gender,
+    form.interests_csv,
+    form.placements.facebook_feed,
+    form.placements.instagram_feed,
+    form.placements.instagram_reels,
+    form.placements.facebook_reels,
+    form.placements.facebook_stories,
+    form.placements.instagram_stories,
+  ]);
+
+  // ─────────────────────────────
+  // Helpers
+  // ─────────────────────────────
+  const onInput =
+    (name: keyof typeof form) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+      const val = e.target.type === 'number' ? Number(e.target.value) : e.target.value;
+      setForm((prev) => ({ ...prev, [name]: val as any }));
     };
 
-    fetchEstimate();
-    // eslint-disable-next-line
-  }, [business, selectedCountries, selectedAgeMin, selectedAgeMax, selectedGenders, selectedInterests]);
-
-  const handleInput = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+  const onPlacementToggle = (key: PlacementKey) => {
+    setForm((p) => ({ ...p, placements: { ...p.placements, [key]: !p.placements[key] } }));
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'video' | 'thumbnail' | 'organic') => {
-    const file = e.target.files?.[0];
-    if (type === 'video') setVideoFile(file || null);
-    else if (type === 'thumbnail') setThumbnailFile(file || null);
-    else if (type === 'organic') setOrganicFile(file || null);
+  // Apply estimator preset for CPM, CTR, CVR
+  function applyEstimatorPreset(kind: 'ugc' | 'dtc' | 'lead') {
+    if (kind === 'ugc') { setAssumeCPM(8); setAssumeCTR(1.2); setAssumeCVR(2.0); }
+    if (kind === 'dtc') { setAssumeCPM(12); setAssumeCTR(1.5); setAssumeCVR(1.5); }
+    if (kind === 'lead') { setAssumeCPM(10); setAssumeCTR(1.0); setAssumeCVR(4.0); }
+  }
+
+  const sanitize = (name: string) => name.replace(/[^a-zA-Z0-9._-]/g, '_');
+
+  // Input styling helpers (brand focus glow + tray)
+  const INPUT =
+    'mt-1 w-full bg-[#101010] border border-[#232323] rounded-lg px-3 py-2 ' +
+    'shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition ' +
+    'focus:outline-none focus:border-[#00C2CB] focus:ring-2 focus:ring-[#00C2CB]/30 ' +
+    'focus:shadow-[0_0_0_3px_rgba(0,194,203,0.12)]';
+
+  // Tiny action chip
+  function Chip({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className="text-[11px] px-2 py-1 rounded-full border border-[#2a2a2a] text-gray-300 hover:text-white hover:border-[#3a3a3a] hover:bg-[#1a1a1a]"
+      >
+        {children}
+      </button>
+    );
+  }
+
+  // Date helpers
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const toLocalInput = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+
+  const incBudget = (amt: number) =>
+    setForm((p) => ({ ...p, budget_amount_dollars: Math.max(1, Number(p.budget_amount_dollars || 0) + amt) }));
+
+  const setStartIn15m = () => {
+    const d = new Date(Date.now() + 15 * 60 * 1000);
+    setForm((p) => ({ ...p, start_time: toLocalInput(d) }));
   };
 
-  const uploadToSupabase = async (file: File, folder: string) => {
-    const filePath = `${Date.now()}_${file.name}`;
-    const { data, error } = await supabase.storage
-      .from('ad-ideas-assets')
-      .upload(`${folder}/${filePath}`, file, {
-        cacheControl: '3600',
-        upsert: false,
-      });
-
-    if (error) throw new Error(error.message);
-
-    const publicUrl = supabase.storage.from('ad-ideas-assets').getPublicUrl(`${folder}/${filePath}`);
-    return publicUrl.data.publicUrl;
+  const setEndIn7d = () => {
+    const base = form.start_time ? new Date(form.start_time) : new Date();
+    const d = new Date(base.getTime() + 7 * 24 * 60 * 60 * 1000);
+    setForm((p) => ({ ...p, end_time: toLocalInput(d) }));
   };
 
-  const handleSubmit = async () => {
-    if (!videoFile || !thumbnailFile) {
-      alert(`Upload ${mediaType === 'VIDEO' ? 'video' : 'image'} and a thumbnail file`);
-      return;
-    }
+  // Countries (ISO) — compact list + multi-select dropdown that stores CSV in form.location_countries
+  const COUNTRIES: { code: string; name: string }[] = [
+    { code: 'AU', name: 'Australia' },
+    { code: 'US', name: 'United States' },
+    { code: 'GB', name: 'United Kingdom' },
+    { code: 'NZ', name: 'New Zealand' },
+    { code: 'CA', name: 'Canada' },
+    { code: 'IE', name: 'Ireland' },
+    { code: 'DE', name: 'Germany' },
+    { code: 'FR', name: 'France' },
+    { code: 'ES', name: 'Spain' },
+    { code: 'IT', name: 'Italy' },
+    { code: 'NL', name: 'Netherlands' },
+    { code: 'SE', name: 'Sweden' },
+    { code: 'NO', name: 'Norway' },
+    { code: 'DK', name: 'Denmark' },
+    { code: 'FI', name: 'Finland' },
+    { code: 'SG', name: 'Singapore' },
+    { code: 'MY', name: 'Malaysia' },
+    { code: 'PH', name: 'Philippines' },
+    { code: 'ID', name: 'Indonesia' },
+    { code: 'IN', name: 'India' },
+    { code: 'JP', name: 'Japan' },
+    { code: 'KR', name: 'South Korea' },
+    { code: 'AE', name: 'United Arab Emirates' },
+    { code: 'SA', name: 'Saudi Arabia' },
+    { code: 'ZA', name: 'South Africa' },
+    { code: 'BR', name: 'Brazil' },
+    { code: 'MX', name: 'Mexico' },
+  ];
 
-    setLoading(true);
-    try {
-      const { data: offerData, error: offerError } = await supabase
-        .from('offers')
-        .select('business_email')
-        .eq('id', offerId)
-        .single();
+  function CountryMultiSelect({
+    value,
+    onChange,
+  }: {
+    value: string;
+    onChange: (csv: string) => void;
+  }) {
+    const [open, setOpen] = useState(false);
+    const [query, setQuery] = useState('');
+    const ref = useRef<HTMLDivElement | null>(null);
 
-      if (offerError || !offerData) {
-        throw new Error('Failed to fetch offer data');
-      }
+    const selected = useMemo(() => value.split(',').map(s => s.trim()).filter(Boolean), [value]);
 
-      const video_url = await uploadToSupabase(videoFile, 'videos');
-      const thumbnail_url = await uploadToSupabase(thumbnailFile, 'thumbnails');
-      formData.thumbnail_url = thumbnail_url;
-
-      const { error } = await supabase.from('ad_ideas').insert({
-        headline: formData.headline,
-        caption: formData.caption,
-        description: formData.description,
-        display_link: formData.display_link,
-        call_to_action: formData.call_to_action,
-        objective: formData.objective,
-        budget_amount: Number(formData.budget_amount),
-        budget_type: formData.budget_type,
-        start_time: formData.start_time,
-        end_time: formData.end_time,
-        audience: formData.audience,
-        location: formData.location,
-        age_range: `{${formData.age_range}}`,
-        gender: formData.gender,
-        interests: formData.interests,
-        media_type: mediaType,
-        file_url: video_url,
-        thumbnail_url: formData.thumbnail_url,
-        status: 'pending',
-        campaign_name: formData.campaign_name,
-        special_ad_category: formData.special_ad_category,
-        ad_set_name: formData.ad_set_name,
-        conversion_location: formData.conversion_location,
-        dataset_id: formData.dataset_id,
-        conversion_event: formData.conversion_event,
-        performance_goal: formData.performance_goal,
-        placements_type: formData.placements_type,
-        ad_name: formData.ad_name,
-        page_id: formData.page_id,
-        instagram_id: formData.instagram_id,
-        affiliate_email: userEmail,
-        business_email: offerData.business_email,
-        offer_id: offerId,
-      });
-
-      if (error) throw new Error(error.message);
-
-      alert('Ad idea submitted!');
-      router.refresh();
-    } catch (err) {
-      console.error('[❌ Submit Error]', err);
-      alert('Failed to submit ad idea.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleUpload = async () => {
-    if (!organicFile) {
-      alert('Please upload an image or video file.');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const filePath = `${Date.now()}_${organicFile.name}`;
-      const { data, error } = await supabase.storage
-        .from('organic-posts')
-        .upload(filePath, organicFile, {
-          cacheControl: '3600',
-          upsert: false,
-        });
-
-      if (error) throw new Error(error.message);
-
-      const publicUrl = supabase.storage.from('organic-posts').getPublicUrl(filePath).data.publicUrl;
-
-      // --- Insert tracking link in caption if not already present ---
-      const trackingLink = `https://affliya.vercel.app/go/${offerId}___${userEmail}`;
-      const finalCaption = formData.caption.includes('affliya.com/go') ? formData.caption : `${formData.caption}\n\n${trackingLink}`;
-
-      const { data: offerData, error: offerError } = await supabase
-        .from('offers')
-        .select('business_email')
-        .eq('id', offerId)
-        .single();
-
-      if (offerError || !offerData) throw new Error('Failed to fetch offer');
-
-      const isVideo = organicFile.type.startsWith('video');
-      const insertPayload = {
-        platform: formData.platform,
-        caption: finalCaption,
-        affiliate_email: userEmail,
-        business_email: offerData.business_email,
-        offer_id: offerId,
-        status: 'pending',
-        image_url: isVideo ? null : publicUrl,
-        video_url: isVideo ? publicUrl : null,
-        user_id: session?.user?.id || ''
+    useEffect(() => {
+      const onDoc = (e: MouseEvent) => {
+        if (!ref.current) return;
+        if (!ref.current.contains(e.target as Node)) setOpen(false);
       };
-      const { error: insertError } = await supabase.from('organic_posts').insert(insertPayload);
+      document.addEventListener('mousedown', onDoc);
+      return () => document.removeEventListener('mousedown', onDoc);
+    }, []);
 
-      if (insertError) throw new Error(insertError.message);
+    const toggle = (code: string) => {
+      const set = new Set(selected);
+      set.has(code) ? set.delete(code) : set.add(code);
+      onChange(Array.from(set).join(','));
+    };
 
-      alert('Organic post submitted!');
-      router.refresh();
-    } catch (err) {
-      console.error('[❌ Organic Upload Error]', err);
-      alert('Failed to upload organic post.');
-    } finally {
-      setLoading(false);
-    }
-  };
+    const remove = (code: string) => {
+      const set = new Set(selected);
+      set.delete(code);
+      onChange(Array.from(set).join(','));
+    };
 
-  return (
-    <div className="min-h-screen py-12 px-6 bg-[#0e0e0e]">
-      {/* Centered tab buttons */}
-      <div className="flex justify-center gap-4 mb-8">
+    const filtered = COUNTRIES.filter(c =>
+      c.code.toLowerCase().includes(query.toLowerCase()) ||
+      c.name.toLowerCase().includes(query.toLowerCase())
+    );
+
+    return (
+      <div ref={ref} className="relative">
+        {/* Display (chips) */}
         <button
-          onClick={() => setActiveTab('ad')}
-          className={`px-5 py-2 rounded-lg font-semibold transition-colors ${
-            activeTab === 'ad'
-              ? 'bg-[#00C2CB] text-white shadow'
-              : 'bg-[#181818] text-[#00C2CB] border border-[#00C2CB] hover:bg-[#232323]'
-          }`}
+          type="button"
+          className={`${INPUT} flex items-center gap-2 min-h-[42px] text-left`}
+          onClick={() => setOpen((o) => !o)}
         >
-          Submit Ad Idea
-        </button>
-        <button
-          onClick={() => setActiveTab('organic')}
-          className={`px-5 py-2 rounded-lg font-semibold transition-colors ${
-            activeTab === 'organic'
-              ? 'bg-[#00C2CB] text-white shadow'
-              : 'bg-[#181818] text-[#00C2CB] border border-[#00C2CB] hover:bg-[#232323]'
-          }`}
-        >
-          Submit Organic Post
-        </button>
-      </div>
-
-      {activeTab === 'ad' && (
-        <div className="flex flex-col lg:flex-row gap-10 justify-center items-start max-w-[1400px] mx-auto">
-          {/* Left: form */}
-          <div className="flex-1 max-w-2xl w-full bg-[#1a1a1a] rounded-2xl px-10 py-10 shadow-xl border border-[#232323]">
-            {/* Stepper with labels below circles */}
-            <div className="flex justify-between w-full max-w-lg mx-auto mb-8">
-              {[
-                { label: 'Basic Info' },
-                { label: 'Objective' },
-                { label: 'Targeting' },
-                { label: 'Media' },
-                { label: 'Details' },
-              ].map((stepObj, idx) => (
-                <div key={idx} className="flex flex-col items-center flex-1">
-                  <div
-                    className={`rounded-full w-8 h-8 flex items-center justify-center font-bold text-base border-2 transition-colors ${
-                      step === idx + 1
-                        ? 'bg-[#00C2CB] text-white border-[#00C2CB]'
-                        : 'bg-[#232323] text-gray-400 border-[#232323]'
-                    }`}
+          {selected.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {selected.map((code) => (
+                <span key={code} className="text-[11px] px-2 py-1 rounded-full border border-[#2a2a2a] bg-[#121212]">
+                  {code}
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    onClick={(e) => { e.stopPropagation(); remove(code); }}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); remove(code); } }}
+                    className="ml-1 text-gray-400 hover:text-white cursor-pointer select-none"
+                    aria-label={`Remove ${code}`}
                   >
-                    {idx + 1}
-                  </div>
-                  <span className="text-xs text-gray-400 font-medium mt-2 text-center">
-                    {stepObj.label}
+                    ×
                   </span>
-                  {idx < 4 && (
-                    <div className="absolute top-4 right-0 left-full flex-1 h-1 mx-1 bg-[#232323] rounded hidden" />
-                  )}
-                </div>
+                </span>
               ))}
             </div>
-            {/* Form Step Content */}
-            <div className="mb-8">
-              {step === 1 && (
-                <div className="space-y-6">
-                  <input
-                    name="headline"
-                    onChange={handleInput}
-                    value={formData.headline}
-                    placeholder="Headline"
-                    className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full placeholder-gray-400"
-                  />
-                  <textarea
-                    name="caption"
-                    onChange={handleInput}
-                    value={formData.caption}
-                    placeholder="Caption"
-                    className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full placeholder-gray-400"
-                  />
-                  {/* Tracking Link and Copy Button */}
-                  <div className="flex items-center gap-2 mt-2">
-                    <input
-                      type="text"
-                      value={trackingLink}
-                      readOnly
-                      className="bg-[#101010] border border-[#232323] text-white rounded-lg px-4 py-2 w-full text-sm opacity-80"
-                    />
-                    <button
-                      onClick={() => {
-                        navigator.clipboard.writeText(trackingLink);
-                        alert('Tracking link copied!');
-                      }}
-                      className="px-4 py-2 rounded-lg bg-[#00C2CB] text-white text-sm font-semibold hover:bg-[#00b0b8] transition"
-                    >
-                      Copy
-                    </button>
-                  </div>
-                  <textarea
-                    name="description"
-                    onChange={handleInput}
-                    value={formData.description}
-                    placeholder="Description"
-                    className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full placeholder-gray-400"
-                  />
-                  <input
-                    name="display_link"
-                    onChange={handleInput}
-                    value={formData.display_link}
-                    placeholder="Destination Link"
-                    className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full placeholder-gray-400"
-                  />
-                </div>
+          ) : (
+            <span className="text-gray-500">Select countries…</span>
+          )}
+          <span className="ml-auto text-[11px] text-gray-500">{open ? 'Close' : 'Open'}</span>
+        </button>
+
+        {/* Popover */}
+        {open && (
+          <div className="absolute z-20 mt-2 w-full rounded-lg border border-[#2a2a2a] bg-[#0f0f0f] shadow-xl">
+            <div className="p-2 border-b border-[#1f1f1f]">
+              <input
+                autoFocus
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search country"
+                className={`${INPUT} mt-0`}
+              />
+            </div>
+            <div className="max-h-56 overflow-auto py-1">
+              {filtered.map((c) => {
+                const isSel = selected.includes(c.code);
+                return (
+                  <button
+                    key={c.code}
+                    type="button"
+                    onClick={() => toggle(c.code)}
+                    className={`w-full px-3 py-2 text-sm flex items-center justify-between hover:bg-[#141414] ${isSel ? 'text-[#00C2CB]' : 'text-gray-200'}`}
+                  >
+                    <span>{c.name}</span>
+                    <span className="text-[11px] opacity-70">{c.code}</span>
+                  </button>
+                );
+              })}
+              {filtered.length === 0 && (
+                <div className="px-3 py-3 text-xs text-gray-500">No matches</div>
               )}
-              {step === 2 && (
-                <div className="space-y-6">
+            </div>
+            <div className="px-3 py-2 border-t border-[#1f1f1f] text-right">
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="text-xs px-3 py-1 rounded-md border border-[#2a2a2a] hover:bg-[#151515]"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Brand DateTime picker (no external deps)
+  function DateTimeField({
+    label,
+    value,
+    onChange,
+  }: {
+    label: string;
+    value: string; // 'YYYY-MM-DDTHH:mm' or ''
+    onChange: (v: string) => void;
+  }) {
+    const [open, setOpen] = useState(false);
+    const [view, setView] = useState(() => {
+      const d = value ? new Date(value) : new Date();
+      return new Date(d.getFullYear(), d.getMonth(), 1);
+    });
+    const ref = useRef<HTMLDivElement | null>(null);
+
+    // derived selected date/time
+    const sel = value ? new Date(value) : null;
+
+    useEffect(() => {
+      const onDoc = (e: MouseEvent) => {
+        if (!ref.current) return;
+        if (!ref.current.contains(e.target as Node)) setOpen(false);
+      };
+      document.addEventListener('mousedown', onDoc);
+      return () => document.removeEventListener('mousedown', onDoc);
+    }, []);
+
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const toLocalInput = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+
+    const daysInMonth = (y: number, m: number) => new Date(y, m + 1, 0).getDate();
+    const startWeekday = (y: number, m: number) => new Date(y, m, 1).getDay(); // 0 Sun..6 Sat
+
+    const y = view.getFullYear();
+    const m = view.getMonth();
+    const dim = daysInMonth(y, m);
+    const start = startWeekday(y, m);
+
+    const hours = Array.from({ length: 12 }, (_, i) => i + 1); // 1..12
+    const minutes = Array.from({ length: 12 }, (_, i) => pad(i * 5)); // 00..55 step 5
+    const isPM = sel ? sel.getHours() >= 12 : true;
+    const hour12 = sel ? ((sel.getHours() % 12) || 12) : 12;
+    const minuteStr = sel ? pad(sel.getMinutes() - (sel.getMinutes() % 5)) : '00';
+
+    const setPart = (part: 'hour' | 'minute' | 'ampm', val: number | 'am' | 'pm') => {
+      const base = sel ? new Date(sel) : new Date();
+      let h = base.getHours();
+      if (part === 'hour') {
+        const as24 = ((val as number) % 12) + (h >= 12 ? 12 : 0);
+        base.setHours(as24);
+      } else if (part === 'minute') {
+        base.setMinutes(val as number);
+      } else {
+        // am/pm
+        const wasPM = h >= 12;
+        if (val === 'pm' && !wasPM) base.setHours(h + 12);
+        if (val === 'am' && wasPM) base.setHours(h - 12);
+      }
+      onChange(toLocalInput(base));
+    };
+
+    const selectDay = (d: number) => {
+      const base = sel ? new Date(sel) : new Date();
+      base.setFullYear(y); base.setMonth(m); base.setDate(d);
+      onChange(toLocalInput(base));
+    };
+
+    const clear = () => onChange('');
+    const setToday = () => onChange(toLocalInput(new Date()));
+
+    return (
+      <div ref={ref} className="relative">
+        <button type="button" className={`${INPUT} text-left flex items-center gap-2`} onClick={() => setOpen(o => !o)}>
+          {value ? new Date(value).toLocaleString() : <span className="text-gray-500">dd/mm/yyyy, --:-- --</span>}
+          <span className="ml-auto text-[11px] text-gray-500">{open ? 'Close' : 'Open'}</span>
+        </button>
+        {open && (
+          <div className="absolute z-30 mt-2 w-[320px] rounded-xl border border-[#2a2a2a] bg-[#0f0f0f] shadow-2xl">
+            {/* Header */}
+            <div className="flex items-center justify-between p-3 border-b border-[#1f1f1f]">
+              <div className="text-sm font-semibold">{view.toLocaleString(undefined, { month: 'long', year: 'numeric' })}</div>
+              <div className="flex items-center gap-2">
+                <button type="button" className="h-7 w-7 grid place-items-center rounded-md border border-[#2a2a2a] hover:bg-[#151515]" onClick={() => setView(new Date(y, m - 1, 1))}>←</button>
+                <button type="button" className="h-7 w-7 grid place-items-center rounded-md border border-[#2a2a2a] hover:bg-[#151515]" onClick={() => setView(new Date(y, m + 1, 1))}>→</button>
+              </div>
+            </div>
+            {/* Grid */}
+            <div className="grid grid-cols-7 gap-1 p-3 text-center">
+              {[...'SMTWTFS'].map((c, i) => (
+                <div key={i} className="text-[11px] text-gray-400">{c}</div>
+              ))}
+              {Array.from({ length: (start || 0) }).map((_, i) => <div key={`e${i}`} />)}
+              {Array.from({ length: dim }).map((_, i) => {
+                const d = i + 1;
+                const isSel = sel && sel.getFullYear() === y && sel.getMonth() === m && sel.getDate() === d;
+                return (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => selectDay(d)}
+                    className={[
+                      'h-8 rounded-md border text-sm',
+                      isSel ? 'border-[#00C2CB] text-white bg-[#0b1f20]' : 'border-transparent hover:border-[#2a2a2a] hover:bg-[#141414]'
+                    ].join(' ')}
+                  >
+                    {d}
+                  </button>
+                );
+              })}
+            </div>
+            {/* Time */}
+            <div className="flex items-center gap-2 px-3 pb-3">
+              <select className={`${INPUT} mt-0 w-20`} value={hour12} onChange={(e) => setPart('hour', Number(e.target.value))}>
+                {hours.map(h => <option key={h} value={h}>{pad(h)}</option>)}
+              </select>
+              <select className={`${INPUT} mt-0 w-20`} value={Number(minuteStr)} onChange={(e) => setPart('minute', Number(e.target.value))}>
+                {minutes.map(mn => <option key={mn} value={Number(mn)}>{mn}</option>)}
+              </select>
+              <select className={`${INPUT} mt-0 w-24`} value={isPM ? 'pm' : 'am'} onChange={(e) => setPart('ampm', e.target.value as any)}>
+                <option value="am">AM</option>
+                <option value="pm">PM</option>
+              </select>
+              <div className="ml-auto flex items-center gap-2 text-[11px]">
+                <button type="button" onClick={clear} className="px-2 py-1 rounded-md border border-[#2a2a2a] hover:bg-[#151515]">Clear</button>
+                <button type="button" onClick={setToday} className="px-2 py-1 rounded-md border border-[#2a2a2a] hover:bg-[#151515]">Today</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // ─────────────────────────────
+  // Submit (Uploads → ad_ideas insert)
+  // ─────────────────────────────
+  const handleSubmit = async () => {
+    if (!videoFile) {
+      alert('Please upload a video file.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // 1) Get business email for this offer (needed for row)
+      const { data: offerRow, error: offerErr } = await supabase
+        .from('offers')
+        .select('business_email')
+        .eq('id', offerId)
+        .single();
+      if (offerErr || !offerRow) throw new Error('Failed to fetch offer/business email');
+
+      const business_email = offerRow.business_email;
+
+      // 2) Upload video (and optional thumbnail) to "ad-ideas-assets" bucket
+      const ts = Date.now();
+
+      const videoPath = `videos/${ts}-${sanitize(videoFile.name)}`;
+      const { error: upVidErr } = await supabase.storage
+        .from('ad-ideas-assets')
+        .upload(videoPath, videoFile, { upsert: true, contentType: videoFile.type });
+      if (upVidErr) throw upVidErr;
+      const videoPublicUrl = supabase.storage.from('ad-ideas-assets').getPublicUrl(videoPath).data.publicUrl;
+
+      let thumbPublicUrl: string | null = null;
+      if (thumbnailFile) {
+        const thumbPath = `thumbnails/${ts}-thumb-${sanitize(thumbnailFile.name)}`;
+        const { error: upThumbErr } = await supabase.storage
+          .from('ad-ideas-assets')
+          .upload(thumbPath, thumbnailFile, { upsert: true, contentType: thumbnailFile.type });
+        if (!upThumbErr) {
+          thumbPublicUrl = supabase.storage.from('ad-ideas-assets').getPublicUrl(thumbPath).data.publicUrl;
+        }
+      }
+
+      // 3) Build normalized fields for DB
+      const interests = form.interests_csv
+        ? form.interests_csv.split(',').map((s) => s.trim()).filter(Boolean)
+        : [];
+
+      const placements_selected = Object.entries(form.placements)
+        .filter(([, v]) => v)
+        .map(([k]) => k);
+
+      // UI uses dollars; DB stores cents (int)
+      const budget_amount = Math.round(Number(form.budget_amount_dollars || 0) * 100);
+
+      // 4) Insert into ad_ideas
+      const insertPayload: any = {
+        offer_id: offerId,
+        affiliate_email: userEmail,
+        business_email,
+        // media
+        file_url: videoPublicUrl,
+        thumbnail_url: thumbPublicUrl,
+        media_type: 'VIDEO',
+        type: 'Video',
+
+        // campaign/adset/ad
+        campaign_name: form.campaign_name || null,
+        objective: form.objective || 'OUTCOME_TRAFFIC',
+        budget_amount: budget_amount || 0,
+        budget_type: form.budget_type,
+        start_time: form.start_time ? new Date(form.start_time).toISOString() : null,
+        end_time: form.end_time ? new Date(form.end_time).toISOString() : null,
+
+        // targeting
+        location: form.location_countries, // store as CSV for now
+        age_range: [String(form.age_min), String(form.age_max)], // reuse column (text[])
+        gender: form.gender === '' ? 'All' : form.gender === '1' ? 'Male' : 'Female',
+        interests: interests, // jsonb in table
+
+        // placements
+        manual_placements: placements_selected, // jsonb in table
+        placements_type: 'MANUAL',
+
+        // creative
+        headline: form.headline || null,
+        caption: form.caption || '',
+        call_to_action: form.call_to_action || 'LEARN_MORE',
+        display_link: form.display_link || trackingLink,
+
+        // workflow
+        status: 'pending', // business will approve → then we push to Meta via server route
+        meta_status: null,
+      };
+
+      const { error: insertErr } = await supabase.from('ad_ideas').insert([insertPayload]);
+      if (insertErr) throw insertErr;
+
+      alert('Ad idea submitted for review.');
+      router.push('/affiliate/inbox'); // back to inbox after submit
+    } catch (e: any) {
+      console.error('[❌ Submit Error]', e);
+      alert(e?.message || 'Failed to submit.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ─────────────────────────────
+  // Placements – branded toggle cards
+  // ─────────────────────────────
+  const PLACEMENT_ORDER: PlacementKey[] = [
+    'facebook_feed',
+    'instagram_feed',
+    'instagram_reels',
+    'facebook_reels',
+    'facebook_stories',
+    'instagram_stories',
+  ];
+
+  const PLACEMENT_META: Record<PlacementKey, { label: string; sub?: string; icon: ReactNode }> = {
+    facebook_feed: {
+      label: 'Facebook Feed',
+      sub: 'Main feed',
+      icon: (
+        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden>
+          <path d="M22 12.073C22 6.505 17.523 2 12 2S2 6.505 2 12.073c0 4.999 3.657 9.144 8.438 9.878v-6.988H7.898v-2.89h2.54V9.845c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.242 0-1.63.772-1.63 1.562v1.875h2.773l-.443 2.889h-2.33v6.988C18.343 21.217 22 17.072 22 12.073z"/>
+        </svg>
+      ),
+    },
+    instagram_feed: {
+      label: 'Instagram Feed',
+      sub: 'Main feed',
+      icon: (
+        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden>
+          <path d="M7 2h10a5 5 0 0 1 5 5v10a5 5 0 0 1-5 5H7a5 5 0 0 1-5-5V7a5 5 0 0 1 5-5zm0 2a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3H7zm5 3.5A5.5 5.5 0 1 1 6.5 13 5.5 5.5 0 0 1 12 7.5zm0 2A3.5 3.5 0 1 0 15.5 13 3.5 3.5 0 0 0 12 9.5zm5.25-3.25a1.25 1.25 0 1 1-1.25 1.25 1.25 1.25 0 0 1 1.25-1.25z"/>
+        </svg>
+      ),
+    },
+    instagram_reels: {
+      label: 'Instagram Reels',
+      sub: 'Short video',
+      icon: (
+        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden>
+          <path d="M4 3h16a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm2.5 1.5L10 8H7.5L5 4.5h1.5zm4 0L14 8h-2.5L8.5 4.5H10zm4 0L18 8h-2.5L12.5 4.5H14zM9 10.25v3.5a.75.75 0 0 0 1.125.654l3-1.75a.75.75 0 0 0 0-1.308l-3-1.75A.75.75 0 0 0 9 10.25z"/>
+        </svg>
+      ),
+    },
+    facebook_reels: {
+      label: 'Facebook Reels',
+      sub: 'Short video',
+      icon: (
+        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden>
+          <path d="M4 3h16a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm6 6.25v5.5a.75.75 0 0 0 1.125.654l4-2.25a.75.75 0 0 0 0-1.308l-4-2.25A.75.75 0 0 0 10 9.25zM6.5 4.5L9 8H7.5L5 4.5h1.5zM11 4.5L13.5 8H12L9.5 4.5H11zM15.5 4.5L18 8h-1.5L14 4.5h1.5z"/>
+        </svg>
+      ),
+    },
+    facebook_stories: {
+      label: 'Facebook Stories',
+      sub: 'Vertical story',
+      icon: (
+        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden>
+          <path d="M8 2.75A2.75 2.75 0 0 1 10.75 0h2.5A2.75 2.75 0 0 1 16 2.75v18.5A2.75 2.75 0 0 1 13.25 24h-2.5A2.75 2.75 0 0 1 8 21.25zM10 2.5h4v19h-4z"/>
+        </svg>
+      ),
+    },
+    instagram_stories: {
+      label: 'Instagram Stories',
+      sub: 'Vertical story',
+      icon: (
+        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="currentColor" aria-hidden>
+          <path d="M6 1.75A2.75 2.75 0 0 1 8.75-1h6.5A2.75 2.75 0 0 1 18 1.75v20.5A2.75 2.75 0 0 1 15.25 25h-6.5A2.75 2.75 0 0 1 6 22.25zM8 3.5h8v18H8z"/>
+        </svg>
+      ),
+    },
+  };
+
+  function PlacementCard({
+    k,
+    active,
+    onToggle,
+  }: {
+    k: PlacementKey;
+    active: boolean;
+    onToggle: () => void;
+  }) {
+    const meta = PLACEMENT_META[k];
+    return (
+      <button
+        type="button"
+        onClick={onToggle}
+        className={[
+          'group w-full text-left rounded-xl border transition relative overflow-hidden',
+          active ? 'border-[#00C2CB]/60 bg-gradient-to-br from-[#0d1f21] via-[#0f0f0f] to-[#0b0b0b] ring-1 ring-[#00C2CB]/40' : 'border-[#232323] hover:border-[#2f2f2f] bg-[#101010]'
+        ].join(' ')}
+      >
+        <div className="p-3 flex items-center gap-3">
+          <div className={['h-9 w-9 rounded-lg flex items-center justify-center', active ? 'bg-[#043a3d] text-[#7ff5fb]' : 'bg-[#171717] text-gray-300','border', active ? 'border-[#00C2CB]/50' : 'border-[#2a2a2a]'].join(' ')}>
+            {meta.icon}
+          </div>
+          <div className="flex-1">
+            <div className="text-sm font-medium">{meta.label}</div>
+            <div className="text-[11px] text-gray-400">{meta.sub || (active ? 'Selected' : 'Tap to include')}</div>
+          </div>
+          {/* Toggle pill */}
+          <div className={['ml-auto h-5 w-9 rounded-full relative transition', active ? 'bg-[#00C2CB]' : 'bg-[#2a2a2a]'].join(' ')}>
+            <span className={['absolute top-0.5 h-4 w-4 rounded-full bg-black transition-all', active ? 'left-5' : 'left-0.5'].join(' ')} />
+          </div>
+        </div>
+      </button>
+    );
+  }
+
+  // ─────────────────────────────
+  // UI (single card stepper + right preview)
+  // ─────────────────────────────
+  const [step, setStep] = useState(1);
+  const steps = [
+    { id: 1, label: 'Campaign' },
+    { id: 2, label: 'Ad set' },
+    { id: 3, label: 'Ad' },
+    { id: 4, label: 'Review' },
+  ];
+
+  const StepPill = ({ active }: { active: boolean }) => (
+    <span
+      className={[
+        'h-2 w-2 rounded-full',
+        active ? 'bg-[#00C2CB]' : 'bg-[#2b2b2b]',
+      ].join(' ')}
+    />
+  );
+
+  return (
+    <div className="min-h-screen py-10 px-6 bg-[#0e0e0e] text-white">
+      <div className="max-w-6xl mx-auto grid lg:grid-cols-[1fr_360px] gap-8">
+        {/* LEFT: single card wizard */}
+        <div className="bg-[#141414] border border-[#232323] rounded-2xl shadow-xl overflow-hidden">
+          {/* Header / Stepper */}
+          <div className="px-6 sm:px-8 py-5 border-b border-[#232323] flex items-center justify-between">
+            <h1 className="text-2xl font-bold text-[#00C2CB]">
+              Create New Ad Campaign
+            </h1>
+            <div className="flex items-center gap-2">
+              {steps.map((s, i) => (
+                <StepPill key={s.id} active={step >= s.id} />
+              ))}
+            </div>
+          </div>
+
+          {/* Content */}
+          <div className="px-6 sm:px-8 py-6 space-y-6">
+            {/* Step labels */}
+            <div className="flex gap-4 text-sm">
+              {steps.map((s) => (
+                <button
+                  key={s.id}
+                  onClick={() => setStep(s.id)}
+                  className={[
+                    'px-3 py-1 rounded-full border transition',
+                    step === s.id
+                      ? 'border-[#00C2CB] text-[#00C2CB]'
+                      : 'border-transparent text-gray-400 hover:text-white',
+                  ].join(' ')}
+                >
+                  {s.id}. {s.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Step 1: Campaign */}
+            {step === 1 && (
+              <div className="space-y-4">
+                <label className="block">
+                  <span className="text-xs text-gray-400">Campaign name</span>
+                  <input
+                    placeholder="e.g. Affliya – Launch"
+                    className={INPUT}
+                    value={form.campaign_name}
+                    onChange={onInput('campaign_name')}
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="text-xs text-gray-400">Objective</span>
                   <select
-                    name="objective"
-                    onChange={handleInput}
-                    value={formData.objective}
-                    className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full"
+                    className={INPUT}
+                    value={form.objective}
+                    onChange={onInput('objective')}
                   >
                     <option value="OUTCOME_AWARENESS">Awareness</option>
                     <option value="OUTCOME_TRAFFIC">Traffic</option>
                     <option value="OUTCOME_ENGAGEMENT">Engagement</option>
                     <option value="OUTCOME_LEADS">Leads</option>
                     <option value="OUTCOME_SALES">Sales</option>
-                    <option value="OUTCOME_APP_PROMOTION">App Promotion</option>
-                    <option value="OUTCOME_LOCAL_AWARENESS">Local Awareness</option>
                     <option value="OUTCOME_VIDEO_VIEWS">Video Views</option>
                     <option value="OUTCOME_REACH">Reach</option>
-                    <option value="OUTCOME_MESSAGES">Messages</option>
-                    <option value="OUTCOME_STORE_TRAFFIC">Store Traffic</option>
                   </select>
-                  <select
-                    name="call_to_action"
-                    onChange={handleInput}
-                    value={formData.call_to_action}
-                    className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full"
-                  >
-                    <option value="LEARN_MORE">Learn More</option>
-                    <option value="SHOP_NOW">Shop Now</option>
-                    <option value="SIGN_UP">Sign Up</option>
-                  </select>
-                  <input
-                    name="budget_amount"
-                    onChange={handleInput}
-                    value={formData.budget_amount}
-                    placeholder="Budget Amount"
-                    type="number"
-                    className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full placeholder-gray-400"
-                  />
-                  <select
-                    name="budget_type"
-                    onChange={handleInput}
-                    value={formData.budget_type}
-                    className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full"
-                  >
-                    <option value="DAILY">Daily</option>
-                    <option value="LIFETIME">Lifetime</option>
-                  </select>
+                </label>
+              </div>
+            )}
+
+            {/* Step 2: Ad set */}
+            {step === 2 && (
+              <div className="space-y-4">
+                <div className="flex gap-3">
+                  <label className="flex-1">
+                    <span className="text-xs text-gray-400">Budget (AUD)</span>
+                    <input
+                      type="number"
+                      min={1}
+                      className={INPUT}
+                      value={form.budget_amount_dollars}
+                      onChange={onInput('budget_amount_dollars')}
+                    />
+                  </label>
+                  <label className="w-40">
+                    <span className="text-xs text-gray-400">Type</span>
+                    <select
+                      className={INPUT}
+                      value={form.budget_type}
+                      onChange={onInput('budget_type')}
+                    >
+                      <option value="DAILY">Daily</option>
+                      <option value="LIFETIME">Lifetime</option>
+                    </select>
+                  </label>
                 </div>
-              )}
-              {step === 3 && (
-                <div className="space-y-6">
-                  <input
-                    name="start_time"
-                    onChange={handleInput}
-                    value={formData.start_time}
-                    placeholder="Start DateTime"
-                    type="datetime-local"
-                    className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full placeholder-gray-400"
-                  />
-                  <input
-                    name="end_time"
-                    onChange={handleInput}
-                    value={formData.end_time}
-                    placeholder="End DateTime"
-                    type="datetime-local"
-                    className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full placeholder-gray-400"
-                  />
-                  <select
-                    name="audience"
-                    onChange={handleInput}
-                    value={formData.audience}
-                    className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full"
-                  >
-                    <option value="">Select Audience</option>
-                    <option value="Core">Core (Demographic/Interest/Behavior)</option>
-                    <option value="Custom">Custom Audience</option>
-                    <option value="Lookalike">Lookalike Audience</option>
-                  </select>
-                  <input
-                    name="location"
-                    onChange={handleInput}
-                    value={formData.location}
-                    placeholder="Location"
-                    className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full placeholder-gray-400"
-                  />
-                  {/* Age Range */}
-                  <div>
-                    <label className="block text-xs font-semibold mb-2 text-[#00C2CB]">
-                      Age Range: {formData.age_range || '18-65'}
-                    </label>
-                    <div className="flex gap-2">
-                      <input
-                        type="range"
-                        min="18"
-                        max="65"
-                        step="1"
-                        value={formData.age_range.split('-')[0] || 18}
-                        onChange={(e) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            age_range: `${e.target.value}-${prev.age_range.split('-')[1] || 65}`,
-                          }))
-                        }
-                        className="w-full accent-[#00C2CB]"
-                      />
-                      <input
-                        type="range"
-                        min="18"
-                        max="65"
-                        step="1"
-                        value={formData.age_range.split('-')[1] || 65}
-                        onChange={(e) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            age_range: `${prev.age_range.split('-')[0] || 18}-${e.target.value}`,
-                          }))
-                        }
-                        className="w-full accent-[#00C2CB]"
-                      />
-                    </div>
-                  </div>
-                  <select
-                    name="gender"
-                    onChange={handleInput}
-                    value={formData.gender}
-                    className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full"
-                  >
-                    <option value="">Select Gender</option>
-                    <option value="All">All</option>
-                    <option value="Male">Male</option>
-                    <option value="Female">Female</option>
-                  </select>
-                  <input
-                    name="interests"
-                    onChange={handleInput}
-                    value={formData.interests}
-                    placeholder="Interests (e.g., Fitness, Tech, Travel)"
-                    className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full placeholder-gray-400"
-                  />
+                <div className="flex flex-wrap items-center gap-2 -mt-1">
+                  <span className="text-[11px] text-gray-500 mr-1">Quick add:</span>
+                  <Chip onClick={() => incBudget(5)}>+ $5</Chip>
+                  <Chip onClick={() => incBudget(10)}>+ $10</Chip>
+                  <Chip onClick={() => incBudget(20)}>+ $20</Chip>
                 </div>
-              )}
-              {step === 4 && (
+
+                <div className="flex gap-3">
+                  <label className="flex-1">
+                    <span className="text-xs text-gray-400">Start</span>
+                    <DateTimeField
+                      label="Start"
+                      value={form.start_time}
+                      onChange={(v) => setForm((p) => ({ ...p, start_time: v }))}
+                    />
+                  </label>
+                  <label className="flex-1">
+                    <span className="text-xs text-gray-400">End</span>
+                    <DateTimeField
+                      label="End"
+                      value={form.end_time}
+                      onChange={(v) => setForm((p) => ({ ...p, end_time: v }))}
+                    />
+                  </label>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 -mt-1">
+                  <span className="text-[11px] text-gray-500 mr-1">Shortcuts:</span>
+                  <Chip onClick={setStartIn15m}>Start now (+15m)</Chip>
+                  <Chip onClick={setEndIn7d}>End in 7 days</Chip>
+                </div>
+
+                <label className="block">
+                  <span className="text-xs text-gray-400">Countries (ISO, comma)</span>
+                  <CountryMultiSelect
+                    value={form.location_countries}
+                    onChange={(csv) => setForm((p) => ({ ...p, location_countries: csv }))}
+                  />
+                </label>
+
+                <div className="flex items-end gap-3">
+                  <label>
+                    <span className="text-xs text-gray-400">Age Min</span>
+                    <input
+                      type="number"
+                      min={13}
+                      max={65}
+                      className={`${INPUT} w-24`}
+                      value={form.age_min}
+                      onChange={onInput('age_min')}
+                    />
+                  </label>
+                  <label>
+                    <span className="text-xs text-gray-400">Age Max</span>
+                    <input
+                      type="number"
+                      min={13}
+                      max={65}
+                      className={`${INPUT} w-24`}
+                      value={form.age_max}
+                      onChange={onInput('age_max')}
+                    />
+                  </label>
+                  <label className="flex-1">
+                    <span className="text-xs text-gray-400">Gender</span>
+                    <select
+                      className={INPUT}
+                      value={form.gender}
+                      onChange={onInput('gender')}
+                    >
+                      <option value="">All</option>
+                      <option value="1">Male</option>
+                      <option value="2">Female</option>
+                    </select>
+                  </label>
+                </div>
+
+                <label className="block">
+                  <span className="text-xs text-gray-400">Interests (comma separated)</span>
+                  <input
+                    placeholder="Fitness, Tech, Travel"
+                    className={INPUT}
+                    value={form.interests_csv}
+                    onChange={onInput('interests_csv')}
+                  />
+                </label>
+
                 <div>
-                  {/* Drag and drop upload box */}
-                  <div className="mb-8">
-                    <div className="bg-[#232323] border-2 border-dashed border-[#00C2CB] rounded-xl flex flex-col items-center justify-center py-10 px-4">
-                      <span className="text-[#00C2CB] font-semibold text-lg mb-2">
-                        Drag and drop your image or video
-                      </span>
-                      <span className="text-gray-400 mb-4 text-xs">
-                        or click below to upload
-                      </span>
-                      <div className="flex flex-col gap-3 w-full max-w-xs mx-auto">
-                        <label className="block text-xs text-gray-400 mb-1">Ad Media Type</label>
-                        <select
-                          className="bg-[#181818] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-2 w-full mb-2"
-                          value={mediaType}
-                          onChange={(e) => setMediaType(e.target.value as 'VIDEO' | 'IMAGE')}
-                        >
-                          <option value="VIDEO">Video</option>
-                          <option value="IMAGE">Image</option>
-                        </select>
-                        <label className="block text-xs text-gray-400 mb-1">
-                          {mediaType === 'VIDEO'
-                            ? 'Upload Video'
-                            : 'Upload Image'}
-                        </label>
-                        <input
-                          type="file"
-                          accept={mediaType === 'VIDEO' ? 'video/*' : 'image/*'}
-                          onChange={(e) => handleFileChange(e, 'video')}
-                          className="bg-[#181818] border border-[#232323] text-white rounded-lg px-4 py-2 w-full mb-2"
-                        />
-                        <label className="block text-xs text-gray-400 mb-1">Upload Thumbnail</label>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={(e) => handleFileChange(e, 'thumbnail')}
-                          className="bg-[#181818] border border-[#232323] text-white rounded-lg px-4 py-2 w-full"
-                        />
+                  <span className="block text-xs text-gray-400 mb-2">Placements</span>
+                  <div className="grid sm:grid-cols-2 gap-3">
+                    {PLACEMENT_ORDER.map((key) => (
+                      <PlacementCard
+                        key={key}
+                        k={key}
+                        active={form.placements[key]}
+                        onToggle={() => onPlacementToggle(key)}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {(reachDaily !== null || reachMonthly !== null) && (
+                  <div className="mt-2 p-3 rounded-lg bg-[#1a1a1a] border border-[#2a2a2a]">
+                    <div className="text-xs text-gray-400 mb-1">Estimated Reach (unique users)</div>
+                    <div className="flex items-center gap-6">
+                      <div>
+                        <div className="text-[11px] text-gray-400">Daily</div>
+                        <div className="text-lg font-bold text-[#00C2CB]">
+                          {reachDaily !== null ? reachDaily.toLocaleString() : '—'}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-[11px] text-gray-400">Monthly</div>
+                        <div className="text-lg font-bold text-[#00C2CB]">
+                          {reachMonthly !== null ? reachMonthly.toLocaleString() : '—'}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
-              )}
-              {step === 5 && (
-                <div className="space-y-6">
-                  <input
-                    name="campaign_name"
-                    onChange={handleInput}
-                    value={formData.campaign_name}
-                    placeholder="Campaign Name"
-                    className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full placeholder-gray-400"
-                  />
-                  <select
-                    name="special_ad_category"
-                    onChange={handleInput}
-                    value={formData.special_ad_category}
-                    className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full"
-                  >
-                    <option value="">Select Special Ad Category</option>
-                    <option value="NONE">NONE</option>
-                    <option value="EMPLOYMENT">EMPLOYMENT</option>
-                    <option value="HOUSING">HOUSING</option>
-                    <option value="CREDIT">CREDIT</option>
-                    <option value="POLITICAL">POLITICAL</option>
-                  </select>
-                  <input
-                    name="ad_set_name"
-                    onChange={handleInput}
-                    value={formData.ad_set_name}
-                    placeholder="Ad Set Name"
-                    className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full placeholder-gray-400"
-                  />
-                  <select
-                    name="conversion_location"
-                    onChange={handleInput}
-                    value={formData.conversion_location}
-                    className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full"
-                  >
-                    <option value="">Select Conversion Location</option>
-                    <option value="WEBSITE">Website</option>
-                    <option value="APP">App</option>
-                    <option value="MESSENGER">Messenger</option>
-                  </select>
-                  <select
-                    name="dataset_id"
-                    onChange={handleInput}
-                    value={formData.dataset_id}
-                    className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full"
-                  >
-                    <option value="">Select Pixel/Dataset</option>
-                    <option value="pixel_001">Pixel #001</option>
-                    <option value="pixel_002">Pixel #002</option>
-                    <option value="pixel_custom">My Custom Pixel</option>
-                  </select>
-                  <select
-                    name="conversion_event"
-                    onChange={handleInput}
-                    value={formData.conversion_event}
-                    className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full"
-                  >
-                    <option value="">Select Conversion Event</option>
-                    <option value="PURCHASE">Purchase</option>
-                    <option value="LEAD">Lead</option>
-                    <option value="ADD_TO_CART">Add to Cart</option>
-                    <option value="COMPLETE_REGISTRATION">Complete Registration</option>
-                    <option value="SUBSCRIBE">Subscribe</option>
-                    <option value="INITIATE_CHECKOUT">Initiate Checkout</option>
-                    <option value="VIEW_CONTENT">View Content</option>
-                  </select>
-                  <select
-                    name="performance_goal"
-                    onChange={handleInput}
-                    value={formData.performance_goal}
-                    className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full"
-                  >
-                    <option value="">Select Performance Goal</option>
-                    <option value="REACH">Reach</option>
-                    <option value="LINK_CLICKS">Link Clicks</option>
-                    <option value="CONVERSIONS">Conversions</option>
-                    <option value="LEAD_GENERATION">Lead Generation</option>
-                  </select>
-                  <select
-                    name="placements_type"
-                    onChange={handleInput}
-                    value={formData.placements_type}
-                    className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full"
-                  >
-                    <option value="">Select Placements Type</option>
-                    <option value="AUTO">Automatic</option>
-                    <option value="MANUAL">Manual</option>
-                  </select>
-                  <input
-                    name="ad_name"
-                    onChange={handleInput}
-                    value={formData.ad_name}
-                    placeholder="Ad Name"
-                    className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full placeholder-gray-400"
-                  />
-                  <input
-                    name="page_id"
-                    onChange={handleInput}
-                    value={formData.page_id}
-                    placeholder="Facebook Page ID"
-                    className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full placeholder-gray-400"
-                  />
-                  <input
-                    name="instagram_id"
-                    onChange={handleInput}
-                    value={formData.instagram_id}
-                    placeholder="Instagram Account ID"
-                    className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full placeholder-gray-400"
-                  />
-                </div>
-              )}
-            </div>
-            {/* Reach Estimate */}
-            {reachEstimate !== null && (
-              <div className="mb-8 p-4 rounded-xl bg-[#232323] border border-[#232323] text-white shadow-sm flex flex-col gap-1">
-                <span className="text-xs text-gray-400">Estimated Audience Reach</span>
-                <span className="text-2xl font-bold text-[#00C2CB]">
-                  {reachEstimate.toLocaleString()} people
-                </span>
+                )}
               </div>
             )}
-            {/* Navigation Buttons */}
-            <div className="flex justify-between mt-10 gap-4">
+
+            {/* Step 3: Ad */}
+            {step === 3 && (
+              <div className="space-y-4">
+                <label className="block">
+                  <span className="text-xs text-gray-400">Headline</span>
+                  <input
+                    placeholder="Your headline"
+                    className={INPUT}
+                    value={form.headline}
+                    onChange={onInput('headline')}
+                  />
+                </label>
+
+                <label className="block">
+                  <span className="text-xs text-gray-400">Caption</span>
+                  <textarea
+                    placeholder="Say something compelling…"
+                    className={INPUT}
+                    value={form.caption}
+                    onChange={onInput('caption')}
+                  />
+                </label>
+
+                <div className="flex gap-3">
+                  <label className="flex-1">
+                    <span className="text-xs text-gray-400">Call to Action</span>
+                    <select
+                      className={INPUT}
+                      value={form.call_to_action}
+                      onChange={onInput('call_to_action')}
+                    >
+                      <option value="LEARN_MORE">Learn More</option>
+                      <option value="SHOP_NOW">Shop Now</option>
+                      <option value="SIGN_UP">Sign Up</option>
+                    </select>
+                  </label>
+                  <label className="flex-1">
+                    <span className="text-xs text-gray-400">Destination URL</span>
+                    <input
+                      placeholder="https://your-landing-page.com"
+                      className={INPUT}
+                      value={form.display_link}
+                      onChange={onInput('display_link')}
+                    />
+                  </label>
+                </div>
+
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <label className="block">
+                    <span className="text-xs text-gray-400">Upload Video</span>
+                    <input
+                      type="file"
+                      accept="video/*"
+                      className={INPUT}
+                      onChange={(e) => setVideoFile(e.target.files?.[0] || null)}
+                    />
+                  </label>
+
+                  <label className="block">
+                    <span className="text-xs text-gray-400">Optional Thumbnail</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className={INPUT}
+                      onChange={(e) => setThumbnailFile(e.target.files?.[0] || null)}
+                    />
+                  </label>
+                </div>
+
+                <div className="text-xs text-gray-500">
+                  Tracking: <span className="text-white">{trackingLink}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Step 4: Review */}
+            {step === 4 && (
+              <div className="space-y-4 text-sm">
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div className="p-3 rounded-lg bg-[#101010] border border-[#232323]">
+                    <div className="text-gray-400 text-xs mb-1">Campaign</div>
+                    <div className="font-semibold">{form.campaign_name || '—'}</div>
+                    <div className="text-gray-400 mt-1">Objective: {form.objective}</div>
+                  </div>
+                  <div className="p-3 rounded-lg bg-[#101010] border border-[#232323]">
+                    <div className="text-gray-400 text-xs mb-1">Budget</div>
+                    <div className="font-semibold">
+                      ${Number(form.budget_amount_dollars || 0).toFixed(2)} ({form.budget_type})
+                    </div>
+                  </div>
+                  <div className="p-3 rounded-lg bg-[#101010] border border-[#232323]">
+                    <div className="text-gray-400 text-xs mb-1">Targeting</div>
+                    <div>
+                      {form.location_countries} • {form.age_min}-{form.age_max} •{' '}
+                      {form.gender === '' ? 'All' : form.gender === '1' ? 'Male' : 'Female'}
+                    </div>
+                    {form.interests_csv && <div className="text-gray-400">Interests: {form.interests_csv}</div>}
+                  </div>
+                  <div className="p-3 rounded-lg bg-[#101010] border border-[#232323]">
+                    <div className="text-gray-400 text-xs mb-1">Creative</div>
+                    <div className="font-semibold">{form.headline || 'No headline'}</div>
+                    <div className="text-gray-400">{form.caption || 'No caption'}</div>
+                    <div className="text-gray-400 mt-1">
+                      CTA: {form.call_to_action} → {form.display_link || '—'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Footer / Nav */}
+          <div className="px-6 sm:px-8 py-5 border-t border-[#232323] flex items-center justify-between">
+            <button
+              className="px-4 py-2 rounded-lg border border-[#2a2a2a] text-gray-300 hover:bg-[#1a1a1a]"
+              onClick={() => (step > 1 ? setStep(step - 1) : router.back())}
+            >
+              {step > 1 ? 'Back' : 'Cancel'}
+            </button>
+
+            {step < 4 ? (
               <button
-                className="px-8 py-2 rounded-lg border border-[#00C2CB] text-[#00C2CB] font-semibold bg-[#181818] hover:bg-[#232323] transition disabled:opacity-40"
-                disabled={step === 1}
-                onClick={() => setStep((s) => Math.max(1, s - 1))}
+                className="px-6 py-2 rounded-lg bg-[#00C2CB] text-black font-semibold hover:bg-[#00b0b8]"
+                onClick={() => setStep(step + 1)}
               >
-                Back
+                Next
               </button>
-              {step < 5 ? (
-                <button
-                  className="px-8 py-2 rounded-lg bg-[#00C2CB] text-white font-semibold hover:bg-[#00b0b8] transition"
-                  onClick={() => setStep((s) => Math.min(5, s + 1))}
-                >
-                  Next
-                </button>
-              ) : (
-                <button
-                  disabled={loading}
-                  onClick={handleSubmit}
-                  className="px-8 py-2 rounded-lg bg-[#00C2CB] text-white font-semibold hover:bg-[#00b0b8] transition disabled:opacity-40"
-                >
-                  {loading ? 'Submitting...' : 'Submit Ad Idea'}
-                </button>
+            ) : (
+              <button
+                disabled={loading}
+                onClick={handleSubmit}
+                className="px-6 py-2 rounded-lg bg-[#00C2CB] text-black font-semibold hover:bg-[#00b0b8] disabled:opacity-50"
+              >
+                {loading ? 'Submitting…' : 'Submit for Review'}
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* RIGHT: Preview / Metrics */}
+        <aside className="space-y-6">
+          {/* Estimated Reach */}
+          <div className="bg-[#141414] border border-[#232323] rounded-2xl p-5">
+            <div className="text-sm font-semibold mb-2">Estimated Reach</div>
+            <div className="flex items-center gap-8">
+              <div>
+                <div className="text-[11px] text-gray-400">Daily</div>
+                <div className="text-2xl font-extrabold text-[#00C2CB]">{reachDaily !== null ? reachDaily.toLocaleString() : '—'}</div>
+              </div>
+              <div>
+                <div className="text-[11px] text-gray-400">Monthly</div>
+                <div className="text-2xl font-extrabold text-[#00C2CB]">{reachMonthly !== null ? reachMonthly.toLocaleString() : '—'}</div>
+              </div>
+            </div>
+            <div className="text-xs text-gray-400 mt-1">
+              Estimated unique users based on your ad set targeting.
+              {interestsIgnored && (
+                <span className="block mt-1 text-[11px] text-gray-500">Some typed interests were ignored because they didn’t match official Meta interest IDs.</span>
               )}
             </div>
           </div>
-          {/* Right: Estimated Reach Box */}
-          <div className="w-full max-w-sm lg:ml-8 mt-10 lg:mt-0">
-            <div className="bg-[#1a1a1a] rounded-2xl border border-[#232323] shadow-xl p-8 flex flex-col gap-6">
-              {/* Metrics */}
+
+          <div className="rounded-2xl p-4 border border-[#232323] bg-[#121212]">
+            <div className="text-sm font-semibold mb-3">Estimated Conversions</div>
+            <div className="flex gap-8 items-end">
               <div>
-                <h2 className="text-xl font-bold text-[#00C2CB] mb-6">Estimated Reach</h2>
-                {/* 
-                  --- Reach Metrics ---
-                  Now using dynamic state for reach and conversion rate.
-                */}
-                <div className="mb-5">
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className="text-gray-300">Potential Reach</span>
-                    <p className="text-white text-sm">
-                      {estimatedReach.min.toLocaleString()}–{estimatedReach.max.toLocaleString()}
-                    </p>
-                  </div>
-                  <div className="w-full h-2 rounded bg-[#232323]">
-                    <div className="h-2 rounded bg-[#00C2CB]" style={{ width: '72%' }} />
-                  </div>
-                </div>
-                <div className="mb-5">
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className="text-gray-300">Conversion Rate</span>
-                    <p className="text-white text-sm">{conversionRate}%</p>
-                  </div>
-                  <div className="w-full h-2 rounded bg-[#232323]">
-                    <div className="h-2 rounded bg-[#00C2CB]" style={{ width: '32%' }} />
-                  </div>
-                </div>
-                <div className="mb-7">
-                  <div className="flex justify-between text-xs mb-1">
-                    <span className="text-gray-300">Estimated Spend</span>
-                    <p className="text-white text-sm">${minSpend}—${maxSpend}</p>
-                  </div>
-                  <div className="w-full h-2 rounded bg-[#232323]">
-                    <div className="h-2 rounded bg-[#00C2CB]" style={{ width: '44%' }} />
-                  </div>
+                <div className="text-[11px] text-gray-400">Daily</div>
+                <div className="text-2xl font-extrabold text-[#00C2CB]">
+                  {Number.isFinite(dailyConversions) ? Math.floor(dailyConversions).toLocaleString() : '—'}
                 </div>
               </div>
-              {/* Preview Card */}
-              <div className="rounded-xl bg-[#232323] p-6 shadow flex flex-col items-center mt-1">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-10 h-10 rounded-full bg-[#00C2CB] flex items-center justify-center text-white font-bold text-lg">
-                    {/* Profile Initials Placeholder */}
-                    P
-                  </div>
-                  <div>
-                    <div className="text-sm text-white font-semibold">Profile Name</div>
-                    <div className="text-xs text-gray-400">Sponsored</div>
-                  </div>
-                </div>
-                <div className="w-full h-44 rounded-lg bg-[#1a1a1a] border border-[#232323] flex items-center justify-center mb-4 overflow-hidden">
-                  {/* Ad Image/Video Placeholder */}
-                  {mediaType === 'VIDEO' && videoFile ? (
-                    <video controls className="w-full h-full object-cover rounded-lg">
-                      <source src={URL.createObjectURL(videoFile)} type={videoFile.type} />
-                      Your browser does not support the video tag.
-                    </video>
-                  ) : mediaType === 'IMAGE' && videoFile ? (
-                    <img src={URL.createObjectURL(videoFile)} alt="Ad Preview" className="w-full h-full object-cover rounded-lg" />
-                  ) : thumbnailFile ? (
-                    <img src={URL.createObjectURL(thumbnailFile)} alt="Thumbnail" className="w-full h-full object-cover rounded-lg" />
-                  ) : (
-                    <span className="text-gray-500">Ad Image/Video</span>
-                  )}
-                </div>
-                <div className="w-full">
-                  <div className="text-base font-semibold text-white truncate">
-                    {formData.headline || 'Ad Headline Preview'}
-                  </div>
-                  <div className="text-sm text-gray-400 truncate mb-2">
-                    {formData.caption || 'Ad caption preview…'}
-                  </div>
-                  <button className="w-full mt-2 py-2 rounded-lg bg-[#00C2CB] text-white font-bold text-sm hover:bg-[#00b0b8] transition">
-                    {formData.call_to_action.replace('_', ' ').toUpperCase() || 'LEARN MORE'}
-                  </button>
+              <div>
+                <div className="text-[11px] text-gray-400">Monthly</div>
+                <div className="text-2xl font-extrabold text-[#00C2CB]">
+                  {Number.isFinite(monthlyConversions) ? Math.floor(monthlyConversions).toLocaleString() : '—'}
                 </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
 
-      {activeTab === 'organic' && (
-        <div className="flex flex-col lg:flex-row gap-10 justify-center items-start max-w-[1400px] mx-auto mt-12">
-          {/* Left: Organic Form */}
-          <div className="max-w-lg w-full bg-[#1a1a1a] rounded-2xl shadow-xl border border-[#232323] p-10">
-            <h2 className="text-2xl font-bold text-[#00C2CB] mb-6">Submit Organic Post</h2>
-            <div className="space-y-6">
-              <select
-                name="platform"
-                onChange={handleInput}
-                value={formData.platform || ''}
-                className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full"
-              >
-                <option value="">Select Platform</option>
-                <option value="facebook">Facebook</option>
-                <option value="instagram">Instagram</option>
-              </select>
-              <input
-                name="caption"
-                onChange={handleInput}
-                value={formData.caption}
-                placeholder="Caption"
-                className="bg-[#101010] border border-[#232323] focus:border-[#00C2CB] text-white rounded-lg px-4 py-3 w-full placeholder-gray-400"
-              />
-              {/* Tracking Link and Copy Button for Organic */}
-              <div className="flex items-center gap-2 mt-2">
-                <input
-                  type="text"
-                  value={trackingLink}
-                  readOnly
-                  className="bg-[#101010] border border-[#232323] text-white rounded-lg px-4 py-2 w-full text-sm opacity-80"
+          {/* Ad Preview Card */}
+          <div className="bg-[#141414] border border-[#232323] rounded-2xl p-5">
+            <div className="flex items-center gap-3 mb-3">
+              {brandLogoUrl ? (
+                <img
+                  src={brandLogoUrl}
+                  alt={brandName}
+                  className="h-8 w-8 rounded-full object-cover border border-[#2a2a2a]"
                 />
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(trackingLink);
-                    alert('Tracking link copied!');
-                  }}
-                  className="px-4 py-2 rounded-lg bg-[#00C2CB] text-white text-sm font-semibold hover:bg-[#00b0b8] transition"
-                >
-                  Copy
-                </button>
+              ) : (
+                <div className="h-8 w-8 rounded-full bg-[#2a2a2a]" />
+              )}
+              <div>
+                <div className="text-sm font-semibold">{brandName}</div>
+                <div className="text-xs text-gray-400">Sponsored</div>
               </div>
-              <div className="bg-[#232323] border-2 border-dashed border-[#00C2CB] rounded-xl flex flex-col items-center justify-center py-8 px-4">
-                <span className="text-[#00C2CB] font-semibold text-base mb-2">
-                  Drag and drop your image or video
-                </span>
-                <span className="text-gray-400 mb-3 text-xs">
-                  or click below to upload
-                </span>
-                <input
-                  type="file"
-                  accept="image/*,video/*"
-                  onChange={(e) => handleFileChange(e, 'organic')}
-                  className="bg-[#181818] border border-[#232323] text-white rounded-lg px-4 py-2 w-full"
-                />
-                {organicFile && (
-                  <div className="mt-4 w-full rounded-lg overflow-hidden">
-                    {organicFile.type.includes('video') ? (
-                      <video
-                        src={URL.createObjectURL(organicFile)}
-                        controls
-                        className="w-full h-auto rounded-lg"
-                      />
-                    ) : (
-                      <img
-                        src={URL.createObjectURL(organicFile)}
-                        alt="Organic preview"
-                        className="w-full h-auto rounded-lg"
-                      />
-                    )}
-                  </div>
-                )}
-              </div>
-              <button
-                disabled={loading}
-                onClick={handleUpload}
-                className="w-full py-3 rounded-lg bg-[#00C2CB] text-white font-semibold text-base hover:bg-[#00b0b8] transition disabled:opacity-50"
-              >
-                {loading ? 'Uploading...' : 'Submit Organic Post'}
-              </button>
             </div>
-          </div>
 
-          {/* Right: Preview Card */}
-          <div className="w-full max-w-sm lg:ml-2 mt-10 lg:mt-0">
-            <div className="bg-[#1a1a1a] rounded-2xl border border-[#232323] shadow-xl p-6 flex flex-col items-center">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-full bg-[#00C2CB] flex items-center justify-center text-white font-bold text-lg">
-                  P
+            <div className="aspect-[4/5] w-full rounded-lg bg-[#0f0f0f] border border-[#232323] overflow-hidden">
+              {videoPreviewUrl ? (
+                <video
+                  src={videoPreviewUrl}
+                  className="h-full w-full object-cover"
+                  controls
+                  playsInline
+                  muted
+                />
+              ) : thumbPreviewUrl ? (
+                <img
+                  src={thumbPreviewUrl}
+                  alt="Thumbnail preview"
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <div className="h-full w-full flex items-center justify-center text-gray-500 text-sm">
+                  Your ad image/video will appear here
                 </div>
-                <div>
-                  <div className="text-sm text-white font-semibold">Profile Name</div>
-                  <div className="text-xs text-gray-400">Sponsored</div>
-                </div>
+              )}
+            </div>
+
+            <div className="mt-3">
+              <div className="font-semibold">{form.headline || 'Your headline will appear here'}</div>
+              <div className="text-sm text-gray-400">
+                {form.caption || 'Your ad description will appear here. Make it compelling!'}
               </div>
-              <div className="w-full h-44 rounded-lg bg-[#1a1a1a] border border-[#232323] flex items-center justify-center mb-4 overflow-hidden">
-                {organicFile ? (
-                  organicFile.type.includes('video') ? (
-                    <video controls className="w-full h-full object-cover rounded-lg">
-                      <source src={URL.createObjectURL(organicFile)} type={organicFile.type} />
-                    </video>
-                  ) : (
-                    <img src={URL.createObjectURL(organicFile)} alt="Preview" className="w-full h-full object-cover rounded-lg" />
-                  )
-                ) : (
-                  <span className="text-gray-500">Ad Image/Video</span>
-                )}
-              </div>
-              <div className="w-full">
-                <div className="text-base font-semibold text-white truncate">
-                  {formData.caption || 'Ad Headline Preview'}
+              <div className="mt-3 flex items-center justify-between">
+                <div className="text-xs text-gray-500">
+                  {form.display_link || 'yourdomain.com'}
                 </div>
-                <div className="text-sm text-gray-400 truncate mb-2">
-                  Organic Post Preview
-                </div>
-                <button className="w-full mt-2 py-2 rounded-lg bg-[#00C2CB] text-white font-bold text-sm hover:bg-[#00b0b8] transition">
-                  {formData.platform ? formData.platform.toUpperCase() : 'LEARN MORE'}
+                <button className="px-3 py-1 rounded-md bg-[#00C2CB] text-black text-sm font-semibold">
+                  {form.call_to_action.replace('_', ' ') || 'Learn More'}
                 </button>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        </aside>
+      </div>
     </div>
   );
 }

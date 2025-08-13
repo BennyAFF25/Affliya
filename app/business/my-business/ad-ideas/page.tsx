@@ -136,6 +136,13 @@ export default function AdIdeasPage() {
         setSelectedReason('');
         setCustomReason('');
       }
+      if (newStatus === 'approved') {
+        // Show confirmation toast
+        alert('Ad approved and campaign created successfully!');
+
+        // Redirect to the Manage Campaigns page with the correct offer ID
+        router.push(`/business/manage-campaigns/${id}`);
+      }
     }
   };
 
@@ -214,6 +221,16 @@ export default function AdIdeasPage() {
         console.error('[❌ Meta Upload Failed]', data);
       } else {
         console.log('[✅ Meta Upload Success]', data);
+        // After successful Meta ad creation and response, update Supabase row with meta_status
+        // Use status from Meta API response, e.g. data.status or data.metaStatus, fallback to 'RUNNING'
+        let metaStatus = data?.status || data?.metaStatus || 'RUNNING';
+        // Only update if we have a status and an ad idea id
+        if (metaStatus && adIdea?.id) {
+          await supabase
+            .from('ad_ideas')
+            .update({ meta_status: metaStatus })
+            .eq('id', adIdea.id);
+        }
       }
     } catch (err) {
       console.error('[❌ Meta Upload Error]', err);
@@ -440,7 +457,6 @@ export default function AdIdeasPage() {
                   <button
                     onClick={async () => {
                       await handleStatusChange(selectedIdea.id, 'approved');
-                      setSelectedIdea((prev) => prev ? { ...prev, status: 'approved' } : null);
                       await sendToMeta(selectedIdea.id);
                     }}
                     className="w-full py-2 rounded bg-[#00C2CB] hover:bg-[#00b0b8] text-white font-medium text-sm"

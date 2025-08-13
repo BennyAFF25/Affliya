@@ -11,6 +11,11 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY! // Needs elevated RLS access
 );
 
+async function safeParse(res: Response) {
+  const text = await res.text();
+  try { return text ? JSON.parse(text) : null; } catch { return { _raw: text }; }
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -100,8 +105,8 @@ export async function POST(req: Request) {
         special_ad_categories: [payload.special_ad_category || 'NONE']
       })
     });
-
-    const campaignData = await createCampaignRes.json();
+    console.log('[HTTP] campaign', createCampaignRes.status);
+    const campaignData = await safeParse(createCampaignRes);
     if (!campaignData.id) {
       console.error('[❌ Campaign Creation Failed]', campaignData);
       return NextResponse.json({ success: false, error: 'Campaign creation failed', meta: campaignData }, { status: 400 });
@@ -121,6 +126,12 @@ export async function POST(req: Request) {
     } else {
       console.log('[✅ Campaign ID Updated in Supabase]', updateRes.data);
 
+      const { data: idea } = await supabase
+        .from('ad_ideas')
+        .select('location')
+        .eq('id', adIdeaId)
+        .maybeSingle();
+
       // --- Create Ad Set ---
       const countryMap: Record<string, string> = {
         Australia: "AU",
@@ -130,9 +141,39 @@ export async function POST(req: Request) {
         Germany: "DE",
         France: "FR",
         India: "IN",
-        // Add more as needed
       };
-      const isoCountry = countryMap[payload.location] || "AU";
+      const countries = (() => {
+        const src = (payload.location ?? (idea as any)?.location ?? 'AU').toString();
+        return src
+          .split(/[\s,]+/)
+          .map((s: string) => s.trim())
+          .filter(Boolean)
+          .map((s: string) => (s.length === 2 ? s.toUpperCase() : (countryMap[s] || s.toUpperCase())));
+      })();
+
+      const rawPlacements: string[] = Array.isArray((payload as any).manual_placements)
+        ? (payload as any).manual_placements
+        : [];
+      const mapFB: Record<string, string> = { facebook_feed: 'feed', facebook_stories: 'story', facebook_reels: 'reels' };
+      const mapIG: Record<string, string> = { instagram_feed: 'stream', instagram_stories: 'story', instagram_reels: 'reels' };
+      const facebook_positions = rawPlacements.filter(p => p in mapFB).map(p => mapFB[p]);
+      const instagram_positions = rawPlacements.filter(p => p in mapIG).map(p => mapIG[p]);
+      const publisher_platforms: string[] = [];
+      if (facebook_positions.length) publisher_platforms.push('facebook');
+      if (instagram_positions.length) publisher_platforms.push('instagram');
+
+      let flexible_spec: any = undefined;
+      const rawInterests = (payload as any).interests;
+      try {
+        const arr = Array.isArray(rawInterests)
+          ? rawInterests
+          : (typeof rawInterests === 'string' ? JSON.parse(rawInterests) : []);
+        const ids = (arr || [])
+          .map((i: any) => (typeof i === 'object' && i?.id ? String(i.id) : (/^\d+$/.test(String(i)) ? String(i) : null)))
+          .filter(Boolean)
+          .map((id: string) => ({ id }));
+        if (ids.length) flexible_spec = [{ interests: ids }];
+      } catch {}
 
       const adSetRes = await fetch(`https://graph.facebook.com/v19.0/${cleanAdAccountId}/adsets`, {
         method: 'POST',
@@ -150,15 +191,20 @@ export async function POST(req: Request) {
           start_time: new Date(Date.now() + 60000).toISOString(),
           end_time: new Date(Date.now() + 7 * 86400000).toISOString(),
           targeting: JSON.stringify({
-            geo_locations: { countries: [isoCountry] },
-            age_min: parseInt(payload.age_range?.[0] || '18'),
-            genders: payload.gender === 'Male' ? [1] : payload.gender === 'Female' ? [2] : [1, 2],
-            interests: payload.interests ? [{ id: '6003139266461', name: payload.interests }] : [],
+            geo_locations: { countries },
+            age_min: parseInt((payload as any).age_range?.[0] || '18', 10),
+            age_max: parseInt((payload as any).age_range?.[1] || '65', 10),
+            genders: (payload as any).gender === 'Male' ? [1] : (payload as any).gender === 'Female' ? [2] : [1, 2],
+            ...(publisher_platforms.length ? { publisher_platforms } : {}),
+            ...(facebook_positions.length ? { facebook_positions } : {}),
+            ...(instagram_positions.length ? { instagram_positions } : {}),
+            ...(flexible_spec ? { flexible_spec } : {}),
           }),
           pacing_type: JSON.stringify(['standard']),
           status: 'ACTIVE',
         }),
-      }).then((res) => res.json());
+      }).then((res) => safeParse(res));
+      console.log('[HTTP] adset', adSetRes?.id ? 200 : 400);
 
       if (!adSetRes.id) {
         console.error('[❌ Ad Set Creation Failed]', adSetRes);
@@ -176,7 +222,8 @@ export async function POST(req: Request) {
             name: payload.ad_name || `Affliya Video`,
             description: payload.caption || ''
           })
-        }).then(res => res.json());
+        }).then(res => safeParse(res));
+        console.log('[HTTP] video', videoUploadRes?.id ? 200 : 400);
 
         if (!videoUploadRes.id) {
           console.error('[❌ Video Upload to Meta Failed]', videoUploadRes);
@@ -214,7 +261,8 @@ export async function POST(req: Request) {
               }
             }
           })
-        }).then(res => res.json());
+        }).then(res => safeParse(res));
+        console.log('[HTTP] creative', creativeRes?.id ? 200 : 400);
 
         if (!creativeRes.id) {
           console.error('[❌ Ad Creative Creation Failed]', creativeRes);
@@ -235,7 +283,8 @@ export async function POST(req: Request) {
               status: 'ACTIVE',
               start_time: new Date(Date.now() + 60000).toISOString()
             })
-          }).then(res => res.json());
+          }).then(res => safeParse(res));
+          console.log('[HTTP] ad', adRes?.id ? 200 : 400);
 
           if (!adRes.id) {
             console.error('[❌ Ad Creation Failed]', adRes);
