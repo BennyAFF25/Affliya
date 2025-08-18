@@ -172,60 +172,58 @@ function AffiliateDashboardContent() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white px-4 py-6">
-      <div className="text-white px-4 sm:px-6 md:px-8 lg:px-10 pb-20">
-            <div className="text-center mb-8">
-              <h1 className="text-3xl font-bold text-[#00C2CB] mb-1">Affiliate Dashboard</h1>
-              <p className="text-sm text-gray-500">
-                Welcome back, <span className="font-medium text-gray-300">{user?.email}</span>
-              </p>
-            </div>
+    <div className="min-h-screen bg-[#0b0b0b] text-white">
+      <div className="max-w-8xl mx-auto px-4 sm:px-6 md:px-8 lg:px-10 py-6 md:py-8">
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mb-14">
-              <div className="bg-[#121212] text-[#00C2CB] rounded-md p-4 border border-[1px] border-[#00C2CB]/40">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-10">
+              <div className="group relative rounded-2xl border border-white/10 bg-white/[0.04] p-4 shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_20px_60px_rgba(0,0,0,0.35)] transition-transform hover:-translate-y-0.5">
+                <div className="pointer-events-none absolute -inset-16 opacity-0 group-hover:opacity-100 transition-opacity"><div className="h-full w-full bg-[radial-gradient(80%_60%_at_30%_20%,#00C2CB33,transparent_60%)]" /></div>
                 <div className="flex items-center gap-4">
-                  <div className="text-[#00C2CB] bg-[#c1f4f5] rounded-full p-3">
+                  <div className="text-[#7ff5fb] bg-[#00C2CB1a] rounded-lg p-2.5">
                     <TrendingUp className="h-6 w-6" />
                   </div>
                   <div>
-                    <p className="text-sm text-[#00C2CB]">Active Campaigns</p>
-                    <h2 className="text-2xl font-bold text-[#00C2CB]">{approvedOffers.length}</h2>
+                    <p className="text-xs text-white/60">Active Campaigns</p>
+                    <h2 className="text-3xl font-bold text-white">{approvedOffers.length}</h2>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-[#121212] text-[#fbbf24] rounded-md p-4 border border-[1px] border-[#FACC15]/40">
+              <div className="group relative rounded-2xl border border-white/10 bg-white/[0.04] p-4 shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_20px_60px_rgba(0,0,0,0.35)] transition-transform hover:-translate-y-0.5">
+                <div className="pointer-events-none absolute -inset-16 opacity-0 group-hover:opacity-100 transition-opacity"><div className="h-full w-full bg-[radial-gradient(80%_60%_at_30%_20%,#00C2CB33,transparent_60%)]" /></div>
                 <div className="flex items-center gap-4">
-                  <div className="text-[#fbbf24] bg-[#fef3c7] rounded-full p-3">
+                  <div className="text-[#7ff5fb] bg-[#00C2CB1a] rounded-lg p-2.5">
                     <DollarSign className="h-6 w-6" />
                   </div>
                   <div>
-                    <p className="text-sm text-[#fbbf24]">Total Spent</p>
-                    <h2 className="text-2xl font-bold text-[#fbbf24]">$640</h2>
+                    <p className="text-xs text-white/60">Total Spent</p>
+                    <h2 className="text-3xl font-bold text-white">$640</h2>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-[#121212] text-[#10b981] rounded-md p-4 border border-[1px] border-[#4ADE80]/40">
+              <div className="group relative rounded-2xl border border-white/10 bg-white/[0.04] p-4 shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_20px_60px_rgba(0,0,0,0.35)] transition-transform hover:-translate-y-0.5">
+                <div className="pointer-events-none absolute -inset-16 opacity-0 group-hover:opacity-100 transition-opacity"><div className="h-full w-full bg-[radial-gradient(80%_60%_at_30%_20%,#00C2CB33,transparent_60%)]" /></div>
                 <div className="flex items-center gap-4">
-                  <div className="text-[#10b981] bg-[#d1fae5] rounded-full p-3">
+                  <div className="text-[#7ff5fb] bg-[#00C2CB1a] rounded-lg p-2.5">
                     <Wallet className="h-6 w-6" />
                   </div>
                   <div>
-                    <p className="text-sm text-[#10b981]">Pending Payout</p>
-                    <h2 className="text-2xl font-bold text-[#10b981]">$280</h2>
+                    <p className="text-xs text-white/60">Pending Payout</p>
+                    <h2 className="text-3xl font-bold text-white">$280</h2>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-[#121212] text-[#a78bfa] rounded-md p-4 border border-[1px] border-[#A78BFA]/40">
+              <div className="group relative rounded-2xl border border-white/10 bg-white/[0.04] p-4 shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_20px_60px_rgba(0,0,0,0.35)] transition-transform hover:-translate-y-0.5">
+                <div className="pointer-events-none absolute -inset-16 opacity-0 group-hover:opacity-100 transition-opacity"><div className="h-full w-full bg-[radial-gradient(80%_60%_at_30%_20%,#00C2CB33,transparent_60%)]" /></div>
                 <div className="flex items-center gap-4">
-                  <div className="text-[#a78bfa] bg-[#ede9fe] rounded-full p-3">
+                  <div className="text-teal-400 bg-teal-700/10 rounded-lg p-2.5">
                     <CheckCircle className="h-6 w-6" />
                   </div>
                   <div>
-                    <p className="text-sm text-[#a78bfa]">Approved Offers</p>
-                    <h2 className="text-2xl font-bold text-[#a78bfa]">{approvedOffers.length}</h2>
+                    <p className="text-xs text-white/60">Approved Offers</p>
+                    <h2 className="text-3xl font-bold text-white">{approvedOffers.length}</h2>
                   </div>
                 </div>
               </div>
@@ -234,79 +232,82 @@ function AffiliateDashboardContent() {
             {/* Updated Charts */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
               {[{ title: 'Ad Spend (Last 30 Days)', data: spendData }, { title: 'Conversions (Last 30 Days)', data: conversionData }].map((chart, i) => (
-                <div key={i} className="bg-[#121212] p-6 rounded-xl shadow-sm border border-transparent">
-                  <h2 className="text-md font-semibold mb-2">{chart.title}</h2>
-                  <ResponsiveContainer width="100%" height={250}>
-                    <AreaChart data={chart.data}>
-                      <defs>
-                        <linearGradient id={`color${i}`} x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#00C2CB" stopOpacity={0.8} />
-                          <stop offset="95%" stopColor="#00C2CB" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <XAxis
-                        dataKey="name"
-                        padding={{ left: 20, right: 20 }}
-                        tick={{ fill: '#555', fontSize: 12 }}
-                        axisLine={false}
-                        tickLine={false}
-                      />
-                      <YAxis
-                        domain={['dataMin - 5', 'auto']}
-                        tick={{ fill: '#555', fontSize: 12 }}
-                        axisLine={false}
-                        tickLine={false}
-                      />
-                      <Tooltip
-                        contentStyle={{ backgroundColor: '#fff', borderRadius: '10px', border: '1px solid #ddd' }}
-                        labelStyle={{ fontWeight: 600 }}
-                        itemStyle={{ color: '#00C2CB' }}
-                      />
-                      <Area
-                        type="monotone"
-                        dataKey="value"
-                        stroke="#00C2CB"
-                        fillOpacity={1}
-                        fill={`url(#color${i})`}
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
+                <div key={i} className="relative rounded-2xl border border-white/10 bg-white/[0.03] p-4 md:p-6 shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_20px_60px_rgba(0,0,0,0.35)]">
+                  <div className="absolute -inset-3 rounded-2xl blur-2xl bg-[#00C2CB0d]" />
+                  <div className="relative">
+                    <h2 className="text-sm font-semibold text-white/70 mb-2">{chart.title}</h2>
+                    <ResponsiveContainer width="100%" height={250}>
+                      <AreaChart data={chart.data}>
+                        <defs>
+                          <linearGradient id={`color${i}`} x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#00C2CB" stopOpacity={0.8} />
+                            <stop offset="95%" stopColor="#00C2CB" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <XAxis
+                          dataKey="name"
+                          padding={{ left: 20, right: 20 }}
+                          tick={{ fill: '#555', fontSize: 12 }}
+                          axisLine={false}
+                          tickLine={false}
+                        />
+                        <YAxis
+                          domain={['dataMin - 5', 'auto']}
+                          tick={{ fill: '#555', fontSize: 12 }}
+                          axisLine={false}
+                          tickLine={false}
+                        />
+                        <Tooltip
+                          contentStyle={{ backgroundColor: '#fff', borderRadius: '10px', border: '1px solid #ddd' }}
+                          labelStyle={{ fontWeight: 600 }}
+                          itemStyle={{ color: '#00C2CB' }}
+                        />
+                        <Area
+                          type="monotone"
+                          dataKey="value"
+                          stroke="#00C2CB"
+                          fillOpacity={1}
+                          fill={`url(#color${i})`}
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
               ))}
             </div>
 
             <div className="flex flex-col md:flex-row justify-between gap-6 mt-8">
               {/* Active Campaigns */}
-              <div className="w-full md:w-1/2 bg-[#121212] rounded-xl p-4 shadow-lg">
+              <div className="w-full md:w-1/2 rounded-2xl border border-white/10 bg-white/[0.04] p-4 shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_20px_60px_rgba(0,0,0,0.35)]">
                 <h2 className="text-lg font-semibold text-white mb-4">Active Campaigns</h2>
                 {activeOffers.length === 0 ? (
-                  <div className="bg-[#e0fafa] text-[#007d80] p-6 rounded-xl text-center text-black">
+                  <div className="rounded-xl border border-white/10 bg-black/30 p-6 text-center text-white/70">
                     No active campaigns yet.
                   </div>
                 ) : (
                   activeOffers.map((offer) => (
                     <div
                       key={`${offer.id}-${offer.ideaId}`}
-                      className="flex items-center justify-between bg-[#121212] p-3 rounded-md mb-3 border border-[#00C2CB]"
+                      className="flex items-center justify-between rounded-xl border border-white/10 bg-black/30 px-3 py-2 mb-3"
                     >
                       <div className="flex flex-col">
-                        <p className="text-[#00C2CB] font-semibold">{offer.title}</p>
+                        <p className="text-white font-semibold">{offer.title}</p>
                         <div className="flex items-center">
                           <RocketLaunchIcon className="w-5 h-5 text-[#00C2CB] mr-2" />
-                          <span className="truncate font-semibold">Ad Campaign: {offer.ideaId?.slice(0, 8)}...</span>
+                          <span className="truncate text-sm text-white/70">Ad Campaign: {offer.ideaId?.slice(0, 8)}...</span>
                         </div>
                       </div>
-                      <button className="text-sm text-[#00C2CB] hover:underline">View</button>
+                      <button className="text-sm px-3 py-1 rounded-lg bg-[#00C2CB] text-black font-semibold hover:bg-[#00b0b8]">View</button>
                     </div>
                   ))
                 )}
               </div>
 
               {/* Approved Offers */}
-              <div className="w-full md:w-1/2 bg-[#121212] rounded-xl p-4 shadow-lg">
+              <div className="w-full md:w-1/2 rounded-2xl border border-white/10 bg-white/[0.04] p-4 shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_20px_60px_rgba(0,0,0,0.35)]">
                 <h2 className="text-lg font-semibold text-white mb-4">Approved Offers</h2>
                 {approvedOffers.length === 0 ? (
-                  <div className="bg-[#e0fafa] text-[#007d80] p-6 rounded-xl text-center text-black">
+                  <div className="rounded-xl border border-white/10 bg-black/30 p-6 text-center text-white/70">
                     You haven't been approved to promote any offers yet.<br />
                     Head over to the <Link href="/affiliate/marketplace" className="underline">Marketplace</Link> to request one!
                   </div>
@@ -314,18 +315,18 @@ function AffiliateDashboardContent() {
                   approvedOffers.map((offer) => (
                     <div
                       key={`${offer.id}-${offer.title}`}
-                      className="flex items-center justify-between bg-[#121212] p-3 rounded-md mb-3 border border-[#00C2CB]"
+                      className="flex items-center justify-between rounded-xl border border-white/10 bg-black/30 px-3 py-2 mb-3"
                     >
                       <div className="flex flex-col">
-                        <p className="text-[#00C2CB] font-semibold">{offer.title}</p>
+                        <p className="text-white font-semibold">{offer.title}</p>
                         <div className="flex items-center">
                           <RocketLaunchIcon className="w-5 h-5 text-[#00C2CB] mr-2" />
-                          <span className="truncate font-semibold">Commission: {offer.commission}% | Type: {offer.payoutType}</span>
+                          <span className="truncate text-sm text-white/70">Commission: {offer.commission}% | Type: {offer.payoutType}</span>
                         </div>
                       </div>
                       <Link
                         href={`/affiliate/dashboard/promote/${offer.id}`}
-                        className="text-sm text-[#00C2CB] hover:underline"
+                        className="text-sm px-3 py-1 rounded-lg bg-[#00C2CB] text-black font-semibold hover:bg-[#00b0b8]"
                       >
                         Promote
                       </Link>

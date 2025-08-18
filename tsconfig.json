@@ -14,7 +14,8 @@
     "incremental": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["app/*"]
+      "@/*": ["app/*"],
+      "@hooks/*": ["hooks/*"]
     },
     "plugins": [
       {

@@ -25,6 +25,44 @@ interface Offer {
   businessEmail: string;
 }
 
+type PostKind = 'social' | 'email' | 'forum';
+
+function inferPostKind(p: { platform?: string; caption?: string }): PostKind {
+  const plat = (p.platform || '').toLowerCase();
+  const cap = (p.caption || '').trim();
+  if (plat === 'email' || cap.startsWith('[EMAIL]')) return 'email';
+  if (plat === 'forum' || cap.startsWith('[FORUM]')) return 'forum';
+  return 'social';
+}
+
+function parseEmailFromCaption(caption?: string): { subject: string; body: string } {
+  const cap = caption || '';
+  if (cap.startsWith('[EMAIL]')) {
+    const subjMatch = cap.match(/Subject:\s*(.*)/i);
+    const bodyMatch = cap.split(/Body:\s*/i)[1];
+    const subject = (subjMatch?.[1] || '').trim() || '(no subject)';
+    const body = (bodyMatch || '').trim() || '(no body)';
+    return { subject, body };
+  }
+  // Fallback: first line as subject, rest as body
+  const [first, ...rest] = cap.split('\n');
+  return { subject: (first || '(no subject)').trim(), body: rest.join('\n').trim() || '(no body)' };
+}
+
+function parseForumFromCaption(caption?: string): { titleOrUrl: string; body: string } {
+  const cap = caption || '';
+  if (cap.startsWith('[FORUM]')) {
+    const titleMatch = cap.match(/URL\/Title:\s*(.*)/i);
+    const bodyMatch = cap.split(/Post:\s*/i)[1];
+    const titleOrUrl = (titleMatch?.[1] || '').trim() || '(no url/title)';
+    const body = (bodyMatch || '').trim() || '(no content)';
+    return { titleOrUrl, body };
+  }
+  // Fallback: first line as title/url, rest as body
+  const [first, ...rest] = cap.split('\n');
+  return { titleOrUrl: (first || '(no url/title)').trim(), body: rest.join('\n').trim() || '(no content)' };
+}
+
 export default function PostIdeasPage() {
   const [posts, setPosts] = useState<PostIdea[]>([]);
   const [offersMap, setOffersMap] = useState<Record<string, string>>({});
@@ -234,44 +272,109 @@ export default function PostIdeasPage() {
           <div className="fixed inset-0 bg-black/30" aria-hidden="true" onClick={() => setSelectedPost(null)} />
           <div className="bg-gradient-to-b from-[#1f1f1f] to-[#111111] text-white p-0 rounded-lg shadow-lg z-50 max-w-sm w-full overflow-hidden border border-gray-800">
             <div className="flex flex-col bg-gradient-to-b from-gray-800 to-gray-900 text-white">
-              <div className="flex items-center gap-3 p-4 border-b border-gray-100">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-r from-[#ff5757] to-[#8c52ff] text-white flex items-center justify-center font-bold text-sm">
-                  {selectedPost.affiliate_email.charAt(0).toUpperCase()}
-                </div>
-                <div className="text-sm font-semibold">@{selectedPost.affiliate_email.split('@')[0]}</div>
-              </div>
+              {/** determine post kind once for conditional rendering */}
+              {/* kind is declared in the header block below */}
+              {(() => {
+                const kind = inferPostKind(selectedPost);
+                if (kind === 'email') {
+                  const { subject } = parseEmailFromCaption(selectedPost.caption);
+                  return (
+                    <div className="p-4 border-b border-gray-800 bg-[#111111]">
+                      <div className="text-xs text-white/60 mb-1">Email</div>
+                      <div className="text-lg font-semibold">{subject}</div>
+                      <div className="text-[11px] text-gray-400 mt-1">
+                        From: {selectedPost.affiliate_email} • To: (audience segment)
+                      </div>
+                    </div>
+                  );
+                }
+                return (
+                  <div className="flex items-center gap-3 p-4 border-b border-gray-100">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-r from-[#ff5757] to-[#8c52ff] text-white flex items-center justify-center font-bold text-sm">
+                      {selectedPost.affiliate_email.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="text-sm font-semibold">@{selectedPost.affiliate_email.split('@')[0]}</div>
+                  </div>
+                );
+              })()}
 
-              {selectedPost.video_url ? (
-                <video
-                  src={selectedPost.video_url}
-                  controls
-                  className="w-full h-auto max-h-[500px] object-cover bg-black"
-                />
-              ) : (
-                <img
-                  src={selectedPost.image_url}
-                  alt="Post Image"
-                  className="w-full h-auto max-h-[500px] object-contain bg-gray-800"
-                  referrerPolicy="no-referrer"
-                  loading="lazy"
-                  onError={(e) => {
-                    const target = e.currentTarget;
-                    if (!target.dataset.fallbackUsed) {
-                      target.src = '/fallback-organic-post.png';
-                      target.dataset.fallbackUsed = 'true';
-                    }
-                  }}
-                />
+              {(() => {
+                const kind = inferPostKind(selectedPost);
+                if (kind === 'social') {
+                  return selectedPost.video_url ? (
+                    <video
+                      src={selectedPost.video_url}
+                      controls
+                      className="w-full h-auto max-h-[500px] object-cover bg-black"
+                    />
+                  ) : (
+                    <img
+                      src={selectedPost.image_url}
+                      alt="Post Image"
+                      className="w-full h-auto max-h-[500px] object-contain bg-gray-800"
+                      referrerPolicy="no-referrer"
+                      loading="lazy"
+                      onError={(e) => {
+                        const target = e.currentTarget as HTMLImageElement & { dataset: any };
+                        if (!target.dataset.fallbackUsed) {
+                          target.src = '/fallback-organic-post.png';
+                          target.dataset.fallbackUsed = 'true';
+                        }
+                      }}
+                    />
+                  );
+                }
+                if (kind === 'email') {
+                  const { body } = parseEmailFromCaption(selectedPost.caption);
+                  return (
+                    <div className="w-full bg-[#0f0f0f] border-t border-b border-gray-800">
+                      <div className="px-4 py-4 text-sm whitespace-pre-wrap text-gray-200 leading-6">
+                        {body}
+                      </div>
+                    </div>
+                  );
+                }
+                if (kind === 'forum') {
+                  const { titleOrUrl, body } = parseForumFromCaption(selectedPost.caption);
+                  return (
+                    <div className="w-full bg-[#0f0f0f] border-t border-b border-gray-800">
+                      <div className="px-4 py-3 border-b border-gray-800">
+                        <div className="text-xs text-white/60 mb-1">Forum Posting Preview</div>
+                        <div className="text-base font-semibold break-all">{titleOrUrl}</div>
+                        <div className="text-[11px] text-gray-400 mt-1">
+                          Posted by: @{selectedPost.affiliate_email.split('@')[0]} • Platform: {selectedPost.platform}
+                        </div>
+                      </div>
+                      <div className="px-4 py-4 text-sm whitespace-pre-wrap text-gray-200">
+                        {body}
+                      </div>
+                    </div>
+                  );
+                }
+                // Fallback
+                return (
+                  <div className="w-full bg-[#0f0f0f] border-t border-b border-gray-800 px-4 py-4 text-sm text-gray-300 whitespace-pre-wrap">
+                    {selectedPost.caption || 'No preview available.'}
+                  </div>
+                );
+              })()}
+
+              {inferPostKind(selectedPost) !== 'email' && (
+                <div className="px-4 py-2 text-sm bg-[#0f0f0f] border-t border-gray-800">
+                  <p>
+                    <span className="font-semibold">@{selectedPost.affiliate_email.split('@')[0]}</span>{' '}
+                    posted on {selectedPost.platform}
+                  </p>
+                </div>
               )}
 
-              <div className="px-4 py-2 text-sm">
-                <p>
-                  <span className="font-semibold">@{selectedPost.affiliate_email.split('@')[0]}</span>{' '}
-                  posted on {selectedPost.platform}
-                </p>
-              </div>
+              {inferPostKind(selectedPost) === 'social' && selectedPost.caption && (
+                <div className="px-4 py-2 text-sm text-gray-300 whitespace-pre-wrap bg-[#0f0f0f] border-t border-gray-800">
+                  {selectedPost.caption}
+                </div>
+              )}
 
-              <div className="px-4 py-3 text-sm space-y-1">
+              <div className="px-4 py-3 text-sm space-y-1 bg-[#0f0f0f] border-t border-gray-800">
                 <div className="text-xs text-white/60">Link: {selectedPost.link}</div>
                 <div className="text-xs">Status: <span className={`font-semibold ${
                   selectedPost.status === 'approved'
@@ -283,7 +386,7 @@ export default function PostIdeasPage() {
                 <p className="mt-2 text-sm text-gray-400 italic">Submitted on {new Date(selectedPost.created_at).toLocaleDateString()}</p>
               </div>
 
-              <div className="p-4 border-t border-gray-100">
+              <div className="p-4 bg-[#0f0f0f] border-t border-gray-800">
                 <button
                   className="w-full py-2 rounded bg-[#00C2CB] hover:bg-[#00b0b8] text-white font-medium text-sm"
                   onClick={() => setSelectedPost(null)}

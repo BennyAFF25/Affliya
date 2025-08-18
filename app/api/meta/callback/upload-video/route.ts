@@ -16,12 +16,28 @@ async function safeParse(res: Response) {
   try { return text ? JSON.parse(text) : null; } catch { return { _raw: text }; }
 }
 
+// Prefer-first helper to resolve from payload, then DB, then default
+const prefer = <T,>(...vals: Array<T | null | undefined>) =>
+  vals.find(v => v !== undefined && v !== null) as T | undefined;
+
 export async function POST(req: Request) {
   try {
     const body = await req.json();
     console.log('[📥 Meta Upload Request Body]', body);
 
     const { adIdeaId, offerId, ...rest } = body;
+
+    // Fetch the ad_ideas row (we'll use it as fallback for dynamic fields)
+    const { data: adIdea, error: adIdeaError } = await supabase
+      .from('ad_ideas')
+      .select('*')
+      .eq('id', adIdeaId)
+      .maybeSingle();
+
+    if (adIdeaError) {
+      console.warn('[⚠️ ad_ideas lookup warning]', adIdeaError.message);
+    }
+
     const fallback_image_url = rest.thumbnail_url;
     const image_hash = null;
 
@@ -68,7 +84,8 @@ export async function POST(req: Request) {
       "Conversions": "CONVERSIONS",
       "App Installs": "APP_INSTALLS"
     };
-    const mappedObjective = objectiveMap[rest.objective] || 'OUTCOME_TRAFFIC';
+    const rawObjective = prefer(rest.objective, adIdea?.objective, 'Traffic');
+    const mappedObjective = objectiveMap[rawObjective as string] || 'OUTCOME_TRAFFIC';
 
     // 3. Build payload for Meta API
     const payload = {
@@ -78,6 +95,36 @@ export async function POST(req: Request) {
       metaAdAccountId: ad_account_id,
       metaPageId: page_id,
     };
+
+    // ----- Dynamic field resolution (payload overrides DB; DB overrides defaults) -----
+    const campaignName    = prefer(body.campaign_name,   adIdea?.campaign_name,   'Affliya Campaign');
+    const adsetName       = prefer(body.adset_name,      adIdea?.adset_name,      `${campaignName || 'Affliya Campaign'} – Ad Set`);
+    const adName          = prefer(body.ad_name,         adIdea?.ad_name,         `${campaignName || 'Affliya Campaign'} – Ad`);
+
+    // Budget (Meta expects cents as integer strings)
+    const budgetType      = prefer(body.budget_type,     adIdea?.budget_type,     'DAILY'); // DAILY | LIFETIME
+    const budgetAmountRaw = prefer(body.budget_amount,   adIdea?.budget_amount,   adIdea?.daily_budget, 1000);
+    const budgetAmountStr = String(Math.max(100, parseInt(String(budgetAmountRaw ?? 1000), 10) || 1000));
+
+    // Timing
+    const startTimeISO    = prefer(body.start_time,      adIdea?.start_time,      null);
+    const endTimeISO      = prefer(body.end_time,        adIdea?.end_time,        null);
+
+    // Creative fields
+    const headline        = prefer(body.headline,        adIdea?.headline,        '');
+    const caption         = prefer(body.caption,         adIdea?.caption,         '');
+    const description     = prefer(body.description,     adIdea?.description,     adIdea?.caption, ''); // fallback to caption
+    const ctaType         = prefer(body.call_to_action,  body.cta, adIdea?.call_to_action, (adIdea as any)?.cta, 'LEARN_MORE');
+
+    // Links: Destination = tracking link; Display = brand site (UI only)
+    const displayLink     = prefer(body.display_link,    (adIdea as any)?.display_link, '');
+    const destinationLink = prefer((body as any).tracking_link, (body as any).destination_link, displayLink);
+
+    // Media
+    const videoUrl        = prefer((body as any).videoUrl, (body as any).file_url, adIdea?.file_url, rest.file_url);
+    const thumbnailUrl    = prefer((body as any).thumbnail_url, adIdea?.thumbnail_url, null);
+
+    console.log('[Dynamic fields]', { campaignName, adsetName, adName, mappedObjective, budgetType, budgetAmountStr, startTimeISO, endTimeISO, ctaType, destinationLink, displayLink, videoUrl });
 
     console.log('[📤 Sending Final Payload to Meta API]', payload);
 
@@ -99,7 +146,7 @@ export async function POST(req: Request) {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        name: payload.campaign_name || 'Affliya Campaign',
+        name: campaignName || 'Affliya Campaign',
         objective: mappedObjective,
         status: 'ACTIVE',
         special_ad_categories: [payload.special_ad_category || 'NONE']
@@ -126,12 +173,6 @@ export async function POST(req: Request) {
     } else {
       console.log('[✅ Campaign ID Updated in Supabase]', updateRes.data);
 
-      const { data: idea } = await supabase
-        .from('ad_ideas')
-        .select('location')
-        .eq('id', adIdeaId)
-        .maybeSingle();
-
       // --- Create Ad Set ---
       const countryMap: Record<string, string> = {
         Australia: "AU",
@@ -143,7 +184,7 @@ export async function POST(req: Request) {
         India: "IN",
       };
       const countries = (() => {
-        const src = (payload.location ?? (idea as any)?.location ?? 'AU').toString();
+        const src = (payload.location ?? (adIdea as any)?.location ?? 'AU').toString();
         return src
           .split(/[\s,]+/)
           .map((s: string) => s.trim())
@@ -175,34 +216,45 @@ export async function POST(req: Request) {
         if (ids.length) flexible_spec = [{ interests: ids }];
       } catch {}
 
+      const adsetParams: Record<string, string> = {
+        name: adsetName || `Ad Set – ${campaignData.id}`,
+        campaign_id: campaignData.id,
+        billing_event: 'IMPRESSIONS',
+        optimization_goal: 'REACH',
+        bid_amount: '100',
+        targeting: JSON.stringify({
+          geo_locations: { countries },
+          age_min: parseInt((payload as any).age_range?.[0] || (adIdea as any)?.age_range?.[0] || '18', 10),
+          age_max: parseInt((payload as any).age_range?.[1] || (adIdea as any)?.age_range?.[1] || '65', 10),
+          genders: (payload as any).gender === 'Male' ? [1] : (payload as any).gender === 'Female'
+            ? [2]
+            : ((adIdea as any)?.gender === 'Male' ? [1] : ( (adIdea as any)?.gender === 'Female' ? [2] : [1,2] )),
+          ...(publisher_platforms.length ? { publisher_platforms } : {}),
+          ...(facebook_positions.length ? { facebook_positions } : {}),
+          ...(instagram_positions.length ? { instagram_positions } : {}),
+          ...(flexible_spec ? { flexible_spec } : {}),
+        }),
+        pacing_type: JSON.stringify(['standard']),
+        status: 'ACTIVE',
+      };
+
+      if (budgetType === 'LIFETIME') {
+        adsetParams.lifetime_budget = budgetAmountStr;
+        adsetParams.start_time = startTimeISO || new Date(Date.now() + 60000).toISOString();
+        adsetParams.end_time = endTimeISO || new Date(Date.now() + 7 * 86400000).toISOString();
+      } else {
+        adsetParams.daily_budget = budgetAmountStr;
+        adsetParams.start_time = new Date(Date.now() + 60000).toISOString();
+        adsetParams.end_time = new Date(Date.now() + 7 * 86400000).toISOString();
+      }
+
       const adSetRes = await fetch(`https://graph.facebook.com/v19.0/${cleanAdAccountId}/adsets`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${access_token}`,
           'Content-Type': 'application/x-www-form-urlencoded',
         },
-        body: new URLSearchParams({
-          name: `Ad Set – ${campaignData.id}`,
-          campaign_id: campaignData.id,
-          daily_budget: String(payload.daily_budget || 1000),
-          billing_event: 'IMPRESSIONS',
-          optimization_goal: 'REACH',
-          bid_amount: '100', // Added to satisfy Meta API requirement
-          start_time: new Date(Date.now() + 60000).toISOString(),
-          end_time: new Date(Date.now() + 7 * 86400000).toISOString(),
-          targeting: JSON.stringify({
-            geo_locations: { countries },
-            age_min: parseInt((payload as any).age_range?.[0] || '18', 10),
-            age_max: parseInt((payload as any).age_range?.[1] || '65', 10),
-            genders: (payload as any).gender === 'Male' ? [1] : (payload as any).gender === 'Female' ? [2] : [1, 2],
-            ...(publisher_platforms.length ? { publisher_platforms } : {}),
-            ...(facebook_positions.length ? { facebook_positions } : {}),
-            ...(instagram_positions.length ? { instagram_positions } : {}),
-            ...(flexible_spec ? { flexible_spec } : {}),
-          }),
-          pacing_type: JSON.stringify(['standard']),
-          status: 'ACTIVE',
-        }),
+        body: new URLSearchParams(adsetParams),
       }).then((res) => safeParse(res));
       console.log('[HTTP] adset', adSetRes?.id ? 200 : 400);
 
@@ -218,9 +270,9 @@ export async function POST(req: Request) {
             Authorization: `Bearer ${access_token}`
           },
           body: new URLSearchParams({
-            file_url: payload.videoUrl,
-            name: payload.ad_name || `Affliya Video`,
-            description: payload.caption || ''
+            file_url: videoUrl,
+            name: adName || `Affliya Video`,
+            description: caption || ''
           })
         }).then(res => safeParse(res));
         console.log('[HTTP] video', videoUploadRes?.id ? 200 : 400);
@@ -244,20 +296,21 @@ export async function POST(req: Request) {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            name: payload.ad_name || `Creative – ${campaignData.id}`,
+            name: adName || `Creative – ${campaignData.id}`,
             object_story_spec: {
               page_id: page_id,
               video_data: {
                 video_id,
-                title: payload.headline || `Your Headline`,
-                message: payload.caption || '',
+                title: headline || undefined,
+                message: caption || '',
+                link_description: description || undefined,
                 call_to_action: {
-                  type: payload.call_to_action || 'LEARN_MORE',
+                  type: ctaType || 'LEARN_MORE',
                   value: {
-                    link: payload.display_link || 'https://affliya.com'
+                    link: destinationLink || displayLink || 'https://affliya.com'
                   }
                 },
-                ...(image_hash ? { image_hash } : fallback_image_url ? { image_url: fallback_image_url } : {})
+                ...(image_hash ? { image_hash } : (thumbnailUrl ? { image_url: thumbnailUrl } : {}))
               }
             }
           })
@@ -277,7 +330,7 @@ export async function POST(req: Request) {
               'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-              name: `Ad – ${campaignData.id}`,
+              name: adName || `Ad – ${campaignData.id}`,
               adset_id: adSetRes.id,
               creative: { creative_id: creativeRes.id },
               status: 'ACTIVE',

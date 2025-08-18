@@ -26,6 +26,20 @@ export default function PromoteOfferPage() {
   const userEmail = session?.user?.email || '';
 
   // ─────────────────────────────
+  // Organic flow state (non-invasive)
+  // ─────────────────────────────
+  const [mode, setMode] = useState<'ad' | 'organic'>('ad');
+
+  // Organic method + fields
+  const [ogMethod, setOgMethod] = useState<'social' | 'email' | 'forum' | 'other'>('social');
+  const [ogPlatform, setOgPlatform] = useState<string>('Facebook'); // for social
+  const [ogCaption, setOgCaption] = useState<string>('');           // social caption OR email subject OR forum title/url
+  const [ogContent, setOgContent] = useState<string>('');           // email body / forum body
+  const [ogFile, setOgFile] = useState<File | null>(null);          // optional media for social
+  const [ogLoading, setOgLoading] = useState<boolean>(false);
+  const userId = (session as any)?.user?.id as string | undefined;
+
+  // ─────────────────────────────
   // Auth guard (avoid loop)
   // ─────────────────────────────
   useEffect(() => {
@@ -342,6 +356,44 @@ export default function PromoteOfferPage() {
     );
   }
 
+  // Branded Disclosure (accordion)
+  function Disclosure({
+    title,
+    children,
+    defaultOpen = false,
+  }: {
+    title: string;
+    children: React.ReactNode;
+    defaultOpen?: boolean;
+  }) {
+    const [open, setOpen] = useState(defaultOpen);
+    return (
+      <div className="border border-[#232323] rounded-xl overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          className="w-full flex items-center justify-between px-4 py-3 bg-[#121212] hover:bg-[#151515]"
+        >
+          <span className="text-sm font-semibold">{title}</span>
+          <span
+            className={[
+              'inline-block text-[#00C2CB] transition-transform duration-200',
+              open ? 'rotate-180' : 'rotate-0',
+            ].join(' ')}
+            aria-hidden
+          >
+            ▾
+          </span>
+        </button>
+        {open && (
+          <div className="px-4 py-3 bg-[#0f0f0f] text-[13px] text-gray-300 space-y-2">
+            {children}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   // Date helpers
   const pad = (n: number) => String(n).padStart(2, '0');
   const toLocalInput = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
@@ -644,6 +696,103 @@ export default function PromoteOfferPage() {
   }
 
   // ─────────────────────────────
+  // Organic submit (direct insert to organic_posts)
+  // ─────────────────────────────
+  const handleOrganicSubmit = async () => {
+    try {
+      if (!userEmail) { alert('You must be signed in.'); return; }
+      if (!userId) { alert('Missing user id.'); return; }
+
+      setOgLoading(true);
+
+      // Fetch business_email for this offer
+      const { data: offerRow, error: offerErr } = await supabase
+        .from('offers')
+        .select('business_email')
+        .eq('id', offerId)
+        .single();
+      if (offerErr || !offerRow?.business_email) throw new Error('Could not resolve business email for this offer.');
+      const business_email = offerRow.business_email as string;
+
+      // Optional upload (only for social with media)
+      let image_url: string | null = null;
+      let video_url: string | null = null;
+
+      if (ogFile) {
+        const bucket = 'organic-posts'; // ← Supabase storage bucket name
+        const ts = Date.now();
+        const path = `${ts}-${sanitize(ogFile.name)}`;
+        const { error: upErr } = await supabase.storage
+          .from(bucket)
+          .upload(path, ogFile, { upsert: true, contentType: ogFile.type });
+        if (upErr) throw new Error(upErr.message || JSON.stringify(upErr));
+        const { data: pubUrlData } = supabase.storage.from(bucket).getPublicUrl(path);
+        let publicUrl = pubUrlData?.publicUrl || '';
+
+        // Normalize to ensure `/public/` is present for public buckets
+        if (publicUrl && publicUrl.includes('/storage/v1/object/') && !publicUrl.includes('/storage/v1/object/public/')) {
+          publicUrl = publicUrl.replace('/storage/v1/object/', '/storage/v1/object/public/');
+        }
+
+        // Debug aid
+        console.log('[Organic Upload]', { bucket, path, publicUrl });
+
+        if (ogFile.type.startsWith('image/')) image_url = publicUrl;
+        if (ogFile.type.startsWith('video/')) video_url = publicUrl;
+      }
+
+      // Map fields by method
+      let platform = ogPlatform;
+      let caption = ogCaption;
+      let content = ogContent;
+
+      if (ogMethod === 'email') {
+        platform = 'Email';
+        // caption = subject, content = body (already set)
+      } else if (ogMethod === 'forum') {
+        platform = 'Forum';
+        // caption = forum URL/title, content = body (already set)
+      }
+
+      // Consolidate details into caption for review (schema doesn't include `content` or `method`)
+      let captionForInsert = caption;
+      if (ogMethod === 'email') {
+        captionForInsert = `[EMAIL]\nSubject: ${caption || '(no subject)'}\n\nBody:\n${content || '(no body)'}`;
+      } else if (ogMethod === 'forum') {
+        captionForInsert = `[FORUM]\nURL/Title: ${caption || '(no url/title)'}\n\nPost:\n${content || '(no content)'}`;
+      } else if (ogMethod === 'other') {
+        captionForInsert = `[OTHER]\nSummary: ${caption || '(no summary)'}\n\nDetails:\n${content || '(no details)'}`;
+      }
+
+      // Insert to organic_posts (RLS expects affiliate_email to match auth.email())
+      const { error: insertErr } = await supabase.from('organic_posts').insert([{
+        offer_id: offerId,
+        user_id: userId,
+        affiliate_email: userEmail,
+        business_email,
+        caption: captionForInsert,
+        platform,               // Facebook/Instagram/TikTok OR Email/Forum
+        image_url,
+        video_url,
+        status: 'pending'
+      }]);
+      if (insertErr) throw new Error(insertErr.message || JSON.stringify(insertErr));
+
+      alert('Organic submission received. We’ll notify you when it’s approved.');
+      // Reset organic fields
+      setOgCaption('');
+      setOgContent('');
+      setOgFile(null);
+    } catch (e: any) {
+      const msg = e?.message || (typeof e === 'string' ? e : JSON.stringify(e));
+      console.error('[Organic Submit Error]', msg, e);
+      alert(msg || 'Failed to submit organic post.');
+    } finally {
+      setOgLoading(false);
+    }
+  };
+
+  // ─────────────────────────────
   // Submit (Uploads → ad_ideas insert)
   // ─────────────────────────────
   const handleSubmit = async () => {
@@ -878,7 +1027,27 @@ export default function PromoteOfferPage() {
   return (
     <div className="min-h-screen py-10 px-6 bg-[#0e0e0e] text-white">
       <div className="max-w-6xl mx-auto grid lg:grid-cols-[1fr_360px] gap-8">
+        {/* Mode toggle (Ad vs Organic) */}
+        <div className="lg:col-span-2 -mb-2 flex items-center justify-between">
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setMode('ad')}
+              className={['px-3 py-1.5 rounded-lg border text-sm', mode === 'ad' ? 'bg-[#00C2CB] text-black border-[#00C2CB]' : 'border-[#2a2a2a] text-gray-300 hover:bg-[#151515]'].join(' ')}
+            >
+              Submit Ad
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode('organic')}
+              className={['px-3 py-1.5 rounded-lg border text-sm', mode === 'organic' ? 'bg-[#00C2CB] text-black border-[#00C2CB]' : 'border-[#2a2a2a] text-gray-300 hover:bg-[#151515]'].join(' ')}
+            >
+              Submit Organic
+            </button>
+          </div>
+        </div>
         {/* LEFT: single card wizard */}
+        {mode === 'ad' && (
         <div className="bg-[#141414] border border-[#232323] rounded-2xl shadow-xl overflow-hidden">
           {/* Header / Stepper */}
           <div className="px-6 sm:px-8 py-5 border-b border-[#232323] flex items-center justify-between">
@@ -1164,6 +1333,19 @@ export default function PromoteOfferPage() {
                 <div className="text-xs text-gray-500">
                   Tracking: <span className="text-white">{trackingLink}</span>
                 </div>
+                <Disclosure title="How to craft a high‑performing Meta ad (tips & disclaimers)">
+                  <ul className="list-disc pl-5 space-y-1">
+                    <li><strong>Hook in 3 seconds:</strong> Front‑load the problem and benefit. Keep captions under ~125 characters for feed placements.</li>
+                    <li><strong>Clear CTA:</strong> Your button must match intent (e.g., “Shop Now” for sales, “Learn More” for top‑funnel).</li>
+                    <li><strong>Mobile‑first creative:</strong> Upload 1080×1350 or 1080×1920 where possible; keep safe margins for subtitles.</li>
+                    <li><strong>Destination vs Display link:</strong> Destination should be your <em>tracking link</em>; Display can be your brand URL.</li>
+                    <li><strong>Budget realism:</strong> If CPM is high, broaden placements or interests; avoid stacking too many narrow interests.</li>
+                    <li><strong>Compliance:</strong> Don’t include restricted claims. You’re responsible for adhering to Meta’s ad policies.</li>
+                  </ul>
+                  <div className="mt-3 text-[12px] text-gray-400">
+                    Disclaimer: Results vary by audience and creative. We may pause or reject ads that violate platform policies or brand guidelines.
+                  </div>
+                </Disclosure>
               </div>
             )}
 
@@ -1230,103 +1412,266 @@ export default function PromoteOfferPage() {
             )}
           </div>
         </div>
+        )}
+
+        {mode === 'organic' && (
+          <div className="bg-[#141414] border border-[#232323] rounded-2xl shadow-xl overflow-hidden">
+            <div className="px-6 sm:px-8 py-5 border-b border-[#232323] flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-[#00C2CB]">Submit Organic Promotion</h2>
+            </div>
+
+            <div className="px-6 sm:px-8 py-6 space-y-5">
+              <label className="block">
+                <span className="text-xs text-gray-400">Method</span>
+                <select className={INPUT} value={ogMethod} onChange={(e) => setOgMethod(e.target.value as any)}>
+                  <option value="social">Social Post</option>
+                  <option value="email">Email Campaign</option>
+                  <option value="forum">Forum Posting</option>
+                  <option value="other">Other</option>
+                </select>
+              </label>
+
+              {ogMethod === 'social' && (
+                <>
+                  <label className="block">
+                    <span className="text-xs text-gray-400">Platform</span>
+                    <select className={INPUT} value={ogPlatform} onChange={(e) => setOgPlatform(e.target.value)}>
+                      <option>Facebook</option>
+                      <option>Instagram</option>
+                      <option>TikTok</option>
+                      <option>LinkedIn</option>
+                      <option>X (Twitter)</option>
+                      <option>YouTube</option>
+                    </select>
+                  </label>
+
+                  <label className="block">
+                    <span className="text-xs text-gray-400">Post caption</span>
+                    <textarea className={INPUT} placeholder="Write your caption…" value={ogCaption} onChange={(e) => setOgCaption(e.target.value)} />
+                  </label>
+
+                  <label className="block">
+                    <span className="text-xs text-gray-400">Optional image/video</span>
+                    <input type="file" accept="image/*,video/*" className={INPUT} onChange={(e) => setOgFile(e.target.files?.[0] || null)} />
+                  </label>
+                </>
+              )}
+
+              {ogMethod === 'email' && (
+                <>
+                  <label className="block">
+                    <span className="text-xs text-gray-400">Subject</span>
+                    <input className={INPUT} value={ogCaption} onChange={(e) => setOgCaption(e.target.value)} placeholder="e.g. A special offer just for you" />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs text-gray-400">Body</span>
+                    <textarea className={INPUT} rows={6} value={ogContent} onChange={(e) => setOgContent(e.target.value)} placeholder="Your email body here…" />
+                  </label>
+                </>
+              )}
+
+              {ogMethod === 'forum' && (
+                <>
+                  <label className="block">
+                    <span className="text-xs text-gray-400">Forum / URL</span>
+                    <input className={INPUT} value={ogCaption} onChange={(e) => setOgCaption(e.target.value)} placeholder="e.g. reddit.com/r/yourcommunity" />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs text-gray-400">Post content</span>
+                    <textarea className={INPUT} rows={6} value={ogContent} onChange={(e) => setOgContent(e.target.value)} placeholder="What will you post?" />
+                  </label>
+                </>
+              )}
+
+              {ogMethod === 'other' && (
+                <>
+                  <label className="block">
+                    <span className="text-xs text-gray-400">Summary</span>
+                    <input className={INPUT} value={ogCaption} onChange={(e) => setOgCaption(e.target.value)} placeholder="e.g. Influencer outreach, local event, SMS, etc." />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs text-gray-400">Details / Criteria</span>
+                    <textarea className={INPUT} rows={6} value={ogContent} onChange={(e) => setOgContent(e.target.value)} placeholder="Describe how and where this will be executed. Include audience, platform/domain if relevant." />
+                  </label>
+                </>
+              )}
+              <Disclosure title="How to submit a strong organic promotion (tips & disclaimers)">
+                <ul className="list-disc pl-5 space-y-1">
+                  <li><strong>Match the venue:</strong> Keep tone and length native to the platform (e.g., shorter for Instagram, value‑heavy for LinkedIn, context‑rich for forums).</li>
+                  <li><strong>Be specific:</strong> Include audience and posting context (e.g., community names, newsletter segment, send time).</li>
+                  <li><strong>Media matters:</strong> Prefer vertical 1080×1920 or square 1080×1080; add alt text where possible.</li>
+                  <li><strong>Tracking:</strong> After business approval you’ll receive a <em>dynamic tracking link</em>. Use only in approved areas.</li>
+                  <li><strong>Auto‑disable:</strong> If clicks originate outside approved areas, the link is automatically disabled.</li>
+                  <li><strong>No misrepresentation:</strong> Don’t impersonate the brand; clearly mark affiliate content if required by the platform.</li>
+                </ul>
+                <div className="mt-3 text-[12px] text-gray-400">
+                  Disclaimer: Organic performance depends on the platform algorithms and audience fit. We may revoke approval if posts are edited in a way that breaches guidelines.
+                </div>
+              </Disclosure>
+            </div>
+
+            <div className="px-6 sm:px-8 py-5 border-t border-[#232323] flex items-center justify-end">
+              <button
+                disabled={ogLoading}
+                onClick={handleOrganicSubmit}
+                className="px-6 py-2 rounded-lg bg-[#00C2CB] text-black font-semibold hover:bg-[#00b0b8] disabled:opacity-50"
+              >
+                {ogLoading ? 'Submitting…' : 'Submit for Review'}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* RIGHT: Preview / Metrics */}
         <aside className="space-y-6">
           {/* Estimated Reach */}
-          <div className="bg-[#141414] border border-[#232323] rounded-2xl p-5">
-            <div className="text-sm font-semibold mb-2">Estimated Reach</div>
-            <div className="flex items-center gap-8">
-              <div>
-                <div className="text-[11px] text-gray-400">Daily</div>
-                <div className="text-2xl font-extrabold text-[#00C2CB]">{reachDaily !== null ? reachDaily.toLocaleString() : '—'}</div>
+          {mode === 'ad' && (
+            <div className="bg-[#141414] border border-[#232323] rounded-2xl p-5">
+              <div className="text-sm font-semibold mb-2">Estimated Reach</div>
+              <div className="flex items-center gap-8">
+                <div>
+                  <div className="text-[11px] text-gray-400">Daily</div>
+                  <div className="text-2xl font-extrabold text-[#00C2CB]">{reachDaily !== null ? reachDaily.toLocaleString() : '—'}</div>
+                </div>
+                <div>
+                  <div className="text-[11px] text-gray-400">Monthly</div>
+                  <div className="text-2xl font-extrabold text-[#00C2CB]">{reachMonthly !== null ? reachMonthly.toLocaleString() : '—'}</div>
+                </div>
               </div>
-              <div>
-                <div className="text-[11px] text-gray-400">Monthly</div>
-                <div className="text-2xl font-extrabold text-[#00C2CB]">{reachMonthly !== null ? reachMonthly.toLocaleString() : '—'}</div>
+              <div className="text-xs text-gray-400 mt-1">
+                Estimated unique users based on your ad set targeting.
+                {interestsIgnored && (
+                  <span className="block mt-1 text-[11px] text-gray-500">Some typed interests were ignored because they didn’t match official Meta interest IDs.</span>
+                )}
               </div>
             </div>
-            <div className="text-xs text-gray-400 mt-1">
-              Estimated unique users based on your ad set targeting.
-              {interestsIgnored && (
-                <span className="block mt-1 text-[11px] text-gray-500">Some typed interests were ignored because they didn’t match official Meta interest IDs.</span>
-              )}
-            </div>
-          </div>
+          )}
 
-          <div className="rounded-2xl p-4 border border-[#232323] bg-[#121212]">
-            <div className="text-sm font-semibold mb-3">Estimated Conversions</div>
-            <div className="flex gap-8 items-end">
-              <div>
-                <div className="text-[11px] text-gray-400">Daily</div>
-                <div className="text-2xl font-extrabold text-[#00C2CB]">
-                  {Number.isFinite(dailyConversions) ? Math.floor(dailyConversions).toLocaleString() : '—'}
+          {mode === 'ad' && (
+            <div className="rounded-2xl p-4 border border-[#232323] bg-[#121212]">
+              <div className="text-sm font-semibold mb-3">Estimated Conversions</div>
+              <div className="flex gap-8 items-end">
+                <div>
+                  <div className="text-[11px] text-gray-400">Daily</div>
+                  <div className="text-2xl font-extrabold text-[#00C2CB]">
+                    {Number.isFinite(dailyConversions) ? Math.floor(dailyConversions).toLocaleString() : '—'}
+                  </div>
                 </div>
-              </div>
-              <div>
-                <div className="text-[11px] text-gray-400">Monthly</div>
-                <div className="text-2xl font-extrabold text-[#00C2CB]">
-                  {Number.isFinite(monthlyConversions) ? Math.floor(monthlyConversions).toLocaleString() : '—'}
+                <div>
+                  <div className="text-[11px] text-gray-400">Monthly</div>
+                  <div className="text-2xl font-extrabold text-[#00C2CB]">
+                    {Number.isFinite(monthlyConversions) ? Math.floor(monthlyConversions).toLocaleString() : '—'}
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
 
           {/* Ad Preview Card */}
-          <div className="bg-[#141414] border border-[#232323] rounded-2xl p-5">
-            <div className="flex items-center gap-3 mb-3">
-              {brandLogoUrl ? (
-                <img
-                  src={brandLogoUrl}
-                  alt={brandName}
-                  className="h-8 w-8 rounded-full object-cover border border-[#2a2a2a]"
-                />
-              ) : (
-                <div className="h-8 w-8 rounded-full bg-[#2a2a2a]" />
-              )}
-              <div>
-                <div className="text-sm font-semibold">{brandName}</div>
-                <div className="text-xs text-gray-400">Sponsored</div>
-              </div>
-            </div>
-
-            <div className="aspect-[4/5] w-full rounded-lg bg-[#0f0f0f] border border-[#232323] overflow-hidden">
-              {videoPreviewUrl ? (
-                <video
-                  src={videoPreviewUrl}
-                  className="h-full w-full object-cover"
-                  controls
-                  playsInline
-                  muted
-                />
-              ) : thumbPreviewUrl ? (
-                <img
-                  src={thumbPreviewUrl}
-                  alt="Thumbnail preview"
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <div className="h-full w-full flex items-center justify-center text-gray-500 text-sm">
-                  Your ad image/video will appear here
+          {mode === 'ad' && (
+            <div className="bg-[#141414] border border-[#232323] rounded-2xl p-5">
+              <div className="flex items-center gap-3 mb-3">
+                {brandLogoUrl ? (
+                  <img
+                    src={brandLogoUrl}
+                    alt={brandName}
+                    className="h-8 w-8 rounded-full object-cover border border-[#2a2a2a]"
+                  />
+                ) : (
+                  <div className="h-8 w-8 rounded-full bg-[#2a2a2a]" />
+                )}
+                <div>
+                  <div className="text-sm font-semibold">{brandName}</div>
+                  <div className="text-xs text-gray-400">Sponsored</div>
                 </div>
-              )}
-            </div>
+              </div>
 
-            <div className="mt-3">
-              <div className="font-semibold">{form.headline || 'Your headline will appear here'}</div>
-              <div className="text-sm text-gray-400">
-                {form.caption || 'Your ad description will appear here. Make it compelling!'}
+              <div className="aspect-[4/5] w-full rounded-lg bg-[#0f0f0f] border border-[#232323] overflow-hidden">
+                {videoPreviewUrl ? (
+                  <video
+                    src={videoPreviewUrl}
+                    className="h-full w-full object-cover"
+                    controls
+                    playsInline
+                    muted
+                  />
+                ) : thumbPreviewUrl ? (
+                  <img
+                    src={thumbPreviewUrl}
+                    alt="Thumbnail preview"
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="h-full w-full flex items-center justify-center text-gray-500 text-sm">
+                    Your ad image/video will appear here
+                  </div>
+                )}
               </div>
-              <div className="mt-3 flex items-center justify-between">
-                <div className="text-xs text-gray-500">
-                  {form.display_link || 'yourdomain.com'}
+
+              <div className="mt-3">
+                <div className="font-semibold">{form.headline || 'Your headline will appear here'}</div>
+                <div className="text-sm text-gray-400">
+                  {form.caption || 'Your ad description will appear here. Make it compelling!'}
                 </div>
-                <button className="px-3 py-1 rounded-md bg-[#00C2CB] text-black text-sm font-semibold">
-                  {form.call_to_action.replace('_', ' ') || 'Learn More'}
-                </button>
+                <div className="mt-3 flex items-center justify-between">
+                  <div className="text-xs text-gray-500">
+                    {form.display_link || 'yourdomain.com'}
+                  </div>
+                  <button className="px-3 py-1 rounded-md bg-[#00C2CB] text-black text-sm font-semibold">
+                    {form.call_to_action.replace('_', ' ') || 'Learn More'}
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
+          )}
+          {mode === 'organic' && ogMethod === 'social' && (
+            <div className="bg-[#141414] border border-[#232323] rounded-2xl p-5">
+              <div className="flex items-center gap-3 mb-3">
+                {brandLogoUrl ? (
+                  <img
+                    src={brandLogoUrl}
+                    alt={brandName}
+                    className="h-8 w-8 rounded-full object-cover border border-[#2a2a2a]"
+                  />
+                ) : (
+                  <div className="h-8 w-8 rounded-full bg-[#2a2a2a]" />
+                )}
+                <div>
+                  <div className="text-sm font-semibold">{brandName}</div>
+                  <div className="text-xs text-gray-400">Organic Preview</div>
+                </div>
+              </div>
+
+              <div className="aspect-[4/5] w-full rounded-lg bg-[#0f0f0f] border border-[#232323] overflow-hidden">
+                {ogFile && ogFile.type.startsWith('video/') ? (
+                  <video
+                    src={URL.createObjectURL(ogFile)}
+                    className="h-full w-full object-cover"
+                    controls
+                    playsInline
+                    muted
+                  />
+                ) : ogFile && ogFile.type.startsWith('image/') ? (
+                  <img
+                    src={URL.createObjectURL(ogFile)}
+                    alt="Organic media preview"
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="h-full w-full flex items-center justify-center text-gray-500 text-sm">
+                    Your social media image/video will appear here
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-3">
+                <div className="font-semibold">{ogPlatform}</div>
+                <div className="text-sm text-gray-400 whitespace-pre-wrap">
+                  {ogCaption || 'Write your caption to preview it here.'}
+                </div>
+              </div>
+            </div>
+          )}
         </aside>
       </div>
     </div>

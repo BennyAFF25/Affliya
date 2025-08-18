@@ -8,6 +8,8 @@ import { ArrowUpRight, DollarSign, Users, ClipboardList, LayoutGrid, Pause, X } 
 import { PlayCircle, MousePointerClick, ShoppingCart, BarChart2 } from 'lucide-react';
 import { supabase } from 'utils/supabase/pages-client';
 
+const CARD = "rounded-xl border border-[#262626] bg-[#121212] hover:ring-1 hover:ring-white/5 transition-shadow p-6";
+
 const affiliateData = Array.from({ length: 20 }, (_, i) => ({ name: `Day ${i + 1}`, value: Math.floor(Math.random() * 10) + 1 }));
 const salesData = Array.from({ length: 20 }, (_, i) => ({ name: `Day ${i + 1}`, value: Math.floor(Math.random() * 1000) + 100 }));
 
@@ -98,32 +100,44 @@ export default function BusinessDashboard() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-[#0a0a0a] text-white px-4 py-6">
+    <div className="min-h-screen w-full bg-gradient-to-b from-[#0b0b0b] to-[#0e0e0e] text-white px-5 py-6">
       {/* Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-6 mt-2">
-        <div className="bg-[#121212] text-[#00C2CB] rounded-md p-4 border border-[#00C2CB]/40">
-          <p className="text-sm">Active Affiliates</p>
-          <h2 className="text-2xl font-bold">{approved.length}</h2>
+        <div className={`${CARD} ring-1 ring-[#00C2CB]/15`}>
+          <p className="text-xs text-gray-400">Active Affiliates</p>
+          <div className="mt-1 flex items-baseline gap-2">
+            <h2 className="text-2xl font-semibold text-white">{approved.length}</h2>
+            <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#00C2CB]/15 text-[#7ff5fb] border border-[#00C2CB]/25">Live</span>
+          </div>
         </div>
-        <div className="bg-[#121212] text-[#fbbf24] rounded-md p-4 border border-[#FACC15]/40">
-          <p className="text-sm">Pending Requests</p>
-          <h2 className="text-2xl font-bold">{pendingRequests.length}</h2>
+        <div className={`${CARD} ring-1 ring-[#fbbf24]/15`}>
+          <p className="text-xs text-gray-400">Pending Requests</p>
+          <div className="mt-1 flex items-baseline gap-2">
+            <h2 className="text-2xl font-semibold text-white">{pendingRequests.length}</h2>
+            <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#fbbf24]/15 text-[#fde68a] border border-[#fbbf24]/25">Queue</span>
+          </div>
         </div>
-        <div className="bg-[#121212] text-[#10b981] rounded-md p-4 border border-[#4ADE80]/40">
-          <p className="text-sm">Total Revenue</p>
-          <h2 className="text-2xl font-bold">${mockData.totalRevenue.toLocaleString()}</h2>
+        <div className={`${CARD} ring-1 ring-[#10b981]/15`}>
+          <p className="text-xs text-gray-400">Total Revenue</p>
+          <div className="mt-1 flex items-baseline gap-2">
+            <h2 className="text-2xl font-semibold text-white">${mockData.totalRevenue.toLocaleString()}</h2>
+            <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#10b981]/15 text-[#bbf7d0] border border-[#10b981]/25">MTD</span>
+          </div>
         </div>
-        <div className="bg-[#121212] text-[#a78bfa] rounded-md p-4 border border-[#A78BFA]/40">
-          <p className="text-sm">Live Offers</p>
-          <h2 className="text-2xl font-bold">{liveOffersCount}</h2>
+        <div className={`${CARD} ring-1 ring-[#a78bfa]/15`}>
+          <p className="text-xs text-gray-400">Live Offers</p>
+          <div className="mt-1 flex items-baseline gap-2">
+            <h2 className="text-2xl font-semibold text-white">{liveOffersCount}</h2>
+            <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#a78bfa]/15 text-[#e9d5ff] border border-[#a78bfa]/25">Now</span>
+          </div>
         </div>
       </div>
 
       {/* Graphs */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
-        <div className="bg-[#121212] rounded-md p-6 border border-[#00C2CB]/30 ring-1 ring-[#66d2d6]/25">
-          <h2 className="text-xl font-semibold text-[#00C2CB] mb-4">Affiliate Growth</h2>
-          <div className="h-40 bg-[#121212] rounded-md flex items-center justify-center text-gray-400">
+        <div className={`${CARD}`}>
+          <h2 className="text-[15px] font-semibold tracking-wide text-[#7ff5fb] mb-4">Affiliate Growth</h2>
+          <div className="h-40 rounded-md flex items-center justify-center text-gray-400">
             <ResponsiveContainer width="100%" height={160}>
               <BarChart data={affiliateData}>
                 <XAxis dataKey="name" hide />
@@ -132,9 +146,9 @@ export default function BusinessDashboard() {
             </ResponsiveContainer>
           </div>
         </div>
-        <div className="bg-[#121212] rounded-md p-6 border border-[#00C2CB]/30 ring-1 ring-[#66d2d6]/25">
-          <h2 className="text-xl font-semibold text-[#00C2CB] mb-4">Sales Performance</h2>
-          <div className="h-40 bg-[#121212] rounded-md flex items-center justify-center text-gray-400">
+        <div className={`${CARD}`}>
+          <h2 className="text-[15px] font-semibold tracking-wide text-[#7ff5fb] mb-4">Sales Performance</h2>
+          <div className="h-40 rounded-md flex items-center justify-center text-gray-400">
             <ResponsiveContainer width="100%" height={160}>
               <BarChart data={salesData}>
                 <XAxis dataKey="name" hide />
@@ -146,20 +160,20 @@ export default function BusinessDashboard() {
       </div>
 
       {/* Active Campaigns Section */}
-      <div className="bg-[#121212] rounded-lg shadow border border-[#00C2CB]/30 ring-1 ring-[#66d2d6]/25 p-6">
-        <h2 className="text-lg font-semibold text-[#00C2CB] mb-2">Active Campaigns (0)</h2>
-        <p className="text-[#00C2CB]">No active campaigns yet.</p>
+      <div className={`${CARD}`}>
+        <h2 className="text-[15px] font-semibold tracking-wide text-[#7ff5fb] mb-2">Active Campaigns (0)</h2>
+        <p className="text-sm text-gray-400">No active campaigns yet.</p>
       </div>
 
       {/* Affiliate Activity and Transaction History */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-        <div className="bg-[#121212] rounded-lg shadow border border-[#00C2CB]/30 ring-1 ring-[#66d2d6]/25 p-6">
-          <h2 className="text-lg font-semibold text-[#00C2CB] mb-2">Affiliate Activity</h2>
-          <p className="text-[#00C2CB]">No recent affiliate activity.</p>
+        <div className={`${CARD}`}>
+          <h2 className="text-[15px] font-semibold tracking-wide text-[#7ff5fb] mb-2">Affiliate Activity</h2>
+          <p className="text-sm text-gray-400">No recent affiliate activity.</p>
         </div>
-        <div className="bg-[#121212] rounded-lg shadow border border-[#00C2CB]/30 ring-1 ring-[#66d2d6]/25 p-6">
-          <h2 className="text-lg font-semibold text-[#00C2CB] mb-2">Transaction History</h2>
-          <p className="text-[#00C2CB]">No recent transactions.</p>
+        <div className={`${CARD}`}>
+          <h2 className="text-[15px] font-semibold tracking-wide text-[#7ff5fb] mb-2">Transaction History</h2>
+          <p className="text-sm text-gray-400">No recent transactions.</p>
         </div>
       </div>
     </div>

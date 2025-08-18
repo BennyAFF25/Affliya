@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/../utils/supabase/pages-client';
 import { useSessionContext } from '@supabase/auth-helpers-react';
+import Link from 'next/link';
+import Image from 'next/image';
 
 export default function Home() {
   const { session, isLoading } = useSessionContext();
@@ -54,9 +56,19 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-white text-black">
-      <header className="w-full px-6 py-4 bg-gray-800 text-white flex justify-between items-center border-b border-gray-700">
-        <h1 className="text-2xl font-bold text-[#00C2CB]">Affliya</h1>
+    <div className="min-h-screen flex flex-col bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#0b1a1b] via-[#0b0b0b] to-black text-white">
+      <header className="w-full h-16 px-6 bg-black/80 backdrop-blur text-white flex justify-between items-center border-b border-white/10 sticky top-0 z-40">
+        <Link href="/" className="flex items-center gap-2 group">
+          <Image src="/nettmark-logo.png" alt="Affliya" width={140} height={40} priority className="rounded-sm" />
+        </Link>
+
+        {/* Desktop primary nav */}
+        <nav className="hidden md:flex items-center gap-8 text-sm justify-center absolute left-1/2 transform -translate-x-1/2">
+          <Link href="/for-businesses" className="text-[#00C2CB] hover:text-[#7ff5fb] font-semibold tracking-wide transition-colors">For Businesses</Link>
+          <Link href="/for-partners" className="text-[#00C2CB] hover:text-[#7ff5fb] font-semibold tracking-wide transition-colors">For Partners</Link>
+          <Link href="/pricing" className="text-[#00C2CB] hover:text-[#7ff5fb] font-semibold tracking-wide transition-colors">Pricing</Link>
+        </nav>
+
         <div className="md:hidden">
           <button onClick={() => setMenuOpen(!menuOpen)} className="text-white">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -64,19 +76,14 @@ export default function Home() {
             </svg>
           </button>
         </div>
-        <nav className="hidden md:flex space-x-6">
+
+        <nav className="hidden md:flex items-center gap-6">
           {user ? (
-            <button onClick={handleLogout} className="text-white font-medium hover:underline">
-              Sign out
-            </button>
+            <button onClick={handleLogout} className="text-white font-semibold hover:underline">Sign out</button>
           ) : (
             <>
-              <button onClick={() => handleLogin('business')} className="text-white font-medium hover:underline">
-                Business Login
-              </button>
-              <button onClick={() => handleLogin('affiliate')} className="text-white font-medium hover:underline">
-                Affiliate Login
-              </button>
+              <button onClick={() => handleLogin('business')} className="px-4 py-2 rounded-md bg-[#00C2CB] text-black font-semibold shadow hover:bg-[#00b0b8] transition-colors">Business Login</button>
+              <button onClick={() => handleLogin('affiliate')} className="px-4 py-2 rounded-md bg-[#00C2CB] text-black font-semibold shadow hover:bg-[#00b0b8] transition-colors">Affiliate Login</button>
             </>
           )}
         </nav>
@@ -84,53 +91,75 @@ export default function Home() {
 
       {menuOpen && (
         <div className="md:hidden px-6 py-4 space-y-4 bg-white shadow">
+          {/* Mobile primary nav */}
+          <Link href="/for-businesses" className="block w-full text-left text-[#00C2CB] font-medium">For Businesses</Link>
+          <Link href="/for-partners" className="block w-full text-left text-[#00C2CB] font-medium">For Partners</Link>
+          <Link href="/pricing" className="block w-full text-left text-[#00C2CB] font-medium">Pricing</Link>
+
+          <div className="border-t border-gray-200 pt-4" />
+
           {user ? (
-            <button onClick={handleLogout} className="block w-full text-left text-[#00C2CB] font-medium">
-              Sign out
-            </button>
+            <button onClick={handleLogout} className="block w-full text-left text-[#00C2CB] font-medium">Sign out</button>
           ) : (
             <>
-              <button onClick={() => handleLogin('business')} className="block w-full text-left text-[#00C2CB] font-medium">
-                Business Login
-              </button>
-              <button onClick={() => handleLogin('affiliate')} className="block w-full text-left text-[#00C2CB] font-medium">
-                Affiliate Login
-              </button>
+              <button onClick={() => handleLogin('business')} className="block w-full text-left text-[#00C2CB] font-medium">Business Login</button>
+              <button onClick={() => handleLogin('affiliate')} className="block w-full text-left text-[#00C2CB] font-medium">Affiliate Login</button>
             </>
           )}
         </div>
       )}
 
-      <main className="flex-1 flex flex-col text-center">
-        <section
-          className="relative w-full h-[500px] flex items-center justify-center px-6"
-          style={{ backgroundImage: "url('/hero-banner.png')" }}
-        >
-          <div className="absolute inset-0 bg-black opacity-40 z-0" />
-          <div className="z-10 max-w-3xl text-white">
-            <h2 className="text-4xl md:text-6xl font-bold mb-4">Fuel Your Growth - Connect - Launch - Earn</h2>
-            <p className="text-lg text-white max-w-xl mx-auto mb-8">
-              The platform that turns performance into payouts — for businesses & affiliates.
-            </p>
-            <div className="flex flex-col sm:flex-row justify-center gap-4">
-              <button
-                onClick={() => handleLogin('business')}
-                className="bg-[#00C2CB] hover:bg-[#00b0b8] text-white font-semibold py-3 px-6 rounded"
-              >
-                Join as a Business
-              </button>
-              <button
-                onClick={() => handleLogin('affiliate')}
-                className="bg-white hover:bg-[#e0fafa] border border-[#00C2CB] text-[#00C2CB] font-semibold py-3 px-6 rounded"
-              >
-                Join as an Affiliate
-              </button>
+      <main className="flex-1">
+        {/* HERO */}
+        <section className="relative">
+          <div className="absolute inset-0 pointer-events-none [mask-image:linear-gradient(to_bottom,black,transparent_90%)]">
+            {/* subtle glow behind hero */}
+            <div className="mx-auto max-w-7xl h-[420px] blur-3xl opacity-30 bg-gradient-to-r from-[#00C2CB] via-[#7ff5fb] to-transparent" />
+          </div>
+
+          <div className="relative mx-auto max-w-7xl px-6 pt-16 pb-20">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-10 items-center">
+              {/* Left: Text */}
+              <div>
+                <h2 className="text-4xl md:text-6xl font-extrabold leading-tight tracking-tight">
+                  Grow Faster with <span className="text-[#7ff5fb]">Performance‑Based</span><br className="hidden md:block" /> Promotion
+                </h2>
+                <p className="mt-4 text-white/70 text-lg max-w-xl">
+                  Affliya connects your brand to thousands of affiliates ready to drive revenue.
+                </p>
+                <div className="mt-8 flex flex-col sm:flex-row gap-3">
+                  <button
+                    onClick={() => handleLogin('business')}
+                    className="px-6 py-3 rounded-lg bg-[#00C2CB] text-black font-semibold shadow-[0_0_40px_#00C2CB55] hover:bg-[#00b0b8] transition-colors"
+                  >
+                    Get Started Free
+                  </button>
+                  <button
+                    onClick={() => handleLogin('affiliate')}
+                    className="px-6 py-3 rounded-lg border border-white/15 text-white hover:bg-white/5 transition-colors"
+                  >
+                    Learn How It Works
+                  </button>
+                </div>
+              </div>
+
+              {/* Right: Visual placeholder (you can replace src later) */}
+              <div className="relative">
+                <div className="absolute -inset-4 rounded-2xl bg-[#00C2CB]/10 blur-2xl" />
+                <div className="relative rounded-2xl border border-white/10 bg-white/5 overflow-hidden shadow-2xl">
+                  <img
+                    src="/marketplace-visual.png"
+                    alt="Product preview"
+                    className="w-full h-[360px] object-cover"
+                  />
+                </div>
+              </div>
             </div>
           </div>
         </section>
       </main>
 
-      <section className="text-left max-w-6xl mx-auto mb-20 mt-20 px-6">
+      <section id="for-businesses" className="text-left max-w-6xl mx-auto mb-20 mt-20 px-6">
         <div className="text-center mb-10">
           <h3 className="text-3xl font-semibold text-[#00C2CB]">
             Empower Your Business with Performance-Driven Promotion
@@ -154,7 +183,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="text-left max-w-6xl mx-auto mb-20 px-6 mt-16">
+      <section id="for-partners" className="text-left max-w-6xl mx-auto mb-20 px-6 mt-16">
         <h3 className="text-3xl font-semibold text-[#00C2CB] mb-4 text-center">Earn Recurring Income Promoting Real Businesses</h3>
         <div className="grid md:grid-cols-2 gap-6 items-center">
           <ul className="text-lg space-y-2">
@@ -228,7 +257,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="max-w-6xl mx-auto mb-20 px-6">
+      <section id="pricing" className="max-w-6xl mx-auto mb-20 px-6">
         <h3 className="text-2xl font-bold mb-6 text-center">Simple, Results-Based Pricing</h3>
         <div className="grid md:grid-cols-2 gap-8">
           <div className="bg-gray-800 p-6 rounded-lg shadow text-white">
