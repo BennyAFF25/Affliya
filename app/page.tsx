@@ -137,18 +137,18 @@ export default function Home() {
                   Nettmark connects your brand to thousands of affiliates ready to drive revenue.
                 </p>
                 <div className="mt-8 flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-                  <button
-                    onClick={() => handleLogin('business')}
-                    className="px-6 py-3 rounded-lg bg-[#00C2CB] text-black font-semibold shadow-[0_0_40px_#00C2CB55] hover:bg-[#00b0b8] transition-colors"
+                  <Link
+                    href="/for-businesses"
+                    className="px-6 py-3 rounded-lg bg-[#00C2CB] text-black font-semibold shadow-[0_0_40px_#00C2CB55] hover:bg-[#00b0b8] transition-colors text-center"
                   >
-                    Get Started Free
-                  </button>
-                  <button
-                    onClick={() => handleLogin('affiliate')}
-                    className="px-6 py-3 rounded-lg border border-white/15 text-white hover:bg-white/5 transition-colors"
+                    For Businesses
+                  </Link>
+                  <Link
+                    href="/for-partners"
+                    className="px-6 py-3 rounded-lg border border-white/15 text-white hover:bg-white/5 transition-colors text-center"
                   >
-                    Learn How It Works
-                  </button>
+                    For Partners
+                  </Link>
                 </div>
               </div>
 
