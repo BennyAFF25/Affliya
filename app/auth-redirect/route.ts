@@ -69,24 +69,29 @@ export async function GET(req: NextRequest) {
   console.log('[auth-redirect] profile check', { existing, profileErr });
 
   const currentRoles: string[] = Array.isArray(existing?.roles) ? (existing!.roles as string[]) : [];
-  const existingActive = (existing?.active_role as 'business' | 'affiliate' | null) || null;
+  let existingActive = (existing?.active_role as 'business' | 'affiliate' | null) || null;
   const existingOnboardingDone = Boolean(existing?.onboarding_completed);
 
-  // Decide active role to persist
-  const activeRole: 'business' | 'affiliate' | '' =
+  // Decide target role to persist (allow explicit switch via ?role=...)
+  const computedRole: 'business' | 'affiliate' | '' =
     normalizedRole || existingActive || (currentRoles[0] as 'business' | 'affiliate' | undefined) || '';
 
-  const nextRoles = activeRole
-    ? Array.from(new Set([...(currentRoles || []), activeRole]))
+  const nextRoles = computedRole
+    ? Array.from(new Set([...(currentRoles || []), computedRole]))
     : currentRoles;
 
-  // 3) Upsert profile
+  // If caller explicitly asked for another role, update active_role now so redirect uses it
+  const desiredActive = (normalizedRole || existingActive || '') as 'business' | 'affiliate' | '';
+  if (normalizedRole && existingActive && normalizedRole !== existingActive) {
+    existingActive = normalizedRole; // reflect the switch locally for routing below
+  }
+
   await supabase.from('profiles').upsert(
     {
       id: user.id,
       email: user.email ?? existing?.email ?? '',
       roles: nextRoles,
-      active_role: activeRole || existingActive || null,
+      active_role: desiredActive || null,
     },
     { onConflict: 'id' }
   );
@@ -97,20 +102,27 @@ export async function GET(req: NextRequest) {
   const dashboardFor = (r: 'business' | 'affiliate' | '') =>
     r === 'business' ? '/business/dashboard' : r === 'affiliate' ? '/affiliate/dashboard' : '/';
 
-  let destPath = '/';
+  let destPath: string | undefined;
 
   if (existingActive) {
-    // Existing user — NEVER send back to create-account even if `post` is present
-    destPath = existingOnboardingDone ? dashboardFor(existingActive) : onboardingFor(existingActive);
+    if (existingOnboardingDone) {
+      // Returning user with completed onboarding → always dashboard
+      destPath = dashboardFor(existingActive);
+    } else {
+      // Returning but not completed onboarding → send to onboarding
+      destPath = onboardingFor(existingActive);
+    }
   } else {
-    // New user — honor `post` to continue setup, otherwise go to onboarding for chosen role
-    destPath = postParam || onboardingFor(activeRole);
+    // Brand new user (no active role yet)
+    destPath = postParam || onboardingFor(computedRole);
   }
+
+  if (!destPath) destPath = '/login';
 
   console.log('[auth-redirect] deciding destination', {
     existingActive,
     existingOnboardingDone,
-    activeRole,
+    activeRole: computedRole,
     postParam,
     destPath,
   });

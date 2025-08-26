@@ -30,7 +30,7 @@ export default function Home() {
       localStorage.setItem('intent.role', type); // canonical
       localStorage.setItem('userType', type);    // legacy (kept for backward-compat)
     } catch {}
-    router.push(`/create-account?role=${type}`);
+    router.push(`/login?role=${type}`);
   };
 
   const handleLogout = async () => {

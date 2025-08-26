@@ -108,8 +108,8 @@ function CreateAccountInner() {
               </p>
             </div>
 
-            {/* Home + Login Button */}
-            <div className="shrink-0 flex items-center gap-2">
+            {/* Home Button Only */}
+            <div className="shrink-0 flex items-center">
               <button
                 type="button"
                 onClick={goHome}
@@ -117,14 +117,6 @@ function CreateAccountInner() {
                 aria-label="Go home"
               >
                 Home
-              </button>
-              <button
-                type="button"
-                onClick={() => router.push('/login')}
-                className="text-xs px-3 py-1.5 rounded-lg border border-white/10 bg-black/30 hover:bg-black/40"
-                aria-label="Go to login"
-              >
-                Login
               </button>
             </div>
           </div>
