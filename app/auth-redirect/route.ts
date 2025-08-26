@@ -15,7 +15,8 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
  *  - Else: first-time users → onboarding, returning users → dashboard
  */
 export async function GET(req: NextRequest) {
-  const supabase = createRouteHandlerClient({ cookies });
+  const cookieStore = cookies();
+  const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
   const url = new URL(req.url);
 
   // Read and normalize params
@@ -50,6 +51,7 @@ export async function GET(req: NextRequest) {
     data: { user },
     error: userErr,
   } = await supabase.auth.getUser();
+  console.log('[auth-redirect] user check', { user, userErr });
 
   if (!user || userErr) {
     const fallbackRole = normalizedRole || 'business';
@@ -58,14 +60,17 @@ export async function GET(req: NextRequest) {
   }
 
   // 2) Read existing profile (if any)
-  const { data: existing } = await supabase
+  const { data: existing, error: profileErr } = await supabase
     .from('profiles')
-    .select('email, roles, active_role')
+    .select('email, roles, active_role, onboarding_completed')
     .eq('id', user.id)
     .maybeSingle();
 
+  console.log('[auth-redirect] profile check', { existing, profileErr });
+
   const currentRoles: string[] = Array.isArray(existing?.roles) ? (existing!.roles as string[]) : [];
   const existingActive = (existing?.active_role as 'business' | 'affiliate' | null) || null;
+  const existingOnboardingDone = Boolean(existing?.onboarding_completed);
 
   // Decide active role to persist
   const activeRole: 'business' | 'affiliate' | '' =
@@ -94,17 +99,21 @@ export async function GET(req: NextRequest) {
 
   let destPath = '/';
 
-  if (postParam) {
-    // Honor explicit post target when present
-    destPath = postParam;
+  if (existingActive) {
+    // Existing user — NEVER send back to create-account even if `post` is present
+    destPath = existingOnboardingDone ? dashboardFor(existingActive) : onboardingFor(existingActive);
   } else {
-    const isFirstTime = !existingActive; // no active_role previously stored
-    if (isFirstTime) {
-      destPath = onboardingFor(activeRole);
-    } else {
-      destPath = dashboardFor(activeRole);
-    }
+    // New user — honor `post` to continue setup, otherwise go to onboarding for chosen role
+    destPath = postParam || onboardingFor(activeRole);
   }
+
+  console.log('[auth-redirect] deciding destination', {
+    existingActive,
+    existingOnboardingDone,
+    activeRole,
+    postParam,
+    destPath,
+  });
 
   return NextResponse.redirect(new URL(destPath, req.url));
 }
