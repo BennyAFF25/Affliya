@@ -24,15 +24,13 @@ export default function Home() {
     // try { localStorage.removeItem('userType'); } catch {}
   }, [isLoading]);
 
-  const handleLogin = async (type: 'business' | 'affiliate') => {
+  const handleLogin = (type: 'business' | 'affiliate') => {
     setUserType(type);
-    localStorage.setItem('userType', type);
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/auth-redirect?type=${type}`,
-      },
-    });
+    try {
+      localStorage.setItem('intent.role', type); // canonical
+      localStorage.setItem('userType', type);    // legacy (kept for backward-compat)
+    } catch {}
+    router.push(`/create-account?role=${type}`);
   };
 
   const handleLogout = async () => {
