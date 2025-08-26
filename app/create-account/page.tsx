@@ -38,24 +38,32 @@ function CreateAccountInner() {
       // Look up profile to decide best destination
       const { data: prof } = await supabase
         .from('profiles')
-        .select('active_role')
+        .select('active_role,onboarding_completed')
         .eq('id', data.user.id)
         .single();
 
       const active = prof?.active_role as 'business' | 'affiliate' | 'partner' | undefined;
+      const onboardingCompleted = prof?.onboarding_completed as boolean | undefined;
 
       if (active === 'business') {
-        router.replace('/business/dashboard');
+        if (onboardingCompleted === false) {
+          router.replace('/onboarding/for-business');
+        } else {
+          router.replace('/business/dashboard');
+        }
         return;
       }
       if (active === 'affiliate' || active === 'partner') {
         // accept legacy 'partner' but treat as affiliate
-        router.replace('/affiliate/dashboard');
+        if (onboardingCompleted === false) {
+          router.replace('/onboarding/for-partners');
+        } else {
+          router.replace('/affiliate/dashboard');
+        }
         return;
       }
 
-      // If no active_role yet, send to this role's onboarding
-      router.replace(onboardingPath);
+      // If no active_role yet, keep on this page (do not redirect)
     };
 
     run();

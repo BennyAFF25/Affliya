@@ -1,6 +1,6 @@
 'use client';
 
-import { useSession } from '@supabase/auth-helpers-react';
+import { useSessionContext } from '@supabase/auth-helpers-react';
 import { RocketLaunchIcon } from '@heroicons/react/24/outline';
 
 const renderMedia = (idea: any) => {
@@ -83,7 +83,7 @@ const conversionData = [
 ];
 
 function AffiliateDashboardContent() {
-  const session = useSession();
+  const { session, isLoading } = useSessionContext();
   const router = useRouter();
 
   const [offers, setOffers] = useState<Offer[]>([]);
@@ -94,13 +94,13 @@ function AffiliateDashboardContent() {
   const [profile, setProfile] = useState<any>(null);
 
   useEffect(() => {
-    if (session === undefined) return;
+    if (isLoading) return;
     if (session === null) {
       console.warn('[🔁 Session null — showing landing instead of redirect]');
       setLoading(false);
-      return; // prevent redirect loops during session check
+      return;
     }
-  }, [session]);
+  }, [session, isLoading]);
 
   // New useEffect for profile check
   useEffect(() => {
