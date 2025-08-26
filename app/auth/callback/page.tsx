@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect } from 'react';
+import { Suspense, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
-export default function StripeReturnRedirect() {
+function StripeReturnRedirectInner() {
   const router = useRouter();
   const sp = useSearchParams();
 
@@ -31,5 +31,13 @@ export default function StripeReturnRedirect() {
         <p className="mt-3 text-white/70 text-sm">If this takes more than a second, you can close this tab.</p>
       </div>
     </div>
+  );
+}
+
+export default function StripeReturnRedirect() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <StripeReturnRedirectInner />
+    </Suspense>
   );
 }
