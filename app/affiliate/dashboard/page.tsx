@@ -89,15 +89,44 @@ function AffiliateDashboardContent() {
   const [offers, setOffers] = useState<Offer[]>([]);
   const [approvedIds, setApprovedIds] = useState<string[]>([]);
   const [adIdeas, setAdIdeas] = useState<any[]>([]);
+  // New state for loading and profile
+  const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState<any>(null);
 
   useEffect(() => {
     if (session === undefined) return;
-
     if (session === null) {
       console.warn('[🔁 Session null — showing landing instead of redirect]');
+      setLoading(false);
       return; // prevent redirect loops during session check
     }
   }, [session]);
+
+  // New useEffect for profile check
+  useEffect(() => {
+    const checkProfile = async () => {
+      if (!session?.user) {
+        setLoading(false);
+        return;
+      }
+      // Query the profiles table for this user
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, active_role')
+        .eq('id', session.user.id)
+        .single();
+      if (error || !data || !data.active_role) {
+        router.push('/create-account');
+        return;
+      }
+      setProfile(data);
+      setLoading(false);
+    };
+    if (session?.user) {
+      setLoading(true);
+      checkProfile();
+    }
+  }, [session, router]);
 
   useEffect(() => {
     if (!session || !session.user) return;
@@ -167,6 +196,9 @@ function AffiliateDashboardContent() {
     return matchedOffer ? { ...matchedOffer, ideaId: idea.id } : null;
   }).filter(Boolean) as Offer[];
 
+  if (loading) {
+    return <div className="p-4">Loading...</div>;
+  }
   if (!user) {
     return <div className="p-4">Loading...</div>;
   }

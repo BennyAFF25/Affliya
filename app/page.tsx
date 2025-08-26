@@ -19,26 +19,10 @@ export default function Home() {
 
   useEffect(() => {
     if (isLoading) return;
-
-    const redirectFromOAuth =
-      window.location.pathname === '/' &&
-      !session?.user?.email?.endsWith('@example.com');
-    const storedType = localStorage.getItem('userType');
-
-    if (redirectFromOAuth && session?.user && storedType) {
-      const alreadyRedirected =
-        (storedType === 'affiliate' && window.location.pathname === '/affiliate/dashboard') ||
-        (storedType === 'business' && window.location.pathname === '/business/dashboard');
-
-      if (!alreadyRedirected) {
-        if (storedType === 'affiliate') {
-          router.push('/affiliate/dashboard');
-        } else if (storedType === 'business') {
-          router.push('/business/dashboard');
-        }
-      }
-    }
-  }, [isLoading, session, router]);
+    // Home should not auto-redirect. Any post-auth routing should happen in /auth-redirect or /auth/callback.
+    // If you want to clear old intent on landing home, uncomment the next line:
+    // try { localStorage.removeItem('userType'); } catch {}
+  }, [isLoading]);
 
   const handleLogin = async (type: 'business' | 'affiliate') => {
     setUserType(type);
@@ -46,7 +30,7 @@ export default function Home() {
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/redirect?type=${type}`,
+        redirectTo: `${window.location.origin}/auth-redirect?type=${type}`,
       },
     });
   };
@@ -148,6 +132,12 @@ export default function Home() {
                     className="px-6 py-3 rounded-lg border border-white/15 text-white hover:bg-white/5 transition-colors text-center"
                   >
                     For Partners
+                  </Link>
+                  <Link
+                    href="/pricing"
+                    className="px-6 py-3 rounded-lg border border-white/15 text-white hover:bg-white/5 transition-colors text-center"
+                  >
+                    View Pricing
                   </Link>
                 </div>
               </div>

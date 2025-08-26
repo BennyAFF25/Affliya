@@ -21,6 +21,8 @@ export default function BusinessDashboard() {
   const [expanded, setExpanded] = useState(false);
   const [activeCampaigns, setActiveCampaigns] = useState<any[]>([]);
   const [selectedIdea, setSelectedIdea] = useState<any | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState<any>(null);
   // Mock data for stat cards (replace as needed)
   const pendingRequests = []; // Replace with real pending requests array if available
   const approved = approvedAffiliates;
@@ -34,7 +36,21 @@ export default function BusinessDashboard() {
       return;
     }
 
-    const fetchData = async () => {
+    const fetchProfileAndData = async () => {
+      setLoading(true);
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user?.id)
+        .single();
+
+      if (profileError || !profileData || profileData.active_role === null) {
+        router.push('/create-account');
+        return;
+      }
+
+      setProfile(profileData);
+
       const [activeCampaignsRes, approvedAffiliatesRes] = await Promise.all([
         supabase
           .from('ad_ideas')
@@ -59,10 +75,20 @@ export default function BusinessDashboard() {
       } else {
         console.error('[❌ Failed to fetch approved affiliates]', approvedAffiliatesRes.error);
       }
+
+      setLoading(false);
     };
 
-    fetchData();
+    fetchProfileAndData();
   }, [session, router, user]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-white">
+        Loading...
+      </div>
+    );
+  }
 
   const renderMedia = (idea: any) => {
     const file = idea.file_url;
