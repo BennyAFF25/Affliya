@@ -3,7 +3,8 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { NextResponse } from 'next/server';
 
 export async function GET(req: Request) {
-  const supabase = createRouteHandlerClient({ cookies });
+  const cookieStore = cookies();
+  const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
 
   // ✅ Proper call
   const { data, error } = await supabase.auth.exchangeCodeForSession(req.url);
@@ -17,6 +18,9 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const role = url.searchParams.get('role');
   const post = url.searchParams.get('post');
+
+  console.log('[auth-redirect] role:', role, 'post:', post);
+
   const dest =
     post || (role === 'affiliate' ? '/affiliate/dashboard' : '/business/dashboard');
 

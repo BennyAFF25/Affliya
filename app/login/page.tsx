@@ -23,13 +23,17 @@ function LoginInner() {
     setSubmitting(true);
     try {
       const origin = window.location.origin;
-      try { localStorage.setItem('intent.role', role); } catch {}
+      try { 
+        localStorage.setItem('intent.role', role); 
+        sessionStorage.setItem('intent.role', role);
+      } catch {}
       const nextParam = sp.get('next');
       // Build /auth-redirect?role=${role}[&post=...]
       let authRedirect = `${origin}/auth-redirect?role=${role}`;
       if (nextParam) {
         authRedirect += `&post=${encodeURIComponent(nextParam)}`;
       }
+      console.log('[login] Google redirect to', authRedirect);
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -53,12 +57,16 @@ function LoginInner() {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
       const origin = window.location.origin;
-      try { localStorage.setItem('intent.role', role); } catch {}
+      try { 
+        localStorage.setItem('intent.role', role); 
+        sessionStorage.setItem('intent.role', role);
+      } catch {}
       const nextParam = sp.get('next');
       let authRedirect = `${origin}/auth-redirect?role=${role}`;
       if (nextParam) {
         authRedirect += `&post=${encodeURIComponent(nextParam)}`;
       }
+      console.log('[login] Email redirect to', authRedirect);
       window.location.href = authRedirect;
     } catch (e: any) {
       setErr(e?.message || 'Login failed');
