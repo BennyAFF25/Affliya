@@ -30,27 +30,16 @@ export default function ForBusinessesPage() {
   const user = session?.user ?? null;
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
-  const [userType, setUserType] = useState<"business" | "affiliate" | null>(
-    null
-  );
 
   useEffect(() => {
     if (isLoading) return;
   }, [isLoading]);
 
-  const handleLogin = async (type: "business" | "affiliate") => {
-    setUserType(type);
-    localStorage.setItem("userType", type);
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/redirect?type=${type}`,
-      },
-    });
+  const handleLogin = (type: "business" | "affiliate") => {
+    router.push(`/login?role=${type}`);
   };
 
   const handleLogout = async () => {
-    localStorage.removeItem("userType");
     await supabase.auth.signOut();
   };
 

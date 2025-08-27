@@ -1,54 +1,26 @@
+// middleware.ts
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs';
 
-export async function middleware(req: NextRequest) {
-  const { nextUrl } = req;
-  const path = nextUrl.pathname;
+const PROTECTED = [/^\/business/, /^\/affiliate/];
+export function middleware(req: NextRequest) {
+  const { pathname, search } = req.nextUrl;
+  const hasSb = req.cookies.has('sb-gpaccxkfvcxzzpilsjww-auth-token') || req.cookies.has('sb-access-token');
 
-  const protectedRoots = ['/affiliate', '/business'];
-  const isProtected = protectedRoots.some(p => path.startsWith(p));
-  const isOnboarding = path.startsWith('/onboarding/');
-  if (!isProtected && !isOnboarding) return NextResponse.next();
+  // let auth + login + static pass through
+  if (pathname.startsWith('/auth-redirect') || pathname.startsWith('/auth/callback') || pathname.startsWith('/login')) {
+    return NextResponse.next();
+  }
 
-  const res = NextResponse.next();
-  const supabase = createMiddlewareClient({ req, res });
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user) {
+  // protect dashboards
+  if (PROTECTED.some(rx => rx.test(pathname)) && !hasSb) {
     const url = new URL('/login', req.url);
-    url.searchParams.set('next', path);
+    url.searchParams.set('next', pathname + search);
+    // choose role bucket for nicer UX
+    url.searchParams.set('role', pathname.startsWith('/affiliate') ? 'affiliate' : 'business');
     return NextResponse.redirect(url);
   }
 
-  const { data: prof } = await supabase
-    .from('profiles')
-    .select('active_role, onboarding_completed')
-    .eq('id', user.id)
-    .maybeSingle();
-
-  // If no role yet, push through create-account
-  if (!prof?.active_role) {
-    return NextResponse.redirect(new URL('/create-account', req.url));
-  }
-
-  // Force onboarding once
-  if (!prof.onboarding_completed && !isOnboarding) {
-    const dest = prof.active_role === 'affiliate' ? '/onboarding/for-partners' : '/onboarding/for-business';
-    return NextResponse.redirect(new URL(dest, req.url));
-  }
-
-  // Role gate
-  if (path.startsWith('/affiliate') && prof.active_role !== 'affiliate') {
-    return NextResponse.redirect(new URL('/business/dashboard', req.url));
-  }
-  if (path.startsWith('/business') && prof.active_role !== 'business') {
-    return NextResponse.redirect(new URL('/affiliate/dashboard', req.url));
-  }
-
-  return res;
+  return NextResponse.next();
 }
-
-export const config = {
-  matcher: ['/affiliate/:path*', '/business/:path*', '/onboarding/:path*'],
-};
+export const config = { matcher: ['/((?!_next|favicon.ico|images|fonts|api).*)'] };

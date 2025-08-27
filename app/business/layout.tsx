@@ -1,31 +1,11 @@
 'use client';
 
-import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useSession } from '@supabase/auth-helpers-react';
+import { supabase } from '@/../utils/supabase/pages-client';
 import BusinessSidebar from './BusinessSidebar';
 import Topbar from '@/components/Topbar';
 
 export default function BusinessLayout({ children }: { children: React.ReactNode }) {
-  const session = useSession();
-  const router = useRouter();
-
-  useEffect(() => {
-    const currentPath = window.location.pathname;
-    const isBusinessRoute = currentPath.startsWith('/business');
-    const isPublic = ['/', '/redirect'].includes(currentPath);
-
-    if (session === undefined) return;
-
-    if (!session && isBusinessRoute && !isPublic) {
-      router.push('/redirect');
-    }
-  }, [session, router]);
-
-  if (session === undefined) {
-    return <div className="w-full flex justify-center items-center py-12 text-black">Redirecting...</div>;
-  }
-
   return (
     <div className="flex flex-col min-h-screen bg-white text-black">
       <Topbar />

@@ -3,7 +3,8 @@
 import AffiliateSidebar from './AffiliateSidebar';
 import Topbar from '@/components/Topbar';
 import { useSession } from '@supabase/auth-helpers-react';
-import { useRouter } from 'next/navigation';
+import { createBrowserSupabaseClient } from '@supabase/auth-helpers-nextjs';
+import { useRouter, usePathname } from 'next/navigation';
 import { Toast } from '@/components/Toast';
 import { useInboxNotifier } from '../../utils/hooks/useInboxNotifier';
 
@@ -16,6 +17,7 @@ function AffiliateLayoutShell({ children }: { children: React.ReactNode }) {
   const userEmail = session?.user?.email || '';
   const router = useRouter();
   const { toast, setToast, unreadCount } = useInboxNotifier(userEmail);
+  const pathname = usePathname();
 
   return (
     <div className="flex flex-col min-h-screen text-white">

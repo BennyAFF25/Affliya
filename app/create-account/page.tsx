@@ -61,25 +61,6 @@ function CreateAccountInner() {
     }
   };
 
-  const handleGoogleSignup = async () => {
-    setErr(null);
-    setSubmitting(true);
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: authRedirect,
-          queryParams: { prompt: 'select_account' },
-        },
-      });
-      if (error) throw error;
-      // Redirect handled by Supabase → auth-redirect
-    } catch (e: any) {
-      setErr(e?.message || 'Google sign-up failed');
-      setSubmitting(false);
-    }
-  };
-
   const goHome = () => {
     try { localStorage.removeItem('intent.role'); } catch {}
     if (typeof window !== 'undefined') {
@@ -118,27 +99,6 @@ function CreateAccountInner() {
               >
                 Home
               </button>
-            </div>
-          </div>
-
-          {/* Google button */}
-          <button
-            onClick={handleGoogleSignup}
-            disabled={submitting}
-            className="w-full mb-5 rounded-xl bg-[#00C2CB] text-black font-semibold py-3 hover:bg-[#00b0b8] transition disabled:opacity-60"
-          >
-            Continue with Google
-          </button>
-
-          {/* Divider */}
-          <div className="relative my-5">
-            <div className="absolute inset-0 flex items-center" aria-hidden="true">
-              <div className="w-full border-t border-white/10" />
-            </div>
-            <div className="relative flex justify-center">
-              <span className="bg-white/0 px-2 text-xs text-white/40">
-                or with email
-              </span>
             </div>
           </div>
 

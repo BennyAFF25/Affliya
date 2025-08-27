@@ -94,13 +94,13 @@ function AffiliateDashboardContent() {
   const [profile, setProfile] = useState<any>(null);
 
   useEffect(() => {
-    if (isLoading) return;
+    if (isLoading) return; // wait for session resolution
     if (session === null) {
-      console.warn('[🔁 Session null — showing landing instead of redirect]');
-      setLoading(false);
+      const next = encodeURIComponent('/affiliate/dashboard');
+      router.replace(`/login?role=affiliate&next=${next}`);
       return;
     }
-  }, [session, isLoading]);
+  }, [session, isLoading, router]);
 
   // New useEffect for profile check
   useEffect(() => {
@@ -109,22 +109,36 @@ function AffiliateDashboardContent() {
         setLoading(false);
         return;
       }
-      // Query the profiles table for this user
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, active_role')
+        .select('id, active_role, onboarding_completed')
         .eq('id', session.user.id)
-        .single();
-      if (error || !data || !data.active_role) {
-        router.push('/create-account');
+        .maybeSingle();
+
+      if (error || !data) {
+        // No profile yet → send to role-specific create-account
+        router.replace('/create-account?role=affiliate');
         return;
       }
+
+      if (!data.active_role) {
+        router.replace('/create-account?role=affiliate');
+        return;
+      }
+
+      // If user is currently set to another role, send them to that role's dashboard
+      if (data.active_role !== 'affiliate') {
+        router.replace('/business/dashboard');
+        return;
+      }
+
       setProfile(data);
       setLoading(false);
     };
+
     if (session?.user) {
       setLoading(true);
-      checkProfile();
+      void checkProfile();
     }
   }, [session, router]);
 
@@ -200,7 +214,7 @@ function AffiliateDashboardContent() {
     return <div className="p-4">Loading...</div>;
   }
   if (!user) {
-    return <div className="p-4">Loading...</div>;
+    return null; // redirecting to login above when unauthenticated
   }
 
   return (

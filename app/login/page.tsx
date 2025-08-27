@@ -7,6 +7,10 @@ import { supabase } from '@/../utils/supabase/pages-client';
 function LoginInner() {
   const router = useRouter();
   const sp = useSearchParams();
+  const roleParam = (sp.get('role') || '').toLowerCase();
+  // accept legacy "partner" but normalize to "affiliate"
+  const role: 'business' | 'affiliate' =
+    roleParam === 'affiliate' || roleParam === 'partner' ? 'affiliate' : 'business';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPwd, setShowPwd] = useState(false);
@@ -19,10 +23,13 @@ function LoginInner() {
     setSubmitting(true);
     try {
       const origin = window.location.origin;
+      try { localStorage.setItem('intent.role', role); } catch {}
       const nextParam = sp.get('next');
-      const authRedirect = nextParam
-        ? `${origin}/auth/callback?next=${encodeURIComponent(nextParam)}`
-        : `${origin}/auth/callback`;
+      // Build /auth-redirect?role=${role}[&post=...]
+      let authRedirect = `${origin}/auth-redirect?role=${role}`;
+      if (nextParam) {
+        authRedirect += `&post=${encodeURIComponent(nextParam)}`;
+      }
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -45,8 +52,14 @@ function LoginInner() {
     try {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
+      const origin = window.location.origin;
+      try { localStorage.setItem('intent.role', role); } catch {}
       const nextParam = sp.get('next');
-      router.replace(nextParam ? `/auth-redirect?post=${encodeURIComponent(nextParam)}` : '/auth-redirect');
+      let authRedirect = `${origin}/auth-redirect?role=${role}`;
+      if (nextParam) {
+        authRedirect += `&post=${encodeURIComponent(nextParam)}`;
+      }
+      window.location.href = authRedirect;
     } catch (e: any) {
       setErr(e?.message || 'Login failed');
     } finally {
