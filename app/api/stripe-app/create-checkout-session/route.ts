@@ -62,7 +62,7 @@ export async function POST(req: Request) {
       subscription_data: {
         trial_period_days: 50, // 50-day free trial
       },
-      success_url: `${baseUrl}/auth-redirect?role=${accountType}&session_id={CHECKOUT_SESSION_ID}&post=/create-account`,
+      success_url: `${baseUrl}/stripe-redirect?role=${accountType}&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${baseUrl}/pricing?type=${accountType}`,
     });
 

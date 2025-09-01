@@ -1,3 +1,11 @@
+interface Profile {
+  id: string;
+  role: string | null;
+  onboarding_completed: boolean | null;
+}
+interface ApprovedRequest {
+  offer_id: string;
+}
 'use client';
 
 import { useSessionContext } from '@supabase/auth-helpers-react';
@@ -91,7 +99,7 @@ function AffiliateDashboardContent() {
   const [adIdeas, setAdIdeas] = useState<any[]>([]);
   // New state for loading and profile
   const [loading, setLoading] = useState(true);
-  const [profile, setProfile] = useState<any>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
 
   useEffect(() => {
     if (isLoading) return; // wait for session resolution
@@ -111,26 +119,27 @@ function AffiliateDashboardContent() {
       }
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, active_role, onboarding_completed')
+        .select('id, role, onboarding_completed')
         .eq('id', session.user.id)
-        .maybeSingle();
+        .maybeSingle<Profile>();
 
+      // 🚨 Disabled redirects for now to stop bounce loop
+      /*
       if (error || !data) {
-        // No profile yet → send to role-specific create-account
         router.replace('/create-account?role=affiliate');
         return;
       }
 
-      if (!data.active_role) {
+      if (!data.role) {
         router.replace('/create-account?role=affiliate');
         return;
       }
 
-      // If user is currently set to another role, send them to that role's dashboard
-      if (data.active_role !== 'affiliate') {
+      if (data.role !== 'affiliate') {
         router.replace('/business/dashboard');
         return;
       }
+      */
 
       setProfile(data);
       setLoading(false);
@@ -161,13 +170,13 @@ function AffiliateDashboardContent() {
       const { data: approved, error: approvedError } = await supabase
         .from('affiliate_requests')
         .select('offer_id')
-        .eq('affiliate_email', session.user.email)
-        .eq('status', 'approved');
+        .eq('affiliate_email', session.user?.email || '')
+        .eq('status', 'approved') as { data: ApprovedRequest[] | null; error: any };
 
       if (approvedError) {
         console.error('[❌ Failed to fetch approved requests]', approvedError);
       } else {
-        const ids = Array.from(new Set(approved.map((r) => r.offer_id)));
+        const ids = Array.from(new Set((approved || []).map((r: ApprovedRequest) => r.offer_id)));
         setApprovedIds(ids);
         console.log('[✅ Approved IDs]', ids);
       }
@@ -182,7 +191,7 @@ function AffiliateDashboardContent() {
           status,
           caption
         `)
-        .eq('affiliate_email', session.user.email)
+        .eq('affiliate_email', session.user?.email || '')
         .eq('status', 'approved');
 
       if (ideasError) {

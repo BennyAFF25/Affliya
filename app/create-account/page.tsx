@@ -4,6 +4,13 @@ import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/../utils/supabase/pages-client';
 
+type ProfileInsert = {
+  id: string;
+  email: string;
+  role: 'affiliate' | 'business';
+  onboarding_completed?: boolean;
+};
+
 function CreateAccountInner() {
   const sp = useSearchParams();
   const router = useRouter();
@@ -42,7 +49,7 @@ function CreateAccountInner() {
     setSubmitting(true);
     try {
       if (!username.trim()) throw new Error('Please choose a username.');
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -52,8 +59,29 @@ function CreateAccountInner() {
       });
       if (error) throw error;
 
-      // If confirm emails are OFF, this will complete right away
-      router.replace(`/auth-redirect?${redirectQuery}`);
+      // Insert into profiles after signup
+      if (data?.user) {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert([
+            {
+              id: data.user.id,
+              email,
+              role,
+            },
+          ] as any);
+        if (profileError) {
+          console.error('[PROFILE INSERT ERROR]', profileError);
+          throw profileError;
+        }
+      }
+
+      // Redirect straight to dashboard based on role
+      if (role === 'affiliate') {
+        router.replace('/affiliate/dashboard');
+      } else {
+        router.replace('/business/dashboard');
+      }
     } catch (e: any) {
       setErr(e?.message || 'Sign up failed');
     } finally {

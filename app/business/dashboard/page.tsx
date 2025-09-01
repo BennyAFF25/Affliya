@@ -8,6 +8,12 @@ import { ArrowUpRight, DollarSign, Users, ClipboardList, LayoutGrid, Pause, X } 
 import { PlayCircle, MousePointerClick, ShoppingCart, BarChart2 } from 'lucide-react';
 import { supabase } from 'utils/supabase/pages-client';
 
+interface Profile {
+  id: string;
+  role: string | null;
+  email: string | null;
+}
+
 const CARD = "rounded-xl border border-[#262626] bg-[#121212] hover:ring-1 hover:ring-white/5 transition-shadow p-6";
 
 const affiliateData = Array.from({ length: 20 }, (_, i) => ({ name: `Day ${i + 1}`, value: Math.floor(Math.random() * 10) + 1 }));
@@ -22,7 +28,7 @@ export default function BusinessDashboard() {
   const [activeCampaigns, setActiveCampaigns] = useState<any[]>([]);
   const [selectedIdea, setSelectedIdea] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
-  const [profile, setProfile] = useState<any>(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
   // Mock data for stat cards (replace as needed)
   const pendingRequests = []; // Replace with real pending requests array if available
   const approved = approvedAffiliates;
@@ -38,24 +44,36 @@ export default function BusinessDashboard() {
 
     const fetchProfileAndData = async () => {
       setLoading(true);
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', user?.id)
-        .single();
 
-      if (profileError || !profileData || profileData.active_role === null) {
-        router.push('/create-account');
+      if (!user?.id) {
+        console.warn('[❌ No user id available yet]');
+        setLoading(false);
         return;
       }
 
-      setProfile(profileData);
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, role, email')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError || !profileData) {
+        router.push('/create-account?role=business');
+        return;
+      }
+
+      if ((profileData as Profile).role !== 'business') {
+        router.push('/affiliate/dashboard');
+        return;
+      }
+
+      setProfile(profileData as Profile);
 
       const [activeCampaignsRes, approvedAffiliatesRes] = await Promise.all([
         supabase
           .from('ad_ideas')
           .select('*')
-          .eq('business_email', user?.email)
+          .eq('business_email', user?.email || '')
           .eq('status', 'approved'),
 
         supabase

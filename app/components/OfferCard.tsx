@@ -32,6 +32,7 @@ export default function OfferCard({
   const session = useSession();
   const user = session?.user;
   const [notes, setNotes] = useState('');
+  const [requested, setRequested] = useState(alreadyRequested);
 
   const handleRequest = async () => {
     const supabase = createClientComponentClient();
@@ -83,7 +84,8 @@ export default function OfferCard({
       alert('Something went wrong. ' + error.message);
     } else {
       alert('Request sent!');
-      window.location.reload();
+      // mark request as sent so the button disables
+      setRequested(true);
     }
   };
 
@@ -145,7 +147,7 @@ export default function OfferCard({
           </div>
         </div>
 
-        {role === 'affiliate' && !alreadyRequested && (
+        {role === 'affiliate' && !requested && (
           <textarea
             placeholder="Write a note for the business..."
             value={notes}
@@ -160,14 +162,14 @@ export default function OfferCard({
         {role === 'affiliate' ? (
           <button
             onClick={handleRequest}
-            disabled={alreadyRequested}
+            disabled={requested}
             className={`w-full font-semibold px-4 py-2 rounded-lg transition text-sm ${
-              alreadyRequested
+              requested
                 ? 'bg-gray-200 text-gray-600 cursor-not-allowed'
                 : 'bg-[#00C2CB] hover:bg-[#00b0b8] text-white'
             }`}
           >
-            {alreadyRequested ? 'Request Sent' : 'Request to Promote'}
+            {requested ? 'Request Sent' : 'Request to Promote'}
           </button>
         ) : (
           <Link href={`/business/my-business/edit-offer/${offer.id}`}>

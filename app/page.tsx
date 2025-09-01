@@ -67,10 +67,7 @@ export default function Home() {
           {user ? (
             <button onClick={handleLogout} className="text-white font-semibold hover:underline">Sign out</button>
           ) : (
-            <>
-              <button onClick={() => handleLogin('business')} className="px-4 py-2 rounded-md bg-[#00C2CB] text-black font-semibold shadow hover:bg-[#00b0b8] transition-colors">Business Login</button>
-              <button onClick={() => handleLogin('affiliate')} className="px-4 py-2 rounded-md bg-[#00C2CB] text-black font-semibold shadow hover:bg-[#00b0b8] transition-colors">Affiliate Login</button>
-            </>
+            <button onClick={() => router.push('/login')} className="px-4 py-2 rounded-md bg-[#00C2CB] text-black font-semibold shadow hover:bg-[#00b0b8] transition-colors">Login</button>
           )}
         </nav>
       </header>
@@ -92,10 +89,7 @@ export default function Home() {
           {user ? (
             <button onClick={handleLogout} className="block w-full text-left text-[#00C2CB] font-medium">Sign out</button>
           ) : (
-            <>
-              <button onClick={() => handleLogin('business')} className="block w-full text-left text-[#00C2CB] font-medium">Business Login</button>
-              <button onClick={() => handleLogin('affiliate')} className="block w-full text-left text-[#00C2CB] font-medium">Affiliate Login</button>
-            </>
+            <button onClick={() => router.push('/login')} className="block w-full text-left text-[#00C2CB] font-medium">Login</button>
           )}
         </div>
       )}
@@ -496,7 +490,7 @@ export default function Home() {
               <Link href="/for-businesses" className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-white/15 text-white hover:bg-white/5">
                 Learn more <ArrowRight size={16} />
               </Link>
-              <button onClick={() => handleLogin('business')} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#00C2CB] text-black font-semibold shadow hover:bg-[#00b0b8]">
+              <button onClick={() => router.push('/login')} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#00C2CB] text-black font-semibold shadow hover:bg-[#00b0b8]">
                 Start as Business
               </button>
             </div>
@@ -520,7 +514,7 @@ export default function Home() {
               <Link href="/for-partners" className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-white/15 text-white hover:bg:white/5 hover:bg-white/5">
                 Learn more <ArrowRight size={16} />
               </Link>
-              <button onClick={() => handleLogin('affiliate')} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#00C2CB] text-black font-semibold shadow hover:bg-[#00b0b8]">
+              <button onClick={() => router.push('/login')} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#00C2CB] text-black font-semibold shadow hover:bg-[#00b0b8]">
                 Start as Partner
               </button>
             </div>
@@ -577,11 +571,8 @@ export default function Home() {
               <div className="text-xs uppercase tracking-widest text-white/50">Get Started</div>
               <p className="mt-3 text-sm text-white/70">Jump straight into the right flow.</p>
               <div className="mt-4 flex flex-wrap gap-3">
-                <button onClick={() => handleLogin('business')} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#00C2CB] text-black font-semibold shadow hover:bg-[#00b0b8]">
-                  Business Login
-                </button>
-                <button onClick={() => handleLogin('affiliate')} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-white/15 text-white hover:bg-white/5">
-                  Affiliate Login
+                <button onClick={() => router.push('/login')} className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#00C2CB] text-black font-semibold shadow hover:bg-[#00b0b8]">
+                  Login
                 </button>
               </div>
             </div>
