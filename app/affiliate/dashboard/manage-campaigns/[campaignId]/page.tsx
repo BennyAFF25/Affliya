@@ -34,7 +34,7 @@ const CampaignDetailPage = () => {
       const { data, error } = await supabase
         .from('ad_ideas')
         .select('*')
-        .eq('id', campaignId)
+        .eq('id', campaignId as string)
         .single();
 
       if (error) {
@@ -95,7 +95,7 @@ const CampaignDetailPage = () => {
         cta,
         status: 'pending', // require reapproval
       })
-      .eq('id', campaignId);
+      .eq('id', campaignId as string);
 
     if (!error) {
       alert('Changes saved and submitted for reapproval.');
