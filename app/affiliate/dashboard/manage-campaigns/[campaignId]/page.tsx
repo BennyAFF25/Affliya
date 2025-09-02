@@ -32,7 +32,7 @@ const CampaignDetailPage = () => {
 
     const fetchCampaign = async () => {
       const { data, error } = await supabase
-        .from('ad_ideas')
+        .from<Campaign>('ad_ideas')
         .select('*')
         .eq('id', campaignId as string)
         .single();
