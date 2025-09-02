@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
-export default function StripeRedirect() {
+function StripeRedirectInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -21,5 +21,13 @@ export default function StripeRedirect() {
     <div className="flex items-center justify-center h-screen">
       <p className="text-lg">Finishing setup…</p>
     </div>
+  );
+}
+
+export default function StripeRedirect() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center h-screen text-white">Loading…</div>}>
+      <StripeRedirectInner />
+    </Suspense>
   );
 }
