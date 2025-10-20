@@ -15,10 +15,15 @@ export async function GET(request: NextRequest, context: any) {
 
   // Support both ___ and - as separators for compatibility
   let splitParts = ref.split('___');
-  console.log('[🪓 splitParts after split by ___]', splitParts);
   if (splitParts.length < 2) {
-    splitParts = ref.split('-');
-    console.log('[🪓 splitParts after split by -]', splitParts);
+    // Only split on the last '-' to get campaignId and affiliateId
+    const lastDash = ref.lastIndexOf('-');
+    if (lastDash !== -1) {
+      splitParts = [ref.slice(0, lastDash), ref.slice(lastDash + 1)];
+    } else {
+      splitParts = [ref];
+    }
+    console.log('[🪓 splitParts after custom split]', splitParts);
   }
   if (splitParts.length < 2) {
     console.warn('[❌ Invalid ref format]', ref);
