@@ -13,17 +13,17 @@ export default function ConnectStripeButton({
 
   const handleConnect = async () => {
     setLoading(true);
-    const res = await fetch("/api/stripe/create-business-account-link", {
+    const res = await fetch("/api/stripe/create-customer", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ businessEmail, country: "AU" }),
+      body: JSON.stringify({ email: businessEmail, name: "Business" }),
     });
 
     const data = await res.json();
     setLoading(false);
 
-    if (data.url) {
-      window.location.href = data.url;
+    if (data.customerId) {
+      alert("Stripe Customer created: " + data.customerId);
     } else {
       alert("Error: " + data.error);
     }

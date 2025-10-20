@@ -3,12 +3,16 @@ import Stripe from 'stripe';
 import { NextResponse } from 'next/server';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-05-28.basil',
+  apiVersion: '2024-06-20',
 });
 
 export async function POST(req: Request) {
   try {
     const { email, amount, currency } = await req.json();
+
+    // Debug: confirm we're using the Platform Transactions account
+    const me = await stripe.accounts.retrieve();
+    console.log('[Stripe Platform Account for topups]', me.id, me.email);
 
     if (!email || amount === undefined || amount === null) {
       return NextResponse.json({ error: 'Missing email or amount' }, { status: 400 });
@@ -19,7 +23,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Invalid amount value' }, { status: 400 });
     }
 
-    const currencyToUse = currency?.toLowerCase() || 'usd';
+    const currencyToUse = (currency?.toLowerCase() || 'aud');
 
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL?.startsWith('http') ? process.env.NEXT_PUBLIC_BASE_URL : 'http://localhost:3000';
 
@@ -39,7 +43,7 @@ export async function POST(req: Request) {
           quantity: 1,
         },
       ],
-      success_url: `${baseUrl}/affiliate/wallet?session_id={CHECKOUT_SESSION_ID}`,
+      success_url: `${baseUrl}/affiliate/wallet?status=success&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${baseUrl}/affiliate/wallet?status=cancel`,
       metadata: { email, amount: parsedAmount.toString(), currency: currencyToUse },
       payment_intent_data: {

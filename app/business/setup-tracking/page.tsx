@@ -46,8 +46,8 @@ export default function SetupTrackingPage() {
     if (offerId && offerWebsite) {
       const domain = new URL(offerWebsite).hostname.replace(/^www\./, '');
       const baseUrl = process.env.NODE_ENV === 'development'
-        ? 'http://localhost:3000'
-        : 'https://falconx.com';
+        ? 'http://nettmark.com'
+        : 'https://nettmark.com';
 
       setTrackingCode(
         `<script src="${baseUrl}/tracker.js" data-business="${domain}" data-offer="${offerId}"></script>`
@@ -80,7 +80,7 @@ export default function SetupTrackingPage() {
     <div className="min-h-screen bg-[#0e0e0e] py-10 px-4">
       <div className="max-w-3xl mx-auto mt-12 p-8 bg-[#1a1a1a] text-white rounded-xl shadow-lg border border-gray-700 ring-2 ring-[#00C2CB]/10">
         <h1 className="text-4xl font-extrabold mb-6 text-[#00C2CB] tracking-tight text-center">
-          Install Your FalconX Tracking Code
+          Install Your Nettmark Tracking Code
         </h1>
         <p className="mb-6 text-gray-300 leading-relaxed text-center">
           <span className="font-semibold text-white">To track affiliate sales and automate payouts,</span> please install this code on your website’s <code className="bg-[#1f1f1f] px-1 py-0.5 rounded text-sm font-mono text-[#00C2CB]">&lt;head&gt;</code> tag:

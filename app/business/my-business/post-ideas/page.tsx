@@ -1,3 +1,8 @@
+interface OfferRow {
+  id: string;
+  title: string;
+  business_email: string;
+}
 'use client';
 
 import { useEffect, useState, Fragment } from 'react';
@@ -75,17 +80,29 @@ export default function PostIdeasPage() {
   const [showRecent, setShowRecent] = useState(false);
 
   useEffect(() => {
-    const localOffers = localStorage.getItem('my-offers');
-    if (localOffers && user?.email) {
-      const parsedOffers: Offer[] = JSON.parse(localOffers);
+    const fetchOffers = async () => {
+      if (!user?.email) return;
+
+      const { data, error } = await supabase
+        .from('offers')
+        .select('id, title, business_email')
+        .eq('business_email', user.email);
+
+      const offers = data as OfferRow[];
+
+      if (error) {
+        console.error('[❌ Error fetching offers]', error.message);
+        return;
+      }
+
       const map: Record<string, string> = {};
-      parsedOffers.forEach((o) => {
-        if (o.businessEmail === user.email) {
-          map[o.id] = o.businessName;
-        }
+      offers?.forEach((offer) => {
+        map[offer.id] = offer.title;
       });
       setOffersMap(map);
-    }
+    };
+
+    fetchOffers();
   }, [user?.email]);
 
   useEffect(() => {
@@ -124,26 +141,50 @@ export default function PostIdeasPage() {
     pending: 'bg-yellow-600 text-yellow-100',
   };
 
-  const handleStatusChange = async (id: string, newStatus: string) => {
-    const { error } = await supabase
-      .from('organic_posts')
-      .update({ status: newStatus })
-      .eq('id', id);
+  // Handles status change for post approval/rejection and updates/inserts accordingly
+  const handleStatusChange = async (
+    postId: string,
+    newStatus: "approved" | "rejected",
+    post: any
+  ) => {
+    try {
+      const { error: updateError } = await supabase
+        .from("organic_posts")
+        .update({ status: newStatus } as any)
+        .eq("id", postId);
 
-    if (!error) {
-      setPosts((prev) =>
-        prev.map((post) =>
-          post.id === id ? { ...post, status: newStatus } : post
-        )
-      );
-      if (selectedPost && selectedPost.id === id) {
-        setSelectedPost({ ...selectedPost, status: newStatus });
+      if (updateError) throw updateError;
+
+      if (newStatus === "approved") {
+        // Determine media_url: use video_url if it exists, otherwise fallback to image_url
+        const media_url = post.video_url || post.image_url;
+
+        // FIX: Ensure offer_id from the organic_posts row is always used when upserting to live_campaigns
+        // This guarantees correct association between the campaign and the offer
+        const correctOfferId = post.offer_id;
+
+        const { error: insertError } = await supabase
+          .from("live_campaigns")
+          .insert([
+            {
+              type: "organic",
+              offer_id: correctOfferId,
+              business_email: post.business_email,
+              affiliate_email: post.affiliate_email,
+              media_url: media_url,
+              caption: post.caption,
+              platform: post.platform,
+              created_from: "post-ideas",
+              status: "scheduled",
+            } as any,
+          ]);
+
+        if (insertError) throw insertError;
       }
-      if (selectedPostInDropdown && selectedPostInDropdown.id === id) {
-        setSelectedPostInDropdown({ ...selectedPostInDropdown, status: newStatus });
-      }
-    } else {
-      console.error(`[❌ Update Error] Failed to update status:`, error.message);
+
+      window.location.reload();
+    } catch (err) {
+      console.error("❌ handleStatusChange error:", err);
     }
   };
 
@@ -194,13 +235,13 @@ export default function PostIdeasPage() {
                   </span>
                   <div className="flex gap-3">
                     <button
-                      onClick={() => handleStatusChange(post.id, 'approved')}
+                      onClick={() => handleStatusChange(post.id, 'approved', post)}
                       className="bg-[#00C2CB] text-black hover:bg-[#00b0b8] px-4 py-2 rounded-lg text-sm font-semibold"
                     >
                       Approve
                     </button>
                     <button
-                      onClick={() => handleStatusChange(post.id, 'rejected')}
+                      onClick={() => handleStatusChange(post.id, 'rejected', post)}
                       className="bg-[#2c2c2c] text-gray-300 hover:bg-[#3a3a3a] px-4 py-2 rounded-lg text-sm"
                     >
                       Reject

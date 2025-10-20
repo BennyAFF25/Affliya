@@ -137,6 +137,26 @@ export default function AdIdeasPage() {
         setCustomReason('');
       }
       if (newStatus === 'approved') {
+        // Fetch the approved ad object from current state
+        const ad = ideas.find((idea) => idea.id === id);
+        if (ad) {
+          // Insert into live_campaigns
+          await supabase.from('live_campaigns').insert([
+            {
+              offer_id: ad.offer_id,
+              affiliate_email: ad.affiliate_email,
+              business_email: ad.business_email,
+              type: 'ad',
+              file_url: ad.file_url || null,
+              audience: ad.audience || null,
+              location: ad.location || null,
+              objective: ad.objective || null,
+              cta: ad.cta || null,
+              daily_budget: ad.daily_budget || null,
+              age_range: ad.age_range || null,
+            }
+          ]);
+        }
         // Show confirmation toast
         alert('Ad approved and campaign created successfully!');
 

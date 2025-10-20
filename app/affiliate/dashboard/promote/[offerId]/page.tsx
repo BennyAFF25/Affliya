@@ -1452,7 +1452,30 @@ export default function PromoteOfferPage() {
 
                   <label className="block">
                     <span className="text-xs text-gray-400">Optional image/video</span>
-                    <input type="file" accept="image/*,video/*" className={INPUT} onChange={(e) => setOgFile(e.target.files?.[0] || null)} />
+                    <input
+                      type="file"
+                      accept="image/*,video/mp4"
+                      className={INPUT}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] || null;
+                        if (file && file.type.startsWith("video/") && file.type !== "video/mp4") {
+                          alert("Only .mp4 video files are allowed. Please convert your video to MP4 and try again.");
+                          e.target.value = "";
+                          setOgFile(null);
+                          return;
+                        }
+                        setOgFile(file);
+                      }}
+                    />
+                    <div className="flex items-center gap-2 mt-2 bg-[#00C2CB]/10 border-l-4 border-[#00C2CB] text-[#00C2CB] px-3 py-2 rounded">
+                      <svg width="18" height="18" fill="none" className="shrink-0" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="#00C2CB" strokeWidth="2"/><rect x="11" y="7" width="2" height="2" rx="1" fill="#00C2CB"/><rect x="11" y="11" width="2" height="6" rx="1" fill="#00C2CB"/></svg>
+                      <span className="text-sm font-semibold">
+                        Only <span className="font-bold">MP4</span> video files are supported.
+                        <span className="underline ml-1">
+                          <a href="https://cloudconvert.com/mov-to-mp4" target="_blank" rel="noopener noreferrer">Convert here</a>
+                        </span> if needed.
+                      </span>
+                    </div>
                   </label>
                 </>
               )}
@@ -1495,8 +1518,12 @@ export default function PromoteOfferPage() {
                   </label>
                 </>
               )}
-              <Disclosure title="How to submit a strong organic promotion (tips & disclaimers)">
+    <Disclosure title="How to submit a strong organic promotion (tips & disclaimers)">
                 <ul className="list-disc pl-5 space-y-1">
+                  <li>
+                    <strong>Video file format:</strong> Only <span className="font-bold">MP4</span> video files are supported for upload. 
+                    If your video is not MP4, <a href="https://cloudconvert.com/mov-to-mp4" target="_blank" rel="noopener noreferrer" className="underline hover:text-[#00C2CB]">convert it here</a> (works on iPhone &amp; desktop).
+                  </li>
                   <li><strong>Match the venue:</strong> Keep tone and length native to the platform (e.g., shorter for Instagram, value‑heavy for LinkedIn, context‑rich for forums).</li>
                   <li><strong>Be specific:</strong> Include audience and posting context (e.g., community names, newsletter segment, send time).</li>
                   <li><strong>Media matters:</strong> Prefer vertical 1080×1920 or square 1080×1080; add alt text where possible.</li>

@@ -10,7 +10,12 @@ export const config = {
 };
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2025-05-28.basil",
+  apiVersion: "2024-06-20",
+});
+
+// Debug log to confirm which Stripe account is active
+stripe.accounts.retrieve().then((acct) => {
+  console.log("[Stripe Webhook Account]", acct.id, acct.email);
 });
 
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET!;
@@ -26,7 +31,6 @@ export async function POST(req: Request) {
   const sig = req.headers.get("stripe-signature")!;
 
   let event: Stripe.Event;
-
   try {
     event = stripe.webhooks.constructEvent(rawBody, sig, endpointSecret);
   } catch (err: any) {
@@ -34,7 +38,56 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: `Webhook Error: ${err.message}` }, { status: 400 });
   }
 
+  console.log('[🔔 Webhook event]', event.type);
+  const platformAccount = await stripe.accounts.retrieve();
+  const platformAcctId = platformAccount.id;
+
   switch (event.type) {
+    case "checkout.session.completed": {
+      console.log('[✅ Handling checkout.session.completed]');
+      const session = event.data.object as Stripe.Checkout.Session;
+      const paymentIntentId = session.payment_intent as string | null;
+
+      if (!paymentIntentId) {
+        console.warn('[⚠️ checkout.session.completed: No payment_intent on session]', session.id);
+        break;
+      }
+
+      const pi = await stripe.paymentIntents.retrieve(paymentIntentId, { expand: ['charges'] });
+      const charge = (pi.charges?.data?.[0]) as Stripe.Charge | undefined;
+
+      if (!charge || !charge.balance_transaction) {
+        console.warn('[⚠️ checkout.session.completed: No charge/balance_transaction yet]', paymentIntentId);
+        break;
+      }
+
+      const balanceTx = await stripe.balanceTransactions.retrieve(charge.balance_transaction as string);
+
+      const gross_amount = +(balanceTx.amount / 100).toFixed(2);
+      const fees = +(balanceTx.fee / 100).toFixed(2);
+      const net_amount = +(balanceTx.net / 100).toFixed(2);
+      const email = charge.billing_details?.email ?? "unknown@example.com";
+
+      console.log("[✅ Stripe Top-up Details (from session)]", { email, gross_amount, fees, net_amount });
+
+      const { error } = await supabase.from("wallet_topups").insert({
+        affiliate_email: email,
+        amount_gross: gross_amount,
+        stripe_fees: fees,
+        amount_net: net_amount,
+        stripe_id: paymentIntentId,
+        status: "succeeded",
+        platform_acct_id: platformAcctId,
+      });
+
+      if (error) {
+        console.error("[❌ Supabase Insert Error]", error);
+      } else {
+        console.log("[✅ Wallet Top-up Recorded (from session)]");
+      }
+
+      break;
+    }
     case "charge.succeeded":
     case "charge.updated": {
       console.log(`[✅ Handling ${event.type} event]`);
@@ -68,6 +121,7 @@ export async function POST(req: Request) {
         amount_net: net_amount,
         stripe_id: charge.payment_intent,
         status: "succeeded",
+        platform_acct_id: platformAcctId, // track origin account id
       });
 
       if (error) {
@@ -81,6 +135,7 @@ export async function POST(req: Request) {
 
     default:
       console.log(`[ℹ️ Unhandled event type]: ${event.type}`);
+      console.log('[platform acct]', platformAcctId);
   }
 
   return NextResponse.json({ received: true });
