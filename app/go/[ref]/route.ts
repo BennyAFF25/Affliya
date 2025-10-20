@@ -1,4 +1,3 @@
-// Requires SUPABASE_SERVICE_ROLE_KEY in your .env for backend use only.
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 
