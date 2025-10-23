@@ -46,8 +46,8 @@ export default function SetupTrackingPage() {
     if (offerId && offerWebsite) {
       const domain = new URL(offerWebsite).hostname.replace(/^www\./, '');
       const baseUrl = process.env.NODE_ENV === 'development'
-        ? 'http://nettmark.com'
-        : 'https://nettmark.com';
+        ? 'http://localhost:3000'
+        : 'https://www.nettmark.com';
 
       setTrackingCode(
         `<script src="${baseUrl}/tracker.js" data-business="${domain}" data-offer="${offerId}"></script>`
