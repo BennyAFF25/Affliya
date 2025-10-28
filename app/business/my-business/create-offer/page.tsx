@@ -11,6 +11,7 @@ export default function CreateOfferPage() {
   const supabase = createPagesBrowserClient();
 
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [siteHost, setSiteHost] = useState('');
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -69,6 +70,10 @@ export default function CreateOfferPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!userEmail) return;
+    if (!siteHost) {
+      alert('Please select a Website Platform/Host.');
+      return;
+    }
 
     let uploadedLogoUrl = null;
 
@@ -109,6 +114,7 @@ export default function CreateOfferPage() {
       currency,
       type,
       logo_url: uploadedLogoUrl,
+      site_host: siteHost,
     };
 
     // Insert offer into Supabase
@@ -127,6 +133,7 @@ export default function CreateOfferPage() {
     setType('one-time');
     setLogoFile(null);
     setLogoUrl(null);
+    setSiteHost('');
 
     router.push('/business/my-business');
   };
@@ -169,6 +176,22 @@ export default function CreateOfferPage() {
                   placeholder="https://yourwebsite.com"
                   className="w-full p-3 border border-[#2a2a2a] bg-[#0e0e0e] text-white rounded-lg"
                 />
+              </div>
+              <div>
+                <label className="block font-semibold text-white mb-1">Website Platform/Host</label>
+                <select
+                  required
+                  value={siteHost}
+                  onChange={(e) => setSiteHost(e.target.value)}
+                  className="w-full p-3 border border-[#2a2a2a] bg-[#0e0e0e] text-white rounded-lg"
+                >
+                  <option value="">Select platform/host</option>
+                  <option value="Shopify">Shopify</option>
+                  <option value="Wix">Wix</option>
+                  <option value="WooCommerce">WooCommerce</option>
+                  <option value="Squarespace">Squarespace</option>
+                  <option value="Custom/Other">Custom/Other</option>
+                </select>
               </div>
             </>
           )}

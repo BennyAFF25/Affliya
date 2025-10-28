@@ -18,13 +18,11 @@ async function getAllowOrigin(origin: string | null) {
   // Query all websites from offers table
   const { data: offers, error } = await supabase.from("offers").select("website");
   if (error) {
-    // If error querying offers, fallback to original logic
+    console.log("[CORS] Error querying offers:", error);
     return "*";
   }
 
   const offerWebsites = offers?.map((o) => normalizeUrl(o.website)) || [];
-
-  // Check if origin matches any offer website
   if (offerWebsites.includes(normalizedOrigin)) return origin;
 
   // Also allow nettmark.com, affliya.com, and localhost for dev
@@ -42,6 +40,7 @@ async function getAllowOrigin(origin: string | null) {
 export async function OPTIONS(req: NextRequest) {
   const origin = req.headers.get("origin") || req.headers.get("Origin") || "null";
   const allowOrigin = await getAllowOrigin(origin);
+  console.log("[CORS] OPTIONS Origin:", origin, "| Allow:", allowOrigin);
   return new Response(null, {
     status: 204,
     headers: {
@@ -56,36 +55,48 @@ export async function OPTIONS(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const origin = req.headers.get("origin") || req.headers.get("Origin") || "null";
   const allowOrigin = await getAllowOrigin(origin);
+  console.log("[CORS] POST Origin:", origin, "| Allow:", allowOrigin);
 
   try {
-    const body = await req.json();
-    // Debug log for payloads
-    console.log("[TRACK EVENT] Incoming:", JSON.stringify(body));
+    const rawBody = await req.text();
+    console.log("[TRACK EVENT] Raw body:", rawBody);
+
+    const body = JSON.parse(rawBody);
+    console.log("[TRACK EVENT] Parsed body:", body);
 
     const { business, offer_id, event_type, url, amount, user_email, campaign_id, affiliate_email } = body;
 
     if (!affiliate_email) {
+      console.log("[ERROR] Missing affiliate_email");
       return new Response(
         JSON.stringify({ error: "affiliate_email is required" }),
         { status: 400, headers: { "Access-Control-Allow-Origin": allowOrigin, "Content-Type": "application/json" } }
       );
     }
 
-    const { error } = await supabase.from("campaign_tracking_events").insert({
+    const insertPayload = {
       offer_id,
       campaign_id,
       affiliate_email,
       event_type,
       event_data: { url, amount, user_email },
-    });
+    };
+    console.log("[SUPABASE] Insert payload:", insertPayload);
 
-    if (error) throw error;
+    const { error } = await supabase.from("campaign_tracking_events").insert(insertPayload);
 
+    if (error) {
+      console.log("[SUPABASE] Insert error:", error);
+      throw error;
+    }
+
+    console.log("[SUPABASE] Inserted successfully!");
     return new Response(
       JSON.stringify({ success: true }),
       { status: 200, headers: { "Access-Control-Allow-Origin": allowOrigin, "Content-Type": "application/json" } }
     );
   } catch (err) {
+    console.log("[ERROR] Catch block:", err);
     return new Response(
       JSON.stringify({ error: String(err) }),
       { status: 400, headers: { "Access-Control-Allow-Origin": allowOrigin, "Content-Type": "application/json" } }
