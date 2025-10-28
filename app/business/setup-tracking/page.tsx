@@ -147,12 +147,12 @@ export default function SetupTrackingPage() {
         {selectedOffer?.site_host === 'Shopify' ? (
           <>
             {!loadingLiveCampaign && !liveCampaign && (
-              <div className="mb-4 p-4 rounded bg-red-700 text-white font-semibold text-center">
-                No live campaign found for this offer. Please ensure your campaign is live before installing tracking.
+              <div className="mb-4 p-2 rounded bg-[#333333] text-[#00C2CB] font-semibold text-center text-sm">
+                No affiliates are promoting this offer yet. Your tracking is ready!
               </div>
             )}
-            {liveCampaign && (() => {
-              // Define the three Shopify pixel snippets
+            {(() => {
+              // Define the three Shopify pixel snippets using only offer ID
               let shopifyViewPixel = `
 <!-- Shopify Pixel: page_viewed -->
 <script>
@@ -161,7 +161,6 @@ export default function SetupTrackingPage() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        campaign_id: '${liveCampaign.id}',
         offer_id: '${selectedOffer.id}',
         affiliate_email: '${user?.email || ''}',
         event_type: 'click',
@@ -183,7 +182,6 @@ export default function SetupTrackingPage() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        campaign_id: '${liveCampaign.id}',
         offer_id: '${selectedOffer.id}',
         affiliate_email: '${user?.email || ''}',
         event_type: 'add_to_cart',
@@ -205,7 +203,6 @@ export default function SetupTrackingPage() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        campaign_id: '${liveCampaign.id}',
         offer_id: '${selectedOffer.id}',
         affiliate_email: '${user?.email || ''}',
         event_type: 'conversion',
