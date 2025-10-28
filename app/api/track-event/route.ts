@@ -1,5 +1,3 @@
-// /app/api/track-event/route.ts
-
 import { NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
@@ -9,31 +7,67 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY! // Use the service role for inserts
 );
 
-// CORS headers (must be present on every response)
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
-  "Access-Control-Max-Age": "86400",
-};
+function normalizeUrl(url: string) {
+  return url.toLowerCase().replace(/\/+$/, "");
+}
 
-export async function OPTIONS() {
-  // Empty 200 response for preflight, with CORS
+async function getAllowOrigin(origin: string | null) {
+  if (!origin) return "*";
+  const normalizedOrigin = normalizeUrl(origin);
+
+  // Query all websites from offers table
+  const { data: offers, error } = await supabase.from("offers").select("website");
+  if (error) {
+    // If error querying offers, fallback to original logic
+    return "*";
+  }
+
+  const offerWebsites = offers?.map((o) => normalizeUrl(o.website)) || [];
+
+  // Check if origin matches any offer website
+  if (offerWebsites.includes(normalizedOrigin)) return origin;
+
+  // Also allow nettmark.com, affliya.com, and localhost for dev
+  if (
+    normalizedOrigin.includes("nettmark.com") ||
+    normalizedOrigin.includes("affliya.com") ||
+    normalizedOrigin.includes("localhost")
+  ) {
+    return origin;
+  }
+
+  return "*";
+}
+
+export async function OPTIONS(req: NextRequest) {
+  const origin = req.headers.get("origin") || req.headers.get("Origin") || "null";
+  const allowOrigin = await getAllowOrigin(origin);
   return new Response(null, {
-    status: 200,
-    headers: CORS_HEADERS,
+    status: 204,
+    headers: {
+      "Access-Control-Allow-Origin": allowOrigin,
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+      "Access-Control-Max-Age": "86400",
+    },
   });
 }
 
 export async function POST(req: NextRequest) {
+  const origin = req.headers.get("origin") || req.headers.get("Origin") || "null";
+  const allowOrigin = await getAllowOrigin(origin);
+
   try {
     const body = await req.json();
+    // Debug log for payloads
+    console.log("[TRACK EVENT] Incoming:", JSON.stringify(body));
+
     const { business, offer_id, event_type, url, amount, user_email, campaign_id, affiliate_email } = body;
 
     if (!affiliate_email) {
       return new Response(
         JSON.stringify({ error: "affiliate_email is required" }),
-        { status: 400, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
+        { status: 400, headers: { "Access-Control-Allow-Origin": allowOrigin, "Content-Type": "application/json" } }
       );
     }
 
@@ -49,12 +83,12 @@ export async function POST(req: NextRequest) {
 
     return new Response(
       JSON.stringify({ success: true }),
-      { status: 200, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
+      { status: 200, headers: { "Access-Control-Allow-Origin": allowOrigin, "Content-Type": "application/json" } }
     );
   } catch (err) {
     return new Response(
       JSON.stringify({ error: String(err) }),
-      { status: 400, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } }
+      { status: 400, headers: { "Access-Control-Allow-Origin": allowOrigin, "Content-Type": "application/json" } }
     );
   }
 }
