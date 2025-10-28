@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
     const body = JSON.parse(rawBody);
     console.log("[TRACK EVENT] Parsed body:", body);
 
-    const { business, offer_id, event_type, url, amount, user_email, campaign_id, affiliate_email } = body;
+    const { offer_id, event_type, url, amount, user_email, affiliate_email } = body;
 
     if (!affiliate_email) {
       console.log("[ERROR] Missing affiliate_email");
@@ -74,9 +74,26 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Look up campaign_id from live_campaigns using offer_id and affiliate_email
+    const { data: campaign, error: campaignError } = await supabase
+      .from("live_campaigns")
+      .select("id")
+      .eq("offer_id", offer_id)
+      .eq("affiliate_email", affiliate_email)
+      .eq("status", "live")
+      .maybeSingle();
+
+    if (!campaign || campaignError) {
+      console.log("[ERROR] No live campaign found for this offer/affiliate.", { offer_id, affiliate_email });
+      return new Response(
+        JSON.stringify({ error: "No live campaign found for this offer/affiliate." }),
+        { status: 400, headers: { "Access-Control-Allow-Origin": allowOrigin, "Content-Type": "application/json" } }
+      );
+    }
+
     const insertPayload = {
       offer_id,
-      campaign_id,
+      campaign_id: campaign.id,
       affiliate_email,
       event_type,
       event_data: { url, amount, user_email },

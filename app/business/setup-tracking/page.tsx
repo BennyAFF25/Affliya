@@ -152,7 +152,7 @@ export default function SetupTrackingPage() {
               </div>
             )}
             {(() => {
-              // Define the three Shopify pixel snippets using only offer ID
+              // Define the three Shopify pixel snippets using only offer ID and optionally business_email (user.email), no affiliate_email
               let shopifyViewPixel = `
 <!-- Shopify Pixel: page_viewed -->
 <script>
@@ -162,7 +162,7 @@ export default function SetupTrackingPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         offer_id: '${selectedOffer.id}',
-        affiliate_email: '${user?.email || ''}',
+        business_email: '${user?.email || ''}',
         event_type: 'click',
         event_data: {
           url: window.location.href,
@@ -183,7 +183,7 @@ export default function SetupTrackingPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         offer_id: '${selectedOffer.id}',
-        affiliate_email: '${user?.email || ''}',
+        business_email: '${user?.email || ''}',
         event_type: 'add_to_cart',
         event_data: {
           url: window.location.href,
@@ -204,7 +204,7 @@ export default function SetupTrackingPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         offer_id: '${selectedOffer.id}',
-        affiliate_email: '${user?.email || ''}',
+        business_email: '${user?.email || ''}',
         event_type: 'conversion',
         event_data: event?.data
       })
