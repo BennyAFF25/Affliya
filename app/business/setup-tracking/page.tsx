@@ -152,9 +152,9 @@ export default function SetupTrackingPage() {
               </div>
             )}
             {(() => {
-              // Define the three Shopify pixel snippets using only offer ID and optionally business_email (user.email), no affiliate_email
+              // Define the three Shopify pixel snippets using only offer ID, no business_email or affiliate_email
               let shopifyViewPixel = `
-<!-- Shopify Pixel: page_viewed -->
+<!-- Nettmark Shopify Pixel: Page Viewed -->
 <script>
   analytics.subscribe('page_viewed', async (event) => {
     await fetch('https://www.nettmark.com/api/track-event', {
@@ -162,7 +162,6 @@ export default function SetupTrackingPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         offer_id: '${selectedOffer.id}',
-        business_email: '${user?.email || ''}',
         event_type: 'click',
         event_data: {
           url: window.location.href,
@@ -175,7 +174,7 @@ export default function SetupTrackingPage() {
 `.trim();
 
               let shopifyCartPixel = `
-<!-- Shopify Pixel: cart_updated -->
+<!-- Nettmark Shopify Pixel: Add to Cart -->
 <script>
   analytics.subscribe('cart_updated', async (event) => {
     await fetch('https://www.nettmark.com/api/track-event', {
@@ -183,7 +182,6 @@ export default function SetupTrackingPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         offer_id: '${selectedOffer.id}',
-        business_email: '${user?.email || ''}',
         event_type: 'add_to_cart',
         event_data: {
           url: window.location.href,
@@ -196,7 +194,7 @@ export default function SetupTrackingPage() {
 `.trim();
 
               let shopifyCheckoutPixel = `
-<!-- Shopify Pixel: checkout_completed -->
+<!-- Nettmark Shopify Pixel: Conversion/Purchase -->
 <script>
   analytics.subscribe('checkout_completed', async (event) => {
     await fetch('https://www.nettmark.com/api/track-event', {
@@ -204,7 +202,6 @@ export default function SetupTrackingPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         offer_id: '${selectedOffer.id}',
-        business_email: '${user?.email || ''}',
         event_type: 'conversion',
         event_data: event?.data
       })
@@ -220,7 +217,7 @@ export default function SetupTrackingPage() {
                       className="w-full flex items-center justify-between px-4 py-3 text-left text-[#00C2CB] font-semibold hover:bg-[#1a1a1a] focus:outline-none"
                       onClick={() => setShowViewPixel(v => !v)}
                     >
-                      Shopify Pixel: Page View
+                      Nettmark Shopify Pixel: Page Viewed
                       <span>{showViewPixel ? '▲' : '▼'}</span>
                     </button>
                     {showViewPixel && (
@@ -245,7 +242,7 @@ export default function SetupTrackingPage() {
                       className="w-full flex items-center justify-between px-4 py-3 text-left text-[#00C2CB] font-semibold hover:bg-[#1a1a1a] focus:outline-none"
                       onClick={() => setShowCartPixel(v => !v)}
                     >
-                      Shopify Pixel: Add to Cart
+                      Nettmark Shopify Pixel: Add to Cart
                       <span>{showCartPixel ? '▲' : '▼'}</span>
                     </button>
                     {showCartPixel && (
@@ -270,7 +267,7 @@ export default function SetupTrackingPage() {
                       className="w-full flex items-center justify-between px-4 py-3 text-left text-[#00C2CB] font-semibold hover:bg-[#1a1a1a] focus:outline-none"
                       onClick={() => setShowCheckoutPixel(v => !v)}
                     >
-                      Shopify Pixel: Checkout Completed
+                      Nettmark Shopify Pixel: Conversion/Purchase
                       <span>{showCheckoutPixel ? '▲' : '▼'}</span>
                     </button>
                     {showCheckoutPixel && (
