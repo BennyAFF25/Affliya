@@ -24,6 +24,10 @@ export default function SetupTrackingPage() {
   const [copiedCart, setCopiedCart] = useState(false);
   const [copiedCheckout, setCopiedCheckout] = useState(false);
 
+  // New state for live campaign
+  const [liveCampaign, setLiveCampaign] = useState<any>(null);
+  const [loadingLiveCampaign, setLoadingLiveCampaign] = useState(false);
+
   useEffect(() => {
     if (user) setIsReady(true);
   }, [user]);
@@ -47,6 +51,30 @@ export default function SetupTrackingPage() {
 
     fetchOffers();
   }, [isReady]);
+
+  // Fetch live campaign when selectedOffer changes
+  useEffect(() => {
+    if (!selectedOffer) {
+      setLiveCampaign(null);
+      return;
+    }
+    const fetchLiveCampaign = async () => {
+      setLoadingLiveCampaign(true);
+      const { data, error } = await supabase
+        .from('live_campaigns')
+        .select('id')
+        .eq('offer_id', selectedOffer.id)
+        .limit(1)
+        .single();
+      if (data && !error) {
+        setLiveCampaign(data);
+      } else {
+        setLiveCampaign(null);
+      }
+      setLoadingLiveCampaign(false);
+    };
+    fetchLiveCampaign();
+  }, [selectedOffer]);
 
   useEffect(() => {
     if (selectedOffer) {
@@ -117,9 +145,15 @@ export default function SetupTrackingPage() {
         )}
 
         {selectedOffer?.site_host === 'Shopify' ? (
-          (() => {
-            // Define the three Shopify pixel snippets
-            let shopifyViewPixel = `
+          <>
+            {!loadingLiveCampaign && !liveCampaign && (
+              <div className="mb-4 p-4 rounded bg-red-700 text-white font-semibold text-center">
+                No live campaign found for this offer. Please ensure your campaign is live before installing tracking.
+              </div>
+            )}
+            {liveCampaign && (() => {
+              // Define the three Shopify pixel snippets
+              let shopifyViewPixel = `
 <!-- Shopify Pixel: page_viewed -->
 <script>
   analytics.subscribe('page_viewed', async (event) => {
@@ -127,7 +161,7 @@ export default function SetupTrackingPage() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        campaign_id: '${selectedOffer.id}',
+        campaign_id: '${liveCampaign.id}',
         offer_id: '${selectedOffer.id}',
         affiliate_email: '${user?.email || ''}',
         event_type: 'click',
@@ -141,7 +175,7 @@ export default function SetupTrackingPage() {
 </script>
 `.trim();
 
-            let shopifyCartPixel = `
+              let shopifyCartPixel = `
 <!-- Shopify Pixel: cart_updated -->
 <script>
   analytics.subscribe('cart_updated', async (event) => {
@@ -149,7 +183,7 @@ export default function SetupTrackingPage() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        campaign_id: '${selectedOffer.id}',
+        campaign_id: '${liveCampaign.id}',
         offer_id: '${selectedOffer.id}',
         affiliate_email: '${user?.email || ''}',
         event_type: 'add_to_cart',
@@ -163,7 +197,7 @@ export default function SetupTrackingPage() {
 </script>
 `.trim();
 
-            let shopifyCheckoutPixel = `
+              let shopifyCheckoutPixel = `
 <!-- Shopify Pixel: checkout_completed -->
 <script>
   analytics.subscribe('checkout_completed', async (event) => {
@@ -171,7 +205,7 @@ export default function SetupTrackingPage() {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        campaign_id: '${selectedOffer.id}',
+        campaign_id: '${liveCampaign.id}',
         offer_id: '${selectedOffer.id}',
         affiliate_email: '${user?.email || ''}',
         event_type: 'conversion',
@@ -181,86 +215,87 @@ export default function SetupTrackingPage() {
   });
 </script>
 `.trim();
-            return (
-              <div className="space-y-4">
-                {/* Page View Pixel */}
-                <div className="rounded-lg bg-[#121212] border border-[#00C2CB]/20">
-                  <button
-                    className="w-full flex items-center justify-between px-4 py-3 text-left text-[#00C2CB] font-semibold hover:bg-[#1a1a1a] focus:outline-none"
-                    onClick={() => setShowViewPixel(v => !v)}
-                  >
-                    Shopify Pixel: Page View
-                    <span>{showViewPixel ? '▲' : '▼'}</span>
-                  </button>
-                  {showViewPixel && (
-                    <div className="px-4 pb-4">
-                      <pre className="bg-[#181818] p-3 rounded mb-2 overflow-x-auto text-xs border border-[#00C2CB]/10 whitespace-pre-wrap">{shopifyViewPixel}</pre>
-                      <button
-                        onClick={() => {
-                          navigator.clipboard.writeText(shopifyViewPixel);
-                          setCopiedView(true);
-                          setTimeout(() => setCopiedView(false), 2000);
-                        }}
-                        className="bg-[#00C2CB] hover:bg-[#00b0b8] text-black px-4 py-1 rounded text-xs font-semibold"
-                      >
-                        {copiedView ? "Copied!" : "Copy Pixel"}
-                      </button>
-                    </div>
-                  )}
+              return (
+                <div className="space-y-4">
+                  {/* Page View Pixel */}
+                  <div className="rounded-lg bg-[#121212] border border-[#00C2CB]/20">
+                    <button
+                      className="w-full flex items-center justify-between px-4 py-3 text-left text-[#00C2CB] font-semibold hover:bg-[#1a1a1a] focus:outline-none"
+                      onClick={() => setShowViewPixel(v => !v)}
+                    >
+                      Shopify Pixel: Page View
+                      <span>{showViewPixel ? '▲' : '▼'}</span>
+                    </button>
+                    {showViewPixel && (
+                      <div className="px-4 pb-4">
+                        <pre className="bg-[#181818] p-3 rounded mb-2 overflow-x-auto text-xs border border-[#00C2CB]/10 whitespace-pre-wrap">{shopifyViewPixel}</pre>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(shopifyViewPixel);
+                            setCopiedView(true);
+                            setTimeout(() => setCopiedView(false), 2000);
+                          }}
+                          className="bg-[#00C2CB] hover:bg-[#00b0b8] text-black px-4 py-1 rounded text-xs font-semibold"
+                        >
+                          {copiedView ? "Copied!" : "Copy Pixel"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  {/* Add to Cart Pixel */}
+                  <div className="rounded-lg bg-[#121212] border border-[#00C2CB]/20">
+                    <button
+                      className="w-full flex items-center justify-between px-4 py-3 text-left text-[#00C2CB] font-semibold hover:bg-[#1a1a1a] focus:outline-none"
+                      onClick={() => setShowCartPixel(v => !v)}
+                    >
+                      Shopify Pixel: Add to Cart
+                      <span>{showCartPixel ? '▲' : '▼'}</span>
+                    </button>
+                    {showCartPixel && (
+                      <div className="px-4 pb-4">
+                        <pre className="bg-[#181818] p-3 rounded mb-2 overflow-x-auto text-xs border border-[#00C2CB]/10 whitespace-pre-wrap">{shopifyCartPixel}</pre>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(shopifyCartPixel);
+                            setCopiedCart(true);
+                            setTimeout(() => setCopiedCart(false), 2000);
+                          }}
+                          className="bg-[#00C2CB] hover:bg-[#00b0b8] text-black px-4 py-1 rounded text-xs font-semibold"
+                        >
+                          {copiedCart ? "Copied!" : "Copy Pixel"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  {/* Checkout Pixel */}
+                  <div className="rounded-lg bg-[#121212] border border-[#00C2CB]/20">
+                    <button
+                      className="w-full flex items-center justify-between px-4 py-3 text-left text-[#00C2CB] font-semibold hover:bg-[#1a1a1a] focus:outline-none"
+                      onClick={() => setShowCheckoutPixel(v => !v)}
+                    >
+                      Shopify Pixel: Checkout Completed
+                      <span>{showCheckoutPixel ? '▲' : '▼'}</span>
+                    </button>
+                    {showCheckoutPixel && (
+                      <div className="px-4 pb-4">
+                        <pre className="bg-[#181818] p-3 rounded mb-2 overflow-x-auto text-xs border border-[#00C2CB]/10 whitespace-pre-wrap">{shopifyCheckoutPixel}</pre>
+                        <button
+                          onClick={() => {
+                            navigator.clipboard.writeText(shopifyCheckoutPixel);
+                            setCopiedCheckout(true);
+                            setTimeout(() => setCopiedCheckout(false), 2000);
+                          }}
+                          className="bg-[#00C2CB] hover:bg-[#00b0b8] text-black px-4 py-1 rounded text-xs font-semibold"
+                        >
+                          {copiedCheckout ? "Copied!" : "Copy Pixel"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
-                {/* Add to Cart Pixel */}
-                <div className="rounded-lg bg-[#121212] border border-[#00C2CB]/20">
-                  <button
-                    className="w-full flex items-center justify-between px-4 py-3 text-left text-[#00C2CB] font-semibold hover:bg-[#1a1a1a] focus:outline-none"
-                    onClick={() => setShowCartPixel(v => !v)}
-                  >
-                    Shopify Pixel: Add to Cart
-                    <span>{showCartPixel ? '▲' : '▼'}</span>
-                  </button>
-                  {showCartPixel && (
-                    <div className="px-4 pb-4">
-                      <pre className="bg-[#181818] p-3 rounded mb-2 overflow-x-auto text-xs border border-[#00C2CB]/10 whitespace-pre-wrap">{shopifyCartPixel}</pre>
-                      <button
-                        onClick={() => {
-                          navigator.clipboard.writeText(shopifyCartPixel);
-                          setCopiedCart(true);
-                          setTimeout(() => setCopiedCart(false), 2000);
-                        }}
-                        className="bg-[#00C2CB] hover:bg-[#00b0b8] text-black px-4 py-1 rounded text-xs font-semibold"
-                      >
-                        {copiedCart ? "Copied!" : "Copy Pixel"}
-                      </button>
-                    </div>
-                  )}
-                </div>
-                {/* Checkout Pixel */}
-                <div className="rounded-lg bg-[#121212] border border-[#00C2CB]/20">
-                  <button
-                    className="w-full flex items-center justify-between px-4 py-3 text-left text-[#00C2CB] font-semibold hover:bg-[#1a1a1a] focus:outline-none"
-                    onClick={() => setShowCheckoutPixel(v => !v)}
-                  >
-                    Shopify Pixel: Checkout Completed
-                    <span>{showCheckoutPixel ? '▲' : '▼'}</span>
-                  </button>
-                  {showCheckoutPixel && (
-                    <div className="px-4 pb-4">
-                      <pre className="bg-[#181818] p-3 rounded mb-2 overflow-x-auto text-xs border border-[#00C2CB]/10 whitespace-pre-wrap">{shopifyCheckoutPixel}</pre>
-                      <button
-                        onClick={() => {
-                          navigator.clipboard.writeText(shopifyCheckoutPixel);
-                          setCopiedCheckout(true);
-                          setTimeout(() => setCopiedCheckout(false), 2000);
-                        }}
-                        className="bg-[#00C2CB] hover:bg-[#00b0b8] text-black px-4 py-1 rounded text-xs font-semibold"
-                      >
-                        {copiedCheckout ? "Copied!" : "Copy Pixel"}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })()
+              );
+            })()}
+          </>
         ) : (
           <>
             <pre className="bg-[#121212] text-[#00C2CB] p-4 rounded-lg border border-dashed border-[#00C2CB]/20 text-sm overflow-x-auto mb-6 transition-all duration-300 shadow-inner whitespace-pre-wrap">{trackingCode}</pre>
