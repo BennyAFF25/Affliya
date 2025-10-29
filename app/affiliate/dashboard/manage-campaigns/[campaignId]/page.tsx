@@ -37,6 +37,8 @@ type Campaign = {
   [key: string]: any;
 };
 
+type Stats = { clicks: number; carts: number; conversions: number };
+
 export default function ManageCampaignPage() {
   const params = useParams();
   const campaignId = params.campaignId as string;
@@ -48,6 +50,85 @@ export default function ManageCampaignPage() {
   const [showEmailModal, setShowEmailModal] = useState(false);
   // Offer state
   const [offer, setOffer] = useState<{ website?: string; title?: string } | null>(null);
+  const [stats, setStats] = useState<Stats>({ clicks: 0, carts: 0, conversions: 0 });
+  const [chartSeries, setChartSeries] = useState<{ labels: string[]; clicks: number[]; carts: number[]; conversions: number[] }>({ labels: [], clicks: [], carts: [], conversions: [] });
+  const [loadingStats, setLoadingStats] = useState<boolean>(false);
+  function buildLast7DaysBuckets() {
+    const labels: string[] = [];
+    const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const today = startOfDay(new Date());
+    for (let i = 6; i >= 0; i--) {
+      const day = new Date(today);
+      day.setDate(today.getDate() - i);
+      labels.push(day.toLocaleDateString(undefined, { weekday: 'short' }));
+    }
+    return labels;
+  }
+
+  async function loadCampaignStats(currentCampaignId: string) {
+    try {
+      setLoadingStats(true);
+      // Efficient exact counts without fetching rows
+      const [clicksRes, cartsRes, convRes] = await Promise.all([
+        supabase.from('campaign_tracking_events').select('id', { count: 'exact', head: true }).eq('campaign_id', currentCampaignId).eq('event_type', 'page_view'),
+        supabase.from('campaign_tracking_events').select('id', { count: 'exact', head: true }).eq('campaign_id', currentCampaignId).eq('event_type', 'add_to_cart'),
+        supabase.from('campaign_tracking_events').select('id', { count: 'exact', head: true }).eq('campaign_id', currentCampaignId).eq('event_type', 'conversion'),
+      ]);
+
+      setStats({
+        clicks: clicksRes.count || 0,
+        carts: cartsRes.count || 0,
+        conversions: convRes.count || 0,
+      });
+
+      // Last 7 days series (fetch minimal fields and bin client-side)
+      const sevenDaysAgo = new Date();
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6); // include today
+      const { data: recent, error: recentErr } = await supabase
+        .from('campaign_tracking_events')
+        .select('created_at, event_type')
+        .eq('campaign_id', currentCampaignId)
+        .gte('created_at', sevenDaysAgo.toISOString())
+        .order('created_at', { ascending: true });
+
+      if (!recentErr) {
+        const labels = buildLast7DaysBuckets();
+        const clicks = Array(labels.length).fill(0);
+        const carts = Array(labels.length).fill(0);
+        const conversions = Array(labels.length).fill(0);
+
+        recent?.forEach((row: { created_at: string; event_type: string }) => {
+          const d = new Date(row.created_at);
+          const idx = (() => {
+            const base = new Date();
+            const baseStart = new Date(base.getFullYear(), base.getMonth(), base.getDate());
+            const rowStart = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+            const diffDays = Math.round((rowStart.getTime() - baseStart.getTime()) / 86400000);
+            const pos = 6 + diffDays; // map -6..0 to 0..6
+            return Math.min(6, Math.max(0, pos));
+          })();
+          if (row.event_type === 'page_view') clicks[idx] += 1;
+          else if (row.event_type === 'add_to_cart') carts[idx] += 1;
+          else if (row.event_type === 'conversion') conversions[idx] += 1;
+        });
+
+        setChartSeries({ labels, clicks, carts, conversions });
+      }
+    } finally {
+      setLoadingStats(false);
+    }
+  }
+  useEffect(() => {
+    if (!campaignId) return;
+    let cancelled = false;
+    const run = async () => {
+      if (cancelled) return;
+      await loadCampaignStats(String(campaignId));
+    };
+    run();
+    const interval = setInterval(run, 10000); // refresh every 10s
+    return () => { cancelled = true; clearInterval(interval); };
+  }, [campaignId]);
 
   useEffect(() => {
     if (!campaignId) return;
@@ -215,8 +296,10 @@ export default function ManageCampaignPage() {
         <div className="w-full min-w-[340px] grid grid-cols-1 gap-6 content-between h-full -ml-4">
           <div className="bg-[#171717] hover:bg-[#1C1C1C] transition-all duration-300 p-5 rounded-2xl shadow-md flex items-center justify-between h-24 border border-[#2A2A2A] drop-shadow-[0_0_12px_rgba(0,194,203,0.15)]">
             <div>
-              <h2 className="text-gray-300 text-sm font-medium mb-1 tracking-wide uppercase">Clicks</h2>
-              <p className="text-3xl font-semibold text-white">—</p>
+              <h2 className="text-gray-300 text-sm font-medium mb-1 tracking-wide uppercase">
+                Clicks {loadingStats && <span className="text-xs text-gray-500">•</span>}
+              </h2>
+              <p className="text-3xl font-semibold text-white">{stats.clicks.toLocaleString()}</p>
             </div>
             <div className="w-10 h-10 rounded-full bg-[#0F0F0F] flex items-center justify-center shadow-inner">
               <CursorArrowRaysIcon className="w-6 h-6 text-[#00C2CB]/80" />
@@ -224,8 +307,10 @@ export default function ManageCampaignPage() {
           </div>
           <div className="bg-[#171717] hover:bg-[#1C1C1C] transition-all duration-300 p-5 rounded-2xl shadow-md flex items-center justify-between h-24 border border-[#2A2A2A] drop-shadow-[0_0_12px_rgba(0,194,203,0.15)]">
             <div>
-              <h2 className="text-gray-300 text-sm font-medium mb-1 tracking-wide uppercase">Add to Carts</h2>
-              <p className="text-3xl font-semibold text-white">—</p>
+              <h2 className="text-gray-300 text-sm font-medium mb-1 tracking-wide uppercase">
+                Add to Carts {loadingStats && <span className="text-xs text-gray-500">•</span>}
+              </h2>
+              <p className="text-3xl font-semibold text-white">{stats.carts.toLocaleString()}</p>
             </div>
             <div className="w-10 h-10 rounded-full bg-[#0F0F0F] flex items-center justify-center shadow-inner">
               <ShoppingCartIcon className="w-6 h-6 text-[#00C2CB]/80" />
@@ -233,8 +318,10 @@ export default function ManageCampaignPage() {
           </div>
           <div className="bg-[#171717] hover:bg-[#1C1C1C] transition-all duration-300 p-5 rounded-2xl shadow-md flex items-center justify-between h-24 border border-[#2A2A2A] drop-shadow-[0_0_12px_rgba(0,194,203,0.15)]">
             <div>
-              <h2 className="text-gray-300 text-sm font-medium mb-1 tracking-wide uppercase">Conversions</h2>
-              <p className="text-3xl font-semibold text-white">—</p>
+              <h2 className="text-gray-300 text-sm font-medium mb-1 tracking-wide uppercase">
+                Conversions {loadingStats && <span className="text-xs text-gray-500">•</span>}
+              </h2>
+              <p className="text-3xl font-semibold text-white">{stats.conversions.toLocaleString()}</p>
             </div>
             <div className="w-10 h-10 rounded-full bg-[#0F0F0F] flex items-center justify-center shadow-inner">
               <CurrencyDollarIcon className="w-6 h-6 text-[#00C2CB]/80" />
@@ -244,11 +331,11 @@ export default function ManageCampaignPage() {
             <h3 className="text-gray-300 text-sm font-medium mb-3 tracking-wide uppercase">Performance Overview</h3>
             <Line
               data={{
-                labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                labels: chartSeries.labels.length ? chartSeries.labels : ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
                 datasets: [
                   {
                     label: 'Clicks',
-                    data: [0, 0, 0, 0, 0, 0, 0],
+                    data: chartSeries.clicks.length ? chartSeries.clicks : [0,0,0,0,0,0,0],
                     fill: true,
                     backgroundColor: (context) => {
                       const gradient = context.chart.ctx.createLinearGradient(0, 0, 0, 200);
@@ -264,7 +351,7 @@ export default function ManageCampaignPage() {
                   },
                   {
                     label: 'Add to Carts',
-                    data: [0, 0, 0, 0, 0, 0, 0],
+                    data: chartSeries.carts.length ? chartSeries.carts : [0,0,0,0,0,0,0],
                     fill: true,
                     backgroundColor: (context) => {
                       const gradient = context.chart.ctx.createLinearGradient(0, 0, 0, 200);
@@ -281,7 +368,7 @@ export default function ManageCampaignPage() {
                   },
                   {
                     label: 'Conversions',
-                    data: [0, 0, 0, 0, 0, 0, 0],
+                    data: chartSeries.conversions.length ? chartSeries.conversions : [0,0,0,0,0,0,0],
                     fill: true,
                     backgroundColor: (context) => {
                       const gradient = context.chart.ctx.createLinearGradient(0, 0, 0, 200);
