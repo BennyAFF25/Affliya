@@ -132,14 +132,13 @@ export default function ManageCampaignPage() {
     };
   }, [campaign]);
 
-  if (error) return <div>Error: {error.message}</div>;
-  if (!campaign) return <div>Loading...</div>;
-
   const trackingUrl = useMemo(() => {
     if (!campaignId || !affiliateId) return '';
     return `https://nettmark.com/go/${campaignId}-${affiliateId}`;
   }, [campaignId, affiliateId]);
 
+  if (error) return <div>Error: {error.message}</div>;
+  if (!campaign) return <div>Loading...</div>;
   return (
     <div className="min-h-screen bg-[#111111] text-gray-100 p-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center justify-center max-w-4xl mx-auto">
