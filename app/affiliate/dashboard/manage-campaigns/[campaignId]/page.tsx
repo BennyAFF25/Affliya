@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -41,6 +41,8 @@ export default function ManageCampaignPage() {
   const params = useParams();
   const campaignId = params.campaignId as string;
 
+  const [affiliateId, setAffiliateId] = useState<string | null>(null);
+
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [error, setError] = useState<PostgrestError | null>(null);
   const [showEmailModal, setShowEmailModal] = useState(false);
@@ -64,6 +66,48 @@ export default function ManageCampaignPage() {
         if (error) setError(error);
       });
   }, [campaignId]);
+
+  // Resolve affiliateId: prefer campaign.affiliate_id, else current user email, else localStorage fallback
+  useEffect(() => {
+    let cancelled = false;
+
+    async function resolveAffiliateId() {
+      // 1) If campaign carries the affiliate id, use it
+      if (campaign?.affiliate_id) {
+        if (!cancelled) setAffiliateId(String(campaign.affiliate_id));
+        return;
+      }
+
+      // 2) Try Supabase auth user email
+      try {
+        const { data } = await supabase.auth.getUser();
+        const email = data?.user?.email || null;
+        if (email && !cancelled) {
+          setAffiliateId(email);
+          return;
+        }
+      } catch (_) {}
+
+      // 3) Fallback to localStorage profile pattern used elsewhere
+      if (typeof window !== 'undefined') {
+        try {
+          const raw = localStorage.getItem('affiliateProfile');
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed?.email && !cancelled) {
+              setAffiliateId(parsed.email);
+              return;
+            }
+          }
+        } catch (_) {}
+      }
+
+      if (!cancelled) setAffiliateId(null);
+    }
+
+    resolveAffiliateId();
+    return () => { cancelled = true; };
+  }, [campaign]);
 
   // Fetch offer info when campaign is loaded
   useEffect(() => {
@@ -90,6 +134,11 @@ export default function ManageCampaignPage() {
 
   if (error) return <div>Error: {error.message}</div>;
   if (!campaign) return <div>Loading...</div>;
+
+  const trackingUrl = useMemo(() => {
+    if (!campaignId || !affiliateId) return '';
+    return `https://nettmark.com/go/${campaignId}-${affiliateId}`;
+  }, [campaignId, affiliateId]);
 
   return (
     <div className="min-h-screen bg-[#111111] text-gray-100 p-6">
@@ -357,7 +406,7 @@ export default function ManageCampaignPage() {
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-[#00C2CB] mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <span className="group-open:text-[#00C2CB] transition">Tracking Link</span>
+                <span className="group-open:text-[#00C2CB] transition">Tracking Link <span className="text-gray-500 ml-1">(Campaign: {String(campaignId)})</span></span>
               </div>
               <svg
                 className="w-5 h-5 text-gray-400 group-open:rotate-180 transition-transform duration-300"
@@ -369,8 +418,33 @@ export default function ManageCampaignPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
               </svg>
             </summary>
-            <div className="p-6 bg-[#0F0F0F] text-[#00C2CB] text-sm rounded-b-2xl break-all">
-              {`https://nettmark.com/go/${campaign.id}-${campaign.affiliate_id || 'affiliate'}`}
+            <div className="p-6 bg-[#0F0F0F] rounded-b-2xl">
+              {(!affiliateId) ? (
+                <div className="text-sm text-red-300">
+                  Missing affiliate ID. Please sign in again or complete your affiliate profile.
+                </div>
+              ) : (
+                <div className="text-sm">
+                  <div className="text-[#00C2CB] break-all">{trackingUrl}</div>
+                  <div className="mt-3 flex gap-2">
+                    <button
+                      onClick={async () => { if (trackingUrl) { await navigator.clipboard.writeText(trackingUrl); } }}
+                      className="px-3 py-1.5 rounded bg-[#00C2CB] hover:bg-[#00b0b8] text-white text-xs"
+                    >Copy Link</button>
+                    {offer?.website && (
+                      <a
+                        href={trackingUrl || '#'}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-3 py-1.5 rounded bg-white hover:bg-[#e0fafa] border border-gray-300 text-[#00C2CB] text-xs"
+                      >Open Test</a>
+                    )}
+                  </div>
+                  <p className="text-xs text-gray-400 mt-3">
+                    Clicking this redirects to the merchant with <code>nm_aff</code> and <code>nm_camp</code> query parameters. The on-site pixel sets first-party cookies and sends events to Nettmark.
+                  </p>
+                </div>
+              )}
             </div>
           </details>
         </div>

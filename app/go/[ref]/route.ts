@@ -10,7 +10,7 @@ export async function GET(request: NextRequest, context: any) {
   const { ref } = context.params;
   console.log('[🔗 Redirecting from tracking link]', { ref });
 
-  const fallbackUrl = 'https://localhost:3000';
+  const fallbackUrl = 'http://localhost:3000';
 
   // Support both ___ and - as separators for compatibility
   let splitParts = ref.split('___');
@@ -51,6 +51,7 @@ export async function GET(request: NextRequest, context: any) {
 
   const offerId = campaign.offer_id;
   console.log('[🎯 Offer ID]', offerId);
+  // NOTE: We cannot set a cookie for the merchant's domain from nettmark.com; we pass nm_aff/nm_camp in the URL so the on-site pixel can set a FIRST-PARTY cookie there.
 
   // 2. Get the website from offers table
   const { data: offer, error: offerError } = await supabaseAdmin
@@ -99,8 +100,26 @@ export async function GET(request: NextRequest, context: any) {
     },
   ]);
 
+  // 3. Build redirect URL and append Nettmark tracking params so the merchant can set a FIRST-PARTY cookie
   let redirectUrl = offer.website;
   redirectUrl = redirectUrl.startsWith('http') ? redirectUrl : `https://${redirectUrl}`;
-  console.log('[✅ Redirecting to]', redirectUrl);
-  return NextResponse.redirect(redirectUrl, 307);
+
+  const urlObj = new URL(redirectUrl);
+  // Preserve existing params; only set if missing
+  if (!urlObj.searchParams.has('nm_aff')) urlObj.searchParams.set('nm_aff', affiliateId);
+  if (!urlObj.searchParams.has('nm_camp')) urlObj.searchParams.set('nm_camp', campaignId);
+  if (!urlObj.searchParams.has('nm_src')) urlObj.searchParams.set('nm_src', 'nettmark');
+
+  const finalUrl = urlObj.toString();
+  console.log('[✅ Redirecting to]', finalUrl);
+
+  // Optional: drop a short-lived cookie on nettmark.com (useful for /go analytics; NOT used on merchant domain)
+  const cookieName = 'nettmark_affiliate_id';
+  const cookieValue = encodeURIComponent(affiliateId);
+  const cookieMaxAge = 60 * 60 * 24 * 7; // 7 days
+  const cookie = `${cookieName}=${cookieValue}; Path=/; Max-Age=${cookieMaxAge}; HttpOnly; Secure; SameSite=None`;
+
+  const response = NextResponse.redirect(finalUrl, 307);
+  response.headers.append('Set-Cookie', cookie);
+  return response;
 }
