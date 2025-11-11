@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
     // 3) Load offer for commission
     const { data: offer, error: offerErr } = await supabase
       .from('offers')
-      .select('commission')
+      .select('commission_value, business_email')
       .eq('id', resolvedOfferId)
       .maybeSingle();
 
@@ -95,8 +95,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const commissionPct = offer.commission != null
-      ? Number(offer.commission)
+    const commissionPct = offer.commission_value != null
+      ? Number(offer.commission_value)
       : 0;
 
     if (commissionPct <= 0) {
@@ -133,11 +133,10 @@ export async function POST(req: NextRequest) {
       .from('wallet_payouts')
       .insert([
         {
+          business_email: offer.business_email,
           affiliate_email: campaign.affiliate_email,
           amount: affiliatePayout,
           status: 'pending',          // pending until Stripe confirms, etc.
-          source_event_id: event_id,
-          campaign_id: event.campaign_id,
           offer_id: resolvedOfferId,
         },
       ]);
