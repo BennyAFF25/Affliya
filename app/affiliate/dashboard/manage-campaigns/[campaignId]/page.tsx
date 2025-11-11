@@ -27,6 +27,8 @@ ChartJS.register(
 import { useParams } from 'next/navigation';
 import { supabase } from '@/../utils/supabase/pages-client';
 import type { PostgrestError } from '@supabase/supabase-js';
+// If it exists, import currency formatter
+// import { formatCurrency } from '@/utils/formatters';
 import { CursorArrowRaysIcon, ShoppingCartIcon, CurrencyDollarIcon, TrashIcon } from '@heroicons/react/24/outline';
 
 type Campaign = {
@@ -49,10 +51,11 @@ export default function ManageCampaignPage() {
   const [error, setError] = useState<PostgrestError | null>(null);
   const [showEmailModal, setShowEmailModal] = useState(false);
   // Offer state
-  const [offer, setOffer] = useState<{ website?: string; title?: string } | null>(null);
+  const [offer, setOffer] = useState<{ website?: string; title?: string; commission?: number } | null>(null);
   const [stats, setStats] = useState<Stats>({ clicks: 0, carts: 0, conversions: 0 });
   const [chartSeries, setChartSeries] = useState<{ labels: string[]; clicks: number[]; carts: number[]; conversions: number[] }>({ labels: [], clicks: [], carts: [], conversions: [] });
   const [loadingStats, setLoadingStats] = useState<boolean>(false);
+  const [pendingPayout, setPendingPayout] = useState<number>(0);
   function buildLast7DaysBuckets() {
     const labels: string[] = [];
     const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -190,6 +193,54 @@ export default function ManageCampaignPage() {
     return () => { cancelled = true; };
   }, [campaign]);
 
+  // Fetch pending payout (for now) straight from campaign_tracking_events
+  // We only count conversions for THIS affiliate and THIS campaign where amount is present
+  useEffect(() => {
+    if (!affiliateId || !campaignId) return;
+
+    let cancelled = false;
+
+    async function loadPendingFromEvents() {
+      const { data, error } = await supabase
+        .from('campaign_tracking_events')
+        .select('amount, event_type')
+        .eq('affiliate_id', affiliateId as string)
+        .eq('campaign_id', campaignId)
+        .eq('event_type', 'conversion');
+
+      if (error) {
+        console.warn('pending payout (events) fetch error', error);
+        if (!cancelled) setPendingPayout(0);
+        return;
+      }
+
+      const commissionPct =
+        offer && typeof offer.commission !== 'undefined' && offer.commission !== null
+          ? Number(offer.commission)
+          : null;
+
+      const total = (data || []).reduce((sum: number, row: any) => {
+        const amt = Number(row.amount);
+        if (Number.isNaN(amt)) return sum;
+        if (commissionPct !== null && !Number.isNaN(commissionPct)) {
+          const earned = amt * (commissionPct / 100);
+          return sum + earned;
+        }
+        return sum + amt;
+      }, 0);
+
+      if (!cancelled) setPendingPayout(total);
+    }
+
+    loadPendingFromEvents();
+    const iv = setInterval(loadPendingFromEvents, 15000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(iv);
+    };
+  }, [affiliateId, campaignId, offer?.commission]);
+
   // Fetch offer info when campaign is loaded
   useEffect(() => {
     if (!campaign || !campaign.offer_id) {
@@ -199,7 +250,7 @@ export default function ManageCampaignPage() {
     let cancelled = false;
     supabase
       .from('offers')
-      .select('website,title')
+      .select('website,title,commission')
       .eq('id', campaign.offer_id)
       .maybeSingle()
       .then(({ data, error }) => {
@@ -322,6 +373,23 @@ export default function ManageCampaignPage() {
                 Conversions {loadingStats && <span className="text-xs text-gray-500">•</span>}
               </h2>
               <p className="text-3xl font-semibold text-white">{stats.conversions.toLocaleString()}</p>
+            </div>
+            <div className="w-10 h-10 rounded-full bg-[#0F0F0F] flex items-center justify-center shadow-inner">
+              <CurrencyDollarIcon className="w-6 h-6 text-[#00C2CB]/80" />
+            </div>
+          </div>
+          {/* Pending Payout Card */}
+          <div className="bg-[#171717] hover:bg-[#1C1C1C] transition-all duration-300 p-5 rounded-2xl shadow-md flex items-center justify-between h-24 border border-[#2A2A2A] drop-shadow-[0_0_12px_rgba(0,194,203,0.15)]">
+            <div>
+              <h2 className="text-gray-300 text-sm font-medium mb-1 tracking-wide uppercase">
+                Pending Payout
+              </h2>
+              <p className="text-3xl font-semibold text-white">
+                {pendingPayout > 0 ? `$${pendingPayout.toFixed(2)}` : '$0.00'}
+              </p>
+              <p className="text-[0.6rem] text-gray-500 mt-1">
+                {offer?.commission ? `This offer pays ${offer.commission}%` : 'No commission set → showing full amount'}
+              </p>
             </div>
             <div className="w-10 h-10 rounded-full bg-[#0F0F0F] flex items-center justify-center shadow-inner">
               <CurrencyDollarIcon className="w-6 h-6 text-[#00C2CB]/80" />

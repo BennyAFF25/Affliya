@@ -28,6 +28,10 @@ export default function SetupTrackingPage() {
   const [liveCampaign, setLiveCampaign] = useState<any>(null);
   const [loadingLiveCampaign, setLoadingLiveCampaign] = useState(false);
 
+  // New state for universal pixel collapsible and copied state
+  const [showUniversalPixel, setShowUniversalPixel] = useState(false);
+  const [copiedUniversal, setCopiedUniversal] = useState(false);
+
   useEffect(() => {
     if (user) setIsReady(true);
   }, [user]);
@@ -152,140 +156,67 @@ export default function SetupTrackingPage() {
               </div>
             )}
             {(() => {
-              // Define the three Shopify pixel snippets using only offer ID, no business_email or affiliate_email
-              let shopifyViewPixel = `
-<!-- Nettmark Shopify Pixel: Page Viewed -->
+              const apiUrl = 'https://www.nettmark.com/api/track-event';
+              let shopifyUniversalPixel = `
+<!-- Nettmark Shopify Universal Pixel -->
 <script>
   analytics.subscribe('page_viewed', async (event) => {
-    await fetch('https://www.nettmark.com/api/track-event', {
+    await fetch('${apiUrl}', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        offer_id: '${selectedOffer.id}',
-        event_type: 'click',
-        event_data: {
-          url: window.location.href,
-          page_type: event?.data?.page_type
-        }
+        event_type: 'page_viewed',
+        event_data: event?.data
       })
     });
   });
-</script>
-`.trim();
-
-              let shopifyCartPixel = `
-<!-- Nettmark Shopify Pixel: Add to Cart -->
-<script>
   analytics.subscribe('cart_updated', async (event) => {
-    await fetch('https://www.nettmark.com/api/track-event', {
+    await fetch('${apiUrl}', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        offer_id: '${selectedOffer.id}',
-        event_type: 'add_to_cart',
-        event_data: {
-          url: window.location.href,
-          cart: event?.data
-        }
+        event_type: 'cart_updated',
+        event_data: event?.data
       })
     });
   });
-</script>
-`.trim();
-
-              let shopifyCheckoutPixel = `
-<!-- Nettmark Shopify Pixel: Conversion/Purchase -->
-<script>
   analytics.subscribe('checkout_completed', async (event) => {
-    await fetch('https://www.nettmark.com/api/track-event', {
+    await fetch('${apiUrl}', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        offer_id: '${selectedOffer.id}',
-        event_type: 'conversion',
+        event_type: 'checkout_completed',
         event_data: event?.data
       })
     });
   });
 </script>
 `.trim();
+
               return (
-                <div className="space-y-4">
-                  {/* Page View Pixel */}
-                  <div className="rounded-lg bg-[#121212] border border-[#00C2CB]/20">
-                    <button
-                      className="w-full flex items-center justify-between px-4 py-3 text-left text-[#00C2CB] font-semibold hover:bg-[#1a1a1a] focus:outline-none"
-                      onClick={() => setShowViewPixel(v => !v)}
-                    >
-                      Nettmark Shopify Pixel: Page Viewed
-                      <span>{showViewPixel ? '▲' : '▼'}</span>
-                    </button>
-                    {showViewPixel && (
-                      <div className="px-4 pb-4">
-                        <pre className="bg-[#181818] p-3 rounded mb-2 overflow-x-auto text-xs border border-[#00C2CB]/10 whitespace-pre-wrap">{shopifyViewPixel}</pre>
-                        <button
-                          onClick={() => {
-                            navigator.clipboard.writeText(shopifyViewPixel);
-                            setCopiedView(true);
-                            setTimeout(() => setCopiedView(false), 2000);
-                          }}
-                          className="bg-[#00C2CB] hover:bg-[#00b0b8] text-black px-4 py-1 rounded text-xs font-semibold"
-                        >
-                          {copiedView ? "Copied!" : "Copy Pixel"}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                  {/* Add to Cart Pixel */}
-                  <div className="rounded-lg bg-[#121212] border border-[#00C2CB]/20">
-                    <button
-                      className="w-full flex items-center justify-between px-4 py-3 text-left text-[#00C2CB] font-semibold hover:bg-[#1a1a1a] focus:outline-none"
-                      onClick={() => setShowCartPixel(v => !v)}
-                    >
-                      Nettmark Shopify Pixel: Add to Cart
-                      <span>{showCartPixel ? '▲' : '▼'}</span>
-                    </button>
-                    {showCartPixel && (
-                      <div className="px-4 pb-4">
-                        <pre className="bg-[#181818] p-3 rounded mb-2 overflow-x-auto text-xs border border-[#00C2CB]/10 whitespace-pre-wrap">{shopifyCartPixel}</pre>
-                        <button
-                          onClick={() => {
-                            navigator.clipboard.writeText(shopifyCartPixel);
-                            setCopiedCart(true);
-                            setTimeout(() => setCopiedCart(false), 2000);
-                          }}
-                          className="bg-[#00C2CB] hover:bg-[#00b0b8] text-black px-4 py-1 rounded text-xs font-semibold"
-                        >
-                          {copiedCart ? "Copied!" : "Copy Pixel"}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                  {/* Checkout Pixel */}
-                  <div className="rounded-lg bg-[#121212] border border-[#00C2CB]/20">
-                    <button
-                      className="w-full flex items-center justify-between px-4 py-3 text-left text-[#00C2CB] font-semibold hover:bg-[#1a1a1a] focus:outline-none"
-                      onClick={() => setShowCheckoutPixel(v => !v)}
-                    >
-                      Nettmark Shopify Pixel: Conversion/Purchase
-                      <span>{showCheckoutPixel ? '▲' : '▼'}</span>
-                    </button>
-                    {showCheckoutPixel && (
-                      <div className="px-4 pb-4">
-                        <pre className="bg-[#181818] p-3 rounded mb-2 overflow-x-auto text-xs border border-[#00C2CB]/10 whitespace-pre-wrap">{shopifyCheckoutPixel}</pre>
-                        <button
-                          onClick={() => {
-                            navigator.clipboard.writeText(shopifyCheckoutPixel);
-                            setCopiedCheckout(true);
-                            setTimeout(() => setCopiedCheckout(false), 2000);
-                          }}
-                          className="bg-[#00C2CB] hover:bg-[#00b0b8] text-black px-4 py-1 rounded text-xs font-semibold"
-                        >
-                          {copiedCheckout ? "Copied!" : "Copy Pixel"}
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                <div className="rounded-lg bg-[#121212] border border-[#00C2CB]/20">
+                  <button
+                    className="w-full flex items-center justify-between px-4 py-3 text-left text-[#00C2CB] font-semibold hover:bg-[#1a1a1a] focus:outline-none"
+                    onClick={() => setShowUniversalPixel(v => !v)}
+                  >
+                    Nettmark Shopify Universal Pixel (Install in Customer Events)
+                    <span>{showUniversalPixel ? '▲' : '▼'}</span>
+                  </button>
+                  {showUniversalPixel && (
+                    <div className="px-4 pb-4">
+                      <pre className="bg-[#181818] p-3 rounded mb-2 overflow-x-auto text-xs border border-[#00C2CB]/10 whitespace-pre-wrap">{shopifyUniversalPixel}</pre>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(shopifyUniversalPixel);
+                          setCopiedUniversal(true);
+                          setTimeout(() => setCopiedUniversal(false), 2000);
+                        }}
+                        className="bg-[#00C2CB] hover:bg-[#00b0b8] text-black px-4 py-1 rounded text-xs font-semibold"
+                      >
+                        {copiedUniversal ? "Copied!" : "Copy Pixel"}
+                      </button>
+                    </div>
+                  )}
                 </div>
               );
             })()}

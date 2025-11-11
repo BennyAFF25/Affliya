@@ -190,10 +190,10 @@ export default function PostIdeasPage() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] p-10 text-white">
-      <h1 className="text-3xl font-bold text-[#00C2CB] mb-6">Affiliate Post Requests</h1>
+      <h1 className="text-3xl font-bold text-[#00C2CB] mb-6">Post Requests</h1>
 
       {posts.length === 0 ? (
-        <p className="text-gray-600">No post ideas submitted yet.</p>
+        <p className="text-gray-600">New post ideas.</p>
       ) : (
         <>
           <h2 className="text-xl font-semibold text-white mb-4">No new posts to review</h2>
