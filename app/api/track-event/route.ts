@@ -68,6 +68,17 @@ function extractAmountAndCurrency(data: any): { amount: number | null; currency:
   return { amount, currency };
 }
 
+function hostnameFrom(event_data: any, fallbackRef?: string | null): string | null {
+  try {
+    const raw = (event_data?.url || event_data?.page_url || event_data?.location || fallbackRef || '').toString();
+    if (!raw) return null;
+    const h = new URL(raw).hostname.toLowerCase();
+    return h.replace(/^www\./, '');
+  } catch {
+    return null;
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     // Support both JSON and text/plain from sendBeacon/fetch
@@ -102,29 +113,84 @@ export async function POST(req: NextRequest) {
 
     // --- Offer ID Fallback Logic ---
     if (!offer_id && campaign_id) {
-      // 1) Try resolve via ad_ideas (primary source)
-      const { data: adIdea, error: adErr } = await supabase
-        .from('ad_ideas')
+      // 0) PRIMARY: resolve via live_campaigns (authoritative mapping from runtime campaign → offer)
+      const { data: liveCamp, error: liveCampErr } = await supabase
+        .from('live_campaigns')
         .select('offer_id')
-        .eq('campaign_id', campaign_id)
+        .eq('id', campaign_id)
         .maybeSingle();
 
-      if (!adErr && adIdea?.offer_id) {
-        offer_id = adIdea.offer_id;
-        console.log(`[track-event] [fallback] offer_id via ad_ideas → ${offer_id}`);
+      if (!liveCampErr && liveCamp?.offer_id) {
+        offer_id = liveCamp.offer_id;
+        console.log(`[track-event] [fallback] offer_id via live_campaigns → ${offer_id}`);
       } else {
-        // 2) Secondary fallback via live_ads if present
-        const { data: liveAd, error: liveErr } = await supabase
-          .from('live_ads')
+        // 1) Try resolve via ad_ideas (older path for campaigns created from ad ideas)
+        const { data: adIdea, error: adErr } = await supabase
+          .from('ad_ideas')
           .select('offer_id')
           .eq('campaign_id', campaign_id)
           .maybeSingle();
 
-        if (!liveErr && liveAd?.offer_id) {
-          offer_id = liveAd.offer_id;
-          console.log(`[track-event] [fallback] offer_id via live_ads → ${offer_id}`);
+        if (!adErr && adIdea?.offer_id) {
+          offer_id = adIdea.offer_id;
+          console.log(`[track-event] [fallback] offer_id via ad_ideas → ${offer_id}`);
         } else {
-          console.warn('[track-event] offer_id not provided; fallback resolution failed', { campaign_id, adErr, liveErr });
+          // 2) Secondary fallback via live_ads if present
+          const { data: liveAd, error: liveErr } = await supabase
+            .from('live_ads')
+            .select('offer_id')
+            .eq('campaign_id', campaign_id)
+            .maybeSingle();
+
+          if (!liveErr && liveAd?.offer_id) {
+            offer_id = liveAd.offer_id;
+            console.log(`[track-event] [fallback] offer_id via live_ads → ${offer_id}`);
+          } else {
+            // 3) Tertiary fallback via organic_posts if present
+            const { data: organicPost, error: organicErr } = await supabase
+              .from('organic_posts')
+              .select('offer_id')
+              .eq('campaign_id', campaign_id)
+              .maybeSingle();
+
+            if (!organicErr && organicPost?.offer_id) {
+              offer_id = organicPost.offer_id;
+              console.log(`[track-event] [fallback] offer_id via organic_posts → ${offer_id}`);
+            } else {
+              // 4) Final fallback: infer by hostname against offers.site_host
+              const host = hostnameFrom(event_data, body?.referrer || null);
+              if (host) {
+                const { data: offerByHost, error: hostErr } = await supabase
+                  .from('offers')
+                  .select('id, site_host')
+                  .ilike('site_host', `%${host}%`)
+                  .maybeSingle();
+
+                if (!hostErr && offerByHost?.id) {
+                  offer_id = offerByHost.id;
+                  console.log(`[track-event] [fallback] offer_id via offers.site_host (${offerByHost.site_host}) → ${offer_id}`);
+                } else {
+                  console.warn('[track-event] offer_id not provided; all fallbacks failed', {
+                    campaign_id,
+                    host,
+                    liveCampErr,
+                    adErr,
+                    liveErr,
+                    organicErr,
+                    hostErr,
+                  });
+                }
+              } else {
+                console.warn('[track-event] offer_id not provided; no hostname available and all fallbacks failed', {
+                  campaign_id,
+                  liveCampErr,
+                  adErr,
+                  liveErr,
+                  organicErr,
+                });
+              }
+            }
+          }
         }
       }
     }
@@ -166,37 +232,62 @@ export async function POST(req: NextRequest) {
     ) {
       const { data: offer, error: offerErr } = await supabase
         .from('offers')
-        .select('business_email, commission_type, commission_value')
+        .select('business_email, commission_value, commission')
         .eq('id', inserted.offer_id)
         .maybeSingle();
 
       if (!offerErr && offer?.business_email) {
-        const type = (offer.commission_type || 'percent').toLowerCase();
-        const val = Number(offer.commission_value ?? 0);
-        let affiliatePayout = 0;
+        // Use commission_value as percent; fall back to legacy `commission`
+        const pctRaw = offer.commission_value ?? offer.commission ?? 0;
+        const pct = Number(pctRaw);
+        const base = Number(inserted.amount ?? 0);
+        // Guard
+        if (!Number.isFinite(pct) || !Number.isFinite(base)) {
+          console.warn('[track-event] invalid pct/base for payout', { pctRaw, pct, base });
+        }
+        // Percent of sale, rounded to 2 decimals
+        const affiliatePayoutRaw = (base * pct) / 100;
+        const affiliatePayoutFixed = Math.round(affiliatePayoutRaw * 100) / 100; // 2dp
 
-        affiliatePayout =
-          type === 'flat'
-            ? val
-            : Math.round((inserted.amount * val) / 100 * 100) / 100;
-
-        const { error: payoutErr } = await supabase
+        // Check if we already created a payout for this event
+        const { data: existingPayout, error: existingErr } = await supabase
           .from('wallet_payouts')
-          .upsert(
-            {
+          .select('id')
+          .eq('source_event_id', inserted.id)
+          .maybeSingle();
+
+        if (existingErr) {
+          console.error('[track-event] existing payout lookup error', existingErr);
+        }
+
+        if (!existingPayout) {
+          const { error: payoutErr } = await supabase
+            .from('wallet_payouts')
+            .insert({
               business_email: offer.business_email,
               affiliate_email: inserted.affiliate_id,
               offer_id: inserted.offer_id,
-              amount: affiliatePayout,
+              amount: affiliatePayoutFixed,
               status: 'pending',
               source_event_id: inserted.id,
-            },
-            { onConflict: 'source_event_id' }
-          );
+            });
 
-        if (payoutErr) console.error('[track-event] wallet_payouts upsert error', payoutErr);
+          if (payoutErr) {
+            console.error('[track-event] wallet_payouts insert error', payoutErr);
+          } else {
+            console.log('[track-event] wallet_payouts insert OK', {
+              event_id: inserted.id,
+              amount: affiliatePayoutFixed,
+              business_email: offer.business_email,
+              affiliate_email: inserted.affiliate_id,
+              offer_id: inserted.offer_id,
+            });
+          }
+        } else {
+          console.log('[track-event] wallet_payouts exists, skipping insert', { event_id: inserted.id, payout_id: existingPayout.id });
+        }
       } else {
-        console.warn('[track-event] offer lookup failed; skipping payout insert', { offerErr });
+        console.warn('[track-event] offer lookup failed; skipping payout insert', { offerErr, offer_id: inserted.offer_id });
       }
     }
 
