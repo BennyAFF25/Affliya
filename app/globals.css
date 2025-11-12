@@ -44,7 +44,9 @@ html,
 body {
   margin: 0;
   padding: 0;
-  background-color: #111827; /* Match your dark dashboard background */
+  color-scheme: dark;
+  background: linear-gradient(180deg, #0b0b0b 0%, #0e0e0e 100%);
   min-height: 100%;
   width: 100%;
+  color: #fff;
 }

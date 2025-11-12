@@ -7,6 +7,7 @@ import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, 
 import { ArrowUpRight, DollarSign, Users, ClipboardList, LayoutGrid, Pause, X } from 'lucide-react';
 import { PlayCircle, MousePointerClick, ShoppingCart, BarChart2 } from 'lucide-react';
 import { supabase } from 'utils/supabase/pages-client';
+import Link from 'next/link';
 
 interface Profile {
   id: string;
@@ -27,8 +28,28 @@ export default function BusinessDashboard() {
   const [expanded, setExpanded] = useState(false);
   const [activeCampaigns, setActiveCampaigns] = useState<any[]>([]);
   const [selectedIdea, setSelectedIdea] = useState<any | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [pendingPayoutCount, setPendingPayoutCount] = useState<number>(0);
+  const [pendingPayoutTotal, setPendingPayoutTotal] = useState<number>(0);
+
+  // Fetch pending payouts (shared by initial load + realtime updates)
+  const fetchPendingPayouts = async (bizEmail: string) => {
+    const { data: payoutsData, error: payoutsError } = await supabase
+      .from('wallet_payouts')
+      .select('amount')
+      .eq('business_email', bizEmail)
+      .eq('status', 'pending');
+
+    if (!payoutsError && payoutsData) {
+      setPendingPayoutCount(payoutsData.length);
+      const total = payoutsData.reduce((sum: number, row: any) => sum + Number(row.amount || 0), 0);
+      setPendingPayoutTotal(total);
+    } else {
+      console.error('[❌ Failed to fetch pending payouts]', payoutsError);
+    }
+  };
+
   // Mock data for stat cards (replace as needed)
   const pendingRequests = []; // Replace with real pending requests array if available
   const approved = approvedAffiliates;
@@ -43,11 +64,8 @@ export default function BusinessDashboard() {
     }
 
     const fetchProfileAndData = async () => {
-      setLoading(true);
-
       if (!user?.id) {
         console.warn('[❌ No user id available yet]');
-        setLoading(false);
         return;
       }
 
@@ -94,19 +112,34 @@ export default function BusinessDashboard() {
         console.error('[❌ Failed to fetch approved affiliates]', approvedAffiliatesRes.error);
       }
 
-      setLoading(false);
+      // Fetch pending payouts for this business
+      if (user?.email) {
+        await fetchPendingPayouts(user.email);
+      }
+
     };
 
     fetchProfileAndData();
+
+    // Realtime updates for wallet_payouts affecting this business
+    if (session && user?.email) {
+      const channel = supabase
+        .channel(`payouts-feed-${user.email}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'wallet_payouts', filter: `business_email=eq.${user.email}` },
+          () => {
+            fetchPendingPayouts(user.email!);
+          }
+        )
+        .subscribe();
+
+      return () => {
+        try { supabase.removeChannel(channel); } catch (_) {}
+      };
+    }
   }, [session, router, user]);
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center text-white">
-        Loading...
-      </div>
-    );
-  }
 
   const renderMedia = (idea: any) => {
     const file = idea.file_url;
@@ -146,7 +179,7 @@ export default function BusinessDashboard() {
   return (
     <div className="min-h-screen w-full bg-gradient-to-b from-[#0b0b0b] to-[#0e0e0e] text-white px-5 py-6">
       {/* Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-6 mt-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-6 mt-2">
         <div className={`${CARD} ring-1 ring-[#00C2CB]/15`}>
           <p className="text-xs text-gray-400">Active Affiliates</p>
           <div className="mt-1 flex items-baseline gap-2">
@@ -166,6 +199,21 @@ export default function BusinessDashboard() {
           <div className="mt-1 flex items-baseline gap-2">
             <h2 className="text-2xl font-semibold text-white">${mockData.totalRevenue.toLocaleString()}</h2>
             <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#10b981]/15 text-[#bbf7d0] border border-[#10b981]/25">MTD</span>
+          </div>
+        </div>
+        <div
+          onClick={() => router.push('/business/payouts')}
+          className={`${CARD} ring-1 ring-[#00C2CB]/20 cursor-pointer hover:ring-[#00C2CB]/40`}
+          role="button"
+          aria-label="View pending payouts"
+        >
+          <p className="text-xs text-gray-400">Pending Payouts</p>
+          <div className="mt-1 flex items-baseline justify-between gap-2">
+            <div>
+              <h2 className="text-2xl font-semibold text-white">${pendingPayoutTotal.toFixed(2)}</h2>
+              <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#00C2CB]/15 text-[#7ff5fb] border border-[#00C2CB]/25">{pendingPayoutCount} awaiting</span>
+            </div>
+            <ArrowUpRight className="w-5 h-5 text-[#7ff5fb]" />
           </div>
         </div>
         <div className={`${CARD} ring-1 ring-[#a78bfa]/15`}>

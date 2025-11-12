@@ -25,13 +25,11 @@ export const metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      <body>
+    <html lang="en" className="bg-[#0b0b0b] text-white">
+      <body className="min-h-screen bg-gradient-to-b from-[#0b0b0b] to-[#0e0e0e] antialiased">
         <Providers>
           <ThemeWrapper>
-            <div className="bg-[#0e0e0e] text-white min-h-screen">
-              {children}
-            </div>
+            {children}
           </ThemeWrapper>
         </Providers>
       </body>
