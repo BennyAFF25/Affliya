@@ -1,13 +1,13 @@
 'use client';
 
 import '@/globals.css';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { v4 as uuidv4 } from 'uuid';
 import { createPagesBrowserClient } from '@supabase/auth-helpers-nextjs';
 
-export default function CreateOfferPage() {
+function CreateOfferPageInner() {
   const router = useRouter();
   const supabase = createPagesBrowserClient();
 
@@ -370,5 +370,17 @@ export default function CreateOfferPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function CreateOfferPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-[#0e0e0e] text-white flex items-center justify-center">
+        <span className="text-sm text-gray-400">Loading offer builder...</span>
+      </div>
+    }>
+      <CreateOfferPageInner />
+    </Suspense>
   );
 }
