@@ -117,6 +117,18 @@ export default function MyBusinessPage() {
   const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [businessAccountId, setBusinessAccountId] = useState<string | null>(null);
   const [onboardingComplete, setOnboardingComplete] = useState<boolean>(false);
+  const [hasCard, setHasCard] = useState<boolean>(false);
+
+  // Derived readiness
+  const payoutsReady = !!onboardingComplete;
+  const billingReady = !!businessCustomerId && !!hasCard;
+  const readyForOffer = payoutsReady && billingReady;
+
+  // Control which major cards are visible
+  const showBillingCard = billingReady; // Only show the Billing card after billing is connected (status-only).
+  const showMetaCard = readyForOffer;                      // Show Meta Integration after setup complete
+  const showAffiliatesCard = readyForOffer;                // Show Affiliates after setup complete
+
   const session = useSession();
   const user = session?.user;
   const supabase = createClientComponentClient();
@@ -170,12 +182,41 @@ export default function MyBusinessPage() {
       }
       if (data?.stripe_customer_id) {
         setBusinessCustomerId(data.stripe_customer_id as string);
+        // try to remember card presence locally until server check exists
+        try {
+          const key = `nm_has_card_${data?.stripe_customer_id}`;
+          const cached = key ? localStorage.getItem(key) : null;
+          if (cached === 'true') setHasCard(true);
+        } catch (_e) {}
       }
       if (data?.stripe_account_id) setBusinessAccountId(data.stripe_account_id as string);
       if (typeof data?.stripe_onboarding_complete === 'boolean') setOnboardingComplete(!!data.stripe_onboarding_complete);
     };
     loadStripeCustomerId();
   }, [user]);
+
+  useEffect(() => {
+    // If the user clicked "Add card" but we don't yet have a client secret, fetch one.
+    if (showPaymentForm && businessCustomerId && !setupClientSecret) {
+      (async () => {
+        try {
+          const res = await fetch('/api/stripe/create-setup-intent', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ customerId: businessCustomerId }),
+          });
+          const data = await parseJsonSafe(res);
+          if (res.ok && data?.clientSecret) {
+            setSetupClientSecret(data.clientSecret);
+          } else {
+            console.error('[SetupIntent error]', data?.error || 'Unknown error');
+          }
+        } catch (e) {
+          console.error('[SetupIntent exception]', e);
+        }
+      })();
+    }
+  }, [showPaymentForm, businessCustomerId, setupClientSecret]);
 
   const handleDelete = async (id: string) => {
     console.log('[🗑 Attempting to delete offer]', id);
@@ -295,7 +336,7 @@ export default function MyBusinessPage() {
     const stripe = useStripe();
     const elements = useElements();
     const [submitting, setSubmitting] = useState(false);
-  
+
     const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
       if (!stripe || !elements) return;
@@ -313,6 +354,11 @@ export default function MyBusinessPage() {
           toast.error(result.error.message || 'Card setup failed');
         } else {
           toast.success('Card saved');
+          try {
+            const cust = businessCustomerId ? `nm_has_card_${businessCustomerId}` : null;
+            if (cust) localStorage.setItem(cust, 'true');
+          } catch (_) {}
+          setHasCard(true);
           onComplete();
         }
       } catch (err: any) {
@@ -322,7 +368,7 @@ export default function MyBusinessPage() {
         setSubmitting(false);
       }
     };
-  
+
     return (
       <form onSubmit={handleSubmit} className="bg-[#111] border border-[#00C2CB]/20 rounded-xl p-4 mt-4">
         <div className="mb-4">
@@ -364,110 +410,160 @@ export default function MyBusinessPage() {
         </div>
       </div>
 
-      {/* ===== Action sections (grouped) ===== */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-        {/* Affiliates */}
-        <SectionCard title="Affiliates" icon={<IconUsers className="w-5 h-5" />}>
-          <div className="space-y-3">
-            <Link href="/business/my-business/affiliate-requests">
-              <ActionButton secondary>
-                <IconCheck className="w-4 h-4 text-[#00C2CB]" />
-                <span>Affiliate Requests</span>
-              </ActionButton>
-            </Link>
-            <Link href="/business/my-business/post-ideas">
-              <ActionButton secondary>
-                <span className="text-[#00C2CB]">•</span>
-                <span>View Post Ideas</span>
-              </ActionButton>
-            </Link>
-            <Link href="/business/my-business/ad-ideas">
-              <ActionButton secondary>
-                <span className="text-[#00C2CB]">≡</span>
-                <span>View Ad Ideas</span>
-              </ActionButton>
-            </Link>
+      {/* ===== Onboarding Checklist (shown until payouts + billing/card are ready) ===== */}
+      {!readyForOffer && (
+        <div className="max-w-5xl mx-auto mb-8 rounded-2xl border border-[#00C2CB]/20 bg-[#101314] p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-lg font-semibold text-white">Finish setting up your account</h2>
+              <p className="text-sm text-gray-400">Complete payouts and billing. Tracking can be verified after your first pixel ping.</p>
+            </div>
+            <div className="text-xs px-3 py-1 rounded-full bg-[#00C2CB]/15 text-[#7ff5fb] border border-[#00C2CB]/25">
+              { (payoutsReady ? 1 : 0) + (billingReady ? 1 : 0) } / 2 complete
+            </div>
           </div>
-        </SectionCard>
 
-        {/* Meta Integration */}
-        <SectionCard title="Meta Integration" icon={<IconPuzzle className="w-5 h-5" />}>
           <div className="space-y-3">
-            <Link href="/business/my-business/connect-meta">
-              <ActionButton secondary>
-                <span className="rotate-180 text-[#00C2CB]">↪</span>
-                <span>Connect Meta Ads</span>
-              </ActionButton>
-            </Link>
-            <Link href="/business/setup-tracking">
-              <ActionButton secondary>
-                <IconBolt className="w-4 h-4 text-[#00C2CB]" />
-                <span>Setup Tracking</span>
-              </ActionButton>
-            </Link>
-            <Link href="/business/my-business/publish-creatives">
-              <ActionButton secondary>
-                <span className="text-[#00C2CB]">⭳</span>
-                <span>Publish Creatives</span>
-              </ActionButton>
-            </Link>
-          </div>
-        </SectionCard>
+            {/* Payouts item */}
+            <div className="flex items-center justify-between rounded-xl border border-[#1f2a2b] bg-[#0e1112] px-4 py-3">
+              <div className="flex items-center gap-3">
+                <span className={`inline-block w-3 h-3 rounded-full ${payoutsReady ? 'bg-green-500' : 'bg-[#334649]'}`} />
+                <div>
+                  <div className="text-white font-medium">Connect payouts</div>
+                  <div className="text-xs text-gray-400">Secure Stripe Connect so affiliates can be paid.</div>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                {!payoutsReady && (
+                  <>
+                    <button onClick={handleEnablePayouts} className="px-3 py-2 rounded-md bg-[#00C2CB] text-black text-sm hover:bg-[#00b0b8]">Connect</button>
+                    {businessAccountId && !onboardingComplete && (
+                      <button onClick={handleRefreshPayoutStatus} className="px-3 py-2 rounded-md border border-[#00C2CB]/40 text-white text-sm hover:bg-[#0f1415]">Refresh</button>
+                    )}
+                  </>
+                )}
+                {payoutsReady && <span className="text-green-400 text-sm">Enabled</span>}
+              </div>
+            </div>
 
-        {/* Billing */}
-        <SectionCard title="Billing" icon={<IconCreditCard className="w-5 h-5" />}>
-          <div className="space-y-3">
-            {user?.email && (
-              <ActionButton onClick={handleConnectBilling} disabled={isSubmitting} secondary={!(!businessCustomerId)}>
-                <IconCreditCard className="w-4 h-4" />
-                <span>{businessCustomerId ? 'Billing connected' : (isSubmitting ? 'Connecting…' : 'Connect billing')}</span>
-              </ActionButton>
-            )}
-            {businessCustomerId && (
-              <ActionButton onClick={handleAddPaymentMethod} secondary>
-                <IconCreditCard className="w-4 h-4" />
-                <span>Add Payment Method</span>
-              </ActionButton>
-            )}
-            {showPaymentForm && setupClientSecret && (
-              <div className="mt-2">
-                <Elements
-                  stripe={stripePromise}
-                  options={{ clientSecret: setupClientSecret, appearance: { theme: 'night' } }}
-                >
-                  <AddCardForm onComplete={() => { setShowPaymentForm(false); setSetupClientSecret(null); }} />
+            {/* Billing item */}
+            <div className="flex items-center justify-between rounded-xl border border-[#1f2a2b] bg-[#0e1112] px-4 py-3">
+              <div className="flex items-center gap-3">
+                <span className={`inline-block w-3 h-3 rounded-full ${billingReady ? 'bg-green-500' : 'bg-[#334649]'}`} />
+                <div>
+                  <div className="text-white font-medium">Add a payment method</div>
+                  <div className="text-xs text-gray-400">Create a Stripe Customer and save a card for commissions &amp; ad spend transfers.</div>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                {!businessCustomerId && (
+                  <button onClick={handleConnectBilling} className="px-3 py-2 rounded-md bg-[#00C2CB] text-black text-sm hover:bg-[#00b0b8]">Connect billing</button>
+                )}
+                {businessCustomerId && !hasCard && (
+                  <button onClick={handleAddPaymentMethod} className="px-3 py-2 rounded-md border border-[#00C2CB]/40 text-white text-sm hover:bg-[#0f1415]">Add card</button>
+                )}
+                {billingReady && <span className="text-green-400 text-sm">Ready</span>}
+              </div>
+              {/* Stripe Elements Add Card Form */}
+            </div>
+            {businessCustomerId && showPaymentForm && setupClientSecret && (
+              <div className="mt-4">
+                <Elements stripe={stripePromise} options={{ clientSecret: setupClientSecret }}>
+                  <AddCardForm onComplete={() => { setShowPaymentForm(false); }} />
                 </Elements>
               </div>
             )}
-            {/* Payouts controls (moved from Payouts card) */}
-            <div className="border-t border-[#00C2CB]/10 pt-4 mt-4 space-y-3">
-              {!businessAccountId && (
-                <ActionButton onClick={handleEnablePayouts} secondary>
-                  <IconBank className="w-4 h-4" />
-                  <span>Enable payouts</span>
+
+            {/* Tracking hint */}
+            <div className="flex items-center justify-between rounded-xl border border-[#1f2a2b] bg-[#0e1112] px-4 py-3">
+              <div className="flex items-center gap-3">
+                <span className="inline-block w-3 h-3 rounded-full bg-[#334649]" />
+                <div>
+                  <div className="text-white font-medium">Install &amp; verify tracking</div>
+                  <div className="text-xs text-gray-400">Optional to create your offer. We auto-verify once the pixel fires.</div>
+                </div>
+              </div>
+              <Link href="/business/my-business/create-offer?onboard=tracking" className="px-3 py-2 rounded-md border border-[#00C2CB]/40 text-white text-sm hover:bg-[#0f1415]">
+                View instructions
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ===== Action sections (grouped) ===== */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        {/* Affiliates */}
+        {showAffiliatesCard && (
+          <SectionCard title="Affiliates" icon={<IconUsers className="w-5 h-5" />}>
+            <div className="space-y-3">
+              <Link href="/business/my-business/affiliate-requests">
+                <ActionButton secondary>
+                  <IconCheck className="w-4 h-4 text-[#00C2CB]" />
+                  <span>Affiliate Requests</span>
                 </ActionButton>
-              )}
-              {businessAccountId && !onboardingComplete && (
-                <>
-                  <ActionButton onClick={handleEnablePayouts} secondary>
-                    <IconBank className="w-4 h-4" />
-                    <span>Resume payouts onboarding</span>
-                  </ActionButton>
-                  <ActionButton onClick={handleRefreshPayoutStatus} secondary>
-                    <IconCheck className="w-4 h-4 text-[#00C2CB]" />
-                    <span>Refresh payouts status</span>
-                  </ActionButton>
-                </>
-              )}
+              </Link>
+              <Link href="/business/my-business/post-ideas">
+                <ActionButton secondary>
+                  <span className="text-[#00C2CB]">•</span>
+                  <span>View Post Ideas</span>
+                </ActionButton>
+              </Link>
+              <Link href="/business/my-business/ad-ideas">
+                <ActionButton secondary>
+                  <span className="text-[#00C2CB]">≡</span>
+                  <span>View Ad Ideas</span>
+                </ActionButton>
+              </Link>
+            </div>
+          </SectionCard>
+        )}
+
+        {/* Meta Integration */}
+        {showMetaCard && (
+          <SectionCard title="Meta Integration" icon={<IconPuzzle className="w-5 h-5" />}>
+            <div className="space-y-3">
+              <Link href="/business/my-business/connect-meta">
+                <ActionButton secondary>
+                  <span className="rotate-180 text-[#00C2CB]">↪</span>
+                  <span>Connect Meta Ads</span>
+                </ActionButton>
+              </Link>
+              <Link href="/business/setup-tracking">
+                <ActionButton secondary>
+                  <IconBolt className="w-4 h-4 text-[#00C2CB]" />
+                  <span>Setup Tracking</span>
+                </ActionButton>
+              </Link>
+              <Link href="/business/my-business/publish-creatives">
+                <ActionButton secondary>
+                  <span className="text-[#00C2CB]">⭳</span>
+                  <span>Publish Creatives</span>
+                </ActionButton>
+              </Link>
+            </div>
+          </SectionCard>
+        )}
+
+        {/* Billing */}
+        {showBillingCard && (
+          <SectionCard title="Billing" icon={<IconCreditCard className="w-5 h-5" />}>
+            <div className="space-y-3">
+              {/* Status only — no onboarding buttons here */}
+              <div className="w-full flex items-center justify-center gap-2 rounded-full px-4 py-3 border border-green-500/60 text-green-400 bg-[#0f1415]">
+                <IconCheck className="w-4 h-4" />
+                <span>Billing connected</span>
+              </div>
+              {/* Optional: show payouts status if already enabled */}
               {businessAccountId && onboardingComplete && (
-                <div className="w-full flex items-center justify-center gap-2 rounded-full px-4 py-3 border border-green-500/60 text-green-400">
+                <div className="w-full flex items-center justify-center gap-2 rounded-full px-4 py-3 border border-green-500/60 text-green-400 bg-[#0f1415]">
                   <IconCheck className="w-4 h-4" />
                   <span>Payouts enabled</span>
                 </div>
               )}
             </div>
-          </div>
-        </SectionCard>
+          </SectionCard>
+        )}
 
       </div>
       {/* ===== Offers ===== */}
@@ -479,12 +575,24 @@ export default function MyBusinessPage() {
               Manage your marketplace offers
             </h2>
           </div>
-          <Link href="/business/my-business/create-offer">
-            <ActionButton size="sm">
-              <IconPlus className="w-4 h-4" />
-              <span>New offer</span>
-            </ActionButton>
-          </Link>
+          {readyForOffer ? (
+            <Link href="/business/my-business/create-offer">
+              <ActionButton size="sm">
+                <IconPlus className="w-4 h-4" />
+                <span>New offer</span>
+              </ActionButton>
+            </Link>
+          ) : (
+            <div className="group">
+              <ActionButton size="sm" disabled>
+                <IconPlus className="w-4 h-4" />
+                <span>New offer</span>
+              </ActionButton>
+              <p className="mt-2 text-xs text-gray-400 text-center">
+                Complete payouts and add a card to create an offer. Tracking can be done after.
+              </p>
+            </div>
+          )}
         </div>
 
         {offers.length === 0 ? (

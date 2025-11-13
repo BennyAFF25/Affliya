@@ -2,13 +2,18 @@
 
 import '@/globals.css';
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import { v4 as uuidv4 } from 'uuid';
 import { createPagesBrowserClient } from '@supabase/auth-helpers-nextjs';
 
 export default function CreateOfferPage() {
   const router = useRouter();
   const supabase = createPagesBrowserClient();
+
+  const searchParams = useSearchParams();
+  const isOnboard = searchParams?.get('onboard') === 'tracking';
+  const [showOnboard, setShowOnboard] = useState(false);
 
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [siteHost, setSiteHost] = useState('');
@@ -22,6 +27,20 @@ export default function CreateOfferPage() {
     };
     fetchUser();
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!isOnboard || !userEmail) return;
+      const { data, error } = await supabase
+        .from('offers')
+        .select('id')
+        .eq('business_email', userEmail)
+        .limit(1);
+      if (!cancelled) setShowOnboard(!error && (!data || data.length === 0));
+    })();
+    return () => { cancelled = true; };
+  }, [isOnboard, userEmail]);
 
   const [businessName, setBusinessName] = useState('');
   const [description, setDescription] = useState('');
@@ -124,6 +143,12 @@ export default function CreateOfferPage() {
       return;
     }
 
+    if (isOnboard) {
+      // Immediately take the user to Setup Tracking for this new offer
+      router.replace(`/business/setup-tracking?offerId=${newOffer.id}&onboard=1`);
+      return;
+    }
+
     setBusinessName('');
     setDescription('');
     setWebsite('');
@@ -144,6 +169,19 @@ export default function CreateOfferPage() {
         <h1 className="text-4xl font-extrabold text-[#00C2CB] mb-10">Upload Your Offer</h1>
 
         <div className="bg-[#1a1a1a] rounded-lg shadow-lg border border-[#2a2a2a] p-8 space-y-6">
+          {showOnboard && (
+            <div className="mb-6 rounded-xl border border-[#1f2a2a] bg-[#0f1313] p-5">
+              <div className="text-[#7ff5fb] text-xs tracking-wide">Onboarding • Step 2 of 3</div>
+              <h2 className="mt-1 text-white text-lg font-semibold">Create your first offer</h2>
+              <p className="mt-1 text-sm text-gray-400">
+                After you save, we’ll take you straight to <span className="text-[#00C2CB]">Setup Tracking</span> for this offer.
+              </p>
+              <div className="mt-3 text-xs text-gray-400">
+                Need help? <Link href="/business/setup-tracking" className="text-[#7ff5fb] underline">View tracking instructions</Link>
+              </div>
+            </div>
+          )}
+
           {step === 1 && (
             <>
               <h2 className="text-2xl font-bold text-[#00C2CB]">Business Info</h2>
