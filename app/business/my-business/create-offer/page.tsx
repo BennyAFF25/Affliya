@@ -57,6 +57,8 @@ function CreateOfferPageInner() {
   const [selectedPage, setSelectedPage] = useState('');
   const [selectedAdAccount, setSelectedAdAccount] = useState('');
 
+  const hasMetaConnections = metaConnections.length > 0;
+
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
@@ -291,7 +293,7 @@ function CreateOfferPageInner() {
             </>
           )}
 
-          {step === 3 && metaConnections.length > 0 && (
+          {step === 3 && hasMetaConnections && (
             <>
               <h2 className="text-2xl font-bold text-[#00C2CB]">Meta Connections</h2>
               <div>
@@ -343,7 +345,15 @@ function CreateOfferPageInner() {
             {step > 1 && (
               <button
                 type="button"
-                onClick={() => setStep(step - 1)}
+                onClick={() => {
+                  setStep((prev) => {
+                    if (!hasMetaConnections && prev === 4) {
+                      // If there is no Meta step, jump straight back to Pricing
+                      return 2;
+                    }
+                    return Math.max(prev - 1, 1);
+                  });
+                }}
                 className="bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2 px-6 rounded-lg shadow transition"
               >
                 Back
@@ -352,7 +362,15 @@ function CreateOfferPageInner() {
             {step < 4 ? (
               <button
                 type="button"
-                onClick={() => setStep(step + 1)}
+                onClick={() => {
+                  setStep((prev) => {
+                    // If there is no Meta step, jump straight from Pricing to Logo
+                    if (!hasMetaConnections && prev === 2) {
+                      return 4;
+                    }
+                    return prev + 1;
+                  });
+                }}
                 className="bg-[#00C2CB] hover:bg-[#00b0b8] text-black font-semibold py-2 px-6 rounded-lg shadow transition ml-auto"
               >
                 Next

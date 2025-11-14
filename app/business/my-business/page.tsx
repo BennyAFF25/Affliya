@@ -9,7 +9,6 @@ import toast from 'react-hot-toast';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 
-
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY as string);
 
 // ---- Icons (inline, no extra deps) ----
@@ -119,16 +118,6 @@ export default function MyBusinessPage() {
   const [onboardingComplete, setOnboardingComplete] = useState<boolean>(false);
   const [hasCard, setHasCard] = useState<boolean>(false);
 
-  // Derived readiness
-  const payoutsReady = !!onboardingComplete;
-  const billingReady = !!businessCustomerId && !!hasCard;
-  const readyForOffer = payoutsReady && billingReady;
-
-  // Control which major cards are visible
-  const showBillingCard = billingReady; // Only show the Billing card after billing is connected (status-only).
-  const showMetaCard = readyForOffer;                      // Show Meta Integration after setup complete
-  const showAffiliatesCard = readyForOffer;                // Show Affiliates after setup complete
-
   const session = useSession();
   const user = session?.user;
   const supabase = createClientComponentClient();
@@ -143,7 +132,6 @@ export default function MyBusinessPage() {
         return { error: 'Invalid JSON in response' };
       }
     }
-    // Fallback: read text (likely an HTML error page) so we can surface it
     const text = await res.text();
     return { error: text?.slice(0, 500) || 'Non-JSON response' };
   }
@@ -165,7 +153,7 @@ export default function MyBusinessPage() {
     };
 
     fetchOffers();
-  }, [user]);
+  }, [user, supabase]);
 
   useEffect(() => {
     if (!user?.email) return;
@@ -176,13 +164,11 @@ export default function MyBusinessPage() {
         .eq('business_email', user.email)
         .single();
       if (error) {
-        // It's okay if not found; just means not connected yet
         console.log('[ℹ️ No business profile yet or error loading stripe_customer_id]', error.message);
         return;
       }
       if (data?.stripe_customer_id) {
         setBusinessCustomerId(data.stripe_customer_id as string);
-        // try to remember card presence locally until server check exists
         try {
           const key = `nm_has_card_${data?.stripe_customer_id}`;
           const cached = key ? localStorage.getItem(key) : null;
@@ -190,13 +176,14 @@ export default function MyBusinessPage() {
         } catch (_e) {}
       }
       if (data?.stripe_account_id) setBusinessAccountId(data.stripe_account_id as string);
-      if (typeof data?.stripe_onboarding_complete === 'boolean') setOnboardingComplete(!!data.stripe_onboarding_complete);
+      if (typeof data?.stripe_onboarding_complete === 'boolean') {
+        setOnboardingComplete(!!data.stripe_onboarding_complete);
+      }
     };
     loadStripeCustomerId();
-  }, [user]);
+  }, [user, supabase]);
 
   useEffect(() => {
-    // If the user clicked "Add card" but we don't yet have a client secret, fetch one.
     if (showPaymentForm && businessCustomerId && !setupClientSecret) {
       (async () => {
         try {
@@ -218,6 +205,20 @@ export default function MyBusinessPage() {
     }
   }, [showPaymentForm, businessCustomerId, setupClientSecret]);
 
+  // ---- Derived readiness + onboarding gates ----
+  const payoutsReady = !!onboardingComplete;
+  const billingReady = !!businessCustomerId && !!hasCard;
+  const readyForOffer = payoutsReady && billingReady;
+  const hasAnyOffer = offers.length > 0;
+
+  // Show checklist until: payouts + billing + at least one offer exist
+  const showOnboardingChecklist = !payoutsReady || !billingReady || !hasAnyOffer;
+
+  // Main cards only show after onboarding checklist is done
+  const showBillingCard = !showOnboardingChecklist;
+  const showMetaCard = !showOnboardingChecklist;
+  const showAffiliatesCard = !showOnboardingChecklist;
+
   const handleDelete = async (id: string) => {
     console.log('[🗑 Attempting to delete offer]', id);
     setLoadingDeleteId(id);
@@ -225,7 +226,6 @@ export default function MyBusinessPage() {
       const { error: deleteError } = await supabase.from('offers').delete().eq('id', id);
       if (deleteError) throw deleteError;
 
-      // Optimistically remove from UI and update localStorage
       const updatedOffers = offers.filter((offer) => offer.id !== id);
       setOffers(updatedOffers);
       localStorage.setItem('my-offers', JSON.stringify(updatedOffers));
@@ -251,24 +251,23 @@ export default function MyBusinessPage() {
       });
       const data = await parseJsonSafe(res);
       if (!res.ok || !data?.customerId) throw new Error(data?.error || 'Failed to create Stripe customer');
-      // 2) Try to update existing business row; if none, insert a new one
+
       const { data: updRows, error: upErr } = await supabase
         .from('business_profiles')
         .update({ stripe_customer_id: data.customerId })
         .eq('business_email', email)
-        .select('id'); // returns updated rows
+        .select('id');
 
       if (upErr) throw new Error(upErr.message || 'Failed to save Stripe customer ID');
 
       if (!updRows || updRows.length === 0) {
-        // No existing row -> create one now
         const { error: insErr } = await supabase
           .from('business_profiles')
           .insert({
             business_email: email,
             stripe_customer_id: data.customerId,
             created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
+            updated_at: new Date().toISOString(),
           });
         if (insErr) throw new Error(insErr.message || 'Failed to create business profile');
       }
@@ -288,7 +287,7 @@ export default function MyBusinessPage() {
       const res = await fetch('/api/stripe/create-account', { method: 'POST' });
       const data = await parseJsonSafe(res);
       if (!res.ok || !data?.url) throw new Error(data?.error || 'Failed to start payouts onboarding');
-      window.location.href = data.url; // redirect to Stripe onboarding
+      window.location.href = data.url;
     } catch (e: any) {
       console.error('[Enable payouts error]', e);
       toast.error(e?.message || 'Stripe error');
@@ -311,7 +310,6 @@ export default function MyBusinessPage() {
       toast.error(e?.message || 'Stripe error');
     }
   }
-
 
   async function handleAddPaymentMethod() {
     try {
@@ -345,8 +343,7 @@ export default function MyBusinessPage() {
         const result = await stripe.confirmSetup({
           elements,
           confirmParams: {
-            // Optionally collect billing details here
-            return_url: window.location.href, // not used in modal-less flow but required by type
+            return_url: window.location.href,
           },
           redirect: 'if_required',
         });
@@ -410,16 +407,18 @@ export default function MyBusinessPage() {
         </div>
       </div>
 
-      {/* ===== Onboarding Checklist (shown until payouts + billing/card are ready) ===== */}
-      {!readyForOffer && (
+      {/* ===== Onboarding Checklist (stays until payouts + billing + at least one offer) ===== */}
+      {showOnboardingChecklist && (
         <div className="max-w-5xl mx-auto mb-8 rounded-2xl border border-[#00C2CB]/20 bg-[#101314] p-5">
           <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-lg font-semibold text-white">Finish setting up your account</h2>
-              <p className="text-sm text-gray-400">Complete payouts and billing. Tracking can be verified after your first pixel ping.</p>
+              <p className="text-sm text-gray-400">
+                Complete payouts and billing. Tracking can be verified after your first pixel ping.
+              </p>
             </div>
             <div className="text-xs px-3 py-1 rounded-full bg-[#00C2CB]/15 text-[#7ff5fb] border border-[#00C2CB]/25">
-              { (payoutsReady ? 1 : 0) + (billingReady ? 1 : 0) } / 2 complete
+              {(payoutsReady ? 1 : 0) + (billingReady ? 1 : 0)} / 2 complete
             </div>
           </div>
 
@@ -436,9 +435,19 @@ export default function MyBusinessPage() {
               <div className="flex gap-2">
                 {!payoutsReady && (
                   <>
-                    <button onClick={handleEnablePayouts} className="px-3 py-2 rounded-md bg-[#00C2CB] text-black text-sm hover:bg-[#00b0b8]">Connect</button>
+                    <button
+                      onClick={handleEnablePayouts}
+                      className="px-3 py-2 rounded-md bg-[#00C2CB] text-black text-sm hover:bg-[#00b0b8]"
+                    >
+                      Connect
+                    </button>
                     {businessAccountId && !onboardingComplete && (
-                      <button onClick={handleRefreshPayoutStatus} className="px-3 py-2 rounded-md border border-[#00C2CB]/40 text-white text-sm hover:bg-[#0f1415]">Refresh</button>
+                      <button
+                        onClick={handleRefreshPayoutStatus}
+                        className="px-3 py-2 rounded-md border border-[#00C2CB]/40 text-white text-sm hover:bg-[#0f1415]"
+                      >
+                        Refresh
+                      </button>
                     )}
                   </>
                 )}
@@ -452,24 +461,40 @@ export default function MyBusinessPage() {
                 <span className={`inline-block w-3 h-3 rounded-full ${billingReady ? 'bg-green-500' : 'bg-[#334649]'}`} />
                 <div>
                   <div className="text-white font-medium">Add a payment method</div>
-                  <div className="text-xs text-gray-400">Create a Stripe Customer and save a card for commissions &amp; ad spend transfers.</div>
+                  <div className="text-xs text-gray-400">
+                    Create a Stripe Customer and save a card for commissions &amp; ad spend transfers.
+                  </div>
                 </div>
               </div>
               <div className="flex gap-2">
                 {!businessCustomerId && (
-                  <button onClick={handleConnectBilling} className="px-3 py-2 rounded-md bg-[#00C2CB] text-black text-sm hover:bg-[#00b0b8]">Connect billing</button>
+                  <button
+                    onClick={handleConnectBilling}
+                    className="px-3 py-2 rounded-md bg-[#00C2CB] text-black text-sm hover:bg-[#00b0b8]"
+                  >
+                    Connect billing
+                  </button>
                 )}
                 {businessCustomerId && !hasCard && (
-                  <button onClick={handleAddPaymentMethod} className="px-3 py-2 rounded-md border border-[#00C2CB]/40 text-white text-sm hover:bg-[#0f1415]">Add card</button>
+                  <button
+                    onClick={handleAddPaymentMethod}
+                    className="px-3 py-2 rounded-md border border-[#00C2CB]/40 text-white text-sm hover:bg-[#0f1415]"
+                  >
+                    Add card
+                  </button>
                 )}
                 {billingReady && <span className="text-green-400 text-sm">Ready</span>}
               </div>
-              {/* Stripe Elements Add Card Form */}
             </div>
+
             {businessCustomerId && showPaymentForm && setupClientSecret && (
               <div className="mt-4">
                 <Elements stripe={stripePromise} options={{ clientSecret: setupClientSecret }}>
-                  <AddCardForm onComplete={() => { setShowPaymentForm(false); }} />
+                  <AddCardForm
+                    onComplete={() => {
+                      setShowPaymentForm(false);
+                    }}
+                  />
                 </Elements>
               </div>
             )}
@@ -480,12 +505,26 @@ export default function MyBusinessPage() {
                 <span className="inline-block w-3 h-3 rounded-full bg-[#334649]" />
                 <div>
                   <div className="text-white font-medium">Install &amp; verify tracking</div>
-                  <div className="text-xs text-gray-400">Optional to create your offer. We auto-verify once the pixel fires.</div>
+                  <div className="text-xs text-gray-400">
+                    Optional to create your offer. We auto-verify once the pixel fires.
+                  </div>
                 </div>
               </div>
-              <Link href="/business/my-business/create-offer?onboard=tracking" className="px-3 py-2 rounded-md border border-[#00C2CB]/40 text-white text-sm hover:bg-[#0f1415]">
-                View instructions
-              </Link>
+              {readyForOffer ? (
+                <Link
+                  href="/business/my-business/create-offer?onboard=tracking"
+                  className="px-3 py-2 rounded-md border border-[#00C2CB]/40 text-white text-sm hover:bg-[#0f1415]"
+                >
+                  View instructions
+                </Link>
+              ) : (
+                <button
+                  disabled
+                  className="px-3 py-2 rounded-md border border-[#00C2CB]/15 text-gray-500 text-sm cursor-not-allowed bg-transparent"
+                >
+                  View instructions
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -549,12 +588,10 @@ export default function MyBusinessPage() {
         {showBillingCard && (
           <SectionCard title="Billing" icon={<IconCreditCard className="w-5 h-5" />}>
             <div className="space-y-3">
-              {/* Status only — no onboarding buttons here */}
               <div className="w-full flex items-center justify-center gap-2 rounded-full px-4 py-3 border border-green-500/60 text-green-400 bg-[#0f1415]">
                 <IconCheck className="w-4 h-4" />
                 <span>Billing connected</span>
               </div>
-              {/* Optional: show payouts status if already enabled */}
               {businessAccountId && onboardingComplete && (
                 <div className="w-full flex items-center justify-center gap-2 rounded-full px-4 py-3 border border-green-500/60 text-green-400 bg-[#0f1415]">
                   <IconCheck className="w-4 h-4" />
@@ -564,8 +601,8 @@ export default function MyBusinessPage() {
             </div>
           </SectionCard>
         )}
-
       </div>
+
       {/* ===== Offers ===== */}
       <div className="mt-6 mb-12 max-w-6xl mx-auto">
         <div className="flex flex-col items-center gap-3 mb-6">
@@ -598,7 +635,7 @@ export default function MyBusinessPage() {
         {offers.length === 0 ? (
           <p className="text-gray-400 text-center">You haven't uploaded any offers yet.</p>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 md-grid-cols-2 md:grid-cols-2 gap-5">
             {offers.map((offer) => (
               <div
                 key={offer.id}
