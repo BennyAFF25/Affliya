@@ -197,15 +197,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Prefer `commission` (numeric percent); fall back to `commission_value` for older offers
-    const commissionRaw =
+    // IMPORTANT: use ONLY `commission` as percentage for payouts.
+    // `commission_value` is purely for UI (flat $ shown on marketplace) and must NOT affect payout math.
+    const commissionPct =
       offer.commission != null && !isNaN(Number(offer.commission))
         ? Number(offer.commission)
-        : offer.commission_value != null && !isNaN(Number(offer.commission_value))
-          ? Number(offer.commission_value)
-          : 0;
-
-    const commissionPct = commissionRaw;
+        : 0;
 
     console.log('[process-conversion] commission debug', {
       offer_id: resolvedOfferId,

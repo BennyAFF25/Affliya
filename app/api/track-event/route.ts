@@ -237,8 +237,8 @@ export async function POST(req: NextRequest) {
         .maybeSingle();
 
       if (!offerErr && offer?.business_email) {
-        // Use commission_value as percent; fall back to legacy `commission`
-        const pctRaw = offer.commission_value ?? offer.commission ?? 0;
+        // Use `commission` (percentage) for payout math. `commission_value` is just a display dollar hint.
+        const pctRaw = offer.commission ?? 0;
         const pct = Number(pctRaw);
         const base = Number(inserted.amount ?? 0);
         // Guard
