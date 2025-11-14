@@ -232,7 +232,7 @@ export async function POST(req: NextRequest) {
     ) {
       const { data: offer, error: offerErr } = await supabase
         .from('offers')
-        .select('business_email, commission_value, commission')
+        .select('business_email, commission_value, commission, type, payout_mode, payout_interval, payout_cycles')
         .eq('id', inserted.offer_id)
         .maybeSingle();
 
@@ -261,16 +261,31 @@ export async function POST(req: NextRequest) {
         }
 
         if (!existingPayout) {
+          const isRecurringOffer =
+            offer.type === 'recurring' ||
+            offer.payout_mode === 'spread' ||
+            (offer.payout_cycles && offer.payout_cycles > 1);
+
+          const nowIso = new Date().toISOString();
+
+          const payload: any = {
+            business_email: offer.business_email,
+            affiliate_email: inserted.affiliate_id,
+            offer_id: inserted.offer_id,
+            amount: affiliatePayoutFixed,
+            status: 'pending',
+            source_event_id: inserted.id,
+          };
+
+          if (isRecurringOffer) {
+            payload.is_recurring = true;
+            payload.cycle_number = 1;
+            payload.available_at = nowIso;
+          }
+
           const { error: payoutErr } = await supabase
             .from('wallet_payouts')
-            .insert({
-              business_email: offer.business_email,
-              affiliate_email: inserted.affiliate_id,
-              offer_id: inserted.offer_id,
-              amount: affiliatePayoutFixed,
-              status: 'pending',
-              source_event_id: inserted.id,
-            });
+            .insert(payload);
 
           if (payoutErr) {
             console.error('[track-event] wallet_payouts insert error', payoutErr);
