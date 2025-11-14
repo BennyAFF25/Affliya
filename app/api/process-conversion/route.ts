@@ -185,7 +185,7 @@ export async function POST(req: NextRequest) {
     // 3) Load offer for commission
     const { data: offer, error: offerErr } = await supabase
       .from('offers')
-      .select('commission_value, business_email, type, payout_mode, payout_interval, payout_cycles')
+      .select('commission, commission_value, business_email, type, payout_mode, payout_interval, payout_cycles')
       .eq('id', resolvedOfferId)
       .maybeSingle();
 
@@ -197,9 +197,22 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const commissionPct = offer.commission_value != null
-      ? Number(offer.commission_value)
-      : 0;
+    // Prefer `commission` (numeric percent); fall back to `commission_value` for older offers
+    const commissionRaw =
+      offer.commission != null && !isNaN(Number(offer.commission))
+        ? Number(offer.commission)
+        : offer.commission_value != null && !isNaN(Number(offer.commission_value))
+          ? Number(offer.commission_value)
+          : 0;
+
+    const commissionPct = commissionRaw;
+
+    console.log('[process-conversion] commission debug', {
+      offer_id: resolvedOfferId,
+      commission: offer.commission,
+      commission_value: offer.commission_value,
+      commissionPct,
+    });
 
     if (commissionPct <= 0) {
       return NextResponse.json(
