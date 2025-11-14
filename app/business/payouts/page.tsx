@@ -15,6 +15,9 @@ type WPayout = {
   stripe_transfer_id: string | null;
   status: 'pending' | 'paid' | 'failed' | string;
   created_at: string;
+  available_at?: string | null;
+  cycle_number?: number | null;
+  is_recurring?: boolean | null;
 };
 
 type OfferRow = { id: string; title: string | null };
@@ -96,8 +99,25 @@ export default function BusinessPayoutsPage() {
     };
   }, [supabase]);
 
-  const pending = useMemo(() => payouts.filter((p) => p.status === 'pending'), [payouts]);
-  const history = useMemo(() => payouts.filter((p) => p.status !== 'pending'), [payouts]);
+  const pending = useMemo(() => {
+    const now = new Date();
+    return payouts.filter((p) => {
+      if (p.status !== 'pending') return false;
+      if (!p.available_at) return true;
+      const available = new Date(p.available_at);
+      return available <= now;
+    });
+  }, [payouts]);
+
+  const history = useMemo(() => {
+    const now = new Date();
+    return payouts.filter((p) => {
+      if (p.status !== 'pending') return true;
+      if (!p.available_at) return false;
+      const available = new Date(p.available_at);
+      return available > now;
+    });
+  }, [payouts]);
 
   // Filter by query + status on whichever tab is active
   const filteredRows = useMemo(() => {
@@ -354,7 +374,7 @@ function Table({
               <td className="px-4 py-3">{r.offer_id ? offersById[r.offer_id] || r.offer_id : '—'}</td>
               <td className="px-4 py-3 font-semibold text-white">{currencyFmt.format(Number(r.amount || 0))}</td>
               <td className="px-4 py-3">
-                <StatusPill status={r.status} />
+                <StatusPill status={r.status} availableAt={r.available_at} />
               </td>
               <td className="px-4 py-3 text-gray-300">{new Date(r.created_at).toLocaleString()}</td>
               <td className="px-4 py-3 text-gray-400">
@@ -372,12 +392,24 @@ function Table({
   );
 }
 
-function StatusPill({ status }: { status: string }) {
-  const className =
-    status === 'pending'
-      ? 'bg-yellow-500/10 text-yellow-300'
-      : status === 'paid'
-      ? 'bg-emerald-500/10 text-emerald-300'
-      : 'bg-rose-500/10 text-rose-300';
-  return <span className={`rounded-full px-2 py-1 text-xs ${className}`}>{status}</span>;
+function StatusPill({ status, availableAt }: { status: string; availableAt?: string | null }) {
+  let label = status;
+  let className: string;
+
+  if (status === 'pending') {
+    if (availableAt) {
+      const now = new Date();
+      const available = new Date(availableAt);
+      if (available > now) {
+        label = 'scheduled';
+      }
+    }
+    className = 'bg-yellow-500/10 text-yellow-300';
+  } else if (status === 'paid') {
+    className = 'bg-emerald-500/10 text-emerald-300';
+  } else {
+    className = 'bg-rose-500/10 text-rose-300';
+  }
+
+  return <span className={`rounded-full px-2 py-1 text-xs capitalize ${className}`}>{label}</span>;
 }

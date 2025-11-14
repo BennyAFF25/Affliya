@@ -46,10 +46,15 @@ function CreateOfferPageInner() {
   const [description, setDescription] = useState('');
   const [website, setWebsite] = useState('');
   const [commission, setCommission] = useState('');
-  const [type, setType] = useState('one-time');
+  const [type, setType] = useState<'one-time' | 'recurring'>('one-time');
   const [price, setPrice] = useState('');
   const [commissionValue, setCommissionValue] = useState(0);
   const [currency, setCurrency] = useState('USD');
+
+  // NEW: payout structure fields
+  const [payoutMode, setPayoutMode] = useState<'upfront' | 'spread'>('upfront');
+  const [payoutInterval, setPayoutInterval] = useState<'monthly'>('monthly');
+  const [payoutCycles, setPayoutCycles] = useState<number>(12);
 
   const [step, setStep] = useState(1);
 
@@ -120,6 +125,14 @@ function CreateOfferPageInner() {
     const metaPageId = selectedPage || null;
     const metaAdAccountId = selectedAdAccount || null;
 
+    // Determine payout structure to store
+    const finalPayoutMode = type === 'recurring' ? payoutMode : 'upfront';
+    const finalPayoutInterval = type === 'recurring' ? payoutInterval : 'monthly';
+    const finalPayoutCycles =
+      type === 'recurring' && payoutMode === 'spread'
+        ? payoutCycles
+        : null;
+
     const newOffer = {
       id: uuidv4(),
       title: businessName,
@@ -136,9 +149,12 @@ function CreateOfferPageInner() {
       type,
       logo_url: uploadedLogoUrl,
       site_host: siteHost,
+      // NEW payout fields
+      payout_mode: finalPayoutMode,
+      payout_interval: finalPayoutInterval,
+      payout_cycles: finalPayoutCycles,
     };
 
-    // Insert offer into Supabase
     const { error: insertError } = await supabase.from('offers').insert([newOffer]);
     if (insertError) {
       console.error('[❌ Offer Insert Error]', insertError.message);
@@ -146,7 +162,6 @@ function CreateOfferPageInner() {
     }
 
     if (isOnboard) {
-      // Immediately take the user to Setup Tracking for this new offer
       router.replace(`/business/setup-tracking?offerId=${newOffer.id}&onboard=1`);
       return;
     }
@@ -161,6 +176,9 @@ function CreateOfferPageInner() {
     setLogoFile(null);
     setLogoUrl(null);
     setSiteHost('');
+    setPayoutMode('upfront');
+    setPayoutInterval('monthly');
+    setPayoutCycles(12);
 
     router.push('/business/my-business');
   };
@@ -283,13 +301,75 @@ function CreateOfferPageInner() {
                 <label className="block font-semibold text-white mb-1">Offer Type</label>
                 <select
                   value={type}
-                  onChange={(e) => setType(e.target.value)}
+                  onChange={(e) => setType(e.target.value as 'one-time' | 'recurring')}
                   className="w-full p-3 border border-[#2a2a2a] bg-[#0e0e0e] text-white rounded-lg"
                 >
                   <option value="one-time">One-Time</option>
                   <option value="recurring">Recurring</option>
                 </select>
               </div>
+
+              {type === 'recurring' && (
+                <div className="mt-4 space-y-4 border border-[#262626] rounded-lg p-4 bg-[#111111]">
+                  <h3 className="text-sm font-semibold text-[#7ff5fb] uppercase tracking-wide">
+                    Recurring payout structure
+                  </h3>
+                  <div>
+                    <label className="block text-xs text-gray-400 mb-1">
+                      How do you want to pay affiliates?
+                    </label>
+                    <select
+                      value={payoutMode}
+                      onChange={(e) => setPayoutMode(e.target.value as 'upfront' | 'spread')}
+                      className="w-full p-3 border border-[#2a2a2a] bg-[#0e0e0e] text-white rounded-lg"
+                    >
+                      <option value="upfront">Pay full commission upfront</option>
+                      <option value="spread">Spread commission over time</option>
+                    </select>
+                  </div>
+
+                  {payoutMode === 'spread' && (
+                    <>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs text-gray-400 mb-1">
+                            Payout interval
+                          </label>
+                          <select
+                            value={payoutInterval}
+                            onChange={(e) => setPayoutInterval(e.target.value as 'monthly')}
+                            className="w-full p-3 border border-[#2a2a2a] bg-[#0e0e0e] text-white rounded-lg"
+                          >
+                            <option value="monthly">Monthly</option>
+                            {/* Future: weekly, quarterly, etc. */}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-400 mb-1">
+                            Number of payout cycles
+                          </label>
+                          <input
+                            type="number"
+                            min={1}
+                            value={payoutCycles}
+                            onChange={(e) => setPayoutCycles(Number(e.target.value) || 1)}
+                            className="w-full p-3 border border-[#2a2a2a] bg-[#0e0e0e] text-white rounded-lg"
+                          />
+                        </div>
+                      </div>
+                      <div className="text-xs text-gray-400 mt-2">
+                        Based on this offer and commission, each cycle would pay approximately{' '}
+                        <span className="text-[#7ff5fb] font-semibold">
+                          {commissionValue > 0 && payoutCycles > 0
+                            ? `${currency} $${(commissionValue / payoutCycles).toFixed(2)}`
+                            : '—'}
+                        </span>{' '}
+                        to the affiliate.
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
             </>
           )}
 
@@ -348,7 +428,6 @@ function CreateOfferPageInner() {
                 onClick={() => {
                   setStep((prev) => {
                     if (!hasMetaConnections && prev === 4) {
-                      // If there is no Meta step, jump straight back to Pricing
                       return 2;
                     }
                     return Math.max(prev - 1, 1);
@@ -364,7 +443,6 @@ function CreateOfferPageInner() {
                 type="button"
                 onClick={() => {
                   setStep((prev) => {
-                    // If there is no Meta step, jump straight from Pricing to Logo
                     if (!hasMetaConnections && prev === 2) {
                       return 4;
                     }
@@ -393,11 +471,13 @@ function CreateOfferPageInner() {
 
 export default function CreateOfferPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-[#0e0e0e] text-white flex items-center justify-center">
-        <span className="text-sm text-gray-400">Loading offer builder...</span>
-      </div>
-    }>
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#0e0e0e] text-white flex items-center justify-center">
+          <span className="text-sm text-gray-400">Loading offer builder...</span>
+        </div>
+      }
+    >
       <CreateOfferPageInner />
     </Suspense>
   );
