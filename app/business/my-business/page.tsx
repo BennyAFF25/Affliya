@@ -211,13 +211,21 @@ export default function MyBusinessPage() {
   const readyForOffer = payoutsReady && billingReady;
   const hasAnyOffer = offers.length > 0;
 
-  // Show checklist until: payouts + billing + at least one offer exist
-  const showOnboardingChecklist = !payoutsReady || !billingReady || !hasAnyOffer;
+  // TEMP: disable onboarding gate for prod testing
+  const ignoreOnboardingGate = true;
 
-  // Main cards only show after onboarding checklist is done
-  const showBillingCard = !showOnboardingChecklist;
-  const showMetaCard = !showOnboardingChecklist;
-  const showAffiliatesCard = !showOnboardingChecklist;
+  // Show checklist until: payouts + billing + at least one offer exist
+  const showOnboardingChecklist = ignoreOnboardingGate
+    ? false
+    : !payoutsReady || !billingReady || !hasAnyOffer;
+
+  // Main cards (Affiliates / Meta / Billing) should always show while gate is bypassed
+  const showBillingCard = ignoreOnboardingGate ? true : !showOnboardingChecklist;
+  const showMetaCard = ignoreOnboardingGate ? true : !showOnboardingChecklist;
+  const showAffiliatesCard = ignoreOnboardingGate ? true : !showOnboardingChecklist;
+
+  // For now, allow creating offers even if payouts/billing aren't connected when gate is bypassed
+  const canCreateOffer = ignoreOnboardingGate ? true : readyForOffer;
 
   const handleDelete = async (id: string) => {
     console.log('[🗑 Attempting to delete offer]', id);
@@ -510,7 +518,7 @@ export default function MyBusinessPage() {
                   </div>
                 </div>
               </div>
-              {readyForOffer ? (
+              {canCreateOffer ? (
                 <Link
                   href="/business/my-business/create-offer?onboard=tracking"
                   className="px-3 py-2 rounded-md border border-[#00C2CB]/40 text-white text-sm hover:bg-[#0f1415]"
@@ -612,7 +620,7 @@ export default function MyBusinessPage() {
               Manage your marketplace offers
             </h2>
           </div>
-          {readyForOffer ? (
+          {canCreateOffer ? (
             <Link href="/business/my-business/create-offer">
               <ActionButton size="sm">
                 <IconPlus className="w-4 h-4" />
