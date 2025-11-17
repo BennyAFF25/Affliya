@@ -16,15 +16,26 @@ import {
   Legend,
   ReferenceLine,
 } from 'recharts';
-import { ArrowUpRight } from 'lucide-react';
+import {
+  ArrowUpRight,
+  Users,
+  Wallet,
+  LineChart as LineChartIcon,
+  Sparkles,
+  PlayCircle,
+  Receipt,
+  ChevronRight,
+  X,
+} from 'lucide-react';
 import { supabase } from 'utils/supabase/pages-client';
-import Link from 'next/link';
 
 interface Profile {
   id: string;
   role: string | null;
   email: string | null;
 }
+
+type Timeframe = '7d' | '30d' | '1y' | 'all';
 
 const CARD =
   'rounded-xl border border-[#262626] bg-[#121212] hover:ring-1 hover:ring-white/5 transition-shadow p-6';
@@ -42,6 +53,28 @@ const formatShortDate = (iso: string) => {
 const formatCurrency = (val: number) => {
   if (!val || Number.isNaN(val)) return '$0.00';
   return '$' + val.toFixed(2);
+};
+
+const filterSeriesByRange = (series: any[], range: Timeframe) => {
+  if (!series || series.length === 0 || range === 'all') return series;
+
+  const now = new Date();
+  const from = new Date(now);
+
+  if (range === '7d') {
+    from.setDate(now.getDate() - 7);
+  } else if (range === '30d') {
+    from.setDate(now.getDate() - 30);
+  } else if (range === '1y') {
+    from.setFullYear(now.getFullYear() - 1);
+  }
+
+  return series.filter((point: any) => {
+    if (!point?.name) return false;
+    const d = new Date(point.name);
+    if (Number.isNaN(d.getTime())) return false;
+    return d >= from && d <= now;
+  });
 };
 
 // Tooltip for Affiliate Growth
@@ -83,11 +116,34 @@ export default function BusinessDashboard() {
   const [pendingPayoutCount, setPendingPayoutCount] = useState<number>(0);
   const [pendingPayoutTotal, setPendingPayoutTotal] = useState<number>(0);
 
-  const [affiliateSeries, setAffiliateSeries] = useState<any[]>([]);
-  const [salesSeries, setSalesSeries] = useState<any[]>([]);
+  const [affiliateSeriesRaw, setAffiliateSeriesRaw] = useState<any[]>([]);
+  const [salesSeriesRaw, setSalesSeriesRaw] = useState<any[]>([]);
   const [totalRevenue, setTotalRevenue] = useState<number>(0);
+
+  const [affiliateRange, setAffiliateRange] = useState<Timeframe>('30d');
+  const [salesRange, setSalesRange] = useState<Timeframe>('30d');
+
+  const affiliateSeries = filterSeriesByRange(affiliateSeriesRaw, affiliateRange);
+  const salesSeries = filterSeriesByRange(salesSeriesRaw, salesRange);
   const [liveOffersCount, setLiveOffersCount] = useState<number>(0);
   const [pendingRequests, setPendingRequests] = useState<any[]>([]);
+
+  const [offerLookup, setOfferLookup] = useState<Record<string, string>>({});
+  const [offerPayoutMeta, setOfferPayoutMeta] = useState<
+    Record<
+      string,
+      {
+        payout_mode: string | null;
+        payout_interval: string | null;
+        payout_cycles: number | null;
+      }
+    >
+  >({});
+  const [recentAffiliateEvents, setRecentAffiliateEvents] = useState<any[]>([]);
+  const [completedPayouts, setCompletedPayouts] = useState<any[]>([]);
+  const [showTransactionsModal, setShowTransactionsModal] = useState(false);
+  const [showAllCampaigns, setShowAllCampaigns] = useState(false);
+  const [showAllAffiliateActivity, setShowAllAffiliateActivity] = useState(false);
 
   // simple dynamic goal line for sales
   const salesGoal =
@@ -112,6 +168,25 @@ export default function BusinessDashboard() {
       setPendingPayoutTotal(total);
     } else {
       console.error('[❌ Failed to fetch pending payouts]', payoutsError);
+    }
+  };
+
+  // Fetch last few completed payouts for transaction history
+  const fetchCompletedPayouts = async (bizEmail: string) => {
+    const { data, error } = await supabase
+      .from('wallet_payouts')
+      .select(
+        'id, affiliate_email, amount, status, created_at, stripe_transfer_id, offer_id, is_recurring, cycle_number'
+      )
+      .eq('business_email', bizEmail)
+      .neq('status', 'pending')
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    if (!error && data) {
+      setCompletedPayouts(data);
+    } else {
+      console.error('[❌ Failed to fetch completed payouts]', error);
     }
   };
 
@@ -153,11 +228,31 @@ export default function BusinessDashboard() {
       // Fetch offers
       const { data: offers, error: offersError } = await supabase
         .from('offers')
-        .select('id, title, commission')
+        .select('id, title, commission, payout_mode, payout_interval, payout_cycles')
         .eq('business_email', businessEmail);
 
       if (!offersError && offers) {
         setLiveOffersCount(offers.length);
+        const lookup: Record<string, string> = {};
+        const payoutMeta: Record<
+          string,
+          {
+            payout_mode: string | null;
+            payout_interval: string | null;
+            payout_cycles: number | null;
+          }
+        > = {};
+        offers.forEach((o: any) => {
+          lookup[o.id] = o.title || 'Untitled offer';
+          payoutMeta[o.id] = {
+            payout_mode: o.payout_mode ?? null,
+            payout_interval: o.payout_interval ?? null,
+            payout_cycles:
+              typeof o.payout_cycles === 'number' ? o.payout_cycles : o.payout_cycles ?? null,
+          };
+        });
+        setOfferLookup(lookup);
+        setOfferPayoutMeta(payoutMeta);
       } else {
         console.error('[❌ Failed to fetch offers for dashboard]', offersError);
       }
@@ -171,7 +266,7 @@ export default function BusinessDashboard() {
       // Fetch affiliate requests for this business
       const { data: affiliateReqData, error: affiliateReqError } = await supabase
         .from('affiliate_requests')
-        .select('id, created_at, status, business_email')
+        .select('id, created_at, status, business_email, affiliate_email, offer_id')
         .eq('business_email', businessEmail);
 
       if (!affiliateReqError && affiliateReqData) {
@@ -212,24 +307,55 @@ export default function BusinessDashboard() {
             approved: (counts as any).approved,
           }));
 
-        setAffiliateSeries(affiliateSeriesData);
+        setAffiliateSeriesRaw(affiliateSeriesData);
+
+        // Recent affiliate events list
+        const recent = affiliateReqData
+          .slice()
+          .sort((a: any, b: any) =>
+            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          )
+          .slice(0, 6);
+        setRecentAffiliateEvents(recent);
       } else {
         console.error('[❌ Failed to fetch affiliate requests for dashboard]', affiliateReqError);
       }
 
-      // Fetch active campaigns
-      const { data: activeCampaignsData, error: activeCampaignsError } =
-        await supabase
-          .from('ad_ideas')
-          .select('*')
-          .eq('business_email', businessEmail)
-          .eq('status', 'approved');
+      // Fetch active campaigns from both paid ads (live_ads) and organic (live_campaigns)
+      const [liveAdsResult, liveCampaignsResult] = await Promise.all([
+        supabase
+          .from('live_ads')
+          .select('id, affiliate_email, business_email, status, created_at, spend, campaign_type')
+          .eq('business_email', businessEmail),
+        supabase
+          .from('live_campaigns')
+          .select('id, offer_id, affiliate_email, business_email, status, created_at, platform, type')
+          .eq('business_email', businessEmail),
+      ]);
 
-      if (!activeCampaignsError && activeCampaignsData) {
-        setActiveCampaigns(activeCampaignsData);
-      } else {
-        console.error('[❌ Failed to fetch active campaigns]', activeCampaignsError);
+      const liveAds = !liveAdsResult.error && liveAdsResult.data ? liveAdsResult.data : [];
+      const liveOrganic =
+        !liveCampaignsResult.error && liveCampaignsResult.data
+          ? liveCampaignsResult.data
+          : [];
+
+      if (liveAdsResult.error) {
+        console.error('[❌ Failed to fetch active campaigns from live_ads]', liveAdsResult.error);
       }
+      if (liveCampaignsResult.error) {
+        console.error(
+          '[❌ Failed to fetch active campaigns from live_campaigns]',
+          liveCampaignsResult.error
+        );
+      }
+
+      console.log('[📊 live_ads rows]', liveAds);
+      console.log('[📊 live_campaigns rows]', liveOrganic);
+
+      // For now, treat everything returned as an active campaign so we can verify data flow.
+      const activeForDashboard = [...liveAds, ...liveOrganic];
+
+      setActiveCampaigns(activeForDashboard);
 
       // Fetch conversion events and build sales series and total revenue
       if (offerIds.length > 0) {
@@ -261,7 +387,7 @@ export default function BusinessDashboard() {
               value: Number((value as number).toFixed(2)),
             }));
 
-          setSalesSeries(salesSeriesData);
+          setSalesSeriesRaw(salesSeriesData);
           setTotalRevenue(Number(totalNet.toFixed(2)));
         } else {
           console.error(
@@ -270,13 +396,14 @@ export default function BusinessDashboard() {
           );
         }
       } else {
-        setSalesSeries([]);
+        setSalesSeriesRaw([]);
         setTotalRevenue(0);
       }
 
-      // Fetch pending payouts for this business
+      // Fetch payout data for this business
       if (user?.email) {
         await fetchPendingPayouts(user.email);
+        await fetchCompletedPayouts(user.email);
       }
     };
 
@@ -296,6 +423,7 @@ export default function BusinessDashboard() {
           },
           () => {
             fetchPendingPayouts(user.email!);
+            fetchCompletedPayouts(user.email!);
           }
         )
         .subscribe();
@@ -312,28 +440,45 @@ export default function BusinessDashboard() {
     <div className="min-h-screen w-full bg-gradient-to-b from-[#0b0b0b] to-[#0e0e0e] text-white px-5 py-6">
       {/* Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-6 mt-2">
-        <div className={`${CARD} ring-1 ring-[#00C2CB]/15`}>
-          <p className="text-xs text-gray-400">Active Affiliates</p>
-          <div className="mt-1 flex items-baseline gap-2">
-            <h2 className="text-2xl font-semibold text-white">{approved.length}</h2>
-            <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#00C2CB]/15 text-[#7ff5fb] border border-[#00C2CB]/25">
-              Live
-            </span>
+        <div className={`${CARD} ring-1 ring-[#00C2CB]/20 shadow-[0_0_30px_rgba(0,194,203,0.12)] relative overflow-hidden`}
+        >
+          <div className="absolute -right-6 -top-6 h-16 w-16 rounded-full bg-[#00C2CB]/10 blur-xl" />
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-gray-400 flex items-center gap-1">
+                <Users className="h-3 w-3 text-[#7ff5fb]" />
+                Active Affiliates
+              </p>
+              <div className="mt-1 flex items-baseline gap-2">
+                <h2 className="text-2xl font-semibold text-white">{approved.length}</h2>
+                <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#00C2CB]/15 text-[#7ff5fb] border border-[#00C2CB]/25">
+                  Live
+                </span>
+              </div>
+            </div>
           </div>
         </div>
-        <div className={`${CARD} ring-1 ring-[#fbbf24]/15`}>
-          <p className="text-xs text-gray-400">Pending Requests</p>
+
+        <div className={`${CARD} ring-1 ring-[#fbbf24]/25 relative overflow-hidden`}>
+          <div className="absolute -right-4 -top-8 h-16 w-16 rounded-full bg-[#facc15]/10 blur-xl" />
+          <p className="text-xs text-gray-400 flex items-center gap-1">
+            <Sparkles className="h-3 w-3 text-[#fde68a]" />
+            Pending Requests
+          </p>
           <div className="mt-1 flex items-baseline gap-2">
-            <h2 className="text-2xl font-semibold text-white">
-              {pendingRequests.length}
-            </h2>
+            <h2 className="text-2xl font-semibold text-white">{pendingRequests.length}</h2>
             <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#fbbf24]/15 text-[#fde68a] border border-[#fbbf24]/25">
               Queue
             </span>
           </div>
         </div>
-        <div className={`${CARD} ring-1 ring-[#10b981]/15`}>
-          <p className="text-xs text-gray-400">Total Revenue</p>
+
+        <div className={`${CARD} ring-1 ring-[#10b981]/20 relative overflow-hidden`}>
+          <div className="absolute -right-6 -bottom-8 h-16 w-16 rounded-full bg-[#10b981]/15 blur-xl" />
+          <p className="text-xs text-gray-400 flex items-center gap-1">
+            <LineChartIcon className="h-3 w-3 text-[#bbf7d0]" />
+            Total Revenue
+          </p>
           <div className="mt-1 flex items-baseline gap-2">
             <h2 className="text-2xl font-semibold text-white">
               {formatCurrency(totalRevenue)}
@@ -343,13 +488,18 @@ export default function BusinessDashboard() {
             </span>
           </div>
         </div>
+
         <div
           onClick={() => router.push('/business/payouts')}
-          className={`${CARD} ring-1 ring-[#00C2CB]/20 cursor-pointer hover:ring-[#00C2CB]/40`}
+          className={`${CARD} ring-1 ring-[#00C2CB]/25 cursor-pointer hover:ring-[#00C2CB]/60 hover:shadow-[0_0_40px_rgba(0,194,203,0.25)] relative overflow-hidden`}
           role="button"
           aria-label="View pending payouts"
         >
-          <p className="text-xs text-gray-400">Pending Payouts</p>
+          <div className="absolute -left-10 -bottom-10 h-24 w-24 rounded-full bg-[#00C2CB]/10 blur-xl" />
+          <p className="text-xs text-gray-400 flex items-center gap-1">
+            <Wallet className="h-3 w-3 text-[#7ff5fb]" />
+            Pending Payouts
+          </p>
           <div className="mt-1 flex items-baseline justify-between gap-2">
             <div>
               <h2 className="text-2xl font-semibold text-white">
@@ -362,8 +512,13 @@ export default function BusinessDashboard() {
             <ArrowUpRight className="w-5 h-5 text-[#7ff5fb]" />
           </div>
         </div>
-        <div className={`${CARD} ring-1 ring-[#a78bfa]/15`}>
-          <p className="text-xs text-gray-400">Live Offers</p>
+
+        <div className={`${CARD} ring-1 ring-[#a78bfa]/20 relative overflow-hidden`}>
+          <div className="absolute -right-6 -top-6 h-16 w-16 rounded-full bg-[#a78bfa]/15 blur-xl" />
+          <p className="text-xs text-gray-400 flex items-center gap-1">
+            <PlayCircle className="h-3 w-3 text-[#e9d5ff]" />
+            Live Offers
+          </p>
           <div className="mt-1 flex items-baseline gap-2">
             <h2 className="text-2xl font-semibold text-white">{liveOffersCount}</h2>
             <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#a78bfa]/15 text-[#e9d5ff] border border-[#a78bfa]/25">
@@ -377,13 +532,55 @@ export default function BusinessDashboard() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
         {/* Affiliate Growth */}
         <div className={`${CARD}`}>
-          <h2 className="text-[15px] font-semibold tracking-wide text-[#7ff5fb] mb-4">
-            Affiliate Growth
-          </h2>
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-[15px] font-semibold tracking-wide text-[#7ff5fb]">
+              Affiliate Growth
+            </h2>
+            <div className="flex items-center gap-1 rounded-full bg-black/40 px-1 py-0.5">
+              {(['7d', '30d', '1y', 'all'] as Timeframe[]).map((tf) => (
+                <button
+                  key={tf}
+                  type="button"
+                  onClick={() => setAffiliateRange(tf)}
+                  className={`px-2 py-0.5 text-[11px] rounded-full transition-colors ${
+                    affiliateRange === tf
+                      ? 'bg-[#00C2CB]/20 text-[#7ff5fb]'
+                      : 'text-gray-400 hover:text-gray-100'
+                  }`}
+                >
+                  {tf === '7d' ? '7D' : tf === '30d' ? '30D' : tf === '1y' ? '1Y' : 'All'}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="h-48 rounded-md text-gray-400">
             {affiliateSeries.length === 0 ? (
-              <div className="flex h-full items-center justify-center text-sm text-gray-500">
-                No affiliate activity yet.
+              <div className="flex h-full flex-col items-center justify-center gap-3 text-sm">
+                <div className="rounded-xl border border-dashed border-slate-800/80 bg-[#111827] px-4 py-3 max-w-sm w-full">
+                  <div className="text-xs font-medium text-[#7ff5fb] mb-1">
+                    No affiliate activity yet
+                  </div>
+                  <p className="text-[11px] text-gray-400">
+                    Once affiliates start requesting and you approve them, this chart will
+                    show daily requests vs approvals.
+                  </p>
+                  <div className="mt-3 h-16 w-full rounded-md bg-black/70 flex items-end gap-2 px-2 pb-1">
+                    {/* Requests (teal) */}
+                    <div className="flex-1 flex items-end gap-1">
+                      <div className="h-3 w-1.5 rounded-full bg-slate-700/70" />
+                      <div className="h-5 w-1.5 rounded-full bg-[#22d3ee]/80" />
+                      <div className="h-2 w-1.5 rounded-full bg-slate-800/70" />
+                      <div className="h-4 w-1.5 rounded-full bg-[#22d3ee]/80" />
+                    </div>
+                    {/* Approved (green) */}
+                    <div className="flex-1 flex items-end gap-1">
+                      <div className="h-2 w-1.5 rounded-full bg-slate-800/70" />
+                      <div className="h-4 w-1.5 rounded-full bg-[#22c55e]/80" />
+                      <div className="h-3 w-1.5 rounded-full bg-slate-800/70" />
+                      <div className="h-6 w-1.5 rounded-full bg-[#22c55e]/80" />
+                    </div>
+                  </div>
+                </div>
               </div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
@@ -423,7 +620,7 @@ export default function BusinessDashboard() {
                   <Bar
                     dataKey="approved"
                     name="Approved"
-                    fill="#facc15"
+                    fill="#22c55e"
                     radius={[4, 4, 0, 0]}
                     maxBarSize={18}
                   />
@@ -435,13 +632,47 @@ export default function BusinessDashboard() {
 
         {/* Sales Performance */}
         <div className={`${CARD}`}>
-          <h2 className="text-[15px] font-semibold tracking-wide text-[#7ff5fb] mb-4">
-            Sales Performance
-          </h2>
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-[15px] font-semibold tracking-wide text-[#7ff5fb]">
+              Sales Performance
+            </h2>
+            <div className="flex items-center gap-1 rounded-full bg-black/40 px-1 py-0.5">
+              {(['7d', '30d', '1y', 'all'] as Timeframe[]).map((tf) => (
+                <button
+                  key={tf}
+                  type="button"
+                  onClick={() => setSalesRange(tf)}
+                  className={`px-2 py-0.5 text-[11px] rounded-full transition-colors ${
+                    salesRange === tf
+                      ? 'bg-[#00C2CB]/20 text-[#7ff5fb]'
+                      : 'text-gray-400 hover:text-gray-100'
+                  }`}
+                >
+                  {tf === '7d' ? '7D' : tf === '30d' ? '30D' : tf === '1y' ? '1Y' : 'All'}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="h-48 rounded-md text-gray-400">
             {salesSeries.length === 0 ? (
-              <div className="flex h-full items-center justify-center text-sm text-gray-500">
-                No sales recorded yet.
+              <div className="flex h-full flex-col items-center justify-center gap-3 text-sm">
+                <div className="rounded-xl border border-dashed border-slate-800/80 bg-[#111827] px-4 py-3 max-w-sm w-full">
+                  <div className="text-xs font-medium text-[#7ff5fb] mb-1">
+                    No sales recorded yet
+                  </div>
+                  <p className="text-[11px] text-gray-400">
+                    As soon as your first conversion comes through, this area will light up
+                    with daily revenue and trend lines.
+                  </p>
+                  <div className="mt-3 h-16 w-full rounded-md bg-black/70 flex items-end gap-1 px-2 pb-1">
+                    <div className="h-3 w-1.5 rounded-full bg-slate-700/70" />
+                    <div className="h-4 w-1.5 rounded-full bg-[#00C2CB]/70" />
+                    <div className="h-2 w-1.5 rounded-full bg-slate-800/70" />
+                    <div className="h-5 w-1.5 rounded-full bg-[#00C2CB]/70" />
+                    <div className="h-3 w-1.5 rounded-full bg-slate-800/70" />
+                    <div className="h-6 w-1.5 rounded-full bg-slate-700/70" />
+                  </div>
+                </div>
               </div>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
@@ -495,28 +726,402 @@ export default function BusinessDashboard() {
       </div>
 
       {/* Active Campaigns Section */}
-      <div className={`${CARD}`}>
-        <h2 className="text-[15px] font-semibold tracking-wide text-[#7ff5fb] mb-2">
-          Active Campaigns (0)
-        </h2>
-        <p className="text-sm text-gray-400">No active campaigns yet.</p>
+      <div className={`${CARD} mt-2`}>
+        <button
+          type="button"
+          onClick={() => setShowAllCampaigns((prev) => !prev)}
+          className="flex w-full items-center justify-between mb-2 text-left"
+        >
+          <div className="flex items-center gap-2">
+            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/10 border border-emerald-500/40">
+              <PlayCircle className="w-3.5 h-3.5 text-emerald-400" />
+            </div>
+            <div>
+              <h2 className="text-[15px] font-semibold tracking-wide text-[#7ff5fb] flex items-center gap-2">
+                <span>Active Campaigns ({activeCampaigns.length})</span>
+              </h2>
+              {activeCampaigns.length > 0 && (
+                <p className="text-[11px] text-gray-500">
+                  Showing {showAllCampaigns ? 'all campaigns' : 'most recent campaign'}
+                </p>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            {activeCampaigns.length > 1 && !showAllCampaigns && (
+              <span className="text-[11px] text-gray-400">
+                + {activeCampaigns.length - 1} more
+              </span>
+            )}
+            {activeCampaigns.length > 0 && (
+              <ChevronRight
+                className={`w-3.5 h-3.5 text-gray-400 transition-transform ${
+                  showAllCampaigns ? 'rotate-90' : 'rotate-0'
+                }`}
+              />
+            )}
+          </div>
+        </button>
+
+        {activeCampaigns.length === 0 ? (
+          <p className="text-sm text-gray-400">No active campaigns yet.</p>
+        ) : (
+          <div className="mt-1 space-y-2 text-sm text-gray-200">
+            {(
+              showAllCampaigns
+                ? activeCampaigns
+                : activeCampaigns
+                    .slice()
+                    .sort(
+                      (a: any, b: any) =>
+                        new Date(b.created_at).getTime() -
+                        new Date(a.created_at).getTime()
+                    )
+                    .slice(0, 1)
+            ).map((c: any) => {
+              const title = c.offer_id ? offerLookup[c.offer_id] : null;
+              const status = (c.status || 'scheduled') as string;
+              const typeLabel = c.campaign_type || c.type || c.platform || 'Campaign';
+
+              const statusColor =
+                status === 'active' || status === 'live'
+                  ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30'
+                  : status === 'paused'
+                  ? 'text-amber-300 bg-amber-500/10 border-amber-500/30'
+                  : 'text-sky-300 bg-sky-500/10 border-sky-500/30';
+
+              const spend = typeof c.spend === 'number' ? Number(c.spend) : 0;
+              const spendRatio = Math.max(0.12, Math.min(spend / 100, 1));
+
+              return (
+                <div
+                  key={c.id}
+                  className="flex items-center justify-between rounded-lg border border-[#262626] bg-black/40 px-3 py-2 hover:border-[#00C2CB]/40 hover:bg-white/5 transition-colors"
+                >
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <div className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.8)]" />
+                      <div className="font-medium text-white truncate">
+                        {title || 'Untitled offer'}
+                      </div>
+                    </div>
+                    <div className="mt-1 text-[11px] text-gray-400 flex flex-wrap items-center gap-2 pl-4">
+                      <span>{c.affiliate_email || 'Affiliate'}</span>
+                      <span className="h-1 w-1 rounded-full bg-gray-500" />
+                      <span>Started {formatShortDate(c.created_at)}</span>
+                      <span className="h-1 w-1 rounded-full bg-gray-500" />
+                      <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] text-sky-300 border-sky-500/40 bg-sky-500/10">
+                        {typeLabel}
+                      </span>
+                    </div>
+                    {spend > 0 && (
+                      <div className="mt-2 pl-4 pr-4">
+                        <div className="h-1.5 rounded-full bg-[#111827] overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-gradient-to-r from-[#22d3ee] to-[#0ea5e9]"
+                            style={{ width: `${spendRatio * 100}%` }}
+                          />
+                        </div>
+                        <div className="mt-1 text-[10px] text-gray-500">
+                          Spend {formatCurrency(spend)}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <div className="ml-4 text-right">
+                    <div
+                      className={`text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full border ${statusColor}`}
+                    >
+                      {status}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+
+            {activeCampaigns.length > 0 && (
+              <div className="mt-3 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => router.push('/business/manage-campaigns')}
+                  className="inline-flex items-center gap-1 text-[11px] text-gray-300 hover:text-[#7ff5fb] px-2 py-1 rounded-full bg-white/5 border border-white/5"
+                >
+                  Manage campaigns
+                  <ChevronRight className="w-3 h-3" />
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Affiliate Activity and Transaction History */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
         <div className={`${CARD}`}>
-          <h2 className="text-[15px] font-semibold tracking-wide text-[#7ff5fb] mb-2">
-            Affiliate Activity
-          </h2>
-          <p className="text-sm text-gray-400">No recent affiliate activity.</p>
+          <button
+            type="button"
+            onClick={() => setShowAllAffiliateActivity((prev) => !prev)}
+            className="flex w-full items-center justify-between mb-2 text-left"
+          >
+            <div className="flex items-center gap-2">
+              <Users className="w-4 h-4 text-[#7ff5fb]" />
+              <div>
+                <h2 className="text-[15px] font-semibold tracking-wide text-[#7ff5fb]">
+                  Affiliate Activity
+                </h2>
+                {recentAffiliateEvents.length > 0 && (
+                  <p className="text-[11px] text-gray-500">
+                    {showAllAffiliateActivity
+                      ? `Showing all ${recentAffiliateEvents.length} events`
+                      : `Showing 1 of ${recentAffiliateEvents.length}`}
+                  </p>
+                )}
+              </div>
+            </div>
+            {recentAffiliateEvents.length > 0 && (
+              <div className="flex items-center gap-2">
+                {recentAffiliateEvents.length > 1 && !showAllAffiliateActivity && (
+                  <span className="text-[11px] text-gray-400">
+                    + {recentAffiliateEvents.length - 1} more
+                  </span>
+                )}
+                <ChevronRight
+                  className={`w-3.5 h-3.5 text-gray-400 transition-transform ${
+                    showAllAffiliateActivity ? 'rotate-90' : 'rotate-0'
+                  }`}
+                />
+              </div>
+            )}
+          </button>
+          {recentAffiliateEvents.length === 0 ? (
+            <p className="text-sm text-gray-400">No recent affiliate activity.</p>
+          ) : (
+            <div className="mt-1 text-sm">
+              <div className="relative border-l border-[#262626] pl-5 space-y-3">
+                {(showAllAffiliateActivity
+                  ? recentAffiliateEvents
+                  : recentAffiliateEvents.slice(0, 1)
+                ).map((ev: any) => {
+                  const title = ev.offer_id ? offerLookup[ev.offer_id] : null;
+                  const statusColor =
+                    ev.status === 'approved'
+                      ? 'text-emerald-400'
+                      : ev.status === 'rejected'
+                      ? 'text-rose-400'
+                      : 'text-amber-300';
+                  return (
+                    <div key={ev.id} className="relative pl-3">
+                      <div className="absolute -left-3 top-4 h-3 w-3 rounded-full border border-[#00C2CB] bg-[#050608]" />
+                      <div className="text-xs text-gray-400">
+                        {formatShortDate(ev.created_at)}
+                      </div>
+                      <div className="font-medium text-white">
+                        {ev.affiliate_email || 'Affiliate'}
+                      </div>
+                      {title && (
+                        <div className="text-xs text-gray-400">Offer: {title}</div>
+                      )}
+                      <div className={`text-[11px] mt-0.5 ${statusColor}`}>{ev.status}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
         <div className={`${CARD}`}>
-          <h2 className="text-[15px] font-semibold tracking-wide text-[#7ff5fb] mb-2">
-            Transaction History
-          </h2>
-          <p className="text-sm text-gray-400">No recent transactions.</p>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-[15px] font-semibold tracking-wide text-[#7ff5fb] flex items-center gap-2">
+              <Receipt className="w-4 h-4 text-[#7ff5fb]" />
+              <span>Transaction History</span>
+            </h2>
+            {completedPayouts.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowTransactionsModal(true)}
+                className="text-[11px] text-gray-300 hover:text-[#7ff5fb] inline-flex items-center gap-1 px-2 py-1 rounded-full bg-white/5 border border-white/5"
+              >
+                View all
+                <ChevronRight className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+          {completedPayouts.length === 0 ? (
+            <p className="text-sm text-gray-400">No recent transactions.</p>
+          ) : (
+            <div className="mt-2 space-y-2 text-sm">
+              {completedPayouts.slice(0, 5).map((p: any) => {
+                const title = p.offer_id ? offerLookup[p.offer_id] : null;
+                const meta = p.offer_id ? offerPayoutMeta[p.offer_id] : undefined;
+                const isRecurring = !!p.is_recurring;
+                const cyclesTotal =
+                  meta && typeof meta.payout_cycles === 'number'
+                    ? meta.payout_cycles
+                    : null;
+
+                let detailLine = '';
+                if (title) {
+                  if (isRecurring && p.cycle_number != null && cyclesTotal) {
+                    detailLine = `${title} · Cycle ${p.cycle_number}/${cyclesTotal}${
+                      meta?.payout_interval ? ` · ${meta.payout_interval}` : ''
+                    }`;
+                  } else if (meta?.payout_mode === 'spread') {
+                    detailLine = `${title} · Spread payout`;
+                  } else {
+                    detailLine = `${title} · One-off payout`;
+                  }
+                }
+
+                const statusBadgeClass =
+                  p.status === 'paid'
+                    ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
+                    : p.status === 'failed'
+                    ? 'border-rose-500/40 bg-rose-500/10 text-rose-300'
+                    : 'border-slate-500/40 bg-slate-500/10 text-slate-300';
+
+                return (
+                  <div
+                    key={p.id}
+                    className="flex items-start justify-between rounded-lg border border-[#262626] bg-black/40 px-3 py-2 hover:border-[#00C2CB]/50 hover:shadow-[0_0_25px_rgba(0,194,203,0.25)] hover:bg-black/60 transition-all"
+                  >
+                    <div className="flex gap-3">
+                      <div className="mt-1 flex h-8 w-8 items-center justify-center rounded-full bg-[#050810] border border-[#1f2937]">
+                        <Wallet className="w-4 h-4 text-[#7ff5fb]" />
+                      </div>
+                      <div>
+                        <div className="text-xs text-gray-400">
+                          {formatShortDate(p.created_at)}
+                        </div>
+                        <div className="font-medium text-white">
+                          {formatCurrency(Number(p.amount || 0))}
+                        </div>
+                        <div className="text-xs text-gray-400">
+                          To {p.affiliate_email || 'affiliate'}
+                        </div>
+                        {detailLine && (
+                          <div className="text-[11px] text-gray-500 mt-0.5">
+                            {detailLine}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right text-xs mt-1 flex flex-col items-end gap-1">
+                      <div
+                        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] border ${statusBadgeClass}`}
+                      >
+                        <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                        <span className="uppercase tracking-wide">{p.status}</span>
+                      </div>
+                      {p.stripe_transfer_id && (
+                        <div className="text-[10px] text-gray-500">
+                          {p.stripe_transfer_id}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
+
+      {showTransactionsModal && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="w-full max-w-2xl rounded-2xl border border-[#262626] bg-[#050608] p-5 shadow-2xl">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-[#7ff5fb] flex items-center gap-2">
+                <Receipt className="w-4 h-4" />
+                <span>All transactions</span>
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowTransactionsModal(false)}
+                className="rounded-full p-1 hover:bg-white/5 text-gray-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            {completedPayouts.length === 0 ? (
+              <p className="text-sm text-gray-400">No transactions yet.</p>
+            ) : (
+              <div className="max-h-80 overflow-y-auto space-y-2 text-sm">
+                {completedPayouts.map((p: any) => {
+                  const title = p.offer_id ? offerLookup[p.offer_id] : null;
+                  const meta = p.offer_id ? offerPayoutMeta[p.offer_id] : undefined;
+                  const isRecurring = !!p.is_recurring;
+                  const cyclesTotal =
+                    meta && typeof meta.payout_cycles === 'number'
+                      ? meta.payout_cycles
+                      : null;
+
+                  let detailLine = '';
+                  if (title) {
+                    if (isRecurring && p.cycle_number != null && cyclesTotal) {
+                      detailLine = `${title} · Cycle ${p.cycle_number}/${cyclesTotal}${
+                        meta?.payout_interval ? ` · ${meta.payout_interval}` : ''
+                      }`;
+                    } else if (meta?.payout_mode === 'spread') {
+                      detailLine = `${title} · Spread payout`;
+                    } else {
+                      detailLine = `${title} · One-off payout`;
+                    }
+                  }
+
+                  const statusBadgeClass =
+                    p.status === 'paid'
+                      ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
+                      : p.status === 'failed'
+                      ? 'border-rose-500/40 bg-rose-500/10 text-rose-300'
+                      : 'border-slate-500/40 bg-slate-500/10 text-slate-300';
+
+                  return (
+                    <div
+                      key={p.id}
+                      className="flex items-start justify-between rounded-lg border border-[#262626] bg-black/40 px-3 py-2"
+                    >
+                      <div className="flex gap-3">
+                        <div className="mt-1 flex h-7 w-7 items-center justify-center rounded-full bg-[#050810] border border-[#1f2937]">
+                          <Wallet className="w-3.5 h-3.5 text-[#7ff5fb]" />
+                        </div>
+                        <div>
+                          <div className="text-xs text-gray-400">
+                            {formatShortDate(p.created_at)}
+                          </div>
+                          <div className="font-medium text-white">
+                            {formatCurrency(Number(p.amount || 0))}
+                          </div>
+                          <div className="text-xs text-gray-400">
+                            To {p.affiliate_email || 'affiliate'}
+                          </div>
+                          {detailLine && (
+                            <div className="text-[11px] text-gray-500 mt-0.5">
+                              {detailLine}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right text-xs mt-1 flex flex-col items-end gap-1">
+                        <div
+                          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] border ${statusBadgeClass}`}
+                        >
+                          <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                          <span className="uppercase tracking-wide">{p.status}</span>
+                        </div>
+                        {p.stripe_transfer_id && (
+                          <div className="text-[10px] text-gray-500">
+                            {p.stripe_transfer_id}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

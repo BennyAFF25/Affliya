@@ -1,111 +1,317 @@
 'use client';
 
-import { useState } from 'react';
-import { Building2 } from 'lucide-react';
-import { useSession } from '@supabase/auth-helpers-react';
+import { useEffect, useState, type FormEvent, type ChangeEvent } from 'react';
+import { useUser } from '@supabase/auth-helpers-react';
+import { supabase } from 'utils/supabase/pages-client';
+import toast from 'react-hot-toast';
 
 export default function BusinessSettingsPage() {
-  const session = useSession();
-  const user = session?.user;
+  const user = useUser();
 
   const [businessName, setBusinessName] = useState('');
-  const [website, setWebsite] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState<'bank' | 'stripe'>('bank');
-  const [paymentDetails, setPaymentDetails] = useState('');
+  const [billingEmail, setBillingEmail] = useState('');
+  const [loadingProfile, setLoadingProfile] = useState(true);
+  const [savingProfile, setSavingProfile] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    // Saving logic here
-    alert('✅ Business settings saved!');
+  const [resetSending, setResetSending] = useState(false);
+  const [resetMsg, setResetMsg] = useState<string | null>(null);
+
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+  useEffect(() => {
+    if (!user?.email) return;
+
+    const loadProfile = async () => {
+      setLoadingProfile(true);
+
+      const { data, error } = await (supabase as any)
+        .from('business_profiles')
+        .select('business_name, billing_email, avatar_url')
+        .eq('business_email', user.email as string)
+        .single();
+
+      if (!error && data) {
+        const row = data as any;
+        setBusinessName(row.business_name ?? '');
+        setBillingEmail(row.billing_email ?? '');
+        setAvatarUrl(row.avatar_url ?? null);
+      }
+
+      setLoadingProfile(false);
+    };
+
+    void loadProfile();
+  }, [user]);
+
+  const handleAvatarChange = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    try {
+      setUploadingAvatar(true);
+
+      const fileExt =
+        file.name.split('.').pop()?.toLowerCase() || 'jpg';
+      const filePath = `${user.id}/business-avatar-${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await (supabase as any)
+        .storage.from('avatars')
+        .upload(filePath, file, {
+          upsert: true,
+        });
+
+      if (uploadError) {
+        console.error(uploadError);
+        toast.error(uploadError.message || 'Failed to upload image');
+        return;
+      }
+
+      const { data } = (supabase as any)
+        .storage.from('avatars')
+        .getPublicUrl(filePath);
+
+      const publicUrl = (data as any)?.publicUrl as string | undefined;
+      if (!publicUrl) {
+        toast.error('Could not get image URL');
+        return;
+      }
+
+      const { error: updateError } = await (supabase as any)
+        .from('business_profiles')
+        .upsert(
+          {
+            business_email: user.email as string,
+            avatar_url: publicUrl,
+          },
+          { onConflict: 'business_email' }
+        );
+
+      if (updateError) {
+        console.error(updateError);
+        toast.error(updateError.message || 'Failed to save avatar');
+        return;
+      }
+
+      setAvatarUrl(publicUrl);
+      toast.success('Profile photo updated');
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || 'Failed to upload avatar');
+    } finally {
+      setUploadingAvatar(false);
+      // reset file input
+      e.target.value = '';
+    }
   };
 
+  const handleSaveProfile = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!user?.email) return;
+
+    setSavingProfile(true);
+
+    const payload = {
+      business_email: user.email as string,
+      business_name: businessName || null,
+      billing_email: billingEmail || null,
+    };
+
+    const { error } = await (supabase as any)
+      .from('business_profiles')
+      .upsert(payload, { onConflict: 'business_email' });
+
+    if (error) {
+      toast.error(error.message || 'Failed to save business profile');
+    } else {
+      toast.success('Business profile updated');
+    }
+
+    setSavingProfile(false);
+  };
+
+  const handleSendReset = async () => {
+    if (!user?.email) return;
+
+    setResetSending(true);
+    setResetMsg(null);
+
+    const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
+      redirectTo: `${window.location.origin}/auth/update-password`,
+    });
+
+    if (error) {
+      setResetMsg(error.message);
+      toast.error(error.message || 'Failed to send reset link');
+    } else {
+      setResetMsg('Reset link sent. Check your email.');
+      toast.success('Password reset link sent');
+    }
+
+    setResetSending(false);
+  };
+
+  const initials =
+    businessName?.trim()
+      ? businessName
+          .trim()
+          .split(' ')
+          .map((p) => p[0])
+          .join('')
+          .slice(0, 2)
+          .toUpperCase()
+      : (user?.email?.[0] || 'N').toUpperCase();
+
   return (
-    <div className="min-h-screen bg-[#0e0e0e] text-white px-8 py-12">
-      <div className="bg-[#1a1a1a] shadow-md border border-[#222] rounded-xl p-8">
-        <div className="flex items-center gap-2 mb-6">
-          <Building2 className="text-[#00C2CB]" size={24} />
-          <h1 className="text-2xl font-bold text-[#00C2CB]">Business Settings</h1>
-        </div>
+    <div className="min-h-screen w-full bg-[#121212]">
+      <div className="relative max-w-4xl mx-auto px-6 py-10 space-y-10 text-white">
+        {/* Teal glow accent */}
+        <div
+          className="pointer-events-none absolute inset-x-0 -top-24 h-48 blur-3xl"
+          style={{
+            background:
+              'radial-gradient(40% 60% at 50% 20%, rgba(0,194,203,0.22), rgba(0,0,0,0) 60%)',
+          }}
+        />
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Business Info */}
-          <div>
-            <h2 className="text-sm font-semibold text-gray-300 mb-2">Business Info</h2>
+        <header className="space-y-2 relative">
+          <h1 className="text-3xl font-semibold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-[#7ff5fb] to-[#00C2CB]">
+            Business settings
+          </h1>
+          <p className="text-sm text-white/70">
+            Manage your Nettmark business profile and account security.
+          </p>
+        </header>
 
-            <label className="block font-medium mb-1 text-white">Business Name</label>
-            <input
-              type="text"
-              value={businessName}
-              onChange={(e) => setBusinessName(e.target.value)}
-              className="w-full p-3 bg-[#121212] border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00C2CB] text-white placeholder-gray-500"
-              placeholder="e.g. FalconX Pty Ltd"
-              required
-            />
+        {!user && (
+          <p className="text-sm text-white/70 relative">
+            Please sign in to manage your business settings.
+          </p>
+        )}
 
-            <label className="block font-medium mt-4 mb-1 text-white">Email Address</label>
-            <input
-              type="email"
-              value={user?.email || ''}
-              disabled
-              className="w-full p-3 bg-[#1e1e1e] border border-gray-600 rounded-lg text-gray-500 cursor-not-allowed"
-            />
+        {user && (
+          <section className="relative rounded-3xl border border-white/10 bg-white/[0.04] backdrop-blur p-6 shadow-[0_0_60px_0_rgba(0,194,203,0.12)]">
+            <h2 className="text-sm font-semibold text-[#00C2CB] mb-4">
+              Business profile
+            </h2>
 
-            <label className="block font-medium mt-4 mb-1 text-white">Website (optional)</label>
-            <input
-              type="url"
-              value={website}
-              onChange={(e) => setWebsite(e.target.value)}
-              className="w-full p-3 bg-[#121212] border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00C2CB] text-white placeholder-gray-500"
-              placeholder="https://yourwebsite.com"
-            />
-          </div>
+            {loadingProfile ? (
+              <p className="text-xs text-white/70">Loading profile…</p>
+            ) : (
+              <form onSubmit={handleSaveProfile} className="space-y-4">
+                <div className="flex items-center gap-4">
+                  <div className="relative h-16 w-16">
+                    {avatarUrl ? (
+                      <img
+                        src={avatarUrl}
+                        alt="Business avatar"
+                        className="h-16 w-16 rounded-full object-cover border border-white/20"
+                      />
+                    ) : (
+                      <div className="h-16 w-16 rounded-full bg-gradient-to-br from-[#00C2CB] to-[#7ff5fb] flex items-center justify-center text-lg font-medium text-black shadow-[0_0_30px_rgba(0,194,203,0.4)]">
+                        {initials}
+                      </div>
+                    )}
+                    {uploadingAvatar && (
+                      <div className="absolute inset-0 rounded-full bg-black/60 flex items-center justify-center text-[10px] text-white/80">
+                        Uploading…
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-white/80">Profile photo</p>
+                    <p className="text-[11px] text-white/60">
+                      This will appear in your dashboard and for affiliates.
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <label className="inline-flex items-center rounded-full border border-[#00C2CB]/40 bg-white/5 px-3 py-1.5 text-[11px] font-medium text-[#00C2CB] hover:bg-[#00C2CB]/10 cursor-pointer">
+                        {uploadingAvatar ? 'Uploading…' : 'Change photo'}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleAvatarChange}
+                          className="hidden"
+                          disabled={uploadingAvatar}
+                        />
+                      </label>
+                    </div>
+                  </div>
+                </div>
 
-          {/* Payment Preferences */}
-          <div>
-            <h2 className="text-sm font-semibold text-gray-300 mb-2">Payout Method</h2>
+                <hr className="border-white/10" />
 
-            <div className="flex items-center gap-4 mb-4">
-              <label className="flex items-center gap-2 text-white">
-                <input
-                  type="radio"
-                  name="payment"
-                  checked={paymentMethod === 'bank'}
-                  onChange={() => setPaymentMethod('bank')}
-                />
-                Bank Transfer
-              </label>
-              <label className="flex items-center gap-2 text-white">
-                <input
-                  type="radio"
-                  name="payment"
-                  checked={paymentMethod === 'stripe'}
-                  onChange={() => setPaymentMethod('stripe')}
-                />
-                Stripe
-              </label>
-            </div>
+                <div>
+                  <label className="block text-[11px] text-white/60 mb-1">
+                    Account email
+                  </label>
+                  <input
+                    disabled
+                    value={user.email ?? ''}
+                    className="w-full rounded-lg bg-black/40 border border-white/15 px-3 py-2 text-sm text-white/70 cursor-not-allowed"
+                  />
+                </div>
 
-            <input
-              type="text"
-              value={paymentDetails}
-              onChange={(e) => setPaymentDetails(e.target.value)}
-              placeholder={
-                paymentMethod === 'bank'
-                  ? 'Bank account or BSB/Acct #'
-                  : 'Stripe email or payout link'
-              }
-              className="w-full p-3 bg-[#121212] border border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#00C2CB] text-white placeholder-gray-500"
-              required
-            />
-          </div>
+                <div>
+                  <label className="block text-[11px] text-white/60 mb-1">
+                    Business name
+                  </label>
+                  <input
+                    type="text"
+                    value={businessName}
+                    onChange={(e) => setBusinessName(e.target.value)}
+                    className="w-full rounded-lg bg-black/40 border border-white/15 px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-[#00C2CB]"
+                    placeholder="e.g. Bennys Burgers Pty Ltd"
+                  />
+                </div>
 
-          <button
-            type="submit"
-            className="bg-[#00C2CB] hover:bg-[#00b0b8] text-white font-semibold py-3 px-6 rounded-lg transition"
-          >
-            Save Settings
-          </button>
-        </form>
+                <div>
+                  <label className="block text-[11px] text-white/60 mb-1">
+                    Billing email
+                  </label>
+                  <input
+                    type="email"
+                    value={billingEmail}
+                    onChange={(e) => setBillingEmail(e.target.value)}
+                    className="w-full rounded-lg bg-black/40 border border-white/15 px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-[#00C2CB]"
+                    placeholder="Where invoices and receipts should be sent"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={savingProfile}
+                  className="inline-flex items-center rounded-full bg-[#00C2CB] px-4 py-2 text-xs font-medium text-black hover:bg-[#00b0b8] disabled:opacity-60"
+                >
+                  {savingProfile ? 'Saving…' : 'Save changes'}
+                </button>
+              </form>
+            )}
+          </section>
+        )}
+
+        {user && (
+          <section className="relative rounded-3xl border border-white/10 bg-white/[0.04] backdrop-blur p-6 shadow-[0_0_60px_0_rgba(0,194,203,0.12)]">
+            <h2 className="text-sm font-semibold text-[#00C2CB] mb-3">
+              Password
+            </h2>
+            <p className="text-xs text-white/70 mb-4">
+              We&apos;ll email you a secure link to set a new password for your Nettmark business login.
+            </p>
+            <button
+              type="button"
+              onClick={handleSendReset}
+              disabled={resetSending}
+              className="inline-flex items-center rounded-full border border-[#00C2CB]/40 bg-white/5 px-4 py-2 text-xs font-medium text-[#00C2CB] hover:bg-[#00C2CB]/10 disabled:opacity-60"
+            >
+              {resetSending ? 'Sending reset link…' : 'Send reset password link'}
+            </button>
+            {resetMsg && (
+              <p className="mt-3 text-[11px] text-white/70">
+                {resetMsg}
+              </p>
+            )}
+          </section>
+        )}
       </div>
     </div>
   );
