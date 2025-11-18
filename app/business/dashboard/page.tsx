@@ -38,7 +38,7 @@ interface Profile {
 type Timeframe = '7d' | '30d' | '1y' | 'all';
 
 const CARD =
-  'rounded-xl border border-[#262626] bg-[#121212] hover:ring-1 hover:ring-white/5 transition-shadow p-6';
+  'rounded-xl border border-[#262626] bg-[#121212] hover:ring-1 hover:ring-white/5 transition-shadow p-4 sm:p-6';
 
 const formatShortDate = (iso: string) => {
   if (!iso) return '';
@@ -437,9 +437,9 @@ export default function BusinessDashboard() {
   }, [session, router, user]);
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-b from-[#0b0b0b] to-[#0e0e0e] text-white px-5 py-6">
+    <div className="min-h-screen w-full bg-gradient-to-b from-[#0b0b0b] to-[#0e0e0e] text-white px-4 py-4 sm:px-5 sm:py-6">
       {/* Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6 mb-6 mt-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-6 mb-6 mt-2">
         <div className={`${CARD} ring-1 ring-[#00C2CB]/20 shadow-[0_0_30px_rgba(0,194,203,0.12)] relative overflow-hidden`}
         >
           <div className="absolute -right-6 -top-6 h-16 w-16 rounded-full bg-[#00C2CB]/10 blur-xl" />
@@ -529,7 +529,7 @@ export default function BusinessDashboard() {
       </div>
 
       {/* Graphs */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-8 sm:mb-10">
         {/* Affiliate Growth */}
         <div className={`${CARD}`}>
           <div className="mb-4 flex items-center justify-between">
@@ -553,7 +553,7 @@ export default function BusinessDashboard() {
               ))}
             </div>
           </div>
-          <div className="h-48 rounded-md text-gray-400">
+          <div className="h-64 sm:h-52 rounded-md text-gray-400">
             {affiliateSeries.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center gap-3 text-sm">
                 <div className="rounded-xl border border-dashed border-slate-800/80 bg-[#111827] px-4 py-3 max-w-sm w-full">
@@ -653,7 +653,7 @@ export default function BusinessDashboard() {
               ))}
             </div>
           </div>
-          <div className="h-48 rounded-md text-gray-400">
+          <div className="h-64 sm:h-52 rounded-md text-gray-400">
             {salesSeries.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center gap-3 text-sm">
                 <div className="rounded-xl border border-dashed border-slate-800/80 bg-[#111827] px-4 py-3 max-w-sm w-full">
@@ -856,7 +856,7 @@ export default function BusinessDashboard() {
       </div>
 
       {/* Affiliate Activity and Transaction History */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mt-6">
         <div className={`${CARD}`}>
           <button
             type="button"

@@ -20,15 +20,27 @@ function AffiliateLayoutShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
   return (
-    <div className="flex flex-col min-h-screen text-white">
-      {/* Pass unread count to Topbar (keeps working even if Topbar ignores it) */}
-      <Topbar {...({ unreadCount } as any)} />
-      <div className="flex flex-1">
-        <div className="min-h-screen w-64 bg-[#1F1F1F] text-white">
-          {/* Pass unread count to sidebar as well (non‑breaking) */}
-          <AffiliateSidebar {...({ unreadCount } as any)} />
+    <div className="flex flex-col min-h-screen text-white bg-[#0e0e0e]">
+      {/* Fixed Topbar at the top */}
+      <div className="fixed top-0 left-0 right-0 z-30">
+        {/* Pass unread count to Topbar (keeps working even if Topbar ignores it) */}
+        <Topbar {...({ unreadCount } as any)} />
+      </div>
+
+      {/* Sidebar + content row, pushed down under Topbar */}
+      <div className="flex flex-1 pt-[64px] min-h-0">
+        {/* Sidebar column with fixed sidebar inside */}
+        <div className="w-64">
+          <div className="fixed left-0 top-[64px] bottom-0 w-64 bg-[#1F1F1F] text-white">
+            {/* Pass unread count to sidebar as well (non‑breaking) */}
+            <AffiliateSidebar {...({ unreadCount } as any)} />
+          </div>
         </div>
-        <main className="flex-1 bg-white text-black">{children}</main>
+
+        {/* Scrollable main content area */}
+        <main className="flex-1 bg-[#0e0e0e] text-white overflow-y-auto">
+          {children}
+        </main>
       </div>
 
       {/* Global Inbox Toast */}

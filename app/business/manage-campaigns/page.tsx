@@ -9,195 +9,342 @@ const ManageCampaignsBusiness = () => {
   const session = useSession();
   const user = session?.user;
 
-  const [adIdeas, setAdIdeas] = useState<any[]>([]);
+  const [campaigns, setCampaigns] = useState<any[]>([]);
   const [showActive, setShowActive] = useState(true);
   const [showArchived, setShowArchived] = useState(false);
 
   useEffect(() => {
     if (!user) return;
 
-    const fetchAdIdeas = async () => {
-      const { data: adIdeas, error } = await supabase
-        .from('ad_ideas')
+    const fetchCampaigns = async () => {
+      const { data, error } = await supabase
+        .from('live_campaigns')
         .select(`
           id,
+          type,
           offer_id,
-          affiliate_email,
           business_email,
-          status,
-          meta_status,
-          file_url,
-          ad_name,
-          campaign_name,
+          affiliate_email,
+          media_url,
           caption,
-          thumbnail_url,
+          platform,
+          created_from,
+          status,
           created_at
         `)
-        .eq('business_email', session?.user.email)
+        .eq('business_email', user.email as string)
         .order('created_at', { ascending: false });
 
       if (error) {
         console.error('[❌ Failed to fetch campaigns]', error);
       } else {
-        setAdIdeas(adIdeas || []);
+        setCampaigns(data || []);
       }
     };
 
-    fetchAdIdeas();
+    fetchCampaigns();
   }, [user]);
 
   console.log('[📢 useEffect Completed]');
 
   const handleToggleStatus = async (id: string, currentStatus: string) => {
-    // Updated toggle logic to use Meta-style statuses: toggle between 'ACTIVE' and 'PAUSED'
-    const newStatus = currentStatus.toUpperCase() === 'ACTIVE' ? 'PAUSED' : 'ACTIVE';
-    const { error } = await supabase
-      .from('ad_ideas')
+    const newStatus =
+      (currentStatus || '').toUpperCase() === 'ACTIVE' ? 'PAUSED' : 'ACTIVE';
+
+    const { error } = await (supabase as any)
+      .from('live_campaigns')
       .update({ status: newStatus })
       .eq('id', id);
 
     if (error) {
       console.error('[❌ Failed to update campaign status]', error);
     } else {
-      setAdIdeas((prev) =>
-        prev.map((c) => (c.id === id ? { ...c, status: newStatus } : c))
+      setCampaigns((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, status: newStatus } : c)),
       );
     }
   };
 
-  const uniqueAdIdeas = adIdeas?.filter(
-    (item, index, self) => index === self.findIndex(t => t.id === item.id)
+  const activeCampaigns = campaigns?.filter(
+    (c) =>
+      (c.status || '').toLowerCase() === 'live' ||
+      (c.status || '').toLowerCase() === 'active',
   );
 
-  const activeCampaigns = uniqueAdIdeas?.filter(
-    (ad) => ad.meta_status === "ACTIVE" || ad.meta_status === "PROCESSING"
+  const archivedCampaigns = campaigns?.filter(
+    (c) =>
+      (c.status || '').toLowerCase() !== 'live' &&
+      (c.status || '').toLowerCase() !== 'active',
   );
 
-  const archivedCampaigns = uniqueAdIdeas?.filter(
-    (ad) =>
-      ad.meta_status === "PAUSED" ||
-      ad.meta_status === "DELETED" ||
-      !ad.meta_status
-  );
+  const formatDate = (d?: string) => {
+    if (!d) return '';
+    return new Date(d).toLocaleDateString();
+  };
 
   return (
-    <div className="bg-[#0e0e0e] min-h-screen text-white">
-      <div className="p-10 max-w-6xl mx-auto">
-        <h1 className="text-2xl font-bold text-[#00C2CB] mb-6">Manage Campaigns</h1>
+    <div className="min-h-screen bg-[#0e0e0e] text-white">
+      <div className="mx-auto max-w-6xl px-8 py-10">
+        {/* Page header */}
+        <header className="mb-8">
+          <p className="text-xs font-medium uppercase tracking-[0.2em] text-white/40">
+            Campaigns
+          </p>
+          <h1 className="mt-1 text-3xl font-semibold tracking-tight text-[#00C2CB]">
+            Manage campaigns
+          </h1>
+          <p className="mt-2 text-sm text-white/70">
+            See every campaign your affiliates are running for this brand,
+            pause or inspect performance, and jump into a detailed view.
+          </p>
+        </header>
 
-        <div
-          onClick={() => setShowActive((prev) => !prev)}
-          className="cursor-pointer bg-[#1a1a1a] border border-[#00C2CB] rounded-lg px-6 py-4 mb-4 flex justify-between items-center hover:shadow-md transition"
-        >
-          <div className="flex items-center gap-3">
-            <svg className="w-6 h-6 text-[#00C2CB]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-            </svg>
-            <h2 className="text-xl font-bold text-white">Active Campaigns</h2>
-          </div>
-          <span className="text-[#00C2CB] text-2xl font-bold">{showActive ? '−' : '+'}</span>
-        </div>
-
-        {uniqueAdIdeas.length === 0 ? (
-          <div className="bg-yellow-100 text-yellow-800 p-6 rounded-lg text-center">
-            No campaigns found.
+        {/* Empty state for the whole page */}
+        {campaigns.length === 0 ? (
+          <div className="rounded-2xl border border-yellow-500/20 bg-yellow-500/10 px-6 py-5 text-center text-sm text-yellow-200">
+            No campaigns found yet. Once affiliates start running ads for your
+            offers, they&apos;ll appear here.
           </div>
         ) : (
-          <div>
-            {showActive && (
-              <div className="space-y-4 mb-6">
-                {activeCampaigns.map((campaign) => (
-                  <div key={campaign.id} className="bg-[#1a1a1a] border border-[#00C2CB] p-6 rounded-xl shadow-lg hover:shadow-[#00C2CB]/30 transition duration-300 flex justify-between items-center">
-                    <div>
-                      <p className="font-semibold text-[#00C2CB] text-lg flex items-center gap-2">
-                        <span className="text-sm text-white">Offer: {campaign.campaign_name || 'N/A'}</span>
-                        <svg className="w-5 h-5 text-[#00C2CB]" fill="currentColor" viewBox="0 0 20 20"><path d="M4 3a1 1 0 00-1 1v3.278A2 2 0 004.447 9.72l4.316 1.724a2 2 0 001.474 0l4.316-1.724A2 2 0 0017 7.278V4a1 1 0 00-1-1H4z" /><path d="M3 13a1 1 0 011-1h12a1 1 0 011 1v2.25a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15.25V13z" /></svg>
-                        {campaign.ad_name || campaign.caption || campaign.offer_id}
-                      </p>
-                      <p className="text-sm text-gray-500">Affiliate: {campaign.affiliate_email}</p>
-                      <div className="mt-1">
-                        <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${
-                          campaign.meta_status === 'ACTIVE'
-                            ? 'bg-green-600/20 text-green-300'
-                            : campaign.meta_status === 'PROCESSING'
-                            ? 'bg-yellow-600/20 text-yellow-300'
-                            : 'bg-red-600/20 text-red-300'
-                        }`}>
-                          {campaign.meta_status}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <Link href={`/business/manage-campaigns/${campaign.id}`}>
-                        <button
-                          className="bg-[#00C2CB] hover:bg-[#00b0b8] text-white px-4 py-1 rounded font-medium text-sm shadow"
-                        >
-                          View Campaign
-                        </button>
-                      </Link>
-                      <button
-                        onClick={() => handleToggleStatus(campaign.id, campaign.meta_status)}
-                        className="bg-[#1a1a1a] hover:bg-[#2a2a2a] text-[#00C2CB] border border-[#00C2CB] px-4 py-1 rounded font-medium text-sm shadow"
-                      >
-                        {campaign.meta_status === 'ACTIVE' ? 'Pause Campaign' : 'Activate Campaign'}
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="mb-6">
-              <div
-                onClick={() => setShowArchived((prev) => !prev)}
-                className="cursor-pointer bg-[#1a1a1a] border border-[#00C2CB] rounded-lg px-6 py-4 mb-4 flex justify-between items-center hover:shadow-md transition"
+          <div className="space-y-4">
+            {/* ACTIVE CAMPAIGNS SECTION */}
+            <section className="rounded-3xl border border-white/10 bg-white/[0.02] shadow-[0_0_60px_rgba(0,0,0,0.6)]">
+              <button
+                type="button"
+                onClick={() => setShowActive((prev) => !prev)}
+                className="flex w-full items-center justify-between gap-3 rounded-3xl px-6 py-4 text-left transition hover:bg-white/[0.03]"
               >
                 <div className="flex items-center gap-3">
-                  <svg className="w-6 h-6 text-[#00C2CB]" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v16h16V4H4zm4 4h8v2H8V8zm0 4h5v2H8v-2z" />
-                  </svg>
-                  <h2 className="text-xl font-bold text-white">Archived Campaigns</h2>
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#00C2CB]/10 text-[#00C2CB]">
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-semibold">Active campaigns</h2>
+                    <p className="text-xs text-white/60">
+                      Campaigns currently delivering traffic for your offers.
+                    </p>
+                  </div>
                 </div>
-                <span className="text-[#00C2CB] text-2xl font-bold">{showArchived ? '−' : '+'}</span>
-              </div>
-              {showArchived && (
-                <div className="space-y-4">
-                  {archivedCampaigns.map((campaign) => (
-                    <div key={campaign.id} className="bg-[#1a1a1a] border border-[#00C2CB] p-6 rounded-xl shadow-lg hover:shadow-[#00C2CB]/30 transition duration-300 flex justify-between items-center">
-                      <div>
-                        <p className="font-semibold text-[#00C2CB] text-lg flex items-center gap-2">
-                          <span className="text-sm text-white">Offer: {campaign.campaign_name || 'N/A'}</span>
-                          <svg className="w-5 h-5 text-[#00C2CB]" fill="currentColor" viewBox="0 0 20 20"><path d="M4 3a1 1 0 00-1 1v3.278A2 2 0 004.447 9.72l4.316 1.724a2 2 0 001.474 0l4.316-1.724A2 2 0 0017 7.278V4a1 1 0 00-1-1H4z" /><path d="M3 13a1 1 0 011-1h12a1 1 0 011 1v2.25a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15.25V13z" /></svg>
-                          {campaign.ad_name || campaign.caption || campaign.offer_id}
-                        </p>
-                        <p className="text-sm text-gray-500">Affiliate: {campaign.affiliate_email}</p>
-                        <div className="mt-1">
-                          <span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold ${
-                            campaign.meta_status === 'ACTIVE'
-                              ? 'bg-green-600/20 text-green-300'
-                              : campaign.meta_status === 'PROCESSING'
-                              ? 'bg-yellow-600/20 text-yellow-300'
-                              : campaign.meta_status === 'PAUSED'
-                              ? 'bg-orange-600/20 text-orange-300'
-                              : campaign.meta_status === 'DELETED'
-                              ? 'bg-red-600/20 text-red-300'
-                              : 'bg-gray-600/20 text-gray-300'
-                          }`}>
-                            {campaign.meta_status || campaign.status || 'Pending'}
-                          </span>
+                <div className="flex items-center gap-3">
+                  <span className="rounded-full bg-[#00C2CB]/10 px-3 py-1 text-xs font-medium text-[#7ff5fb]">
+                    {activeCampaigns.length} active
+                  </span>
+                  <span className="text-2xl leading-none text-[#00C2CB]">
+                    {showActive ? '−' : '+'}
+                  </span>
+                </div>
+              </button>
+
+              {showActive && (
+                <div className="border-t border-white/5 px-4 py-4 sm:px-6 sm:py-5">
+                  {activeCampaigns.length === 0 ? (
+                    <p className="rounded-2xl border border-white/5 bg-black/40 px-4 py-3 text-sm text-white/60">
+                      No active campaigns. When an affiliate launches a
+                      campaign, it will show here.
+                    </p>
+                  ) : (
+                    <div className="space-y-3">
+                      {activeCampaigns.map((campaign) => (
+                        <div
+                          key={campaign.id}
+                          className="flex flex-col gap-4 rounded-2xl border border-[#00C2CB]/20 bg-black/40 px-4 py-4 shadow-sm shadow-black/40 transition hover:border-[#00C2CB]/60 hover:shadow-[0_0_30px_rgba(0,194,203,0.35)] sm:flex-row sm:items-center sm:justify-between"
+                        >
+                          <div className="space-y-1">
+                            <p className="text-sm font-medium text-white">
+                              {campaign.caption || 'Untitled campaign'}
+                            </p>
+                            <p className="text-xs text-white/60">
+                              Affiliate:{' '}
+                              <span className="text-white">
+                                {campaign.affiliate_email || 'N/A'}
+                              </span>
+                            </p>
+                            <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-white/60">
+                              {campaign.platform && (
+                                <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
+                                  {campaign.platform}
+                                </span>
+                              )}
+                              {campaign.type && (
+                                <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
+                                  {campaign.type}
+                                </span>
+                              )}
+                              {campaign.created_at && (
+                                <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
+                                  Started {formatDate(campaign.created_at)}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex flex-col items-end gap-2 sm:items-end sm:text-right">
+                            <span className="inline-flex items-center rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-300">
+                              {(campaign.status || 'LIVE').toUpperCase()}
+                            </span>
+                            <div className="flex gap-2">
+                              <Link
+                                href={`/business/manage-campaigns/${campaign.id}`}
+                              >
+                                <button className="rounded-full bg-[#00C2CB] px-4 py-1.5 text-xs font-semibold text-black shadow hover:bg-[#00b0b8]">
+                                  View campaign
+                                </button>
+                              </Link>
+                              <button
+                                onClick={() =>
+                                  handleToggleStatus(
+                                    campaign.id,
+                                    campaign.status,
+                                  )
+                                }
+                                className="rounded-full border border-[#00C2CB] bg-transparent px-4 py-1.5 text-xs font-semibold text-[#00C2CB] hover:bg-[#00C2CB]/10"
+                              >
+                                {(campaign.status || '').toLowerCase() ===
+                                  'live' ||
+                                (campaign.status || '').toLowerCase() ===
+                                  'active'
+                                  ? 'Pause'
+                                  : 'Activate'}
+                              </button>
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <Link href={`/business/manage-campaigns/${campaign.id}`}>
-                          <button className="bg-[#00C2CB] hover:bg-[#00b0b8] text-white px-4 py-1 rounded font-medium text-sm shadow">View Campaign</button>
-                        </Link>
-                        <button className="bg-[#1a1a1a] hover:bg-[#2a2a2a] text-[#00C2CB] border border-[#00C2CB] px-4 py-1 rounded font-medium text-sm shadow">Edit Campaign</button>
-                      </div>
+                      ))}
                     </div>
-                  ))}
+                  )}
                 </div>
               )}
-            </div>
+            </section>
+
+            {/* ARCHIVED CAMPAIGNS SECTION */}
+            <section className="rounded-3xl border border-white/10 bg-white/[0.02] shadow-[0_0_60px_rgba(0,0,0,0.6)]">
+              <button
+                type="button"
+                onClick={() => setShowArchived((prev) => !prev)}
+                className="flex w-full items-center justify-between gap-3 rounded-3xl px-6 py-4 text-left transition hover:bg-white/[0.03]"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/5 text-[#7ff5fb]">
+                    <svg
+                      className="h-4 w-4"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M4 4h16v16H4z"
+                      />
+                    </svg>
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-semibold">Archived campaigns</h2>
+                    <p className="text-xs text-white/60">
+                      Paused, completed, or deleted campaigns stay here for
+                      history.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="rounded-full bg-white/5 px-3 py-1 text-xs font-medium text-white/70">
+                    {archivedCampaigns.length} archived
+                  </span>
+                  <span className="text-2xl leading-none text-[#00C2CB]">
+                    {showArchived ? '−' : '+'}
+                  </span>
+                </div>
+              </button>
+
+              {showArchived && (
+                <div className="border-t border-white/5 px-4 py-4 sm:px-6 sm:py-5">
+                  {archivedCampaigns.length === 0 ? (
+                    <p className="rounded-2xl border border-white/5 bg-black/40 px-4 py-3 text-sm text-white/60">
+                      No archived campaigns yet.
+                    </p>
+                  ) : (
+                    <div className="space-y-3">
+                      {archivedCampaigns.map((campaign) => (
+                        <div
+                          key={campaign.id}
+                          className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-black/40 px-4 py-4 shadow-sm shadow-black/40 transition hover:border-white/40 hover:shadow-[0_0_25px_rgba(0,0,0,0.65)] sm:flex-row sm:items-center sm:justify-between"
+                        >
+                          <div className="space-y-1">
+                            <p className="text-sm font-medium text-white">
+                              {campaign.caption || 'Untitled campaign'}
+                            </p>
+                            <p className="text-xs text-white/60">
+                              Affiliate:{' '}
+                              <span className="text-white">
+                                {campaign.affiliate_email || 'N/A'}
+                              </span>
+                            </p>
+                            <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-white/60">
+                              {campaign.platform && (
+                                <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
+                                  {campaign.platform}
+                                </span>
+                              )}
+                              {campaign.type && (
+                                <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
+                                  {campaign.type}
+                                </span>
+                              )}
+                              {campaign.created_at && (
+                                <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
+                                  Started {formatDate(campaign.created_at)}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex flex-col items-end gap-2 sm:items-end sm:text-right">
+                            <span
+                              className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${
+                                (campaign.status || '').toLowerCase() ===
+                                'paused'
+                                  ? 'bg-amber-500/15 text-amber-300'
+                                  : (campaign.status || '').toLowerCase() ===
+                                    'deleted'
+                                  ? 'bg-red-500/15 text-red-300'
+                                  : 'bg-slate-500/20 text-slate-200'
+                              }`}
+                            >
+                              {(campaign.status || 'ARCHIVED').toUpperCase()}
+                            </span>
+                            <div className="flex gap-2">
+                              <Link
+                                href={`/business/manage-campaigns/${campaign.id}`}
+                              >
+                                <button className="rounded-full bg-[#00C2CB] px-4 py-1.5 text-xs font-semibold text-black shadow hover:bg-[#00b0b8]">
+                                  View campaign
+                                </button>
+                              </Link>
+                              <button className="rounded-full border border-white/20 bg-transparent px-4 py-1.5 text-xs font-semibold text-white/80 hover:bg-white/5">
+                                Edit details
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </section>
           </div>
         )}
       </div>

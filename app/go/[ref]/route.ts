@@ -37,11 +37,32 @@ export async function GET(request: NextRequest, context: any) {
   // 1. Get live_campaign by campaignId
   const { data: campaign, error: campaignError } = await supabaseAdmin
     .from('live_campaigns')
-    .select('offer_id')
+    .select('offer_id,status')
     .eq('id', campaignId)
     .single();
   console.log('[📋 Campaign data from supabase]', campaign);
   console.log('[⚠️ Campaign error from supabase]', campaignError);
+
+  // If the campaign is paused, block the redirect and show a clear message.
+  const campaignStatus = (campaign as any)?.status
+    ? String((campaign as any).status).toUpperCase()
+    : '';
+
+  if (campaignStatus === 'PAUSED') {
+    console.warn('[⏸️ Campaign paused – blocking redirect]', { campaignId, affiliateId });
+
+    return new NextResponse(
+      `<html><body style="font-family:sans-serif;text-align:center;margin-top:100px;color:#e5e7eb;background:#020617">
+        <h2 style="font-size:24px;margin-bottom:12px;">Campaign temporarily paused</h2>
+        <p style="font-size:14px;line-height:1.6;max-width:520px;margin:0 auto;">
+          This tracking link has been temporarily disabled by the business while they update or review this offer.
+          <br/><br/>
+          Please check back later or contact the brand/affiliate manager if you believe this is a mistake.
+        </p>
+      </body></html>`,
+      { status: 200, headers: { 'Content-Type': 'text/html' } }
+    );
+  }
 
   if (campaignError || !campaign?.offer_id) {
     console.error('[❌ No campaign/offer_id found]', { campaignId, campaignError });

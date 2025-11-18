@@ -64,7 +64,7 @@ export default function Topbar() {
   }, [user?.email]);
 
   return (
-    <header className="w-full bg-[#1F1F1F] px-6 py-2 border-b border-gray-800 flex justify-between items-center" style={{ height: '56px' }}>
+    <header className="w-full bg-[#1F1F1F] px-6 pt-3 pb-1 border-0 flex justify-between items-center" style={{ height: '64px' }}>
       <Link href="/" className="flex items-center">
         <Image
           src="/nettmark-logo.png"
@@ -72,12 +72,12 @@ export default function Topbar() {
           width={140}
           height={35}
           priority
-          className="object-contain ml-4"
+          className="object-contain ml-4 translate-y-[-3px]"
         />
       </Link>
 
       <div className="flex items-center gap-4">
-        <Link href="/" className="text-sm text-[#00C2CB] font-medium hover:underline">
+        <Link href="/" className="text-sm text-[#00C2CB] font-medium hover:underline translate-y-[-3px]">
           Home
         </Link>
 
@@ -85,7 +85,7 @@ export default function Topbar() {
         {user && (
           <>
             {avatarUrl ? (
-              <div className="w-9 h-9 rounded-full border border-white/15 overflow-hidden bg-black/40">
+              <div className="w-9 h-9 rounded-full border border-white/15 overflow-hidden bg-black/40 translate-y-[-3px]">
                 <img
                   src={avatarUrl}
                   alt="Profile"
@@ -93,7 +93,7 @@ export default function Topbar() {
                 />
               </div>
             ) : (
-              <div className="w-9 h-9 rounded-full bg-[#1F1F1F]/20 flex items-center justify-center text-[#00C2CB] font-semibold text-sm shadow-inner">
+              <div className="w-9 h-9 rounded-full bg-[#1F1F1F]/20 flex items-center justify-center text-[#00C2CB] font-semibold text-sm shadow-inner translate-y-[-3px]">
                 {userInitials}
               </div>
             )}
@@ -102,7 +102,7 @@ export default function Topbar() {
                 await supabase.auth.signOut();
                 router.push('/');
               }}
-              className="flex items-center gap-2 bg-[#00C2CB] hover:bg-[#00b0b8] text-white px-4 py-2 rounded-lg text-sm transition"
+              className="flex items-center gap-2 bg-[#00C2CB] hover:bg-[#00b0b8] text-white px-4 py-2 rounded-lg text-sm transition translate-y-[-3px]"
             >
               <LogOut size={16} />
               Sign Out

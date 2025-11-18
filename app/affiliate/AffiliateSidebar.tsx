@@ -74,7 +74,7 @@ export default function AffiliateSidebar() {
   ];
 
   return (
-    <div className="h-full w-64 bg-gradient-to-b from-[#121212] to-[#1a1a1a] border-r border-[#262626] p-6 text-white">
+    <div className="h-full w-64 bg-gradient-to-b from-[#121212] to-[#1a1a1a] p-6 text-white">
       {/* Optional: FalconX label or subtle spacer */}
       <div className="text-[#00C2CB] font-bold text-lg mb-6 text-center tracking-wide">
       

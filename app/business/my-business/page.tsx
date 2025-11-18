@@ -57,15 +57,36 @@ const IconStorefront = (props: React.SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
+// New icon: Simple document with folded corner
+const IconPost = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...props}>
+    <rect x="5" y="3" width="14" height="18" rx="2" />
+    <polyline points="15 3 15 8 20 8" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M15 3l5 5" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+// New icon: Simple megaphone / speaker
+const IconMegaphone = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" {...props}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M3 11v2a2 2 0 002 2h2l7 4v-16l-7 4H5a2 2 0 00-2 2z" />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M16 8.5a4 4 0 010 7" />
+  </svg>
+);
+
 // ---- Small UI helpers ----
 function SectionCard({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border border-[#00C2CB]/20 bg-[#1F1F1F] shadow-sm">
-      <div className="flex items-center gap-2 px-5 py-4 border-b border-[#00C2CB]/15">
-        <div className="text-[#00C2CB]">{icon}</div>
-        <h3 className="font-semibold text-white">{title}</h3>
+    <div className="rounded-3xl border border-white/10 bg-white/[0.04] shadow-[0_0_40px_rgba(0,0,0,0.6)] overflow-hidden">
+      <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-white/5">
+        <div className="flex items-center gap-2">
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#00C2CB1a] text-[#7ff5fb]">
+            {icon}
+          </div>
+          <h3 className="font-semibold text-sm text-white">{title}</h3>
+        </div>
       </div>
-      <div className="p-5">{children}</div>
+      <div className="p-5 pt-4">{children}</div>
     </div>
   );
 }
@@ -83,11 +104,14 @@ function ActionButton({
   size?: 'sm' | 'md';
 }) {
   const base =
-    'w-full flex items-center justify-center gap-2 rounded-full px-4 py-3 font-medium transition will-change-transform hover:-translate-y-[1px]';
+    'w-full inline-flex items-center justify-center rounded-full font-medium transition will-change-transform hover:-translate-y-[1px]';
   const styles = secondary
     ? 'bg-transparent border border-[#00C2CB]/30 text-white hover:bg-[#0f1415]'
     : 'bg-[#00C2CB] text-black hover:bg-[#00b0b8]';
-  const sizeCls = size === 'sm' ? 'min-h-[44px] text-sm' : 'min-h-[56px] text-base';
+  const sizeCls =
+    size === 'sm'
+      ? 'min-h-[40px] text-sm px-5 py-2 gap-2'
+      : 'min-h-[56px] text-base px-6 py-3 gap-3';
   return (
     <button
       onClick={onClick}
@@ -393,11 +417,13 @@ export default function MyBusinessPage() {
   return (
     <div className="bg-[#0a0a0a] text-white px-6 py-10 min-h-screen">
       {/* Header */}
-      <div className="text-center mb-8">
-        <div className="mb-4" />
-        <div className="flex items-center justify-center gap-2 text-gray-500 mb-6">
+      <div className="max-w-6xl mx-auto mb-10">
+        <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-[#7ff5fb] to-[#00C2CB]">
+          Business control hub
+        </h1>
+        <p className="mt-3 flex items-center gap-2 text-sm text-white/70">
           <svg
-            className="w-5 h-5 text-[#00C2CB]"
+            className="w-4 h-4 text-[#00C2CB]"
             fill="none"
             stroke="currentColor"
             strokeWidth="2"
@@ -409,10 +435,8 @@ export default function MyBusinessPage() {
               d="M12 8c-1.333-1.333-4-1-4 2s2.667 4 4 4 4-1.333 4-4-2.667-3.333-4-2zm0 0V6m0 10v2"
             />
           </svg>
-          <span className="text-sm sm:text-base text-center">
-            Manage your offers, creatives, and Meta integration — all in one place.
-          </span>
-        </div>
+          <span>Manage affiliates, Meta integration, and billing for your Nettmark offers — all in one place.</span>
+        </p>
       </div>
 
       {/* ===== Onboarding Checklist (stays until payouts + billing + at least one offer) ===== */}
@@ -539,73 +563,106 @@ export default function MyBusinessPage() {
       )}
 
       {/* ===== Action sections (grouped) ===== */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+      <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
         {/* Affiliates */}
         {showAffiliatesCard && (
-          <SectionCard title="Affiliates" icon={<IconUsers className="w-5 h-5" />}>
-            <div className="space-y-3">
-              <Link href="/business/my-business/affiliate-requests">
-                <ActionButton secondary>
-                  <IconCheck className="w-4 h-4 text-[#00C2CB]" />
-                  <span>Affiliate Requests</span>
-                </ActionButton>
-              </Link>
-              <Link href="/business/my-business/post-ideas">
-                <ActionButton secondary>
-                  <span className="text-[#00C2CB]">•</span>
-                  <span>View Post Ideas</span>
-                </ActionButton>
-              </Link>
-              <Link href="/business/my-business/ad-ideas">
-                <ActionButton secondary>
-                  <span className="text-[#00C2CB]">≡</span>
-                  <span>View Ad Ideas</span>
-                </ActionButton>
-              </Link>
+          <SectionCard title="Affiliates" icon={<IconUsers className="w-4 h-4" />}>
+            <div className="space-y-4">
+              <p className="text-xs text-white/70">
+                Approve partners, review post ideas, and keep an eye on what affiliates are planning to run.
+              </p>
+
+              <div className="space-y-3">
+                <Link href="/business/my-business/affiliate-requests">
+                  <ActionButton size="sm">
+                    <IconUsers className="w-5 h-5 shrink-0" />
+                    <span>Affiliate requests</span>
+                  </ActionButton>
+                </Link>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Link href="/business/my-business/post-ideas">
+                    <ActionButton size="sm" secondary>
+                      View post ideas
+                    </ActionButton>
+                  </Link>
+                  <Link href="/business/my-business/ad-ideas">
+                    <ActionButton size="sm" secondary>
+                      View ad ideas
+                    </ActionButton>
+                  </Link>
+                </div>
+              </div>
             </div>
           </SectionCard>
         )}
 
         {/* Meta Integration */}
         {showMetaCard && (
-          <SectionCard title="Meta Integration" icon={<IconPuzzle className="w-5 h-5" />}>
-            <div className="space-y-3">
-              <Link href="/business/my-business/connect-meta">
-                <ActionButton secondary>
-                  <span className="rotate-180 text-[#00C2CB]">↪</span>
-                  <span>Connect Meta Ads</span>
-                </ActionButton>
-              </Link>
-              <Link href="/business/setup-tracking">
-                <ActionButton secondary>
-                  <IconBolt className="w-4 h-4 text-[#00C2CB]" />
-                  <span>Setup Tracking</span>
-                </ActionButton>
-              </Link>
-              <Link href="/business/my-business/publish-creatives">
-                <ActionButton secondary>
-                  <span className="text-[#00C2CB]">⭳</span>
-                  <span>Publish Creatives</span>
-                </ActionButton>
-              </Link>
+          <SectionCard title="Meta Integration" icon={<IconPuzzle className="w-4 h-4" />}>
+            <div className="space-y-4">
+              <p className="text-xs text-white/70">
+                Connect your Meta assets and keep tracking + creatives aligned with your Nettmark offers.
+              </p>
+
+              <div className="space-y-3">
+                <Link href="/business/my-business/connect-meta">
+                  <ActionButton size="sm">
+                    <IconBolt className="w-5 h-5 shrink-0" />
+                    <span>Connect Meta ads</span>
+                  </ActionButton>
+                </Link>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Link href="/business/setup-tracking">
+                    <ActionButton size="sm" secondary>
+                      Setup tracking
+                    </ActionButton>
+                  </Link>
+                  <Link href="/business/my-business/publish-creatives">
+                    <ActionButton size="sm" secondary>
+                      Publish creatives
+                    </ActionButton>
+                  </Link>
+                </div>
+              </div>
             </div>
           </SectionCard>
         )}
 
         {/* Billing */}
         {showBillingCard && (
-          <SectionCard title="Billing" icon={<IconCreditCard className="w-5 h-5" />}>
-            <div className="space-y-3">
-              <div className="w-full flex items-center justify-center gap-2 rounded-full px-4 py-3 border border-green-500/60 text-green-400 bg-[#0f1415]">
-                <IconCheck className="w-4 h-4" />
-                <span>Billing connected</span>
-              </div>
-              {businessAccountId && onboardingComplete && (
-                <div className="w-full flex items-center justify-center gap-2 rounded-full px-4 py-3 border border-green-500/60 text-green-400 bg-[#0f1415]">
-                  <IconCheck className="w-4 h-4" />
-                  <span>Payouts enabled</span>
+          <SectionCard title="Billing" icon={<IconCreditCard className="w-4 h-4" />}>
+            <div className="space-y-4">
+              <p className="text-xs text-white/70">
+                Billing and payouts are handled via Stripe. Once connected, affiliates are paid automatically.
+              </p>
+              <div className="flex flex-col items-center gap-3 mt-2">
+                <div className="w-full max-w-xs">
+                  <div
+                    className={`flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-medium border ${
+                      billingReady
+                        ? 'border-emerald-400/60 text-emerald-300 bg-emerald-500/10'
+                        : 'border-white/10 text-white/70 bg-white/5'
+                    }`}
+                  >
+                    <IconCreditCard className="w-4 h-4" />
+                    <span>{billingReady ? 'Billing connected' : 'Billing not connected'}</span>
+                  </div>
                 </div>
-              )}
+                <div className="w-full max-w-xs">
+                  <div
+                    className={`flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-medium border ${
+                      payoutsReady
+                        ? 'border-emerald-400/60 text-emerald-300 bg-emerald-500/10'
+                        : 'border-white/10 text-white/70 bg-white/5'
+                    }`}
+                  >
+                    <IconBank className="w-4 h-4" />
+                    <span>{payoutsReady ? 'Payouts enabled' : 'Payouts not enabled'}</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </SectionCard>
         )}
@@ -643,58 +700,81 @@ export default function MyBusinessPage() {
         {offers.length === 0 ? (
           <p className="text-gray-400 text-center">You haven't uploaded any offers yet.</p>
         ) : (
-          <div className="grid grid-cols-1 md-grid-cols-2 md:grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {offers.map((offer) => (
               <div
                 key={offer.id}
-                className="bg-[#1F1F1F] border border-[#00C2CB]/20 hover:border-[#00C2CB]/40 shadow-sm hover:shadow-lg transition rounded-xl p-5"
+                className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] p-5 shadow-[0_18px_45px_rgba(0,0,0,0.7)] transition hover:border-[#00C2CB]/60 hover:shadow-[0_22px_60px_rgba(0,0,0,0.95)]"
               >
-                <div className="flex items-center gap-3 mb-2">
-                  <div className="text-[#00C2CB] bg-[#e0fafa] p-2 rounded-full">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="w-5 h-5"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={2}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M3 7v13h18V7M5 10h14M10 21V3h4v18"
-                      />
-                    </svg>
+                {/* Soft glow accent */}
+                <div
+                  className="pointer-events-none absolute inset-x-0 -top-16 h-24 opacity-40 blur-3xl"
+                  style={{
+                    background:
+                      'radial-gradient(40% 80% at 10% 0%, rgba(0,194,203,0.35), transparent 60%), radial-gradient(40% 80% at 90% 0%, rgba(127,245,251,0.18), transparent 60%)',
+                  }}
+                />
+
+                <div className="relative flex items-start justify-between gap-4">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#00C2CB1a] text-[#7ff5fb]">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="w-5 h-5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={1.8}
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M3 7v13h18V7M5 10h14M10 21V3h4v18"
+                        />
+                      </svg>
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-semibold tracking-tight text-[#7ff5fb]">{offer.title}</h2>
+                      <p className="mt-0.5 text-xs uppercase tracking-[0.16em] text-white/40">
+                        {offer.type === 'recurring' ? 'Recurring offer' : 'One-time offer'}
+                      </p>
+                    </div>
                   </div>
-                  <h2 className="text-2xl font-semibold text-[#00C2CB]">{offer.title}</h2>
-                </div>
-                <p className="text-gray-300 mb-2">{offer.description}</p>
-                <div className="flex items-center gap-2 mb-4">
-                  <span className="text-sm font-medium text-gray-400">Commission:</span>
-                  <span className="text-sm font-semibold text-white">{offer.commission}%</span>
-                  <span
-                    className={`text-xs px-2 py-1 rounded-full ${
-                      offer.type === 'recurring'
-                        ? 'bg-green-100 text-green-600'
-                        : 'bg-yellow-100 text-yellow-600'
-                    }`}
-                  >
-                    {offer.type === 'recurring' ? 'Recurring' : 'One-Time'}
-                  </span>
+
+                  <div className="flex flex-col items-end gap-1">
+                    <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-white/40">
+                      Commission
+                    </span>
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-2xl font-semibold text-white">{offer.commission}</span>
+                      <span className="text-sm font-medium text-white/60">%</span>
+                    </div>
+                    <span
+                      className={`mt-1 inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium ${
+                        offer.type === 'recurring'
+                          ? 'bg-emerald-500/15 text-emerald-300 border border-emerald-400/40'
+                          : 'bg-amber-500/15 text-amber-200 border border-amber-400/40'
+                      }`}
+                    >
+                      {offer.type === 'recurring' ? 'Recurring' : 'One-Time'}
+                    </span>
+                  </div>
                 </div>
 
-                <div className="flex gap-3">
+                <p className="relative mt-4 text-sm text-white/70">{offer.description}</p>
+
+                <div className="relative mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
                   <Link href={`/business/my-business/edit-offer/${offer.id}`}>
-                    <button className="bg-[#00C2CB] hover:bg-[#00b0b8] text-white font-semibold py-2 px-4 rounded shadow">
+                    <button className="inline-flex w-full items-center justify-center rounded-full bg-[#00C2CB] px-4 py-2.5 text-sm font-semibold text-black shadow-[0_0_25px_rgba(0,194,203,0.45)] hover:bg-[#00b0b8] sm:w-auto">
                       Edit Offer
                     </button>
                   </Link>
                   <button
                     onClick={() => handleDelete(offer.id)}
                     disabled={loadingDeleteId === offer.id}
-                    className="bg-gray-800 hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-2 px-4 rounded shadow"
+                    className="inline-flex w-full items-center justify-center rounded-full border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm font-semibold text-white/80 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
                   >
-                    {loadingDeleteId === offer.id ? 'Deleting...' : 'Delete Offer'}
+                    {loadingDeleteId === offer.id ? 'Deleting…' : 'Delete Offer'}
                   </button>
                 </div>
               </div>

@@ -148,9 +148,9 @@ export default function PostIdeasPage() {
     post: any
   ) => {
     try {
-      const { error: updateError } = await supabase
+      const { error: updateError } = await (supabase as any)
         .from("organic_posts")
-        .update({ status: newStatus } as any)
+        .update({ status: newStatus })
         .eq("id", postId);
 
       if (updateError) throw updateError;
@@ -163,7 +163,7 @@ export default function PostIdeasPage() {
         // This guarantees correct association between the campaign and the offer
         const correctOfferId = post.offer_id;
 
-        const { error: insertError } = await supabase
+        const { error: insertError } = await (supabase as any)
           .from("live_campaigns")
           .insert([
             {
@@ -171,13 +171,13 @@ export default function PostIdeasPage() {
               offer_id: correctOfferId,
               business_email: post.business_email,
               affiliate_email: post.affiliate_email,
-              media_url: media_url,
+              media_url,
               caption: post.caption,
               platform: post.platform,
               created_from: "post-ideas",
-              status: "scheduled",
-            } as any,
-          ]);
+              status: "live",
+            },
+          ] as any[]);
 
         if (insertError) throw insertError;
       }

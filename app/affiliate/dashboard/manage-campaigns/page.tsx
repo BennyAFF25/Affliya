@@ -11,6 +11,7 @@ interface Offer {
   title: string;
   logo_url?: string | null;
 }
+
 interface LiveCampaign {
   id: string;
   type: string;
@@ -32,18 +33,23 @@ interface LiveCampaign {
 function PlatformIcon({ platform }: { platform: string }) {
   switch (platform?.toLowerCase()) {
     case 'facebook':
-      return <FaFacebookF className="w-6 h-6" />;
+      return <FaFacebookF className="w-4 h-4" />;
     case 'instagram':
-      return <FaInstagram className="w-6 h-6" />;
+      return <FaInstagram className="w-4 h-4" />;
     case 'email':
-      return <FaEnvelope className="w-6 h-6" />;
+      return <FaEnvelope className="w-4 h-4" />;
     default:
-      return null;
+      return <FaFacebookF className="w-4 h-4" />;
   }
 }
 
 export default function ManageCampaignsPage() {
   const [campaigns, setCampaigns] = useState<LiveCampaign[]>([]);
+  const [activeFilter, setActiveFilter] = useState<'all' | 'organic' | 'ads'>('all');
+  const [sortOption, setSortOption] = useState<'most_recent' | 'highest_ctr' | 'instagram'>(
+    'most_recent'
+  );
+
   const session = useSession();
   const user = session?.user;
 
@@ -69,7 +75,9 @@ export default function ManageCampaignsPage() {
       }
 
       // 2. Fetch all unique offer_ids
-      const offerIds = Array.from(new Set((campaignsRaw as any[]).map(c => c.offer_id).filter(Boolean)));
+      const offerIds = Array.from(
+        new Set((campaignsRaw as any[]).map((c) => c.offer_id).filter(Boolean))
+      );
       let offersById: { [id: string]: Offer } = {};
 
       if (offerIds.length > 0) {
@@ -97,73 +105,251 @@ export default function ManageCampaignsPage() {
     fetchCampaigns();
   }, [user]);
 
+  // ---------- FILTER + SORT LOGIC ----------
+
+  const filteredCampaigns = campaigns.filter((campaign) => {
+    if (activeFilter === 'organic') {
+      return (campaign.type || '').toLowerCase() === 'organic';
+    }
+    if (activeFilter === 'ads') {
+      const t = (campaign.type || '').toLowerCase();
+      // Treat anything that isn't explicitly "organic" as an ad for now
+      return t !== 'organic';
+    }
+    return true; // 'all'
+  });
+
+  const sortedCampaigns = [...filteredCampaigns].sort((a, b) => {
+    if (sortOption === 'most_recent') {
+      return (
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+    }
+
+    if (sortOption === 'highest_ctr') {
+      // Placeholder for now – same as most recent until CTR is wired
+      return (
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+    }
+
+    if (sortOption === 'instagram') {
+      const aIsIg = (a.platform || '').toLowerCase() === 'instagram';
+      const bIsIg = (b.platform || '').toLowerCase() === 'instagram';
+      if (aIsIg === bIsIg) return 0;
+      return bIsIg ? 1 : -1; // bubble Instagram up
+    }
+
+    return 0;
+  });
+
+  const displayCampaigns = sortedCampaigns;
+
+  // ---------- RENDER ----------
+
   return (
-    <div className="px-8 py-6 min-h-screen bg-[#0A0A0A] text-white">
-      <h1 className="text-3xl font-bold text-[#00C2CB] mb-8 drop-shadow-[0_0_6px_#00C2CB] text-center">Approved Campaigns</h1>
-      <div className="max-w-6xl mx-auto mb-6 px-2 text-center text-gray-400 text-sm">
-        Manage and review your approved campaigns below.
-      </div>
+    <div className="min-h-screen bg-[#0e0e0e] text-gray-100 px-6 py-8">
+      <div className="max-w-5xl mx-auto">
+        {/* Header */}
+        <header className="mb-8">
+          <p className="text-xs uppercase tracking-[0.18em] text-gray-500">
+            Campaigns
+          </p>
+          <div className="mt-1 flex items-center justify-between gap-4">
+            <h1 className="text-2xl md:text-3xl font-semibold text-[#00C2CB]">
+              Approved campaigns
+            </h1>
+            <div className="flex items-center gap-2 text-sm text-gray-400">
+              <span className="inline-flex h-7 px-3 items-center rounded-full bg-[#181818] border border-[#2a2a2a] text-xs">
+                {campaigns.length} campaign{campaigns.length === 1 ? '' : 's'} live
+              </span>
+            </div>
+          </div>
+          <p className="mt-2 text-sm text-gray-400 max-w-xl">
+            All campaigns you&apos;ve been approved to run. Click into a campaign to see the
+            creative and live tracking.
+          </p>
+        </header>
 
-      <div className="flex justify-between items-center max-w-6xl mx-auto mb-4 px-2 text-gray-400 text-sm">
-        <span>{campaigns.length} Campaign{campaigns.length === 1 ? '' : 's'}</span>
-        <div className="flex gap-3">
-          <button className="px-3 py-1 bg-[#111] border border-[#00C2CB33] rounded-md hover:border-[#00C2CB88]">All</button>
-          <button className="px-3 py-1 bg-[#111] border border-[#00C2CB33] rounded-md hover:border-[#00C2CB88]">Organic</button>
-          <button className="px-3 py-1 bg-[#111] border border-[#00C2CB33] rounded-md hover:border-[#00C2CB88]">Ads</button>
-        </div>
-      </div>
-
-      <div className="flex justify-center mb-8">
-        <select className="bg-[#111] border border-[#00C2CB55] text-[#00C2CB] px-3 py-2 rounded-md">
-          <option>Most Recent</option>
-          <option>Highest CTR</option>
-          <option>Platform: Instagram</option>
-        </select>
-      </div>
-
-      {campaigns.length === 0 ? (
-        <p className="text-[#7ff5fb] italic text-lg text-center">No approved campaigns yet. Submit one to get started!</p>
-      ) : (
-        <div className="flex flex-col gap-4 max-w-6xl mx-auto">
-          {campaigns.map((campaign) => (
-            <div
-              key={campaign.id}
-              className="relative flex justify-between items-center bg-[#1a1a1a] border border-[#00C2CB22] hover:border-[#00C2CB55] rounded-lg shadow-[0_0_10px_#00C2CB25] hover:shadow-[0_0_20px_#00C2CB55] transition-all duration-300 p-5 w-full max-w-6xl mx-auto before:absolute before:left-0 before:top-0 before:h-full before:w-1 before:bg-[#00C2CB]"
+        {/* Top controls */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+          {/* Filters */}
+          <div className="inline-flex rounded-full bg-[#151515] border border-[#262626] p-1 text-xs">
+            <button
+              onClick={() => setActiveFilter('all')}
+              className={`px-3 py-1 rounded-full transition ${
+                activeFilter === 'all'
+                  ? 'bg-[#00C2CB] text-black font-medium'
+                  : 'text-gray-300 hover:text-white hover:bg-[#1f1f1f]'
+              }`}
             >
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  {campaign.offer?.logo_url && (
-                    <img src={campaign.offer.logo_url} alt="Brand Logo" className="w-7 h-7 rounded-full" />
-                  )}
-                  <span className="font-semibold text-[#00C2CB]">{campaign.offer?.title || 'Unknown Offer'}</span>
-                </div>
-                <h3 className="text-lg font-semibold text-white mb-1">{campaign.caption || 'Untitled Campaign'}</h3>
-                <p className="text-sm text-[#00C2CB] mb-1">{campaign.platform || 'Unknown Platform'}</p>
-                <p className="text-xs text-gray-400">
-                  <span className="text-white font-medium">Affiliate:</span> {campaign.affiliate_email}
-                  <Link
-                    href={`/affiliate/dashboard/manage-campaigns/${campaign.id}`}
-                    className="ml-3 text-[#00C2CB] hover:text-[#7ff5fb] text-xs"
-                  >
-                    View Detail
-                  </Link>
-                </p>
-              </div>
-              <div>
-                <span
-                  className={`px-3 py-1 text-xs rounded-full font-medium ${
-                    campaign.status?.toLowerCase() === 'approved'
-                      ? 'bg-[#0f5132] text-[#4ef08a]'
-                      : 'bg-[#512d0f] text-[#f0b84e]'
+              All
+            </button>
+            <button
+              onClick={() => setActiveFilter('organic')}
+              className={`px-3 py-1 rounded-full transition ${
+                activeFilter === 'organic'
+                  ? 'bg-[#00C2CB] text-black font-medium'
+                  : 'text-gray-300 hover:text-white hover:bg-[#1f1f1f]'
+              }`}
+            >
+              Organic
+            </button>
+            <button
+              onClick={() => setActiveFilter('ads')}
+              className={`px-3 py-1 rounded-full transition ${
+                activeFilter === 'ads'
+                  ? 'bg-[#00C2CB] text-black font-medium'
+                  : 'text-gray-300 hover:text-white hover:bg-[#1f1f1f]'
+              }`}
+            >
+              Ads
+            </button>
+          </div>
+
+          {/* Sort */}
+          <div className="inline-flex items-center gap-2 rounded-full bg-[#151515] border border-[#262626] px-3 py-1.5 text-xs text-gray-300">
+            <span className="uppercase tracking-[0.16em] text-[0.65rem] text-gray-500">
+              Sort
+            </span>
+            <select
+              value={sortOption}
+              onChange={(e) =>
+                setSortOption(
+                  e.target.value as 'most_recent' | 'highest_ctr' | 'instagram'
+                )
+              }
+              className="bg-transparent text-xs text-gray-100 focus:outline-none cursor-pointer"
+            >
+              <option value="most_recent" className="bg-[#151515]">
+                Most recent
+              </option>
+              <option value="highest_ctr" className="bg-[#151515]">
+                Highest CTR (coming soon)
+              </option>
+              <option value="instagram" className="bg-[#151515]">
+                Platform: Instagram
+              </option>
+            </select>
+          </div>
+        </div>
+
+        {/* Empty state / list */}
+        {displayCampaigns.length === 0 ? (
+          <div className="mt-16 flex flex-col items-center justify-center text-center">
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-dashed border-[#3a3a3a] bg-[#151515] px-4 py-1.5 text-[0.75rem] text-gray-300">
+              No campaigns found
+            </div>
+            <p className="text-sm text-gray-400 max-w-md">
+              Try switching filters or check back once more campaigns are live for this
+              account.
+            </p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-4 pb-10">
+            {displayCampaigns.map((campaign) => {
+              const platform = campaign.platform || 'Unknown';
+              const offerTitle = campaign.offer?.title || 'Unknown offer';
+              const status = campaign.status?.toUpperCase() || 'PENDING';
+              const isPaused = status === 'PAUSED';
+
+              const statusStyles =
+                status === 'APPROVED' || status === 'LIVE'
+                  ? 'bg-[#06301b] text-[#8ef3b0] border border-[#15803d]' // green
+                  : status === 'SCHEDULED'
+                  ? 'bg-[#1f2937] text-[#e5e7eb] border border-[#4b5563]' // neutral scheduled
+                  : status === 'PAUSED'
+                  ? 'bg-[#3f1e1e] text-[#fecaca] border border-[#b91c1c]' // paused warning
+                  : 'bg-[#111827] text-gray-200 border border-[#374151]';
+
+              return (
+                <div
+                  key={campaign.id}
+                  className={`flex items-start justify-between gap-6 rounded-xl px-5 py-4 shadow-sm transition-all duration-200 ${
+                    isPaused
+                      ? 'border border-[#374151] bg-[#101010] opacity-70'
+                      : 'border border-[#222] bg-[#141414] hover:border-[#00C2CB] hover:shadow-[0_0_18px_rgba(0,194,203,0.3)]'
                   }`}
                 >
-                  {campaign.status?.toUpperCase() || 'PENDING'}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+                  {/* Left side */}
+                  <div className="flex items-start gap-4">
+                    {/* Platform icon */}
+                    <div className="mt-1 flex flex-col items-center gap-2">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#111111] border border-[#333] text-[#7ff5fb]">
+                        <PlatformIcon platform={platform} />
+                      </div>
+                      <span className="text-[0.6rem] uppercase tracking-[0.12em] text-gray-500">
+                        {platform.toUpperCase()}
+                      </span>
+                    </div>
+
+                    {/* Text content */}
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        {campaign.offer?.logo_url && (
+                          <img
+                            src={campaign.offer.logo_url}
+                            alt="Brand Logo"
+                            className="w-7 h-7 rounded-full border border-[#333] object-cover"
+                          />
+                        )}
+                        <p className="text-sm font-semibold text-gray-100">
+                          {offerTitle}
+                        </p>
+                      </div>
+
+                      <h3 className="text-[0.98rem] md:text-[1.05rem] font-medium text-white">
+                        {campaign.caption || 'Untitled campaign'}
+                      </h3>
+
+                      <div className="flex flex-wrap items-center gap-3 text-[0.75rem] text-gray-400">
+                        <span>
+                          <span className="text-gray-500">Affiliate:</span>{' '}
+                          <span className="text-gray-200">{campaign.affiliate_email}</span>
+                        </span>
+                        <span className="h-1 w-1 rounded-full bg-gray-600" />
+                        <span className="uppercase tracking-[0.12em] text-[0.68rem] text-gray-400">
+                          {campaign.type || 'organic'}
+                        </span>
+                        {campaign.created_at && (
+                          <>
+                            <span className="h-1 w-1 rounded-full bg-gray-600" />
+                            <span className="text-[0.7rem] text-gray-500">
+                              Started{' '}
+                              {new Date(campaign.created_at).toLocaleDateString()}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                      {isPaused && (
+                        <p className="mt-2 text-[0.7rem] text-amber-300">
+                          Paused by business – your tracking link is temporarily disabled.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Right side */}
+                  <div className="flex flex-col items-end gap-3">
+                    <span
+                      className={`px-3 py-1 rounded-full text-[0.7rem] font-semibold uppercase tracking-[0.16em] ${statusStyles}`}
+                    >
+                      {status}
+                    </span>
+                    <Link
+                      href={`/affiliate/dashboard/manage-campaigns/${campaign.id}`}
+                      className="text-[0.8rem] text-[#7ff5fb] hover:text-white font-medium inline-flex items-center gap-1 border-b border-transparent hover:border-[#7ff5fb] transition"
+                    >
+                      View campaign
+                      <span className="text-xs">↗</span>
+                    </Link>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

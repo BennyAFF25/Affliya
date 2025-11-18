@@ -24,7 +24,7 @@ ChartJS.register(
   Legend,
   Filler
 );
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/../utils/supabase/pages-client';
 import type { PostgrestError } from '@supabase/supabase-js';
 // If it exists, import currency formatter
@@ -44,6 +44,7 @@ type Stats = { clicks: number; carts: number; conversions: number };
 export default function ManageCampaignPage() {
   const params = useParams();
   const campaignId = params.campaignId as string;
+  const router = useRouter();
 
   const [affiliateId, setAffiliateId] = useState<string | null>(null);
 
@@ -269,14 +270,33 @@ export default function ManageCampaignPage() {
     return `https://nettmark.com/go/${campaignId}-${affiliateId}`;
   }, [campaignId, affiliateId]);
 
+  const isPaused = (campaign?.status
+    ? String(campaign.status).toUpperCase()
+    : '') === 'PAUSED';
+
   if (error) return <div>Error: {error.message}</div>;
   if (!campaign) return <div>Loading...</div>;
   return (
-    <div className="min-h-screen bg-[#111111] text-gray-100 p-6">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center justify-center max-w-4xl mx-auto">
+    <div className="min-h-screen bg-[#0e0e0e] text-gray-100 px-4 py-6 md:px-8 md:py-8">
+      {isPaused && (
+        <div className="max-w-6xl mx-auto mb-4">
+          <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-100 px-4 py-3 text-xs md:text-sm flex items-start gap-3">
+            <span className="mt-0.5">⏸️</span>
+            <div>
+              <p className="font-semibold uppercase tracking-wide text-[0.7rem] md:text-[0.75rem] text-amber-200">
+                Campaign paused by business
+              </p>
+              <p className="mt-1 text-[0.75rem] md:text-xs text-amber-100/80">
+                Your tracking link is temporarily disabled while the brand reviews or updates this offer. Stats remain visible but won&apos;t increase until the campaign is reactivated.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+      <div className="grid grid-cols-1 lg:grid-cols-[340px,minmax(0,1fr)] gap-8 items-start justify-center max-w-6xl mx-auto">
         {/* Left side: media preview */}
         {/* Dynamic Preview */}
-        <div className="w-full flex justify-center items-center h-full">
+        <div className="w-full flex justify-center items-start">
           {/* Email Preview: If platform is "email" */}
           {campaign.platform && campaign.platform.toLowerCase() === 'email' ? (
             <div className="bg-gradient-to-b from-[#181d22] to-[#101214] rounded-2xl border border-[#232931] shadow-xl w-full max-w-lg min-h-[340px] flex flex-col justify-between p-12 relative drop-shadow-[0_0_16px_rgba(0,194,203,0.11)]">
@@ -311,12 +331,12 @@ export default function ManageCampaignPage() {
               </button>
             </div>
           ) : campaign.media_url ? (
-            <div className="bg-black rounded-[2rem] border-4 border-[#2D2D2D] w-[340px] h-[680px] overflow-hidden shadow-lg relative">
+            <div className="bg-black rounded-[2rem] border-[3px] border-[#2D2D2D] w-[320px] h-[640px] overflow-hidden shadow-lg relative">
               <div className="bg-[#111111] flex items-center justify-center px-4 py-2 border-b border-gray-700">
                 <img
                   src="/nettmark-logo.png"
                   alt="Nettmark Logo"
-                  className="h-14 w-auto opacity-95 transform scale-150"
+                  className="h-10 w-auto opacity-95 transform scale-125"
                 />
               </div>
               <div className="h-[calc(100%-48px)] overflow-hidden">
@@ -344,141 +364,146 @@ export default function ManageCampaignPage() {
         </div>
 
         {/* Right side: stat cards */}
-        <div className="w-full min-w-[340px] grid grid-cols-1 gap-6 content-between h-full -ml-4">
-          <div className="bg-[#171717] hover:bg-[#1C1C1C] transition-all duration-300 p-5 rounded-2xl shadow-md flex items-center justify-between h-24 border border-[#2A2A2A] drop-shadow-[0_0_12px_rgba(0,194,203,0.15)]">
-            <div>
-              <h2 className="text-gray-300 text-sm font-medium mb-1 tracking-wide uppercase">
-                Clicks {loadingStats && <span className="text-xs text-gray-500">•</span>}
-              </h2>
-              <p className="text-3xl font-semibold text-white">{stats.clicks.toLocaleString()}</p>
+        <div className="w-full min-w-[320px] h-[640px] flex flex-col gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-none">
+            <div className="bg-[#171717] hover:bg-[#1C1C1C] transition-all duration-300 p-4 rounded-2xl shadow-md flex items-center justify-between h-24 border border-[#2A2A2A] drop-shadow-[0_0_10px_rgba(0,194,203,0.12)]">
+              <div>
+                <h2 className="text-gray-300 text-sm font-medium mb-1 tracking-wide uppercase">
+                  Clicks {loadingStats && <span className="text-xs text-gray-500">•</span>}
+                </h2>
+                <p className="text-2xl font-semibold text-white">{stats.clicks.toLocaleString()}</p>
+              </div>
+              <div className="w-9 h-9 rounded-full bg-[#0F0F0F] flex items-center justify-center shadow-inner">
+                <CursorArrowRaysIcon className="w-5 h-5 text-[#00C2CB]/80" />
+              </div>
             </div>
-            <div className="w-10 h-10 rounded-full bg-[#0F0F0F] flex items-center justify-center shadow-inner">
-              <CursorArrowRaysIcon className="w-6 h-6 text-[#00C2CB]/80" />
+            <div className="bg-[#171717] hover:bg-[#1C1C1C] transition-all duration-300 p-4 rounded-2xl shadow-md flex items-center justify-between h-24 border border-[#2A2A2A] drop-shadow-[0_0_10px_rgba(0,194,203,0.12)]">
+              <div>
+                <h2 className="text-gray-300 text-sm font-medium mb-1 tracking-wide uppercase">
+                  Add to Carts {loadingStats && <span className="text-xs text-gray-500">•</span>}
+                </h2>
+                <p className="text-2xl font-semibold text-white">{stats.carts.toLocaleString()}</p>
+              </div>
+              <div className="w-9 h-9 rounded-full bg-[#0F0F0F] flex items-center justify-center shadow-inner">
+                <ShoppingCartIcon className="w-5 h-5 text-[#00C2CB]/80" />
+              </div>
+            </div>
+            <div className="bg-[#171717] hover:bg-[#1C1C1C] transition-all duration-300 p-4 rounded-2xl shadow-md flex items-center justify-between h-24 border border-[#2A2A2A] drop-shadow-[0_0_10px_rgba(0,194,203,0.12)]">
+              <div>
+                <h2 className="text-gray-300 text-sm font-medium mb-1 tracking-wide uppercase">
+                  Conversions {loadingStats && <span className="text-xs text-gray-500">•</span>}
+                </h2>
+                <p className="text-2xl font-semibold text-white">{stats.conversions.toLocaleString()}</p>
+              </div>
+              <div className="w-9 h-9 rounded-full bg-[#0F0F0F] flex items-center justify-center shadow-inner">
+                <CurrencyDollarIcon className="w-5 h-5 text-[#00C2CB]/80" />
+              </div>
+            </div>
+            {/* Pending Payout Card */}
+            <div className="bg-[#171717] hover:bg-[#1C1C1C] transition-all duration-300 p-4 rounded-2xl shadow-md flex items-center justify-between h-24 border border-[#2A2A2A] drop-shadow-[0_0_10px_rgba(0,194,203,0.12)]">
+              <div>
+                <h2 className="text-gray-300 text-sm font-medium mb-1 tracking-wide uppercase">
+                  Pending Payout
+                </h2>
+                <p className="text-2xl font-semibold text-white">
+                  {pendingPayout > 0 ? `$${pendingPayout.toFixed(2)}` : '$0.00'}
+                </p>
+                <p className="text-[0.6rem] text-gray-500 mt-1">
+                  {offer?.commission ? `This offer pays ${offer.commission}%` : 'No commission set → showing full amount'}
+                </p>
+              </div>
+              <div className="w-9 h-9 rounded-full bg-[#0F0F0F] flex items-center justify-center shadow-inner">
+                <CurrencyDollarIcon className="w-5 h-5 text-[#00C2CB]/80" />
+              </div>
             </div>
           </div>
-          <div className="bg-[#171717] hover:bg-[#1C1C1C] transition-all duration-300 p-5 rounded-2xl shadow-md flex items-center justify-between h-24 border border-[#2A2A2A] drop-shadow-[0_0_12px_rgba(0,194,203,0.15)]">
-            <div>
-              <h2 className="text-gray-300 text-sm font-medium mb-1 tracking-wide uppercase">
-                Add to Carts {loadingStats && <span className="text-xs text-gray-500">•</span>}
-              </h2>
-              <p className="text-3xl font-semibold text-white">{stats.carts.toLocaleString()}</p>
-            </div>
-            <div className="w-10 h-10 rounded-full bg-[#0F0F0F] flex items-center justify-center shadow-inner">
-              <ShoppingCartIcon className="w-6 h-6 text-[#00C2CB]/80" />
-            </div>
-          </div>
-          <div className="bg-[#171717] hover:bg-[#1C1C1C] transition-all duration-300 p-5 rounded-2xl shadow-md flex items-center justify-between h-24 border border-[#2A2A2A] drop-shadow-[0_0_12px_rgba(0,194,203,0.15)]">
-            <div>
-              <h2 className="text-gray-300 text-sm font-medium mb-1 tracking-wide uppercase">
-                Conversions {loadingStats && <span className="text-xs text-gray-500">•</span>}
-              </h2>
-              <p className="text-3xl font-semibold text-white">{stats.conversions.toLocaleString()}</p>
-            </div>
-            <div className="w-10 h-10 rounded-full bg-[#0F0F0F] flex items-center justify-center shadow-inner">
-              <CurrencyDollarIcon className="w-6 h-6 text-[#00C2CB]/80" />
-            </div>
-          </div>
-          {/* Pending Payout Card */}
-          <div className="bg-[#171717] hover:bg-[#1C1C1C] transition-all duration-300 p-5 rounded-2xl shadow-md flex items-center justify-between h-24 border border-[#2A2A2A] drop-shadow-[0_0_12px_rgba(0,194,203,0.15)]">
-            <div>
-              <h2 className="text-gray-300 text-sm font-medium mb-1 tracking-wide uppercase">
-                Pending Payout
-              </h2>
-              <p className="text-3xl font-semibold text-white">
-                {pendingPayout > 0 ? `$${pendingPayout.toFixed(2)}` : '$0.00'}
-              </p>
-              <p className="text-[0.6rem] text-gray-500 mt-1">
-                {offer?.commission ? `This offer pays ${offer.commission}%` : 'No commission set → showing full amount'}
-              </p>
-            </div>
-            <div className="w-10 h-10 rounded-full bg-[#0F0F0F] flex items-center justify-center shadow-inner">
-              <CurrencyDollarIcon className="w-6 h-6 text-[#00C2CB]/80" />
-            </div>
-          </div>
-          <div className="bg-[#171717] rounded-2xl border border-[#2A2A2A] shadow-md p-5">
+          <div className="bg-[#171717] rounded-2xl border border-[#2A2A2A] shadow-md p-4 flex-1 min-h-[200px]">
             <h3 className="text-gray-300 text-sm font-medium mb-3 tracking-wide uppercase">Performance Overview</h3>
-            <Line
-              data={{
-                labels: chartSeries.labels.length ? chartSeries.labels : ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
-                datasets: [
-                  {
-                    label: 'Clicks',
-                    data: chartSeries.clicks.length ? chartSeries.clicks : [0,0,0,0,0,0,0],
-                    fill: true,
-                    backgroundColor: (context) => {
-                      const gradient = context.chart.ctx.createLinearGradient(0, 0, 0, 200);
-                      gradient.addColorStop(0, 'rgba(0,194,203,0.15)');
-                      gradient.addColorStop(1, 'rgba(0,194,203,0)');
-                      return gradient;
+            <div className="h-full">
+              <Line
+                data={{
+                  labels: chartSeries.labels.length ? chartSeries.labels : ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
+                  datasets: [
+                    {
+                      label: 'Clicks',
+                      data: chartSeries.clicks.length ? chartSeries.clicks : [0,0,0,0,0,0,0],
+                      fill: true,
+                      backgroundColor: (context) => {
+                        const gradient = context.chart.ctx.createLinearGradient(0, 0, 0, 200);
+                        gradient.addColorStop(0, 'rgba(0,194,203,0.15)');
+                        gradient.addColorStop(1, 'rgba(0,194,203,0)');
+                        return gradient;
+                      },
+                      borderColor: '#00C2CB',
+                      borderWidth: 2,
+                      tension: 0.35,
+                      pointRadius: 2,
+                      pointHoverRadius: 4,
                     },
-                    borderColor: '#00C2CB',
-                    borderWidth: 2,
-                    tension: 0.35,
-                    pointRadius: 2,
-                    pointHoverRadius: 4,
-                  },
-                  {
-                    label: 'Add to Carts',
-                    data: chartSeries.carts.length ? chartSeries.carts : [0,0,0,0,0,0,0],
-                    fill: true,
-                    backgroundColor: (context) => {
-                      const gradient = context.chart.ctx.createLinearGradient(0, 0, 0, 200);
-                      gradient.addColorStop(0, 'rgba(0,194,203,0.10)');
-                      gradient.addColorStop(1, 'rgba(0,194,203,0)');
-                      return gradient;
+                    {
+                      label: 'Add to Carts',
+                      data: chartSeries.carts.length ? chartSeries.carts : [0,0,0,0,0,0,0],
+                      fill: true,
+                      backgroundColor: (context) => {
+                        const gradient = context.chart.ctx.createLinearGradient(0, 0, 0, 200);
+                        gradient.addColorStop(0, 'rgba(0,194,203,0.10)');
+                        gradient.addColorStop(1, 'rgba(0,194,203,0)');
+                        return gradient;
+                      },
+                      borderColor: '#009aa2',
+                      borderWidth: 1.5,
+                      borderDash: [3, 4],
+                      tension: 0.35,
+                      pointRadius: 2,
+                      pointHoverRadius: 4,
                     },
-                    borderColor: '#009aa2',
-                    borderWidth: 1.5,
-                    borderDash: [3, 4],
-                    tension: 0.35,
-                    pointRadius: 2,
-                    pointHoverRadius: 4,
-                  },
-                  {
-                    label: 'Conversions',
-                    data: chartSeries.conversions.length ? chartSeries.conversions : [0,0,0,0,0,0,0],
-                    fill: true,
-                    backgroundColor: (context) => {
-                      const gradient = context.chart.ctx.createLinearGradient(0, 0, 0, 200);
-                      gradient.addColorStop(0, 'rgba(0,194,203,0.08)');
-                      gradient.addColorStop(1, 'rgba(0,194,203,0)');
-                      return gradient;
+                    {
+                      label: 'Conversions',
+                      data: chartSeries.conversions.length ? chartSeries.conversions : [0,0,0,0,0,0,0],
+                      fill: true,
+                      backgroundColor: (context) => {
+                        const gradient = context.chart.ctx.createLinearGradient(0, 0, 0, 200);
+                        gradient.addColorStop(0, 'rgba(0,194,203,0.08)');
+                        gradient.addColorStop(1, 'rgba(0,194,203,0)');
+                        return gradient;
+                      },
+                      borderColor: '#00787f',
+                      borderWidth: 1.5,
+                      tension: 0.35,
+                      pointRadius: 2,
+                      pointHoverRadius: 4,
                     },
-                    borderColor: '#00787f',
-                    borderWidth: 1.5,
-                    tension: 0.35,
-                    pointRadius: 2,
-                    pointHoverRadius: 4,
+                  ],
+                }}
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  plugins: {
+                    legend: {
+                      labels: {
+                        color: '#9CA3AF',
+                        font: { size: 11 },
+                        boxWidth: 10,
+                        usePointStyle: true,
+                        pointStyle: 'line',
+                      },
+                    },
+                    tooltip: { mode: 'index', intersect: false },
                   },
-                ],
-              }}
-              options={{
-                responsive: true,
-                plugins: {
-                  legend: {
-                    labels: {
-                      color: '#9CA3AF',
-                      font: { size: 11 },
-                      boxWidth: 10,
-                      usePointStyle: true,
-                      pointStyle: 'line',
+                  scales: {
+                    x: {
+                      ticks: { color: '#9CA3AF', font: { size: 10 } },
+                      grid: { color: '#1E293B20' },
+                    },
+                    y: {
+                      ticks: { color: '#9CA3AF', font: { size: 10 }, stepSize: 10 },
+                      grid: { color: '#1E293B20' },
+                      beginAtZero: true,
                     },
                   },
-                  tooltip: { mode: 'index', intersect: false },
-                },
-                scales: {
-                  x: {
-                    ticks: { color: '#9CA3AF', font: { size: 10 } },
-                    grid: { color: '#1E293B20' },
-                  },
-                  y: {
-                    ticks: { color: '#9CA3AF', font: { size: 10 }, stepSize: 10 },
-                    grid: { color: '#1E293B20' },
-                    beginAtZero: true,
-                  },
-                },
-              }}
-            />
+                }}
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -486,7 +511,7 @@ export default function ManageCampaignPage() {
       <div className="flex justify-center w-full mt-16 mb-6">
         <div className="w-[92%] max-w-6xl">
           <details className="group bg-[#171717] rounded-2xl border border-[#2A2A2A] shadow-md overflow-hidden transition-all duration-300 drop-shadow-[0_0_12px_rgba(0,194,203,0.15)]">
-            <summary className="cursor-pointer select-none px-6 py-4 text-gray-300 text-sm tracking-wide uppercase bg-[#1C1C1C] hover:bg-[#1F1F1F] transition-all duration-300 flex justify-between items-center">
+            <summary className="cursor-pointer select-none px-5 py-3 text-gray-300 text-xs md:text-sm tracking-wide uppercase bg-[#1C1C1C] hover:bg-[#1F1F1F] transition-all duration-300 flex justify-between items-center">
               <div className="flex items-center">
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-[#00C2CB] mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M4 6h16M4 12h16M4 18h16" />
@@ -503,7 +528,7 @@ export default function ManageCampaignPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
               </svg>
             </summary>
-            <div className="p-6 space-y-3 text-gray-200 text-sm bg-[#0F0F0F]">
+            <div className="p-4 space-y-3 text-gray-200 text-xs md:text-sm bg-[#0F0F0F]">
               {Object.entries(campaign)
                 .filter(([key]) => ['caption', 'type', 'status', 'platform'].includes(key))
                 .map(([key, value]) => (
@@ -527,35 +552,8 @@ export default function ManageCampaignPage() {
       </div>
       <div className="flex justify-center w-full mb-6">
         <div className="w-[92%] max-w-6xl">
-          {/* Offer destination website section */}
-          <div className="mb-4">
-            {offer?.website ? (
-              <div className="flex items-center gap-2 text-sm">
-                <span className="text-gray-400 font-medium">Destination Website:</span>
-                <a
-                  href={offer.website}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[#00C2CB] underline break-all hover:text-[#00e9f4] transition"
-                  style={{ wordBreak: 'break-all' }}
-                >
-                  {offer.website}
-                </a>
-                <a
-                  href={offer.website}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="ml-2 px-2 py-1 rounded bg-[#00C2CB22] text-[#00C2CB] hover:bg-[#00C2CB33] font-medium transition text-xs"
-                >
-                  Test Destination
-                </a>
-              </div>
-            ) : (
-              <div className="text-gray-400 text-sm">No destination set.</div>
-            )}
-          </div>
           <details className="group bg-[#171717] rounded-2xl border border-[#2A2A2A] shadow-md overflow-hidden transition-all duration-300 drop-shadow-[0_0_12px_rgba(0,194,203,0.15)]">
-            <summary className="cursor-pointer select-none px-6 py-4 text-gray-300 text-sm tracking-wide uppercase bg-[#1C1C1C] hover:bg-[#1F1F1F] transition-all duration-300 flex justify-between items-center">
+            <summary className="cursor-pointer select-none px-5 py-3 text-gray-300 text-xs md:text-sm tracking-wide uppercase bg-[#1C1C1C] hover:bg-[#1F1F1F] transition-all duration-300 flex justify-between items-center">
               <div className="flex items-center">
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-[#00C2CB] mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -572,20 +570,23 @@ export default function ManageCampaignPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
               </svg>
             </summary>
-            <div className="p-6 bg-[#0F0F0F] rounded-b-2xl">
+            <div className="p-4 bg-[#0F0F0F] rounded-b-2xl">
               {(!affiliateId) ? (
                 <div className="text-sm text-red-300">
                   Missing affiliate ID. Please sign in again or complete your affiliate profile.
                 </div>
               ) : (
                 <div className="text-sm">
-                  <div className="text-[#00C2CB] break-all">{trackingUrl}</div>
+                  <div className={isPaused ? 'text-[#00C2CB]/60 break-all' : 'text-[#00C2CB] break-all'}>{trackingUrl}</div>
                   <div className="mt-3 flex gap-2">
                     <button
                       onClick={async () => { if (trackingUrl) { await navigator.clipboard.writeText(trackingUrl); } }}
-                      className="px-3 py-1.5 rounded bg-[#00C2CB] hover:bg-[#00b0b8] text-white text-xs"
-                    >Copy Link</button>
-                    {offer?.website && (
+                      className="px-3 py-1.5 rounded bg-[#00C2CB] hover:bg-[#00b0b8] text-white text-xs disabled:opacity-60"
+                      disabled={isPaused}
+                    >
+                      {isPaused ? 'Copy (paused)' : 'Copy Link'}
+                    </button>
+                    {offer?.website && !isPaused && (
                       <a
                         href={trackingUrl || '#'}
                         target="_blank"
@@ -594,9 +595,15 @@ export default function ManageCampaignPage() {
                       >Open Test</a>
                     )}
                   </div>
-                  <p className="text-xs text-gray-400 mt-3">
-                    Clicking this redirects to the merchant with <code>nm_aff</code> and <code>nm_camp</code> query parameters. The on-site pixel sets first-party cookies and sends events to Nettmark.
-                  </p>
+                  {isPaused ? (
+                    <p className="text-xs text-amber-200 mt-3">
+                      This campaign is currently paused by the business. The tracking link is disabled until it is reactivated.
+                    </p>
+                  ) : (
+                    <p className="text-xs text-gray-400 mt-3">
+                      Clicking this redirects to the merchant with <code>nm_aff</code> and <code>nm_camp</code> query parameters. The on-site pixel sets first-party cookies and sends events to Nettmark.
+                    </p>
+                  )}
                 </div>
               )}
             </div>
@@ -607,7 +614,7 @@ export default function ManageCampaignPage() {
       <div className="flex justify-center w-full mt-6">
         <div className="w-[92%] max-w-6xl">
           <details className="group bg-[#171717] rounded-2xl border border-[#2A2A2A] shadow-md overflow-hidden transition-all duration-300 drop-shadow-[0_0_12px_rgba(0,194,203,0.15)]">
-            <summary className="cursor-pointer select-none px-6 py-4 text-gray-300 text-sm tracking-wide uppercase bg-[#1C1C1C] hover:bg-[#1F1F1F] transition-all duration-300 flex justify-between items-center">
+            <summary className="cursor-pointer select-none px-5 py-3 text-gray-300 text-xs md:text-sm tracking-wide uppercase bg-[#1C1C1C] hover:bg-[#1F1F1F] transition-all duration-300 flex justify-between items-center">
               <div className="flex items-center">
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 text-[#00C2CB] mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 6v6l4 2m6 0a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -624,7 +631,7 @@ export default function ManageCampaignPage() {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
               </svg>
             </summary>
-            <div className="p-6 bg-[#0F0F0F] text-gray-300 text-sm leading-relaxed space-y-4">
+            <div className="p-4 bg-[#0F0F0F] text-gray-300 text-xs md:text-sm leading-relaxed space-y-3">
               {campaign.type === 'organic' ? (
                 <>
                   <p>
@@ -672,7 +679,7 @@ export default function ManageCampaignPage() {
               alert('Error deleting campaign.');
             } else {
               alert('Campaign deleted.');
-              window.location.href = '/affiliate/dashboard/manage-campaigns';
+              router.replace('/affiliate/dashboard/manage-campaigns');
             }
           }}
           className="relative inline-flex items-center px-6 py-2.5 bg-[#1A1A1A] hover:bg-[#2A2A2A] border border-red-500/40 hover:border-red-500/70 text-red-400 hover:text-red-300 rounded-xl font-medium transition-all duration-300 group shadow-[0_0_10px_rgba(255,0,0,0.05)]"
