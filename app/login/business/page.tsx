@@ -51,24 +51,25 @@ export default function BusinessLogin() {
           transition: background-color 5000s ease-in-out 0s;
         }
       `}</style>
-      <header className="flex items-center justify-between h-16 px-6 bg-black text-white border-b border-gray-700">
-        <img src="/nettmark-logo.png" alt="Logo" width={140} height={40} />
-        <div className="flex items-center justify-center space-x-10 w-full max-w-4xl mx-auto">
-          <nav className="flex space-x-8">
-            <a href="/for-businesses" className="text-[#00C2CB] hover:text-[#7ff5fb] font-semibold">
-              For Businesses
-            </a>
-            <a href="/for-partners" className="text-[#00C2CB] hover:text-[#7ff5fb] font-semibold">
-              For Partners
-            </a>
-            <a href="/pricing" className="text-[#00C2CB] hover:text-[#7ff5fb] font-semibold">
-              Pricing
-            </a>
-          </nav>
-        </div>
+      <header className="flex items-center justify-between h-16 px-4 sm:px-6 bg-black text-white border-b border-gray-700">
+        <img src="/nettmark-logo.png" alt="Logo" width={140} height={40} className="mr-4" />
+
+        {/* Desktop nav */}
+        <nav className="hidden md:flex space-x-8 flex-1 justify-center">
+          <a href="/for-businesses" className="text-[#00C2CB] hover:text-[#7ff5fb] font-semibold whitespace-nowrap">
+            For Businesses
+          </a>
+          <a href="/for-partners" className="text-[#00C2CB] hover:text-[#7ff5fb] font-semibold whitespace-nowrap">
+            For Partners
+          </a>
+          <a href="/pricing" className="text-[#00C2CB] hover:text-[#7ff5fb] font-semibold whitespace-nowrap">
+            Pricing
+          </a>
+        </nav>
+
         <button
           onClick={() => router.push('/')}
-          className="bg-[#00C2CB] hover:bg-[#00b0b8] text-black font-semibold py-2 px-4 rounded"
+          className="bg-[#00C2CB] hover:bg-[#00b0b8] text-black font-semibold py-2 px-4 rounded whitespace-nowrap"
         >
           Home
         </button>

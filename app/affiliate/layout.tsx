@@ -30,8 +30,8 @@ function AffiliateLayoutShell({ children }: { children: React.ReactNode }) {
       {/* Sidebar + content row, pushed down under Topbar */}
       <div className="flex flex-1 pt-[64px] min-h-0">
         {/* Sidebar column with fixed sidebar inside */}
-        <div className="w-64">
-          <div className="fixed left-0 top-[64px] bottom-0 w-64 bg-[#1F1F1F] text-white">
+        <div className="hidden md:block w-64">
+          <div className="hidden md:block fixed left-0 top-[64px] bottom-0 w-64 bg-[#1F1F1F] text-white">
             {/* Pass unread count to sidebar as well (non‑breaking) */}
             <AffiliateSidebar {...({ unreadCount } as any)} />
           </div>

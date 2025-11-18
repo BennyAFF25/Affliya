@@ -46,7 +46,7 @@ export default function AffiliateLogin() {
           transition: background-color 5000s ease-in-out 0s;
         }
       `}</style>
-      <header className="fixed top-0 left-0 w-full h-16 z-30 bg-black bg-opacity-70 backdrop-blur-md border-b border-white/10 flex items-center px-8">
+      <header className="fixed top-0 left-0 w-full h-16 z-30 bg-black bg-opacity-70 backdrop-blur-md border-b border-white/10 flex items-center px-4 sm:px-6 md:px-8">
         {/* Logo */}
         <div className="flex items-center h-full">
           <img
@@ -57,32 +57,34 @@ export default function AffiliateLogin() {
             className="object-contain"
           />
         </div>
-        {/* Centered nav */}
-        <nav className="absolute left-1/2 top-0 -translate-x-1/2 h-full flex items-center space-x-10">
+
+        {/* Centered nav (desktop only) */}
+        <nav className="hidden md:flex flex-1 items-center justify-center space-x-10">
           <a
             href="/business"
-            className="text-[#00C2CB] hover:text-[#7ff5fb] font-semibold text-base transition-colors"
+            className="text-[#00C2CB] hover:text-[#7ff5fb] font-semibold text-sm lg:text-base transition-colors"
           >
             For Businesses
           </a>
           <a
             href="/partners"
-            className="text-[#00C2CB] hover:text-[#7ff5fb] font-semibold text-base transition-colors"
+            className="text-[#00C2CB] hover:text-[#7ff5fb] font-semibold text-sm lg:text-base transition-colors"
           >
             For Partners
           </a>
           <a
             href="/pricing"
-            className="text-[#00C2CB] hover:text-[#7ff5fb] font-semibold text-base transition-colors"
+            className="text-[#00C2CB] hover:text-[#7ff5fb] font-semibold text-sm lg:text-base transition-colors"
           >
             Pricing
           </a>
         </nav>
+
         {/* Right side Home button */}
         <div className="ml-auto flex items-center h-full">
           <a
             href="/"
-            className="px-5 py-2 rounded-lg bg-[#00C2CB] hover:bg-[#00b0b8] text-black font-semibold shadow-[0_0_20px_#00C2CB40] hover:shadow-[0_0_30px_#00C2CB80] transition-all text-base"
+            className="px-4 sm:px-5 py-2 rounded-lg bg-[#00C2CB] hover:bg-[#00b0b8] text-black font-semibold shadow-[0_0_20px_#00C2CB40] hover:shadow-[0_0_30px_#00C2CB80] transition-all text-sm sm:text-base whitespace-nowrap"
           >
             Home
           </a>

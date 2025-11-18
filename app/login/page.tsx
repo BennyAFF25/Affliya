@@ -9,34 +9,48 @@ export default function LoginPage() {
     <div className="min-h-screen w-full flex flex-col bg-gradient-to-br from-[#00363a] via-black to-black">
       <header className="fixed top-0 inset-x-0 z-50 bg-black bg-opacity-90 backdrop-blur-sm border-b border-white/10">
         <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" aria-label="Top">
-          <div className="w-full h-16 flex items-center justify-between border-b border-white/10 lg:border-none">
+          <div className="w-full h-16 flex items-center justify-between">
+            {/* Left: logo */}
             <div className="flex items-center">
               <Link href="/" className="flex items-center -ml-2">
-                <Image 
-                  src="/nettmark-logo.png" 
-                  alt="Affliya" 
-                  width={140} 
-                  height={40} 
-                  priority 
-                  className="rounded-sm" 
+                <Image
+                  src="/nettmark-logo.png"
+                  alt="Affliya"
+                  width={140}
+                  height={40}
+                  priority
+                  className="rounded-sm"
                 />
               </Link>
-              <div className="flex justify-center absolute left-1/2 -translate-x-1/2 space-x-8">
-                <Link href="/for-businesses" className="text-[#00C2CB] hover:text-[#7ff5fb] font-medium">
-                  For Businesses
-                </Link>
-                <Link href="/for-partners" className="text-[#00C2CB] hover:text-[#7ff5fb] font-medium">
-                  For Partners
-                </Link>
-                <Link href="/pricing" className="text-[#00C2CB] hover:text-[#7ff5fb] font-medium">
-                  Pricing
-                </Link>
-              </div>
             </div>
-            <div className="hidden lg:block">
+
+            {/* Center nav: only on large screens */}
+            <div className="hidden lg:flex items-center space-x-10">
+              <Link
+                href="/for-businesses"
+                className="text-[#00C2CB] hover:text-[#7ff5fb] font-medium"
+              >
+                For Businesses
+              </Link>
+              <Link
+                href="/for-partners"
+                className="text-[#00C2CB] hover:text-[#7ff5fb] font-medium"
+              >
+                For Partners
+              </Link>
+              <Link
+                href="/pricing"
+                className="text-[#00C2CB] hover:text-[#7ff5fb] font-medium"
+              >
+                Pricing
+              </Link>
+            </div>
+
+            {/* Right: Home button */}
+            <div className="flex-shrink-0">
               <Link
                 href="/"
-                className="inline-block rounded-md border border-transparent bg-[#00C2CB] py-2 px-4 text-base font-medium text-black hover:bg-[#00b0b8]"
+                className="inline-flex items-center rounded-md border border-transparent bg-[#00C2CB] py-2 px-4 text-sm font-medium text-black hover:bg-[#00b0b8]"
               >
                 Home
               </Link>
