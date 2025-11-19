@@ -28,6 +28,20 @@ export default function AffiliateMarketplace() {
   const [sortOrder, setSortOrder] = useState('None');
 
   useEffect(() => {
+    type SupabaseOffer = {
+      id: string;
+      title: string;
+      business_email?: string | null;
+      description?: string | null;
+      commission: number | null;
+      type: string;
+      currency?: string | null;
+      price?: number | null;
+      commission_value?: number | null;
+      logo_url?: string | null;
+      website?: string | null;
+    };
+
     const fetchOffers = async () => {
       const { data, error } = await supabase
         .from('offers')
@@ -50,17 +64,30 @@ export default function AffiliateMarketplace() {
         return;
       }
 
-      const commissions = data.map(o => o.commission);
+      if (!data) {
+        setOffers([]);
+        return;
+      }
+
+      const typedData = data as SupabaseOffer[];
+
+      const commissions = typedData.map((o) => o.commission ?? 0);
       const threshold = commissions.length ? Math.max(...commissions) * 0.9 : 0;
 
-      const formatted = data.map(o => ({
-        ...o,
-        businessEmail: o.business_email,
-        commissionValue: o.commission_value,
-        logoUrl: o.logo_url,
-        isTopCommission: o.commission >= threshold,
+      const formatted: Offer[] = typedData.map((o) => ({
+        id: o.id,
+        title: o.title,
         businessName: o.title,
+        description: o.description ?? '',
+        commission: o.commission ?? 0,
+        type: o.type,
+        currency: o.currency ?? undefined,
+        price: o.price ?? undefined,
+        commissionValue: o.commission_value ?? undefined,
+        isTopCommission: (o.commission ?? 0) >= threshold,
+        business_email: o.business_email ?? undefined,
       }));
+
       setOffers(formatted);
     };
 
@@ -68,6 +95,11 @@ export default function AffiliateMarketplace() {
   }, []);
 
   useEffect(() => {
+    type AffiliateRequestRow = {
+      offer_id: string;
+      status: string;
+    };
+
     const fetchRequests = async () => {
       const { data: { user }, error } = await supabase.auth.getUser();
       if (!user || !user.email) {
@@ -81,11 +113,20 @@ export default function AffiliateMarketplace() {
         .select('offer_id, status')
         .eq('affiliate_email', user.email);
 
-      if (!reqError && data) {
-        const pending = data.filter((r) => r.status === 'pending');
-        const ids = Array.from(new Set(pending.map((r) => r.offer_id)));
-        setRequestedIds(ids);
+      if (reqError) {
+        console.error('[❌ Error fetching affiliate requests]', reqError.message);
+        return;
       }
+
+      if (!data) {
+        setRequestedIds([]);
+        return;
+      }
+
+      const typedReqs = data as AffiliateRequestRow[];
+      const pending = typedReqs.filter((r) => r.status === 'pending');
+      const ids = Array.from(new Set(pending.map((r) => r.offer_id)));
+      setRequestedIds(ids);
     };
 
     fetchRequests();
@@ -104,7 +145,7 @@ export default function AffiliateMarketplace() {
   });
 
   return (
-    <div className="flex justify-center px-6 py-10 bg-[#121212] text-white min-h-screen">
+    <div className="flex justify-center px-6 py-10 bg-[#0e0e0e] text-white min-h-screen">
       <div className="w-full max-w-7xl">
         <div className="mb-8 text-center">
           <h1 className="text-3xl font-bold text-[#00C2CB] mb-2">Affiliate Marketplace</h1>

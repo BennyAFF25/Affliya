@@ -460,10 +460,9 @@ function AffiliateDashboardContent() {
       <div className="max-w-8xl mx-auto px-4 sm:px-6 md:px-8 lg:px-10 py-6 md:py-8">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-10">
           {/* Stat Card: Active Campaigns */}
-          <div className="group relative rounded-2xl border border-white/10 bg-[#0b0f14] overflow-hidden backdrop-blur-md shadow-[0_8px_24px_rgba(0,0,0,0.45)] p-4 transition-transform duration-300 ease-out hover:scale-[1.01]">
-            <div className="absolute inset-0 bg-gradient-to-br from-[#00C2CB]/[0.07] to-transparent pointer-events-none" />
+          <div className="group relative rounded-2xl border border-white/10 bg-[#0f0f0f] overflow-hidden backdrop-blur-md shadow-[0_8px_24px_rgba(0,0,0,0.45)] p-4 transition-transform duration-300 ease-out hover:scale-[1.01]">
             <div className="flex items-center gap-4 relative z-10">
-              <div className="text-[#7ff5fb] bg-[#00C2CB1a] rounded-lg p-2.5">
+              <div className="text-[#00C2CB] bg-[#00C2CB]/10 rounded-lg p-2.5">
                 <TrendingUp className="h-6 w-6" />
               </div>
               <div>
@@ -474,10 +473,9 @@ function AffiliateDashboardContent() {
           </div>
 
           {/* Stat Card: Total Spent */}
-          <div className="group relative rounded-2xl border border-white/10 bg-[#0b0f14] overflow-hidden backdrop-blur-md shadow-[0_8px_24px_rgba(0,0,0,0.45)] p-4 transition-transform duration-300 ease-out hover:scale-[1.01]">
-            <div className="absolute inset-0 bg-gradient-to-br from-[#00C2CB]/[0.07] to-transparent pointer-events-none" />
+          <div className="group relative rounded-2xl border border-white/10 bg-[#0f0f0f] overflow-hidden backdrop-blur-md shadow-[0_8px_24px_rgba(0,0,0,0.45)] p-4 transition-transform duration-300 ease-out hover:scale-[1.01]">
             <div className="flex items-center gap-4 relative z-10">
-              <div className="text-[#7ff5fb] bg-[#00C2CB1a] rounded-lg p-2.5">
+              <div className="text-[#00C2CB] bg-[#00C2CB]/10 rounded-lg p-2.5">
                 <DollarSign className="h-6 w-6" />
               </div>
               <div>
@@ -488,10 +486,9 @@ function AffiliateDashboardContent() {
           </div>
 
           {/* Stat Card: Pending Payout */}
-          <div className="group relative rounded-2xl border border-white/10 bg-[#0b0f14] overflow-hidden backdrop-blur-md shadow-[0_8px_24px_rgba(0,0,0,0.45)] p-4 transition-transform duration-300 ease-out hover:scale-[1.01]">
-            <div className="absolute inset-0 bg-gradient-to-br from-[#00C2CB]/[0.07] to-transparent pointer-events-none" />
+          <div className="group relative rounded-2xl border border-white/10 bg-[#0f0f0f] overflow-hidden backdrop-blur-md shadow-[0_8px_24px_rgba(0,0,0,0.45)] p-4 transition-transform duration-300 ease-out hover:scale-[1.01]">
             <div className="flex items-center gap-4 relative z-10">
-              <div className="text-[#7ff5fb] bg-[#00C2CB1a] rounded-lg p-2.5">
+              <div className="text-[#00C2CB] bg-[#00C2CB]/10 rounded-lg p-2.5">
                 <Wallet className="h-6 w-6" />
               </div>
               <div>
@@ -502,10 +499,9 @@ function AffiliateDashboardContent() {
           </div>
 
           {/* Stat Card: Approved Offers */}
-          <div className="group relative rounded-2xl border border-white/10 bg-[#0b0f14] overflow-hidden backdrop-blur-md shadow-[0_8px_24px_rgba(0,0,0,0.45)] p-4 transition-transform duration-300 ease-out hover:scale-[1.01]">
-            <div className="absolute inset-0 bg-gradient-to-br from-[#00C2CB]/[0.07] to-transparent pointer-events-none" />
+          <div className="group relative rounded-2xl border border-white/10 bg-[#0f0f0f] overflow-hidden backdrop-blur-md shadow-[0_8px_24px_rgba(0,0,0,0.45)] p-4 transition-transform duration-300 ease-out hover:scale-[1.01]">
             <div className="flex items-center gap-4 relative z-10">
-              <div className="text-teal-400 bg-teal-700/10 rounded-lg p-2.5">
+              <div className="text-[#00C2CB] bg-[#00C2CB]/10 rounded-lg p-2.5">
                 <CheckCircle className="h-6 w-6" />
               </div>
               <div>

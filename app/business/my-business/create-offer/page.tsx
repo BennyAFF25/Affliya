@@ -20,7 +20,9 @@ function CreateOfferPageInner() {
 
   useEffect(() => {
     const fetchUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (user?.email) {
         setUserEmail(user.email);
       }
@@ -39,7 +41,9 @@ function CreateOfferPageInner() {
         .limit(1);
       if (!cancelled) setShowOnboard(!error && (!data || data.length === 0));
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [isOnboard, userEmail]);
 
   const [businessName, setBusinessName] = useState('');
@@ -51,6 +55,14 @@ function CreateOfferPageInner() {
   const [commissionValue, setCommissionValue] = useState(0);
   const [currency, setCurrency] = useState('USD');
 
+  // NEW: offer profile fields
+  const [profileHeadline, setProfileHeadline] = useState('');
+  const [profileBio, setProfileBio] = useState('');
+  const [heroImageUrl, setHeroImageUrl] = useState<string | null>(null);
+  const [heroImageFile, setHeroImageFile] = useState<File | null>(null);
+  const [avgConversionRate, setAvgConversionRate] = useState('');
+  const [avgEpc, setAvgEpc] = useState('');
+
   // NEW: payout structure fields
   const [payoutMode, setPayoutMode] = useState<'upfront' | 'spread'>('upfront');
   const [payoutInterval, setPayoutInterval] = useState<'monthly'>('monthly');
@@ -58,7 +70,9 @@ function CreateOfferPageInner() {
 
   const [step, setStep] = useState(1);
 
-  const [metaConnections, setMetaConnections] = useState<{ page_id: string; ad_account_id: string }[]>([]);
+  const [metaConnections, setMetaConnections] = useState<
+    { page_id: string; ad_account_id: string }[]
+  >([]);
   const [selectedPage, setSelectedPage] = useState('');
   const [selectedAdAccount, setSelectedAdAccount] = useState('');
 
@@ -67,7 +81,7 @@ function CreateOfferPageInner() {
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
-  // Auto-calculate commissionValue
+  // Auto-calc commissionValue
   useEffect(() => {
     const parsedPrice = parseFloat(price);
     const parsedCommission = parseFloat(commission);
@@ -82,7 +96,7 @@ function CreateOfferPageInner() {
   useEffect(() => {
     const fetchMetaConnections = async () => {
       if (!userEmail) return;
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('meta_connections')
         .select('page_id, ad_account_id')
         .eq('business_email', userEmail);
@@ -114,11 +128,36 @@ function CreateOfferPageInner() {
         });
 
       if (!error) {
-        const { data: urlData } = supabase.storage.from('offer-logos').getPublicUrl(filePath);
+        const { data: urlData } = supabase.storage
+          .from('offer-logos')
+          .getPublicUrl(filePath);
         uploadedLogoUrl = urlData?.publicUrl || null;
         setLogoUrl(uploadedLogoUrl);
       } else {
         console.error('[❌ Logo Upload Error]', error.message);
+      }
+    }
+
+    let uploadedHeroUrl: string | null = null;
+
+    if (heroImageFile) {
+      const heroPath = `${Date.now()}_${heroImageFile.name}`;
+      const { data: heroData, error: heroError } = await supabase.storage
+        .from('profile-images')
+        .upload(heroPath, heroImageFile, {
+          cacheControl: '3600',
+          upsert: false,
+          contentType: heroImageFile.type,
+        });
+
+      if (!heroError) {
+        const { data: heroUrlData } = supabase.storage
+          .from('profile-images')
+          .getPublicUrl(heroPath);
+        uploadedHeroUrl = heroUrlData?.publicUrl || null;
+        setHeroImageUrl(uploadedHeroUrl);
+      } else {
+        console.error('[❌ Hero Image Upload Error]', heroError.message);
       }
     }
 
@@ -129,9 +168,7 @@ function CreateOfferPageInner() {
     const finalPayoutMode = type === 'recurring' ? payoutMode : 'upfront';
     const finalPayoutInterval = type === 'recurring' ? payoutInterval : 'monthly';
     const finalPayoutCycles =
-      type === 'recurring' && payoutMode === 'spread'
-        ? payoutCycles
-        : null;
+      type === 'recurring' && payoutMode === 'spread' ? payoutCycles : null;
 
     const newOffer = {
       id: uuidv4(),
@@ -149,23 +186,36 @@ function CreateOfferPageInner() {
       type,
       logo_url: uploadedLogoUrl,
       site_host: siteHost,
+      // Profile fields
+      profile_headline: profileHeadline || null,
+      profile_bio: profileBio || null,
+      hero_image_url: uploadedHeroUrl || null,
+      avg_conversion_rate: avgConversionRate
+        ? Number(avgConversionRate)
+        : null,
+      avg_epc: avgEpc ? Number(avgEpc) : null,
       // NEW payout fields
       payout_mode: finalPayoutMode,
       payout_interval: finalPayoutInterval,
       payout_cycles: finalPayoutCycles,
     };
 
-    const { error: insertError } = await supabase.from('offers').insert([newOffer]);
+    const { error: insertError } = await supabase
+      .from('offers')
+      .insert([newOffer]);
     if (insertError) {
       console.error('[❌ Offer Insert Error]', insertError.message);
       return;
     }
 
     if (isOnboard) {
-      router.replace(`/business/setup-tracking?offerId=${newOffer.id}&onboard=1`);
+      router.replace(
+        `/business/setup-tracking?offerId=${newOffer.id}&onboard=1`,
+      );
       return;
     }
 
+    // Reset core fields
     setBusinessName('');
     setDescription('');
     setWebsite('');
@@ -176,6 +226,16 @@ function CreateOfferPageInner() {
     setLogoFile(null);
     setLogoUrl(null);
     setSiteHost('');
+
+    // Reset profile fields
+    setProfileHeadline('');
+    setProfileBio('');
+    setHeroImageUrl(null);
+    setHeroImageFile(null);
+    setAvgConversionRate('');
+    setAvgEpc('');
+
+    // Reset payout fields
     setPayoutMode('upfront');
     setPayoutInterval('monthly');
     setPayoutCycles(12);
@@ -186,27 +246,45 @@ function CreateOfferPageInner() {
   return (
     <div className="min-h-screen bg-[#0e0e0e] text-white py-12 px-6">
       <div className="max-w-3xl mx-auto">
-        <h1 className="text-4xl font-extrabold text-[#00C2CB] mb-10">Upload Your Offer</h1>
+        <h1 className="text-4xl font-extrabold text-[#00C2CB] mb-10">
+          Upload Your Offer
+        </h1>
 
         <div className="bg-[#1a1a1a] rounded-lg shadow-lg border border-[#2a2a2a] p-8 space-y-6">
           {showOnboard && (
             <div className="mb-6 rounded-xl border border-[#1f2a2a] bg-[#0f1313] p-5">
-              <div className="text-[#7ff5fb] text-xs tracking-wide">Onboarding • Step 2 of 3</div>
-              <h2 className="mt-1 text-white text-lg font-semibold">Create your first offer</h2>
+              <div className="text-[#7ff5fb] text-xs tracking-wide">
+                Onboarding • Step 2 of 3
+              </div>
+              <h2 className="mt-1 text-white text-lg font-semibold">
+                Create your first offer
+              </h2>
               <p className="mt-1 text-sm text-gray-400">
-                After you save, we’ll take you straight to <span className="text-[#00C2CB]">Setup Tracking</span> for this offer.
+                After you save, we’ll take you straight to{' '}
+                <span className="text-[#00C2CB]">Setup Tracking</span> for this
+                offer.
               </p>
               <div className="mt-3 text-xs text-gray-400">
-                Need help? <Link href="/business/setup-tracking" className="text-[#7ff5fb] underline">View tracking instructions</Link>
+                Need help?{' '}
+                <Link
+                  href="/business/setup-tracking"
+                  className="text-[#7ff5fb] underline"
+                >
+                  View tracking instructions
+                </Link>
               </div>
             </div>
           )}
 
           {step === 1 && (
             <>
-              <h2 className="text-2xl font-bold text-[#00C2CB]">Business Info</h2>
+              <h2 className="text-2xl font-bold text-[#00C2CB]">
+                Business Info
+              </h2>
               <div>
-                <label className="block font-semibold text-white mb-1">Business Name</label>
+                <label className="block font-semibold text-white mb-1">
+                  Business Name
+                </label>
                 <input
                   required
                   value={businessName}
@@ -216,7 +294,9 @@ function CreateOfferPageInner() {
                 />
               </div>
               <div>
-                <label className="block font-semibold text-white mb-1">Product/Service Description</label>
+                <label className="block font-semibold text-white mb-1">
+                  Product/Service Description
+                </label>
                 <textarea
                   required
                   value={description}
@@ -226,7 +306,9 @@ function CreateOfferPageInner() {
                 />
               </div>
               <div>
-                <label className="block font-semibold text-white mb-1">Website</label>
+                <label className="block font-semibold text-white mb-1">
+                  Website
+                </label>
                 <input
                   type="url"
                   value={website}
@@ -236,7 +318,9 @@ function CreateOfferPageInner() {
                 />
               </div>
               <div>
-                <label className="block font-semibold text-white mb-1">Website Platform/Host</label>
+                <label className="block font-semibold text-white mb-1">
+                  Website Platform/Host
+                </label>
                 <select
                   required
                   value={siteHost}
@@ -251,14 +335,122 @@ function CreateOfferPageInner() {
                   <option value="Custom/Other">Custom/Other</option>
                 </select>
               </div>
+
+              {/* Offer profile section */}
+              <div className="mt-8 border-t border-[#262626] pt-6 space-y-4">
+                <h3 className="text-sm font-semibold text-[#7ff5fb] uppercase tracking-wide">
+                  Offer profile (optional)
+                </h3>
+
+                <div>
+                  <label className="block font-semibold text-white mb-1">
+                    Profile headline
+                  </label>
+                  <input
+                    value={profileHeadline}
+                    onChange={(e) => setProfileHeadline(e.target.value)}
+                    placeholder="Short hook affiliates will see first"
+                    className="w-full p-3 border border-[#2a2a2a] bg-[#0e0e0e] text-white rounded-lg"
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-white mb-1">
+                    Profile bio / story
+                  </label>
+                  <textarea
+                    value={profileBio}
+                    onChange={(e) => setProfileBio(e.target.value)}
+                    placeholder="Explain who you are, who this offer is for, and why it converts."
+                    className="w-full p-3 border border-[#2a2a2a] bg-[#0e0e0e] text-white rounded-lg"
+                    rows={4}
+                  />
+                </div>
+
+                <div>
+                  <label className="block font-semibold text-white mb-1">
+                    Profile / brand image
+                  </label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] || null;
+                      setHeroImageFile(file);
+                      if (file) {
+                        // local preview only; final URL comes from Supabase upload
+                        const localUrl = URL.createObjectURL(file);
+                        setHeroImageUrl(localUrl);
+                      } else {
+                        setHeroImageUrl(null);
+                      }
+                    }}
+                    className="w-full p-3 border border-[#2a2a2a] bg-[#0e0e0e] text-white rounded-lg"
+                  />
+                  <p className="mt-1 text-xs text-gray-400">
+                    This image will be used on your offer profile page (e.g. product shot or brand hero image).
+                  </p>
+                  {heroImageUrl && (
+                    <div className="mt-3">
+                      <p className="text-xs text-gray-400 mb-1">Preview:</p>
+                      <img
+                        src={heroImageUrl}
+                        alt="Profile preview"
+                        className="w-full max-h-48 object-cover rounded-md border border-[#2a2a2a]"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block font-semibold text-white mb-1">
+                      Avg conversion rate (%){' '}
+                      <span className="text-xs text-gray-500">
+                        (optional)
+                      </span>
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.1"
+                      value={avgConversionRate}
+                      onChange={(e) => setAvgConversionRate(e.target.value)}
+                      placeholder="e.g. 3.5"
+                      className="w-full p-3 border border-[#2a2a2a] bg-[#0e0e0e] text-white rounded-lg"
+                    />
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-white mb-1">
+                      Avg EPC ({currency}){' '}
+                      <span className="text-xs text-gray-500">
+                        (optional)
+                      </span>
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={avgEpc}
+                      onChange={(e) => setAvgEpc(e.target.value)}
+                      placeholder="e.g. 1.20"
+                      className="w-full p-3 border border-[#2a2a2a] bg-[#0e0e0e] text-white rounded-lg"
+                    />
+                  </div>
+                </div>
+              </div>
             </>
           )}
 
           {step === 2 && (
             <>
-              <h2 className="text-2xl font-bold text-[#00C2CB]">Offer Pricing</h2>
+              <h2 className="text-2xl font-bold text-[#00C2CB]">
+                Offer Pricing
+              </h2>
               <div>
-                <label className="block font-semibold text-white mb-1">Product Value ($)</label>
+                <label className="block font-semibold text-white mb-1">
+                  Product Value ($)
+                </label>
                 <input
                   type="number"
                   value={price}
@@ -268,7 +460,9 @@ function CreateOfferPageInner() {
                 />
               </div>
               <div>
-                <label className="block font-semibold text-white mb-1">Commission (%)</label>
+                <label className="block font-semibold text-white mb-1">
+                  Commission (%)
+                </label>
                 <input
                   type="number"
                   value={commission}
@@ -284,7 +478,9 @@ function CreateOfferPageInner() {
                 </span>
               </div>
               <div>
-                <label className="block font-semibold text-white mb-1">Currency</label>
+                <label className="block font-semibold text-white mb-1">
+                  Currency
+                </label>
                 <select
                   value={currency}
                   onChange={(e) => setCurrency(e.target.value)}
@@ -298,10 +494,14 @@ function CreateOfferPageInner() {
                 </select>
               </div>
               <div>
-                <label className="block font-semibold text-white mb-1">Offer Type</label>
+                <label className="block font-semibold text-white mb-1">
+                  Offer Type
+                </label>
                 <select
                   value={type}
-                  onChange={(e) => setType(e.target.value as 'one-time' | 'recurring')}
+                  onChange={(e) =>
+                    setType(e.target.value as 'one-time' | 'recurring')
+                  }
                   className="w-full p-3 border border-[#2a2a2a] bg-[#0e0e0e] text-white rounded-lg"
                 >
                   <option value="one-time">One-Time</option>
@@ -320,11 +520,17 @@ function CreateOfferPageInner() {
                     </label>
                     <select
                       value={payoutMode}
-                      onChange={(e) => setPayoutMode(e.target.value as 'upfront' | 'spread')}
+                      onChange={(e) =>
+                        setPayoutMode(
+                          e.target.value as 'upfront' | 'spread',
+                        )
+                      }
                       className="w-full p-3 border border-[#2a2a2a] bg-[#0e0e0e] text-white rounded-lg"
                     >
                       <option value="upfront">Pay full commission upfront</option>
-                      <option value="spread">Spread commission over time</option>
+                      <option value="spread">
+                        Spread commission over time
+                      </option>
                     </select>
                   </div>
 
@@ -337,7 +543,11 @@ function CreateOfferPageInner() {
                           </label>
                           <select
                             value={payoutInterval}
-                            onChange={(e) => setPayoutInterval(e.target.value as 'monthly')}
+                            onChange={(e) =>
+                              setPayoutInterval(
+                                e.target.value as 'monthly',
+                              )
+                            }
                             className="w-full p-3 border border-[#2a2a2a] bg-[#0e0e0e] text-white rounded-lg"
                           >
                             <option value="monthly">Monthly</option>
@@ -352,16 +562,23 @@ function CreateOfferPageInner() {
                             type="number"
                             min={1}
                             value={payoutCycles}
-                            onChange={(e) => setPayoutCycles(Number(e.target.value) || 1)}
+                            onChange={(e) =>
+                              setPayoutCycles(
+                                Number(e.target.value) || 1,
+                              )
+                            }
                             className="w-full p-3 border border-[#2a2a2a] bg-[#0e0e0e] text-white rounded-lg"
                           />
                         </div>
                       </div>
                       <div className="text-xs text-gray-400 mt-2">
-                        Based on this offer and commission, each cycle would pay approximately{' '}
+                        Based on this offer and commission, each cycle would pay
+                        approximately{' '}
                         <span className="text-[#7ff5fb] font-semibold">
                           {commissionValue > 0 && payoutCycles > 0
-                            ? `${currency} $${(commissionValue / payoutCycles).toFixed(2)}`
+                            ? `${currency} $${(
+                                commissionValue / payoutCycles
+                              ).toFixed(2)}`
                             : '—'}
                         </span>{' '}
                         to the affiliate.
@@ -375,9 +592,13 @@ function CreateOfferPageInner() {
 
           {step === 3 && hasMetaConnections && (
             <>
-              <h2 className="text-2xl font-bold text-[#00C2CB]">Meta Connections</h2>
+              <h2 className="text-2xl font-bold text-[#00C2CB]">
+                Meta Connections
+              </h2>
               <div>
-                <label className="block font-semibold text-white mb-1">Select Facebook Page</label>
+                <label className="block font-semibold text-white mb-1">
+                  Select Facebook Page
+                </label>
                 <select
                   value={selectedPage}
                   onChange={(e) => setSelectedPage(e.target.value)}
@@ -392,7 +613,9 @@ function CreateOfferPageInner() {
                 </select>
               </div>
               <div>
-                <label className="block font-semibold text-white mb-1">Select Ad Account</label>
+                <label className="block font-semibold text-white mb-1">
+                  Select Ad Account
+                </label>
                 <select
                   value={selectedAdAccount}
                   onChange={(e) => setSelectedAdAccount(e.target.value)}
@@ -411,7 +634,9 @@ function CreateOfferPageInner() {
 
           {step === 4 && (
             <>
-              <h2 className="text-2xl font-bold text-[#00C2CB]">Upload Logo or Product Image</h2>
+              <h2 className="text-2xl font-bold text-[#00C2CB]">
+                Upload Logo or Product Image
+              </h2>
               <input
                 type="file"
                 accept="image/*"
@@ -474,7 +699,9 @@ export default function CreateOfferPage() {
     <Suspense
       fallback={
         <div className="min-h-screen bg-[#0e0e0e] text-white flex items-center justify-center">
-          <span className="text-sm text-gray-400">Loading offer builder...</span>
+          <span className="text-sm text-gray-400">
+            Loading offer builder...
+          </span>
         </div>
       }
     >

@@ -18,6 +18,7 @@ interface Offer {
   isTopCommission?: boolean;
   businessEmail?: string;
   logoUrl?: string;
+  website?: string;
 }
 
 export default function OfferCard({
@@ -90,90 +91,121 @@ export default function OfferCard({
   };
 
   return (
-    <div className="relative bg-white/90 rounded-2xl border border-gray-200 p-6 shadow-[0_2px_12px_rgba(0,194,203,0.08)] ring-1 ring-[#00C2CB]/20 hover:ring-[#00C2CB] hover:shadow-xl transition duration-300 transform hover:scale-[1.02] flex flex-col justify-between h-full">
+    <div className="relative flex flex-col h-full rounded-2xl bg-[#101010] border border-[#1f2937] px-5 py-5 shadow-md hover:border-[#00C2CB]/80 hover:shadow-[0_0_35px_rgba(0,194,203,0.18)] transition-all duration-200">
+      {/* Logo */}
       {offer.logoUrl && (
         <div className="flex justify-center mb-4">
           <img
             src={offer.logoUrl}
             alt="Business Logo"
-            className="h-20 object-contain"
+            className="h-16 object-contain"
             style={{ maxWidth: '100%' }}
           />
         </div>
       )}
+
+      {/* Currency badge */}
       {offer.currency && (
-        <div className="absolute top-4 right-4 text-xs bg-[#e0fafa] text-[#00C2CB] font-medium px-3 py-1 rounded-full">
+        <div className="absolute top-4 right-4 text-[11px] bg-[#0b1726] text-[#00C2CB] font-medium px-3 py-1 rounded-full border border-[#00C2CB]/40">
           {offer.currency}
         </div>
       )}
 
-      <div>
-        <div className="flex flex-wrap gap-2 mb-2">
-          <span className="text-xs font-semibold px-2 py-1 rounded-full bg-green-100 text-green-700">
-            Verified
-          </span>
-          {offer.isTopCommission && (
-            <span className="text-xs font-semibold px-2 py-1 rounded-full bg-yellow-100 text-yellow-600 flex items-center gap-1">
-              🏆 Top % <Info className="w-3 h-3" />
-            </span>
-          )}
-        </div>
-
-        <h2 className="text-lg font-bold text-[#00C2CB]">{offer.businessName}</h2>
-        <p className="text-sm text-gray-600 mt-1 mb-4 line-clamp-3">{offer.description}</p>
-
-        <div className="space-y-3 text-sm text-gray-700">
-          <div className="flex items-center gap-2">
-            <BadgeDollarSign className="w-4 h-4 text-[#00C2CB]" />
-            <span>
-              <strong>Commission:</strong> {offer.commission}%
-            </span>
+      {/* Header */}
+      <div className="mb-4">
+        <div className="flex items-start justify-between gap-2 mb-2">
+          <div>
+            <p className="text-[11px] uppercase tracking-[0.18em] text-gray-500">Offer</p>
+            <h2 className="mt-1 text-lg font-semibold text-white">
+              {offer.businessName}
+            </h2>
           </div>
-
-          {offer.price && offer.commissionValue && (
-            <div className="flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-green-500" />
-              <span>
-                <strong>Est. Earnings:</strong> {offer.currency} {offer.commissionValue.toFixed(2)}
+          <div className="flex flex-col items-end gap-1">
+            <span className="inline-flex items-center rounded-full bg-emerald-900/40 text-emerald-300 text-[11px] px-2 py-0.5">
+              ● Verified
+            </span>
+            {offer.isTopCommission && (
+              <span className="inline-flex items-center rounded-full border border-amber-400/60 text-amber-200 text-[11px] px-2 py-0.5">
+                ⭐ Top payout
               </span>
-            </div>
-          )}
-
-          <div className="flex items-center gap-2">
-            <ShoppingBag className="w-4 h-4 text-purple-500" />
-            <span>
-              <strong>Type:</strong> {offer.type}
-            </span>
+            )}
           </div>
         </div>
 
-        {role === 'affiliate' && !requested && (
-          <textarea
-            placeholder="Write a note for the business..."
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            className="w-full mt-4 p-2 border-2 border-[#00C2CB] rounded-lg text-sm focus:outline-none focus:ring-0"
-            rows={2}
-          />
-        )}
+        <p className="text-xs text-gray-400 mt-1 mb-3 line-clamp-3">
+          {offer.description}
+        </p>
       </div>
 
-      <div className="mt-6">
+      {/* Stats */}
+      <div className="space-y-2 text-sm mb-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <BadgeDollarSign className="w-4 h-4 text-[#00C2CB]" />
+            <span className="text-gray-400">Commission</span>
+          </div>
+          <span className="font-medium text-[#00C2CB]">{offer.commission}%</span>
+        </div>
+
+        {offer.price && offer.commissionValue && (
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-emerald-400" />
+              <span className="text-gray-400">Est. earnings</span>
+            </div>
+            <span className="font-medium text-white">
+              {offer.currency} {offer.commissionValue.toFixed(2)}
+            </span>
+          </div>
+        )}
+
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <ShoppingBag className="w-4 h-4 text-sky-400" />
+            <span className="text-gray-400">Type</span>
+          </div>
+          <span className="capitalize text-xs px-2 py-0.5 rounded-full bg-[#111827] text-gray-200">
+            {offer.type}
+          </span>
+        </div>
+      </div>
+
+      {/* Affiliate note */}
+      {role === 'affiliate' && !requested && (
+        <textarea
+          placeholder="Write a note for the business..."
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          className="w-full mt-2 p-2 rounded-lg text-sm bg-black border border-[#0d0d0d] text-gray-100 placeholder:text-gray-500 focus:outline-none focus:border-[#00C2CB] focus:ring-0"
+          rows={2}
+        />
+      )}
+
+      {/* Footer buttons */}
+      <div className="mt-5 flex gap-3">
         {role === 'affiliate' ? (
-          <button
-            onClick={handleRequest}
-            disabled={requested}
-            className={`w-full font-semibold px-4 py-2 rounded-lg transition text-sm ${
-              requested
-                ? 'bg-gray-200 text-gray-600 cursor-not-allowed'
-                : 'bg-[#00C2CB] hover:bg-[#00b0b8] text-white'
-            }`}
-          >
-            {requested ? 'Request Sent' : 'Request to Promote'}
-          </button>
+          <>
+            <Link
+              href={`/affiliate/marketplace/${offer.id}`}
+              className="flex-1 text-center rounded-lg border border-[#00C2CB] px-4 py-2 text-xs sm:text-sm font-medium text-[#00C2CB] hover:bg-[#00C2CB]/10 transition-colors"
+            >
+              View offer
+            </Link>
+            <button
+              onClick={handleRequest}
+              disabled={requested}
+              className={`flex-1 font-semibold px-4 py-2 rounded-lg text-xs sm:text-sm transition-colors ${
+                requested
+                  ? 'bg-zinc-700 text-gray-400 cursor-not-allowed'
+                  : 'bg-[#00C2CB] hover:bg-[#00b0b8] text-black'
+              }`}
+            >
+              {requested ? 'Request Sent' : 'Request to Promote'}
+            </button>
+          </>
         ) : (
           <Link href={`/business/my-business/edit-offer/${offer.id}`}>
-            <button className="w-full bg-white hover:bg-[#e0fafa] text-[#00C2CB] border border-gray-300 px-4 py-2 rounded-lg font-medium transition text-sm">
+            <button className="w-full bg-[#00C2CB] hover:bg-[#00b0b8] text-black px-4 py-2 rounded-lg font-semibold text-xs sm:text-sm transition-colors">
               View Details
             </button>
           </Link>
