@@ -2,11 +2,14 @@
 
 import type { ReactNode } from 'react';
 import { useState } from 'react';
+import Link from 'next/link';
 import BusinessSidebar from './BusinessSidebar';
 import Topbar from '@/components/Topbar';
 
 export default function BusinessLayout({ children }: { children: ReactNode }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  const closeMobileNav = () => setMobileNavOpen(false);
 
   return (
     <div className="h-screen overflow-hidden bg-[#0e0e0e] text-white">
@@ -30,48 +33,55 @@ export default function BusinessLayout({ children }: { children: ReactNode }) {
       {/* Mobile pill-style nav directly under topbar */}
       {mobileNavOpen && (
         <div className="md:hidden fixed top-16 left-0 right-0 z-40 bg-[#111111] border-b border-white/5 py-2 px-3 flex overflow-x-auto gap-2">
-          <a
+          <Link
             href="/business/dashboard"
+            onClick={closeMobileNav}
             className="px-4 py-1.5 rounded-full bg-[#222222] text-white border border-white/10 text-sm whitespace-nowrap hover:bg-[#333333]"
           >
             Dashboard
-          </a>
-          <a
+          </Link>
+          <Link
             href="/business/my-business"
+            onClick={closeMobileNav}
             className="px-4 py-1.5 rounded-full bg-[#222222] text-white border border-white/10 text-sm whitespace-nowrap hover:bg-[#333333]"
           >
             My Business
-          </a>
-          <a
+          </Link>
+          <Link
             href="/business/marketplace"
+            onClick={closeMobileNav}
             className="px-4 py-1.5 rounded-full bg-[#222222] text-white border border-white/10 text-sm whitespace-nowrap hover:bg-[#333333]"
           >
             Marketplace
-          </a>
-          <a
+          </Link>
+          <Link
             href="/business/manage-campaigns"
+            onClick={closeMobileNav}
             className="px-4 py-1.5 rounded-full bg-[#222222] text-white border border-white/10 text-sm whitespace-nowrap hover:bg-[#333333]"
           >
             Manage Campaigns
-          </a>
-          <a
+          </Link>
+          <Link
             href="/business/inbox"
+            onClick={closeMobileNav}
             className="px-4 py-1.5 rounded-full bg-[#222222] text-white border border-white/10 text-sm whitespace-nowrap hover:bg-[#333333]"
           >
             Inbox
-          </a>
-          <a
+          </Link>
+          <Link
             href="/business/settings"
+            onClick={closeMobileNav}
             className="px-4 py-1.5 rounded-full bg-[#222222] text-white border border-white/10 text-sm whitespace-nowrap hover:bg-[#333333]"
           >
             Settings
-          </a>
-          <a
+          </Link>
+          <Link
             href="/business/support"
+            onClick={closeMobileNav}
             className="px-4 py-1.5 rounded-full bg-[#222222] text-white border border-white/10 text-sm whitespace-nowrap hover:bg-[#333333]"
           >
             Support
-          </a>
+          </Link>
         </div>
       )}
 
