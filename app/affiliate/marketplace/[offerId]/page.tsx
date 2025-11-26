@@ -35,6 +35,17 @@ export default function AffiliateOfferProfilePage() {
   const [requestError, setRequestError] = useState<string | null>(null);
   const [requestSuccess, setRequestSuccess] = useState<string | null>(null);
 
+  // Image carousel
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const images: string[] =
+    offer
+      ? Array.isArray((offer as any).image_urls) && (offer as any).image_urls.length > 0
+        ? (offer as any).image_urls
+        : offer.hero_image_url
+        ? [offer.hero_image_url]
+        : []
+      : [];
+
   // Load current user email
   useEffect(() => {
     let cancelled = false;
@@ -220,19 +231,65 @@ export default function AffiliateOfferProfilePage() {
           <div className="space-y-4">
             <div className="rounded-3xl border border-white/10 bg-white/[0.04] backdrop-blur shadow-[0_0_50px_rgba(0,194,203,0.18)] overflow-hidden">
               <div className="relative h-56 sm:h-72 md:h-80 bg-[#141414]">
-                {offer.hero_image_url ? (
+
+                {images.length > 0 ? (
                   <img
-                    src={offer.hero_image_url}
+                    key={images[currentSlide]}
+                    src={images[currentSlide]}
                     alt={displayBusinessName}
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover transition-all duration-500"
                   />
                 ) : (
                   <div className="w-full h-full flex flex-col items-center justify-center text-gray-500 text-sm">
                     <span className="mb-2 text-2xl">🛍️</span>
-                    Brand image not set yet
+                    Brand images not set yet
                   </div>
                 )}
+
+                {/* Overlay gradient */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
+
+                {/* LEFT arrow */}
+                {images.length > 1 && (
+                  <button
+                    onClick={() =>
+                      setCurrentSlide((prev) => (prev === 0 ? images.length - 1 : prev - 1))
+                    }
+                    className="absolute left-3 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white/80 px-3 py-2 rounded-full text-xs"
+                  >
+                    ‹
+                  </button>
+                )}
+
+                {/* RIGHT arrow */}
+                {images.length > 1 && (
+                  <button
+                    onClick={() =>
+                      setCurrentSlide((prev) => (prev === images.length - 1 ? 0 : prev + 1))
+                    }
+                    className="absolute right-3 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white/80 px-3 py-2 rounded-full text-xs"
+                  >
+                    ›
+                  </button>
+                )}
+
+                {/* Slide indicators */}
+                {images.length > 1 && (
+                  <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1">
+                    {images.map((_, idx) => (
+                      <div
+                        key={idx}
+                        className={`h-1.5 w-1.5 rounded-full transition ${
+                          idx === currentSlide
+                            ? 'bg-[#00C2CB]'
+                            : 'bg-white/30'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                )}
+
+                {/* Existing bottom content (no changes) */}
                 <div className="absolute bottom-4 left-4 right-4 flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p className="text-xs uppercase tracking-[0.18em] text-white/70">

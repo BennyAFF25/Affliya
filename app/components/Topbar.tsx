@@ -8,8 +8,57 @@ import { supabase } from 'utils/supabase/pages-client';
 import { LogOut } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 
+
 type ProfileAvatarRow = {
   avatar_url: string | null;
+};
+
+const getPageTitle = (pathname: string | null): string => {
+  if (!pathname) return 'Dashboard';
+
+  // Break into segments, e.g. "/affiliate/marketplace/123" -> ["affiliate","marketplace","123"]
+  const segments = pathname.split('/').filter(Boolean);
+  if (segments.length === 0) return 'Dashboard';
+
+  // Remove obviously dynamic/ID-like last segment (e.g. UUIDs) from the route key
+  const staticSegments = [...segments];
+  const last = staticSegments[staticSegments.length - 1];
+  if (last && last.length > 12 && last.includes('-')) {
+    staticSegments.pop();
+  }
+
+  const routeKey = staticSegments.join('/'); // e.g. "affiliate/marketplace"
+
+  // Map known routes to nice titles
+  const titleMap: Record<string, string> = {
+    'affiliate/dashboard': 'Dashboard',
+    'affiliate/marketplace': 'Marketplace',
+    'affiliate/wallet': 'Wallet',
+    'affiliate/settings': 'Settings',
+    'affiliate/support': 'Support',
+    'affiliate/inbox': 'Inbox',
+    'affiliate/dashboard/promote': 'Promote Offer',
+    'affiliate/dashboard/manage-campaigns': 'Manage Campaigns',
+
+    'business/dashboard': 'Dashboard',
+    'business/marketplace': 'Marketplace',
+    'business/my-business': 'My Business',
+    'business/settings': 'Settings',
+    'business/support': 'Support',
+    'business/inbox': 'Inbox',
+  };
+
+  if (titleMap[routeKey]) {
+    return titleMap[routeKey];
+  }
+
+  // Fallback: use the last static segment, prettified
+  const lastStatic = staticSegments[staticSegments.length - 1] || 'Dashboard';
+  const pretty = lastStatic
+    .replace(/-/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+
+  return pretty;
 };
 
 export default function Topbar() {
@@ -21,12 +70,7 @@ export default function Topbar() {
 
   const userInitials = user?.email?.charAt(0).toUpperCase() || 'F';
 
-  const pageTitle =
-    pathname
-      ?.replace('/business/', '')
-      ?.replace('/affiliate/', '')
-      ?.replace('/', '')
-      ?.toUpperCase() || 'DASHBOARD';
+  const pageTitle = getPageTitle(pathname);
 
   useEffect(() => {
     const loadAvatar = async () => {

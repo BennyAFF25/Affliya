@@ -28,7 +28,7 @@ function CreateOfferPageInner() {
       }
     };
     fetchUser();
-  }, []);
+  }, [supabase]);
 
   useEffect(() => {
     let cancelled = false;
@@ -44,7 +44,7 @@ function CreateOfferPageInner() {
     return () => {
       cancelled = true;
     };
-  }, [isOnboard, userEmail]);
+  }, [isOnboard, userEmail, supabase]);
 
   const [businessName, setBusinessName] = useState('');
   const [description, setDescription] = useState('');
@@ -58,8 +58,8 @@ function CreateOfferPageInner() {
   // NEW: offer profile fields
   const [profileHeadline, setProfileHeadline] = useState('');
   const [profileBio, setProfileBio] = useState('');
-  const [heroImageUrl, setHeroImageUrl] = useState<string | null>(null);
-  const [heroImageFile, setHeroImageFile] = useState<File | null>(null);
+  const [heroImageFiles, setHeroImageFiles] = useState<File[]>([]);
+  const [heroImagePreviews, setHeroImagePreviews] = useState<string[]>([]);
   const [avgConversionRate, setAvgConversionRate] = useState('');
   const [avgEpc, setAvgEpc] = useState('');
 
@@ -105,7 +105,7 @@ function CreateOfferPageInner() {
     };
 
     fetchMetaConnections();
-  }, [userEmail]);
+  }, [userEmail, supabase]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,7 +115,7 @@ function CreateOfferPageInner() {
       return;
     }
 
-    let uploadedLogoUrl = null;
+    let uploadedLogoUrl: string | null = null;
 
     if (logoFile) {
       const filePath = `${Date.now()}_${logoFile.name}`;
@@ -138,26 +138,35 @@ function CreateOfferPageInner() {
       }
     }
 
+    // NEW: multi-image upload for profile / carousel
     let uploadedHeroUrl: string | null = null;
+    const uploadedImageUrls: string[] = [];
 
-    if (heroImageFile) {
-      const heroPath = `${Date.now()}_${heroImageFile.name}`;
-      const { data: heroData, error: heroError } = await supabase.storage
-        .from('profile-images')
-        .upload(heroPath, heroImageFile, {
-          cacheControl: '3600',
-          upsert: false,
-          contentType: heroImageFile.type,
-        });
-
-      if (!heroError) {
-        const { data: heroUrlData } = supabase.storage
+    if (heroImageFiles && heroImageFiles.length > 0) {
+      for (const file of heroImageFiles) {
+        const heroPath = `${Date.now()}_${file.name}`;
+        const { data: heroData, error: heroError } = await supabase.storage
           .from('profile-images')
-          .getPublicUrl(heroPath);
-        uploadedHeroUrl = heroUrlData?.publicUrl || null;
-        setHeroImageUrl(uploadedHeroUrl);
-      } else {
-        console.error('[❌ Hero Image Upload Error]', heroError.message);
+          .upload(heroPath, file, {
+            cacheControl: '3600',
+            upsert: false,
+            contentType: file.type,
+          });
+
+        if (!heroError) {
+          const { data: heroUrlData } = supabase.storage
+            .from('profile-images')
+            .getPublicUrl(heroPath);
+          const publicUrl = heroUrlData?.publicUrl || null;
+          if (publicUrl) {
+            uploadedImageUrls.push(publicUrl);
+            if (!uploadedHeroUrl) {
+              uploadedHeroUrl = publicUrl;
+            }
+          }
+        } else {
+          console.error('[❌ Hero Image Upload Error]', heroError.message);
+        }
       }
     }
 
@@ -190,6 +199,7 @@ function CreateOfferPageInner() {
       profile_headline: profileHeadline || null,
       profile_bio: profileBio || null,
       hero_image_url: uploadedHeroUrl || null,
+      image_urls: uploadedImageUrls.length ? uploadedImageUrls : null,
       avg_conversion_rate: avgConversionRate
         ? Number(avgConversionRate)
         : null,
@@ -200,9 +210,7 @@ function CreateOfferPageInner() {
       payout_cycles: finalPayoutCycles,
     };
 
-    const { error: insertError } = await supabase
-      .from('offers')
-      .insert([newOffer]);
+    const { error: insertError } = await supabase.from('offers').insert([newOffer]);
     if (insertError) {
       console.error('[❌ Offer Insert Error]', insertError.message);
       return;
@@ -230,8 +238,8 @@ function CreateOfferPageInner() {
     // Reset profile fields
     setProfileHeadline('');
     setProfileBio('');
-    setHeroImageUrl(null);
-    setHeroImageFile(null);
+    setHeroImageFiles([]);
+    setHeroImagePreviews([]);
     setAvgConversionRate('');
     setAvgEpc('');
 
@@ -369,35 +377,39 @@ function CreateOfferPageInner() {
 
                 <div>
                   <label className="block font-semibold text-white mb-1">
-                    Profile / brand image
+                    Profile / brand images
                   </label>
                   <input
                     type="file"
                     accept="image/*"
+                    multiple
                     onChange={(e) => {
-                      const file = e.target.files?.[0] || null;
-                      setHeroImageFile(file);
-                      if (file) {
-                        // local preview only; final URL comes from Supabase upload
-                        const localUrl = URL.createObjectURL(file);
-                        setHeroImageUrl(localUrl);
-                      } else {
-                        setHeroImageUrl(null);
-                      }
+                      const files = Array.from(e.target.files || []);
+                      setHeroImageFiles(files);
+                      const previews = files.map((file) =>
+                        URL.createObjectURL(file),
+                      );
+                      setHeroImagePreviews(previews);
                     }}
                     className="w-full p-3 border border-[#2a2a2a] bg-[#0e0e0e] text-white rounded-lg"
                   />
                   <p className="mt-1 text-xs text-gray-400">
-                    This image will be used on your offer profile page (e.g. product shot or brand hero image).
+                    These images will be used on your offer profile page (e.g.
+                    product shots or brand hero images).
                   </p>
-                  {heroImageUrl && (
-                    <div className="mt-3">
+                  {heroImagePreviews.length > 0 && (
+                    <div className="mt-3 space-y-2">
                       <p className="text-xs text-gray-400 mb-1">Preview:</p>
-                      <img
-                        src={heroImageUrl}
-                        alt="Profile preview"
-                        className="w-full max-h-48 object-cover rounded-md border border-[#2a2a2a]"
-                      />
+                      <div className="grid grid-cols-2 gap-2">
+                        {heroImagePreviews.map((src, idx) => (
+                          <img
+                            key={idx}
+                            src={src}
+                            alt={`Profile preview ${idx + 1}`}
+                            className="w-full max-h-32 object-cover rounded-md border border-[#2a2a2a]"
+                          />
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>

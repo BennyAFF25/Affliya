@@ -2,14 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { supabase } from '@/../utils/supabase/pages-client';
 import { useSessionContext } from '@supabase/auth-helpers-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ShieldCheck, Link2, Wallet, Cpu, Briefcase, Users, ArrowRight, Twitter, Linkedin, Mail } from 'lucide-react';
 
 export default function Home() {
-  const { session, isLoading } = useSessionContext();
+  const { session, isLoading, supabaseClient } = useSessionContext();
   const user = session?.user ?? null;
   const router = useRouter();
   const [userType, setUserType] = useState<'business' | 'affiliate' | null>(null);
@@ -39,8 +38,15 @@ export default function Home() {
       localStorage.removeItem('intent.role');
     } catch {}
     setMenuOpen(false);
-    await supabase.auth.signOut();
+
+    try {
+      await supabaseClient.auth.signOut();
+    } catch (err) {
+      console.error('[❌ Home sign out failed]', err);
+    }
+
     router.push('/');
+    router.refresh();
   };
 
   return (
