@@ -44,7 +44,7 @@ export default function ForBusinessesPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#0b1a1b] via-[#0b0b0b] to-black text-white">
+    <div className="min-h-screen flex flex-col overflow-x-hidden bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#0b1a1b] via-[#0b0b0b] to-black text-white">
       {/* Topbar */}
       <header
         className="fixed inset-x-0 top-0 z-50 w-full h-16 px-6 bg-black/80 backdrop-blur text-white flex justify-between items-center border-b border-white/10"
@@ -274,16 +274,26 @@ export default function ForBusinessesPage() {
       <section className="mx-auto max-w-7xl px-6 py-12">
         <div className="relative overflow-hidden rounded-2xl border border-[#153436] bg-[#0f1516] px-0 py-3">
           <div className="pointer-events-none absolute inset-0 rounded-2xl shadow-[0_0_80px_10px_rgba(0,194,203,0.08)_inset]" />
-          <div className="px-4 pb-2">
+          <div className="px-4 pb-2 flex justify-center md:justify-start">
             <span className="inline-flex items-center gap-2 rounded-full border border-[#1e3a3b] bg-[#0b1f21] px-3 py-1 text-[11px] uppercase tracking-wide text-[#7ff5fb]">
               <span className="h-1.5 w-1.5 rounded-full bg-[#00C2CB]" />
               Trusted by growth teams across
             </span>
           </div>
           <div className="relative">
-            <div className="animate-marquee whitespace-nowrap will-change-transform">
-              <MarqueeRow />
-              <MarqueeRow ariaHidden />
+            {/* Mobile: horizontal scroll badges, no animation to avoid off-screen overflow */}
+            <div className="md:hidden -mx-4 px-4">
+              <div className="flex gap-3 overflow-x-auto pb-1 no-scrollbar">
+                <MarqueeRow />
+              </div>
+            </div>
+
+            {/* Desktop: animated marquee */}
+            <div className="hidden md:block overflow-hidden">
+              <div className="animate-marquee whitespace-nowrap will-change-transform">
+                <MarqueeRow />
+                <MarqueeRow ariaHidden />
+              </div>
             </div>
           </div>
         </div>
@@ -315,6 +325,13 @@ export default function ForBusinessesPage() {
           display: inline-block;
           min-width: 200%;
           animation: marquee 18s linear infinite;
+        }
+        .no-scrollbar {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+        .no-scrollbar::-webkit-scrollbar {
+          display: none;
         }
       `}</style>
     </div>
