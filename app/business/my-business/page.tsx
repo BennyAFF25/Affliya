@@ -161,7 +161,7 @@ export default function MyBusinessPage() {
   }
 
   useEffect(() => {
-    if (!user?.email) return;
+    if (!session || !user?.email) return;
 
     const fetchOffers = async () => {
       const { data, error } = await supabase
@@ -177,10 +177,10 @@ export default function MyBusinessPage() {
     };
 
     fetchOffers();
-  }, [user, supabase]);
+  }, [session, user, supabase]);
 
   useEffect(() => {
-    if (!user?.email) return;
+    if (!session || !user?.email) return;
     const loadStripeCustomerId = async () => {
       const { data, error } = await supabase
         .from('business_profiles')
@@ -205,7 +205,7 @@ export default function MyBusinessPage() {
       }
     };
     loadStripeCustomerId();
-  }, [user, supabase]);
+  }, [session, user, supabase]);
 
   useEffect(() => {
     if (showPaymentForm && businessCustomerId && !setupClientSecret) {

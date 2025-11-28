@@ -193,17 +193,12 @@ export default function BusinessDashboard() {
   const approved = approvedAffiliates;
 
   useEffect(() => {
-    if (session === undefined) return;
-    if (session === null) {
-      router.push('/login');
+    // Wait until we actually have a session and user id before loading data
+    if (!session || !user?.id) {
       return;
     }
 
     const fetchProfileAndData = async () => {
-      if (!user?.id) {
-        console.warn('[❌ No user id available yet]');
-        return;
-      }
 
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')

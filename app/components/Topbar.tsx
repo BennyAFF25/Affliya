@@ -124,16 +124,16 @@ export default function Topbar() {
       {/* LEFT SIDE */}
       <div className="flex items-center gap-6">
         {/* Slightly Smaller Logo */}
-        <Link href="/" className="flex items-center">
+        <div className="flex items-center">
           <Image
             src="/nettmark-logo.png"
             alt="Nettmark Logo"
-            width={150}     // smaller now
+            width={150}
             height={40}
             priority
             className="object-contain"
           />
-        </Link>
+        </div>
 
         {/* Page Title */}
         <span className="text-[#D0D0D0] text-xs tracking-[0.15em] uppercase">
