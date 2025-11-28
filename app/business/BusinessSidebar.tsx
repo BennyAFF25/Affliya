@@ -104,48 +104,48 @@ export default function BusinessSidebar() {
 
       {/* Mobile pill slider nav */}
       <div className="md:hidden bg-[#1F1F1F] border-b border-black/20 py-3 px-4 flex overflow-x-auto gap-3">
-        <a
+        <Link
           href="/business/dashboard"
           className="px-4 py-2 rounded-full bg-[#00C2CB] text-black text-sm whitespace-nowrap"
         >
           Dashboard
-        </a>
-        <a
+        </Link>
+        <Link
           href="/business/my-business"
           className="px-4 py-2 rounded-full bg-[#00C2CB] text-black text-sm whitespace-nowrap"
         >
           My Business
-        </a>
-        <a
+        </Link>
+        <Link
           href="/business/marketplace"
           className="px-4 py-2 rounded-full bg-[#00C2CB] text-black text-sm whitespace-nowrap"
         >
           Marketplace
-        </a>
-        <a
+        </Link>
+        <Link
           href="/business/manage-campaigns"
           className="px-4 py-2 rounded-full bg-[#00C2CB] text-black text-sm whitespace-nowrap"
         >
           Campaigns
-        </a>
-        <a
+        </Link>
+        <Link
           href="/business/inbox"
           className="px-4 py-2 rounded-full bg-[#00C2CB] text-black text-sm whitespace-nowrap"
         >
           Inbox
-        </a>
-        <a
+        </Link>
+        <Link
           href="/business/settings"
           className="px-4 py-2 rounded-full bg-[#00C2CB] text-black text-sm whitespace-nowrap"
         >
           Settings
-        </a>
-        <a
+        </Link>
+        <Link
           href="/business/support"
           className="px-4 py-2 rounded-full bg-[#00C2CB] text-black text-sm whitespace-nowrap"
         >
           Support
-        </a>
+        </Link>
       </div>
     </>
   );

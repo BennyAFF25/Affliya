@@ -415,7 +415,9 @@ export default function MyBusinessPage() {
   }
 
   return (
-    <div className="bg-[#0a0a0a] text-white px-6 py-10 min-h-screen">
+    <>
+      {console.log("MyBusinessPage mounted")}
+      <div className="bg-[#0a0a0a] text-white px-6 py-10 min-h-screen">
       {/* Header */}
       <div className="max-w-6xl mx-auto mb-10">
         <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-[#7ff5fb] to-[#00C2CB]">
@@ -573,7 +575,7 @@ export default function MyBusinessPage() {
               </p>
 
               <div className="space-y-3">
-                <Link href="/business/my-business/affiliate-requests">
+                <Link href="/business/my-business/affiliate-requests" prefetch={false}>
                   <ActionButton size="sm">
                     <IconUsers className="w-5 h-5 shrink-0" />
                     <span>Affiliate requests</span>
@@ -581,12 +583,12 @@ export default function MyBusinessPage() {
                 </Link>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <Link href="/business/my-business/post-ideas">
+                  <Link href="/business/my-business/post-ideas/" prefetch={false}>
                     <ActionButton size="sm" secondary>
                       View post ideas
                     </ActionButton>
                   </Link>
-                  <Link href="/business/my-business/ad-ideas">
+                  <Link href="/business/my-business/ad-ideas/" prefetch={false}>
                     <ActionButton size="sm" secondary>
                       View ad ideas
                     </ActionButton>
@@ -606,7 +608,7 @@ export default function MyBusinessPage() {
               </p>
 
               <div className="space-y-3">
-                <Link href="/business/my-business/connect-meta">
+                <Link href="/business/my-business/connect-meta/" prefetch={false}>
                   <ActionButton size="sm">
                     <IconBolt className="w-5 h-5 shrink-0" />
                     <span>Connect Meta ads</span>
@@ -619,7 +621,7 @@ export default function MyBusinessPage() {
                       Setup tracking
                     </ActionButton>
                   </Link>
-                  <Link href="/business/my-business/publish-creatives">
+                  <Link href="/business/my-business/publish-creatives/" prefetch={false}>
                     <ActionButton size="sm" secondary>
                       Publish creatives
                     </ActionButton>
@@ -678,7 +680,7 @@ export default function MyBusinessPage() {
             </h2>
           </div>
           {canCreateOffer ? (
-            <Link href="/business/my-business/create-offer">
+            <Link href="/business/my-business/create-offer/" prefetch={false}>
               <ActionButton size="sm">
                 <IconPlus className="w-4 h-4" />
                 <span>New offer</span>
@@ -764,7 +766,7 @@ export default function MyBusinessPage() {
                 <p className="relative mt-4 text-sm text-white/70">{offer.description}</p>
 
                 <div className="relative mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
-                  <Link href={`/business/my-business/edit-offer/${offer.id}`}>
+                  <Link href={`/business/my-business/edit-offer/${offer.id}/`} prefetch={false}>
                     <button className="inline-flex w-full items-center justify-center rounded-full bg-[#00C2CB] px-4 py-2.5 text-sm font-semibold text-black shadow-[0_0_25px_rgba(0,194,203,0.45)] hover:bg-[#00b0b8] sm:w-auto">
                       Edit Offer
                     </button>
@@ -782,6 +784,7 @@ export default function MyBusinessPage() {
           </div>
         )}
       </div>
-    </div>
+      </div>
+    </>
   );
 }

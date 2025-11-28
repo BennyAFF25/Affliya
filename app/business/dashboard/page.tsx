@@ -195,7 +195,7 @@ export default function BusinessDashboard() {
   useEffect(() => {
     if (session === undefined) return;
     if (session === null) {
-      router.push('/');
+      router.push('/login');
       return;
     }
 
