@@ -56,15 +56,13 @@ export default function ForPartnersPage() {
             Bring the growth. <span className="text-[#7ff5fb]">Own the craft.</span>
           </h1>
           <p className="mt-4 max-w-2xl text-lg text-gray-300">
-            Find offers, submit creatives for approval, and run ads via the brand’s Meta account. Fund spend from your
-            Nettmark wallet and get paid automatically on verified conversions.
+            Find offers, submit creatives for approval, and promote brands using paid or organic campaigns. You can start
+            with zero ad spend using your existing audience or socials, then when you’re ready to scale you can fund
+            campaigns from your Nettmark wallet and get paid automatically on verified conversions.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
-            <Link href="/affiliate/marketplace" className="rounded-xl bg-[#00C2CB] px-5 py-3 font-semibold text-black hover:bg-[#00b0b8]">
+            <Link href="/pricing" className="rounded-xl bg-[#00C2CB] px-5 py-3 font-semibold text-black hover:bg-[#00b0b8]">
               Browse Offers
-            </Link>
-            <Link href="/support" className="rounded-xl border border-[#24484a] bg-[#0d1c1d] px-5 py-3 font-semibold text-white hover:bg-[#0f2627]">
-              Talk to us
             </Link>
           </div>
         </div>
@@ -74,11 +72,11 @@ export default function ForPartnersPage() {
       <section className="mx-auto max-w-7xl px-6 pb-8 md:pb-12">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[{
-            title: 'Wallet‑funded spend',
-            desc: 'Pre‑fund your ads via Nettmark. No card sharing — clean accounting and caps.',
+            title: 'Wallet‑funded spend (on your terms)',
+            desc: 'Top up a Nettmark wallet when it suits you. No card sharing — clean accounting and hard caps by design.',
           }, {
-            title: 'Brand‑hosted delivery',
-            desc: 'Ads run on the brand’s Meta Ad Account. You execute, they keep control.',
+            title: 'Organic or paid, your call',
+            desc: 'Build with organic posts, community and existing audiences first. Layer in paid media via brand accounts only when it makes sense.',
           }, {
             title: 'Fast approvals',
             desc: 'Submit creative & targeting for review. Go live as soon as the brand approves.',
@@ -102,9 +100,9 @@ export default function ForPartnersPage() {
         <h2 className="text-2xl font-bold">How it works</h2>
         <div className="mt-6 grid gap-6 lg:grid-cols-4">
           {[
-            { step: '1', title: 'Join & fund', desc: 'Create your account and pre‑fund your Nettmark wallet.' },
+            { step: '1', title: 'Join Nettmark', desc: 'Create your account and set up your profile. Top up your wallet later, when you’re ready to launch.' },
             { step: '2', title: 'Pick an offer', desc: 'Review brand rules & commission. Submit your creative plan.' },
-            { step: '3', title: 'Get approved', desc: 'Your ads run via the brand’s account once approved.' },
+            { step: '3', title: 'Get approved', desc: 'Your ads or organic posts run via the brand’s account or your own channels once approved.' },
             { step: '4', title: 'Earn automatically', desc: 'Stripe pays out commissions on verified conversions.' },
           ].map((s) => (
             <div key={s.step} className="rounded-2xl border border-[#1b3132] bg-[#0f1516] p-6">
@@ -164,8 +162,12 @@ export default function ForPartnersPage() {
                   {/* Product price */}
                   <div>
                     <div className="flex items-center justify-between">
-                      <label htmlFor="pp_price" className="text-sm text-gray-300">Product price</label>
-                      <output id="pp_price_out" className="text-sm font-semibold text-white">$120.00</output>
+                      <label htmlFor="pp_price" className="text-sm text-gray-300">
+                        Product price
+                      </label>
+                      <output id="pp_price_out" className="text-sm font-semibold text-white">
+                        $120.00
+                      </output>
                     </div>
                     <input
                       id="pp_price"
@@ -181,8 +183,12 @@ export default function ForPartnersPage() {
                   {/* Commission */}
                   <div>
                     <div className="flex items-center justify-between">
-                      <label htmlFor="pp_comm" className="text-sm text-gray-300">Commission</label>
-                      <output id="pp_comm_out" className="text-sm font-semibold text-white">25%</output>
+                      <label htmlFor="pp_comm" className="text-sm text-gray-300">
+                        Commission
+                      </label>
+                      <output id="pp_comm_out" className="text-sm font-semibold text-white">
+                        25%
+                      </output>
                     </div>
                     <input
                       id="pp_comm"
@@ -195,11 +201,71 @@ export default function ForPartnersPage() {
                     />
                   </div>
 
+                  {/* Payout type */}
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <label htmlFor="pp_type" className="text-sm text-gray-300">
+                        Payout type
+                      </label>
+                    </div>
+                    <select
+                      id="pp_type"
+                      className="mt-2 w-full rounded-md border border-[#1b3132] bg-[#0b1112] px-3 py-2 text-sm text-gray-100"
+                      defaultValue="one-time"
+                    >
+                      <option value="one-time">One-time commission</option>
+                      <option value="recurring">Recurring (subscription)</option>
+                    </select>
+                    <p id="pp_type_help" className="mt-1 text-[11px] text-gray-500">
+                      Each sale pays a one-time commission on the product price.
+                    </p>
+                  </div>
+
+                  {/* Estimated sales per month */}
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <label htmlFor="pp_sales" className="text-sm text-gray-300">
+                        Estimated sales per month
+                      </label>
+                      <output id="pp_sales_out" className="text-sm font-semibold text-white">
+                        20
+                      </output>
+                    </div>
+                    <input
+                      id="pp_sales"
+                      type="range"
+                      min="0"
+                      max="500"
+                      defaultValue="20"
+                      step="1"
+                      className="mt-2 w-full accent-[#00C2CB]"
+                    />
+                  </div>
+
                   {/* Earnings */}
                   <div className="mt-2 rounded-xl border border-[#24484a] bg-[#0d1c1d] p-4 text-center">
                     <div className="text-xs uppercase tracking-wide text-[#7ff5fb]">Your cut per sale</div>
-                    <div id="pp_earn" className="mt-1 text-3xl md:text-4xl font-extrabold text-white">$30.00</div>
-                    <div className="mt-1 text-[11px] text-gray-400">Paid automatically via Stripe on verified conversions</div>
+                    <div id="pp_earn" className="mt-1 text-3xl md:text-4xl font-extrabold text-white">
+                      $30.00
+                    </div>
+                    <div className="mt-1 text-[11px] text-gray-400">
+                      Paid automatically via Stripe on verified conversions.
+                    </div>
+
+                    <div className="mt-3 grid gap-1 text-xs text-gray-300 text-left">
+                      <div className="flex items-center justify-between">
+                        <span>Est. monthly earnings</span>
+                        <span id="pp_month_out">$600.00</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span>Est. yearly earnings</span>
+                        <span id="pp_year_out">$7,200.00</span>
+                      </div>
+                    </div>
+
+                    <p id="pp_note" className="mt-2 text-[11px] text-gray-500 text-left">
+                      Yearly estimate assumes a consistent number of new sales each month at this commission.
+                    </p>
                   </div>
                 </div>
               </div>
@@ -209,39 +275,7 @@ export default function ForPartnersPage() {
       </section>
 
       {/* vanilla JS island for the estimator (keeps this page as a Server Component) */}
-      <script
-        dangerouslySetInnerHTML={{
-          __html: `
-          (function(){
-            function fmt(n){ try { return new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD', maximumFractionDigits: 2 }).format(n); } catch(e){ return '$' + (Math.round(n*100)/100).toFixed(2); } }
-            function calc(){
-              var price = parseFloat(document.getElementById('pp_price')?.value || '0');
-              var comm  = parseFloat(document.getElementById('pp_comm')?.value || '0');
-              var earn  = price * (comm/100);
-              var priceOut = document.getElementById('pp_price_out');
-              var commOut  = document.getElementById('pp_comm_out');
-              var earnOut  = document.getElementById('pp_earn');
-              if(priceOut) priceOut.textContent = fmt(price);
-              if(commOut)  commOut.textContent  = comm + '%';
-              if(earnOut)  earnOut.textContent  = fmt(earn);
-            }
-            function bind(){
-              var p = document.getElementById('pp_price');
-              var c = document.getElementById('pp_comm');
-              if(!p || !c) return;
-              p.addEventListener('input', calc);
-              c.addEventListener('input', calc);
-              calc();
-            }
-            if(document.readyState === 'loading'){
-              document.addEventListener('DOMContentLoaded', bind);
-            } else {
-              bind();
-            }
-          })();
-          `
-        }}
-      />
+      <script src="/partner-estimator.js" />
     </main>
   );
 }

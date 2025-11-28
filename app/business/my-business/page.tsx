@@ -133,6 +133,7 @@ interface Offer {
 
 export default function MyBusinessPage() {
   const [offers, setOffers] = useState<Offer[]>([]);
+  const [offersLoading, setOffersLoading] = useState<boolean>(true);
   const [loadingDeleteId, setLoadingDeleteId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [businessCustomerId, setBusinessCustomerId] = useState<string | null>(null);
@@ -164,6 +165,7 @@ export default function MyBusinessPage() {
     if (!session || !user?.email) return;
 
     const fetchOffers = async () => {
+      setOffersLoading(true);
       const { data, error } = await supabase
         .from('offers')
         .select('id,title,description,commission,type')
@@ -171,9 +173,11 @@ export default function MyBusinessPage() {
 
       if (error) {
         console.error('[❌ Error fetching business offers]', error.message);
+        setOffers([]);
       } else {
         setOffers(data ? (data as Offer[]) : []);
       }
+      setOffersLoading(false);
     };
 
     fetchOffers();
@@ -699,7 +703,9 @@ export default function MyBusinessPage() {
           )}
         </div>
 
-        {offers.length === 0 ? (
+        {offersLoading ? (
+          <p className="text-gray-400 text-center text-sm">Loading your offers…</p>
+        ) : offers.length === 0 ? (
           <p className="text-gray-400 text-center">You haven't uploaded any offers yet.</p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
