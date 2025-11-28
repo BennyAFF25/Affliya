@@ -18,13 +18,9 @@ export default function PricingPage() {
   const [err, setErr] = useState<string | null>(null);
   const [loadingPlan, setLoadingPlan] = useState<Plan | null>(null);
 
-  const [billing, setBilling] = useState<"monthly" | "annual">("monthly");
-
   const displayPrice = (plan: Plan) => {
     const base = plan === "business" ? 150 : 50;
-    if (billing === "monthly") return `$${base}/mo`;
-    const annual = Math.round(base * 12 * 0.83); // ~2 months free
-    return `$${annual}/yr`;
+    return `$${base}/mo`;
   };
 
   const getMeta = (plan: Plan): Meta => {
@@ -114,11 +110,6 @@ export default function PricingPage() {
     return (
       <section className="relative w-full rounded-2xl border border-white/5 bg-gradient-to-b from-white/[0.02] to-white/[0.01] backdrop-blur-xl shadow-lg">
         <div className="relative p-8 md:p-10 flex flex-col items-center text-center gap-5">
-          {plan === "business" && (
-            <span className="self-center -mt-2 mb-1 inline-flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-xs text-emerald-300">
-              Most popular
-            </span>
-          )}
           <div className="flex items-center justify-center">
             <span
               className={`px-4 py-2 rounded-lg border text-sm ${
@@ -152,6 +143,29 @@ export default function PricingPage() {
             <div className="rounded-md border border-white/10 bg-white/[0.03] px-3 py-2">Cancel anytime</div>
             <div className="rounded-md border border-white/10 bg-white/[0.03] px-3 py-2">Stripe‑powered, secure</div>
           </div>
+          <details className="mt-4 w-full rounded-xl border border-white/10 bg-white/[0.02] p-3 text-left">
+            <summary className="cursor-pointer select-none text-sm font-medium list-none">
+              What you’re paying for
+            </summary>
+            <ul className="mt-2 space-y-1 text-xs text-gray-300 list-disc list-inside">
+              {(plan === "business"
+                ? [
+                    "Always-on exposure inside the Nettmark offer marketplace.",
+                    "Low-risk, pay-on-results acquisition instead of fixed retainers.",
+                    "Infrastructure for approvals, tracking, and automated Stripe payouts.",
+                    "Shared ad infrastructure so partners can run Meta ads from your account without sharing logins.",
+                  ]
+                : [
+                    "Access to vetted offers you can promote as a partner.",
+                    "Use Nettmark’s tracking, wallets, and payout rails instead of building your own.",
+                    "Centralised dashboard for campaigns, conversions, and wallet balance.",
+                    "Support for both paid traffic and organic / UGC promotion flows.",
+                  ]
+              ).map((item) => (
+                <li key={item}>{item}</li>
+              ))}
+            </ul>
+          </details>
         </div>
       </section>
     );
@@ -171,7 +185,7 @@ export default function PricingPage() {
         {/* Centered primary nav (desktop) */}
         <nav className="hidden md:flex items-center gap-8 text-sm justify-center absolute left-1/2 -translate-x-1/2">
           <Link href="/for-businesses" className="text-[#00C2CB] hover:text-[#7ff5fb] font-semibold tracking-wide transition-colors">For Businesses</Link>
-          <Link href="/for-partners" className="text-[#00C2CB] hover:text-[#7ff5fb] font-semibold tracking-wide transition-colors">For Partners</Link>
+          <Link href="/for-partners" className="text-[#00C2CB] hover:text-[#7fffb] font-semibold tracking-wide transition-colors">For Partners</Link>
           <Link href="/pricing" className="text-[#00C2CB] hover:text-[#7ff5fb] font-semibold tracking-wide transition-colors">Pricing</Link>
         </nav>
 
@@ -192,20 +206,6 @@ export default function PricingPage() {
 
       {/* Main */}
       <main className="flex-1 w-full px-6 md:px-10 py-8 md:py-12">
-        <div className="mx-auto w-full max-w-5xl mb-6 flex items-center justify-center gap-2 text-sm">
-          <button
-            className={`px-3 py-1.5 rounded-md border ${billing === "monthly" ? "bg-white/10 border-white/20 text-white" : "border-white/10 text-gray-300 hover:text-white"}`}
-            onClick={() => setBilling("monthly")}
-          >
-            Monthly
-          </button>
-          <button
-            className={`px-3 py-1.5 rounded-md border ${billing === "annual" ? "bg-white/10 border-white/20 text-white" : "border-white/10 text-gray-300 hover:text-white"}`}
-            onClick={() => setBilling("annual")}
-          >
-            Annual <span className="ml-1 text-emerald-300">Save ~17%</span>
-          </button>
-        </div>
         <div className="mx-auto w-full max-w-5xl grid gap-6 md:gap-8 md:grid-cols-2">
           <PlanCard plan="business" />
           <PlanCard plan="affiliate" />
@@ -217,19 +217,43 @@ export default function PricingPage() {
           </p>
         )}
 
-        <section className="mx-auto mt-12 w-full max-w-5xl rounded-2xl border border-white/10 bg-white/[0.02] p-6 md:p-8">
-          <h3 className="text-xl font-semibold mb-4">Compare features</h3>
-          <div className="grid grid-cols-3 gap-y-3 text-sm">
-            <div className="text-gray-400" />
-            <div className="text-center font-medium">Business</div>
-            <div className="text-center font-medium">Affiliate</div>
-            {features.map((f) => (
-              <Fragment key={f.label}>
-                <div className="text-gray-300">{f.label}</div>
-                <div className="flex justify-center">{f.business ? <Tick /> : <Dash />}</div>
-                <div className="flex justify-center">{f.affiliate ? <Tick /> : <Dash />}</div>
-              </Fragment>
-            ))}
+        <section className="mx-auto mt-12 w-full max-w-5xl rounded-2xl border border-[#00C2CB]/20 bg-gradient-to-b from-[#001f20] via-[#0b0b0b] to-black p-6 md:p-8 shadow-[0_0_25px_rgba(0,194,203,0.15)]">
+          <h3 className="text-xl font-semibold mb-4 flex items-center gap-2"><span className="inline-block w-2 h-2 bg-[#00C2CB] rounded-full"></span> Why Nettmark is worth it</h3>
+          <p className="text-sm text-gray-300 mb-6 max-w-3xl">
+            Whether you&apos;re a brand or a partner, you&apos;re paying for infrastructure you
+            could never justify building alone — tracking, payouts, and guardrails that let
+            you focus on the work, not the plumbing.
+          </p>
+          <div className="grid gap-4 md:grid-cols-2">
+            {/* Business card */}
+            <div className="rounded-xl border border-[#00C2CB]/20 bg-[#001718]/60 p-5 shadow-[0_0_20px_rgba(0,194,203,0.12)]">
+              <h4 className="text-base font-semibold mb-2 text-[#00C2CB]">If you&apos;re a business</h4>
+              <p className="text-xs text-gray-300 mb-3">
+                Turn partner traffic into a predictable channel without bloated retainers or
+                handing out logins.
+              </p>
+              <ul className="list-none space-y-1 text-xs text-gray-300">
+                <li><span className="inline-block w-2 h-2 rounded-full bg-[#00C2CB] mr-2"></span>Always-on exposure inside the Nettmark marketplace.</li>
+                <li><span className="inline-block w-2 h-2 rounded-full bg-[#00C2CB] mr-2"></span>Low-risk, pay-on-results acquisition instead of fixed ad retainers.</li>
+                <li><span className="inline-block w-2 h-2 rounded-full bg-[#00C2CB] mr-2"></span>Meta ad infrastructure that lets partners run ads from your account safely.</li>
+                <li><span className="inline-block w-2 h-2 rounded-full bg-[#00C2CB] mr-2"></span>Automated, compliant Stripe payouts on verified conversions only.</li>
+              </ul>
+            </div>
+
+            {/* Partner card */}
+            <div className="rounded-xl border border-[#00C2CB]/20 bg-[#001718]/60 p-5 shadow-[0_0_20px_rgba(0,194,203,0.12)]">
+              <h4 className="text-base font-semibold mb-2 text-[#00C2CB]">If you&apos;re a partner</h4>
+              <p className="text-xs text-gray-300 mb-3">
+                Plug into ready-to-sell offers with rails for both paid campaigns and
+                organic content.
+              </p>
+              <ul className="list-none space-y-1 text-xs text-gray-300">
+                <li><span className="inline-block w-2 h-2 rounded-full bg-[#00C2CB] mr-2"></span>Instant access to vetted offers and clear commission structures.</li>
+                <li><span className="inline-block w-2 h-2 rounded-full bg-[#00C2CB] mr-2"></span>Use Nettmark&apos;s tracking, wallets, and reporting instead of duct-taping tools.</li>
+                <li><span className="inline-block w-2 h-2 rounded-full bg-[#00C2CB] mr-2"></span>Run paid Meta ads or lean on organic / UGC flows from the same dashboard.</li>
+                <li><span className="inline-block w-2 h-2 rounded-full bg-[#00C2CB] mr-2"></span>Get paid automatically via Stripe without chasing invoices.</li>
+              </ul>
+            </div>
           </div>
         </section>
 

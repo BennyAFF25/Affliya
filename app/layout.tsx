@@ -3,20 +3,20 @@ import Providers from './Providers';
 import ThemeWrapper from '@/components/ThemeWrapper';
 
 export const metadata = {
-  title: 'Affliya',
-  description: 'Affliya – The Fastest Growing Affiliate Platform on the Planet',
+  title: 'Nettmark',
+  description: 'Nettmark – The Fastest Growing Affiliate Platform on the Planet',
   metadataBase: new URL('https://app.affliya.vercel.app'),
   openGraph: {
-    title: 'Affliya',
+    title: 'Nettmark',
     description: 'Join the future of performance marketing.',
     url: 'https://app.affliya.vercel.app',
-    siteName: 'Affliya',
+    siteName: 'Nettmark',
     images: [
       {
         url: '/og-image.png',
         width: 1200,
         height: 630,
-        alt: 'Affliya Preview',
+        alt: 'Nettmark Preview',
       },
     ],
     type: 'website',
