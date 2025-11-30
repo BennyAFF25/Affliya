@@ -212,16 +212,10 @@ export default function ForBusinessesPage() {
 
         <div className="mt-8 flex flex-wrap gap-4">
           <Link
-            href="/signup/business"
+            href="/pricing"
             className="px-5 py-3 rounded-md bg-[#00C2CB] text-black font-semibold shadow hover:bg-[#00b0b8] transition-colors"
           >
-            Get Started (Free to list)
-          </Link>
-          <Link
-            href="/contact"
-            className="px-5 py-3 rounded-md border border-[#214244] bg-transparent text-white hover:bg-[#0b2a2b] transition-colors"
-          >
-            Talk to us
+            Get Started
           </Link>
         </div>
       </section>
@@ -270,30 +264,37 @@ export default function ForBusinessesPage() {
         </div>
       </section>
 
-      {/* TRUST STRIP (animated) */}
+      {/* TRUST STRIP */}
       <section className="mx-auto max-w-7xl px-6 py-12">
-        <div className="relative overflow-hidden rounded-2xl border border-[#153436] bg-[#0f1516] px-0 py-3">
+        <div className="relative rounded-2xl border border-[#153436] bg-[#0f1516] px-0 py-3">
           <div className="pointer-events-none absolute inset-0 rounded-2xl shadow-[0_0_80px_10px_rgba(0,194,203,0.08)_inset]" />
-          <div className="px-4 pb-2 flex justify-center md:justify-start">
+          <div className="px-4 pb-3 flex justify-center md:justify-start">
             <span className="inline-flex items-center gap-2 rounded-full border border-[#1e3a3b] bg-[#0b1f21] px-3 py-1 text-[11px] uppercase tracking-wide text-[#7ff5fb]">
               <span className="h-1.5 w-1.5 rounded-full bg-[#00C2CB]" />
               Trusted by growth teams across
             </span>
           </div>
-          <div className="relative">
-            {/* Mobile: horizontal scroll badges, no animation to avoid off-screen overflow */}
-            <div className="md:hidden -mx-4 px-4">
-              <div className="flex gap-3 overflow-x-auto pb-1 no-scrollbar">
-                <MarqueeRow />
-              </div>
-            </div>
 
-            {/* Desktop: animated marquee */}
-            <div className="hidden md:block overflow-hidden">
-              <div className="animate-marquee whitespace-nowrap will-change-transform">
-                <MarqueeRow />
-                <MarqueeRow ariaHidden />
-              </div>
+          {/* Static pill grid for all breakpoints */}
+          <div className="px-4 pb-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:flex md:flex-wrap gap-3 justify-center md:justify-start">
+              {[
+                "DTC",
+                "SaaS",
+                "Marketplaces",
+                "Mobile Apps",
+                "Creators",
+                "Agencies",
+                "Wellness",
+                "Fintech",
+              ].map((label) => (
+                <span
+                  key={label}
+                  className="rounded-full border border-[#223d3e] bg-[#111b1c] px-4 py-1.5 text-sm text-gray-300 text-center"
+                >
+                  {label}
+                </span>
+              ))}
             </div>
           </div>
         </div>
@@ -305,35 +306,11 @@ export default function ForBusinessesPage() {
         <div className="grid md:grid-cols-2 gap-4">
           <FAQ q="Who pays for the ads?" a="Partners do. They pre‑fund spend from their own wallet — you never prepay." />
           <FAQ q="Do partners get full account access?" a="No. They submit campaigns for approval and run under your guardrails." />
-          <FAQ q="How do payouts work?" a="When a partner sale is confirmed, Stripe automatically charges your account and pays the exact commission." />
+          <FAQ q="How do payouts work?" a="When a partner sale is confirmed, Stripe automatically displays commisions to settle on your dashboard." />
           <FAQ q="What do we need to start?" a="Connect Meta and Stripe during onboarding and add a lightweight tracking tag." />
         </div>
       </section>
 
-
-      {/* Page-local animation keyframes */}
-      <style jsx global>{`
-        @keyframes marquee {
-          0% {
-            transform: translateX(0);
-          }
-          100% {
-            transform: translateX(-50%);
-          }
-        }
-        .animate-marquee {
-          display: inline-block;
-          min-width: 200%;
-          animation: marquee 18s linear infinite;
-        }
-        .no-scrollbar {
-          -ms-overflow-style: none;
-          scrollbar-width: none;
-        }
-        .no-scrollbar::-webkit-scrollbar {
-          display: none;
-        }
-      `}</style>
     </div>
   );
 }
@@ -351,12 +328,26 @@ function QuickFact({ title, desc }: { title: string; desc: string }) {
 
 function FAQ({ q, a }: { q: string; a: string }) {
   return (
-    <details className="group rounded-2xl border border-[#16393b] bg-[#0e1617] p-4">
-      <summary className="flex cursor-pointer list-none items-center justify-between">
-        <span className="font-semibold">{q}</span>
-        <span className="text-[#7ff5fb] transition-transform group-open:rotate-45 text-xl leading-none">+</span>
+    <details
+      className="group relative overflow-hidden rounded-2xl border border-[#16393b] bg-[#050809] text-left transition-all duration-300 hover:border-[#00C2CB]/70 hover:shadow-[0_0_25px_rgba(0,194,203,0.18)]"
+    >
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 md:px-5 md:py-4">
+        <div className="flex items-center gap-3">
+          {/* Accent bar */}
+          <span className="h-7 w-1 rounded-full bg-[#16393b] group-open:bg-[#00C2CB]" />
+          <span className="font-semibold text-sm md:text-base">
+            {q}
+          </span>
+        </div>
+        <span
+          className="flex h-7 w-7 items-center justify-center rounded-full border border-[#1f3a3c] bg-[#0b1516] text-[#7ff5fb] text-base leading-none transition-transform duration-200 group-open:rotate-45"
+        >
+          +
+        </span>
       </summary>
-      <p className="mt-2 text-gray-300">{a}</p>
+      <div className="px-4 pb-4 pr-10 md:px-5 md:pb-5 text-sm text-gray-300">
+        <p>{a}</p>
+      </div>
     </details>
   );
 }
@@ -405,32 +396,3 @@ function StepCard({
   );
 }
 
-function MarqueeRow({ ariaHidden = false }: { ariaHidden?: boolean }) {
-  return (
-    <div className="inline-flex gap-3 pr-3" aria-hidden={ariaHidden}>
-      {[
-        "DTC",
-        "SaaS",
-        "Marketplaces",
-        "Mobile Apps",
-        "Creators",
-        "Agencies",
-        "Wellness",
-        "Fintech",
-        "Education",
-        "DTC",
-        "SaaS",
-        "Marketplaces",
-        "Mobile Apps",
-        "Creators",
-      ].map((label, i) => (
-        <span
-          key={`${label}-${i}`}
-          className="rounded-full border border-[#223d3e] bg-[#111b1c] px-4 py-1.5 text-sm text-gray-300"
-        >
-          {label}
-        </span>
-      ))}
-    </div>
-  );
-}

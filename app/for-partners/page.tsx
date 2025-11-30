@@ -2,6 +2,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import Image from 'next/image';
+import Script from 'next/script';
 
 export const metadata: Metadata = {
   title: 'For Partners — Nettmark',
@@ -274,8 +275,9 @@ export default function ForPartnersPage() {
         </div>
       </section>
 
-      {/* vanilla JS island for the estimator (keeps this page as a Server Component) */}
-      <script src="/partner-estimator.js" />
+      {/* Vanilla JS island for the estimator.
+          Using next/script ensures it runs reliably on client navigations too. */}
+      <Script src="/partner-estimator.js" strategy="afterInteractive" />
     </main>
   );
 }

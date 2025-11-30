@@ -187,24 +187,24 @@ export default function Home() {
                   <br className="hidden md:block" /> Promotion
                 </h2>
                 <p className="mt-4 text-white/70 text-base sm:text-lg max-w-xl">
-                  Nettmark connects your brand to thousands of affiliates ready to drive revenue.
+                  Nettmark connects your brand to thousands of partners ready to drive revenue.
                 </p>
                 <div className="mt-8 flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
                   <Link
                     href="/for-businesses"
-                    className="px-6 py-3 rounded-lg bg-[#00C2CB] text-black font-semibold shadow-[0_0_40px_#00C2CB55] hover:bg-[#00b0b8] transition-colors text-center"
+                    className="flex-1 px-6 py-3 rounded-lg bg-[#00C2CB] text-black font-semibold shadow-[0_0_28px_#00C2CB55] border border-[#00C2CB]/40 hover:bg-[#00b0b8] hover:shadow-[0_0_36px_#00C2CB66] transition-colors text-center"
                   >
                     For Businesses
                   </Link>
                   <Link
                     href="/for-partners"
-                    className="px-6 py-3 rounded-lg border border-white/15 text-white hover:bg-white/5 transition-colors text-center"
+                    className="flex-1 px-6 py-3 rounded-lg bg-[#00C2CB] text-black font-semibold shadow-[0_0_28px_#00C2CB55] border border-[#00C2CB]/40 hover:bg-[#00b0b8] hover:shadow-[0_0_36px_#00C2CB66] transition-colors text-center"
                   >
                     For Partners
                   </Link>
                   <Link
                     href="/pricing"
-                    className="px-6 py-3 rounded-lg border border-white/15 text-white hover:bg-white/5 transition-colors text-center"
+                    className="flex-1 px-6 py-3 rounded-lg bg-[#00C2CB] text-black font-semibold shadow-[0_0_28px_#00C2CB55] border border-[#00C2CB]/40 hover:bg-[#00b0b8] hover:shadow-[0_0_36px_#00C2CB66] transition-colors text-center"
                   >
                     View Pricing
                   </Link>
@@ -273,30 +273,251 @@ export default function Home() {
           </div>
         </div>
 
-        <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-3">
-          <Link href="/for-businesses" className="px-5 py-2.5 rounded-lg bg-[#00C2CB] text-black font-semibold hover:bg-[#00b0b8]">
-            I’m a Business
-          </Link>
-          <Link href="/for-partners" className="px-5 py-2.5 rounded-lg border border-white/15 text-white hover:bg-white/5">
-            I’m a Partner
-          </Link>
+        <div className="mt-10">
+          <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-black/40 px-5 py-4">
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_#00C2CB33,_transparent_60%)] opacity-60 pointer-events-none animate-pulse" />
+            <div className="relative flex flex-wrap items-center justify-center gap-6 sm:gap-10 text-sm text-white/70">
+              <div className="flex items-center gap-2">
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#00C2CB1f] text-[#00C2CB]">
+                  <ShieldCheck className="w-4 h-4" />
+                </span>
+                <span>Brand‑safe guardrails</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#00C2CB1f] text-[#00C2CB]">
+                  <Cpu className="w-4 h-4" />
+                </span>
+                <span>Unified tracking &amp; routing</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#00C2CB1f] text-[#00C2CB]">
+                  <Wallet className="w-4 h-4" />
+                </span>
+                <span>Automated Stripe payouts</span>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
-      {/* BRIDGE section, DIFFERENTIATORS, MOMENTUM, WHO ARE YOU, and FOOTER */}
-      {/* (All unchanged from your current file; keeping them as-is to avoid disrupting your design) */}
-      {/* … if you need tweaks in those sections later we can go through them one by one. */}
+      {/* WHY NETTMARK WORKS FOR BOTH SIDES */}
+      <section className="relative mx-auto max-w-7xl px-4 sm:px-6 mb-16 md:mb-24">
+        <div className="rounded-3xl border border-white/10 bg-[radial-gradient(circle_at_top,_#00C2CB22,_transparent_60%)] bg-[#050708] px-6 sm:px-8 py-8 sm:py-10 shadow-[0_18px_60px_rgba(0,0,0,0.65)]">
+          <div className="grid gap-8 md:grid-cols-[1.2fr,1fr] items-start">
+            <div>
+              <p className="text-xs font-semibold tracking-[0.25em] text-[#7ff5fb] uppercase mb-3">
+                Why Nettmark works
+              </p>
+              <h3 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight">
+                One bridge between <span className="text-[#7ff5fb]">brands</span> and{' '}
+                <span className="text-[#7ff5fb]">partners</span>.
+              </h3>
+              <p className="mt-4 text-sm sm:text-base text-white/70 max-w-2xl">
+                We take care of tracking, routing, and payouts so both sides can focus on what they&apos;re good at:
+                brands building great products, and partners driving attention.
+              </p>
 
-      {/* BRIDGE — Animated connection between Brands & Promoters */}
-      {/* (keep rest of your original content here unchanged) */}
-      {/* ---------- BEGIN ORIGINAL REMAINDER ---------- */}
-      {/* I’m leaving everything below this comment exactly as in your file to keep this message shorter.
-          When you paste, keep your existing content from the BRIDGE section downwards. The only
-          important edits are:
-            - handleLogout
-            - mobile burger toggle
-            - mobile menu panel
-      */}
+              <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                <div className="rounded-2xl bg-white/5 border border-white/10 px-4 py-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#00C2CB22] text-[#00C2CB]">
+                      <Briefcase className="w-4 h-4" />
+                    </span>
+                    <p className="text-xs font-semibold tracking-[0.22em] uppercase text-white/60">
+                      For brands
+                    </p>
+                  </div>
+                  <ul className="space-y-2 text-sm text-white/75">
+                    <li className="flex gap-2">
+                      <ShieldCheck className="w-4 h-4 mt-[3px] text-[#7ff5fb]" />
+                      <span>Run performance campaigns without handing out ad account logins.</span>
+                    </li>
+                    <li className="flex gap-2">
+                      <Link2 className="w-4 h-4 mt-[3px] text-[#7ff5fb]" />
+                      <span>Unified links and tracking across paid, organic, and UGC.</span>
+                    </li>
+                    <li className="flex gap-2">
+                      <Wallet className="w-4 h-4 mt-[3px] text-[#7ff5fb]" />
+                      <span>Only pay on verified conversions via automated Stripe payouts.</span>
+                    </li>
+                  </ul>
+                </div>
+
+                <div className="rounded-2xl bg-white/5 border border-white/10 px-4 py-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#00C2CB22] text-[#00C2CB]">
+                      <Users className="w-4 h-4" />
+                    </span>
+                    <p className="text-xs font-semibold tracking-[0.22em] uppercase text-white/60">
+                      For partners
+                    </p>
+                  </div>
+                  <ul className="space-y-2 text-sm text-white/75">
+                    <li className="flex gap-2">
+                      <Cpu className="w-4 h-4 mt-[3px] text-[#7ff5fb]" />
+                      <span>Ready-to-run offers with creatives, tracking links, and guardrails built in.</span>
+                    </li>
+                    <li className="flex gap-2">
+                      <Wallet className="w-4 h-4 mt-[3px] text-[#7ff5fb]" />
+                      <span>Wallet-funded ad spend and automated payouts on approved sales.</span>
+                    </li>
+                    <li className="flex gap-2">
+                      <ArrowRight className="w-4 h-4 mt-[3px] text-[#7ff5fb]" />
+                      <span>Focus on performance instead of chasing screenshots and invoices.</span>
+                    </li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-[#00C2CB33] bg-black/60 px-4 py-5 sm:px-5 sm:py-6">
+              <p className="text-xs font-semibold tracking-[0.24em] text-[#7ff5fb] uppercase mb-2">
+                A simple shared flow
+              </p>
+              <ol className="space-y-3 text-sm text-white/80">
+                <li className="flex gap-3">
+                  <span className="mt-[2px] flex h-6 w-6 items-center justify-center rounded-full bg-[#00C2CB33] text-xs font-semibold text-[#00C2CB]">
+                    1
+                  </span>
+                  <span>Brands publish offers and set the rules once inside Nettmark.</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="mt-[2px] flex h-6 w-6 items-center justify-center rounded-full bg-[#00C2CB33] text-xs font-semibold text-[#00C2CB]">
+                    2
+                  </span>
+                  <span>Partners request access, submit creatives, and launch ads or organic posts.</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="mt-[2px] flex h-6 w-6 items-center justify-center rounded-full bg-[#00C2CB33] text-xs font-semibold text-[#00C2CB]">
+                    3
+                  </span>
+                  <span>Nettmark tracks every click, cart, and conversion through a single pipeline.</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="mt-[2px] flex h-6 w-6 items-center justify-center rounded-full bg-[#00C2CB33] text-xs font-semibold text-[#00C2CB]">
+                    4
+                  </span>
+                  <span>Approved revenue auto-pays to partners and reconciles back to the brand.</span>
+                </li>
+              </ol>
+              <div className="mt-5 flex flex-col gap-2">
+                <Link
+                  href="/pricing"
+                  className="inline-flex items-center justify-center gap-2 rounded-full bg-[#00C2CB] px-4 py-2.5 text-sm font-semibold text-black hover:bg-[#00b0b8] transition-colors"
+                >
+                  See plans &amp; payouts
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+                <p className="text-[11px] text-white/50">
+                  No long-term lock-ins. Start with a single offer, add more as your performance pipeline scales.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* HOW NETTMARK FEELS TO USE */}
+      <section className="relative mx-auto max-w-7xl px-4 sm:px-6 mb-16 md:mb-24">
+        <div className="grid gap-6 md:grid-cols-3">
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-5">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#00C2CB1e] text-[#00C2CB]">
+                <ShieldCheck className="w-4 h-4" />
+              </span>
+              <h4 className="font-semibold text-sm tracking-wide uppercase text-white/80">
+                Policy guardrails
+              </h4>
+            </div>
+            <p className="text-sm text-white/70">
+              Approvals, rules, and brand guidelines live alongside each offer. Partners know exactly what&apos;s allowed,
+              and brands see a clean audit trail.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-5">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#00C2CB1e] text-[#00C2CB]">
+                <Cpu className="w-4 h-4" />
+              </span>
+              <h4 className="font-semibold text-sm tracking-wide uppercase text-white/80">
+                Everything in one pane
+              </h4>
+            </div>
+            <p className="text-sm text-white/70">
+              Offers, creatives, tracking, wallets, and payouts all live in one UI — no more hopping between spreadsheets,
+              ad accounts, and DMs.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-5">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-[#00C2CB1e] text-[#00C2CB]">
+                <Wallet className="w-4 h-4" />
+              </span>
+              <h4 className="font-semibold text-sm tracking-wide uppercase text-white/80">
+                Clean money movement
+              </h4>
+            </div>
+            <p className="text-sm text-white/70">
+              Wallet-funded spend, refunds, and performance payouts are handled by Nettmark + Stripe. Everyone sees exactly
+              what moved and why.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* CTA STRIP */}
+      <section className="border-t border-white/10 bg-gradient-to-r from-[#00C2CB22] via-transparent to-[#7ff5fb22]">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 py-10 md:py-12 flex flex-col md:flex-row items-center justify-between gap-6">
+          <div>
+            <p className="text-xs font-semibold tracking-[0.25em] text-[#7ff5fb] uppercase mb-2">
+              Ready when you are
+            </p>
+            <h3 className="text-xl sm:text-2xl font-bold">
+              Start with one offer. Grow into a full partner-powered channel.
+            </h3>
+            <p className="mt-2 text-sm text-white/70 max-w-xl">
+              Whether you&apos;re a solo creator, an agency, or an in-house growth team, Nettmark is built so both sides
+              win on the same numbers.
+            </p>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+            <Link
+              href="/for-businesses"
+              className="flex-1 inline-flex items-center justify-center rounded-full bg-[#00C2CB] px-6 py-3 text-sm font-semibold text-black hover:bg-[#00b0b8] transition-colors"
+            >
+              I&apos;m a brand
+            </Link>
+            <Link
+              href="/for-partners"
+              className="flex-1 inline-flex items-center justify-center rounded-full border border-white/20 px-6 py-3 text-sm font-semibold text-white hover:bg-white/5 transition-colors"
+            >
+              I&apos;m a partner
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* FOOTER */}
+            <footer className="border-t border-white/10 bg-black">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <p className="text-xs text-white/50">
+            © {new Date().getFullYear()} Nettmark. Built for performance teams and partners.
+          </p>
+          <div className="flex items-center gap-4 text-white/60">
+            <Link href="https://twitter.com" target="_blank" className="hover:text-[#7ff5fb]">
+              <Twitter className="w-4 h-4" />
+            </Link>
+            <Link href="https://linkedin.com" target="_blank" className="hover:text-[#7ff5fb]">
+              <Linkedin className="w-4 h-4" />
+            </Link>
+            <Link href="mailto:hello@nettmark.com" className="hover:text-[#7ff5fb]">
+              <Mail className="w-4 h-4" />
+            </Link>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

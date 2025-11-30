@@ -17,6 +17,22 @@ type PlacementKey =
   | 'facebook_stories'
   | 'instagram_stories';
 
+  // --- Lightweight row types for Supabase queries
+  type OfferRow = {
+    title?: string | null;
+    logo_url?: string | null;
+    business_email?: string | null;
+  };
+
+  type OfferBusinessEmailRow = {
+    business_email: string | null;
+  };
+
+  type MetaConnectionRow = {
+    access_token?: string | null;
+    ad_account_id?: string | null;
+  };
+
 export default function PromoteOfferPage() {
   const router = useRouter();
   const params = useParams();
@@ -114,7 +130,7 @@ export default function PromoteOfferPage() {
     const go = async () => {
       // 1) Offer core fields
       const { data: offer, error: offerErr } = await supabase
-        .from('offers')
+        .from<OfferRow>('offers')
         .select('title, logo_url, business_email')
         .eq('id', offerId)
         .single();
@@ -131,9 +147,9 @@ export default function PromoteOfferPage() {
       // 2) Meta creds by business_email (from meta_connections)
       if (offer?.business_email) {
         const { data: mc, error: mcErr } = await supabase
-          .from('meta_connections')
+          .from<MetaConnectionRow>('meta_connections')
           .select('access_token, ad_account_id')
-          .eq('business_email', offer.business_email)
+          .eq('business_email', offer.business_email as string)
           .single();
 
         if (mcErr) {
@@ -707,7 +723,7 @@ export default function PromoteOfferPage() {
 
       // Fetch business_email for this offer
       const { data: offerRow, error: offerErr } = await supabase
-        .from('offers')
+        .from<OfferBusinessEmailRow>('offers')
         .select('business_email')
         .eq('id', offerId)
         .single();
@@ -765,17 +781,19 @@ export default function PromoteOfferPage() {
       }
 
       // Insert to organic_posts (RLS expects affiliate_email to match auth.email())
-      const { error: insertErr } = await supabase.from('organic_posts').insert([{
-        offer_id: offerId,
-        user_id: userId,
-        affiliate_email: userEmail,
-        business_email,
-        caption: captionForInsert,
-        platform,               // Facebook/Instagram/TikTok OR Email/Forum
-        image_url,
-        video_url,
-        status: 'pending'
-      }]);
+      const { error: insertErr } = await (supabase.from('organic_posts') as any).insert([
+        {
+          offer_id: offerId,
+          user_id: userId,
+          affiliate_email: userEmail,
+          business_email,
+          caption: captionForInsert,
+          platform, // Facebook/Instagram/TikTok OR Email/Forum
+          image_url,
+          video_url,
+          status: 'pending',
+        } as any,
+      ]);
       if (insertErr) throw new Error(insertErr.message || JSON.stringify(insertErr));
 
       alert('Organic submission received. We’ll notify you when it’s approved.');
@@ -805,7 +823,7 @@ export default function PromoteOfferPage() {
     try {
       // 1) Get business email for this offer (needed for row)
       const { data: offerRow, error: offerErr } = await supabase
-        .from('offers')
+        .from<OfferBusinessEmailRow>('offers')
         .select('business_email')
         .eq('id', offerId)
         .single();
@@ -886,7 +904,9 @@ export default function PromoteOfferPage() {
         meta_status: null,
       };
 
-      const { error: insertErr } = await supabase.from('ad_ideas').insert([insertPayload]);
+      const { error: insertErr } = await (supabase.from('ad_ideas') as any).insert([
+        insertPayload as any,
+      ]);
       if (insertErr) throw insertErr;
 
       alert('Ad idea submitted for review.');
@@ -1454,26 +1474,23 @@ export default function PromoteOfferPage() {
                     <span className="text-xs text-gray-400">Optional image/video</span>
                     <input
                       type="file"
-                      accept="image/*,video/mp4"
+                      accept="image/*,video/*"
                       className={INPUT}
                       onChange={(e) => {
                         const file = e.target.files?.[0] || null;
-                        if (file && file.type.startsWith("video/") && file.type !== "video/mp4") {
-                          alert("Only .mp4 video files are allowed. Please convert your video to MP4 and try again.");
-                          e.target.value = "";
-                          setOgFile(null);
-                          return;
-                        }
-                        setOgFile(file);
+                        setOgFile(file || null);
                       }}
                     />
                     <div className="flex items-center gap-2 mt-2 bg-[#00C2CB]/10 border-l-4 border-[#00C2CB] text-[#00C2CB] px-3 py-2 rounded">
                       <svg width="18" height="18" fill="none" className="shrink-0" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="#00C2CB" strokeWidth="2"/><rect x="11" y="7" width="2" height="2" rx="1" fill="#00C2CB"/><rect x="11" y="11" width="2" height="6" rx="1" fill="#00C2CB"/></svg>
                       <span className="text-sm font-semibold">
-                        Only <span className="font-bold">MP4</span> video files are supported.
+                        Most iPhone and camera formats are supported (images + videos).
+                        For the smoothest cross‑platform playback we recommend <span className="font-bold">MP4/H.264</span>.
+                        If a file doesn&apos;t play nicely in preview, you can still submit it, or
                         <span className="underline ml-1">
-                          <a href="https://cloudconvert.com/mov-to-mp4" target="_blank" rel="noopener noreferrer">Convert here</a>
-                        </span> if needed.
+                          <a href="https://cloudconvert.com" target="_blank" rel="noopener noreferrer">convert it here</a>
+                        </span>
+                        if needed.
                       </span>
                     </div>
                   </label>
@@ -1521,8 +1538,18 @@ export default function PromoteOfferPage() {
     <Disclosure title="How to submit a strong organic promotion (tips & disclaimers)">
                 <ul className="list-disc pl-5 space-y-1">
                   <li>
-                    <strong>Video file format:</strong> Only <span className="font-bold">MP4</span> video files are supported for upload. 
-                    If your video is not MP4, <a href="https://cloudconvert.com/mov-to-mp4" target="_blank" rel="noopener noreferrer" className="underline hover:text-[#00C2CB]">convert it here</a> (works on iPhone &amp; desktop).
+                    <strong>Video file format:</strong> We accept most common camera and phone formats (MOV, MP4, HEVC, etc.).
+                    For the best compatibility across browsers, we still recommend <span className="font-bold">MP4/H.264</span>.
+                    If a file doesn&apos;t preview correctly, you can try a quick
+                    <a
+                      href="https://cloudconvert.com"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline ml-1 hover:text-[#00C2CB]"
+                    >
+                      conversion
+                    </a>
+                    before re‑uploading.
                   </li>
                   <li><strong>Match the venue:</strong> Keep tone and length native to the platform (e.g., shorter for Instagram, value‑heavy for LinkedIn, context‑rich for forums).</li>
                   <li><strong>Be specific:</strong> Include audience and posting context (e.g., community names, newsletter segment, send time).</li>
