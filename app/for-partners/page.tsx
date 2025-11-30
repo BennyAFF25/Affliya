@@ -29,10 +29,45 @@ export default function ForPartnersPage() {
 
         {/* centered primary nav */}
         <nav className="hidden md:flex items-center gap-8 text-sm justify-center absolute left-1/2 -translate-x-1/2">
+          <Link href="/" className="text-[#00C2CB] hover:text-[#7ff5fb] font-semibold tracking-wide transition-colors">Home</Link>
           <Link href="/for-businesses" className="text-[#00C2CB] hover:text-[#7ff5fb] font-semibold tracking-wide transition-colors">For Businesses</Link>
           <Link href="/for-partners" className="text-[#00C2CB] hover:text-[#7ff5fb] font-semibold tracking-wide transition-colors">For Partners</Link>
           <Link href="/pricing" className="text-[#00C2CB] hover:text-[#7ff5fb] font-semibold tracking-wide transition-colors">Pricing</Link>
         </nav>
+        {/* MOBILE BURGER MENU */}
+        <div className="md:hidden flex items-center">
+          <button
+            id="nm_mobile_toggle"
+            className="p-2 rounded-md border border-white/10 text-[#00C2CB]"
+          >
+            ☰
+          </button>
+
+          <div
+            id="nm_mobile_menu"
+            className="fixed top-16 right-4 w-40 rounded-xl border border-white/10 bg-black/90 backdrop-blur p-4 flex flex-col gap-3 text-sm opacity-0 pointer-events-none transition-all duration-300"
+          >
+            <Link href="/" className="text-[#00C2CB] hover:text-[#7ff5fb]">Home</Link>
+            <Link href="/for-businesses" className="text-[#00C2CB] hover:text-[#7ff5fb]">Businesses</Link>
+            <Link href="/for-partners" className="text-[#00C2CB] hover:text-[#7ff5fb]">Partners</Link>
+            <Link href="/pricing" className="text-[#00C2CB] hover:text-[#7ff5fb]">Pricing</Link>
+          </div>
+
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `
+                const btn = document.getElementById('nm_mobile_toggle');
+                const menu = document.getElementById('nm_mobile_menu');
+                btn?.addEventListener('click', () => {
+                  const open = menu.style.opacity === '1';
+                  menu.style.opacity = open ? '0' : '1';
+                  menu.style.pointerEvents = open ? 'none' : 'auto';
+                  menu.style.transform = open ? 'translateY(-10px)' : 'translateY(0)';
+                });
+              `
+            }}
+          />
+        </div>
       </header>
       <div aria-hidden className="pointer-events-none" style={{ height: 'calc(4rem + env(safe-area-inset-top))' }} />
 

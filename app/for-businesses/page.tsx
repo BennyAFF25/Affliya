@@ -64,6 +64,12 @@ export default function ForBusinessesPage() {
         {/* Center nav */}
         <nav className="hidden md:flex items-center gap-8 text-sm justify-center absolute left-1/2 -translate-x-1/2">
           <Link
+            href="/"
+            className="text-[#00C2CB] hover:text-[#7ff5fb] font-semibold tracking-wide transition-colors"
+          >
+            Home
+          </Link>
+          <Link
             href="/for-businesses"
             className="text-[#00C2CB] hover:text-[#7ff5fb] font-semibold tracking-wide transition-colors"
           >
@@ -147,6 +153,12 @@ export default function ForBusinessesPage() {
           className="md:hidden px-6 py-4 space-y-4 bg-black/90 backdrop-blur border-b border-white/10 text-white"
           style={{ paddingTop: "env(safe-area-inset-top)" }}
         >
+          <Link
+            href="/"
+            className="block w-full text-left text-[#00C2CB] font-medium"
+          >
+            Home
+          </Link>
           <Link
             href="/for-businesses"
             className="block w-full text-left text-[#00C2CB] font-medium"
@@ -395,4 +407,3 @@ function StepCard({
     </div>
   );
 }
-
