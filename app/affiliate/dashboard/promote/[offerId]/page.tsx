@@ -1068,368 +1068,400 @@ export default function PromoteOfferPage() {
         </div>
         {/* LEFT: single card wizard */}
         {mode === 'ad' && (
-        <div className="bg-[#141414] border border-[#232323] rounded-2xl shadow-xl overflow-hidden">
-          {/* Header / Stepper */}
-          <div className="px-6 sm:px-8 py-5 border-b border-[#232323] flex items-center justify-between">
-            <h1 className="text-2xl font-bold text-[#00C2CB]">
-              Create New Ad Campaign
-            </h1>
-            <div className="flex items-center gap-2">
-              {steps.map((s, i) => (
-                <StepPill key={s.id} active={step >= s.id} />
-              ))}
-            </div>
-          </div>
-
-          {/* Content */}
-          <div className="px-6 sm:px-8 py-6 space-y-6">
-            {/* Step labels */}
-            <div className="flex gap-4 text-sm">
-              {steps.map((s) => (
-                <button
-                  key={s.id}
-                  onClick={() => setStep(s.id)}
-                  className={[
-                    'px-3 py-1 rounded-full border transition',
-                    step === s.id
-                      ? 'border-[#00C2CB] text-[#00C2CB]'
-                      : 'border-transparent text-gray-400 hover:text-white',
-                  ].join(' ')}
-                >
-                  {s.id}. {s.label}
-                </button>
-              ))}
+        <div className="relative bg-[#141414] border border-[#232323] rounded-2xl shadow-xl overflow-hidden">
+          <div className="opacity-40 pointer-events-none">
+            {/* Header / Stepper */}
+            <div className="px-6 sm:px-8 py-5 border-b border-[#232323] flex items-center justify-between">
+              <h1 className="text-2xl font-bold text-[#00C2CB]">
+                Create New Ad Campaign
+              </h1>
+              <div className="flex items-center gap-2">
+                {steps.map((s, i) => (
+                  <StepPill key={s.id} active={step >= s.id} />
+                ))}
+              </div>
             </div>
 
-            {/* Step 1: Campaign */}
-            {step === 1 && (
-              <div className="space-y-4">
-                <label className="block">
-                  <span className="text-xs text-gray-400">Campaign name</span>
-                  <input
-                    placeholder="e.g. Affliya – Launch"
-                    className={INPUT}
-                    value={form.campaign_name}
-                    onChange={onInput('campaign_name')}
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="text-xs text-gray-400">Objective</span>
-                  <select
-                    className={INPUT}
-                    value={form.objective}
-                    onChange={onInput('objective')}
+            {/* Content */}
+            <div className="px-6 sm:px-8 py-6 space-y-6">
+              {/* Step labels */}
+              <div className="flex gap-4 text-sm">
+                {steps.map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => setStep(s.id)}
+                    className={[
+                      'px-3 py-1 rounded-full border transition',
+                      step === s.id
+                        ? 'border-[#00C2CB] text-[#00C2CB]'
+                        : 'border-transparent text-gray-400 hover:text-white',
+                    ].join(' ')}
                   >
-                    <option value="OUTCOME_AWARENESS">Awareness</option>
-                    <option value="OUTCOME_TRAFFIC">Traffic</option>
-                    <option value="OUTCOME_ENGAGEMENT">Engagement</option>
-                    <option value="OUTCOME_LEADS">Leads</option>
-                    <option value="OUTCOME_SALES">Sales</option>
-                    <option value="OUTCOME_VIDEO_VIEWS">Video Views</option>
-                    <option value="OUTCOME_REACH">Reach</option>
-                  </select>
-                </label>
+                    {s.id}. {s.label}
+                  </button>
+                ))}
               </div>
-            )}
 
-            {/* Step 2: Ad set */}
-            {step === 2 && (
-              <div className="space-y-4">
-                <div className="flex gap-3">
-                  <label className="flex-1">
-                    <span className="text-xs text-gray-400">Budget (AUD)</span>
+              {/* Step 1: Campaign */}
+              {step === 1 && (
+                <div className="space-y-4">
+                  <label className="block">
+                    <span className="text-xs text-gray-400">Campaign name</span>
                     <input
-                      type="number"
-                      min={1}
+                      placeholder="e.g. Affliya – Launch"
                       className={INPUT}
-                      value={form.budget_amount_dollars}
-                      onChange={onInput('budget_amount_dollars')}
+                      value={form.campaign_name}
+                      onChange={onInput('campaign_name')}
                     />
                   </label>
-                  <label className="w-40">
-                    <span className="text-xs text-gray-400">Type</span>
+
+                  <label className="block">
+                    <span className="text-xs text-gray-400">Objective</span>
                     <select
                       className={INPUT}
-                      value={form.budget_type}
-                      onChange={onInput('budget_type')}
+                      value={form.objective}
+                      onChange={onInput('objective')}
                     >
-                      <option value="DAILY">Daily</option>
-                      <option value="LIFETIME">Lifetime</option>
+                      <option value="OUTCOME_AWARENESS">Awareness</option>
+                      <option value="OUTCOME_TRAFFIC">Traffic</option>
+                      <option value="OUTCOME_ENGAGEMENT">Engagement</option>
+                      <option value="OUTCOME_LEADS">Leads</option>
+                      <option value="OUTCOME_SALES">Sales</option>
+                      <option value="OUTCOME_VIDEO_VIEWS">Video Views</option>
+                      <option value="OUTCOME_REACH">Reach</option>
                     </select>
                   </label>
                 </div>
-                <div className="flex flex-wrap items-center gap-2 -mt-1">
-                  <span className="text-[11px] text-gray-500 mr-1">Quick add:</span>
-                  <Chip onClick={() => incBudget(5)}>+ $5</Chip>
-                  <Chip onClick={() => incBudget(10)}>+ $10</Chip>
-                  <Chip onClick={() => incBudget(20)}>+ $20</Chip>
-                </div>
+              )}
 
-                <div className="flex gap-3">
-                  <label className="flex-1">
-                    <span className="text-xs text-gray-400">Start</span>
-                    <DateTimeField
-                      label="Start"
-                      value={form.start_time}
-                      onChange={(v) => setForm((p) => ({ ...p, start_time: v }))}
-                    />
-                  </label>
-                  <label className="flex-1">
-                    <span className="text-xs text-gray-400">End</span>
-                    <DateTimeField
-                      label="End"
-                      value={form.end_time}
-                      onChange={(v) => setForm((p) => ({ ...p, end_time: v }))}
-                    />
-                  </label>
-                </div>
-                <div className="flex flex-wrap items-center gap-2 -mt-1">
-                  <span className="text-[11px] text-gray-500 mr-1">Shortcuts:</span>
-                  <Chip onClick={setStartIn15m}>Start now (+15m)</Chip>
-                  <Chip onClick={setEndIn7d}>End in 7 days</Chip>
-                </div>
-
-                <label className="block">
-                  <span className="text-xs text-gray-400">Countries (ISO, comma)</span>
-                  <CountryMultiSelect
-                    value={form.location_countries}
-                    onChange={(csv) => setForm((p) => ({ ...p, location_countries: csv }))}
-                  />
-                </label>
-
-                <div className="flex items-end gap-3">
-                  <label>
-                    <span className="text-xs text-gray-400">Age Min</span>
-                    <input
-                      type="number"
-                      min={13}
-                      max={65}
-                      className={`${INPUT} w-24`}
-                      value={form.age_min}
-                      onChange={onInput('age_min')}
-                    />
-                  </label>
-                  <label>
-                    <span className="text-xs text-gray-400">Age Max</span>
-                    <input
-                      type="number"
-                      min={13}
-                      max={65}
-                      className={`${INPUT} w-24`}
-                      value={form.age_max}
-                      onChange={onInput('age_max')}
-                    />
-                  </label>
-                  <label className="flex-1">
-                    <span className="text-xs text-gray-400">Gender</span>
-                    <select
-                      className={INPUT}
-                      value={form.gender}
-                      onChange={onInput('gender')}
-                    >
-                      <option value="">All</option>
-                      <option value="1">Male</option>
-                      <option value="2">Female</option>
-                    </select>
-                  </label>
-                </div>
-
-                <label className="block">
-                  <span className="text-xs text-gray-400">Interests (comma separated)</span>
-                  <input
-                    placeholder="Fitness, Tech, Travel"
-                    className={INPUT}
-                    value={form.interests_csv}
-                    onChange={onInput('interests_csv')}
-                  />
-                </label>
-
-                <div>
-                  <span className="block text-xs text-gray-400 mb-2">Placements</span>
-                  <div className="grid sm:grid-cols-2 gap-3">
-                    {PLACEMENT_ORDER.map((key) => (
-                      <PlacementCard
-                        key={key}
-                        k={key}
-                        active={form.placements[key]}
-                        onToggle={() => onPlacementToggle(key)}
+              {/* Step 2: Ad set */}
+              {step === 2 && (
+                <div className="space-y-4">
+                  <div className="flex gap-3">
+                    <label className="flex-1">
+                      <span className="text-xs text-gray-400">Budget (AUD)</span>
+                      <input
+                        type="number"
+                        min={1}
+                        className={INPUT}
+                        value={form.budget_amount_dollars}
+                        onChange={onInput('budget_amount_dollars')}
                       />
-                    ))}
+                    </label>
+                    <label className="w-40">
+                      <span className="text-xs text-gray-400">Type</span>
+                      <select
+                        className={INPUT}
+                        value={form.budget_type}
+                        onChange={onInput('budget_type')}
+                      >
+                        <option value="DAILY">Daily</option>
+                        <option value="LIFETIME">Lifetime</option>
+                      </select>
+                    </label>
                   </div>
-                </div>
-
-                {(reachDaily !== null || reachMonthly !== null) && (
-                  <div className="mt-2 p-3 rounded-lg bg-[#1a1a1a] border border-[#2a2a2a]">
-                    <div className="text-xs text-gray-400 mb-1">Estimated Reach (unique users)</div>
-                    <div className="flex items-center gap-6">
-                      <div>
-                        <div className="text-[11px] text-gray-400">Daily</div>
-                        <div className="text-lg font-bold text-[#00C2CB]">
-                          {reachDaily !== null ? reachDaily.toLocaleString() : '—'}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-[11px] text-gray-400">Monthly</div>
-                        <div className="text-lg font-bold text-[#00C2CB]">
-                          {reachMonthly !== null ? reachMonthly.toLocaleString() : '—'}
-                        </div>
-                      </div>
-                    </div>
+                  <div className="flex flex-wrap items-center gap-2 -mt-1">
+                    <span className="text-[11px] text-gray-500 mr-1">Quick add:</span>
+                    <Chip onClick={() => incBudget(5)}>+ $5</Chip>
+                    <Chip onClick={() => incBudget(10)}>+ $10</Chip>
+                    <Chip onClick={() => incBudget(20)}>+ $20</Chip>
                   </div>
-                )}
-              </div>
-            )}
 
-            {/* Step 3: Ad */}
-            {step === 3 && (
-              <div className="space-y-4">
-                <label className="block">
-                  <span className="text-xs text-gray-400">Headline</span>
-                  <input
-                    placeholder="Your headline"
-                    className={INPUT}
-                    value={form.headline}
-                    onChange={onInput('headline')}
-                  />
-                </label>
-
-                <label className="block">
-                  <span className="text-xs text-gray-400">Caption</span>
-                  <textarea
-                    placeholder="Say something compelling…"
-                    className={INPUT}
-                    value={form.caption}
-                    onChange={onInput('caption')}
-                  />
-                </label>
-
-                <div className="flex gap-3">
-                  <label className="flex-1">
-                    <span className="text-xs text-gray-400">Call to Action</span>
-                    <select
-                      className={INPUT}
-                      value={form.call_to_action}
-                      onChange={onInput('call_to_action')}
-                    >
-                      <option value="LEARN_MORE">Learn More</option>
-                      <option value="SHOP_NOW">Shop Now</option>
-                      <option value="SIGN_UP">Sign Up</option>
-                    </select>
-                  </label>
-                  <label className="flex-1">
-                    <span className="text-xs text-gray-400">Destination URL</span>
-                    <input
-                      placeholder="https://your-landing-page.com"
-                      className={INPUT}
-                      value={form.display_link}
-                      onChange={onInput('display_link')}
-                    />
-                  </label>
-                </div>
-
-                <div className="grid sm:grid-cols-2 gap-4">
-                  <label className="block">
-                    <span className="text-xs text-gray-400">Upload Video</span>
-                    <input
-                      type="file"
-                      accept="video/*"
-                      className={INPUT}
-                      onChange={(e) => setVideoFile(e.target.files?.[0] || null)}
-                    />
-                  </label>
+                  <div className="flex gap-3">
+                    <label className="flex-1">
+                      <span className="text-xs text-gray-400">Start</span>
+                      <DateTimeField
+                        label="Start"
+                        value={form.start_time}
+                        onChange={(v) => setForm((p) => ({ ...p, start_time: v }))}
+                      />
+                    </label>
+                    <label className="flex-1">
+                      <span className="text-xs text-gray-400">End</span>
+                      <DateTimeField
+                        label="End"
+                        value={form.end_time}
+                        onChange={(v) => setForm((p) => ({ ...p, end_time: v }))}
+                      />
+                    </label>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 -mt-1">
+                    <span className="text-[11px] text-gray-500 mr-1">Shortcuts:</span>
+                    <Chip onClick={setStartIn15m}>Start now (+15m)</Chip>
+                    <Chip onClick={setEndIn7d}>End in 7 days</Chip>
+                  </div>
 
                   <label className="block">
-                    <span className="text-xs text-gray-400">Optional Thumbnail</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className={INPUT}
-                      onChange={(e) => setThumbnailFile(e.target.files?.[0] || null)}
+                    <span className="text-xs text-gray-400">Countries (ISO, comma)</span>
+                    <CountryMultiSelect
+                      value={form.location_countries}
+                      onChange={(csv) => setForm((p) => ({ ...p, location_countries: csv }))}
                     />
                   </label>
-                </div>
 
-                <div className="text-xs text-gray-500">
-                  Tracking: <span className="text-white">{trackingLink}</span>
-                </div>
-                <Disclosure title="How to craft a high‑performing Meta ad (tips & disclaimers)">
-                  <ul className="list-disc pl-5 space-y-1">
-                    <li><strong>Hook in 3 seconds:</strong> Front‑load the problem and benefit. Keep captions under ~125 characters for feed placements.</li>
-                    <li><strong>Clear CTA:</strong> Your button must match intent (e.g., “Shop Now” for sales, “Learn More” for top‑funnel).</li>
-                    <li><strong>Mobile‑first creative:</strong> Upload 1080×1350 or 1080×1920 where possible; keep safe margins for subtitles.</li>
-                    <li><strong>Destination vs Display link:</strong> Destination should be your <em>tracking link</em>; Display can be your brand URL.</li>
-                    <li><strong>Budget realism:</strong> If CPM is high, broaden placements or interests; avoid stacking too many narrow interests.</li>
-                    <li><strong>Compliance:</strong> Don’t include restricted claims. You’re responsible for adhering to Meta’s ad policies.</li>
-                  </ul>
-                  <div className="mt-3 text-[12px] text-gray-400">
-                    Disclaimer: Results vary by audience and creative. We may pause or reject ads that violate platform policies or brand guidelines.
+                  <div className="flex items-end gap-3">
+                    <label>
+                      <span className="text-xs text-gray-400">Age Min</span>
+                      <input
+                        type="number"
+                        min={13}
+                        max={65}
+                        className={`${INPUT} w-24`}
+                        value={form.age_min}
+                        onChange={onInput('age_min')}
+                      />
+                    </label>
+                    <label>
+                      <span className="text-xs text-gray-400">Age Max</span>
+                      <input
+                        type="number"
+                        min={13}
+                        max={65}
+                        className={`${INPUT} w-24`}
+                        value={form.age_max}
+                        onChange={onInput('age_max')}
+                      />
+                    </label>
+                    <label className="flex-1">
+                      <span className="text-xs text-gray-400">Gender</span>
+                      <select
+                        className={INPUT}
+                        value={form.gender}
+                        onChange={onInput('gender')}
+                      >
+                        <option value="">All</option>
+                        <option value="1">Male</option>
+                        <option value="2">Female</option>
+                      </select>
+                    </label>
                   </div>
-                </Disclosure>
-              </div>
-            )}
 
-            {/* Step 4: Review */}
-            {step === 4 && (
-              <div className="space-y-4 text-sm">
-                <div className="grid sm:grid-cols-2 gap-4">
-                  <div className="p-3 rounded-lg bg-[#101010] border border-[#232323]">
-                    <div className="text-gray-400 text-xs mb-1">Campaign</div>
-                    <div className="font-semibold">{form.campaign_name || '—'}</div>
-                    <div className="text-gray-400 mt-1">Objective: {form.objective}</div>
-                  </div>
-                  <div className="p-3 rounded-lg bg-[#101010] border border-[#232323]">
-                    <div className="text-gray-400 text-xs mb-1">Budget</div>
-                    <div className="font-semibold">
-                      ${Number(form.budget_amount_dollars || 0).toFixed(2)} ({form.budget_type})
+                  <label className="block">
+                    <span className="text-xs text-gray-400">Interests (comma separated)</span>
+                    <input
+                      placeholder="Fitness, Tech, Travel"
+                      className={INPUT}
+                      value={form.interests_csv}
+                      onChange={onInput('interests_csv')}
+                    />
+                  </label>
+
+                  <div>
+                    <span className="block text-xs text-gray-400 mb-2">Placements</span>
+                    <div className="grid sm:grid-cols-2 gap-3">
+                      {PLACEMENT_ORDER.map((key) => (
+                        <PlacementCard
+                          key={key}
+                          k={key}
+                          active={form.placements[key]}
+                          onToggle={() => onPlacementToggle(key)}
+                        />
+                      ))}
                     </div>
                   </div>
-                  <div className="p-3 rounded-lg bg-[#101010] border border-[#232323]">
-                    <div className="text-gray-400 text-xs mb-1">Targeting</div>
-                    <div>
-                      {form.location_countries} • {form.age_min}-{form.age_max} •{' '}
-                      {form.gender === '' ? 'All' : form.gender === '1' ? 'Male' : 'Female'}
+
+                  {(reachDaily !== null || reachMonthly !== null) && (
+                    <div className="mt-2 p-3 rounded-lg bg-[#1a1a1a] border border-[#2a2a2a]">
+                      <div className="text-xs text-gray-400 mb-1">Estimated Reach (unique users)</div>
+                      <div className="flex items-center gap-6">
+                        <div>
+                          <div className="text-[11px] text-gray-400">Daily</div>
+                          <div className="text-lg font-bold text-[#00C2CB]">
+                            {reachDaily !== null ? reachDaily.toLocaleString() : '—'}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-[11px] text-gray-400">Monthly</div>
+                          <div className="text-lg font-bold text-[#00C2CB]">
+                            {reachMonthly !== null ? reachMonthly.toLocaleString() : '—'}
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                    {form.interests_csv && <div className="text-gray-400">Interests: {form.interests_csv}</div>}
+                  )}
+                </div>
+              )}
+
+              {/* Step 3: Ad */}
+              {step === 3 && (
+                <div className="space-y-4">
+                  <label className="block">
+                    <span className="text-xs text-gray-400">Headline</span>
+                    <input
+                      placeholder="Your headline"
+                      className={INPUT}
+                      value={form.headline}
+                      onChange={onInput('headline')}
+                    />
+                  </label>
+
+                  <label className="block">
+                    <span className="text-xs text-gray-400">Caption</span>
+                    <textarea
+                      placeholder="Say something compelling…"
+                      className={INPUT}
+                      value={form.caption}
+                      onChange={onInput('caption')}
+                    />
+                  </label>
+
+                  <div className="flex gap-3">
+                    <label className="flex-1">
+                      <span className="text-xs text-gray-400">Call to Action</span>
+                      <select
+                        className={INPUT}
+                        value={form.call_to_action}
+                        onChange={onInput('call_to_action')}
+                      >
+                        <option value="LEARN_MORE">Learn More</option>
+                        <option value="SHOP_NOW">Shop Now</option>
+                        <option value="SIGN_UP">Sign Up</option>
+                      </select>
+                    </label>
+                    <label className="flex-1">
+                      <span className="text-xs text-gray-400">Destination URL</span>
+                      <input
+                        placeholder="https://your-landing-page.com"
+                        className={INPUT}
+                        value={form.display_link}
+                        onChange={onInput('display_link')}
+                      />
+                    </label>
                   </div>
-                  <div className="p-3 rounded-lg bg-[#101010] border border-[#232323]">
-                    <div className="text-gray-400 text-xs mb-1">Creative</div>
-                    <div className="font-semibold">{form.headline || 'No headline'}</div>
-                    <div className="text-gray-400">{form.caption || 'No caption'}</div>
-                    <div className="text-gray-400 mt-1">
-                      CTA: {form.call_to_action} → {form.display_link || '—'}
+
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <label className="block">
+                      <span className="text-xs text-gray-400">Upload Video</span>
+                      <input
+                        type="file"
+                        accept="video/*"
+                        className={INPUT}
+                        onChange={(e) => setVideoFile(e.target.files?.[0] || null)}
+                      />
+                    </label>
+
+                    <label className="block">
+                      <span className="text-xs text-gray-400">Optional Thumbnail</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className={INPUT}
+                        onChange={(e) => setThumbnailFile(e.target.files?.[0] || null)}
+                      />
+                    </label>
+                  </div>
+
+                  <div className="text-xs text-gray-500">
+                    Tracking: <span className="text-white">{trackingLink}</span>
+                  </div>
+                  <Disclosure title="How to craft a high‑performing Meta ad (tips & disclaimers)">
+                    <ul className="list-disc pl-5 space-y-1">
+                      <li><strong>Hook in 3 seconds:</strong> Front‑load the problem and benefit. Keep captions under ~125 characters for feed placements.</li>
+                      <li><strong>Clear CTA:</strong> Your button must match intent (e.g., “Shop Now” for sales, “Learn More” for top‑funnel).</li>
+                      <li><strong>Mobile‑first creative:</strong> Upload 1080×1350 or 1080×1920 where possible; keep safe margins for subtitles.</li>
+                      <li><strong>Destination vs Display link:</strong> Destination should be your <em>tracking link</em>; Display can be your brand URL.</li>
+                      <li><strong>Budget realism:</strong> If CPM is high, broaden placements or interests; avoid stacking too many narrow interests.</li>
+                      <li><strong>Compliance:</strong> Don’t include restricted claims. You’re responsible for adhering to Meta’s ad policies.</li>
+                    </ul>
+                    <div className="mt-3 text-[12px] text-gray-400">
+                      Disclaimer: Results vary by audience and creative. We may pause or reject ads that violate platform policies or brand guidelines.
+                    </div>
+                  </Disclosure>
+                </div>
+              )}
+
+              {/* Step 4: Review */}
+              {step === 4 && (
+                <div className="space-y-4 text-sm">
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div className="p-3 rounded-lg bg-[#101010] border border-[#232323]">
+                      <div className="text-gray-400 text-xs mb-1">Campaign</div>
+                      <div className="font-semibold">{form.campaign_name || '—'}</div>
+                      <div className="text-gray-400 mt-1">Objective: {form.objective}</div>
+                    </div>
+                    <div className="p-3 rounded-lg bg-[#101010] border border-[#232323]">
+                      <div className="text-gray-400 text-xs mb-1">Budget</div>
+                      <div className="font-semibold">
+                        ${Number(form.budget_amount_dollars || 0).toFixed(2)} ({form.budget_type})
+                      </div>
+                    </div>
+                    <div className="p-3 rounded-lg bg-[#101010] border border-[#232323]">
+                      <div className="text-gray-400 text-xs mb-1">Targeting</div>
+                      <div>
+                        {form.location_countries} • {form.age_min}-{form.age_max} •{' '}
+                        {form.gender === '' ? 'All' : form.gender === '1' ? 'Male' : 'Female'}
+                      </div>
+                      {form.interests_csv && <div className="text-gray-400">Interests: {form.interests_csv}</div>}
+                    </div>
+                    <div className="p-3 rounded-lg bg-[#101010] border border-[#232323]">
+                      <div className="text-gray-400 text-xs mb-1">Creative</div>
+                      <div className="font-semibold">{form.headline || 'No headline'}</div>
+                      <div className="text-gray-400">{form.caption || 'No caption'}</div>
+                      <div className="text-gray-400 mt-1">
+                        CTA: {form.call_to_action} → {form.display_link || '—'}
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
+
+            {/* Footer / Nav */}
+            <div className="px-6 sm:px-8 py-5 border-t border-[#232323] flex items-center justify-between">
+              <button
+                className="px-4 py-2 rounded-lg border border-[#2a2a2a] text-gray-300 hover:bg-[#1a1a1a]"
+                onClick={() => (step > 1 ? setStep(step - 1) : router.back())}
+              >
+                {step > 1 ? 'Back' : 'Cancel'}
+              </button>
+
+              {step < 4 ? (
+                <button
+                  className="px-6 py-2 rounded-lg bg-[#00C2CB] text-black font-semibold hover:bg-[#00b0b8]"
+                  onClick={() => setStep(step + 1)}
+                >
+                  Next
+                </button>
+              ) : (
+                <button
+                  disabled={loading}
+                  onClick={handleSubmit}
+                  className="px-6 py-2 rounded-lg bg-[#00C2CB] text-black font-semibold hover:bg-[#00b0b8] disabled:opacity-50"
+                >
+                  {loading ? 'Submitting…' : 'Submit for Review'}
+                </button>
+              )}
+            </div>
           </div>
-
-          {/* Footer / Nav */}
-          <div className="px-6 sm:px-8 py-5 border-t border-[#232323] flex items-center justify-between">
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center text-center px-6 sm:px-10 py-10 bg-black/70 backdrop-blur-sm">
+            <div className="inline-flex items-center gap-2 rounded-full border border-[#1e3a3b] bg-[#0b1f21] px-3 py-1 text-[11px] uppercase tracking-wide text-[#7ff5fb]">
+              <span className="h-1.5 w-1.5 rounded-full bg-[#00C2CB]" />
+              Meta ad submission — coming soon
+            </div>
+            <h1 className="mt-4 text-2xl md:text-3xl font-bold text-[#00C2CB]">
+              Automated campaigns are almost ready
+            </h1>
+            <p className="mt-3 max-w-xl text-gray-300 text-sm md:text-base">
+              For the first public wave, Nettmark is launching with{" "}
+              <span className="font-semibold">organic promotion only</span>. The Meta‑connected
+              &quot;Submit Ad&quot; flow will unlock as soon as our production app
+              passes Meta&apos;s final review.
+            </p>
+            <ul className="mt-4 max-w-xl text-left text-[13px] text-gray-300 space-y-2">
+              <li>• Affiliates will be able to submit video ads that run directly from brand ad accounts.</li>
+              <li>• Budgets, targeting and approvals stay fully controlled by the business.</li>
+              <li>• Performance, payouts and safeguards are all handled inside Nettmark.</li>
+            </ul>
             <button
-              className="px-4 py-2 rounded-lg border border-[#2a2a2a] text-gray-300 hover:bg-[#1a1a1a]"
-              onClick={() => (step > 1 ? setStep(step - 1) : router.back())}
+              type="button"
+              onClick={() => setMode('organic')}
+              className="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#00C2CB] text-black text-sm font-semibold hover:bg-[#00b0b8]"
             >
-              {step > 1 ? 'Back' : 'Cancel'}
+              Switch to organic submission
             </button>
-
-            {step < 4 ? (
-              <button
-                className="px-6 py-2 rounded-lg bg-[#00C2CB] text-black font-semibold hover:bg-[#00b0b8]"
-                onClick={() => setStep(step + 1)}
-              >
-                Next
-              </button>
-            ) : (
-              <button
-                disabled={loading}
-                onClick={handleSubmit}
-                className="px-6 py-2 rounded-lg bg-[#00C2CB] text-black font-semibold hover:bg-[#00b0b8] disabled:opacity-50"
-              >
-                {loading ? 'Submitting…' : 'Submit for Review'}
-              </button>
-            )}
+            <p className="mt-2 text-[11px] text-gray-500">
+              You can still submit organic social, email, forum or other promotions for this offer today.
+            </p>
           </div>
         </div>
         )}
