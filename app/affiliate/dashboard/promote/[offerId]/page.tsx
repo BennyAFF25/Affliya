@@ -1513,17 +1513,41 @@ export default function PromoteOfferPage() {
                         setOgFile(file || null);
                       }}
                     />
-                    <div className="flex items-center gap-2 mt-2 bg-[#00C2CB]/10 border-l-4 border-[#00C2CB] text-[#00C2CB] px-3 py-2 rounded">
-                      <svg width="18" height="18" fill="none" className="shrink-0" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="#00C2CB" strokeWidth="2"/><rect x="11" y="7" width="2" height="2" rx="1" fill="#00C2CB"/><rect x="11" y="11" width="2" height="6" rx="1" fill="#00C2CB"/></svg>
-                      <span className="text-sm font-semibold">
-                        Most iPhone and camera formats are supported (images + videos).
-                        For the smoothest cross‑platform playback we recommend <span className="font-bold">MP4/H.264</span>.
-                        If a file doesn&apos;t play nicely in preview, you can still submit it, or
-                        <span className="underline ml-1">
-                          <a href="https://cloudconvert.com" target="_blank" rel="noopener noreferrer">convert it here</a>
-                        </span>
-                        if needed.
-                      </span>
+                    <div className="mt-2">
+                      <Disclosure
+                        title="Most devices supported — tap for video format details"
+                        defaultOpen={false}
+                      >
+                        <div className="flex items-start gap-2">
+                          <svg
+                            width="18"
+                            height="18"
+                            fill="none"
+                            className="shrink-0 mt-0.5"
+                            viewBox="0 0 24 24"
+                          >
+                            <circle cx="12" cy="12" r="10" stroke="#00C2CB" strokeWidth="2" />
+                            <rect x="11" y="7" width="2" height="2" rx="1" fill="#00C2CB" />
+                            <rect x="11" y="11" width="2" height="6" rx="1" fill="#00C2CB" />
+                          </svg>
+                          <span className="text-sm font-semibold text-gray-200">
+                            Most iPhone and camera formats are supported (images + videos).
+                            For the smoothest cross-platform playback we recommend
+                            <span className="font-bold"> MP4/H.264</span>.
+                            If a file doesn&apos;t play nicely in preview, you can still submit it, or
+                            <span className="underline ml-1">
+                              <a
+                                href="https://cloudconvert.com"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                convert it here
+                              </a>
+                            </span>
+                            if needed.
+                          </span>
+                        </div>
+                      </Disclosure>
                     </div>
                   </label>
                 </>
