@@ -1,9 +1,13 @@
 // app/pricing/page.tsx
 "use client";
 
-import { useState, Fragment } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+
+import { useRouter } from "next/navigation";
+import { useSessionContext } from "@supabase/auth-helpers-react";
+import { supabase } from "@/../utils/supabase/pages-client";
 
 type Plan = "business" | "affiliate";
 
@@ -17,6 +21,19 @@ type Meta = {
 export default function PricingPage() {
   const [err, setErr] = useState<string | null>(null);
   const [loadingPlan, setLoadingPlan] = useState<Plan | null>(null);
+
+  const { session } = useSessionContext();
+  const user = session?.user ?? null;
+  const router = useRouter();
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const handleLogin = (type: "business" | "affiliate") => {
+    router.push(`/login?role=${type}`);
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+  };
 
   const displayPrice = (plan: Plan) => {
     const base = plan === "business" ? 150 : 50;
@@ -179,30 +196,153 @@ export default function PricingPage() {
         style={{ paddingTop: "env(safe-area-inset-top)" }}
       >
         <Link href="/" className="flex items-center gap-2 group">
-          <Image src="/nettmark-logo.png" alt="Nettmark" width={140} height={40} priority className="rounded-sm" />
+          <Image
+            src="/nettmark-logo.png"
+            alt="Nettmark"
+            width={140}
+            height={40}
+            priority
+            className="rounded-sm"
+          />
         </Link>
 
         {/* Centered primary nav (desktop) */}
         <nav className="hidden md:flex items-center gap-8 text-sm justify-center absolute left-1/2 -translate-x-1/2">
-          <Link href="/for-businesses" className="text-[#00C2CB] hover:text-[#7ff5fb] font-semibold tracking-wide transition-colors">For Businesses</Link>
-          <Link href="/for-partners" className="text-[#00C2CB] hover:text-[#7fffb] font-semibold tracking-wide transition-colors">For Partners</Link>
-          <Link href="/pricing" className="text-[#00C2CB] hover:text-[#7ff5fb] font-semibold tracking-wide transition-colors">Pricing</Link>
+          <Link
+            href="/"
+            className="text-[#00C2CB] hover:text-[#7ff5fb] font-semibold tracking-wide transition-colors"
+          >
+            Home
+          </Link>
+          <Link
+            href="/for-businesses"
+            className="text-[#00C2CB] hover:text-[#7ff5fb] font-semibold tracking-wide transition-colors"
+          >
+            For Businesses
+          </Link>
+          <Link
+            href="/for-partners"
+            className="text-[#00C2CB] hover:text-[#7ff5fb] font-semibold tracking-wide transition-colors"
+          >
+            For Partners
+          </Link>
+          <Link
+            href="/pricing"
+            className="text-[#00C2CB] hover:text-[#7ff5fb] font-semibold tracking-wide transition-colors"
+          >
+            Pricing
+          </Link>
         </nav>
 
-        {/* Right-side actions */}
-        <div className="hidden md:flex items-center gap-3">
-          <Link href="/login?type=business" className="px-4 py-2 rounded-md bg-[#00C2CB] text-black font-semibold shadow hover:bg-[#00b0b8] transition-colors">Business Login</Link>
-          <Link href="/login?type=affiliate" className="px-4 py-2 rounded-md bg-[#00C2CB] text-black font-semibold shadow hover:bg-[#00b0b8] transition-colors">Affiliate Login</Link>
-        </div>
+        {/* Right-side actions (desktop) */}
+        <nav className="hidden md:flex items-center gap-6">
+          {user ? (
+            <button
+              onClick={handleLogout}
+              className="text-white font-semibold hover:underline"
+            >
+              Sign out
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={() => handleLogin("business")}
+                className="px-4 py-2 rounded-md bg-[#00C2CB] text-black font-semibold shadow hover:bg-[#00b0b8] transition-colors"
+              >
+                Business Login
+              </button>
+              <button
+                onClick={() => handleLogin("affiliate")}
+                className="px-4 py-2 rounded-md bg-[#00C2CB] text-black font-semibold shadow hover:bg-[#00b0b8] transition-colors"
+              >
+                Affiliate Login
+              </button>
+            </>
+          )}
+        </nav>
 
-        {/* Mobile menu button (placeholder) */}
-        <button type="button" className="md:hidden text-gray-300 hover:text-white focus:outline-none focus:ring-2 focus:ring-[#00C2CB] p-2 rounded" aria-label="Open menu">
-          <svg className="h-7 w-7" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-          </svg>
-        </button>
+        {/* Mobile menu button */}
+        <div className="md:hidden">
+          <button
+            onClick={() => setMenuOpen(!menuOpen)}
+            className="text-white"
+            aria-label="Toggle menu"
+          >
+            <svg
+              className="w-6 h-6"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M4 6h16M4 12h16M4 18h16"
+              />
+            </svg>
+          </button>
+        </div>
       </header>
       <div aria-hidden className="pointer-events-none" style={{ height: "calc(4rem + env(safe-area-inset-top))" }} />
+
+      {menuOpen && (
+        <div
+          className="md:hidden px-6 py-4 space-y-4 bg-black/90 backdrop-blur border-b border-white/10 text-white"
+          style={{ paddingTop: "env(safe-area-inset-top)" }}
+        >
+          <Link
+            href="/"
+            className="block w-full text-left text-[#00C2CB] font-medium"
+          >
+            Home
+          </Link>
+          <Link
+            href="/for-businesses"
+            className="block w-full text-left text-[#00C2CB] font-medium"
+          >
+            For Businesses
+          </Link>
+          <Link
+            href="/for-partners"
+            className="block w-full text-left text-[#00C2CB] font-medium"
+          >
+            For Partners
+          </Link>
+          <Link
+            href="/pricing"
+            className="block w-full text-left text-[#00C2CB] font-medium"
+          >
+            Pricing
+          </Link>
+
+          <div className="border-t border-white/10 pt-4" />
+
+          {user ? (
+            <button
+              onClick={handleLogout}
+              className="block w-full text-left text-[#00C2CB] font-medium"
+            >
+              Sign out
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={() => handleLogin("business")}
+                className="block w-full text-left text-[#00C2CB] font-medium"
+              >
+                Business Login
+              </button>
+              <button
+                onClick={() => handleLogin("affiliate")}
+                className="block w-full text-left text-[#00C2CB] font-medium"
+              >
+                Affiliate Login
+              </button>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Main */}
       <main className="flex-1 w-full px-6 md:px-10 py-8 md:py-12">
