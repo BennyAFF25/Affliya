@@ -1,6 +1,7 @@
 import './globals.css';
 import Providers from './Providers';
 import ThemeWrapper from '@/components/ThemeWrapper';
+import { Toaster } from 'react-hot-toast';
 
 export const metadata = {
   title: 'Nettmark',
@@ -30,6 +31,25 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Providers>
           <ThemeWrapper>
             {children}
+            <Toaster
+              position="top-center"
+              toastOptions={{
+                style: {
+                  background: "#001718",
+                  color: "#F9FAFB",
+                  border: "1px solid #00C2CB",
+                  boxShadow: "0 0 25px rgba(0,194,203,0.25)",
+                  borderRadius: "9999px",
+                  paddingInline: "16px",
+                },
+                success: {
+                  iconTheme: {
+                    primary: "#00C2CB",
+                    secondary: "#001718",
+                  },
+                },
+              }}
+            />
           </ThemeWrapper>
         </Providers>
       </body>

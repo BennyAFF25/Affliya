@@ -316,7 +316,7 @@ export default function BusinessCampaignDetailPage() {
 
   return (
     <div className="min-h-screen bg-[#0e0e0e] text-white">
-      <div className="mx-auto max-w-5xl px-8 py-4 space-y-4">
+      <div className="mx-auto max-w-5xl px-4 sm:px-8 py-4 space-y-4">
         {/* Back link */}
         <button
           type="button"
@@ -344,84 +344,17 @@ export default function BusinessCampaignDetailPage() {
         </header>
 
         {loading ? (
-          <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-6 py-6 text-sm text-white/70">
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 sm:px-6 py-5 text-sm text-white/70">
             Loading campaign…
           </div>
         ) : !campaign ? (
-          <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-6 py-6 text-sm text-red-100">
+          <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 sm:px-6 py-5 text-sm text-red-100">
             Campaign not found for this business.
           </div>
         ) : (
           <div className="space-y-6">
-            {/* Top summary card */}
-            <section className="rounded-3xl border border-white/10 bg-white/[0.02] px-6 py-5 shadow-[0_0_40px_rgba(0,0,0,0.6)] flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div className="space-y-2">
-                <div className="flex flex-wrap items-center gap-3">
-                  <span
-                    className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${statusChipClasses()}`}
-                  >
-                    {(campaign.status || 'LIVE').toUpperCase()}
-                  </span>
-
-                  {campaign.platform && (
-                    <span className="rounded-full border border-[#00C2CB40] bg-[#00C2CB1A] px-3 py-1 text-[11px] text-[#00C2CB]">
-                      {campaign.platform}
-                    </span>
-                  )}
-
-                  {campaign.type && (
-                    <span className="rounded-full border border-[#00C2CB40] bg-[#00C2CB1A] px-3 py-1 text-[11px] text-[#00C2CB]">
-                      {campaign.type}
-                    </span>
-                  )}
-                </div>
-
-                <p className="text-xs text-white/60">
-                  Affiliate:{' '}
-                  <span className="text-white">
-                    {campaign.affiliate_email || 'N/A'}
-                  </span>
-                </p>
-
-                <p className="text-xs text-white/60">
-                  Started: {formatDate(campaign.created_at)}
-                </p>
-              </div>
-
-              <div className="flex flex-col items-end gap-2">
-                <button
-                  onClick={handleToggleStatus}
-                  disabled={updating}
-                  className="rounded-full bg-[#00C2CB] px-5 py-2 text-xs font-semibold text-black shadow hover:bg-[#00b0b8] disabled:opacity-60"
-                >
-                  {updating
-                    ? 'Updating…'
-                    : (campaign.status || '').toLowerCase() === 'live' ||
-                      (campaign.status || '').toLowerCase() === 'active'
-                    ? 'Pause campaign'
-                    : 'Activate campaign'}
-                </button>
-                {(campaign.status || '').toLowerCase() === 'paused' ? (
-                  <p className="mt-1 max-w-xs text-[11px] text-amber-200/80 text-right">
-                    This campaign is currently paused. Its tracking link is temporarily disabled and
-                    affiliates cannot send traffic until you reactivate it.
-                  </p>
-                ) : (
-                  <p className="mt-1 max-w-xs text-[11px] text-white/50 text-right">
-                    Pausing will temporarily disable the tracking link and notify the affiliate. Use this
-                    only if there is a genuine issue with the offer, stock, or compliance.
-                  </p>
-                )}
-                <Link href="/business/manage-campaigns">
-                  <span className="text-[11px] text-white/60 hover:text-white cursor-pointer">
-                    Back to campaign list
-                  </span>
-                </Link>
-              </div>
-            </section>
-
             {/* Layout for preview / stats */}
-            <section className="space-y-3">
+            <section className="space-y-3 mt-1 sm:mt-2">
               {/* Section meta heading */}
               <div className="flex items-center justify-between text-[11px] text-white/45">
                 <div className="flex items-center gap-2">
@@ -439,9 +372,9 @@ export default function BusinessCampaignDetailPage() {
                 )}
               </div>
 
-              <div className="grid gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1.3fr)]">
+              <div className="grid gap-4 md:gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1.3fr)]">
                 {/* LEFT: creative preview with iPhone mockup */}
-                <div className="rounded-3xl border border-white/10 bg-white/[0.02] px-6 py-5 flex flex-col">
+                <div className="rounded-3xl border border-white/10 bg-white/[0.02] px-4 sm:px-6 py-5 flex flex-col order-2 lg:order-1">
                   <div className="flex items-center justify-between mb-3">
                     <h2 className="text-sm font-semibold flex items-center gap-2">
                       <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#00C2CB]/10 text-[#00C2CB]">
@@ -527,8 +460,8 @@ export default function BusinessCampaignDetailPage() {
 
                     // iPhone mockup wrapper
                     return (
-                      <div className="mt-2 flex justify-center">
-                        <div className="relative w-full max-w-xs">
+                      <div className="mt-2 flex justify-center w-full">
+                        <div className="relative w-full max-w-[18rem] sm:max-w-xs">
                           {/* Phone shell */}
                           <div className="relative mx-auto rounded-[2.5rem] border border-white/15 bg-[#050608] px-3 pt-4 pb-6 shadow-[0_0_40px_rgba(0,0,0,0.9)]">
                             {/* Top notch */}
@@ -584,7 +517,7 @@ export default function BusinessCampaignDetailPage() {
                 </div>
 
                 {/* RIGHT: performance stats */}
-                <div className="rounded-3xl border border-white/10 bg-white/[0.02] px-6 py-5 flex flex-col">
+                <div className="rounded-3xl border border-white/10 bg-white/[0.02] px-4 sm:px-6 py-5 flex flex-col order-1 lg:order-2">
                   <div className="flex items-center justify-between mb-3">
                     <h2 className="text-sm font-semibold flex items-center gap-2">
                       <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-300">
@@ -606,7 +539,7 @@ export default function BusinessCampaignDetailPage() {
                   ) : (
                     <>
                       <div className="grid grid-cols-2 md:grid-cols-2 gap-4 mb-4">
-                        <div className="rounded-2xl border border-white/10 bg-black/40 px-4 py-3 flex flex-col justify-between">
+                        <div className="rounded-2xl border border-white/10 bg-black/40 px-3 sm:px-4 py-3 flex flex-col justify-between">
                           <div className="flex items-center justify-between">
                             <p className="text-[11px] text-white/60">
                               Page views
@@ -620,7 +553,7 @@ export default function BusinessCampaignDetailPage() {
                           </p>
                         </div>
 
-                        <div className="rounded-2xl border border-white/10 bg-black/40 px-4 py-3 flex flex-col justify-between">
+                        <div className="rounded-2xl border border-white/10 bg-black/40 px-3 sm:px-4 py-3 flex flex-col justify-between">
                           <div className="flex items-center justify-between">
                             <p className="text-[11px] text-white/60">
                               Add to carts
@@ -634,7 +567,7 @@ export default function BusinessCampaignDetailPage() {
                           </p>
                         </div>
 
-                        <div className="rounded-2xl border border-white/10 bg-black/40 px-4 py-3 flex flex-col justify-between">
+                        <div className="rounded-2xl border border-white/10 bg-black/40 px-3 sm:px-4 py-3 flex flex-col justify-between">
                           <div className="flex items-center justify-between">
                             <p className="text-[11px] text-white/60">
                               Conversions
@@ -648,7 +581,7 @@ export default function BusinessCampaignDetailPage() {
                           </p>
                         </div>
 
-                        <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 flex flex-col justify-between">
+                        <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 px-3 sm:px-4 py-3 flex flex-col justify-between">
                           <div className="flex items-center justify-between">
                             <p className="text-[11px] text-emerald-100">
                               Revenue
@@ -673,7 +606,7 @@ export default function BusinessCampaignDetailPage() {
                         for this campaign.
                       </p>
                       {series.labels.length > 0 && (
-                        <div className="mt-4 rounded-2xl border border-white/10 bg-black/30 px-4 py-3">
+                        <div className="mt-4 rounded-2xl border border-white/10 bg-black/30 px-3 sm:px-4 py-3">
                           <p className="mb-2 text-[11px] text-white/60">
                             7‑day trend
                           </p>
@@ -751,6 +684,73 @@ export default function BusinessCampaignDetailPage() {
                     received from your website.
                   </p>
                 </div>
+              </div>
+            </section>
+
+            {/* Top summary card */}
+            <section className="rounded-3xl border border-white/10 bg-white/[0.02] px-4 sm:px-6 py-5 shadow-[0_0_40px_rgba(0,0,0,0.6)] flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div className="space-y-2">
+                <div className="flex flex-wrap items-center gap-3">
+                  <span
+                    className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${statusChipClasses()}`}
+                  >
+                    {(campaign.status || 'LIVE').toUpperCase()}
+                  </span>
+
+                  {campaign.platform && (
+                    <span className="rounded-full border border-[#00C2CB40] bg-[#00C2CB1A] px-3 py-1 text-[11px] text-[#00C2CB]">
+                      {campaign.platform}
+                    </span>
+                  )}
+
+                  {campaign.type && (
+                    <span className="rounded-full border border-[#00C2CB40] bg-[#00C2CB1A] px-3 py-1 text-[11px] text-[#00C2CB]">
+                      {campaign.type}
+                    </span>
+                  )}
+                </div>
+
+                <p className="text-xs text-white/60">
+                  Affiliate:{' '}
+                  <span className="text-white">
+                    {campaign.affiliate_email || 'N/A'}
+                  </span>
+                </p>
+
+                <p className="text-xs text-white/60">
+                  Started: {formatDate(campaign.created_at)}
+                </p>
+              </div>
+
+              <div className="flex flex-col items-end gap-2">
+                <button
+                  onClick={handleToggleStatus}
+                  disabled={updating}
+                  className="rounded-full bg-[#00C2CB] px-5 py-2 text-xs font-semibold text-black shadow hover:bg-[#00b0b8] disabled:opacity-60"
+                >
+                  {updating
+                    ? 'Updating…'
+                    : (campaign.status || '').toLowerCase() === 'live' ||
+                      (campaign.status || '').toLowerCase() === 'active'
+                    ? 'Pause campaign'
+                    : 'Activate campaign'}
+                </button>
+                {(campaign.status || '').toLowerCase() === 'paused' ? (
+                  <p className="mt-1 max-w-xs text-[11px] text-amber-200/80 text-right">
+                    This campaign is currently paused. Its tracking link is temporarily disabled and
+                    affiliates cannot send traffic until you reactivate it.
+                  </p>
+                ) : (
+                  <p className="mt-1 max-w-xs text-[11px] text-white/50 text-right">
+                    Pausing will temporarily disable the tracking link and notify the affiliate. Use this
+                    only if there is a genuine issue with the offer, stock, or compliance.
+                  </p>
+                )}
+                <Link href="/business/manage-campaigns">
+                  <span className="text-[11px] text-white/60 hover:text-white cursor-pointer">
+                    Back to campaign list
+                  </span>
+                </Link>
               </div>
             </section>
           </div>

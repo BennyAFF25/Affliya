@@ -36,38 +36,70 @@ export default function BusinessInbox() {
   const [showRequests, setShowRequests] = useState(true);
   const [showAdIdeas, setShowAdIdeas] = useState(true);
 
+  // Load offers for this business (for display names)
   useEffect(() => {
     const fetchOffers = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user?.email) return;
+      const { data, error } = await supabase.auth.getUser();
+      if (error) {
+        console.error('[❌ Error fetching auth user for offers]', error.message);
+        return;
+      }
 
-      const { data: offersData } = await supabase
+      const authUser = data?.user;
+      if (!authUser?.email) return;
+
+      const { data: offersData, error: offersErr } = await supabase
         .from('offers')
         .select('id, title')
-        .eq('business_email', user.email);
+        .eq('business_email', authUser.email);
+
+      if (offersErr) {
+        console.error('[❌ Error fetching offers for inbox]', offersErr.message);
+        return;
+      }
 
       setOffers(offersData || []);
     };
+
     fetchOffers();
   }, []);
 
+  // Load pending inbox items for THIS business
   useEffect(() => {
     const fetchInboxData = async () => {
-      if (!user?.email) return;
+      const businessEmail = user?.email;
+      if (!businessEmail) {
+        console.warn('[⚠️ BusinessInbox] No session user email, skipping inbox fetch.');
+        return;
+      }
 
-      const { data: reqs } = await supabase
+      // Pending affiliate requests for this business
+      const { data: reqs, error: reqErr } = await supabase
         .from('affiliate_requests')
         .select('*')
-        .eq('status', 'pending');
+        .eq('business_email', businessEmail)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false });
 
-      setRequests(reqs || []);
+      if (reqErr) {
+        console.error('[❌ Error fetching affiliate_requests for inbox]', reqErr.message);
+      } else {
+        setRequests((reqs || []) as AffiliateRequest[]);
+      }
 
-      const { data: ads } = await supabase
+      // Pending ad ideas for this business
+      const { data: ads, error: adsErr } = await supabase
         .from('ad_ideas')
         .select('*')
-        .eq('status', 'pending');
+        .eq('business_email', businessEmail)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false });
 
-      setAdIdeas(ads || []);
+      if (adsErr) {
+        console.error('[❌ Error fetching ad_ideas for inbox]', adsErr.message);
+      } else {
+        setAdIdeas((ads || []) as AdIdea[]);
+      }
     };
 
     fetchInboxData();
@@ -83,7 +115,9 @@ export default function BusinessInbox() {
       <div className="w-full max-w-6xl mx-auto">
         <div className="mb-12">
           <h1 className="text-5xl font-extrabold text-[#00C2CB] tracking-tight">Inbox</h1>
-          <p className="text-gray-400 mt-2 text-lg">Affiliate requests and ad idea submissions for your offers.</p>
+          <p className="text-gray-400 mt-2 text-lg">
+            Affiliate requests and ad idea submissions for your offers.
+          </p>
         </div>
 
         {/* Affiliate Requests */}
@@ -109,7 +143,10 @@ export default function BusinessInbox() {
                     className="bg-[#121212] rounded-xl p-7 border-l-4 border-[#00C2CB] hover:ring-1 hover:ring-[#00C2CB] shadow-md transition"
                   >
                     <p className="text-sm text-gray-400 mb-1">
-                      <span className="font-semibold text-[#00C2CB]">{req.affiliate_email}</span> wants to promote{' '}
+                      <span className="font-semibold text-[#00C2CB]">
+                        {req.affiliate_email}
+                      </span>{' '}
+                      wants to promote{' '}
                       <span className="underline">{getOfferName(req.offer_id)}</span>
                     </p>
                     {req.notes && (
@@ -155,7 +192,8 @@ export default function BusinessInbox() {
                     className="bg-[#121212] rounded-xl p-7 border-l-4 border-green-500 hover:ring-1 hover:ring-green-500 shadow-md transition"
                   >
                     <p className="text-sm text-green-400 font-medium">
-                      New ad submitted for <span className="underline">{getOfferName(ad.offer_id)}</span>
+                      New ad submitted for{' '}
+                      <span className="underline">{getOfferName(ad.offer_id)}</span>
                     </p>
                     <p className="text-sm text-gray-400 mt-1">
                       From: {ad.affiliate_email}
@@ -177,10 +215,13 @@ export default function BusinessInbox() {
           </section>
         )}
 
+        {/* Empty state */}
         {requests.length === 0 && adIdeas.length === 0 && (
           <div className="text-center mt-32 text-gray-500">
             <h3 className="text-2xl font-bold">Nothing new yet</h3>
-            <p className="mt-2 text-md">All affiliate and ad submissions will appear here once received.</p>
+            <p className="mt-2 text-md">
+              All affiliate and ad submissions will appear here once received.
+            </p>
           </div>
         )}
       </div>

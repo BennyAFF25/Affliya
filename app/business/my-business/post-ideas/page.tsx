@@ -3,6 +3,11 @@ interface OfferRow {
   title: string;
   business_email: string;
 }
+
+interface ProfileRow {
+  email: string;
+  avatar_url: string | null;
+}
 'use client';
 
 import { useEffect, useState, Fragment } from 'react';
@@ -71,9 +76,10 @@ function parseForumFromCaption(caption?: string): { titleOrUrl: string; body: st
 export default function PostIdeasPage() {
   const [posts, setPosts] = useState<PostIdea[]>([]);
   const [offersMap, setOffersMap] = useState<Record<string, string>>({});
+  const [avatarMap, setAvatarMap] = useState<Record<string, string | null>>({});
   const session = useSession();
   const user = session?.user;
-
+ 
   const [selectedPost, setSelectedPost] = useState<PostIdea | null>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [selectedPostInDropdown, setSelectedPostInDropdown] = useState<PostIdea | null>(null);
@@ -113,18 +119,47 @@ export default function PostIdeasPage() {
           return;
         }
 
-        const { data, error } = await supabase
+        const { data, error } = await (supabase as any)
           .from("organic_posts")
           .select("*")
-          .eq("business_email", session.user.email)
-          .order('created_at', { ascending: false });
+          .eq("business_email", session.user.email as string)
+          .order("created_at", { ascending: false });
 
         if (error) {
           console.error("[❌ Error fetching organic posts]", error);
         } else {
-          setPosts(data);
-          if (data && data.length > 0) {
-            setSelectedPostInDropdown(data[0]);
+          const typedData = (data || []) as PostIdea[];
+          setPosts(typedData);
+          if (typedData.length > 0) {
+            setSelectedPostInDropdown(typedData[0]);
+          }
+
+          // 🔹 Load avatar URLs for all unique affiliate emails
+          if (typedData.length > 0) {
+            const uniqueEmails = Array.from(
+              new Set(
+                typedData
+                  .map((p) => p.affiliate_email)
+                  .filter((email): email is string => !!email)
+              )
+            );
+
+            if (uniqueEmails.length > 0) {
+              const { data: profileRows, error: profileError } = await (supabase as any)
+                .from('affiliate_profiles')
+                .select('email, avatar_url')
+                .in('email', uniqueEmails);
+
+              if (profileError) {
+                console.error('[❌ Error fetching profile avatars]', profileError);
+              } else if (profileRows) {
+                const map: Record<string, string | null> = {};
+                (profileRows as ProfileRow[]).forEach((p) => {
+                  map[p.email] = p.avatar_url;
+                });
+                setAvatarMap(map);
+              }
+            }
           }
         }
       } catch (err) {
@@ -188,22 +223,28 @@ export default function PostIdeasPage() {
     }
   };
 
+  // Arrays for pending and reviewed posts
+  const pendingPosts = posts.filter((p) => p.status === 'pending');
+  const reviewedPosts = posts.filter((p) => p.status !== 'pending');
+
   return (
-    <div className="min-h-screen bg-[#0a0a0a] p-10 text-white">
+    <div className="min-h-screen bg-[#0a0a0a] px-4 py-8 sm:px-8 lg:px-10 text-white">
       <h1 className="text-3xl font-bold text-[#00C2CB] mb-6">Post Requests</h1>
 
       {posts.length === 0 ? (
-        <p className="text-gray-600">New post ideas.</p>
+        <p className="text-gray-600">New post ideas will appear here once affiliates submit them.</p>
       ) : (
         <>
-          <h2 className="text-xl font-semibold text-white mb-4">No new posts to review</h2>
+          <h2 className="text-xl font-semibold text-white mb-4">
+            {pendingPosts.length > 0 ? 'New posts to review' : 'No new posts to review'}
+          </h2>
           <div className="space-y-6">
-            {posts.filter(p => p.status === 'pending').map((post) => (
+            {pendingPosts.map((post) => (
               <div
                 key={post.id}
-                className="bg-[#1f1f1f] border border-[#2c2c2c] rounded-xl px-6 py-5 shadow-md flex justify-between items-center hover:shadow-[0_0_8px_#00C2CB] transition-all"
+                className="bg-[#1f1f1f] border border-[#2c2c2c] rounded-xl px-4 py-4 sm:px-6 sm:py-5 shadow-md flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 hover:shadow-[0_0_8px_#00C2CB] transition-all"
               >
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3 sm:gap-4">
                   <div className="w-8 h-8 flex items-center justify-center bg-[#00C2CB]/20 rounded-full">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-[#00C2CB]" viewBox="0 0 24 24" fill="currentColor">
                       <path d="M5 3a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V8.828a2 2 0 00-.586-1.414l-5.828-5.828A2 2 0 0013.172 1H5zm7 0v6h6l-6-6z" />
@@ -225,24 +266,28 @@ export default function PostIdeasPage() {
                     </div>
                   </div>
                 </div>
-                <div className="flex flex-col items-end gap-2">
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    post.status === 'approved' ? 'bg-green-500/20 text-green-300'
-                    : post.status === 'rejected' ? 'bg-red-500/20 text-red-400'
-                    : 'bg-yellow-400/20 text-yellow-300'
-                  }`}>
+                <div className="flex flex-col sm:items-end gap-2 w-full sm:w-auto">
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      post.status === 'approved'
+                        ? 'bg-green-500/20 text-green-300'
+                        : post.status === 'rejected'
+                        ? 'bg-red-500/20 text-red-400'
+                        : 'bg-yellow-400/20 text-yellow-300'
+                    }`}
+                  >
                     {post.status}
                   </span>
-                  <div className="flex gap-3">
+                  <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
                     <button
                       onClick={() => handleStatusChange(post.id, 'approved', post)}
-                      className="bg-[#00C2CB] text-black hover:bg-[#00b0b8] px-4 py-2 rounded-lg text-sm font-semibold"
+                      className="w-full sm:w-auto bg-[#00C2CB] text-black hover:bg-[#00b0b8] px-4 py-2 rounded-lg text-sm font-semibold text-center"
                     >
                       Approve
                     </button>
                     <button
                       onClick={() => handleStatusChange(post.id, 'rejected', post)}
-                      className="bg-[#2c2c2c] text-gray-300 hover:bg-[#3a3a3a] px-4 py-2 rounded-lg text-sm"
+                      className="w-full sm:w-auto bg-[#2c2c2c] text-gray-300 hover:bg-[#3a3a3a] px-4 py-2 rounded-lg text-sm text-center"
                     >
                       Reject
                     </button>
@@ -254,18 +299,18 @@ export default function PostIdeasPage() {
           <div className="mt-8">
             <div
               onClick={() => setShowRecent((prev) => !prev)}
-              className="cursor-pointer mt-10 bg-[#1f1f1f] hover:bg-[#2a2a2a] text-[#00C2CB] font-semibold px-6 py-3 rounded-lg text-center shadow transition-all"
+              className="cursor-pointer mt-8 bg-[#1f1f1f] hover:bg-[#2a2a2a] text-[#00C2CB] font-semibold px-4 py-3 rounded-lg text-center shadow transition-all w-full max-w-md mx-auto"
             >
               {showRecent ? 'Hide Recent Posts' : 'Show Recent Posts'}
             </div>
             {showRecent && (
               <div className="space-y-6 mt-4">
-                {posts.filter(p => p.status !== 'pending').map((post) => (
+                {reviewedPosts.map((post) => (
                   <div
                     key={post.id}
-                    className="bg-[#1f1f1f] border border-[#2c2c2c] rounded-xl px-6 py-5 shadow-md flex justify-between items-center"
+                    className="bg-[#1f1f1f] border border-[#2c2c2c] rounded-xl px-4 py-4 sm:px-6 sm:py-5 shadow-md flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4"
                   >
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-3 sm:gap-4">
                       <div className="w-8 h-8 flex items-center justify-center bg-[#00C2CB]/20 rounded-full">
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-[#00C2CB]" viewBox="0 0 24 24" fill="currentColor">
                           <path d="M5 3a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V8.828a2 2 0 00-.586-1.414l-5.828-5.828A2 2 0 0013.172 1H5zm7 0v6h6l-6-6z" />
@@ -287,11 +332,14 @@ export default function PostIdeasPage() {
                         </div>
                       </div>
                     </div>
-                    <div className="flex flex-col items-end gap-2">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        post.status === 'approved' ? 'bg-green-500/20 text-green-300'
-                        : 'bg-red-500/20 text-red-400'
-                      }`}>
+                    <div className="flex flex-col sm:items-end gap-2 w-full sm:w-auto">
+                      <span
+                        className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          post.status === 'approved'
+                            ? 'bg-green-500/20 text-green-300'
+                            : 'bg-red-500/20 text-red-400'
+                        }`}
+                      >
                         {post.status}
                       </span>
                     </div>
@@ -308,137 +356,209 @@ export default function PostIdeasPage() {
         )}
       </section>
 
-      {selectedPost && (
-        <div className="fixed z-50 inset-0 flex items-center justify-center">
-          <div className="fixed inset-0 bg-black/30" aria-hidden="true" onClick={() => setSelectedPost(null)} />
-          <div className="bg-gradient-to-b from-[#1f1f1f] to-[#111111] text-white p-0 rounded-lg shadow-lg z-50 max-w-sm w-full overflow-hidden border border-gray-800">
-            <div className="flex flex-col bg-gradient-to-b from-gray-800 to-gray-900 text-white">
-              {/** determine post kind once for conditional rendering */}
-              {/* kind is declared in the header block below */}
-              {(() => {
-                const kind = inferPostKind(selectedPost);
-                if (kind === 'email') {
-                  const { subject } = parseEmailFromCaption(selectedPost.caption);
-                  return (
-                    <div className="p-4 border-b border-gray-800 bg-[#111111]">
-                      <div className="text-xs text-white/60 mb-1">Email</div>
-                      <div className="text-lg font-semibold">{subject}</div>
-                      <div className="text-[11px] text-gray-400 mt-1">
+      {selectedPost && (() => {
+        const kind = inferPostKind(selectedPost);
+        const handle = selectedPost.affiliate_email.split("@")[0];
+        const affiliateEmail = selectedPost.affiliate_email;
+        const avatarUrl = avatarMap[affiliateEmail] || null;
+        const submittedDate = new Date(selectedPost.created_at).toLocaleDateString();
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center px-3 sm:px-4">
+            {/* Backdrop */}
+            <div
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+              aria-hidden="true"
+              onClick={() => setSelectedPost(null)}
+            />
+
+            {/* Card */}
+            <div className="relative z-50 w-full max-w-sm rounded-3xl bg-[#05080a] border border-[#151b1f] shadow-[0_20px_60px_rgba(0,0,0,0.75)] overflow-hidden">
+              {/* Top bar / header */}
+              <div className="flex items-center justify-between px-4 py-3 border-b border-[#151b1f] bg-gradient-to-r from-[#050b0d] via-[#05080a] to-[#050b0d]">
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-full bg-gradient-to-br from-[#00C2CB] via-[#7ff5fb] to-[#00C2CB] p-[2px]">
+                    <div className="h-full w-full rounded-full bg-[#05080a] flex items-center justify-center overflow-hidden">
+                      {avatarUrl ? (
+                        <img
+                          src={avatarUrl}
+                          alt={handle}
+                          className="h-full w-full object-cover"
+                          referrerPolicy="no-referrer"
+                          onError={(e) => {
+                            (e.currentTarget as HTMLImageElement).style.display = "none";
+                          }}
+                        />
+                      ) : (
+                        <span className="text-xs font-semibold text-[#7ff5fb]">
+                          {handle.charAt(0).toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex flex-col">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm font-semibold">@{handle}</span>
+                      <span className="h-1 w-1 rounded-full bg-white/30" />
+                      <span className="text-[11px] text-white/60">
+                        {kind === "email"
+                          ? "Email draft"
+                          : kind === "forum"
+                          ? "Forum post"
+                          : `${selectedPost.platform || "Social"}`}
+                      </span>
+                    </div>
+                    <span className="text-[11px] text-white/40">
+                      Submitted on {submittedDate}
+                    </span>
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setSelectedPost(null)}
+                  className="flex h-7 w-7 items-center justify-center rounded-full bg-white/5 hover:bg-white/10 text-white/70 hover:text-white text-xs transition"
+                  aria-label="Close"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Media / body */}
+              {kind === "social" && (
+                <>
+                  {/* media */}
+                  <div className="bg-black max-h-[460px]">
+                    {selectedPost.video_url ? (
+                      <video
+                        src={selectedPost.video_url}
+                        controls
+                        className="w-full h-full max-h-[460px] object-contain bg-black"
+                      />
+                    ) : (
+                      <img
+                        src={selectedPost.image_url}
+                        alt="Post media"
+                        className="w-full h-full max-h-[460px] object-contain bg-black"
+                        referrerPolicy="no-referrer"
+                        loading="lazy"
+                        onError={(e) => {
+                          const target = e.currentTarget as HTMLImageElement & { dataset: any };
+                          if (!target.dataset.fallbackUsed) {
+                            target.src = "/fallback-organic-post.png";
+                            target.dataset.fallbackUsed = "true";
+                          }
+                        }}
+                      />
+                    )}
+                  </div>
+
+                  {/* fake actions row */}
+                  <div className="flex items-center gap-5 px-4 pt-3 pb-1 text-white/70 text-[18px]">
+                    <span>♡</span>
+                    <span>💬</span>
+                    <span>↗︎</span>
+                  </div>
+
+                  {/* caption */}
+                  {selectedPost.caption && (
+                    <div className="px-4 pb-3 text-sm text-gray-200 whitespace-pre-wrap">
+                      <span className="font-semibold mr-1">@{handle}</span>
+                      {selectedPost.caption}
+                    </div>
+                  )}
+                </>
+              )}
+
+              {kind === "email" && (() => {
+                const { subject, body } = parseEmailFromCaption(selectedPost.caption);
+                return (
+                  <div className="border-t border-[#151b1f] bg-[#05080a]">
+                    <div className="px-4 pt-3 pb-2">
+                      <div className="text-[11px] text-white/50 mb-1">Email draft</div>
+                      <div className="text-sm font-semibold text-white mb-1">
+                        {subject}
+                      </div>
+                      <div className="text-[11px] text-white/50">
                         From: {selectedPost.affiliate_email} • To: (audience segment)
                       </div>
                     </div>
-                  );
-                }
-                return (
-                  <div className="flex items-center gap-3 p-4 border-b border-gray-100">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-r from-[#ff5757] to-[#8c52ff] text-white flex items-center justify-center font-bold text-sm">
-                      {selectedPost.affiliate_email.charAt(0).toUpperCase()}
+                    <div className="px-4 pb-3 text-sm text-gray-200 whitespace-pre-wrap border-t border-[#151b1f]">
+                      {body}
                     </div>
-                    <div className="text-sm font-semibold">@{selectedPost.affiliate_email.split('@')[0]}</div>
                   </div>
                 );
               })()}
 
-              {(() => {
-                const kind = inferPostKind(selectedPost);
-                if (kind === 'social') {
-                  return selectedPost.video_url ? (
-                    <video
-                      src={selectedPost.video_url}
-                      controls
-                      className="w-full h-auto max-h-[500px] object-cover bg-black"
-                    />
-                  ) : (
-                    <img
-                      src={selectedPost.image_url}
-                      alt="Post Image"
-                      className="w-full h-auto max-h-[500px] object-contain bg-gray-800"
-                      referrerPolicy="no-referrer"
-                      loading="lazy"
-                      onError={(e) => {
-                        const target = e.currentTarget as HTMLImageElement & { dataset: any };
-                        if (!target.dataset.fallbackUsed) {
-                          target.src = '/fallback-organic-post.png';
-                          target.dataset.fallbackUsed = 'true';
-                        }
-                      }}
-                    />
-                  );
-                }
-                if (kind === 'email') {
-                  const { body } = parseEmailFromCaption(selectedPost.caption);
-                  return (
-                    <div className="w-full bg-[#0f0f0f] border-t border-b border-gray-800">
-                      <div className="px-4 py-4 text-sm whitespace-pre-wrap text-gray-200 leading-6">
-                        {body}
-                      </div>
-                    </div>
-                  );
-                }
-                if (kind === 'forum') {
-                  const { titleOrUrl, body } = parseForumFromCaption(selectedPost.caption);
-                  return (
-                    <div className="w-full bg-[#0f0f0f] border-t border-b border-gray-800">
-                      <div className="px-4 py-3 border-b border-gray-800">
-                        <div className="text-xs text-white/60 mb-1">Forum Posting Preview</div>
-                        <div className="text-base font-semibold break-all">{titleOrUrl}</div>
-                        <div className="text-[11px] text-gray-400 mt-1">
-                          Posted by: @{selectedPost.affiliate_email.split('@')[0]} • Platform: {selectedPost.platform}
-                        </div>
-                      </div>
-                      <div className="px-4 py-4 text-sm whitespace-pre-wrap text-gray-200">
-                        {body}
-                      </div>
-                    </div>
-                  );
-                }
-                // Fallback
+              {kind === "forum" && (() => {
+                const { titleOrUrl, body } = parseForumFromCaption(selectedPost.caption);
                 return (
-                  <div className="w-full bg-[#0f0f0f] border-t border-b border-gray-800 px-4 py-4 text-sm text-gray-300 whitespace-pre-wrap">
-                    {selectedPost.caption || 'No preview available.'}
+                  <div className="border-t border-[#151b1f] bg-[#05080a]">
+                    <div className="px-4 pt-3 pb-2">
+                      <div className="text-[11px] text-white/50 mb-1">Forum post preview</div>
+                      <div className="text-sm font-semibold text-white break-all mb-1">
+                        {titleOrUrl}
+                      </div>
+                      <div className="text-[11px] text-white/50">
+                        Posted by @{handle} • Platform: {selectedPost.platform}
+                      </div>
+                    </div>
+                    <div className="px-4 pb-3 text-sm text-gray-200 whitespace-pre-wrap border-t border-[#151b1f]">
+                      {body}
+                    </div>
                   </div>
                 );
               })()}
 
-              {inferPostKind(selectedPost) !== 'email' && (
-                <div className="px-4 py-2 text-sm bg-[#0f0f0f] border-t border-gray-800">
-                  <p>
-                    <span className="font-semibold">@{selectedPost.affiliate_email.split('@')[0]}</span>{' '}
-                    posted on {selectedPost.platform}
-                  </p>
-                </div>
-              )}
+              {/* Meta + status */}
+              <div className="px-4 py-3 border-t border-[#151b1f] bg-[#05080a] text-xs text-gray-300 space-y-1.5">
+                {selectedPost.link && (
+                  <div className="flex items-center gap-2">
+                    <span className="uppercase tracking-wide text-[10px] text-white/40">
+                      Link
+                    </span>
+                    <span className="truncate text-[11px] text-[#7ff5fb]">
+                      {selectedPost.link}
+                    </span>
+                  </div>
+                )}
 
-              {inferPostKind(selectedPost) === 'social' && selectedPost.caption && (
-                <div className="px-4 py-2 text-sm text-gray-300 whitespace-pre-wrap bg-[#0f0f0f] border-t border-gray-800">
-                  {selectedPost.caption}
+                <div className="flex items-center justify-between">
+                  <span className="uppercase tracking-wide text-[10px] text-white/40">
+                    Status
+                  </span>
+                  <span
+                    className={`
+                      inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium
+                      ${
+                        selectedPost.status === "approved"
+                          ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/40"
+                          : selectedPost.status === "rejected"
+                          ? "bg-red-500/15 text-red-300 border border-red-500/40"
+                          : "bg-amber-400/10 text-amber-200 border border-amber-400/40"
+                      }
+                    `}
+                  >
+                    <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                    {selectedPost.status}
+                  </span>
                 </div>
-              )}
 
-              <div className="px-4 py-3 text-sm space-y-1 bg-[#0f0f0f] border-t border-gray-800">
-                <div className="text-xs text-white/60">Link: {selectedPost.link}</div>
-                <div className="text-xs">Status: <span className={`font-semibold ${
-                  selectedPost.status === 'approved'
-                    ? 'text-green-600'
-                    : selectedPost.status === 'rejected'
-                    ? 'text-red-500'
-                    : 'text-yellow-600'
-                }`}>{selectedPost.status}</span></div>
-                <p className="mt-2 text-sm text-gray-400 italic">Submitted on {new Date(selectedPost.created_at).toLocaleDateString()}</p>
+                <p className="text-[11px] text-white/40">
+                  Submitted on {submittedDate}
+                </p>
               </div>
 
-              <div className="p-4 bg-[#0f0f0f] border-t border-gray-800">
-                <button
-                  className="w-full py-2 rounded bg-[#00C2CB] hover:bg-[#00b0b8] text-white font-medium text-sm"
-                  onClick={() => setSelectedPost(null)}
-                >
-                  Close
-                </button>
-              </div>
+              {/* Close CTA */}
+              <button
+                className="w-full py-2.5 text-sm font-semibold bg-[#00C2CB] hover:bg-[#00b0b8] text-black transition-colors"
+                onClick={() => setSelectedPost(null)}
+              >
+                Close
+              </button>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
