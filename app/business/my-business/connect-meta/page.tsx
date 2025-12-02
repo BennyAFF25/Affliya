@@ -55,7 +55,7 @@ export default function ConnectMetaPage() {
           Link your Meta Business Manager to run ads through your own account. Full transparency, control, and compliance with Meta&apos;s guidelines.
         </p>
         <a
-          href={`https://www.facebook.com/v19.0/dialog/oauth?client_id=${process.env.NEXT_PUBLIC_META_APP_ID}&redirect_uri=https://affliya.vercel.app/api/meta/callback&scope=pages_show_list,ads_management,business_management,pages_read_engagement,pages_read_user_content,ads_read,pages_manage_ads&response_type=code`}
+          href={`https://www.facebook.com/v19.0/dialog/oauth?client_id=${process.env.NEXT_PUBLIC_META_APP_ID}&redirect_uri=https://www.nettmark.com/api/meta/callback&scope=pages_show_list,ads_management,business_management,pages_read_engagement,pages_read_user_content,ads_read,pages_manage_ads&response_type=code`}
           className="inline-flex items-center gap-2 bg-white text-[#00C2CB] hover:bg-[#e0fafa] px-5 py-2 rounded-full font-semibold transition shadow"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">

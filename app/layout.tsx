@@ -6,11 +6,11 @@ import { Toaster } from 'react-hot-toast';
 export const metadata = {
   title: 'Nettmark',
   description: 'Nettmark – The Fastest Growing Affiliate Platform on the Planet',
-  metadataBase: new URL('https://app.affliya.vercel.app'),
+  metadataBase: new URL('https://www.nettmark.com'),
   openGraph: {
     title: 'Nettmark',
     description: 'Join the future of performance marketing.',
-    url: 'https://app.affliya.vercel.app',
+    url: 'https://www.nettmark.com',
     siteName: 'Nettmark',
     images: [
       {

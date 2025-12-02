@@ -67,7 +67,7 @@ export default function PromoteOfferPage() {
   // Derived tracking link
   // ─────────────────────────────
   const trackingLink = useMemo(
-    () => `https://affliya.vercel.app/go/${offerId}___${userEmail}`,
+    () => `https://www.nettmark.com/go/${offerId}___${userEmail}`,
     [offerId, userEmail]
   );
 
