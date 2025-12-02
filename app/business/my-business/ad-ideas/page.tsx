@@ -258,255 +258,257 @@ export default function AdIdeasPage() {
   };
 
   return (
-    <div className="p-10 bg-[#0a0a0a] min-h-screen">
-      <h1 className="text-3xl font-bold text-[#00C2CB] mb-6">Affiliate Promotion Requests</h1>
+    <div className="min-h-screen bg-[#0a0a0a] px-4 py-8 md:px-10 md:py-10">
+      <div className="max-w-4xl mx-auto">
+        <h1 className="text-3xl font-bold text-[#00C2CB] mb-6">Affiliate Promotion Requests</h1>
 
-      {ideas.length === 0 ? (
-        <p className="text-gray-600">No ad ideas submitted yet.</p>
-      ) : (
-        <>
-          <h2 className="text-xl font-semibold text-white mb-4">No new ads to review</h2>
-          <div className="space-y-6">
-            {ideas.filter(i => i.status === 'pending').map((idea) => (
-              <div
-                key={idea.id}
-                className="bg-[#1f1f1f] border border-[#2c2c2c] rounded-xl px-6 py-5 shadow-md flex justify-between items-center hover:shadow-[0_0_8px_#00C2CB] transition-all"
-              >
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full bg-[#00C2CB]/20 flex items-center justify-center">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 text-[#00C2CB]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
-                  </div>
-                  <div className="flex flex-col">
-                    <h2 className="text-xl font-semibold text-white">{offersMap[idea.offer_id] || 'Unknown Offer'}</h2>
-                    <p className="text-sm text-gray-400">{idea.audience} - {idea.location}</p>
-                    <div className="flex items-center gap-3 mt-2">
-                      <p className="text-sm text-gray-400">
-                        <span className="font-semibold text-white">Affiliate:</span> {idea.affiliate_email}
-                      </p>
-                      <button
-                        onClick={() => setSelectedIdea(idea)}
-                        className="text-sm text-[#00C2CB] hover:underline"
-                      >
-                        View Detail
-                      </button>
+        {ideas.length === 0 ? (
+          <p className="text-gray-600">No ad ideas submitted yet.</p>
+        ) : (
+          <>
+            <h2 className="text-xl font-semibold text-white mb-4">No new ads to review</h2>
+            <div className="space-y-6">
+              {ideas.filter(i => i.status === 'pending').map((idea) => (
+                <div
+                  key={idea.id}
+                  className="bg-[#1f1f1f] border border-[#2c2c2c] rounded-xl px-4 py-4 md:px-6 md:py-5 shadow-md flex flex-col md:flex-row md:justify-between md:items-center gap-4 hover:shadow-[0_0_8px_#00C2CB] transition-all"
+                >
+                  <div className="flex items-start gap-4 w-full md:w-auto">
+                    <div className="w-12 h-12 rounded-full bg-[#00C2CB]/20 flex items-center justify-center">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 text-[#00C2CB]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
                     </div>
-                  </div>
-                </div>
-                <div className="flex flex-col items-end gap-2">
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    idea.status === 'approved' ? 'bg-green-500/20 text-green-300'
-                    : idea.status === 'rejected' ? 'bg-red-500/20 text-red-400'
-                    : 'bg-yellow-400/20 text-yellow-300'
-                  }`}>
-                    {idea.status}
-                  </span>
-                  {idea.status === 'pending' && (
-                    <div className="flex gap-3">
-                      <button
-                        onClick={async () => {
-                          await handleStatusChange(idea.id, 'approved');
-                          await sendToMeta(idea.id);
-                        }}
-                        className="bg-[#00C2CB] text-black hover:bg-[#00b0b8] px-4 py-2 rounded-lg text-sm font-semibold"
-                      >
-                        Approve
-                      </button>
-                      <button
-                        onClick={() => setShowRejectionInput(idea.id)}
-                        className="bg-[#2c2c2c] text-gray-300 hover:bg-[#3a3a3a] px-4 py-2 rounded-lg text-sm"
-                      >
-                        Reject
-                      </button>
-                    </div>
-                  )}
-                  {showRejectionInput === idea.id && (
-                    <div className="flex flex-col gap-3 mt-2 w-48">
-                      <select
-                        className="border border-gray-300 rounded px-3 py-2 text-sm bg-[#181818] text-white"
-                        onChange={(e) => setSelectedReason(e.target.value)}
-                        value={selectedReason}
-                      >
-                        <option value="">Select a reason</option>
-                        <option value="Not aligned with brand">Not aligned with brand</option>
-                        <option value="Inappropriate content">Inappropriate content</option>
-                        <option value="Low quality creative">Low quality creative</option>
-                        <option value="Other">Other</option>
-                      </select>
-                      {selectedReason === 'Other' && (
-                        <textarea
-                          className="border border-gray-300 rounded px-3 py-2 text-sm bg-[#181818] text-white"
-                          placeholder="Custom reason..."
-                          value={customReason}
-                          onChange={(e) => setCustomReason(e.target.value)}
-                        />
-                      )}
-                      <button
-                        onClick={async () => {
-                          const finalReason = selectedReason === 'Other' ? customReason : selectedReason;
-                          await handleStatusChange(idea.id, 'rejected', finalReason);
-                        }}
-                        className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded text-sm"
-                      >
-                        Confirm Rejection
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-          {/* Recent Ads dropdown */}
-          <div className="mt-8">
-            <div
-              onClick={() => setShowRecent((prev) => !prev)}
-              className="cursor-pointer mt-10 bg-[#1f1f1f] hover:bg-[#2a2a2a] text-[#00C2CB] font-semibold px-6 py-3 rounded-lg text-center shadow transition-all"
-            >
-              {showRecent ? 'Hide Recent Ads' : 'Show Recent Ads'}
-            </div>
-            {showRecent && (
-              <div className="space-y-6 mt-4">
-                {ideas.filter(i => i.status !== 'pending').map((idea) => (
-                  <div
-                    key={idea.id}
-                    className="bg-[#1f1f1f] border border-[#2c2c2c] rounded-xl px-6 py-5 shadow-md flex justify-between items-center"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 rounded-full bg-[#00C2CB]/20 flex items-center justify-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 text-[#00C2CB]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                        </svg>
+                    <div className="flex flex-col">
+                      <h2 className="text-xl font-semibold text-white">{offersMap[idea.offer_id] || 'Unknown Offer'}</h2>
+                      <p className="text-sm text-gray-400">{idea.audience} - {idea.location}</p>
+                      <div className="flex items-center gap-3 mt-2">
+                        <p className="text-sm text-gray-400">
+                          <span className="font-semibold text-white">Affiliate:</span> {idea.affiliate_email}
+                        </p>
+                        <button
+                          onClick={() => setSelectedIdea(idea)}
+                          className="text-sm text-[#00C2CB] hover:underline"
+                        >
+                          View Detail
+                        </button>
                       </div>
-                      <div className="flex flex-col">
-                        <h2 className="text-xl font-semibold text-white">{offersMap[idea.offer_id] || 'Unknown Offer'}</h2>
-                        <p className="text-sm text-gray-400">{idea.audience} - {idea.location}</p>
-                        <div className="flex items-center gap-3 mt-2">
-                          <p className="text-sm text-gray-400">
-                            <span className="font-semibold text-white">Affiliate:</span> {idea.affiliate_email}
-                          </p>
-                          <button
-                            onClick={() => setSelectedIdea(idea)}
-                            className="text-sm text-[#00C2CB] hover:underline"
-                          >
-                            View Detail
-                          </button>
+                    </div>
+                  </div>
+                  <div className="flex flex-col items-stretch md:items-end gap-2 w-full md:w-auto">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      idea.status === 'approved' ? 'bg-green-500/20 text-green-300'
+                      : idea.status === 'rejected' ? 'bg-red-500/20 text-red-400'
+                      : 'bg-yellow-400/20 text-yellow-300'
+                    }`}>
+                      {idea.status}
+                    </span>
+                    {idea.status === 'pending' && (
+                      <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+                        <button
+                          onClick={async () => {
+                            await handleStatusChange(idea.id, 'approved');
+                            await sendToMeta(idea.id);
+                          }}
+                          className="flex-1 md:flex-none bg-[#00C2CB] text-black hover:bg-[#00b0b8] px-4 py-2 rounded-lg text-sm font-semibold text-center"
+                        >
+                          Approve
+                        </button>
+                        <button
+                          onClick={() => setShowRejectionInput(idea.id)}
+                          className="flex-1 md:flex-none bg-[#2c2c2c] text-gray-300 hover:bg-[#3a3a3a] px-4 py-2 rounded-lg text-sm text-center"
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    )}
+                    {showRejectionInput === idea.id && (
+                      <div className="flex flex-col gap-3 mt-2 w-full md:w-48">
+                        <select
+                          className="border border-gray-300 rounded px-3 py-2 text-sm bg-[#181818] text-white"
+                          onChange={(e) => setSelectedReason(e.target.value)}
+                          value={selectedReason}
+                        >
+                          <option value="">Select a reason</option>
+                          <option value="Not aligned with brand">Not aligned with brand</option>
+                          <option value="Inappropriate content">Inappropriate content</option>
+                          <option value="Low quality creative">Low quality creative</option>
+                          <option value="Other">Other</option>
+                        </select>
+                        {selectedReason === 'Other' && (
+                          <textarea
+                            className="border border-gray-300 rounded px-3 py-2 text-sm bg-[#181818] text-white"
+                            placeholder="Custom reason..."
+                            value={customReason}
+                            onChange={(e) => setCustomReason(e.target.value)}
+                          />
+                        )}
+                        <button
+                          onClick={async () => {
+                            const finalReason = selectedReason === 'Other' ? customReason : selectedReason;
+                            await handleStatusChange(idea.id, 'rejected', finalReason);
+                          }}
+                          className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded text-sm"
+                        >
+                          Confirm Rejection
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+            {/* Recent Ads dropdown */}
+            <div className="mt-8">
+              <div
+                onClick={() => setShowRecent((prev) => !prev)}
+                className="cursor-pointer mt-10 bg-[#1f1f1f] hover:bg-[#2a2a2a] text-[#00C2CB] font-semibold px-6 py-3 rounded-lg text-center shadow transition-all"
+              >
+                {showRecent ? 'Hide Recent Ads' : 'Show Recent Ads'}
+              </div>
+              {showRecent && (
+                <div className="space-y-6 mt-4">
+                  {ideas.filter(i => i.status !== 'pending').map((idea) => (
+                    <div
+                      key={idea.id}
+                      className="bg-[#1f1f1f] border border-[#2c2c2c] rounded-xl px-4 py-4 md:px-6 md:py-5 shadow-md flex flex-col md:flex-row md:justify-between md:items-center gap-4"
+                    >
+                      <div className="flex items-start gap-4 w-full md:w-auto">
+                        <div className="w-12 h-12 rounded-full bg-[#00C2CB]/20 flex items-center justify-center">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 text-[#00C2CB]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                          </svg>
+                        </div>
+                        <div className="flex flex-col">
+                          <h2 className="text-xl font-semibold text-white">{offersMap[idea.offer_id] || 'Unknown Offer'}</h2>
+                          <p className="text-sm text-gray-400">{idea.audience} - {idea.location}</p>
+                          <div className="flex items-center gap-3 mt-2">
+                            <p className="text-sm text-gray-400">
+                              <span className="font-semibold text-white">Affiliate:</span> {idea.affiliate_email}
+                            </p>
+                            <button
+                              onClick={() => setSelectedIdea(idea)}
+                              className="text-sm text-[#00C2CB] hover:underline"
+                            >
+                              View Detail
+                            </button>
+                          </div>
                         </div>
                       </div>
+                      <div className="flex flex-col items-stretch md:items-end gap-2 w-full md:w-auto">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          idea.status === 'approved' ? 'bg-green-500/20 text-green-300'
+                          : 'bg-red-500/20 text-red-400'
+                        }`}>
+                          {idea.status}
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex flex-col items-end gap-2">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        idea.status === 'approved' ? 'bg-green-500/20 text-green-300'
-                        : 'bg-red-500/20 text-red-400'
-                      }`}>
-                        {idea.status}
-                      </span>
-                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {selectedIdea && (
+          <div className="fixed z-50 inset-0 flex items-center justify-center">
+            <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
+            <div className="bg-gradient-to-b from-[#1f1f1f] to-[#111111] text-white p-0 rounded-lg shadow-lg z-50 max-w-sm w-full overflow-hidden border border-gray-800">
+              <div className="flex flex-col bg-gradient-to-b from-gray-800 to-gray-900 text-white">
+                {/* Mocked Header */}
+                <div className="flex items-center gap-3 p-4 border-b border-gray-100">
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-r from-[#ff5757] to-[#8c52ff] text-white flex items-center justify-center font-bold text-sm">
+                    {selectedIdea.affiliate_email.charAt(0).toUpperCase()}
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </>
-      )}
-
-      {selectedIdea && (
-        <div className="fixed z-50 inset-0 flex items-center justify-center">
-          <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
-          <div className="bg-gradient-to-b from-[#1f1f1f] to-[#111111] text-white p-0 rounded-lg shadow-lg z-50 max-w-sm w-full overflow-hidden border border-gray-800">
-            <div className="flex flex-col bg-gradient-to-b from-gray-800 to-gray-900 text-white">
-              {/* Mocked Header */}
-              <div className="flex items-center gap-3 p-4 border-b border-gray-100">
-                <div className="w-8 h-8 rounded-full bg-gradient-to-r from-[#ff5757] to-[#8c52ff] text-white flex items-center justify-center font-bold text-sm">
-                  {selectedIdea.affiliate_email.charAt(0).toUpperCase()}
+                  <div className="text-sm font-semibold">@{selectedIdea.affiliate_email.split('@')[0]}</div>
                 </div>
-                <div className="text-sm font-semibold">@{selectedIdea.affiliate_email.split('@')[0]}</div>
-              </div>
 
-              {selectedIdea.file_url?.toLowerCase().endsWith('.mp4') ? (
-                <video
-                  src={selectedIdea.file_url}
-                  controls
-                  className="w-full h-auto max-h-[500px] object-cover bg-black"
-                />
-              ) : (
-                <img
-                  src={selectedIdea.file_url}
-                  alt="Post Image"
-                  className="w-full h-auto max-h-[500px] object-contain bg-gray-800"
-                  referrerPolicy="no-referrer"
-                  loading="lazy"
-                  onError={(e) => {
-                    const target = e.currentTarget;
-                    if (!target.dataset.fallbackUsed) {
-                      target.src = '/fallback-organic-post.png';
-                      target.dataset.fallbackUsed = 'true';
-                    }
-                  }}
-                />
-              )}
-
-              <div className="px-4 py-2 text-sm">
-                <p>
-                  <span className="font-semibold">@{selectedIdea.affiliate_email.split('@')[0]}</span>{' '}
-                  {selectedIdea.location}
-                </p>
-              </div>
-
-              <div className="px-4 py-3 text-sm space-y-1">
-                <div className="text-xs text-white/60">Audience: {selectedIdea.audience}</div>
-                <div className="text-xs">
-                  Status:{' '}
-                  <span
-                    className={`font-semibold ${
-                      selectedIdea.status === 'approved'
-                        ? 'text-green-600'
-                        : selectedIdea.status === 'rejected'
-                        ? 'text-red-500'
-                        : 'text-yellow-600'
-                    }`}
-                  >
-                    {selectedIdea.status}
-                  </span>
-                </div>
-                <p className="mt-2 text-sm text-gray-400 italic">Requested recently</p>
-              </div>
-
-              {selectedIdea.status === 'pending' && (
-                <div className="flex gap-4 px-4 pt-4 pb-2">
-                  <button
-                    onClick={async () => {
-                      await handleStatusChange(selectedIdea.id, 'approved');
-                      await sendToMeta(selectedIdea.id);
+                {selectedIdea.file_url?.toLowerCase().endsWith('.mp4') ? (
+                  <video
+                    src={selectedIdea.file_url}
+                    controls
+                    className="w-full h-auto max-h-[500px] object-cover bg-black"
+                  />
+                ) : (
+                  <img
+                    src={selectedIdea.file_url}
+                    alt="Post Image"
+                    className="w-full h-auto max-h-[500px] object-contain bg-gray-800"
+                    referrerPolicy="no-referrer"
+                    loading="lazy"
+                    onError={(e) => {
+                      const target = e.currentTarget;
+                      if (!target.dataset.fallbackUsed) {
+                        target.src = '/fallback-organic-post.png';
+                        target.dataset.fallbackUsed = 'true';
+                      }
                     }}
+                  />
+                )}
+
+                <div className="px-4 py-2 text-sm">
+                  <p>
+                    <span className="font-semibold">@{selectedIdea.affiliate_email.split('@')[0]}</span>{' '}
+                    {selectedIdea.location}
+                  </p>
+                </div>
+
+                <div className="px-4 py-3 text-sm space-y-1">
+                  <div className="text-xs text-white/60">Audience: {selectedIdea.audience}</div>
+                  <div className="text-xs">
+                    Status:{' '}
+                    <span
+                      className={`font-semibold ${
+                        selectedIdea.status === 'approved'
+                          ? 'text-green-600'
+                          : selectedIdea.status === 'rejected'
+                          ? 'text-red-500'
+                          : 'text-yellow-600'
+                      }`}
+                    >
+                      {selectedIdea.status}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-sm text-gray-400 italic">Requested recently</p>
+                </div>
+
+                {selectedIdea.status === 'pending' && (
+                  <div className="flex gap-4 px-4 pt-4 pb-2">
+                    <button
+                      onClick={async () => {
+                        await handleStatusChange(selectedIdea.id, 'approved');
+                        await sendToMeta(selectedIdea.id);
+                      }}
+                      className="w-full py-2 rounded bg-[#00C2CB] hover:bg-[#00b0b8] text-white font-medium text-sm"
+                    >
+                      Approve
+                    </button>
+                    <button
+                      onClick={async () => {
+                        await handleStatusChange(selectedIdea.id, 'rejected');
+                        setSelectedIdea((prev) => prev ? { ...prev, status: 'rejected' } : null);
+                      }}
+                      className="w-full py-2 rounded bg-red-500 hover:bg-red-600 text-white font-medium text-sm"
+                    >
+                      Reject
+                    </button>
+                  </div>
+                )}
+
+                <div className="p-4 border-t border-gray-100">
+                  <button
                     className="w-full py-2 rounded bg-[#00C2CB] hover:bg-[#00b0b8] text-white font-medium text-sm"
+                    onClick={() => setSelectedIdea(null)}
                   >
-                    Approve
-                  </button>
-                  <button
-                    onClick={async () => {
-                      await handleStatusChange(selectedIdea.id, 'rejected');
-                      setSelectedIdea((prev) => prev ? { ...prev, status: 'rejected' } : null);
-                    }}
-                    className="w-full py-2 rounded bg-red-500 hover:bg-red-600 text-white font-medium text-sm"
-                  >
-                    Reject
+                    Close
                   </button>
                 </div>
-              )}
-
-              <div className="p-4 border-t border-gray-100">
-                <button
-                  className="w-full py-2 rounded bg-[#00C2CB] hover:bg-[#00b0b8] text-white font-medium text-sm"
-                  onClick={() => setSelectedIdea(null)}
-                >
-                  Close
-                </button>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

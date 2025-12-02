@@ -13,11 +13,6 @@ export default function ConnectMetaPage() {
   const [metaConnection, setMetaConnection] = useState<any | null>(null);
   const [pageName, setPageName] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!user) {
-      router.push("/");
-    }
-  }, [user, router]);
 
   useEffect(() => {
     const fetchMetaConnection = async () => {
@@ -46,9 +41,6 @@ export default function ConnectMetaPage() {
     if (user) fetchMetaConnection();
   }, [user]);
 
-  if (!user) {
-    return <div className="p-4">Loading...</div>;
-  }
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white px-4 py-10">

@@ -142,7 +142,6 @@ export default function MyBusinessPage() {
   const [businessAccountId, setBusinessAccountId] = useState<string | null>(null);
   const [onboardingComplete, setOnboardingComplete] = useState<boolean>(false);
   const [hasCard, setHasCard] = useState<boolean>(false);
-  const [showMetaSoon, setShowMetaSoon] = useState(false);
 
   const session = useSession();
   const user = session?.user;
@@ -613,32 +612,12 @@ export default function MyBusinessPage() {
               </p>
 
               <div className="space-y-3">
-                <div className="rounded-xl border border-[#00C2CB]/20 bg-[#0b0f10] p-4">
-                  <button
-                    onClick={() => setShowMetaSoon((prev) => !prev)}
-                    className="w-full flex items-center justify-center gap-2 bg-[#00C2CB] text-black font-semibold px-4 py-2.5 rounded-md hover:bg-[#00b0b8]"
-                  >
+                <Link href="/business/my-business/connect-meta/" prefetch={false}>
+                  <ActionButton size="sm">
                     <IconBolt className="w-5 h-5 shrink-0" />
-                    <span>Meta integration — coming soon</span>
-                  </button>
-
-                  {showMetaSoon && (
-                    <div className="mt-3 text-sm text-white/80 space-y-2 border-t border-white/10 pt-3">
-                      <p>
-                        We're finalising automated Meta campaign creation. Soon you'll be able to:
-                      </p>
-                      <ul className="list-disc list-inside text-white/70 space-y-1">
-                        <li>Approve partner ads → go live instantly.</li>
-                        <li>Auto‑sync creatives, pixels, and targeting.</li>
-                        <li>Pause / resume campaigns in Nettmark.</li>
-                        <li>Track spend and conversions in one dashboard.</li>
-                      </ul>
-                      <p className="text-white/60 mt-2">
-                        Full Meta Ads Manager automation launches after app review.
-                      </p>
-                    </div>
-                  )}
-                </div>
+                    <span>Connect Meta ads</span>
+                  </ActionButton>
+                </Link>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <Link href="/business/setup-tracking">

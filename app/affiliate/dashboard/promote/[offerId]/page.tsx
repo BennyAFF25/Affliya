@@ -1068,8 +1068,7 @@ export default function PromoteOfferPage() {
         </div>
         {/* LEFT: single card wizard */}
         {mode === 'ad' && (
-        <div className="relative bg-[#141414] border border-[#232323] rounded-2xl shadow-xl overflow-hidden">
-          <div className="opacity-40 pointer-events-none">
+          <div className="relative bg-[#141414] border border-[#232323] rounded-2xl shadow-xl overflow-hidden">
             {/* Header / Stepper */}
             <div className="px-6 sm:px-8 py-5 border-b border-[#232323] flex items-center justify-between">
               <h1 className="text-2xl font-bold text-[#00C2CB]">
@@ -1364,7 +1363,7 @@ export default function PromoteOfferPage() {
                       <li><strong>Compliance:</strong> Don’t include restricted claims. You’re responsible for adhering to Meta’s ad policies.</li>
                     </ul>
                     <div className="mt-3 text-[12px] text-gray-400">
-                      Disclaimer: Results vary by audience and creative. We may pause or reject ads that violate platform policies or brand guidelines.
+                      Disclaimer: Results vary by audience and creative. We may pause or reject ads that violate platform policies.
                     </div>
                   </Disclosure>
                 </div>
@@ -1433,37 +1432,6 @@ export default function PromoteOfferPage() {
               )}
             </div>
           </div>
-          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center text-center px-6 sm:px-10 py-10 bg-black/70 backdrop-blur-sm">
-            <div className="inline-flex items-center gap-2 rounded-full border border-[#1e3a3b] bg-[#0b1f21] px-3 py-1 text-[11px] uppercase tracking-wide text-[#7ff5fb]">
-              <span className="h-1.5 w-1.5 rounded-full bg-[#00C2CB]" />
-              Meta ad submission — coming soon
-            </div>
-            <h1 className="mt-4 text-2xl md:text-3xl font-bold text-[#00C2CB]">
-              Automated campaigns are almost ready
-            </h1>
-            <p className="mt-3 max-w-xl text-gray-300 text-sm md:text-base">
-              For the first public wave, Nettmark is launching with{" "}
-              <span className="font-semibold">organic promotion only</span>. The Meta‑connected
-              &quot;Submit Ad&quot; flow will unlock as soon as our production app
-              passes Meta&apos;s final review.
-            </p>
-            <ul className="mt-4 max-w-xl text-left text-[13px] text-gray-300 space-y-2">
-              <li>• Affiliates will be able to submit video ads that run directly from brand ad accounts.</li>
-              <li>• Budgets, targeting and approvals stay fully controlled by the business.</li>
-              <li>• Performance, payouts and safeguards are all handled inside Nettmark.</li>
-            </ul>
-            <button
-              type="button"
-              onClick={() => setMode('organic')}
-              className="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#00C2CB] text-black text-sm font-semibold hover:bg-[#00b0b8]"
-            >
-              Switch to organic submission
-            </button>
-            <p className="mt-2 text-[11px] text-gray-500">
-              You can still submit organic social, email, forum or other promotions for this offer today.
-            </p>
-          </div>
-        </div>
         )}
 
         {mode === 'organic' && (
