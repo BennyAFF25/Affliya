@@ -827,6 +827,42 @@ export default function PromoteOfferPage() {
 
     setLoading(true);
     try {
+      // 0) Ensure budget does not exceed prefunded wallet
+      const budgetDollars = Number(form.budget_amount_dollars || 0);
+      if (!budgetDollars || budgetDollars <= 0) {
+        alert('Please enter a valid daily budget before submitting.');
+        setStep(2);
+        return;
+      }
+
+      const { data: walletRows, error: walletErr } = await (supabase as any)
+        .from('wallet_topups')
+        .select('amount_net, amount_refunded, status')
+        .eq('affiliate_email', userEmail)
+        .eq('status', 'succeeded');
+
+      if (walletErr) {
+        console.error('[wallet_topups check error]', walletErr);
+      }
+
+      const walletTotal = (walletRows || []).reduce((sum: number, row: any) => {
+        const net = Number(row.amount_net || 0);
+        const refunded = Number(row.amount_refunded || 0);
+        return sum + Math.max(0, net - refunded);
+      }, 0);
+
+      if (walletTotal < budgetDollars) {
+        alert(
+          `Your daily budget ($${budgetDollars.toFixed(
+            2
+          )}) exceeds your available prefunded wallet balance ($${walletTotal.toFixed(
+            2
+          )}). Please top up your wallet or lower your budget. We also recommend keeping a little extra loaded so ads don't pause before you can top up.`
+        );
+        setStep(2);
+        return;
+      }
+
       // 1) Get business email for this offer (needed for row)
       const { data: offerRow, error: offerErr } = await (supabase as any)
         .from('offers')
@@ -1051,22 +1087,22 @@ export default function PromoteOfferPage() {
   );
 
   return (
-    <div className="min-h-screen py-10 px-6 bg-[#0e0e0e] text-white">
+    <div className="min-h-screen py-10 px-6 bg-[#0e0e0e] text-white pb-8">
       <div className="max-w-6xl mx-auto grid lg:grid-cols-[1fr_360px] gap-8">
         {/* Mode toggle (Ad vs Organic) */}
         <div className="lg:col-span-2 -mb-2 flex items-center justify-between">
-          <div className="flex gap-2">
+          <div className="flex gap-2 overflow-x-auto">
             <button
               type="button"
               onClick={() => setMode('ad')}
-              className={['px-3 py-1.5 rounded-lg border text-sm', mode === 'ad' ? 'bg-[#00C2CB] text-black border-[#00C2CB]' : 'border-[#2a2a2a] text-gray-300 hover:bg-[#151515]'].join(' ')}
+              className={['px-4 py-2 rounded-lg border text-sm', mode === 'ad' ? 'bg-[#00C2CB] text-black border-[#00C2CB]' : 'border-[#2a2a2a] text-gray-300 hover:bg-[#151515]'].join(' ')}
             >
               Submit Ad
             </button>
             <button
               type="button"
               onClick={() => setMode('organic')}
-              className={['px-3 py-1.5 rounded-lg border text-sm', mode === 'organic' ? 'bg-[#00C2CB] text-black border-[#00C2CB]' : 'border-[#2a2a2a] text-gray-300 hover:bg-[#151515]'].join(' ')}
+              className={['px-4 py-2 rounded-lg border text-sm', mode === 'organic' ? 'bg-[#00C2CB] text-black border-[#00C2CB]' : 'border-[#2a2a2a] text-gray-300 hover:bg-[#151515]'].join(' ')}
             >
               Submit Organic
             </button>
@@ -1074,7 +1110,7 @@ export default function PromoteOfferPage() {
         </div>
         {/* LEFT: single card wizard */}
         {mode === 'ad' && (
-          <div className="relative bg-[#141414] border border-[#232323] rounded-2xl shadow-xl overflow-hidden">
+          <div className="relative bg-[#141414] border border-[#232323] rounded-2xl shadow-xl overflow-hidden w-full max-w-full sm:max-w-md mx-auto space-y-4 sm:space-y-6">
             {/* Header / Stepper */}
             <div className="px-6 sm:px-8 py-5 border-b border-[#232323] flex items-center justify-between">
               <h1 className="text-2xl font-bold text-[#00C2CB]">
@@ -1088,15 +1124,15 @@ export default function PromoteOfferPage() {
             </div>
 
             {/* Content */}
-            <div className="px-6 sm:px-8 py-6 space-y-6">
+            <div className="px-6 sm:px-8 py-6 space-y-4 sm:space-y-6">
               {/* Step labels */}
-              <div className="flex gap-4 text-sm">
+              <div className="flex justify-between gap-1 text-[11px] sm:text-sm">
                 {steps.map((s) => (
                   <button
                     key={s.id}
                     onClick={() => setStep(s.id)}
                     className={[
-                      'px-3 py-1 rounded-full border transition',
+                      'flex-1 min-w-0 text-center px-2 sm:px-3 py-2 rounded-full border transition whitespace-nowrap',
                       step === s.id
                         ? 'border-[#00C2CB] text-[#00C2CB]'
                         : 'border-transparent text-gray-400 hover:text-white',
@@ -1109,21 +1145,21 @@ export default function PromoteOfferPage() {
 
               {/* Step 1: Campaign */}
               {step === 1 && (
-                <div className="space-y-4">
+                <div className="space-y-4 sm:space-y-6">
                   <label className="block">
-                    <span className="text-xs text-gray-400">Campaign name</span>
+                    <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Campaign name</span>
                     <input
                       placeholder="e.g. Affliya – Launch"
-                      className={INPUT}
+                      className={`${INPUT} w-full text-sm sm:text-base`}
                       value={form.campaign_name}
                       onChange={onInput('campaign_name')}
                     />
                   </label>
 
                   <label className="block">
-                    <span className="text-xs text-gray-400">Objective</span>
+                    <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Objective</span>
                     <select
-                      className={INPUT}
+                      className={`${INPUT} w-full text-sm sm:text-base`}
                       value={form.objective}
                       onChange={onInput('objective')}
                     >
@@ -1141,22 +1177,22 @@ export default function PromoteOfferPage() {
 
               {/* Step 2: Ad set */}
               {step === 2 && (
-                <div className="space-y-4">
-                  <div className="flex gap-3">
-                    <label className="flex-1">
-                      <span className="text-xs text-gray-400">Budget (AUD)</span>
+                <div className="space-y-4 sm:space-y-6">
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <label className="flex-1 min-w-0">
+                      <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Budget (AUD)</span>
                       <input
                         type="number"
                         min={1}
-                        className={INPUT}
+                        className={`${INPUT} w-full text-sm sm:text-base`}
                         value={form.budget_amount_dollars}
                         onChange={onInput('budget_amount_dollars')}
                       />
                     </label>
-                    <label className="w-40">
-                      <span className="text-xs text-gray-400">Type</span>
+                    <label className="flex-1 min-w-0">
+                      <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Type</span>
                       <select
-                        className={INPUT}
+                        className={`${INPUT} w-full text-sm sm:text-base`}
                         value={form.budget_type}
                         onChange={onInput('budget_type')}
                       >
@@ -1165,72 +1201,76 @@ export default function PromoteOfferPage() {
                       </select>
                     </label>
                   </div>
-                  <div className="flex flex-wrap items-center gap-2 -mt-1">
+                  <div className="flex flex-wrap items-center gap-2 -mt-1 overflow-x-auto">
                     <span className="text-[11px] text-gray-500 mr-1">Quick add:</span>
                     <Chip onClick={() => incBudget(5)}>+ $5</Chip>
                     <Chip onClick={() => incBudget(10)}>+ $10</Chip>
                     <Chip onClick={() => incBudget(20)}>+ $20</Chip>
                   </div>
 
-                  <div className="flex gap-3">
-                    <label className="flex-1">
-                      <span className="text-xs text-gray-400">Start</span>
-                      <DateTimeField
-                        label="Start"
-                        value={form.start_time}
-                        onChange={(v) => setForm((p) => ({ ...p, start_time: v }))}
-                      />
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <label className="flex-1 min-w-0">
+                      <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Start</span>
+                      <div className="max-w-full">
+                        <DateTimeField
+                          label="Start"
+                          value={form.start_time}
+                          onChange={(v) => setForm((p) => ({ ...p, start_time: v }))}
+                        />
+                      </div>
                     </label>
-                    <label className="flex-1">
-                      <span className="text-xs text-gray-400">End</span>
-                      <DateTimeField
-                        label="End"
-                        value={form.end_time}
-                        onChange={(v) => setForm((p) => ({ ...p, end_time: v }))}
-                      />
+                    <label className="flex-1 min-w-0">
+                      <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">End</span>
+                      <div className="max-w-full">
+                        <DateTimeField
+                          label="End"
+                          value={form.end_time}
+                          onChange={(v) => setForm((p) => ({ ...p, end_time: v }))}
+                        />
+                      </div>
                     </label>
                   </div>
-                  <div className="flex flex-wrap items-center gap-2 -mt-1">
+                  <div className="flex flex-wrap items-center gap-2 -mt-1 overflow-x-auto">
                     <span className="text-[11px] text-gray-500 mr-1">Shortcuts:</span>
                     <Chip onClick={setStartIn15m}>Start now (+15m)</Chip>
                     <Chip onClick={setEndIn7d}>End in 7 days</Chip>
                   </div>
 
                   <label className="block">
-                    <span className="text-xs text-gray-400">Countries (ISO, comma)</span>
+                    <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Countries (ISO, comma)</span>
                     <CountryMultiSelect
                       value={form.location_countries}
                       onChange={(csv) => setForm((p) => ({ ...p, location_countries: csv }))}
                     />
                   </label>
 
-                  <div className="flex items-end gap-3">
-                    <label>
-                      <span className="text-xs text-gray-400">Age Min</span>
+                  <div className="flex flex-col md:flex-row items-stretch gap-3">
+                    <label className="flex-1 min-w-0">
+                      <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Age Min</span>
                       <input
                         type="number"
                         min={13}
                         max={65}
-                        className={`${INPUT} w-24`}
+                        className={`${INPUT} w-full text-sm sm:text-base`}
                         value={form.age_min}
                         onChange={onInput('age_min')}
                       />
                     </label>
-                    <label>
-                      <span className="text-xs text-gray-400">Age Max</span>
+                    <label className="flex-1 min-w-0">
+                      <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Age Max</span>
                       <input
                         type="number"
                         min={13}
                         max={65}
-                        className={`${INPUT} w-24`}
+                        className={`${INPUT} w-full text-sm sm:text-base`}
                         value={form.age_max}
                         onChange={onInput('age_max')}
                       />
                     </label>
-                    <label className="flex-1">
-                      <span className="text-xs text-gray-400">Gender</span>
+                    <label className="flex-1 min-w-0">
+                      <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Gender</span>
                       <select
-                        className={INPUT}
+                        className={`${INPUT} w-full text-sm sm:text-base`}
                         value={form.gender}
                         onChange={onInput('gender')}
                       >
@@ -1242,17 +1282,17 @@ export default function PromoteOfferPage() {
                   </div>
 
                   <label className="block">
-                    <span className="text-xs text-gray-400">Interests (comma separated)</span>
+                    <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Interests (comma separated)</span>
                     <input
                       placeholder="Fitness, Tech, Travel"
-                      className={INPUT}
+                      className={`${INPUT} w-full text-sm sm:text-base`}
                       value={form.interests_csv}
                       onChange={onInput('interests_csv')}
                     />
                   </label>
 
                   <div>
-                    <span className="block text-xs text-gray-400 mb-2">Placements</span>
+                    <span className="block text-[#00C2CB] font-semibold text-base sm:text-lg mb-2">Placements</span>
                     <div className="grid sm:grid-cols-2 gap-3">
                       {PLACEMENT_ORDER.map((key) => (
                         <PlacementCard
@@ -1266,7 +1306,7 @@ export default function PromoteOfferPage() {
                   </div>
 
                   {(reachDaily !== null || reachMonthly !== null) && (
-                    <div className="mt-2 p-3 rounded-lg bg-[#1a1a1a] border border-[#2a2a2a]">
+                    <div className="mt-2 p-3 rounded-xl border border-[#2a2a2a] bg-[#0f0f0f]">
                       <div className="text-xs text-gray-400 mb-1">Estimated Reach (unique users)</div>
                       <div className="flex items-center gap-6">
                         <div>
@@ -1289,32 +1329,32 @@ export default function PromoteOfferPage() {
 
               {/* Step 3: Ad */}
               {step === 3 && (
-                <div className="space-y-4">
+                <div className="space-y-4 sm:space-y-6">
                   <label className="block">
-                    <span className="text-xs text-gray-400">Headline</span>
+                    <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Headline</span>
                     <input
                       placeholder="Your headline"
-                      className={INPUT}
+                      className={`${INPUT} w-full text-sm sm:text-base`}
                       value={form.headline}
                       onChange={onInput('headline')}
                     />
                   </label>
 
                   <label className="block">
-                    <span className="text-xs text-gray-400">Caption</span>
+                    <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Caption</span>
                     <textarea
                       placeholder="Say something compelling…"
-                      className={INPUT}
+                      className={`${INPUT} w-full text-sm sm:text-base`}
                       value={form.caption}
                       onChange={onInput('caption')}
                     />
                   </label>
 
-                  <div className="flex gap-3">
-                    <label className="flex-1">
-                      <span className="text-xs text-gray-400">Call to Action</span>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <label className="flex-1 min-w-0">
+                      <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Call to Action</span>
                       <select
-                        className={INPUT}
+                        className={`${INPUT} w-full text-sm sm:text-base`}
                         value={form.call_to_action}
                         onChange={onInput('call_to_action')}
                       >
@@ -1323,11 +1363,11 @@ export default function PromoteOfferPage() {
                         <option value="SIGN_UP">Sign Up</option>
                       </select>
                     </label>
-                    <label className="flex-1">
-                      <span className="text-xs text-gray-400">Destination URL</span>
+                    <label className="flex-1 min-w-0">
+                      <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Destination URL</span>
                       <input
                         placeholder="https://your-landing-page.com"
-                        className={INPUT}
+                        className={`${INPUT} w-full text-sm sm:text-base`}
                         value={form.display_link}
                         onChange={onInput('display_link')}
                       />
@@ -1336,11 +1376,11 @@ export default function PromoteOfferPage() {
 
                   <div className="grid sm:grid-cols-2 gap-4">
                     <label className="block">
-                      <span className="text-xs text-gray-400">Upload Video</span>
+                      <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Upload Video</span>
                   <input
                     type="file"
                     accept="video/*"
-                    className={INPUT}
+                    className={`${INPUT} w-full text-sm sm:text-base`}
                     onChange={(e) => {
                       const file = e.target.files?.[0] || null;
                       setVideoFile(file);
@@ -1357,11 +1397,11 @@ export default function PromoteOfferPage() {
                     </label>
 
                     <label className="block">
-                      <span className="text-xs text-gray-400">Optional Thumbnail</span>
+                      <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Optional Thumbnail</span>
                   <input
                     type="file"
                     accept="image/*"
-                    className={INPUT}
+                    className={`${INPUT} w-full text-sm sm:text-base`}
                     onChange={(e) => {
                       const file = e.target.files?.[0] || null;
                       setThumbnailFile(file);
@@ -1399,20 +1439,20 @@ export default function PromoteOfferPage() {
 
               {/* Step 4: Review */}
               {step === 4 && (
-                <div className="space-y-4 text-sm">
+                <div className="space-y-4 sm:space-y-6 text-sm">
                   <div className="grid sm:grid-cols-2 gap-4">
-                    <div className="p-3 rounded-lg bg-[#101010] border border-[#232323]">
+                    <div className="p-4 sm:p-6 rounded-xl border border-[#2a2a2a] bg-[#0f0f0f]">
                       <div className="text-gray-400 text-xs mb-1">Campaign</div>
                       <div className="font-semibold">{form.campaign_name || '—'}</div>
                       <div className="text-gray-400 mt-1">Objective: {form.objective}</div>
                     </div>
-                    <div className="p-3 rounded-lg bg-[#101010] border border-[#232323]">
+                    <div className="p-4 sm:p-6 rounded-xl border border-[#2a2a2a] bg-[#0f0f0f]">
                       <div className="text-gray-400 text-xs mb-1">Budget</div>
                       <div className="font-semibold">
                         ${Number(form.budget_amount_dollars || 0).toFixed(2)} ({form.budget_type})
                       </div>
                     </div>
-                    <div className="p-3 rounded-lg bg-[#101010] border border-[#232323]">
+                    <div className="p-4 sm:p-6 rounded-xl border border-[#2a2a2a] bg-[#0f0f0f]">
                       <div className="text-gray-400 text-xs mb-1">Targeting</div>
                       <div>
                         {form.location_countries} • {form.age_min}-{form.age_max} •{' '}
@@ -1420,7 +1460,7 @@ export default function PromoteOfferPage() {
                       </div>
                       {form.interests_csv && <div className="text-gray-400">Interests: {form.interests_csv}</div>}
                     </div>
-                    <div className="p-3 rounded-lg bg-[#101010] border border-[#232323]">
+                    <div className="p-4 sm:p-6 rounded-xl border border-[#2a2a2a] bg-[#0f0f0f]">
                       <div className="text-gray-400 text-xs mb-1">Creative</div>
                       <div className="font-semibold">{form.headline || 'No headline'}</div>
                       <div className="text-gray-400">{form.caption || 'No caption'}</div>
@@ -1444,7 +1484,7 @@ export default function PromoteOfferPage() {
 
               {step < 4 ? (
                 <button
-                  className="px-6 py-2 rounded-lg bg-[#00C2CB] text-black font-semibold hover:bg-[#00b0b8]"
+                  className="px-4 py-2 rounded-lg bg-[#00C2CB] text-black font-semibold hover:bg-[#00b0b8]"
                   onClick={() => setStep(step + 1)}
                 >
                   Next
@@ -1453,7 +1493,7 @@ export default function PromoteOfferPage() {
                 <button
                   disabled={loading}
                   onClick={handleSubmit}
-                  className="px-6 py-2 rounded-lg bg-[#00C2CB] text-black font-semibold hover:bg-[#00b0b8] disabled:opacity-50"
+                  className="px-4 py-2 rounded-lg bg-[#00C2CB] text-black font-semibold hover:bg-[#00b0b8] disabled:opacity-50"
                 >
                   {loading ? 'Submitting…' : 'Submit for Review'}
                 </button>
@@ -1463,15 +1503,15 @@ export default function PromoteOfferPage() {
         )}
 
         {mode === 'organic' && (
-          <div className="bg-[#141414] border border-[#232323] rounded-2xl shadow-xl overflow-hidden">
+          <div className="bg-[#141414] border border-[#232323] rounded-2xl shadow-xl overflow-hidden w-full max-w-full sm:max-w-md mx-auto space-y-4 sm:space-y-6">
             <div className="px-6 sm:px-8 py-5 border-b border-[#232323] flex items-center justify-between">
               <h2 className="text-2xl font-bold text-[#00C2CB]">Submit Organic Promotion</h2>
             </div>
 
-            <div className="px-6 sm:px-8 py-6 space-y-5">
+            <div className="px-6 sm:px-8 py-6 space-y-4 sm:space-y-6">
               <label className="block">
-                <span className="text-xs text-gray-400">Method</span>
-                <select className={INPUT} value={ogMethod} onChange={(e) => setOgMethod(e.target.value as any)}>
+                <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Method</span>
+                <select className={`${INPUT} w-full text-sm sm:text-base`} value={ogMethod} onChange={(e) => setOgMethod(e.target.value as any)}>
                   <option value="social">Social Post</option>
                   <option value="email">Email Campaign</option>
                   <option value="forum">Forum Posting</option>
@@ -1482,8 +1522,8 @@ export default function PromoteOfferPage() {
               {ogMethod === 'social' && (
                 <>
                   <label className="block">
-                    <span className="text-xs text-gray-400">Platform</span>
-                    <select className={INPUT} value={ogPlatform} onChange={(e) => setOgPlatform(e.target.value)}>
+                    <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Platform</span>
+                    <select className={`${INPUT} w-full text-sm sm:text-base`} value={ogPlatform} onChange={(e) => setOgPlatform(e.target.value)}>
                       <option>Facebook</option>
                       <option>Instagram</option>
                       <option>TikTok</option>
@@ -1494,16 +1534,16 @@ export default function PromoteOfferPage() {
                   </label>
 
                   <label className="block">
-                    <span className="text-xs text-gray-400">Post caption</span>
-                    <textarea className={INPUT} placeholder="Write your caption…" value={ogCaption} onChange={(e) => setOgCaption(e.target.value)} />
+                    <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Post caption</span>
+                    <textarea className={`${INPUT} w-full text-sm sm:text-base`} placeholder="Write your caption…" value={ogCaption} onChange={(e) => setOgCaption(e.target.value)} />
                   </label>
 
                   <label className="block">
-                    <span className="text-xs text-gray-400">Optional image/video</span>
+                    <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Optional image/video</span>
                     <input
                       type="file"
                       accept="image/*,video/*"
-                      className={INPUT}
+                      className={`${INPUT} w-full text-sm sm:text-base`}
                       onChange={(e) => {
                         const file = e.target.files?.[0] || null;
                         setOgFile(file || null);
@@ -1552,12 +1592,12 @@ export default function PromoteOfferPage() {
               {ogMethod === 'email' && (
                 <>
                   <label className="block">
-                    <span className="text-xs text-gray-400">Subject</span>
-                    <input className={INPUT} value={ogCaption} onChange={(e) => setOgCaption(e.target.value)} placeholder="e.g. A special offer just for you" />
+                    <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Subject</span>
+                    <input className={`${INPUT} w-full text-sm sm:text-base`} value={ogCaption} onChange={(e) => setOgCaption(e.target.value)} placeholder="e.g. A special offer just for you" />
                   </label>
                   <label className="block">
-                    <span className="text-xs text-gray-400">Body</span>
-                    <textarea className={INPUT} rows={6} value={ogContent} onChange={(e) => setOgContent(e.target.value)} placeholder="Your email body here…" />
+                    <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Body</span>
+                    <textarea className={`${INPUT} w-full text-sm sm:text-base`} rows={6} value={ogContent} onChange={(e) => setOgContent(e.target.value)} placeholder="Your email body here…" />
                   </label>
                 </>
               )}
@@ -1565,12 +1605,12 @@ export default function PromoteOfferPage() {
               {ogMethod === 'forum' && (
                 <>
                   <label className="block">
-                    <span className="text-xs text-gray-400">Forum / URL</span>
-                    <input className={INPUT} value={ogCaption} onChange={(e) => setOgCaption(e.target.value)} placeholder="e.g. reddit.com/r/yourcommunity" />
+                    <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Forum / URL</span>
+                    <input className={`${INPUT} w-full text-sm sm:text-base`} value={ogCaption} onChange={(e) => setOgCaption(e.target.value)} placeholder="e.g. reddit.com/r/yourcommunity" />
                   </label>
                   <label className="block">
-                    <span className="text-xs text-gray-400">Post content</span>
-                    <textarea className={INPUT} rows={6} value={ogContent} onChange={(e) => setOgContent(e.target.value)} placeholder="What will you post?" />
+                    <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Post content</span>
+                    <textarea className={`${INPUT} w-full text-sm sm:text-base`} rows={6} value={ogContent} onChange={(e) => setOgContent(e.target.value)} placeholder="What will you post?" />
                   </label>
                 </>
               )}
@@ -1578,12 +1618,12 @@ export default function PromoteOfferPage() {
               {ogMethod === 'other' && (
                 <>
                   <label className="block">
-                    <span className="text-xs text-gray-400">Summary</span>
-                    <input className={INPUT} value={ogCaption} onChange={(e) => setOgCaption(e.target.value)} placeholder="e.g. Influencer outreach, local event, SMS, etc." />
+                    <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Summary</span>
+                    <input className={`${INPUT} w-full text-sm sm:text-base`} value={ogCaption} onChange={(e) => setOgCaption(e.target.value)} placeholder="e.g. Influencer outreach, local event, SMS, etc." />
                   </label>
                   <label className="block">
-                    <span className="text-xs text-gray-400">Details / Criteria</span>
-                    <textarea className={INPUT} rows={6} value={ogContent} onChange={(e) => setOgContent(e.target.value)} placeholder="Describe how and where this will be executed. Include audience, platform/domain if relevant." />
+                    <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Details / Criteria</span>
+                    <textarea className={`${INPUT} w-full text-sm sm:text-base`} rows={6} value={ogContent} onChange={(e) => setOgContent(e.target.value)} placeholder="Describe how and where this will be executed. Include audience, platform/domain if relevant." />
                   </label>
                 </>
               )}
@@ -1620,7 +1660,7 @@ export default function PromoteOfferPage() {
               <button
                 disabled={ogLoading}
                 onClick={handleOrganicSubmit}
-                className="px-6 py-2 rounded-lg bg-[#00C2CB] text-black font-semibold hover:bg-[#00b0b8] disabled:opacity-50"
+                className="px-4 py-2 rounded-lg bg-[#00C2CB] text-black font-semibold hover:bg-[#00b0b8] disabled:opacity-50"
               >
                 {ogLoading ? 'Submitting…' : 'Submit for Review'}
               </button>
@@ -1632,8 +1672,8 @@ export default function PromoteOfferPage() {
         <aside className="space-y-6">
           {/* Estimated Reach */}
           {mode === 'ad' && (
-            <div className="bg-[#141414] border border-[#232323] rounded-2xl p-5">
-              <div className="text-sm font-semibold mb-2">Estimated Reach</div>
+            <div className="rounded-xl border border-[#2a2a2a] bg-[#0f0f0f] p-4 sm:p-6">
+              <div className="text-[#00C2CB] font-semibold text-base sm:text-lg mb-2">Estimated Reach</div>
               <div className="flex items-center gap-8">
                 <div>
                   <div className="text-[11px] text-gray-400">Daily</div>
@@ -1654,8 +1694,8 @@ export default function PromoteOfferPage() {
           )}
 
           {mode === 'ad' && (
-            <div className="rounded-2xl p-4 border border-[#232323] bg-[#121212]">
-              <div className="text-sm font-semibold mb-3">Estimated Conversions</div>
+            <div className="rounded-xl border border-[#2a2a2a] bg-[#0f0f0f] p-4 sm:p-6">
+              <div className="text-[#00C2CB] font-semibold text-base sm:text-lg mb-3">Estimated Conversions</div>
               <div className="flex gap-8 items-end">
                 <div>
                   <div className="text-[11px] text-gray-400">Daily</div>
@@ -1675,7 +1715,7 @@ export default function PromoteOfferPage() {
 
           {/* Ad Preview Card */}
           {mode === 'ad' && (
-            <div className="bg-[#141414] border border-[#232323] rounded-2xl p-5">
+            <div className="rounded-xl border border-[#2a2a2a] bg-[#0f0f0f] p-4 sm:p-6">
               <div className="flex items-center gap-3 mb-3">
                 {brandLogoUrl ? (
                   <img
@@ -1723,7 +1763,7 @@ export default function PromoteOfferPage() {
                   <div className="text-xs text-gray-500">
                     {form.display_link || 'yourdomain.com'}
                   </div>
-                  <button className="px-3 py-1 rounded-md bg-[#00C2CB] text-black text-sm font-semibold">
+                  <button className="px-4 py-2 rounded-lg bg-[#00C2CB] text-black text-sm font-semibold">
                     {form.call_to_action.replace('_', ' ') || 'Learn More'}
                   </button>
                 </div>
@@ -1731,7 +1771,7 @@ export default function PromoteOfferPage() {
             </div>
           )}
           {mode === 'organic' && ogMethod === 'social' && (
-            <div className="bg-[#141414] border border-[#232323] rounded-2xl p-5">
+            <div className="rounded-xl border border-[#2a2a2a] bg-[#0f0f0f] p-4 sm:p-6">
               <div className="flex items-center gap-3 mb-3">
                 {brandLogoUrl ? (
                   <img
