@@ -142,6 +142,8 @@ export default function MyBusinessPage() {
   const [businessAccountId, setBusinessAccountId] = useState<string | null>(null);
   const [onboardingComplete, setOnboardingComplete] = useState<boolean>(false);
   const [hasCard, setHasCard] = useState<boolean>(false);
+  // Meta connection status
+  const [metaConnected, setMetaConnected] = useState<boolean>(false);
 
   const session = useSession();
   const user = session?.user;
@@ -209,6 +211,39 @@ export default function MyBusinessPage() {
       }
     };
     loadStripeCustomerId();
+  }, [session, user, supabase]);
+
+  // Meta connection status effect
+  useEffect(() => {
+    if (!session || !user?.email) return;
+
+    const fetchMetaConnection = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('meta_connections')
+          .select('id')
+          .eq('business_email', user.email)
+          .single();
+
+        if (error) {
+          // If no row exists, Supabase will throw an error; treat that as "not connected"
+          // Only log unexpected errors
+          const err: any = error;
+          if (err?.code && err.code !== 'PGRST116') {
+            console.warn('[Meta connection check error]', error.message || error);
+          }
+          setMetaConnected(false);
+          return;
+        }
+
+        setMetaConnected(!!data);
+      } catch (e: any) {
+        console.error('[Meta connection check exception]', e?.message || e);
+        setMetaConnected(false);
+      }
+    };
+
+    fetchMetaConnection();
   }, [session, user, supabase]);
 
   useEffect(() => {
@@ -611,11 +646,23 @@ export default function MyBusinessPage() {
                 Connect your Meta assets and keep tracking + creatives aligned with your Nettmark offers.
               </p>
 
+              {/* Meta connection status */}
+              <div className="flex items-center justify-between rounded-full border border-[#1f2a2b] bg-[#0e1112] px-3 py-2 text-[11px] text-white/70">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={`inline-block w-2.5 h-2.5 rounded-full ${
+                      metaConnected ? 'bg-emerald-400' : 'bg-[#f97316]'
+                    }`}
+                  />
+                  <span>{metaConnected ? 'Meta connected' : 'Meta not connected'}</span>
+                </div>
+              </div>
+
               <div className="space-y-3">
                 <Link href="/business/my-business/connect-meta/" prefetch={false}>
                   <ActionButton size="sm">
                     <IconBolt className="w-5 h-5 shrink-0" />
-                    <span>Connect Meta ads</span>
+                    <span>{metaConnected ? 'Manage Meta connection' : 'Connect Meta ads'}</span>
                   </ActionButton>
                 </Link>
 

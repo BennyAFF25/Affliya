@@ -10,6 +10,7 @@ interface AdIdea {
   meta_ad_id?: string;
   id: string;
   affiliate_email: string;
+  business_email: string;
   audience: string;
   location: string;
   status: string;
@@ -25,6 +26,15 @@ interface AdIdea {
   meta_video_id?: string;
   caption?: string;
   thumbnail_url?: string;
+  media_type?: string;
+  // extra targeting / budget fields from schema
+  call_to_action?: string;
+  budget_amount?: number;
+  budget_type?: string;
+  placements_type?: string;
+  manual_placements?: any;
+  conversion_event?: string;
+  performance_goal?: string;
 }
 
 interface Offer {
@@ -40,6 +50,7 @@ export default function AdIdeasPage() {
   const [selectedReason, setSelectedReason] = useState<string>('');
   const [customReason, setCustomReason] = useState<string>('');
   const [showRecent, setShowRecent] = useState(false);
+  const [showTargetingDetails, setShowTargetingDetails] = useState(false);
   const session = useSession();
   const user = session?.user;
   const router = useRouter();
@@ -119,7 +130,7 @@ export default function AdIdeasPage() {
       updateData.rejection_reason = rejectionReason;
     }
 
-    const { error } = await supabase
+    const { error } = await (supabase as any)
       .from('ad_ideas')
       .update(updateData)
       .eq('id', id)
@@ -141,6 +152,7 @@ export default function AdIdeasPage() {
         const ad = ideas.find((idea) => idea.id === id);
         if (ad) {
           // Insert into live_campaigns
+          // @ts-ignore - table is not present in generated Supabase types, but exists in the database
           await supabase.from('live_campaigns').insert([
             {
               offer_id: ad.offer_id,
@@ -170,11 +182,13 @@ export default function AdIdeasPage() {
   const sendToMeta = async (adIdeaId: string) => {
     try {
       // Pull ad idea from Supabase
-      const { data: adIdea, error } = await supabase
+      const { data: adIdeaData, error } = await supabase
         .from('ad_ideas')
         .select('*')
         .eq('id', adIdeaId)
         .single();
+
+      const adIdea = adIdeaData as AdIdea | null;
 
       if (error || !adIdea) {
         console.error('[❌ Fetch Ad Idea Error]', error?.message);
@@ -185,11 +199,13 @@ export default function AdIdeasPage() {
       console.log('[🔍 Fetching Offer Details for Ad Idea]', adIdea.offer_id);
 
       // Pull offer details from Supabase
-      const { data: offer, error: offerError } = await supabase
+      const { data: offerData, error: offerError } = await supabase
         .from('offers')
         .select('meta_ad_account_id, meta_page_id')
         .eq('id', adIdea.offer_id)
         .single();
+
+      const offer = offerData as { meta_ad_account_id: string; meta_page_id: string } | null;
 
       if (offerError || !offer) {
         console.error('[❌ Fetch Offer Error]', offerError?.message);
@@ -211,13 +227,13 @@ export default function AdIdeasPage() {
         age_range: adIdea.age_range,
         gender: adIdea.gender,
         interests: adIdea.interests,
-        display_link: `https://affliya.com/go/${adIdea.offer_id}-${adIdea.affiliate_email}`,
+        display_link: `https://www.nettmark.com/go/${adIdea.offer_id}___${adIdea.affiliate_email}`,
         metaPageId: offer.meta_page_id,
         metaAdAccountId: offer.meta_ad_account_id,
         thumbnail_url: adIdea.thumbnail_url,
       };
 
-      console.log("[📤 Sending ad idea payload to internal Meta API]", payload);
+      console.log('[📤 Sending ad idea payload to internal Meta API]', payload);
       const response = await fetch('/api/meta/callback/upload-video', {
         method: 'POST',
         headers: {
@@ -246,7 +262,7 @@ export default function AdIdeasPage() {
         let metaStatus = data?.status || data?.metaStatus || 'RUNNING';
         // Only update if we have a status and an ad idea id
         if (metaStatus && adIdea?.id) {
-          await supabase
+          await (supabase as any)
             .from('ad_ideas')
             .update({ meta_status: metaStatus })
             .eq('id', adIdea.id);
@@ -268,26 +284,45 @@ export default function AdIdeasPage() {
           <>
             <h2 className="text-xl font-semibold text-white mb-4">No new ads to review</h2>
             <div className="space-y-6">
-              {ideas.filter(i => i.status === 'pending').map((idea) => (
+              {ideas.filter((i) => i.status === 'pending').map((idea) => (
                 <div
                   key={idea.id}
                   className="bg-[#1f1f1f] border border-[#2c2c2c] rounded-xl px-4 py-4 md:px-6 md:py-5 shadow-md flex flex-col md:flex-row md:justify-between md:items-center gap-4 hover:shadow-[0_0_8px_#00C2CB] transition-all"
                 >
                   <div className="flex items-start gap-4 w-full md:w-auto">
                     <div className="w-12 h-12 rounded-full bg-[#00C2CB]/20 flex items-center justify-center">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 text-[#00C2CB]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="w-6 h-6 text-[#00C2CB]"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M13 10V3L4 14h7v7l9-11h-7z"
+                        />
                       </svg>
                     </div>
                     <div className="flex flex-col">
-                      <h2 className="text-xl font-semibold text-white">{offersMap[idea.offer_id] || 'Unknown Offer'}</h2>
-                      <p className="text-sm text-gray-400">{idea.audience} - {idea.location}</p>
+                      <h2 className="text-xl font-semibold text-white">
+                        {offersMap[idea.offer_id] || 'Unknown Offer'}
+                      </h2>
+                      <p className="text-sm text-gray-400">
+                        {idea.audience} - {idea.location}
+                      </p>
                       <div className="flex items-center gap-3 mt-2">
                         <p className="text-sm text-gray-400">
-                          <span className="font-semibold text-white">Affiliate:</span> {idea.affiliate_email}
+                          <span className="font-semibold text-white">Affiliate:</span>{' '}
+                          {idea.affiliate_email}
                         </p>
                         <button
-                          onClick={() => setSelectedIdea(idea)}
+                          onClick={() => {
+                            setSelectedIdea(idea);
+                            setShowTargetingDetails(false);
+                          }}
                           className="text-sm text-[#00C2CB] hover:underline"
                         >
                           View Detail
@@ -296,11 +331,15 @@ export default function AdIdeasPage() {
                     </div>
                   </div>
                   <div className="flex flex-col items-stretch md:items-end gap-2 w-full md:w-auto">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      idea.status === 'approved' ? 'bg-green-500/20 text-green-300'
-                      : idea.status === 'rejected' ? 'bg-red-500/20 text-red-400'
-                      : 'bg-yellow-400/20 text-yellow-300'
-                    }`}>
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        idea.status === 'approved'
+                          ? 'bg-green-500/20 text-green-300'
+                          : idea.status === 'rejected'
+                          ? 'bg-red-500/20 text-red-400'
+                          : 'bg-yellow-400/20 text-yellow-300'
+                      }`}
+                    >
                       {idea.status}
                     </span>
                     {idea.status === 'pending' && (
@@ -345,7 +384,8 @@ export default function AdIdeasPage() {
                         )}
                         <button
                           onClick={async () => {
-                            const finalReason = selectedReason === 'Other' ? customReason : selectedReason;
+                            const finalReason =
+                              selectedReason === 'Other' ? customReason : selectedReason;
                             await handleStatusChange(idea.id, 'rejected', finalReason);
                           }}
                           className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded text-sm"
@@ -368,43 +408,67 @@ export default function AdIdeasPage() {
               </div>
               {showRecent && (
                 <div className="space-y-6 mt-4">
-                  {ideas.filter(i => i.status !== 'pending').map((idea) => (
-                    <div
-                      key={idea.id}
-                      className="bg-[#1f1f1f] border border-[#2c2c2c] rounded-xl px-4 py-4 md:px-6 md:py-5 shadow-md flex flex-col md:flex-row md:justify-between md:items-center gap-4"
-                    >
-                      <div className="flex items-start gap-4 w-full md:w-auto">
-                        <div className="w-12 h-12 rounded-full bg-[#00C2CB]/20 flex items-center justify-center">
-                          <svg xmlns="http://www.w3.org/2000/svg" className="w-6 h-6 text-[#00C2CB]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                          </svg>
-                        </div>
-                        <div className="flex flex-col">
-                          <h2 className="text-xl font-semibold text-white">{offersMap[idea.offer_id] || 'Unknown Offer'}</h2>
-                          <p className="text-sm text-gray-400">{idea.audience} - {idea.location}</p>
-                          <div className="flex items-center gap-3 mt-2">
-                            <p className="text-sm text-gray-400">
-                              <span className="font-semibold text-white">Affiliate:</span> {idea.affiliate_email}
-                            </p>
-                            <button
-                              onClick={() => setSelectedIdea(idea)}
-                              className="text-sm text-[#00C2CB] hover:underline"
+                  {ideas
+                    .filter((i) => i.status !== 'pending')
+                    .map((idea) => (
+                      <div
+                        key={idea.id}
+                        className="bg-[#1f1f1f] border border-[#2c2c2c] rounded-xl px-4 py-4 md:px-6 md:py-5 shadow-md flex flex-col md:flex-row md:justify-between md:items-center gap-4"
+                      >
+                        <div className="flex items-start gap-4 w-full md:w-auto">
+                          <div className="w-12 h-12 rounded-full bg-[#00C2CB]/20 flex items-center justify-center">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="w-6 h-6 text-[#00C2CB]"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
                             >
-                              View Detail
-                            </button>
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M13 10V3L4 14h7v7l9-11h-7z"
+                              />
+                            </svg>
+                          </div>
+                          <div className="flex flex-col">
+                            <h2 className="text-xl font-semibold text-white">
+                              {offersMap[idea.offer_id] || 'Unknown Offer'}
+                            </h2>
+                            <p className="text-sm text-gray-400">
+                              {idea.audience} - {idea.location}
+                            </p>
+                            <div className="flex items-center gap-3 mt-2">
+                              <p className="text-sm text-gray-400">
+                                <span className="font-semibold text-white">Affiliate:</span>{' '}
+                                {idea.affiliate_email}
+                              </p>
+                              <button
+                                onClick={() => {
+                                  setSelectedIdea(idea);
+                                  setShowTargetingDetails(false);
+                                }}
+                                className="text-sm text-[#00C2CB] hover:underline"
+                              >
+                                View Detail
+                              </button>
+                            </div>
                           </div>
                         </div>
+                        <div className="flex flex-col items-stretch md:items-end gap-2 w-full md:w-auto">
+                          <span
+                            className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              idea.status === 'approved'
+                                ? 'bg-green-500/20 text-green-300'
+                                : 'bg-red-500/20 text-red-400'
+                            }`}
+                          >
+                            {idea.status}
+                          </span>
+                        </div>
                       </div>
-                      <div className="flex flex-col items-stretch md:items-end gap-2 w-full md:w-auto">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          idea.status === 'approved' ? 'bg-green-500/20 text-green-300'
-                          : 'bg-red-500/20 text-red-400'
-                        }`}>
-                          {idea.status}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+                    ))}
                 </div>
               )}
             </div>
@@ -412,96 +476,304 @@ export default function AdIdeasPage() {
         )}
 
         {selectedIdea && (
-          <div className="fixed z-50 inset-0 flex items-center justify-center">
-            <div className="fixed inset-0 bg-black/30" aria-hidden="true" />
-            <div className="bg-gradient-to-b from-[#1f1f1f] to-[#111111] text-white p-0 rounded-lg shadow-lg z-50 max-w-sm w-full overflow-hidden border border-gray-800">
-              <div className="flex flex-col bg-gradient-to-b from-gray-800 to-gray-900 text-white">
-                {/* Mocked Header */}
-                <div className="flex items-center gap-3 p-4 border-b border-gray-100">
-                  <div className="w-8 h-8 rounded-full bg-gradient-to-r from-[#ff5757] to-[#8c52ff] text-white flex items-center justify-center font-bold text-sm">
-                    {selectedIdea.affiliate_email.charAt(0).toUpperCase()}
+          <div className="fixed inset-0 z-50 flex items-center justify-center">
+            {/* Backdrop */}
+            <div
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm"
+              aria-hidden="true"
+            />
+
+            {/* Card */}
+            <div className="relative z-50 w-full max-w-md mx-4 rounded-2xl border border-[#232323] bg-gradient-to-b from-[#191919] via-[#111111] to-black shadow-[0_20px_60px_rgba(0,0,0,0.7)] overflow-hidden">
+              {/* Top accent bar */}
+              <div className="h-1 w-full bg-gradient-to-r from-[#00C2CB] via-[#00ffbf] to-[#00C2CB]" />
+
+              <div className="flex flex-col text-white">
+                {/* Header */}
+                <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-gradient-to-r from-[#ff5757] to-[#8c52ff] text-white flex items-center justify-center font-bold text-sm shadow-md">
+                      {selectedIdea.affiliate_email.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex flex-col leading-tight">
+                      <div className="text-sm font-semibold">
+                        @{selectedIdea.affiliate_email.split('@')[0]}
+                      </div>
+                      <div className="text-[11px] text-white/60">
+                        AU, US, GB • Ad submission
+                      </div>
+                    </div>
                   </div>
-                  <div className="text-sm font-semibold">@{selectedIdea.affiliate_email.split('@')[0]}</div>
+                <div className="flex items-center gap-2 text-white/50">
+                  <span className="rounded-full border border-white/10 px-2 py-[2px] text-[10px] uppercase tracking-[0.15em]">
+                    Preview
+                  </span>
+                  <button className="p-1 rounded-full hover:bg-white/5 transition">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="w-4 h-4"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                    >
+                      <path d="M10 3a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm0 5.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm0 5.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Z" />
+                    </svg>
+                  </button>
+                </div>
                 </div>
 
-                {selectedIdea.file_url?.toLowerCase().endsWith('.mp4') ? (
-                  <video
-                    src={selectedIdea.file_url}
-                    controls
-                    className="w-full h-auto max-h-[500px] object-cover bg-black"
-                  />
-                ) : (
-                  <img
-                    src={selectedIdea.file_url}
-                    alt="Post Image"
-                    className="w-full h-auto max-h-[500px] object-contain bg-gray-800"
-                    referrerPolicy="no-referrer"
-                    loading="lazy"
-                    onError={(e) => {
-                      const target = e.currentTarget;
-                      if (!target.dataset.fallbackUsed) {
-                        target.src = '/fallback-organic-post.png';
-                        target.dataset.fallbackUsed = 'true';
-                      }
-                    }}
-                  />
-                )}
+                {/* Media */}
+                {(() => {
+                  const url = selectedIdea.file_url || '';
+                  const isVideoByType =
+                    selectedIdea.media_type?.toUpperCase() === 'VIDEO';
+                  const isVideoByExtension =
+                    /\.(mp4|mov|webm|ogg)(\?|$)/i.test(url);
+                  const isVideo = isVideoByType || isVideoByExtension;
 
-                <div className="px-4 py-2 text-sm">
-                  <p>
-                    <span className="font-semibold">@{selectedIdea.affiliate_email.split('@')[0]}</span>{' '}
-                    {selectedIdea.location}
-                  </p>
+                  if (!url) {
+                    return (
+                      <div className="w-full h-64 flex items-center justify-center bg-[#111111] text-xs text-gray-400">
+                        No creative attached
+                      </div>
+                    );
+                  }
+
+                  return isVideo ? (
+                    <video
+                      src={url}
+                      controls
+                      className="w-full max-h-[480px] bg-black object-contain"
+                    />
+                  ) : (
+                    <img
+                      src={url}
+                      alt="Post Image"
+                      className="w-full max-h-[480px] bg-black object-contain"
+                      referrerPolicy="no-referrer"
+                      loading="lazy"
+                      onError={(e) => {
+                        const target = e.currentTarget;
+                        if (!target.dataset.fallbackUsed) {
+                          target.src = '/fallback-organic-post.png';
+                          (target as any).dataset.fallbackUsed = 'true';
+                        }
+                      }}
+                    />
+                  );
+                })()}
+
+                {/* Social-style meta row */}
+                <div className="px-4 pt-3 pb-2 border-t border-white/5 flex items-center justify-between text-[11px] text-white/60">
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-1">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="w-4 h-4"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78Z" />
+                      </svg>
+                      <span>Preview only</span>
+                    </div>
+                    <div className="hidden sm:flex items-center gap-1">
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        className="w-4 h-4"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5" />
+                      </svg>
+                      <span>Affiliate ad concept</span>
+                    </div>
+                  </div>
+                  <span className="text-[10px] uppercase tracking-[0.18em] text-white/40">
+                    Nettmark • Review
+                  </span>
                 </div>
 
-                <div className="px-4 py-3 text-sm space-y-1">
-                  <div className="text-xs text-white/60">Audience: {selectedIdea.audience}</div>
-                  <div className="text-xs">
+                {/* Details */}
+                <div className="px-4 pt-2 pb-3 text-sm space-y-1 border-b border-white/5">
+                  <div className="text-[11px] text-white/60">
+                    Audience:{' '}
+                    <span className="text-white">{selectedIdea.audience}</span>
+                  </div>
+                  <div className="text-[11px] text-white/60">
+                    Geo:{' '}
+                    <span className="text-white">{selectedIdea.location}</span>
+                  </div>
+                  <div className="text-[11px] text-white/60">
                     Status:{' '}
                     <span
                       className={`font-semibold ${
                         selectedIdea.status === 'approved'
-                          ? 'text-green-600'
+                          ? 'text-emerald-400'
                           : selectedIdea.status === 'rejected'
-                          ? 'text-red-500'
-                          : 'text-yellow-600'
+                          ? 'text-red-400'
+                          : 'text-amber-300'
                       }`}
                     >
                       {selectedIdea.status}
                     </span>
                   </div>
-                  <p className="mt-2 text-sm text-gray-400 italic">Requested recently</p>
+                  <p className="mt-1 text-[11px] text-gray-400 italic">
+                    Requested recently by @
+                    {selectedIdea.affiliate_email.split('@')[0]}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setShowTargetingDetails((prev) => !prev)}
+                    className="mt-2 inline-flex items-center gap-1 text-[11px] text-[#00C2CB] hover:text-[#5af2ff] transition"
+                  >
+                    <span>
+                      {showTargetingDetails ? 'Hide targeting details' : 'View targeting details'}
+                    </span>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="w-3 h-3"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                    >
+                      {showTargetingDetails ? (
+                        <path
+                          fillRule="evenodd"
+                          d="M14.707 12.293a1 1 0 0 1-1.414 0L10 8.999l-3.293 3.294a1 1 0 0 1-1.414-1.414l4-4a1 1 0 0 1 1.414 0l4 4a1 1 0 0 1 0 1.414Z"
+                          clipRule="evenodd"
+                        />
+                      ) : (
+                        <path
+                          fillRule="evenodd"
+                          d="M5.293 7.707a1 1 0 0 1 1.414 0L10 11.001l3.293-3.294a1 1 0 1 1 1.414 1.414l-4 4a1 1 0 0 1-1.414 0l-4-4a1 1 0 0 1 0-1.414Z"
+                          clipRule="evenodd"
+                        />
+                      )}
+                    </svg>
+                  </button>
                 </div>
 
+                {/* Targeting details dropdown */}
+                {showTargetingDetails && (
+                  <div className="px-4 pt-3 pb-3 text-[11px]">
+                    <div className="rounded-lg border border-white/10 bg-black/40 px-3 py-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-white/60">Objective</span>
+                        <span className="text-white font-medium">
+                          {selectedIdea.objective || 'Not set'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-white/60">Daily Budget</span>
+                        <span className="text-white font-medium">
+                          {selectedIdea.daily_budget != null
+                            ? `$${selectedIdea.daily_budget}`
+                            : 'Not set'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-white/60">Budget Type</span>
+                        <span className="text-white font-medium">
+                          {selectedIdea.budget_type || 'DAILY'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-white/60">Age Range</span>
+                        <span className="text-white font-medium">
+                          {Array.isArray(selectedIdea.age_range) &&
+                          selectedIdea.age_range.length === 2
+                            ? `${selectedIdea.age_range[0]}–${selectedIdea.age_range[1]}`
+                            : 'All'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-white/60">Gender</span>
+                        <span className="text-white font-medium">
+                          {selectedIdea.gender || 'All'}
+                        </span>
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-white/60">Interests</span>
+                        <span className="text-white font-medium line-clamp-3">
+                          {selectedIdea.interests || 'Broad / automatic'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-white/60">Placements</span>
+                        <span className="text-white font-medium">
+                          {selectedIdea.placements_type || 'Automatic'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-white/60">CTA</span>
+                        <span className="text-white font-medium">
+                          {selectedIdea.cta ||
+                            selectedIdea.call_to_action ||
+                            'LEARN_MORE'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-white/60">Conversion Event</span>
+                        <span className="text-white font-medium">
+                          {selectedIdea.conversion_event || 'Not set'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-white/60">Performance Goal</span>
+                        <span className="text-white font-medium">
+                          {selectedIdea.performance_goal || 'Default'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Actions */}
                 {selectedIdea.status === 'pending' && (
-                  <div className="flex gap-4 px-4 pt-4 pb-2">
+                  <div className="flex gap-3 px-4 pt-2 pb-3">
                     <button
                       onClick={async () => {
                         await handleStatusChange(selectedIdea.id, 'approved');
                         await sendToMeta(selectedIdea.id);
                       }}
-                      className="w-full py-2 rounded bg-[#00C2CB] hover:bg-[#00b0b8] text-white font-medium text-sm"
+                      className="w-full py-2 rounded-lg bg-[#00C2CB] hover:bg-[#00b0b8] text-black font-semibold text-sm shadow-[0_0_20px_rgba(0,194,203,0.35)] transition"
                     >
-                      Approve
+                      Approve &amp; Launch
                     </button>
                     <button
                       onClick={async () => {
-                        await handleStatusChange(selectedIdea.id, 'rejected');
-                        setSelectedIdea((prev) => prev ? { ...prev, status: 'rejected' } : null);
+                        await handleStatusChange(
+                          selectedIdea.id,
+                          'rejected'
+                        );
+                        setSelectedIdea((prev) =>
+                          prev ? { ...prev, status: 'rejected' } : null
+                        );
                       }}
-                      className="w-full py-2 rounded bg-red-500 hover:bg-red-600 text-white font-medium text-sm"
+                      className="w-full py-2 rounded-lg bg-[#2b1515] hover:bg-[#3a1a1a] text-red-300 font-semibold text-sm border border-red-500/40 transition"
                     >
                       Reject
                     </button>
                   </div>
                 )}
 
-                <div className="p-4 border-t border-gray-100">
+                {/* Close */}
+                <div className="px-4 pb-4 pt-2 border-t border-white/5">
                   <button
-                    className="w-full py-2 rounded bg-[#00C2CB] hover:bg-[#00b0b8] text-white font-medium text-sm"
-                    onClick={() => setSelectedIdea(null)}
+                    className="w-full py-2.5 rounded-lg bg-[#00C2CB]/10 hover:bg-[#00C2CB]/20 text-[#00C2CB] font-medium text-sm"
+                    onClick={() => {
+                      setShowTargetingDetails(false);
+                      setSelectedIdea(null);
+                    }}
                   >
-                    Close
+                    Close Preview
                   </button>
                 </div>
               </div>

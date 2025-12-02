@@ -120,6 +120,12 @@ export default function PromoteOfferPage() {
   // Local preview URLs for selected files
   const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
   const [thumbPreviewUrl, setThumbPreviewUrl] = useState<string | null>(null);
+  useEffect(() => {
+    return () => {
+      if (videoPreviewUrl) URL.revokeObjectURL(videoPreviewUrl);
+      if (thumbPreviewUrl) URL.revokeObjectURL(thumbPreviewUrl);
+    };
+  }, [videoPreviewUrl, thumbPreviewUrl]);
 
   // Meta business connection (for reach estimate)
   const [biz, setBiz] = useState<{ access_token: string; ad_account_id: string } | null>(null);
@@ -129,8 +135,8 @@ export default function PromoteOfferPage() {
 
     const go = async () => {
       // 1) Offer core fields
-      const { data: offer, error: offerErr } = await supabase
-        .from<OfferRow>('offers')
+      const { data: offer, error: offerErr } = await (supabase as any)
+        .from('offers')
         .select('title, logo_url, business_email')
         .eq('id', offerId)
         .single();
@@ -146,8 +152,8 @@ export default function PromoteOfferPage() {
 
       // 2) Meta creds by business_email (from meta_connections)
       if (offer?.business_email) {
-        const { data: mc, error: mcErr } = await supabase
-          .from<MetaConnectionRow>('meta_connections')
+        const { data: mc, error: mcErr } = await (supabase as any)
+          .from('meta_connections')
           .select('access_token, ad_account_id')
           .eq('business_email', offer.business_email as string)
           .single();
@@ -722,8 +728,8 @@ export default function PromoteOfferPage() {
       setOgLoading(true);
 
       // Fetch business_email for this offer
-      const { data: offerRow, error: offerErr } = await supabase
-        .from<OfferBusinessEmailRow>('offers')
+      const { data: offerRow, error: offerErr } = await (supabase as any)
+        .from('offers')
         .select('business_email')
         .eq('id', offerId)
         .single();
@@ -822,8 +828,8 @@ export default function PromoteOfferPage() {
     setLoading(true);
     try {
       // 1) Get business email for this offer (needed for row)
-      const { data: offerRow, error: offerErr } = await supabase
-        .from<OfferBusinessEmailRow>('offers')
+      const { data: offerRow, error: offerErr } = await (supabase as any)
+        .from('offers')
         .select('business_email')
         .eq('id', offerId)
         .single();
@@ -1331,22 +1337,44 @@ export default function PromoteOfferPage() {
                   <div className="grid sm:grid-cols-2 gap-4">
                     <label className="block">
                       <span className="text-xs text-gray-400">Upload Video</span>
-                      <input
-                        type="file"
-                        accept="video/*"
-                        className={INPUT}
-                        onChange={(e) => setVideoFile(e.target.files?.[0] || null)}
-                      />
+                  <input
+                    type="file"
+                    accept="video/*"
+                    className={INPUT}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] || null;
+                      setVideoFile(file);
+                      if (file) {
+                        const url = URL.createObjectURL(file);
+                        setVideoPreviewUrl(url);
+                        // clear any thumbnail preview when video is chosen
+                        setThumbPreviewUrl(null);
+                      } else {
+                        setVideoPreviewUrl(null);
+                      }
+                    }}
+                  />
                     </label>
 
                     <label className="block">
                       <span className="text-xs text-gray-400">Optional Thumbnail</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className={INPUT}
-                        onChange={(e) => setThumbnailFile(e.target.files?.[0] || null)}
-                      />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className={INPUT}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] || null;
+                      setThumbnailFile(file);
+                      if (file) {
+                        const url = URL.createObjectURL(file);
+                        setThumbPreviewUrl(url);
+                        // clear any video preview when thumbnail is chosen
+                        setVideoPreviewUrl(null);
+                      } else {
+                        setThumbPreviewUrl(null);
+                      }
+                    }}
+                  />
                     </label>
                   </div>
 
@@ -1723,7 +1751,7 @@ export default function PromoteOfferPage() {
               <div className="aspect-[4/5] w-full rounded-lg bg-[#0f0f0f] border border-[#232323] overflow-hidden">
                 {ogFile && ogFile.type.startsWith('video/') ? (
                   <video
-                    src={URL.createObjectURL(ogFile)}
+                    src={ogFile ? URL.createObjectURL(ogFile) : undefined}
                     className="h-full w-full object-cover"
                     controls
                     playsInline
@@ -1731,7 +1759,7 @@ export default function PromoteOfferPage() {
                   />
                 ) : ogFile && ogFile.type.startsWith('image/') ? (
                   <img
-                    src={URL.createObjectURL(ogFile)}
+                    src={ogFile ? URL.createObjectURL(ogFile) : undefined}
                     alt="Organic media preview"
                     className="h-full w-full object-cover"
                   />
