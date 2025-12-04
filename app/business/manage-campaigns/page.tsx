@@ -17,7 +17,8 @@ const ManageCampaignsBusiness = () => {
     if (!user) return;
 
     const fetchCampaigns = async () => {
-      const { data, error } = await supabase
+      // 1) Fetch organic campaigns
+      const { data: organic, error: organicError } = await supabase
         .from('live_campaigns')
         .select(`
           id,
@@ -35,11 +36,41 @@ const ManageCampaignsBusiness = () => {
         .eq('business_email', user.email as string)
         .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('[❌ Failed to fetch campaigns]', error);
-      } else {
-        setCampaigns(data || []);
+      if (organicError) {
+        console.error('[❌ Failed to fetch live_campaigns (organic)]', organicError);
       }
+
+      // 2) Fetch paid Meta ads
+      const { data: metaAds, error: metaError } = await supabase
+        .from('live_ads')
+        .select(`
+          id,
+          ad_idea_id,
+          business_email,
+          affiliate_email,
+          caption,
+          status,
+          spend,
+          clicks,
+          conversions,
+          tracking_link,
+          campaign_type,
+          created_from,
+          created_at
+        `)
+        .eq('business_email', user.email as string)
+        .order('created_at', { ascending: false });
+
+      if (metaError) {
+        console.error('[❌ Failed to fetch live_ads (meta)]', metaError);
+      }
+
+      const merged = [
+        ...(organic || []).map((c: any) => ({ ...c, _source: 'organic' })),
+        ...(metaAds || []).map((a: any) => ({ ...a, _source: 'meta' })),
+      ];
+
+      setCampaigns(merged);
     };
 
     fetchCampaigns();
@@ -51,8 +82,11 @@ const ManageCampaignsBusiness = () => {
     const newStatus =
       (currentStatus || '').toUpperCase() === 'ACTIVE' ? 'PAUSED' : 'ACTIVE';
 
+    const campaign = campaigns.find((c) => c.id === id);
+    const source = campaign?._source === 'meta' ? 'live_ads' : 'live_campaigns';
+
     const { error } = await (supabase as any)
-      .from('live_campaigns')
+      .from(source)
       .update({ status: newStatus })
       .eq('id', id);
 
@@ -62,6 +96,55 @@ const ManageCampaignsBusiness = () => {
       setCampaigns((prev) =>
         prev.map((c) => (c.id === id ? { ...c, status: newStatus } : c)),
       );
+    }
+  };
+
+  // 🔴 Permanent stop for paid Meta campaigns (business-only control)
+  const handlePermanentStop = async (id: string) => {
+    const campaign = campaigns.find((c) => c.id === id);
+
+    // Only applies to paid Meta campaigns stored in live_ads
+    if (!campaign || campaign._source !== 'meta') return;
+
+    const confirmed = window.confirm(
+      'Permanently stop this ad campaign?\n\nThis will pause delivery in Meta Ads Manager and mark it as STOPPED in Nettmark. It cannot be reactivated from here.'
+    );
+    if (!confirmed) return;
+
+    try {
+      // 1) Pause at Meta level so it actually stops spending
+      const res = await fetch('/api/meta/control-ad', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ liveAdId: id, action: 'PAUSE' }),
+      });
+
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.success) {
+        console.error('[❌ Failed Meta control from business manage-campaigns]', json);
+        alert('Could not stop the Meta campaign. Please try again.');
+        return;
+      }
+
+      // 2) Mark permanently stopped in Supabase so it moves to archived and cannot be restarted
+      const { error } = await (supabase as any)
+        .from('live_ads')
+        .update({ status: 'STOPPED' })
+        .eq('id', id);
+
+      if (error) {
+        console.error('[❌ Failed to mark Meta campaign STOPPED in Supabase]', error);
+        alert('Meta was paused, but Nettmark could not update the status.');
+        return;
+      }
+
+      // 3) Update local state so UI reflects the change immediately
+      setCampaigns((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, status: 'STOPPED' } : c))
+      );
+    } catch (err) {
+      console.error('[❌ Error in handlePermanentStop]', err);
+      alert('Something went wrong while stopping this campaign.');
     }
   };
 
@@ -172,15 +255,30 @@ const ManageCampaignsBusiness = () => {
                               </span>
                             </p>
                             <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-white/60">
-                              {campaign.platform && (
-                                <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
-                                  {campaign.platform}
-                                </span>
-                              )}
-                              {campaign.type && (
-                                <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
-                                  {campaign.type}
-                                </span>
+                              {campaign._source === 'meta' ? (
+                                <>
+                                  <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
+                                    Meta Ads
+                                  </span>
+                                  {campaign.campaign_type && (
+                                    <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
+                                      {campaign.campaign_type}
+                                    </span>
+                                  )}
+                                </>
+                              ) : (
+                                <>
+                                  {campaign.platform && (
+                                    <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
+                                      {campaign.platform}
+                                    </span>
+                                  )}
+                                  {campaign.type && (
+                                    <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
+                                      {campaign.type}
+                                    </span>
+                                  )}
+                                </>
                               )}
                               {campaign.created_at && (
                                 <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
@@ -195,29 +293,34 @@ const ManageCampaignsBusiness = () => {
                               {(campaign.status || 'LIVE').toUpperCase()}
                             </span>
                             <div className="flex gap-2">
-                              <Link
-                                href={`/business/manage-campaigns/${campaign.id}`}
-                              >
+                              <Link href={`/business/manage-campaigns/${campaign.id}`}>
                                 <button className="rounded-full bg-[#00C2CB] px-4 py-1.5 text-xs font-semibold text-black shadow hover:bg-[#00b0b8]">
                                   View campaign
                                 </button>
                               </Link>
-                              <button
-                                onClick={() =>
-                                  handleToggleStatus(
-                                    campaign.id,
-                                    campaign.status,
-                                  )
-                                }
-                                className="rounded-full border border-[#00C2CB] bg-transparent px-4 py-1.5 text-xs font-semibold text-[#00C2CB] hover:bg-[#00C2CB]/10"
-                              >
-                                {(campaign.status || '').toLowerCase() ===
-                                  'live' ||
-                                (campaign.status || '').toLowerCase() ===
-                                  'active'
-                                  ? 'Pause'
-                                  : 'Activate'}
-                              </button>
+
+                              {campaign._source === 'meta' ? (
+                                // Paid Meta campaigns: business can only permanently stop them
+                                <button
+                                  onClick={() => handlePermanentStop(campaign.id)}
+                                  className="rounded-full border border-red-500/70 bg-red-500/10 px-4 py-1.5 text-xs font-semibold text-red-300 hover:bg-red-500/20 hover:text-red-200"
+                                >
+                                  Stop permanently
+                                </button>
+                              ) : (
+                                // Organic campaigns keep the softer pause/activate toggle
+                                <button
+                                  onClick={() =>
+                                    handleToggleStatus(campaign.id, campaign.status)
+                                  }
+                                  className="rounded-full border border-[#00C2CB] bg-transparent px-4 py-1.5 text-xs font-semibold text-[#00C2CB] hover:bg-[#00C2CB]/10"
+                                >
+                                  {(campaign.status || '').toLowerCase() === 'live' ||
+                                  (campaign.status || '').toLowerCase() === 'active'
+                                    ? 'Pause'
+                                    : 'Activate'}
+                                </button>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -293,15 +396,30 @@ const ManageCampaignsBusiness = () => {
                               </span>
                             </p>
                             <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-white/60">
-                              {campaign.platform && (
-                                <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
-                                  {campaign.platform}
-                                </span>
-                              )}
-                              {campaign.type && (
-                                <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
-                                  {campaign.type}
-                                </span>
+                              {campaign._source === 'meta' ? (
+                                <>
+                                  <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
+                                    Meta Ads
+                                  </span>
+                                  {campaign.campaign_type && (
+                                    <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
+                                      {campaign.campaign_type}
+                                    </span>
+                                  )}
+                                </>
+                              ) : (
+                                <>
+                                  {campaign.platform && (
+                                    <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
+                                      {campaign.platform}
+                                    </span>
+                                  )}
+                                  {campaign.type && (
+                                    <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
+                                      {campaign.type}
+                                    </span>
+                                  )}
+                                </>
                               )}
                               {campaign.created_at && (
                                 <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
@@ -320,15 +438,16 @@ const ManageCampaignsBusiness = () => {
                                   : (campaign.status || '').toLowerCase() ===
                                     'deleted'
                                   ? 'bg-red-500/15 text-red-300'
+                                  : (campaign.status || '').toLowerCase() ===
+                                    'stopped'
+                                  ? 'bg-red-500/20 text-red-300'
                                   : 'bg-slate-500/20 text-slate-200'
                               }`}
                             >
                               {(campaign.status || 'ARCHIVED').toUpperCase()}
                             </span>
                             <div className="flex gap-2">
-                              <Link
-                                href={`/business/manage-campaigns/${campaign.id}`}
-                              >
+                              <Link href={`/business/manage-campaigns/${campaign.id}`}>
                                 <button className="rounded-full bg-[#00C2CB] px-4 py-1.5 text-xs font-semibold text-black shadow hover:bg-[#00b0b8]">
                                   View campaign
                                 </button>

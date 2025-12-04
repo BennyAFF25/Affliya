@@ -49,6 +49,15 @@ type Campaign = {
   created_from: string | null;
   status: string | null;
   created_at: string | null;
+  // Meta paid ads (live_ads) specific
+  ad_idea_id?: string | null;
+  spend?: number | null;
+  clicks?: number | null;
+  conversions?: number | null;
+  tracking_link?: string | null;
+  campaign_type?: string | null;
+  // Indicates whether this came from live_campaigns (organic) or live_ads (meta)
+  meta_source?: 'organic' | 'meta';
 };
 
 type CampaignStats = {
@@ -91,6 +100,67 @@ export default function BusinessCampaignDetailPage() {
     const fetchCampaign = async () => {
       setLoading(true);
 
+      // 1) Try to load as a Meta paid ad from live_ads
+      const { data: metaRow, error: metaError } = await (supabase as any)
+        .from('live_ads')
+        .select(
+          `
+          id,
+          ad_idea_id,
+          business_email,
+          affiliate_email,
+          caption,
+          status,
+          spend,
+          clicks,
+          conversions,
+          tracking_link,
+          campaign_type,
+          created_from,
+          created_at,
+          ad_ideas (
+            file_url,
+            caption
+          )
+        `
+        )
+        .eq('id', campaignId)
+        .eq('business_email', user.email as string)
+        .single();
+
+      if (metaRow && !metaError) {
+        const mapped: Campaign = {
+          id: metaRow.id,
+          type: metaRow.campaign_type || 'Meta Ad',
+          offer_id: null,
+          business_email: metaRow.business_email,
+          affiliate_email: metaRow.affiliate_email,
+          media_url: (metaRow as any)?.ad_ideas?.file_url || null,
+          caption:
+            metaRow.caption ||
+            ((metaRow as any)?.ad_ideas &&
+              (metaRow as any).ad_ideas.caption) ||
+            null,
+          platform: 'Meta',
+          created_from: metaRow.created_from,
+          status: metaRow.status,
+          created_at: metaRow.created_at,
+          ad_idea_id: metaRow.ad_idea_id,
+          spend: metaRow.spend,
+          clicks: metaRow.clicks,
+          conversions: metaRow.conversions,
+          tracking_link: metaRow.tracking_link,
+          campaign_type: metaRow.campaign_type,
+          meta_source: 'meta',
+        };
+
+        setCampaign(mapped);
+        console.log('[✅ Business meta campaign detail]', mapped);
+        setLoading(false);
+        return;
+      }
+
+      // 2) Fallback to organic campaign from live_campaigns
       const { data, error } = await (supabase as any)
         .from('live_campaigns')
         .select(
@@ -114,9 +184,14 @@ export default function BusinessCampaignDetailPage() {
 
       if (error) {
         console.error('[❌ Failed to fetch campaign detail]', error);
+        setCampaign(null);
       } else {
-        setCampaign(data || null);
-        console.log('[✅ Business campaign detail]', data);
+        const mapped: Campaign = {
+          ...(data as any),
+          meta_source: 'organic',
+        };
+        setCampaign(mapped);
+        console.log('[✅ Business campaign detail]', mapped);
       }
 
       setLoading(false);
@@ -128,7 +203,8 @@ export default function BusinessCampaignDetailPage() {
   const buildLast7DaysLabels = () => {
     const labels: string[] = [];
     const today = new Date();
-    const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const startOfDay = (d: Date) =>
+      new Date(d.getFullYear(), d.getMonth(), d.getDate());
     const base = startOfDay(today);
     for (let i = 6; i >= 0; i--) {
       const day = new Date(base);
@@ -204,10 +280,14 @@ export default function BusinessCampaignDetailPage() {
         const carts = Array(labels.length).fill(0);
         const conv = Array(labels.length).fill(0);
 
-        const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+        const startOfDay = (d: Date) =>
+          new Date(d.getFullYear(), d.getMonth(), d.getDate());
         const today = startOfDay(new Date());
 
-        for (const row of recent as { created_at: string; event_type: string }[]) {
+        for (const row of recent as {
+          created_at: string;
+          event_type: string;
+        }[]) {
           const d = new Date(row.created_at);
           const rowDay = startOfDay(d);
           const diffDays = Math.round(
@@ -243,7 +323,7 @@ export default function BusinessCampaignDetailPage() {
     };
 
     fetchStats();
-  }, [campaignId, user?.email]);
+  }, [campaignId, user?.email, campaign?.meta_source]);
 
   const formatDate = (d?: string | null) => {
     if (!d) return '';
@@ -255,9 +335,8 @@ export default function BusinessCampaignDetailPage() {
 
     const current = (campaign.status || '').toUpperCase();
     const isCurrentlyLive = current === 'ACTIVE' || current === 'LIVE';
-    const newStatus = isCurrentlyLive ? 'PAUSED' : 'ACTIVE';
 
-    // If we're pausing a live campaign, warn the business about the impact first.
+    // Shared warning when pausing a live campaign
     if (isCurrentlyLive) {
       const confirmed = window.confirm(
         [
@@ -266,7 +345,7 @@ export default function BusinessCampaignDetailPage() {
           '',
           'Only pause if there is a real issue (offer updates, stock problems, compliance, or tracking errors).',
           '',
-          'Do you still want to pause this campaign?'
+          'Do you still want to pause this campaign?',
         ].join('\n')
       );
       if (!confirmed) return;
@@ -275,14 +354,41 @@ export default function BusinessCampaignDetailPage() {
     try {
       setUpdating(true);
 
-      const { error } = await (supabase as any)
-        .from('live_campaigns')
-        .update({ status: newStatus })
-        .eq('id', campaign.id);
+      if (campaign.meta_source === 'meta') {
+        // Meta paid ads: control via backend route which talks to Meta + updates live_ads
+        const action = isCurrentlyLive ? 'PAUSE' : 'RESUME';
 
-      if (error) throw error;
+        const res = await fetch('/api/meta/control-ad', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            liveAdId: campaign.id,
+            action,
+          }),
+        });
 
-      setCampaign((prev) => (prev ? { ...prev, status: newStatus } : prev));
+        const json = await res.json();
+
+        if (!res.ok || !json?.success) {
+          console.error('[❌ Failed Meta control]', json);
+          return;
+        }
+
+        const newStatus = json.newStatus as string;
+        setCampaign((prev) => (prev ? { ...prev, status: newStatus } : prev));
+      } else {
+        // Organic campaigns: still toggle status directly in live_campaigns
+        const newStatus = isCurrentlyLive ? 'PAUSED' : 'ACTIVE';
+
+        const { error } = await (supabase as any)
+          .from('live_campaigns')
+          .update({ status: newStatus })
+          .eq('id', campaign.id);
+
+        if (error) throw error;
+
+        setCampaign((prev) => (prev ? { ...prev, status: newStatus } : prev));
+      }
     } catch (err) {
       console.error('[❌ Failed to update campaign status]', err);
     } finally {
@@ -337,6 +443,15 @@ export default function BusinessCampaignDetailPage() {
           <h1 className="text-2xl font-semibold tracking-tight text-[#00C2CB]">
             Campaign overview
           </h1>
+          {campaign?.meta_source === 'meta' ? (
+            <div className="inline-flex items-center gap-2 rounded-full border border-[#00C2CB40] bg-[#00C2CB1A] px-3 py-1 text-[11px] text-[#00C2CB]">
+              META AD • Paid Campaign
+            </div>
+          ) : (
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-3 py-1 text-[11px] text-white/70">
+              ORGANIC • Live Tracking
+            </div>
+          )}
           <p className="text-sm text-white/70">
             See how this campaign is set up, who is running it, and control its
             status.
@@ -383,7 +498,7 @@ export default function BusinessCampaignDetailPage() {
                       Creative preview
                     </h2>
                     {campaign.platform && (
-                      <span className="rounded-full border border-white/10 bg-black/30 px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-white/50">
+                      <span className="rounded-full border border-white/10 bg-black/30 px-3 py-1 text-[10px] uppercase tracking-[0.16em] text:white/50">
                         {campaign.platform}
                       </span>
                     )}
@@ -410,7 +525,7 @@ export default function BusinessCampaignDetailPage() {
                     const platform =
                       campaign.platform?.toLowerCase().trim() || '';
 
-                    // EMAIL PREVIEW (keep as card)
+                    // EMAIL PREVIEW
                     if (platform === 'email') {
                       return (
                         <div className="bg-gradient-to-b from-[#181d22] to-[#101214] rounded-2xl border border-[#232931] shadow-xl w-full max-w-lg min-h-[320px] flex flex-col justify-between p-6 relative drop-shadow-[0_0_16px_rgba(0,194,203,0.11)] mx-auto">
@@ -451,7 +566,7 @@ export default function BusinessCampaignDetailPage() {
                     // NO MEDIA + NO CAPTION
                     if (!url && !caption) {
                       return (
-                        <div className="mt-4 flex flex-col items-center justify-center rounded-2xl border border-dashed border-white/15 bg-black/40 px-6 py-10 text-center text-xs text-white/50">
+                        <div className="mt-4 flex flex-col items-center justify-center rounded-2xl border border-dashed border:white/15 bg-black/40 px-6 py-10 text-center text-xs text-white/50">
                           <PhotoIcon className="h-8 w-8 mb-3 text-white/30" />
                           No media attached to this campaign yet.
                         </div>
@@ -484,7 +599,9 @@ export default function BusinessCampaignDetailPage() {
                                   <source src={url} type="video/mp4" />
                                   Your browser does not support the video tag.
                                 </video>
-                              ) : url.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                              ) : url.match(
+                                  /\.(jpg|jpeg|png|gif|webp)$/i
+                                ) ? (
                                 <img
                                   src={url}
                                   alt="Campaign creative"
@@ -519,14 +636,16 @@ export default function BusinessCampaignDetailPage() {
                 {/* RIGHT: performance stats */}
                 <div className="rounded-3xl border border-white/10 bg-white/[0.02] px-4 sm:px-6 py-5 flex flex-col order-1 lg:order-2">
                   <div className="flex items-center justify-between mb-3">
-                    <h2 className="text-sm font-semibold flex items-center gap-2">
+                    <h2 className="text-sm font-semibold flex items:center gap-2">
                       <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-300">
                         <CursorArrowRaysIcon className="h-4 w-4" />
                       </span>
                       Performance
                     </h2>
                     <span className="rounded-full bg-black/40 px-3 py-1 text-[10px] text-white/50 uppercase tracking-[0.16em]">
-                      Live tracking
+                      {campaign.meta_source === 'meta'
+                        ? 'Meta performance'
+                        : 'Live tracking'}
                     </span>
                   </div>
 
@@ -538,11 +657,14 @@ export default function BusinessCampaignDetailPage() {
                     </p>
                   ) : (
                     <>
-                      <div className="grid grid-cols-2 md:grid-cols-2 gap-4 mb-4">
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
+                        {/* Clicks / Page views */}
                         <div className="rounded-2xl border border-white/10 bg-black/40 px-3 sm:px-4 py-3 flex flex-col justify-between">
                           <div className="flex items-center justify-between">
                             <p className="text-[11px] text-white/60">
-                              Page views
+                              {campaign.meta_source === 'meta'
+                                ? 'Clicks'
+                                : 'Page views'}
                             </p>
                             <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/5">
                               <CursorArrowRaysIcon className="h-4 w-4 text-[#00C2CB]" />
@@ -553,6 +675,7 @@ export default function BusinessCampaignDetailPage() {
                           </p>
                         </div>
 
+                        {/* Add to carts */}
                         <div className="rounded-2xl border border-white/10 bg-black/40 px-3 sm:px-4 py-3 flex flex-col justify-between">
                           <div className="flex items-center justify-between">
                             <p className="text-[11px] text-white/60">
@@ -567,12 +690,13 @@ export default function BusinessCampaignDetailPage() {
                           </p>
                         </div>
 
+                        {/* Conversions */}
                         <div className="rounded-2xl border border-white/10 bg-black/40 px-3 sm:px-4 py-3 flex flex-col justify-between">
                           <div className="flex items-center justify-between">
                             <p className="text-[11px] text-white/60">
                               Conversions
                             </p>
-                            <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/5">
+                            <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg:white/5">
                               <CurrencyDollarIcon className="h-4 w-4 text-[#00C2CB]" />
                             </span>
                           </div>
@@ -581,41 +705,83 @@ export default function BusinessCampaignDetailPage() {
                           </p>
                         </div>
 
-                        <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 px-3 sm:px-4 py-3 flex flex-col justify-between">
-                          <div className="flex items-center justify-between">
-                            <p className="text-[11px] text-emerald-100">
-                              Revenue
+                        {/* For Meta campaigns, show Spend as 4th tile */}
+                        {campaign.meta_source === 'meta' && (
+                          <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 px-3 sm:px-4 py-3 flex flex-col justify-between">
+                            <div className="flex items-center justify-between">
+                              <p className="text-[11px] text-emerald-100">
+                                Spend
+                              </p>
+                              <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/20">
+                                <CurrencyDollarIcon className="h-4 w-4 text-emerald-300" />
+                              </span>
+                            </div>
+                            <p className="mt-2 text-xl font-semibold text-emerald-100">
+                              {(campaign.spend || 0).toLocaleString(
+                                undefined,
+                                {
+                                  style: 'currency',
+                                  currency: 'USD',
+                                }
+                              )}
                             </p>
-                            <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/20">
-                              <CurrencyDollarIcon className="h-4 w-4 text-emerald-300" />
-                            </span>
                           </div>
-                          <p className="mt-2 text-xl font-semibold text-emerald-100">
-                            {stats.revenue.toLocaleString(undefined, {
-                              style: 'currency',
-                              currency: 'USD',
-                            })}
-                          </p>
-                        </div>
+                        )}
+
+                        {/* For organic campaigns, keep Revenue tile */}
+                        {campaign.meta_source !== 'meta' && (
+                          <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 px-3 sm:px-4 py-3 flex flex-col justify-between">
+                            <div className="flex items-center justify-between">
+                              <p className="text-[11px] text-emerald-100">
+                                Revenue
+                              </p>
+                              <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/20">
+                                <CurrencyDollarIcon className="h-4 w-4 text-emerald-300" />
+                              </span>
+                            </div>
+                            <p className="mt-2 text-xl font-semibold text-emerald-100">
+                              {stats.revenue.toLocaleString(undefined, {
+                                style: 'currency',
+                                currency: 'USD',
+                              })}
+                            </p>
+                          </div>
+                        )}
                       </div>
-                      <p className="text-[11px] text-white/50">
-                        Events are calculated from{' '}
+
+                      {/* Tracking link + explanatory copy */}
+                      {campaign.meta_source === 'meta' &&
+                        campaign.tracking_link && (
+                          <p className="text-[11px] text-white/50 break-all">
+                            Tracking link:{' '}
+                            <code className="font-mono text-[10px]">
+                              {campaign.tracking_link}
+                            </code>
+                          </p>
+                        )}
+
+                      <p className="mt-2 text-[11px] text-white/50">
+                        Events (clicks, add to carts, conversions) are
+                        calculated from{' '}
                         <code className="font-mono text-[10px]">
                           campaign_tracking_events
-                        </code>{' '}
-                        for this campaign.
+                        </code>
+                        {campaign.meta_source === 'meta'
+                          ? ' for this Meta-backed campaign. Spend is stored on the live_ads record for audit and billing.'
+                          : ' for this campaign.'}
                       </p>
+
                       {series.labels.length > 0 && (
-                        <div className="mt-4 rounded-2xl border border-white/10 bg-black/30 px-3 sm:px-4 py-3">
-                          <p className="mb-2 text-[11px] text-white/60">
-                            7‑day trend
-                          </p>
+                        <div className="mt-4 rounded-2xl border border:white/10 bg-black/30 px-3 sm:px-4 py-3">
                           <Line
                             data={{
                               labels: series.labels,
                               datasets: [
                                 {
-                                  label: 'Page views',
+                                  label:
+                                    campaign.meta_source === 'meta'
+                                      ? 'Clicks'
+                                      : 'Page views',
                                   data: series.pageViews,
                                   borderColor: '#00C2CB',
                                   backgroundColor: 'rgba(0,194,203,0.15)',
@@ -662,11 +828,17 @@ export default function BusinessCampaignDetailPage() {
                               },
                               scales: {
                                 x: {
-                                  ticks: { color: '#9CA3AF', font: { size: 10 } },
+                                  ticks: {
+                                    color: '#9CA3AF',
+                                    font: { size: 10 },
+                                  },
                                   grid: { color: 'rgba(31,41,55,0.4)' },
                                 },
                                 y: {
-                                  ticks: { color: '#9CA3AF', font: { size: 10 } },
+                                  ticks: {
+                                    color: '#9CA3AF',
+                                    font: { size: 10 },
+                                  },
                                   grid: { color: 'rgba(31,41,55,0.4)' },
                                   beginAtZero: true,
                                 },
@@ -688,7 +860,7 @@ export default function BusinessCampaignDetailPage() {
             </section>
 
             {/* Top summary card */}
-            <section className="rounded-3xl border border-white/10 bg-white/[0.02] px-4 sm:px-6 py-5 shadow-[0_0_40px_rgba(0,0,0,0.6)] flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <section className="rounded-3xl border border:white/10 bg-white/[0.02] px-4 sm:px-6 py-5 shadow-[0_0_40px_rgba(0,0,0,0.6)] flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center gap-3">
                   <span
@@ -717,7 +889,7 @@ export default function BusinessCampaignDetailPage() {
                   </span>
                 </p>
 
-                <p className="text-xs text-white/60">
+                <p className="text-xs text:white/60">
                   Started: {formatDate(campaign.created_at)}
                 </p>
               </div>
@@ -737,13 +909,15 @@ export default function BusinessCampaignDetailPage() {
                 </button>
                 {(campaign.status || '').toLowerCase() === 'paused' ? (
                   <p className="mt-1 max-w-xs text-[11px] text-amber-200/80 text-right">
-                    This campaign is currently paused. Its tracking link is temporarily disabled and
-                    affiliates cannot send traffic until you reactivate it.
+                    This campaign is currently paused. Its tracking link is
+                    temporarily disabled and affiliates cannot send traffic
+                    until you reactivate it.
                   </p>
                 ) : (
                   <p className="mt-1 max-w-xs text-[11px] text-white/50 text-right">
-                    Pausing will temporarily disable the tracking link and notify the affiliate. Use this
-                    only if there is a genuine issue with the offer, stock, or compliance.
+                    Pausing will temporarily disable the tracking link and
+                    notify the affiliate. Use this only if there is a genuine
+                    issue with the offer, stock, or compliance.
                   </p>
                 )}
                 <Link href="/business/manage-campaigns">

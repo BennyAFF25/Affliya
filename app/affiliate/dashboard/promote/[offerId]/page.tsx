@@ -22,6 +22,7 @@ type PlacementKey =
     title?: string | null;
     logo_url?: string | null;
     business_email?: string | null;
+    website?: string | null; // use website from offers table
   };
 
   type OfferBusinessEmailRow = {
@@ -137,7 +138,7 @@ export default function PromoteOfferPage() {
       // 1) Offer core fields
       const { data: offer, error: offerErr } = await (supabase as any)
         .from('offers')
-        .select('title, logo_url, business_email')
+        .select('title, logo_url, business_email, website')
         .eq('id', offerId)
         .single();
 
@@ -149,6 +150,13 @@ export default function PromoteOfferPage() {
       // Preview title + logo
       setBrandName(offer?.title || 'Your Brand Name');
       setBrandLogoUrl(offer?.logo_url || null);
+      // Pre-fill Destination URL with the business website if available
+      if (offer?.website) {
+        setForm((p) => ({
+          ...p,
+          display_link: p.display_link || offer.website!,
+        }));
+      }
 
       // 2) Meta creds by business_email (from meta_connections)
       if (offer?.business_email) {
@@ -583,139 +591,230 @@ export default function PromoteOfferPage() {
   }
 
   // Brand DateTime picker (no external deps)
-  function DateTimeField({
-    label,
-    value,
-    onChange,
-  }: {
-    label: string;
-    value: string; // 'YYYY-MM-DDTHH:mm' or ''
-    onChange: (v: string) => void;
-  }) {
-    const [open, setOpen] = useState(false);
-    const [view, setView] = useState(() => {
-      const d = value ? new Date(value) : new Date();
-      return new Date(d.getFullYear(), d.getMonth(), 1);
-    });
-    const ref = useRef<HTMLDivElement | null>(null);
+  // Brand DateTime picker (no external deps)
+function DateTimeField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string; // 'YYYY-MM-DDTHH:mm' or ''
+  onChange: (v: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [view, setView] = useState(() => {
+    const d = value ? new Date(value) : new Date();
+    return new Date(d.getFullYear(), d.getMonth(), 1);
+  });
+  const ref = useRef<HTMLDivElement | null>(null);
 
-    // derived selected date/time
-    const sel = value ? new Date(value) : null;
+  // derived selected date/time
+  const sel = value ? new Date(value) : null;
 
-    useEffect(() => {
-      const onDoc = (e: MouseEvent) => {
-        if (!ref.current) return;
-        if (!ref.current.contains(e.target as Node)) setOpen(false);
-      };
-      document.addEventListener('mousedown', onDoc);
-      return () => document.removeEventListener('mousedown', onDoc);
-    }, []);
-
-    const pad = (n: number) => String(n).padStart(2, '0');
-    const toLocalInput = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-
-    const daysInMonth = (y: number, m: number) => new Date(y, m + 1, 0).getDate();
-    const startWeekday = (y: number, m: number) => new Date(y, m, 1).getDay(); // 0 Sun..6 Sat
-
-    const y = view.getFullYear();
-    const m = view.getMonth();
-    const dim = daysInMonth(y, m);
-    const start = startWeekday(y, m);
-
-    const hours = Array.from({ length: 12 }, (_, i) => i + 1); // 1..12
-    const minutes = Array.from({ length: 12 }, (_, i) => pad(i * 5)); // 00..55 step 5
-    const isPM = sel ? sel.getHours() >= 12 : true;
-    const hour12 = sel ? ((sel.getHours() % 12) || 12) : 12;
-    const minuteStr = sel ? pad(sel.getMinutes() - (sel.getMinutes() % 5)) : '00';
-
-    const setPart = (part: 'hour' | 'minute' | 'ampm', val: number | 'am' | 'pm') => {
-      const base = sel ? new Date(sel) : new Date();
-      let h = base.getHours();
-      if (part === 'hour') {
-        const as24 = ((val as number) % 12) + (h >= 12 ? 12 : 0);
-        base.setHours(as24);
-      } else if (part === 'minute') {
-        base.setMinutes(val as number);
-      } else {
-        // am/pm
-        const wasPM = h >= 12;
-        if (val === 'pm' && !wasPM) base.setHours(h + 12);
-        if (val === 'am' && wasPM) base.setHours(h - 12);
-      }
-      onChange(toLocalInput(base));
+  useEffect(() => {
+    const onDoc = (e: MouseEvent) => {
+      if (!ref.current) return;
+      if (!ref.current.contains(e.target as Node)) setOpen(false);
     };
+    document.addEventListener('mousedown', onDoc);
+    return () => document.removeEventListener('mousedown', onDoc);
+  }, []);
 
-    const selectDay = (d: number) => {
-      const base = sel ? new Date(sel) : new Date();
-      base.setFullYear(y); base.setMonth(m); base.setDate(d);
-      onChange(toLocalInput(base));
-    };
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const toLocalInput = (d: Date) =>
+    `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
+      d.getHours()
+    )}:${pad(d.getMinutes())}`;
 
-    const clear = () => onChange('');
-    const setToday = () => onChange(toLocalInput(new Date()));
+  const daysInMonth = (y: number, m: number) => new Date(y, m + 1, 0).getDate();
+  const startWeekday = (y: number, m: number) => new Date(y, m, 1).getDay(); // 0 Sun..6 Sat
 
-    return (
-      <div ref={ref} className="relative">
-        <button type="button" className={`${INPUT} text-left flex items-center gap-2`} onClick={() => setOpen(o => !o)}>
-          {value ? new Date(value).toLocaleString() : <span className="text-gray-500">dd/mm/yyyy, --:-- --</span>}
-          <span className="ml-auto text-[11px] text-gray-500">{open ? 'Close' : 'Open'}</span>
-        </button>
-        {open && (
-          <div className="absolute z-30 mt-2 w-[320px] rounded-xl border border-[#2a2a2a] bg-[#0f0f0f] shadow-2xl">
-            {/* Header */}
-            <div className="flex items-center justify-between p-3 border-b border-[#1f1f1f]">
-              <div className="text-sm font-semibold">{view.toLocaleString(undefined, { month: 'long', year: 'numeric' })}</div>
-              <div className="flex items-center gap-2">
-                <button type="button" className="h-7 w-7 grid place-items-center rounded-md border border-[#2a2a2a] hover:bg-[#151515]" onClick={() => setView(new Date(y, m - 1, 1))}>←</button>
-                <button type="button" className="h-7 w-7 grid place-items-center rounded-md border border-[#2a2a2a] hover:bg-[#151515]" onClick={() => setView(new Date(y, m + 1, 1))}>→</button>
-              </div>
+  const y = view.getFullYear();
+  const m = view.getMonth();
+  const dim = daysInMonth(y, m);
+  const start = startWeekday(y, m);
+
+  // today at midnight – used to lock out past days
+  const today = (() => {
+    const t = new Date();
+    t.setHours(0, 0, 0, 0);
+    return t;
+  })();
+
+  const hours = Array.from({ length: 12 }, (_, i) => i + 1); // 1..12
+  const minutes = Array.from({ length: 12 }, (_, i) => pad(i * 5)); // 00..55 step 5
+  const isPM = sel ? sel.getHours() >= 12 : true;
+  const hour12 = sel ? (sel.getHours() % 12 || 12) : 12;
+  const minuteStr = sel ? pad(sel.getMinutes() - (sel.getMinutes() % 5)) : '00';
+
+  const setPart = (part: 'hour' | 'minute' | 'ampm', val: number | 'am' | 'pm') => {
+    const base = sel ? new Date(sel) : new Date();
+    let h = base.getHours();
+    if (part === 'hour') {
+      const as24 = ((val as number) % 12) + (h >= 12 ? 12 : 0);
+      base.setHours(as24);
+    } else if (part === 'minute') {
+      base.setMinutes(val as number);
+    } else {
+      // am/pm
+      const wasPM = h >= 12;
+      if (val === 'pm' && !wasPM) base.setHours(h + 12);
+      if (val === 'am' && wasPM) base.setHours(h - 12);
+    }
+    onChange(toLocalInput(base));
+  };
+
+  const selectDay = (d: number) => {
+    const base = sel ? new Date(sel) : new Date();
+    base.setFullYear(y);
+    base.setMonth(m);
+    base.setDate(d);
+    onChange(toLocalInput(base));
+  };
+
+  const clear = () => onChange('');
+  const setToday = () => onChange(toLocalInput(new Date()));
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        className={`${INPUT} text-left flex items-center gap-2`}
+        onClick={() => setOpen((o) => !o)}
+      >
+        {value ? (
+          new Date(value).toLocaleString()
+        ) : (
+          <span className="text-gray-500">dd/mm/yyyy, --:-- --</span>
+        )}
+        <span className="ml-auto text-[11px] text-gray-500">
+          {open ? 'Close' : 'Open'}
+        </span>
+      </button>
+      {open && (
+        <div className="absolute z-30 mt-2 w-[320px] rounded-xl border border-[#2a2a2a] bg-[#0f0f0f] shadow-2xl">
+          {/* Header */}
+          <div className="flex items-center justify-between p-3 border-b border-[#1f1f1f]">
+            <div className="text-sm font-semibold">
+              {view.toLocaleString(undefined, { month: 'long', year: 'numeric' })}
             </div>
-            {/* Grid */}
-            <div className="grid grid-cols-7 gap-1 p-3 text-center">
-              {[...'SMTWTFS'].map((c, i) => (
-                <div key={i} className="text-[11px] text-gray-400">{c}</div>
-              ))}
-              {Array.from({ length: (start || 0) }).map((_, i) => <div key={`e${i}`} />)}
-              {Array.from({ length: dim }).map((_, i) => {
-                const d = i + 1;
-                const isSel = sel && sel.getFullYear() === y && sel.getMonth() === m && sel.getDate() === d;
-                return (
-                  <button
-                    key={d}
-                    type="button"
-                    onClick={() => selectDay(d)}
-                    className={[
-                      'h-8 rounded-md border text-sm',
-                      isSel ? 'border-[#00C2CB] text-white bg-[#0b1f20]' : 'border-transparent hover:border-[#2a2a2a] hover:bg-[#141414]'
-                    ].join(' ')}
-                  >
-                    {d}
-                  </button>
-                );
-              })}
-            </div>
-            {/* Time */}
-            <div className="flex items-center gap-2 px-3 pb-3">
-              <select className={`${INPUT} mt-0 w-20`} value={hour12} onChange={(e) => setPart('hour', Number(e.target.value))}>
-                {hours.map(h => <option key={h} value={h}>{pad(h)}</option>)}
-              </select>
-              <select className={`${INPUT} mt-0 w-20`} value={Number(minuteStr)} onChange={(e) => setPart('minute', Number(e.target.value))}>
-                {minutes.map(mn => <option key={mn} value={Number(mn)}>{mn}</option>)}
-              </select>
-              <select className={`${INPUT} mt-0 w-24`} value={isPM ? 'pm' : 'am'} onChange={(e) => setPart('ampm', e.target.value as any)}>
-                <option value="am">AM</option>
-                <option value="pm">PM</option>
-              </select>
-              <div className="ml-auto flex items-center gap-2 text-[11px]">
-                <button type="button" onClick={clear} className="px-2 py-1 rounded-md border border-[#2a2a2a] hover:bg-[#151515]">Clear</button>
-                <button type="button" onClick={setToday} className="px-2 py-1 rounded-md border border-[#2a2a2a] hover:bg-[#151515]">Today</button>
-              </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="h-7 w-7 grid place-items-center rounded-md border border-[#2a2a2a] hover:bg-[#151515]"
+                onClick={() => setView(new Date(y, m - 1, 1))}
+              >
+                ←
+              </button>
+              <button
+                type="button"
+                className="h-7 w-7 grid place-items-center rounded-md border border-[#2a2a2a] hover:bg-[#151515]"
+                onClick={() => setView(new Date(y, m + 1, 1))}
+              >
+                →
+              </button>
             </div>
           </div>
-        )}
-      </div>
-    );
-  }
+          {/* Grid */}
+          <div className="grid grid-cols-7 gap-1 p-3 text-center">
+            {[...'SMTWTFS'].map((c, i) => (
+              <div key={i} className="text-[11px] text-gray-400">
+                {c}
+              </div>
+            ))}
+            {Array.from({ length: start || 0 }).map((_, i) => (
+              <div key={`e${i}`} />
+            ))}
+            {Array.from({ length: dim }).map((_, i) => {
+              const d = i + 1;
+              const cellDate = new Date(y, m, d);
+              cellDate.setHours(0, 0, 0, 0);
+              const isPast = cellDate < today;
+
+              const isSel =
+                sel &&
+                sel.getFullYear() === y &&
+                sel.getMonth() === m &&
+                sel.getDate() === d;
+
+              const classes = [
+                'h-8 rounded-md border text-sm',
+                isSel
+                  ? 'border-[#00C2CB] text-white bg-[#0b1f20]'
+                  : 'border-transparent hover:border-[#2a2a2a] hover:bg-[#141414]',
+                isPast ? 'opacity-40 cursor-not-allowed hover:border-transparent hover:bg-transparent' : '',
+              ].join(' ');
+
+              return (
+                <button
+                  key={d}
+                  type="button"
+                  disabled={isPast}
+                  onClick={() => {
+                    if (isPast) return;
+                    selectDay(d);
+                  }}
+                  className={classes}
+                >
+                  {d}
+                </button>
+              );
+            })}
+          </div>
+          {/* Time */}
+          <div className="flex items-center gap-2 px-3 pb-3">
+            <select
+              className={`${INPUT} mt-0 w-20`}
+              value={hour12}
+              onChange={(e) => setPart('hour', Number(e.target.value))}
+            >
+              {hours.map((h) => (
+                <option key={h} value={h}>
+                  {pad(h)}
+                </option>
+              ))}
+            </select>
+            <select
+              className={`${INPUT} mt-0 w-20`}
+              value={Number(minuteStr)}
+              onChange={(e) => setPart('minute', Number(e.target.value))}
+            >
+              {minutes.map((mn) => (
+                <option key={mn} value={Number(mn)}>
+                  {mn}
+                </option>
+              ))}
+            </select>
+            <select
+              className={`${INPUT} mt-0 w-24`}
+              value={isPM ? 'pm' : 'am'}
+              onChange={(e) => setPart('ampm', e.target.value as any)}
+            >
+              <option value="am">AM</option>
+              <option value="pm">PM</option>
+            </select>
+            <div className="ml-auto flex items-center gap-2 text-[11px]">
+              <button
+                type="button"
+                onClick={clear}
+                className="px-2 py-1 rounded-md border border-[#2a2a2a] hover:bg-[#151515]"
+              >
+                Clear
+              </button>
+              <button
+                type="button"
+                onClick={setToday}
+                className="px-2 py-1 rounded-md border border-[#2a2a2a] hover:bg-[#151515]"
+              >
+                Today
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
   // ─────────────────────────────
   // Organic submit (direct insert to organic_posts)
@@ -939,7 +1038,10 @@ export default function PromoteOfferPage() {
         headline: form.headline || null,
         caption: form.caption || '',
         call_to_action: form.call_to_action || 'LEARN_MORE',
-        display_link: form.display_link || trackingLink,
+        // display_link is what appears on the ad (brand/site URL)
+        display_link: form.display_link || null,
+        // tracking_link is the hidden redirect we use for attribution
+        tracking_link: trackingLink,
 
         // workflow
         status: 'pending', // business will approve → then we push to Meta via server route
@@ -1418,9 +1520,6 @@ export default function PromoteOfferPage() {
                     </label>
                   </div>
 
-                  <div className="text-xs text-gray-500">
-                    Tracking: <span className="text-white">{trackingLink}</span>
-                  </div>
                   <Disclosure title="How to craft a high‑performing Meta ad (tips & disclaimers)">
                     <ul className="list-disc pl-5 space-y-1">
                       <li><strong>Hook in 3 seconds:</strong> Front‑load the problem and benefit. Keep captions under ~125 characters for feed placements.</li>

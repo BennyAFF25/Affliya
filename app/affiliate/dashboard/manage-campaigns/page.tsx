@@ -14,20 +14,24 @@ interface Offer {
 
 interface LiveCampaign {
   id: string;
-  type: string;
-  offer_id: string;
+  type: string; // 'organic' | 'paid_meta' | etc.
+  offer_id?: string | null;
   business_email: string;
   affiliate_email: string;
-  media_url: string | null;
+  media_url?: string | null;
   caption?: string;
   platform?: string;
   created_from?: string;
   status: string;
   created_at: string;
+  billing_state?: string;
+  billing_paused_at?: string | null;
+  terminated_by_business_at?: string | null;
+  terminated_by_business_note?: string | null;
   offer?: {
     title: string;
     logo_url?: string | null;
-  };
+  } | null;
 }
 
 function PlatformIcon({ platform }: { platform: string }) {
@@ -58,25 +62,43 @@ export default function ManageCampaignsPage() {
       const email = user?.email;
       if (!email) return;
 
-      // 1. Fetch campaigns
-      const { data: campaignsRaw, error: campaignsError } = await supabase
+      // 1. Fetch organic campaigns from live_campaigns
+      const { data: organicRaw, error: organicError } = await supabase
         .from('live_campaigns')
         .select('*')
         .eq('affiliate_email', email);
 
-      if (campaignsError) {
-        console.error('Error fetching campaigns:', campaignsError.message);
-        return;
+      if (organicError) {
+        console.error('Error fetching organic campaigns:', organicError.message);
       }
 
-      if (!campaignsRaw || campaignsRaw.length === 0) {
+      // 2. Fetch paid Meta campaigns from live_ads for this affiliate
+      const { data: paidRaw, error: paidError } = await supabase
+        .from('live_ads')
+        .select(
+          `*,
+          billing_state,
+          billing_paused_at,
+          terminated_by_business_at,
+          terminated_by_business_note`
+        )
+        .eq('affiliate_email', email);
+
+      if (paidError) {
+        console.error('Error fetching paid campaigns (live_ads):', paidError.message);
+      }
+
+      const organic = organicRaw || [];
+      const paid = paidRaw || [];
+
+      if (organic.length === 0 && paid.length === 0) {
         setCampaigns([]);
         return;
       }
 
-      // 2. Fetch all unique offer_ids
+      // 3. Fetch offers only for organic campaigns (live_campaigns has offer_id)
       const offerIds = Array.from(
-        new Set((campaignsRaw as any[]).map((c) => c.offer_id).filter(Boolean))
+        new Set((organic as any[]).map((c) => c.offer_id).filter(Boolean))
       );
       let offersById: { [id: string]: Offer } = {};
 
@@ -93,13 +115,46 @@ export default function ManageCampaignsPage() {
         }
       }
 
-      // 3. Merge offer data into campaigns
-      const campaignsWithOffers = campaignsRaw.map((c: any) => ({
-        ...c,
+      // 4. Map organic campaigns with offer data
+      const organicCampaigns: LiveCampaign[] = (organic as any[]).map((c) => ({
+        id: c.id,
+        type: (c.type as string) || 'organic',
+        offer_id: c.offer_id,
+        business_email: c.business_email,
+        affiliate_email: c.affiliate_email,
+        media_url: c.media_url ?? null,
+        caption: c.caption,
+        platform: c.platform ?? 'organic',
+        created_from: c.created_from,
+        status: c.status,
+        created_at: c.created_at,
         offer: offersById[c.offer_id] || null,
       }));
 
-      setCampaigns(campaignsWithOffers);
+      // 5. Map paid Meta campaigns from live_ads into the same shape
+      const paidCampaigns: LiveCampaign[] = (paid as any[]).map((a) => ({
+        id: a.id,
+        type: (a.campaign_type as string) || 'paid_meta',
+        offer_id: (a as any).offer_id ?? null, // live_ads doesn’t store offer_id directly
+        business_email: a.business_email,
+        affiliate_email: a.affiliate_email,
+        media_url: null, // optional – we can hydrate from ad_ideas later if needed
+        caption: a.caption || 'Meta campaign',
+        platform: 'facebook',
+        created_from: a.created_from || 'meta_api',
+        status: a.status || 'active',
+        created_at: a.created_at,
+        billing_state: a.billing_state || 'active',
+        billing_paused_at: a.billing_paused_at || null,
+        terminated_by_business_at: a.terminated_by_business_at || null,
+        terminated_by_business_note: a.terminated_by_business_note || null,
+        offer: null,
+      }));
+
+      // 6. Merge both arrays into a single campaigns list
+      const merged: LiveCampaign[] = [...organicCampaigns, ...paidCampaigns];
+
+      setCampaigns(merged);
     };
 
     fetchCampaigns();
