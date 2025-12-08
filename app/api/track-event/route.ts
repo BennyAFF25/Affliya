@@ -105,6 +105,14 @@ export async function POST(req: NextRequest) {
     const campaign_id = body.campaign_id ?? null;
     let offer_id = body.offer_id ?? body?.event_data?.offer_id ?? null;
 
+    console.log('[track-event] incoming event', {
+      event_type,
+      affiliate_id,
+      campaign_id,
+      offer_id_raw: body.offer_id ?? null,
+      campaign_id_raw: body.campaign_id ?? null,
+    });
+
     const raw_event_data = body.event_data;
     const event_data =
       raw_event_data && typeof raw_event_data === 'object'
