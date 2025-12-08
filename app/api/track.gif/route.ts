@@ -52,6 +52,7 @@ export async function GET(req: NextRequest) {
     if (event_data && typeof event_data === 'object') {
       const currencyCandidates = [
         (event_data as any).currency,
+        (event_data as any).currency,
         (event_data as any).currencyCode,
         (event_data as any)?.totalPrice?.currencyCode,
       ];
@@ -63,12 +64,26 @@ export async function GET(req: NextRequest) {
     // Resolve offer_id from campaign if available (best-effort)
     let offer_id: string | null = null;
     if (campaign_id) {
-      const { data: camp } = await supabase
+      // 1) Try organic live_campaigns
+      const { data: organicCamp } = await supabase
         .from('live_campaigns')
         .select('offer_id')
         .eq('id', campaign_id)
         .maybeSingle();
-      offer_id = camp?.offer_id || null;
+
+      if (organicCamp?.offer_id) {
+        offer_id = organicCamp.offer_id;
+      } else {
+        // 2) Fallback to paid Meta live_ads
+        const { data: paidCamp } = await supabase
+          .from('live_ads')
+          .select('offer_id')
+          .eq('id', campaign_id)
+          .maybeSingle();
+        if (paidCamp?.offer_id) {
+          offer_id = paidCamp.offer_id;
+        }
+      }
     }
 
     // Insert tracking event and get inserted row
@@ -119,12 +134,32 @@ export async function GET(req: NextRequest) {
         return gifResponse();
       }
 
-      // Fetch campaign
-      const { data: campaign } = await supabase
-        .from('live_campaigns')
-        .select('id, offer_id, business_email, affiliate_email')
-        .eq('id', campaign_id)
-        .maybeSingle();
+      // Fetch campaign – support BOTH organic and paid Meta
+      let campaign: any = null;
+
+      if (campaign_id) {
+        // 1) Try organic live_campaigns
+        const { data: organic } = await supabase
+          .from('live_campaigns')
+          .select('id, offer_id, business_email, affiliate_email')
+          .eq('id', campaign_id)
+          .maybeSingle();
+
+        if (organic) {
+          campaign = organic;
+        } else {
+          // 2) Try paid Meta live_ads
+          const { data: paid } = await supabase
+            .from('live_ads')
+            .select('id, offer_id, business_email, affiliate_email')
+            .eq('id', campaign_id)
+            .maybeSingle();
+          if (paid) {
+            campaign = paid;
+          }
+        }
+      }
+
       if (!campaign) return gifResponse();
 
       // Determine resolvedOfferId

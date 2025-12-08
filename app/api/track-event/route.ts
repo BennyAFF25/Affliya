@@ -157,7 +157,7 @@ export async function POST(req: NextRequest) {
               offer_id = organicPost.offer_id;
               console.log(`[track-event] [fallback] offer_id via organic_posts → ${offer_id}`);
             } else {
-              // 4) Final fallback: infer by hostname against offers.site_host
+              // 4) Final hostname-based fallback: infer by hostname against offers.site_host
               const host = hostnameFrom(event_data, body?.referrer || null);
               if (host) {
                 const { data: offerByHost, error: hostErr } = await supabase
@@ -168,7 +168,9 @@ export async function POST(req: NextRequest) {
 
                 if (!hostErr && offerByHost?.id) {
                   offer_id = offerByHost.id;
-                  console.log(`[track-event] [fallback] offer_id via offers.site_host (${offerByHost.site_host}) → ${offer_id}`);
+                  console.log(
+                    `[track-event] [fallback] offer_id via offers.site_host (${offerByHost.site_host}) → ${offer_id}`
+                  );
                 } else {
                   console.warn('[track-event] offer_id not provided; all fallbacks failed', {
                     campaign_id,
@@ -181,17 +183,47 @@ export async function POST(req: NextRequest) {
                   });
                 }
               } else {
-                console.warn('[track-event] offer_id not provided; no hostname available and all fallbacks failed', {
-                  campaign_id,
-                  liveCampErr,
-                  adErr,
-                  liveErr,
-                  organicErr,
-                });
+                console.warn(
+                  '[track-event] offer_id not provided; no hostname available and all fallbacks failed',
+                  {
+                    campaign_id,
+                    liveCampErr,
+                    adErr,
+                    liveErr,
+                    organicErr,
+                  }
+                );
               }
             }
           }
         }
+      }
+    }
+
+    // 🔹 FINAL safety net:
+    // If offer_id is still missing but campaign_id actually *is* an offers.id, treat it as such.
+    if (!offer_id && campaign_id) {
+      try {
+        const { data: offerFromCampaign, error: offerFromCampaignErr } = await supabase
+          .from('offers')
+          .select('id')
+          .eq('id', campaign_id)
+          .maybeSingle();
+
+        if (!offerFromCampaignErr && offerFromCampaign?.id) {
+          offer_id = offerFromCampaign.id;
+          console.log(
+            '[track-event] final fallback: campaign_id matched offers.id →',
+            offer_id
+          );
+        } else if (offerFromCampaignErr) {
+          console.warn('[track-event] final fallback offers.id lookup error', {
+            campaign_id,
+            offerFromCampaignErr,
+          });
+        }
+      } catch (e) {
+        console.warn('[track-event] final fallback threw', { campaign_id, e });
       }
     }
 
