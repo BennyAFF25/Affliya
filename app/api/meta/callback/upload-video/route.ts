@@ -484,6 +484,8 @@ export async function POST(req: Request) {
           // Prepare payload for live_ads insert (matches live_ads schema)
           const liveAdsPayload = {
             ad_idea_id: adIdeaId,
+            // tie this live ad back to the originating offer so tracking/payouts can resolve it
+            offer_id: prefer(offerId, adIdea?.offer_id, null),
             meta_ad_id: adRes.id,
             campaign_id: campaignData.id,
             ad_set_id: adSetRes.id,
