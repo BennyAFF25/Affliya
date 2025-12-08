@@ -2,7 +2,7 @@
 
 import { NextResponse, NextRequest } from 'next/server'
 import { cookies } from 'next/headers'
-import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 
 const META_APP_ID = process.env.NEXT_PUBLIC_META_APP_ID!
 const META_APP_SECRET = process.env.META_APP_SECRET!
@@ -28,7 +28,8 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'No token received' }, { status: 401 })
     }
 
-    const supabase = createMiddlewareClient({ req, res: NextResponse.next() })
+    const cookieStore = cookies()
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
 
     const {
       data: { user },
