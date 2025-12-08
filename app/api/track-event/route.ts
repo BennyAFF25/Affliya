@@ -102,7 +102,7 @@ export async function POST(req: NextRequest) {
     }
 
     const affiliate_id = body.affiliate_id ?? null;
-    const campaign_id = body.campaign_id ?? null;
+    let campaign_id = body.campaign_id ?? null;
     let offer_id = body.offer_id ?? body?.event_data?.offer_id ?? null;
 
     console.log('[track-event] incoming event', {
@@ -232,6 +232,45 @@ export async function POST(req: NextRequest) {
         }
       } catch (e) {
         console.warn('[track-event] final fallback threw', { campaign_id, e });
+      }
+    }
+
+    // --- Paid Meta stats: if campaign_id still matches offer_id, remap to live_ads.id ---
+    if (offer_id && affiliate_id && campaign_id && campaign_id === offer_id) {
+      try {
+        const { data: paidLiveAd, error: paidLiveAdErr } = await supabase
+          .from('live_ads')
+          .select('id')
+          .eq('offer_id', offer_id)
+          .eq('affiliate_email', affiliate_id)
+          .eq('campaign_type', 'paid_meta')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (!paidLiveAdErr && paidLiveAd?.id) {
+          console.log('[track-event] remapping campaign_id to live_ads.id for paid_meta flow', {
+            old_campaign_id: campaign_id,
+            new_campaign_id: paidLiveAd.id,
+            offer_id,
+            affiliate_id,
+          });
+          campaign_id = paidLiveAd.id;
+        } else if (paidLiveAdErr) {
+          console.warn('[track-event] paid_meta live_ads lookup error; keeping original campaign_id', {
+            campaign_id,
+            offer_id,
+            affiliate_id,
+            paidLiveAdErr,
+          });
+        }
+      } catch (e) {
+        console.warn('[track-event] paid_meta remap threw; keeping original campaign_id', {
+          campaign_id,
+          offer_id,
+          affiliate_id,
+          e,
+        });
       }
     }
 
