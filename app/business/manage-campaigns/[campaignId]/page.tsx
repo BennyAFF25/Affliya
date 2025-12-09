@@ -101,12 +101,15 @@ export default function BusinessCampaignDetailPage() {
     const fetchCampaign = async () => {
       setLoading(true);
 
+      console.log('✅ CAMPAIGN ID FROM ROUTE:', campaignId);
+
       // 1) Try to load as a Meta paid ad from live_ads
       const { data: metaRow, error: metaError } = await (supabase as any)
         .from('live_ads')
         .select(
           `
           id,
+          offer_id,
           ad_idea_id,
           business_email,
           affiliate_email,
@@ -130,10 +133,12 @@ export default function BusinessCampaignDetailPage() {
         .single();
 
       if (metaRow && !metaError) {
+        console.log('✅ META CAMPAIGN DATA (live_ads):', metaRow);
+
         const mapped: Campaign = {
           id: metaRow.id,
           type: metaRow.campaign_type || 'Meta Ad',
-          offer_id: null,
+          offer_id: metaRow.offer_id || null,
           business_email: metaRow.business_email,
           affiliate_email: metaRow.affiliate_email,
           media_url: (metaRow as any)?.ad_ideas?.file_url || null,
@@ -156,7 +161,6 @@ export default function BusinessCampaignDetailPage() {
         };
 
         setCampaign(mapped);
-        console.log('[✅ Business meta campaign detail]', mapped);
         setLoading(false);
         return;
       }
@@ -226,18 +230,34 @@ export default function BusinessCampaignDetailPage() {
       setStatsLoading(true);
 
       try {
-        // Fetch events matching either campaignId or campaign?.id (handles Meta UUID mapping)
-        const { data: rows, error } = await (supabase as any)
+        console.log('[📡 Fetching campaign events]', {
+          campaignId,
+          source: campaign?.meta_source,
+        });
+
+        // 🔑 Single source of truth: stats are always per campaign_id.
+        const resp = await (supabase as any)
           .from('campaign_tracking_events')
-          .select('id, event_type, amount, created_at, offer_id, affiliate_id, campaign_id')
-          .or(`campaign_id.eq.${campaignId},campaign_id.eq.${campaign?.id}`);
-        console.log('[📡 Fetched events for]', campaignId, rows?.length, rows);
+          .select(
+            'id, event_type, amount, created_at, offer_id, affiliate_id, campaign_id'
+          )
+          .eq('campaign_id', campaignId);
+
+        const rows: any[] = resp.data || [];
+        const error: any = resp.error;
+
+        console.log('[📡 Events raw rows]', rows);
+        console.log('[📡 Fetched events]', {
+          campaignId,
+          source: campaign?.meta_source,
+          count: rows.length,
+        });
 
         if (error) {
           console.error('[❌ Failed to fetch campaign stats]', error);
         }
 
-        let mergedRows: {
+        const mergedRows: {
           id: string;
           event_type: string | null;
           amount: number | null;
@@ -245,28 +265,7 @@ export default function BusinessCampaignDetailPage() {
           offer_id: string | null;
           affiliate_id: string | null;
           campaign_id: string | null;
-        }[] = (rows as any) || [];
-
-        // Fallback: For Meta campaigns, also pull any legacy / fallback events tied only to offer_id + affiliate_id
-        if (campaign.meta_source === 'meta' && campaign.offer_id && campaign.affiliate_email) {
-          const { data: extraRows, error: extraError } = await (supabase as any)
-            .from('campaign_tracking_events')
-            .select('id, event_type, amount, created_at, offer_id, affiliate_id, campaign_id')
-            .eq('offer_id', campaign.offer_id)
-            .eq('affiliate_id', campaign.affiliate_email);
-
-          if (extraError) {
-            console.error('[❌ Failed to fetch campaign stats (extra)]', extraError);
-          } else if (extraRows && extraRows.length > 0) {
-            const seen = new Set(mergedRows.map((r) => r.id));
-            for (const r of extraRows as any[]) {
-              if (!seen.has(r.id)) {
-                mergedRows.push(r as any);
-                seen.add(r.id);
-              }
-            }
-          }
-        }
+        }[] = rows || [];
 
         if (!mergedRows.length) {
           setStats(null);
@@ -294,7 +293,6 @@ export default function BusinessCampaignDetailPage() {
             t === 'landing_view' ||
             t === 'click'
           ) {
-            // Treat clicks as the main top-of-funnel metric for paid ads
             pageViews += 1;
           } else if (t === 'add_to_cart' || t === 'cart') {
             addToCarts += 1;
