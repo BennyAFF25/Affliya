@@ -5,6 +5,7 @@ if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
 
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { randomUUID } from 'crypto';
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -484,10 +485,9 @@ export async function POST(req: Request) {
           // Prepare payload for live_ads insert (matches live_ads schema)
           const liveAdsPayload = {
             ad_idea_id: adIdeaId,
-            // tie this live ad back to the originating offer so tracking/payouts can resolve it
             offer_id: prefer(offerId, adIdea?.offer_id, null),
-            meta_campaign_id: campaignData.id, // ✅ store Meta campaign ID here
-            campaign_id: null, // will update after insert
+            meta_campaign_id: campaignData.id,
+            campaign_id: randomUUID(), // ✅ generate valid UUID for NOT NULL constraint
             meta_ad_id: adRes.id,
             ad_set_id: adSetRes.id,
             creative_id: creativeRes.id,
@@ -500,11 +500,11 @@ export async function POST(req: Request) {
             spend: 0,
             clicks: 0,
             conversions: 0,
-            // canonical tracking link we want tied to this live ad
             tracking_link: trackingLink || destinationLink || null,
             campaign_type: 'paid_meta',
             caption: caption || '',
             created_from: 'meta_api',
+            created_at: new Date().toISOString(),
           };
 
           console.log('[live_ads INSERT PAYLOAD]', liveAdsPayload);

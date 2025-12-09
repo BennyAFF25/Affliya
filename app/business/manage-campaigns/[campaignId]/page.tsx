@@ -226,17 +226,18 @@ export default function BusinessCampaignDetailPage() {
       setStatsLoading(true);
 
       try {
-        // 1) Base query: events explicitly tied to this campaign_id (with fallback for legacy Meta string IDs)
-        const { data: baseRows, error: baseError } = await (supabase as any)
+        // Fetch events matching either campaignId or campaign?.id (handles Meta UUID mapping)
+        const { data: rows, error } = await (supabase as any)
           .from('campaign_tracking_events')
           .select('id, event_type, amount, created_at, offer_id, affiliate_id, campaign_id')
-          .or(`campaign_id.eq.${campaignId},campaign_id.eq.${campaignId.toString()}`);
+          .or(`campaign_id.eq.${campaignId},campaign_id.eq.${campaign?.id}`);
+        console.log('[📡 Fetched events for]', campaignId, rows?.length, rows);
 
-        if (baseError) {
-          console.error('[❌ Failed to fetch campaign stats (base)]', baseError);
+        if (error) {
+          console.error('[❌ Failed to fetch campaign stats]', error);
         }
 
-        let rows: {
+        let mergedRows: {
           id: string;
           event_type: string | null;
           amount: number | null;
@@ -244,31 +245,9 @@ export default function BusinessCampaignDetailPage() {
           offer_id: string | null;
           affiliate_id: string | null;
           campaign_id: string | null;
-        }[] = (baseRows as any) || [];
+        }[] = (rows as any) || [];
 
-        // Legacy Meta campaign fallback (for events stored under meta_campaign_id before UUID remap)
-        if (campaign.meta_source === 'meta' && campaign?.campaign_type && campaignId) {
-          const { data: legacyRows, error: legacyError } = await (supabase as any)
-            .from('campaign_tracking_events')
-            .select('id, event_type, amount, created_at, offer_id, affiliate_id, campaign_id')
-            .eq('campaign_id', campaign?.meta_campaign_id || campaignId)
-            .neq('campaign_id', campaignId);
-
-          if (legacyError) {
-            console.warn('[⚠️ Legacy Meta campaign fallback error]', legacyError);
-          } else if (legacyRows?.length) {
-            const seen = new Set(rows.map((r) => r.id));
-            for (const r of legacyRows as any[]) {
-              if (!seen.has(r.id)) {
-                rows.push(r as any);
-                seen.add(r.id);
-              }
-            }
-            console.log('[📎 Added legacy Meta events]', legacyRows.length);
-          }
-        }
-
-        // 2) For Meta campaigns, also pull any legacy / fallback events tied only to offer_id + affiliate_id
+        // Fallback: For Meta campaigns, also pull any legacy / fallback events tied only to offer_id + affiliate_id
         if (campaign.meta_source === 'meta' && campaign.offer_id && campaign.affiliate_email) {
           const { data: extraRows, error: extraError } = await (supabase as any)
             .from('campaign_tracking_events')
@@ -279,19 +258,17 @@ export default function BusinessCampaignDetailPage() {
           if (extraError) {
             console.error('[❌ Failed to fetch campaign stats (extra)]', extraError);
           } else if (extraRows && extraRows.length > 0) {
-            const seen = new Set(rows.map((r) => r.id));
+            const seen = new Set(mergedRows.map((r) => r.id));
             for (const r of extraRows as any[]) {
               if (!seen.has(r.id)) {
-                rows.push(r as any);
+                mergedRows.push(r as any);
                 seen.add(r.id);
               }
             }
           }
         }
 
-        console.log('[📊 Campaign stats rows merged]', rows.length, { campaignId });
-
-        if (!rows.length) {
+        if (!mergedRows.length) {
           setStats(null);
           setSeries({
             labels: [],
@@ -309,7 +286,7 @@ export default function BusinessCampaignDetailPage() {
         let conversions = 0;
         let revenue = 0;
 
-        for (const evt of rows) {
+        for (const evt of mergedRows) {
           const t = (evt.event_type || '').toLowerCase();
           if (
             t === 'page_view' ||
@@ -341,7 +318,7 @@ export default function BusinessCampaignDetailPage() {
           new Date(d.getFullYear(), d.getMonth(), d.getDate());
         const today = startOfDay(new Date());
 
-        for (const row of rows) {
+        for (const row of mergedRows) {
           const d = new Date(row.created_at);
           const rowDay = startOfDay(d);
           const diffDays = Math.round(
