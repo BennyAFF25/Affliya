@@ -224,26 +224,12 @@ export default function BusinessCampaignDetailPage() {
     const fetchStats = async () => {
       setStatsLoading(true);
 
-      // For Meta paid ads, include events for both campaign_id and offer_id.
-      const isMeta = campaign.meta_source === 'meta';
-
-      let baseQuery = (supabase as any)
+      // Both organic and Meta paid campaigns now use `campaign_id`
+      // as the live campaign row ID (live_campaigns.id or live_ads.id).
+      const { data, error } = await (supabase as any)
         .from('campaign_tracking_events')
-        .select('event_type, amount, created_at, campaign_id, offer_id');
-
-      if (isMeta && campaign.offer_id) {
-        // For Meta paid ads, be generous: include any events written
-        // with either the live_ads id OR the offer_id so we pick up
-        // all rows even if they were created before our latest patches.
-        baseQuery = baseQuery.or(
-          `campaign_id.eq.${campaignId},campaign_id.eq.${campaign.offer_id}`
-        );
-      } else {
-        // Organic campaigns continue to match strictly on id
-        baseQuery = baseQuery.eq('campaign_id', campaignId);
-      }
-
-      const { data, error } = await baseQuery;
+        .select('event_type, amount, created_at')
+        .eq('campaign_id', campaignId);
 
       if (error) {
         console.error('[❌ Failed to fetch campaign stats]', error);
@@ -287,14 +273,12 @@ export default function BusinessCampaignDetailPage() {
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
 
-      let recentQuery = (supabase as any)
+      const { data: recent, error: recentErr } = await (supabase as any)
         .from('campaign_tracking_events')
         .select('created_at, event_type')
         .eq('campaign_id', campaignId)
         .gte('created_at', sevenDaysAgo.toISOString())
         .order('created_at', { ascending: true });
-
-      const { data: recent, error: recentErr } = await recentQuery;
 
       if (!recentErr && recent) {
         const labels = buildLast7DaysLabels();
@@ -343,7 +327,7 @@ export default function BusinessCampaignDetailPage() {
     };
 
     fetchStats();
-  }, [campaignId, user?.email, campaign?.meta_source, campaign?.offer_id]);
+  }, [campaignId, user?.email, campaign]);
 
   const formatDate = (d?: string | null) => {
     if (!d) return '';
