@@ -276,6 +276,36 @@ export async function POST(req: NextRequest) {
 
     const { amount, currency } = extractAmountAndCurrency(event_data);
 
+    // 🧩 Ensure campaign_id is a valid UUID before insert (remap if Meta numeric ID)
+    const isUuid = (v: any) =>
+      typeof v === 'string' &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
+
+    if (campaign_id && !isUuid(campaign_id)) {
+      console.warn('[track-event] non-UUID campaign_id detected; attempting to remap from live_ads.meta_campaign_id →', campaign_id);
+      try {
+        const { data: matchAd, error: matchErr } = await supabase
+          .from('live_ads')
+          .select('id')
+          .eq('meta_campaign_id', campaign_id)
+          .maybeSingle();
+
+        if (!matchErr && matchAd?.id) {
+          console.log('[track-event] remapped Meta campaign ID to internal live_ads.id', {
+            old_campaign_id: campaign_id,
+            new_campaign_id: matchAd.id,
+          });
+          campaign_id = matchAd.id;
+        } else if (matchErr) {
+          console.warn('[track-event] remap lookup error', matchErr);
+        } else {
+          console.warn('[track-event] remap failed — no matching live_ads row for meta_campaign_id', campaign_id);
+        }
+      } catch (e) {
+        console.error('[track-event] remap exception', e);
+      }
+    }
+
     // Insert into campaign_tracking_events
     const { data: insertedRows, error: insertErr } = await supabase
       .from('campaign_tracking_events')

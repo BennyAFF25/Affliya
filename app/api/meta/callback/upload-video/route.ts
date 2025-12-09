@@ -486,8 +486,9 @@ export async function POST(req: Request) {
             ad_idea_id: adIdeaId,
             // tie this live ad back to the originating offer so tracking/payouts can resolve it
             offer_id: prefer(offerId, adIdea?.offer_id, null),
+            meta_campaign_id: campaignData.id, // ✅ store Meta campaign ID here
+            campaign_id: null, // will update after insert
             meta_ad_id: adRes.id,
-            campaign_id: campaignData.id,
             ad_set_id: adSetRes.id,
             creative_id: creativeRes.id,
             affiliate_email:
@@ -516,9 +517,16 @@ export async function POST(req: Request) {
 
           if (liveAdErr) {
             console.error('[❌ live_ads insert error]', liveAdErr);
-          } else {
-            liveAdRow = insertedLiveAdRow;
+          } else if (insertedLiveAdRow?.id) {
             console.log('[✅ live_ads insert success]', insertedLiveAdRow);
+            // Update internal campaign_id to match the internal UUID
+            const { error: updateErr } = await supabase
+              .from('live_ads')
+              .update({ campaign_id: insertedLiveAdRow.id })
+              .eq('id', insertedLiveAdRow.id);
+            if (updateErr) console.error('[⚠️ live_ads campaign_id sync failed]', updateErr);
+            else console.log('[✅ live_ads campaign_id synced]', insertedLiveAdRow.id);
+            liveAdRow = insertedLiveAdRow;
           }
         }
       }
