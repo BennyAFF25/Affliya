@@ -92,6 +92,8 @@ export default function ManageCampaignPage() {
 
   // --------------------
   // Stats loader
+  // This loader is shared for both organic (live_campaigns) and paid Meta (live_ads) campaigns,
+  // relying on the unified campaignId used in campaign_tracking_events.
   // --------------------
   async function loadCampaignStats(currentCampaignId: string) {
     try {

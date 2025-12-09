@@ -219,15 +219,31 @@ export default function BusinessCampaignDetailPage() {
   };
 
   useEffect(() => {
-    if (!campaignId || !user?.email) return;
+    if (!campaignId || !user?.email || !campaign) return;
 
     const fetchStats = async () => {
       setStatsLoading(true);
 
-      const { data, error } = await (supabase as any)
+      // For Meta paid ads, include events for both campaign_id and offer_id.
+      const isMeta = campaign.meta_source === 'meta';
+
+      let baseQuery = (supabase as any)
         .from('campaign_tracking_events')
-        .select('event_type, amount')
-        .eq('campaign_id', campaignId);
+        .select('event_type, amount, created_at, campaign_id, offer_id');
+
+      if (isMeta && campaign.offer_id) {
+        // For Meta paid ads, be generous: include any events written
+        // with either the live_ads id OR the offer_id so we pick up
+        // all rows even if they were created before our latest patches.
+        baseQuery = baseQuery.or(
+          `campaign_id.eq.${campaignId},campaign_id.eq.${campaign.offer_id}`
+        );
+      } else {
+        // Organic campaigns continue to match strictly on id
+        baseQuery = baseQuery.eq('campaign_id', campaignId);
+      }
+
+      const { data, error } = await baseQuery;
 
       if (error) {
         console.error('[❌ Failed to fetch campaign stats]', error);
@@ -241,6 +257,10 @@ export default function BusinessCampaignDetailPage() {
         });
         return;
       }
+
+      console.log('[📊 Campaign stats rows]', data?.length ?? 0, {
+        campaignId,
+      });
 
       let pageViews = 0;
       let addToCarts = 0;
@@ -267,12 +287,14 @@ export default function BusinessCampaignDetailPage() {
       const sevenDaysAgo = new Date();
       sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
 
-      const { data: recent, error: recentErr } = await (supabase as any)
+      let recentQuery = (supabase as any)
         .from('campaign_tracking_events')
         .select('created_at, event_type')
         .eq('campaign_id', campaignId)
         .gte('created_at', sevenDaysAgo.toISOString())
         .order('created_at', { ascending: true });
+
+      const { data: recent, error: recentErr } = await recentQuery;
 
       if (!recentErr && recent) {
         const labels = buildLast7DaysLabels();
@@ -284,16 +306,13 @@ export default function BusinessCampaignDetailPage() {
           new Date(d.getFullYear(), d.getMonth(), d.getDate());
         const today = startOfDay(new Date());
 
-        for (const row of recent as {
-          created_at: string;
-          event_type: string;
-        }[]) {
+        for (const row of recent as { created_at: string; event_type: string }[]) {
           const d = new Date(row.created_at);
           const rowDay = startOfDay(d);
           const diffDays = Math.round(
             (rowDay.getTime() - today.getTime()) / 86400000
           );
-          const idx = Math.min(6, Math.max(0, 6 + diffDays)); // map -6..0 to 0..6
+          const idx = Math.min(6, Math.max(0, 6 + diffDays));
 
           const t = (row.event_type || '').toLowerCase();
           if (t === 'page_view' || t === 'view' || t === 'landing_view') {
@@ -319,11 +338,12 @@ export default function BusinessCampaignDetailPage() {
           conversions: [],
         });
       }
+
       setStatsLoading(false);
     };
 
     fetchStats();
-  }, [campaignId, user?.email, campaign?.meta_source]);
+  }, [campaignId, user?.email, campaign?.meta_source, campaign?.offer_id]);
 
   const formatDate = (d?: string | null) => {
     if (!d) return '';
