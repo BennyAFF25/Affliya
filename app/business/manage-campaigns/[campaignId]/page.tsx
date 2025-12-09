@@ -2,938 +2,445 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { useSession } from '@supabase/auth-helpers-react';
 import { supabase } from 'utils/supabase/pages-client';
-import {
-  CursorArrowRaysIcon,
-  ShoppingCartIcon,
-  CurrencyDollarIcon,
-  PlayCircleIcon,
-  PhotoIcon,
-} from '@heroicons/react/24/outline';
 
-import { Line } from 'react-chartjs-2';
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler,
-} from 'chart.js';
+type SourceType = 'organic' | 'meta';
 
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler
-);
-
-type Campaign = {
+interface BaseCampaign {
   id: string;
-  type: string | null;
   offer_id: string | null;
   business_email: string | null;
   affiliate_email: string | null;
-  media_url: string | null;
   caption: string | null;
-  platform: string | null;
-  created_from: string | null;
+  platform?: string | null;
+  type?: string | null;
+  campaign_type?: string | null;
+  tracking_link?: string | null;
   status: string | null;
   created_at: string | null;
-  // Meta paid ads (live_ads) specific
-  ad_idea_id?: string | null;
-  spend?: number | null;
-  clicks?: number | null;
-  conversions?: number | null;
-  tracking_link?: string | null;
-  campaign_type?: string | null;
-  // Indicates whether this came from live_campaigns (organic) or live_ads (meta)
-  meta_source?: 'organic' | 'meta';
-};
+  _source: SourceType;
+}
 
-type CampaignStats = {
-  pageViews: number;
+interface OfferRow {
+  id: string;
+  title: string | null;
+  website: string | null;
+}
+
+interface StatSummary {
+  clicks: number;
   addToCarts: number;
   conversions: number;
   revenue: number;
-};
+}
 
-type CampaignSeries = {
-  labels: string[];
-  pageViews: number[];
-  addToCarts: number[];
-  conversions: number[];
-};
+interface TrackingEventRow {
+  event_type?: string | null;
+  amount?: number | null;
+}
 
-export default function BusinessCampaignDetailPage() {
+const BusinessCampaignDetail = () => {
   const params = useParams();
   const router = useRouter();
   const session = useSession();
   const user = session?.user;
 
-  const campaignId = params?.campaignId as string;
+  const campaignId =
+    typeof params?.campaignId === 'string'
+      ? params.campaignId
+      : Array.isArray(params?.campaignId)
+      ? params.campaignId[0]
+      : null;
 
-  const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [loading, setLoading] = useState(true);
-  const [updating, setUpdating] = useState(false);
-  const [stats, setStats] = useState<CampaignStats | null>(null);
-  const [statsLoading, setStatsLoading] = useState(false);
-  const [series, setSeries] = useState<CampaignSeries>({
-    labels: [],
-    pageViews: [],
-    addToCarts: [],
-    conversions: [],
-  });
+  const [campaign, setCampaign] = useState<BaseCampaign | null>(null);
+  const [offer, setOffer] = useState<OfferRow | null>(null);
+  const [stats, setStats] = useState<StatSummary | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user?.email || !campaignId) return;
+    if (!campaignId || !user) return;
 
-    const fetchCampaign = async () => {
-      setLoading(true);
+    const load = async () => {
+      try {
+        setLoading(true);
+        setError(null);
 
-      // 1) Try to load as a Meta paid ad from live_ads
-      const { data: metaRow, error: metaError } = await (supabase as any)
-        .from('live_ads')
-        .select(
+        // 1) Try organic first
+        const { data: organic, error: organicError } = await supabase
+          .from('live_campaigns')
+          .select(
+            `
+            id,
+            offer_id,
+            business_email,
+            affiliate_email,
+            caption,
+            platform,
+            type,
+            status,
+            created_at
           `
-          id,
-          ad_idea_id,
-          business_email,
-          affiliate_email,
-          caption,
-          status,
-          spend,
-          clicks,
-          conversions,
-          tracking_link,
-          campaign_type,
-          created_from,
-          created_at,
-          ad_ideas (
-            file_url,
-            caption
           )
-        `
-        )
-        .eq('id', campaignId)
-        .eq('business_email', user.email as string)
-        .single();
+          .eq('id', campaignId)
+          .maybeSingle();
 
-      if (metaRow && !metaError) {
-        const mapped: Campaign = {
-          id: metaRow.id,
-          type: metaRow.campaign_type || 'Meta Ad',
-          offer_id: null,
-          business_email: metaRow.business_email,
-          affiliate_email: metaRow.affiliate_email,
-          media_url: (metaRow as any)?.ad_ideas?.file_url || null,
-          caption:
-            metaRow.caption ||
-            ((metaRow as any)?.ad_ideas &&
-              (metaRow as any).ad_ideas.caption) ||
-            null,
-          platform: 'Meta',
-          created_from: metaRow.created_from,
-          status: metaRow.status,
-          created_at: metaRow.created_at,
-          ad_idea_id: metaRow.ad_idea_id,
-          spend: metaRow.spend,
-          clicks: metaRow.clicks,
-          conversions: metaRow.conversions,
-          tracking_link: metaRow.tracking_link,
-          campaign_type: metaRow.campaign_type,
-          meta_source: 'meta',
+        let base: BaseCampaign | null = null;
+
+        if (organic) {
+          const organicRow = organic as Record<string, any>;
+
+          const organicBase: BaseCampaign = {
+            id: String(organicRow.id),
+            offer_id: organicRow.offer_id ?? null,
+            business_email: organicRow.business_email ?? null,
+            affiliate_email: organicRow.affiliate_email ?? null,
+            caption: organicRow.caption ?? null,
+            platform: organicRow.platform ?? null,
+            type: organicRow.type ?? null,
+            campaign_type: 'organic',
+            tracking_link: null,
+            status: organicRow.status ?? null,
+            created_at: organicRow.created_at ?? null,
+            _source: 'organic',
+          };
+
+          base = organicBase;
+        } else {
+          // 2) Fallback to paid meta ads
+          const { data: meta, error: metaError } = await supabase
+            .from('live_ads')
+            .select(
+              `
+              id,
+              offer_id,
+              business_email,
+              affiliate_email,
+              caption,
+              campaign_type,
+              tracking_link,
+              status,
+              created_at
+            `
+            )
+            .eq('id', campaignId)
+            .maybeSingle();
+
+          if (!meta) {
+            console.error(
+              '[❌ Failed to load campaign detail]',
+              organicError,
+              metaError
+            );
+            setError('Campaign not found.');
+            setLoading(false);
+            return;
+          }
+
+          const metaRow = meta as Record<string, any>;
+
+          const metaBase: BaseCampaign = {
+            id: String(metaRow.id),
+            offer_id: metaRow.offer_id ?? null,
+            business_email: metaRow.business_email ?? null,
+            affiliate_email: metaRow.affiliate_email ?? null,
+            caption: metaRow.caption ?? null,
+            platform: null,
+            type: null,
+            campaign_type: metaRow.campaign_type ?? null,
+            tracking_link: metaRow.tracking_link ?? null,
+            status: metaRow.status ?? null,
+            created_at: metaRow.created_at ?? null,
+            _source: 'meta',
+          };
+
+          base = metaBase;
+        }
+
+        if (!base) {
+          setError('Campaign not found.');
+          setLoading(false);
+          return;
+        }
+
+        // Safety: ensure campaign belongs to this business
+        if (base.business_email && base.business_email !== user.email) {
+          setError('You do not have access to this campaign.');
+          setLoading(false);
+          return;
+        }
+
+        setCampaign(base);
+
+        // 3) Load offer for title + website
+        if (base.offer_id) {
+          const { data: offerRow, error: offerError } = await supabase
+            .from('offers')
+            .select('id, title, website')
+            .eq('id', base.offer_id)
+            .maybeSingle();
+
+          if (offerError) {
+            console.error('[❌ Failed to fetch offer for campaign detail]', offerError);
+          }
+
+          if (offerRow) {
+            setOffer(offerRow);
+          }
+        }
+
+        // 4) Load stats from campaign_tracking_events by campaign_id
+        const { data: events, error: eventsError } = await supabase
+          .from('campaign_tracking_events')
+          .select('event_type, amount')
+          .eq('campaign_id', campaignId);
+
+        if (eventsError) {
+          console.error('[❌ Failed to fetch campaign_tracking_events]', eventsError);
+        }
+
+        const summary: StatSummary = {
+          clicks: 0,
+          addToCarts: 0,
+          conversions: 0,
+          revenue: 0,
         };
 
-        setCampaign(mapped);
-        console.log('[✅ Business meta campaign detail]', mapped);
+        const rows = (events ?? []) as TrackingEventRow[];
+
+        for (const e of rows) {
+          const type = (e.event_type || '').toLowerCase();
+
+          if (type === 'page_view' || type === 'click') {
+            summary.clicks += 1;
+          }
+
+          if (type === 'add_to_cart') {
+            summary.addToCarts += 1;
+          }
+
+          if (type === 'conversion') {
+            summary.conversions += 1;
+            const amt = e.amount;
+            if (amt !== null && amt !== undefined) {
+              summary.revenue += Number(amt);
+            }
+          }
+        }
+
+        setStats(summary);
         setLoading(false);
-        return;
+      } catch (err) {
+        console.error('[❌ Error loading campaign detail]', err);
+        setError('Something went wrong loading this campaign.');
+        setLoading(false);
       }
-
-      // 2) Fallback to organic campaign from live_campaigns
-      const { data, error } = await (supabase as any)
-        .from('live_campaigns')
-        .select(
-          `
-          id,
-          type,
-          offer_id,
-          business_email,
-          affiliate_email,
-          media_url,
-          caption,
-          platform,
-          created_from,
-          status,
-          created_at
-        `
-        )
-        .eq('id', campaignId)
-        .eq('business_email', user.email as string)
-        .single();
-
-      if (error) {
-        console.error('[❌ Failed to fetch campaign detail]', error);
-        setCampaign(null);
-      } else {
-        const mapped: Campaign = {
-          ...(data as any),
-          meta_source: 'organic',
-        };
-        setCampaign(mapped);
-        console.log('[✅ Business campaign detail]', mapped);
-      }
-
-      setLoading(false);
     };
 
-    fetchCampaign();
-  }, [campaignId, user?.email]);
-
-  const buildLast7DaysLabels = () => {
-    const labels: string[] = [];
-    const today = new Date();
-    const startOfDay = (d: Date) =>
-      new Date(d.getFullYear(), d.getMonth(), d.getDate());
-    const base = startOfDay(today);
-    for (let i = 6; i >= 0; i--) {
-      const day = new Date(base);
-      day.setDate(base.getDate() - i);
-      labels.push(
-        day.toLocaleDateString(undefined, {
-          weekday: 'short',
-        })
-      );
-    }
-    return labels;
-  };
-
-  useEffect(() => {
-    if (!campaignId || !user?.email || !campaign) return;
-
-    const fetchStats = async () => {
-      setStatsLoading(true);
-
-      // Both organic and Meta paid campaigns now use `campaign_id`
-      // as the live campaign row ID (live_campaigns.id or live_ads.id).
-      const { data, error } = await (supabase as any)
-        .from('campaign_tracking_events')
-        .select('event_type, amount, created_at')
-        .eq('campaign_id', campaignId);
-
-      if (error) {
-        console.error('[❌ Failed to fetch campaign stats]', error);
-        setStats(null);
-        setStatsLoading(false);
-        setSeries({
-          labels: [],
-          pageViews: [],
-          addToCarts: [],
-          conversions: [],
-        });
-        return;
-      }
-
-      console.log('[📊 Campaign stats rows]', data?.length ?? 0, {
-        campaignId,
-      });
-
-      let pageViews = 0;
-      let addToCarts = 0;
-      let conversions = 0;
-      let revenue = 0;
-
-      for (const evt of data || []) {
-        const t = (evt.event_type || '').toLowerCase();
-        if (t === 'page_view' || t === 'view' || t === 'landing_view') {
-          pageViews += 1;
-        } else if (t === 'add_to_cart' || t === 'cart') {
-          addToCarts += 1;
-        } else if (t === 'conversion' || t === 'purchase' || t === 'order') {
-          conversions += 1;
-          if (typeof evt.amount === 'number') {
-            revenue += Number(evt.amount);
-          }
-        }
-      }
-
-      setStats({ pageViews, addToCarts, conversions, revenue });
-
-      // Build simple last-7-days series for chart
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
-
-      const { data: recent, error: recentErr } = await (supabase as any)
-        .from('campaign_tracking_events')
-        .select('created_at, event_type')
-        .eq('campaign_id', campaignId)
-        .gte('created_at', sevenDaysAgo.toISOString())
-        .order('created_at', { ascending: true });
-
-      if (!recentErr && recent) {
-        const labels = buildLast7DaysLabels();
-        const pv = Array(labels.length).fill(0);
-        const carts = Array(labels.length).fill(0);
-        const conv = Array(labels.length).fill(0);
-
-        const startOfDay = (d: Date) =>
-          new Date(d.getFullYear(), d.getMonth(), d.getDate());
-        const today = startOfDay(new Date());
-
-        for (const row of recent as { created_at: string; event_type: string }[]) {
-          const d = new Date(row.created_at);
-          const rowDay = startOfDay(d);
-          const diffDays = Math.round(
-            (rowDay.getTime() - today.getTime()) / 86400000
-          );
-          const idx = Math.min(6, Math.max(0, 6 + diffDays));
-
-          const t = (row.event_type || '').toLowerCase();
-          if (t === 'page_view' || t === 'view' || t === 'landing_view') {
-            pv[idx] += 1;
-          } else if (t === 'add_to_cart' || t === 'cart') {
-            carts[idx] += 1;
-          } else if (t === 'conversion' || t === 'purchase' || t === 'order') {
-            conv[idx] += 1;
-          }
-        }
-
-        setSeries({
-          labels,
-          pageViews: pv,
-          addToCarts: carts,
-          conversions: conv,
-        });
-      } else {
-        setSeries({
-          labels: [],
-          pageViews: [],
-          addToCarts: [],
-          conversions: [],
-        });
-      }
-
-      setStatsLoading(false);
-    };
-
-    fetchStats();
-  }, [campaignId, user?.email, campaign]);
+    load();
+  }, [campaignId, user]);
 
   const formatDate = (d?: string | null) => {
     if (!d) return '';
     return new Date(d).toLocaleString();
   };
 
-  const handleToggleStatus = async () => {
-    if (!campaign) return;
-
-    const current = (campaign.status || '').toUpperCase();
-    const isCurrentlyLive = current === 'ACTIVE' || current === 'LIVE';
-
-    // Shared warning when pausing a live campaign
-    if (isCurrentlyLive) {
-      const confirmed = window.confirm(
-        [
-          'Pausing this campaign will temporarily disable its tracking link.',
-          'Your affiliate will be notified and this may impact campaign performance and affiliate retention.',
-          '',
-          'Only pause if there is a real issue (offer updates, stock problems, compliance, or tracking errors).',
-          '',
-          'Do you still want to pause this campaign?',
-        ].join('\n')
-      );
-      if (!confirmed) return;
-    }
-
-    try {
-      setUpdating(true);
-
-      if (campaign.meta_source === 'meta') {
-        // Meta paid ads: control via backend route which talks to Meta + updates live_ads
-        const action = isCurrentlyLive ? 'PAUSE' : 'RESUME';
-
-        const res = await fetch('/api/meta/control-ad', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            liveAdId: campaign.id,
-            action,
-          }),
-        });
-
-        const json = await res.json();
-
-        if (!res.ok || !json?.success) {
-          console.error('[❌ Failed Meta control]', json);
-          return;
-        }
-
-        const newStatus = json.newStatus as string;
-        setCampaign((prev) => (prev ? { ...prev, status: newStatus } : prev));
-      } else {
-        // Organic campaigns: still toggle status directly in live_campaigns
-        const newStatus = isCurrentlyLive ? 'PAUSED' : 'ACTIVE';
-
-        const { error } = await (supabase as any)
-          .from('live_campaigns')
-          .update({ status: newStatus })
-          .eq('id', campaign.id);
-
-        if (error) throw error;
-
-        setCampaign((prev) => (prev ? { ...prev, status: newStatus } : prev));
-      }
-    } catch (err) {
-      console.error('[❌ Failed to update campaign status]', err);
-    } finally {
-      setUpdating(false);
-    }
-  };
-
-  const statusChipClasses = () => {
-    const s = (campaign?.status || '').toLowerCase();
-    if (s === 'live' || s === 'active') {
-      return 'bg-emerald-500/15 text-emerald-300';
-    }
-    if (s === 'paused') {
-      return 'bg-amber-500/15 text-amber-300';
-    }
-    if (s === 'deleted') {
-      return 'bg-red-500/15 text-red-300';
-    }
-    return 'bg-slate-500/20 text-slate-200';
-  };
-
-  if (!session) {
+  if (!campaignId) {
     return (
-      <div className="min-h-screen bg-[#0e0e0e] text-white flex items-center justify-center">
-        <p className="text-sm text-white/70">
-          You need to be signed in to view this campaign.
-        </p>
+      <div className="min-h-screen bg-[#0e0e0e] text-white">
+        <div className="mx-auto max-w-5xl px-6 py-10">
+          <p className="text-sm text-red-300">Missing campaign ID.</p>
+        </div>
       </div>
     );
   }
 
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-[#0e0e0e] text-white">
+        <div className="mx-auto max-w-5xl px-6 py-10">
+          <p className="text-sm text-white/70">
+            You need to be logged in to view this campaign.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#0e0e0e] text-white">
+        <div className="mx-auto max-w-5xl px-6 py-10">
+          <p className="text-sm text-white/60">Loading campaign…</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !campaign) {
+    return (
+      <div className="min-h-screen bg-[#0e0e0e] text-white">
+        <div className="mx-auto max-w-5xl px-6 py-10 space-y-4">
+          <p className="text-sm text-red-300">
+            {error || 'Could not load this campaign.'}
+          </p>
+          <button
+            onClick={() => router.push('/business/manage-campaigns')}
+            className="rounded-full bg-[#00C2CB] px-4 py-2 text-xs font-semibold text-black hover:bg-[#00b0b8]"
+          >
+            Back to campaigns
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const isMeta = campaign._source === 'meta';
+  const title = offer?.title || 'Unknown offer';
+  const website = offer?.website || '';
+  const statusLabel = (campaign.status || 'LIVE').toUpperCase();
+
   return (
     <div className="min-h-screen bg-[#0e0e0e] text-white">
-      <div className="mx-auto max-w-5xl px-4 sm:px-8 py-4 space-y-4">
-        {/* Back link */}
-        <button
-          type="button"
-          onClick={() => router.back()}
-          className="inline-flex items-center gap-2 text-xs text-white/60 hover:text-white"
-        >
-          <span className="inline-block h-4 w-4 rotate-180 rounded-full border border-white/30 text-[10px] leading-4 text-center">
-            →
-          </span>
-          Back to campaigns
-        </button>
-
+      <div className="mx-auto max-w-5xl px-6 py-10 space-y-8">
         {/* Header */}
-        <header className="space-y-2">
-          <p className="text-xs font-medium uppercase tracking-[0.2em] text-white/40">
-            Campaign
-          </p>
-          <h1 className="text-2xl font-semibold tracking-tight text-[#00C2CB]">
-            Campaign overview
-          </h1>
-          {campaign?.meta_source === 'meta' ? (
-            <div className="inline-flex items-center gap-2 rounded-full border border-[#00C2CB40] bg-[#00C2CB1A] px-3 py-1 text-[11px] text-[#00C2CB]">
-              META AD • Paid Campaign
-            </div>
-          ) : (
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-3 py-1 text-[11px] text-white/70">
-              ORGANIC • Live Tracking
-            </div>
-          )}
-          <p className="text-sm text-white/70">
-            See how this campaign is set up, who is running it, and control its
-            status.
-          </p>
-        </header>
-
-        {loading ? (
-          <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 sm:px-6 py-5 text-sm text-white/70">
-            Loading campaign…
-          </div>
-        ) : !campaign ? (
-          <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 sm:px-6 py-5 text-sm text-red-100">
-            Campaign not found for this business.
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {/* Layout for preview / stats */}
-            <section className="space-y-3 mt-1 sm:mt-2">
-              {/* Section meta heading */}
-              <div className="flex items-center justify-between text-[11px] text-white/45">
-                <div className="flex items-center gap-2">
-                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#00C2CB]/10 text-[#00C2CB]">
-                    ●
+        <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/40">
+              Campaign overview
+            </p>
+            <h1 className="mt-1 text-2xl font-semibold tracking-tight text-[#00C2CB]">
+              {title}
+            </h1>
+            <p className="mt-1 text-xs text-white/60">
+              {campaign.caption || 'No campaign caption provided.'}
+            </p>
+            <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-white/60">
+              {isMeta ? (
+                <>
+                  <span className="rounded-full border border-[#00C2CB]/40 bg-[#00C2CB]/10 px-2 py-0.5">
+                    Meta Ads
                   </span>
-                  <span className="uppercase tracking-[0.18em]">
-                    Creative &amp; performance
-                  </span>
-                </div>
-                {campaign.platform && (
-                  <span className="rounded-full border border-white/10 bg-black/40 px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-white/55">
-                    {campaign.platform} • {campaign.type || 'Campaign'}
-                  </span>
-                )}
-              </div>
-
-              <div className="grid gap-4 md:gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1.3fr)]">
-                {/* LEFT: creative preview with iPhone mockup */}
-                <div className="rounded-3xl border border-white/10 bg-white/[0.02] px-4 sm:px-6 py-5 flex flex-col order-2 lg:order-1">
-                  <div className="flex items-center justify-between mb-3">
-                    <h2 className="text-sm font-semibold flex items-center gap-2">
-                      <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#00C2CB]/10 text-[#00C2CB]">
-                        <PlayCircleIcon className="h-4 w-4" />
-                      </span>
-                      Creative preview
-                    </h2>
-                    {campaign.platform && (
-                      <span className="rounded-full border border-white/10 bg-black/30 px-3 py-1 text-[10px] uppercase tracking-[0.16em] text:white/50">
-                        {campaign.platform}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* small context row */}
-                  <div className="mb-3 flex flex-wrap items-center gap-3 text-[11px] text-white/55">
-                    <span>
-                      Affiliate:{' '}
-                      <span className="text-white">
-                        {campaign.affiliate_email || 'N/A'}
-                      </span>
+                  {campaign.campaign_type && (
+                    <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
+                      {campaign.campaign_type}
                     </span>
-                    {campaign.type && (
-                      <span className="rounded-full border border-[#00C2CB40] bg-[#00C2CB1A] px-2 py-0.5 text-[10px] text-[#00C2CB]">
-                        {campaign.type}
-                      </span>
-                    )}
-                  </div>
-
-                  {(() => {
-                    const url = campaign.media_url || '';
-                    const caption = campaign.caption || '';
-                    const platform =
-                      campaign.platform?.toLowerCase().trim() || '';
-
-                    // EMAIL PREVIEW
-                    if (platform === 'email') {
-                      return (
-                        <div className="bg-gradient-to-b from-[#181d22] to-[#101214] rounded-2xl border border-[#232931] shadow-xl w-full max-w-lg min-h-[320px] flex flex-col justify-between p-6 relative drop-shadow-[0_0_16px_rgba(0,194,203,0.11)] mx-auto">
-                          <div>
-                            <div className="flex items-center gap-3 mb-4">
-                              <div className="bg-[#222B34] w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold text-[#00C2CB] border border-[#28303a]">
-                                N
-                              </div>
-                              <div>
-                                <div className="text-xs text-[#7e8a9a]">
-                                  From:{' '}
-                                  <span className="font-semibold text-gray-200">
-                                    Nettmark &lt;no-reply@nettmark.com&gt;
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                            <h2 className="text-[1.1rem] font-bold text-[#00C2CB] mb-2 leading-snug truncate">
-                              {caption.split('\n')[0] || '[No Subject]'}
-                            </h2>
-                          </div>
-                          <div className="flex-1 overflow-y-auto">
-                            <div
-                              className="text-gray-300 text-[0.95rem] whitespace-pre-line leading-relaxed px-1 mb-2"
-                              style={{ maxHeight: 170, minHeight: 64 }}
-                            >
-                              {caption || 'No content available.'}
-                            </div>
-                          </div>
-                          <p className="mt-2 text-[10px] text-[#7e8a9a]">
-                            Full email content is stored with this campaign’s
-                            caption.
-                          </p>
-                        </div>
-                      );
-                    }
-
-                    // NO MEDIA + NO CAPTION
-                    if (!url && !caption) {
-                      return (
-                        <div className="mt-4 flex flex-col items-center justify-center rounded-2xl border border-dashed border:white/15 bg-black/40 px-6 py-10 text-center text-xs text-white/50">
-                          <PhotoIcon className="h-8 w-8 mb-3 text-white/30" />
-                          No media attached to this campaign yet.
-                        </div>
-                      );
-                    }
-
-                    // iPhone mockup wrapper
-                    return (
-                      <div className="mt-2 flex justify-center w-full">
-                        <div className="relative w-full max-w-[18rem] sm:max-w-xs">
-                          {/* Phone shell */}
-                          <div className="relative mx-auto rounded-[2.5rem] border border-white/15 bg-[#050608] px-3 pt-4 pb-6 shadow-[0_0_40px_rgba(0,0,0,0.9)]">
-                            {/* Top notch */}
-                            <div className="mx-auto mb-3 flex h-5 w-32 items-center justify-center gap-1 rounded-full bg-black/80">
-                              <span className="h-2 w-10 rounded-full bg-gray-700/70" />
-                              <span className="h-2 w-2 rounded-full bg-gray-500/80" />
-                            </div>
-
-                            {/* Side buttons */}
-                            <div className="pointer-events-none absolute left-0 top-16 h-16 w-1 rounded-r-xl bg-white/10" />
-                            <div className="pointer-events-none absolute right-0 top-24 h-10 w-1 rounded-l-xl bg-white/10" />
-
-                            {/* Screen */}
-                            <div className="overflow-hidden rounded-[1.8rem] border border-white/10 bg-black aspect-[9/16]">
-                              {url.match(/\.(mp4)$/i) ? (
-                                <video
-                                  controls
-                                  className="h-full w-full object-cover bg-black"
-                                >
-                                  <source src={url} type="video/mp4" />
-                                  Your browser does not support the video tag.
-                                </video>
-                              ) : url.match(
-                                  /\.(jpg|jpeg|png|gif|webp)$/i
-                                ) ? (
-                                <img
-                                  src={url}
-                                  alt="Campaign creative"
-                                  className="h-full w-full object-cover bg-black"
-                                />
-                              ) : (
-                                <div className="flex h-full w-full items-center justify-center bg-black text-xs text-white/50">
-                                  Unsupported media format
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })()}
-
-                  {campaign.caption &&
-                    campaign.platform?.toLowerCase() !== 'email' && (
-                      <p className="mt-4 text-[11px] text-white/55 border-t border-white/5 pt-3">
-                        {campaign.caption}
-                      </p>
-                    )}
-
-                  {/* subtle footer so column doesn't feel cut off */}
-                  <p className="mt-3 text-[10px] text-white/35">
-                    Creative shown as a vertical mobile preview. Final layout
-                    may vary slightly on Meta / organic placement.
-                  </p>
-                </div>
-
-                {/* RIGHT: performance stats */}
-                <div className="rounded-3xl border border-white/10 bg-white/[0.02] px-4 sm:px-6 py-5 flex flex-col order-1 lg:order-2">
-                  <div className="flex items-center justify-between mb-3">
-                    <h2 className="text-sm font-semibold flex items:center gap-2">
-                      <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-300">
-                        <CursorArrowRaysIcon className="h-4 w-4" />
-                      </span>
-                      Performance
-                    </h2>
-                    <span className="rounded-full bg-black/40 px-3 py-1 text-[10px] text-white/50 uppercase tracking-[0.16em]">
-                      {campaign.meta_source === 'meta'
-                        ? 'Meta performance'
-                        : 'Live tracking'}
-                    </span>
-                  </div>
-
-                  {statsLoading ? (
-                    <p className="text-xs text-white/60">Loading stats…</p>
-                  ) : !stats ? (
-                    <p className="text-xs text-white/60">
-                      No tracking events recorded for this campaign yet.
-                    </p>
-                  ) : (
-                    <>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
-                        {/* Clicks / Page views */}
-                        <div className="rounded-2xl border border-white/10 bg-black/40 px-3 sm:px-4 py-3 flex flex-col justify-between">
-                          <div className="flex items-center justify-between">
-                            <p className="text-[11px] text-white/60">
-                              {campaign.meta_source === 'meta'
-                                ? 'Clicks'
-                                : 'Page views'}
-                            </p>
-                            <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/5">
-                              <CursorArrowRaysIcon className="h-4 w-4 text-[#00C2CB]" />
-                            </span>
-                          </div>
-                          <p className="mt-2 text-xl font-semibold">
-                            {stats.pageViews}
-                          </p>
-                        </div>
-
-                        {/* Add to carts */}
-                        <div className="rounded-2xl border border-white/10 bg-black/40 px-3 sm:px-4 py-3 flex flex-col justify-between">
-                          <div className="flex items-center justify-between">
-                            <p className="text-[11px] text-white/60">
-                              Add to carts
-                            </p>
-                            <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/5">
-                              <ShoppingCartIcon className="h-4 w-4 text-[#00C2CB]" />
-                            </span>
-                          </div>
-                          <p className="mt-2 text-xl font-semibold">
-                            {stats.addToCarts}
-                          </p>
-                        </div>
-
-                        {/* Conversions */}
-                        <div className="rounded-2xl border border-white/10 bg-black/40 px-3 sm:px-4 py-3 flex flex-col justify-between">
-                          <div className="flex items-center justify-between">
-                            <p className="text-[11px] text-white/60">
-                              Conversions
-                            </p>
-                            <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg:white/5">
-                              <CurrencyDollarIcon className="h-4 w-4 text-[#00C2CB]" />
-                            </span>
-                          </div>
-                          <p className="mt-2 text-xl font-semibold">
-                            {stats.conversions}
-                          </p>
-                        </div>
-
-                        {/* For Meta campaigns, show Spend as 4th tile */}
-                        {campaign.meta_source === 'meta' && (
-                          <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 px-3 sm:px-4 py-3 flex flex-col justify-between">
-                            <div className="flex items-center justify-between">
-                              <p className="text-[11px] text-emerald-100">
-                                Spend
-                              </p>
-                              <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/20">
-                                <CurrencyDollarIcon className="h-4 w-4 text-emerald-300" />
-                              </span>
-                            </div>
-                            <p className="mt-2 text-xl font-semibold text-emerald-100">
-                              {(campaign.spend || 0).toLocaleString(
-                                undefined,
-                                {
-                                  style: 'currency',
-                                  currency: 'USD',
-                                }
-                              )}
-                            </p>
-                          </div>
-                        )}
-
-                        {/* For organic campaigns, keep Revenue tile */}
-                        {campaign.meta_source !== 'meta' && (
-                          <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 px-3 sm:px-4 py-3 flex flex-col justify-between">
-                            <div className="flex items-center justify-between">
-                              <p className="text-[11px] text-emerald-100">
-                                Revenue
-                              </p>
-                              <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/20">
-                                <CurrencyDollarIcon className="h-4 w-4 text-emerald-300" />
-                              </span>
-                            </div>
-                            <p className="mt-2 text-xl font-semibold text-emerald-100">
-                              {stats.revenue.toLocaleString(undefined, {
-                                style: 'currency',
-                                currency: 'USD',
-                              })}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Tracking link + explanatory copy */}
-                      {campaign.meta_source === 'meta' &&
-                        campaign.tracking_link && (
-                          <p className="text-[11px] text-white/50 break-all">
-                            Tracking link:{' '}
-                            <code className="font-mono text-[10px]">
-                              {campaign.tracking_link}
-                            </code>
-                          </p>
-                        )}
-
-                      <p className="mt-2 text-[11px] text-white/50">
-                        Events (clicks, add to carts, conversions) are
-                        calculated from{' '}
-                        <code className="font-mono text-[10px]">
-                          campaign_tracking_events
-                        </code>
-                        {campaign.meta_source === 'meta'
-                          ? ' for this Meta-backed campaign. Spend is stored on the live_ads record for audit and billing.'
-                          : ' for this campaign.'}
-                      </p>
-
-                      {series.labels.length > 0 && (
-                        <div className="mt-4 rounded-2xl border border:white/10 bg-black/30 px-3 sm:px-4 py-3">
-                          <Line
-                            data={{
-                              labels: series.labels,
-                              datasets: [
-                                {
-                                  label:
-                                    campaign.meta_source === 'meta'
-                                      ? 'Clicks'
-                                      : 'Page views',
-                                  data: series.pageViews,
-                                  borderColor: '#00C2CB',
-                                  backgroundColor: 'rgba(0,194,203,0.15)',
-                                  fill: true,
-                                  tension: 0.35,
-                                  borderWidth: 2,
-                                  pointRadius: 2,
-                                },
-                                {
-                                  label: 'Add to carts',
-                                  data: series.addToCarts,
-                                  borderColor: '#009aa2',
-                                  backgroundColor: 'rgba(0,154,162,0.12)',
-                                  fill: true,
-                                  tension: 0.35,
-                                  borderWidth: 1.5,
-                                  pointRadius: 2,
-                                },
-                                {
-                                  label: 'Conversions',
-                                  data: series.conversions,
-                                  borderColor: '#00787f',
-                                  backgroundColor: 'rgba(0,120,127,0.1)',
-                                  fill: true,
-                                  tension: 0.35,
-                                  borderWidth: 1.5,
-                                  pointRadius: 2,
-                                },
-                              ],
-                            }}
-                            options={{
-                              responsive: true,
-                              plugins: {
-                                legend: {
-                                  labels: {
-                                    color: '#9CA3AF',
-                                    font: { size: 10 },
-                                    boxWidth: 10,
-                                    usePointStyle: true,
-                                    pointStyle: 'line',
-                                  },
-                                },
-                                tooltip: { mode: 'index', intersect: false },
-                              },
-                              scales: {
-                                x: {
-                                  ticks: {
-                                    color: '#9CA3AF',
-                                    font: { size: 10 },
-                                  },
-                                  grid: { color: 'rgba(31,41,55,0.4)' },
-                                },
-                                y: {
-                                  ticks: {
-                                    color: '#9CA3AF',
-                                    font: { size: 10 },
-                                  },
-                                  grid: { color: 'rgba(31,41,55,0.4)' },
-                                  beginAtZero: true,
-                                },
-                              },
-                            }}
-                          />
-                        </div>
-                      )}
-                    </>
                   )}
-
-                  {/* small footer hint */}
-                  <p className="mt-3 text-[10px] text-white/35">
-                    Stats update in near-real time as tracking events are
-                    received from your website.
-                  </p>
-                </div>
-              </div>
-            </section>
-
-            {/* Top summary card */}
-            <section className="rounded-3xl border border:white/10 bg-white/[0.02] px-4 sm:px-6 py-5 shadow-[0_0_40px_rgba(0,0,0,0.6)] flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div className="space-y-2">
-                <div className="flex flex-wrap items-center gap-3">
-                  <span
-                    className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${statusChipClasses()}`}
-                  >
-                    {(campaign.status || 'LIVE').toUpperCase()}
-                  </span>
-
+                </>
+              ) : (
+                <>
                   {campaign.platform && (
-                    <span className="rounded-full border border-[#00C2CB40] bg-[#00C2CB1A] px-3 py-1 text-[11px] text-[#00C2CB]">
+                    <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
                       {campaign.platform}
                     </span>
                   )}
-
                   {campaign.type && (
-                    <span className="rounded-full border border-[#00C2CB40] bg-[#00C2CB1A] px-3 py-1 text-[11px] text-[#00C2CB]">
+                    <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
                       {campaign.type}
                     </span>
                   )}
-                </div>
+                </>
+              )}
 
-                <p className="text-xs text-white/60">
-                  Affiliate:{' '}
-                  <span className="text-white">
-                    {campaign.affiliate_email || 'N/A'}
-                  </span>
-                </p>
+              {campaign.created_at && (
+                <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
+                  Started {formatDate(campaign.created_at)}
+                </span>
+              )}
 
-                <p className="text-xs text:white/60">
-                  Started: {formatDate(campaign.created_at)}
-                </p>
-              </div>
-
-              <div className="flex flex-col items-end gap-2">
-                <button
-                  onClick={handleToggleStatus}
-                  disabled={updating}
-                  className="rounded-full bg-[#00C2CB] px-5 py-2 text-xs font-semibold text-black shadow hover:bg-[#00b0b8] disabled:opacity-60"
-                >
-                  {updating
-                    ? 'Updating…'
-                    : (campaign.status || '').toLowerCase() === 'live' ||
-                      (campaign.status || '').toLowerCase() === 'active'
-                    ? 'Pause campaign'
-                    : 'Activate campaign'}
-                </button>
-                {(campaign.status || '').toLowerCase() === 'paused' ? (
-                  <p className="mt-1 max-w-xs text-[11px] text-amber-200/80 text-right">
-                    This campaign is currently paused. Its tracking link is
-                    temporarily disabled and affiliates cannot send traffic
-                    until you reactivate it.
-                  </p>
-                ) : (
-                  <p className="mt-1 max-w-xs text-[11px] text-white/50 text-right">
-                    Pausing will temporarily disable the tracking link and
-                    notify the affiliate. Use this only if there is a genuine
-                    issue with the offer, stock, or compliance.
-                  </p>
-                )}
-                <Link href="/business/manage-campaigns">
-                  <span className="text-[11px] text-white/60 hover:text-white cursor-pointer">
-                    Back to campaign list
-                  </span>
-                </Link>
-              </div>
-            </section>
+              {campaign.affiliate_email && (
+                <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
+                  Affiliate: {campaign.affiliate_email}
+                </span>
+              )}
+            </div>
           </div>
+
+          <div className="flex flex-col items-end gap-3">
+            <span
+              className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold
+                ${
+                  statusLabel === 'LIVE' || statusLabel === 'ACTIVE'
+                    ? 'bg-emerald-500/15 text-emerald-300'
+                    : statusLabel === 'PAUSED'
+                    ? 'bg-amber-500/15 text-amber-300'
+                    : statusLabel === 'STOPPED'
+                    ? 'bg-red-500/20 text-red-300'
+                    : 'bg-slate-500/20 text-slate-200'
+                }`}
+            >
+              {statusLabel}
+            </span>
+            {website && (
+              <a
+                href={website}
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs text-[#7ff5fb] underline underline-offset-2 hover:text-[#a8fbff]"
+              >
+                View offer website
+              </a>
+            )}
+            <button
+              onClick={() => router.push('/business/manage-campaigns')}
+              className="rounded-full border border-white/20 bg-transparent px-4 py-1.5 text-xs font-semibold text-white/80 hover:bg-white/5"
+            >
+              Back to campaigns
+            </button>
+          </div>
+        </div>
+
+        {/* Stats row */}
+        <section className="grid gap-3 md:grid-cols-4">
+          <div className="rounded-2xl border border-white/10 bg-black/40 px-4 py-3">
+            <p className="text-[11px] uppercase tracking-wide text-white/50">
+              Clicks
+            </p>
+            <p className="mt-1 text-2xl font-semibold">
+              {stats ? stats.clicks : 0}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-black/40 px-4 py-3">
+            <p className="text-[11px] uppercase tracking-wide text-white/50">
+              Add to carts
+            </p>
+            <p className="mt-1 text-2xl font-semibold">
+              {stats ? stats.addToCarts : 0}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-black/40 px-4 py-3">
+            <p className="text-[11px] uppercase tracking-wide text-white/50">
+              Conversions
+            </p>
+            <p className="mt-1 text-2xl font-semibold">
+              {stats ? stats.conversions : 0}
+            </p>
+          </div>
+          <div className="rounded-2xl border border-[#00C2CB]/40 bg-[#00C2CB]/5 px-4 py-3">
+            <p className="text-[11px] uppercase tracking-wide text-[#7ff5fb]">
+              Conversion value
+            </p>
+            <p className="mt-1 text-2xl font-semibold text-[#7ff5fb]">
+              {stats ? `$${stats.revenue.toFixed(2)}` : '$0.00'}
+            </p>
+          </div>
+        </section>
+
+        {/* Tracking link (for Meta) */}
+        {isMeta && campaign.tracking_link && (
+          <section className="rounded-2xl border border-white/10 bg-black/40 px-4 py-4 text-sm text-white/80">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/40">
+              Tracking link
+            </p>
+            <p className="mt-1 break-all text-xs text-white/80">
+              {campaign.tracking_link}
+            </p>
+          </section>
         )}
       </div>
     </div>
   );
-}
+};
+
+export default BusinessCampaignDetail;
