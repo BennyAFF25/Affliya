@@ -199,6 +199,7 @@ export default function ManageCampaignPage() {
         const normalised: Campaign = {
           ...(organic as any),
           type: (organic as any).type || 'organic',
+          media_url: (organic as any).media_url || (organic as any).file_url || null,
         };
         setCampaign(normalised);
         if (organicErr) setError(organicErr);
@@ -214,11 +215,37 @@ export default function ManageCampaignPage() {
 
       if (paid) {
         console.log('✅ META CAMPAIGN DATA (live_ads):', paid);
+
+        // Start with anything stored on live_ads
+        let mediaUrl: string | null =
+          (paid as any).media_url || (paid as any).file_url || null;
+        let caption: string | undefined = (paid as any).caption;
+
+        // If no media on live_ads, fall back to the original ad_idea (approved only)
+        if ((!mediaUrl || mediaUrl === '') && (paid as any).ad_idea_id) {
+          const { data: idea, error: ideaErr } = await supabase
+            .from('ad_ideas')
+            .select('file_url, caption, status')
+            .eq('id', (paid as any).ad_idea_id)
+            .eq('status', 'approved')
+            .maybeSingle();
+
+          console.log('🎨 AD IDEA FOR PAID CAMPAIGN:', idea, ideaErr);
+
+          if (idea) {
+            if (idea.file_url) mediaUrl = idea.file_url;
+            if (!caption && idea.caption) caption = idea.caption;
+          }
+        }
+
         const normalised: Campaign = {
           ...(paid as any),
           type: (paid as any).campaign_type || 'paid_meta',
-          platform: (paid as any).platform || 'facebook',
+          platform: (paid as any).platform || 'Meta',
+          media_url: mediaUrl,
+          caption: caption,
         };
+
         setCampaign(normalised);
         if (paidErr) setError(paidErr);
         return;
@@ -545,7 +572,7 @@ export default function ManageCampaignPage() {
                 />
               </div>
               <div className="h-[calc(100%-48px)] overflow-hidden">
-                {campaign.media_url.match(/\.(mp4)$/i) ? (
+                {campaign.media_url.match(/\.(mp4|mov)$/i) ? (
                   <video controls className="w-full h-full object-cover bg-black">
                     <source src={campaign.media_url} type="video/mp4" />
                     Your browser does not support the video tag.

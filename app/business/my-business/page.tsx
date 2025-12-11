@@ -142,8 +142,6 @@ export default function MyBusinessPage() {
   const [businessAccountId, setBusinessAccountId] = useState<string | null>(null);
   const [onboardingComplete, setOnboardingComplete] = useState<boolean>(false);
   const [hasCard, setHasCard] = useState<boolean>(false);
-  // Meta connection status
-  const [metaConnected, setMetaConnected] = useState<boolean>(false);
 
   const session = useSession();
   const user = session?.user;
@@ -211,39 +209,6 @@ export default function MyBusinessPage() {
       }
     };
     loadStripeCustomerId();
-  }, [session, user, supabase]);
-
-  // Meta connection status effect
-  useEffect(() => {
-    if (!session || !user?.email) return;
-
-    const fetchMetaConnection = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('meta_connections')
-          .select('id')
-          .eq('business_email', user.email)
-          .single();
-
-        if (error) {
-          // If no row exists, Supabase will throw an error; treat that as "not connected"
-          // Only log unexpected errors
-          const err: any = error;
-          if (err?.code && err.code !== 'PGRST116') {
-            console.warn('[Meta connection check error]', error.message || error);
-          }
-          setMetaConnected(false);
-          return;
-        }
-
-        setMetaConnected(!!data);
-      } catch (e: any) {
-        console.error('[Meta connection check exception]', e?.message || e);
-        setMetaConnected(false);
-      }
-    };
-
-    fetchMetaConnection();
   }, [session, user, supabase]);
 
   useEffect(() => {
@@ -646,23 +611,11 @@ export default function MyBusinessPage() {
                 Connect your Meta assets and keep tracking + creatives aligned with your Nettmark offers.
               </p>
 
-              {/* Meta connection status */}
-              <div className="flex items-center justify-between rounded-full border border-[#1f2a2b] bg-[#0e1112] px-3 py-2 text-[11px] text-white/70">
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`inline-block w-2.5 h-2.5 rounded-full ${
-                      metaConnected ? 'bg-emerald-400' : 'bg-[#f97316]'
-                    }`}
-                  />
-                  <span>{metaConnected ? 'Meta connected' : 'Meta not connected'}</span>
-                </div>
-              </div>
-
               <div className="space-y-3">
                 <Link href="/business/my-business/connect-meta/" prefetch={false}>
                   <ActionButton size="sm">
                     <IconBolt className="w-5 h-5 shrink-0" />
-                    <span>{metaConnected ? 'Manage Meta connection' : 'Connect Meta ads'}</span>
+                    <span>Connect Meta ads</span>
                   </ActionButton>
                 </Link>
 
@@ -690,7 +643,38 @@ export default function MyBusinessPage() {
               <p className="text-xs text-white/70">
                 Billing and payouts are handled via Stripe. Once connected, affiliates are paid automatically.
               </p>
-              <div className="flex flex-col items-center gap-3 mt-2">
+
+              <div className="flex flex-col gap-3">
+                {!businessCustomerId && (
+                  <button
+                    onClick={handleConnectBilling}
+                    className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-[#00C2CB] text-black font-semibold px-6 py-3 text-sm hover:bg-[#00b0b8] transition-all shadow-[0_0_25px_rgba(0,194,203,0.45)]"
+                  >
+                    <IconCreditCard className="w-4 h-4" />
+                    Connect Billing
+                  </button>
+                )}
+
+                {businessCustomerId && !hasCard && (
+                  <button
+                    onClick={handleAddPaymentMethod}
+                    className="w-full inline-flex items-center justify-center gap-2 rounded-full border border-[#00C2CB]/40 text-white font-semibold px-6 py-3 text-sm hover:bg-[#0f1415] transition-all"
+                  >
+                    <IconCreditCard className="w-4 h-4" />
+                    Add Card
+                  </button>
+                )}
+
+                <button
+                  onClick={handleEnablePayouts}
+                  className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-[#00C2CB] text-black font-semibold px-6 py-3 text-sm hover:bg-[#00b0b8] transition-all shadow-[0_0_25px_rgba(0,194,203,0.45)]"
+                >
+                  <IconBank className="w-4 h-4" />
+                  Enable Payouts
+                </button>
+              </div>
+
+              <div className="flex flex-col items-center gap-3 mt-4">
                 <div className="w-full max-w-xs">
                   <div
                     className={`flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-medium border ${

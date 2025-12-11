@@ -628,17 +628,15 @@ export default function BusinessCampaignDetailPage() {
 
                             {/* Screen */}
                             <div className="overflow-hidden rounded-[1.8rem] border border-white/10 bg-black aspect-[9/16]">
-                              {url.match(/\.(mp4)$/i) ? (
+                              {url.match(/\.(mp4|mov|m4v|webm)$/i) ? (
                                 <video
                                   controls
                                   className="h-full w-full object-cover bg-black"
+                                  src={url}
                                 >
-                                  <source src={url} type="video/mp4" />
                                   Your browser does not support the video tag.
                                 </video>
-                              ) : url.match(
-                                  /\.(jpg|jpeg|png|gif|webp)$/i
-                                ) ? (
+                              ) : url.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
                                 <img
                                   src={url}
                                   alt="Campaign creative"

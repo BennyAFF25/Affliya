@@ -17,6 +17,7 @@ interface Offer {
   commissionValue?: number;
   isTopCommission?: boolean;
   businessEmail?: string;
+  business_email?: string;
   logoUrl?: string;
   website?: string;
 }
@@ -52,6 +53,11 @@ export default function OfferCard({
       business_email: offer.businessEmail,
       businessName: offer.businessName,
     });
+
+    // Normalize backend field naming (supports both camelCase and snake_case)
+    if (!offer.businessEmail && offer.business_email) {
+      offer.businessEmail = offer.business_email;
+    }
 
     if (!offer.businessEmail) {
       console.error('[❌ Missing business email in offer]');

@@ -132,24 +132,29 @@ export default function ManageCampaignsPage() {
       }));
 
       // 5. Map paid Meta campaigns from live_ads into the same shape
-      const paidCampaigns: LiveCampaign[] = (paid as any[]).map((a) => ({
-        id: a.id,
-        type: (a.campaign_type as string) || 'paid_meta',
-        offer_id: (a as any).offer_id ?? null, // live_ads doesn’t store offer_id directly
-        business_email: a.business_email,
-        affiliate_email: a.affiliate_email,
-        media_url: null, // optional – we can hydrate from ad_ideas later if needed
-        caption: a.caption || 'Meta campaign',
-        platform: 'facebook',
-        created_from: a.created_from || 'meta_api',
-        status: a.status || 'active',
-        created_at: a.created_at,
-        billing_state: a.billing_state || 'active',
-        billing_paused_at: a.billing_paused_at || null,
-        terminated_by_business_at: a.terminated_by_business_at || null,
-        terminated_by_business_note: a.terminated_by_business_note || null,
-        offer: null,
-      }));
+const paidCampaigns: LiveCampaign[] = (paid as any[]).map((a) => {
+  const offerId = (a as any).offer_id ?? null;
+
+  return {
+    id: a.id,
+    type: (a.campaign_type as string) || 'paid_meta',
+    offer_id: offerId,
+    business_email: a.business_email,
+    affiliate_email: a.affiliate_email,
+    media_url: null, // optional – we can hydrate from ad_ideas later if needed
+    caption: a.caption || 'Meta campaign',
+    platform: 'facebook',
+    created_from: a.created_from || 'meta_api',
+    status: a.status || 'active',
+    created_at: a.created_at,
+    billing_state: a.billing_state || 'active',
+    billing_paused_at: a.billing_paused_at || null,
+    terminated_by_business_at: a.terminated_by_business_at || null,
+    terminated_by_business_note: a.terminated_by_business_note || null,
+    // 🔥 attach offer if we have one
+    offer: offerId ? offersById[offerId] || null : null,
+  };
+});
 
       // 6. Merge both arrays into a single campaigns list
       const merged: LiveCampaign[] = [...organicCampaigns, ...paidCampaigns];
