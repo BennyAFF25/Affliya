@@ -131,9 +131,23 @@ export default function OfferCard({
               ● Verified
             </span>
             {offer.isTopCommission && (
-              <span className="inline-flex items-center rounded-full border border-amber-400/60 text-amber-200 text-[11px] px-2 py-0.5">
-                ⭐ Top payout
-              </span>
+              <div className="inline-flex items-center gap-1 rounded-full border border-amber-400/60 text-amber-200 text-[11px] px-2 py-0.5">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  strokeWidth={1.8}
+                  stroke="currentColor"
+                  className="w-3.5 h-3.5"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M12 17l-4.5 2.5 1-4.3L5 10.5l4.4-.4L12 6l2.6 4.1 4.4.4-3.5 4.7 1 4.3L12 17z"
+                  />
+                </svg>
+                Top payout
+              </div>
             )}
           </div>
         </div>

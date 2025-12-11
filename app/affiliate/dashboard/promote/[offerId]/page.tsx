@@ -22,6 +22,7 @@ function friendlyObjective(objective?: string): string {
 // eslint-disable-next-line
 
 import { useState, useEffect, useMemo, useRef, type ReactNode } from 'react';
+import { FaSpinner } from "react-icons/fa";
 import { useRouter, useParams } from 'next/navigation';
 import { useSession } from '@supabase/auth-helpers-react';
 import { supabase } from '@/../utils/supabase/pages-client';
@@ -55,6 +56,7 @@ type PlacementKey =
   };
 
 export default function PromoteOfferPage() {
+  // Removed loading states
   const router = useRouter();
   const params = useParams();
   const offerId = params.offerId as string;
@@ -73,7 +75,6 @@ export default function PromoteOfferPage() {
   const [ogCaption, setOgCaption] = useState<string>('');           // social caption OR email subject OR forum title/url
   const [ogContent, setOgContent] = useState<string>('');           // email body / forum body
   const [ogFile, setOgFile] = useState<File | null>(null);          // optional media for social
-  const [ogLoading, setOgLoading] = useState<boolean>(false);
   const userId = (session as any)?.user?.id as string | undefined;
 
   // ─────────────────────────────
@@ -132,7 +133,8 @@ export default function PromoteOfferPage() {
   // Media
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
-  const [loading, setLoading] = useState(false);
+  // Thumbnail error state for submission validation
+  const [thumbnailError, setThumbnailError] = useState<string | null>(null);
 
   // Brand preview data (from offers table / offer-logos bucket)
   const [brandName, setBrandName] = useState<string>('Your Brand Name');
@@ -844,8 +846,6 @@ function DateTimeField({
       if (!userEmail) { alert('You must be signed in.'); return; }
       if (!userId) { alert('Missing user id.'); return; }
 
-      setOgLoading(true);
-
       // Fetch business_email for this offer
       const { data: offerRow, error: offerErr } = await (supabase as any)
         .from('offers')
@@ -930,22 +930,33 @@ function DateTimeField({
       const msg = e?.message || (typeof e === 'string' ? e : JSON.stringify(e));
       console.error('[Organic Submit Error]', msg, e);
       alert(msg || 'Failed to submit organic post.');
-    } finally {
-      setOgLoading(false);
     }
   };
 
   // ─────────────────────────────
   // Submit (Uploads → ad_ideas insert)
   // ─────────────────────────────
-  const handleSubmit = async () => {
-    if (!videoFile) {
-      alert('Please upload a video file.');
-      return;
-    }
-
-    setLoading(true);
+  const handleAdSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     try {
+      // Require thumbnail before submission
+      let thumbnailUrl: string | null = null;
+      if (thumbnailFile) {
+        // This will be set after upload, but for validation before upload, check existence
+        thumbnailUrl = thumbnailFile.name;
+      }
+      if (!thumbnailUrl || thumbnailUrl.trim() === '') {
+        setThumbnailError('Please upload a thumbnail before submitting.');
+        return;
+      } else {
+        setThumbnailError(null);
+      }
+
+      if (!videoFile) {
+        alert('Please upload a video file.');
+        return;
+      }
+
       // 0) Ensure budget does not exceed prefunded wallet
       const budgetDollars = Number(form.budget_amount_dollars || 0);
       if (!budgetDollars || budgetDollars <= 0) {
@@ -1074,12 +1085,10 @@ function DateTimeField({
       if (insertErr) throw insertErr;
 
       alert('Ad idea submitted for review.');
-      router.push('/affiliate/inbox'); // back to inbox after submit
+      router.push('/affiliate/dashboard'); // back to dashboard after submit
     } catch (e: any) {
       console.error('[❌ Submit Error]', e);
       alert(e?.message || 'Failed to submit.');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -1609,30 +1618,20 @@ function DateTimeField({
             </div>
 
             {/* Footer / Nav */}
-            <div className="px-6 sm:px-8 py-5 border-t border-[#232323] flex items-center justify-between">
-              <button
-                className="px-4 py-2 rounded-lg border border-[#2a2a2a] text-gray-300 hover:bg-[#1a1a1a]"
-                onClick={() => (step > 1 ? setStep(step - 1) : router.back())}
-              >
-                {step > 1 ? 'Back' : 'Cancel'}
-              </button>
-
-              {step < 4 ? (
+            <div className="px-6 sm:px-8 py-5 border-t border-[#232323]">
+              <div className="flex flex-col items-center mt-4">
                 <button
-                  className="px-4 py-2 rounded-lg bg-[#00C2CB] text-black font-semibold hover:bg-[#00b0b8]"
-                  onClick={() => setStep(step + 1)}
+                  onClick={handleAdSubmit}
+                  className="bg-[#00C2CB] text-white py-2 px-6 rounded-md hover:bg-[#00b0b8] transition-all"
                 >
-                  Next
+                  Submit Ad Idea
                 </button>
-              ) : (
-                <button
-                  disabled={loading}
-                  onClick={handleSubmit}
-                  className="px-4 py-2 rounded-lg bg-[#00C2CB] text-black font-semibold hover:bg-[#00b0b8] disabled:opacity-50"
-                >
-                  {loading ? 'Submitting…' : 'Submit for Review'}
-                </button>
-              )}
+                {thumbnailError && (
+                  <div className="mt-3 px-3 py-1 border border-[#00C2CB]/50 text-[#00C2CB] text-sm rounded-md bg-[#001F20]/30">
+                    {thumbnailError}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
@@ -1793,11 +1792,10 @@ function DateTimeField({
 
             <div className="px-6 sm:px-8 py-5 border-t border-[#232323] flex items-center justify-end">
               <button
-                disabled={ogLoading}
                 onClick={handleOrganicSubmit}
-                className="px-4 py-2 rounded-lg bg-[#00C2CB] text-black font-semibold hover:bg-[#00b0b8] disabled:opacity-50"
+                className="w-full bg-[#00C2CB] hover:bg-[#00b0b8] text-black font-semibold py-3 rounded-lg flex items-center justify-center gap-2 transition-all duration-200"
               >
-                {ogLoading ? 'Submitting…' : 'Submit for Review'}
+                Submit for Review
               </button>
             </div>
           </div>

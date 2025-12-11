@@ -148,32 +148,40 @@ export default function AdIdeasPage() {
         setCustomReason('');
       }
       if (newStatus === 'approved') {
-        // Fetch the approved ad object from current state
         const ad = ideas.find((idea) => idea.id === id);
         if (ad) {
-          // Insert into live_campaigns
-          // @ts-ignore - table is not present in generated Supabase types, but exists in the database
-          await supabase.from('live_campaigns').insert([
-            {
-              offer_id: ad.offer_id,
-              affiliate_email: ad.affiliate_email,
-              business_email: ad.business_email,
-              type: 'ad',
-              file_url: ad.file_url || null,
-              audience: ad.audience || null,
-              location: ad.location || null,
-              objective: ad.objective || null,
-              cta: ad.cta || null,
-              daily_budget: ad.daily_budget || null,
-              age_range: ad.age_range || null,
-            }
-          ]);
-        }
-        // Show confirmation toast
-        alert('Ad approved and campaign created successfully!');
+          const { data: inserted, error: insertError } = await (supabase as any)
+            .from('live_campaigns')
+            .insert([
+              {
+                offer_id: ad.offer_id,
+                affiliate_email: ad.affiliate_email,
+                business_email: ad.business_email,
+                type: 'ad',
+                file_url: ad.file_url || null,
+                audience: ad.audience || null,
+                location: ad.location || null,
+                objective: ad.objective || null,
+                cta: ad.cta || null,
+                daily_budget: ad.daily_budget || null,
+                age_range: ad.age_range || null,
+              }
+            ])
+            .select('id')
+            .maybeSingle();
 
-        // Redirect to the Manage Campaigns page with the correct offer ID
-        router.push(`/business/manage-campaigns/${id}`);
+          if (insertError) {
+            console.error('[❌ Live campaign insert failed]', insertError.message);
+            alert('Ad approved but campaign insert failed. Please check logs.');
+          } else {
+            alert('Ad approved and campaign created successfully!');
+            if ((inserted as any)?.id) {
+              router.push(`/business/manage-campaigns/${(inserted as any).id}`);
+            } else {
+              router.push('/business/manage-campaigns');
+            }
+          }
+        }
       }
     }
   };
@@ -484,7 +492,7 @@ export default function AdIdeasPage() {
             />
 
             {/* Card */}
-            <div className="relative z-50 w-full max-w-md mx-4 rounded-2xl border border-[#232323] bg-gradient-to-b from-[#191919] via-[#111111] to-black shadow-[0_20px_60px_rgba(0,0,0,0.7)] overflow-hidden">
+            <div className="relative z-50 w-full max-w-md mx-4 rounded-2xl border border-[#232323] bg-gradient-to-b from-[#191919] via-[#111111] to-black shadow-[0_20px_60px_rgba(0,0,0,0.7)] overflow-hidden max-h-[90vh] overflow-y-auto">
               {/* Top accent bar */}
               <div className="h-1 w-full bg-gradient-to-r from-[#00C2CB] via-[#00ffbf] to-[#00C2CB]" />
 
@@ -542,13 +550,13 @@ export default function AdIdeasPage() {
                     <video
                       src={url}
                       controls
-                      className="w-full max-h-[480px] bg-black object-contain"
+                      className="w-full max-h-[320px] bg-black object-contain"
                     />
                   ) : (
                     <img
                       src={url}
                       alt="Post Image"
-                      className="w-full max-h-[480px] bg-black object-contain"
+                      className="w-full max-h-[320px] bg-black object-contain"
                       referrerPolicy="no-referrer"
                       loading="lazy"
                       onError={(e) => {
@@ -561,6 +569,16 @@ export default function AdIdeasPage() {
                     />
                   );
                 })()}
+
+                {/* Ad-like headline and description */}
+                <div className="px-4 pt-3 pb-2 text-white">
+                  <h3 className="text-[15px] font-semibold leading-tight">
+                    {selectedIdea.caption || 'Sample Ad Headline - Engage Your Audience Today'}
+                  </h3>
+                  <p className="text-[13px] text-gray-400 mt-1">
+                    {selectedIdea.cta || 'Learn more about this offer and start earning today!'}
+                  </p>
+                </div>
 
                 {/* Social-style meta row */}
                 <div className="px-4 pt-3 pb-2 border-t border-white/5 flex items-center justify-between text-[11px] text-white/60">
@@ -602,17 +620,27 @@ export default function AdIdeasPage() {
                 </div>
 
                 {/* Details */}
-                <div className="px-4 pt-2 pb-3 text-sm space-y-1 border-b border-white/5">
-                  <div className="text-[11px] text-white/60">
-                    Audience:{' '}
-                    <span className="text-white">{selectedIdea.audience}</span>
+                <div className="px-4 pt-2 pb-2 text-[12px] text-white/80 border-b border-white/5 space-y-2">
+                  <div className="flex items-center justify-between text-[11px]">
+                  <div className="flex items-center gap-1 text-gray-400">
+                    {/* Audience icon */}
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-[#00C2CB]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5V8l-8 4-8-4v12h5m6 0V10" />
+                    </svg>
+                    <span>{selectedIdea.audience || 'General audience'}</span>
                   </div>
-                  <div className="text-[11px] text-white/60">
-                    Geo:{' '}
-                    <span className="text-white">{selectedIdea.location}</span>
+                  <div className="flex items-center gap-1 text-gray-400">
+                    {/* Geo icon */}
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-[#00C2CB]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 21c4.97-4.97 8-8.59 8-12a8 8 0 10-16 0c0 3.41 3.03 7.03 8 12z" />
+                    </svg>
+                    <span>{selectedIdea.location || 'Global'}</span>
                   </div>
-                  <div className="text-[11px] text-white/60">
-                    Status:{' '}
+                  <div className="flex items-center gap-1 text-gray-400">
+                    {/* Status icon */}
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-[#00C2CB]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
                     <span
                       className={`font-semibold ${
                         selectedIdea.status === 'approved'
@@ -625,14 +653,11 @@ export default function AdIdeasPage() {
                       {selectedIdea.status}
                     </span>
                   </div>
-                  <p className="mt-1 text-[11px] text-gray-400 italic">
-                    Requested recently by @
-                    {selectedIdea.affiliate_email.split('@')[0]}
-                  </p>
+                  </div>
                   <button
                     type="button"
                     onClick={() => setShowTargetingDetails((prev) => !prev)}
-                    className="mt-2 inline-flex items-center gap-1 text-[11px] text-[#00C2CB] hover:text-[#5af2ff] transition"
+                    className="mt-1 inline-flex items-center gap-1 text-[11px] text-[#00C2CB] hover:text-[#5af2ff] transition"
                   >
                     <span>
                       {showTargetingDetails ? 'Hide targeting details' : 'View targeting details'}
@@ -662,7 +687,7 @@ export default function AdIdeasPage() {
 
                 {/* Targeting details dropdown */}
                 {showTargetingDetails && (
-                  <div className="px-4 pt-3 pb-3 text-[11px]">
+                  <div className="px-4 pt-3 pb-3 text-[11px] overflow-y-auto max-h-[300px]">
                     <div className="rounded-lg border border-white/10 bg-black/40 px-3 py-3 space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="text-white/60">Objective</span>
@@ -735,46 +760,48 @@ export default function AdIdeasPage() {
                   </div>
                 )}
 
-                {/* Actions */}
-                {selectedIdea.status === 'pending' && (
-                  <div className="flex gap-3 px-4 pt-2 pb-3">
+                {/* Divider before actions */}
+                <div className="border-t border-white/5 mt-2 pt-2">
+                  {/* Actions */}
+                  {selectedIdea.status === 'pending' && (
+                    <div className="flex gap-2 px-3 pb-2 pt-1">
+                      <button
+                        onClick={async () => {
+                          await handleStatusChange(selectedIdea.id, 'approved');
+                          await sendToMeta(selectedIdea.id);
+                        }}
+                        className="w-full py-2 rounded-lg bg-[#00C2CB] hover:bg-[#00b0b8] text-black font-semibold text-sm shadow-[0_0_20px_rgba(0,194,203,0.35)] transition"
+                      >
+                        Approve &amp; Launch
+                      </button>
+                      <button
+                        onClick={async () => {
+                          await handleStatusChange(
+                            selectedIdea.id,
+                            'rejected'
+                          );
+                          setSelectedIdea((prev) =>
+                            prev ? { ...prev, status: 'rejected' } : null
+                          );
+                        }}
+                        className="w-full py-2 rounded-lg bg-[#2b1515] hover:bg-[#3a1a1a] text-red-300 font-semibold text-sm border border-red-500/40 transition"
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  )}
+                  {/* Close Button - sticky for visibility */}
+                  <div className="sticky bottom-0 left-0 right-0 bg-black/90 backdrop-blur-md px-4 pb-3 pt-2 z-10">
                     <button
-                      onClick={async () => {
-                        await handleStatusChange(selectedIdea.id, 'approved');
-                        await sendToMeta(selectedIdea.id);
+                      className="w-full py-2 rounded-lg bg-[#00C2CB]/10 hover:bg-[#00C2CB]/20 text-[#00C2CB] font-medium text-sm"
+                      onClick={() => {
+                        setShowTargetingDetails(false);
+                        setSelectedIdea(null);
                       }}
-                      className="w-full py-2 rounded-lg bg-[#00C2CB] hover:bg-[#00b0b8] text-black font-semibold text-sm shadow-[0_0_20px_rgba(0,194,203,0.35)] transition"
                     >
-                      Approve &amp; Launch
-                    </button>
-                    <button
-                      onClick={async () => {
-                        await handleStatusChange(
-                          selectedIdea.id,
-                          'rejected'
-                        );
-                        setSelectedIdea((prev) =>
-                          prev ? { ...prev, status: 'rejected' } : null
-                        );
-                      }}
-                      className="w-full py-2 rounded-lg bg-[#2b1515] hover:bg-[#3a1a1a] text-red-300 font-semibold text-sm border border-red-500/40 transition"
-                    >
-                      Reject
+                      Close Preview
                     </button>
                   </div>
-                )}
-
-                {/* Close */}
-                <div className="px-4 pb-4 pt-2 border-t border-white/5">
-                  <button
-                    className="w-full py-2.5 rounded-lg bg-[#00C2CB]/10 hover:bg-[#00C2CB]/20 text-[#00C2CB] font-medium text-sm"
-                    onClick={() => {
-                      setShowTargetingDetails(false);
-                      setSelectedIdea(null);
-                    }}
-                  >
-                    Close Preview
-                  </button>
                 </div>
               </div>
             </div>
