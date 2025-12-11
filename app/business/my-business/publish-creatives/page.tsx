@@ -106,12 +106,16 @@ const BusinessCreativesPage = () => {
 
   return (
     <div className="bg-[#0e0e0e] min-h-screen w-full p-10">
-      <h1 className="text-3xl font-bold text-[#00C2CB] mb-8 flex items-center gap-2">
+      <h1 className="text-2xl font-semibold text-[#00C2CB] mb-2 flex items-center gap-2">
         <FiImage className="text-[#00C2CB]" />
         Upload Creatives
       </h1>
+      <p className="text-gray-400 text-sm mb-4">
+        Upload creatives for your affiliates to use in campaigns.
+      </p>
+      <div className="h-px w-full bg-gradient-to-r from-transparent via-[#00C2CB]/40 to-transparent my-4" />
 
-      <div className="bg-[#1f1f1f] p-6 rounded-lg shadow-md border border-[#00C2CB] mb-10 space-y-4">
+      <div className="bg-[#1a1a1a] border border-[#00C2CB]/30 rounded-xl p-6 shadow-[0_0_10px_rgba(0,194,203,0.15)] backdrop-blur-sm space-y-4">
         <label className="text-white flex items-center gap-2 mb-2">
           <FiZap className="text-[#00C2CB]" />
           Creative Type
@@ -119,7 +123,7 @@ const BusinessCreativesPage = () => {
         <select
           value={type}
           onChange={(e) => setType(e.target.value as 'winning' | 'suggested')}
-          className="bg-black text-white border border-gray-600 p-3 rounded w-full"
+          className="w-full bg-[#0b0b0b]/80 border border-[#00C2CB]/30 rounded-md p-3 text-white focus:ring-2 focus:ring-[#00C2CB] focus:border-transparent transition duration-200 placeholder-gray-400"
         >
           <option value="winning">Winning Creative</option>
           <option value="suggested">Suggested Creative</option>
@@ -132,7 +136,7 @@ const BusinessCreativesPage = () => {
         <select
           value={selectedOfferId}
           onChange={(e) => setSelectedOfferId(e.target.value)}
-          className="bg-black text-white border border-gray-600 p-3 rounded w-full"
+          className="w-full bg-[#0b0b0b]/80 border border-[#00C2CB]/30 rounded-md p-3 text-white focus:ring-2 focus:ring-[#00C2CB] focus:border-transparent transition duration-200 placeholder-gray-400"
         >
           <option value="">Select Offer</option>
           {offers.map((offer) => (
@@ -151,7 +155,7 @@ const BusinessCreativesPage = () => {
           placeholder="Caption"
           value={caption}
           onChange={(e) => setCaption(e.target.value)}
-          className="bg-black text-white border border-gray-600 p-3 rounded w-full"
+          className="w-full bg-[#0b0b0b]/80 border border-[#00C2CB]/30 rounded-md p-3 text-white focus:ring-2 focus:ring-[#00C2CB] focus:border-transparent transition duration-200 placeholder-gray-400"
         />
 
         {type === 'winning' && (
@@ -165,7 +169,7 @@ const BusinessCreativesPage = () => {
               placeholder="Audience (e.g. Males 18-24)"
               value={audience}
               onChange={(e) => setAudience(e.target.value)}
-              className="bg-black text-white border border-gray-600 p-3 rounded w-full"
+              className="w-full bg-[#0b0b0b]/80 border border-[#00C2CB]/30 rounded-md p-3 text-white focus:ring-2 focus:ring-[#00C2CB] focus:border-transparent transition duration-200 placeholder-gray-400"
             />
             <label className="text-white flex items-center gap-2 mb-2">
               <FiMapPin className="text-[#00C2CB]" />
@@ -176,7 +180,7 @@ const BusinessCreativesPage = () => {
               placeholder="Location (e.g. Australia)"
               value={location}
               onChange={(e) => setLocation(e.target.value)}
-              className="bg-black text-white border border-gray-600 p-3 rounded w-full"
+              className="w-full bg-[#0b0b0b]/80 border border-[#00C2CB]/30 rounded-md p-3 text-white focus:ring-2 focus:ring-[#00C2CB] focus:border-transparent transition duration-200 placeholder-gray-400"
             />
           </>
         )}
@@ -187,41 +191,37 @@ const BusinessCreativesPage = () => {
         <input
           type="file"
           onChange={(e) => setFile(e.target.files?.[0] || null)}
-          className="bg-black text-[#00C2CB] placeholder-gray-400 border border-gray-600 p-3 rounded w-full file:bg-[#00C2CB] file:text-black file:font-semibold file:border-none file:rounded file:px-4 file:py-2"
+          className="w-full bg-[#0b0b0b]/80 border border-[#00C2CB]/30 rounded-md p-3 text-white placeholder-gray-400 focus:ring-2 focus:ring-[#00C2CB] focus:border-transparent transition duration-200 file:bg-[#00C2CB] file:text-black file:font-semibold file:border-none file:rounded file:px-4 file:py-2"
         />
 
         <button
           onClick={handleUpload}
           disabled={uploading}
-          className="bg-[#00C2CB] hover:bg-[#00b0b8] text-white font-semibold px-6 py-3 rounded w-full flex items-center justify-center gap-2 transition duration-200"
+          className="w-full bg-[#00C2CB] hover:bg-[#00b0b8] text-black font-semibold rounded-md py-3 transition-all duration-200 shadow-[0_0_10px_rgba(0,194,203,0.4)]"
         >
-          <FiUpload className="text-white" />
+          <FiUpload className="text-black inline-block mr-2" />
           {uploading ? 'Uploading...' : 'Upload Creative'}
         </button>
       </div>
 
-      <h2 className="text-2xl font-semibold text-[#00C2CB] mb-4 flex items-center gap-2">
+      <h2 className="text-2xl font-semibold text-[#00C2CB] mb-4 mt-12 flex items-center gap-2">
         <FiFolder className="text-[#00C2CB]" />
         Your Uploaded Creatives
       </h2>
-      <div className="grid grid-cols-1 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
         {creatives.map((creative) => (
-          <div key={creative.id} className="bg-[#1f1f1f] p-4 rounded-lg shadow-md border border-gray-700">
-            <p className="font-bold text-[#00C2CB] capitalize mb-1">📌 {creative.type}</p>
+          <div key={creative.id} className="bg-[#141414] border border-[#00C2CB]/30 rounded-xl p-4 shadow-md hover:shadow-[0_0_15px_rgba(0,194,203,0.3)] transition duration-200">
+            <p className="font-semibold text-[#00C2CB] capitalize mb-1">📌 {creative.type}</p>
             <p className="text-sm text-gray-300 mb-2">{creative.caption}</p>
-            {creative.audience && (
-              <p className="text-xs text-gray-400">🎯 Audience: {creative.audience}</p>
-            )}
-            {creative.location && (
-              <p className="text-xs text-gray-400">🌍 Location: {creative.location}</p>
-            )}
+            {creative.audience && <p className="text-xs text-gray-400">🎯 {creative.audience}</p>}
+            {creative.location && <p className="text-xs text-gray-400">🌍 {creative.location}</p>}
             {creative.media_url && (
               creative.media_url.includes('.mp4') ? (
-                <video controls className="w-full rounded mt-3 border border-gray-700">
+                <video controls className="w-full rounded-lg mt-3 border border-[#00C2CB]/20">
                   <source src={creative.media_url} type="video/mp4" />
                 </video>
               ) : (
-                <img src={creative.media_url} alt="Creative" className="w-full rounded mt-3 border border-gray-700" />
+                <img src={creative.media_url} alt="Creative" className="w-full rounded-lg mt-3 border border-[#00C2CB]/20" />
               )
             )}
           </div>

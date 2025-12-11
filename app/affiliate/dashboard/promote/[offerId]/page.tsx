@@ -1,5 +1,25 @@
-// eslint-disable-next-line
 'use client';
+
+// Helper: friendlyObjective
+function friendlyObjective(objective?: string): string {
+  switch (objective) {
+    case 'OUTCOME_SALES':
+      return 'Sales';
+    case 'OUTCOME_LEADS':
+      return 'Leads';
+    case 'OUTCOME_ENGAGEMENT':
+      return 'Engagement';
+    case 'OUTCOME_VIDEO_VIEWS':
+      return 'Video Views';
+    case 'OUTCOME_REACH':
+      return 'Reach';
+    case 'OUTCOME_AWARENESS':
+      return 'Awareness';
+    default:
+      return 'Traffic';
+  }
+}
+// eslint-disable-next-line
 
 import { useState, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { useRouter, useParams } from 'next/navigation';
@@ -1540,31 +1560,47 @@ function DateTimeField({
               {step === 4 && (
                 <div className="space-y-4 sm:space-y-6 text-sm">
                   <div className="grid sm:grid-cols-2 gap-4">
-                    <div className="p-4 sm:p-6 rounded-xl border border-[#2a2a2a] bg-[#0f0f0f]">
-                      <div className="text-gray-400 text-xs mb-1">Campaign</div>
-                      <div className="font-semibold">{form.campaign_name || '—'}</div>
-                      <div className="text-gray-400 mt-1">Objective: {form.objective}</div>
-                    </div>
-                    <div className="p-4 sm:p-6 rounded-xl border border-[#2a2a2a] bg-[#0f0f0f]">
-                      <div className="text-gray-400 text-xs mb-1">Budget</div>
-                      <div className="font-semibold">
-                        ${Number(form.budget_amount_dollars || 0).toFixed(2)} ({form.budget_type})
+                    {/* Campaign */}
+                    <div className="p-4 sm:p-6 rounded-xl border border-[#2a2a2a] bg-[#0f0f0f] hover:border-[#00C2CB]/40 transition">
+                      <div className="text-xs uppercase text-gray-400 tracking-wide mb-1">Campaign</div>
+                      <div className="text-lg font-semibold text-[#00C2CB]">{form.campaign_name || '—'}</div>
+                      <div className="text-sm text-gray-300 mt-1">
+                        Objective: <span className="text-[#00C2CB]">{friendlyObjective(form.objective)}</span>
                       </div>
                     </div>
-                    <div className="p-4 sm:p-6 rounded-xl border border-[#2a2a2a] bg-[#0f0f0f]">
-                      <div className="text-gray-400 text-xs mb-1">Targeting</div>
-                      <div>
-                        {form.location_countries} • {form.age_min}-{form.age_max} •{' '}
-                        {form.gender === '' ? 'All' : form.gender === '1' ? 'Male' : 'Female'}
+
+                    {/* Budget */}
+                    <div className="p-4 sm:p-6 rounded-xl border border-[#2a2a2a] bg-[#0f0f0f] hover:border-[#00C2CB]/40 transition">
+                      <div className="text-xs uppercase text-gray-400 tracking-wide mb-1">Budget</div>
+                      <div className="text-lg font-semibold text-[#00C2CB]">${Number(form.budget_amount_dollars || 0).toFixed(2)}</div>
+                      <div className="text-sm text-gray-300 mt-1">
+                        Type: <span className="text-[#00C2CB]">{form.budget_type}</span>
                       </div>
-                      {form.interests_csv && <div className="text-gray-400">Interests: {form.interests_csv}</div>}
                     </div>
-                    <div className="p-4 sm:p-6 rounded-xl border border-[#2a2a2a] bg-[#0f0f0f]">
-                      <div className="text-gray-400 text-xs mb-1">Creative</div>
-                      <div className="font-semibold">{form.headline || 'No headline'}</div>
-                      <div className="text-gray-400">{form.caption || 'No caption'}</div>
-                      <div className="text-gray-400 mt-1">
-                        CTA: {form.call_to_action} → {form.display_link || '—'}
+
+                    {/* Targeting */}
+                    <div className="p-4 sm:p-6 rounded-xl border border-[#2a2a2a] bg-[#0f0f0f] hover:border-[#00C2CB]/40 transition">
+                      <div className="text-xs uppercase text-gray-400 tracking-wide mb-1">Targeting</div>
+                      <div className="text-sm text-gray-300">
+                        {form.location_countries} • {form.age_min}-{form.age_max} • {form.gender === '' ? 'All' : form.gender === '1' ? 'Male' : 'Female'}
+                      </div>
+                      {form.interests_csv && (
+                        <div className="text-sm text-gray-400 mt-1">
+                          Interests: <span className="text-[#00C2CB]">{form.interests_csv}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Creative */}
+                    <div className="p-4 sm:p-6 rounded-xl border border-[#2a2a2a] bg-[#0f0f0f] hover:border-[#00C2CB]/40 transition">
+                      <div className="text-xs uppercase text-gray-400 tracking-wide mb-1">Creative</div>
+                      <div className="text-lg font-semibold text-[#00C2CB]">{form.headline || 'No headline'}</div>
+                      <div className="text-sm text-gray-400">{form.caption || 'No caption'}</div>
+                      <div className="text-sm mt-1 text-gray-300">
+                        CTA: <span className="text-[#00C2CB]">{form.call_to_action?.replace('_', ' ')}</span> →{' '}
+                        <a href={form.display_link || '#'} className="underline text-[#00C2CB] hover:text-[#00b0b8]" target="_blank">
+                          {form.display_link || '—'}
+                        </a>
                       </div>
                     </div>
                   </div>

@@ -220,8 +220,8 @@ const ManageCampaignsBusiness = () => {
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className="rounded-full bg-[#00C2CB]/10 px-3 py-1 text-xs font-medium text-[#7ff5fb]">
+                <div className="flex flex-col items-end gap-1 sm:flex-row sm:items-center sm:gap-3">
+                  <span className="flex items-center justify-center min-w-[70px] rounded-full bg-[#00C2CB]/20 px-3 py-1.5 text-xs font-semibold text-[#00C2CB] shadow-inner shadow-[#00C2CB]/30">
                     {activeCampaigns.length} active
                   </span>
                   <span className="text-2xl leading-none text-[#00C2CB]">
@@ -362,9 +362,10 @@ const ManageCampaignsBusiness = () => {
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <span className="rounded-full bg-white/5 px-3 py-1 text-xs font-medium text-white/70">
-                    {archivedCampaigns.length} archived
+                <div className="flex flex-col items-end gap-1 sm:flex-row sm:items-center sm:gap-3">
+                  <span className="inline-flex items-center justify-center gap-1 rounded-full bg-[#1a1a1a] px-3 py-1.5 text-xs font-semibold text-[#cfd2d3] shadow-inner shadow-black/50 ring-1 ring-white/10 backdrop-blur-sm whitespace-nowrap">
+                    <span>{archivedCampaigns.length}</span>
+                    <span>archived</span>
                   </span>
                   <span className="text-2xl leading-none text-[#00C2CB]">
                     {showArchived ? '−' : '+'}

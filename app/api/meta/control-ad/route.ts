@@ -21,10 +21,10 @@ export async function POST(req: Request) {
       );
     }
 
-    // 1) Load live_ads row (we need meta_campaign_id + meta_adset_id + meta_ad_id + business_email)
+    // 1) Load live_ads row (we need meta_campaign_id + meta_ad_id + business_email)
     const { data: liveAd, error: liveErr } = await supabase
       .from('live_ads')
-      .select('id, meta_ad_id, meta_adset_id, meta_campaign_id, status, business_email')
+      .select('id, meta_ad_id, meta_campaign_id, status, business_email')
       .eq('id', liveAdId)
       .single();
 
@@ -53,9 +53,8 @@ export async function POST(req: Request) {
 
     const accessToken = metaConn.access_token;
 
-    // Prefer controlling the campaign, then ad set, then ad using Meta IDs.
+    // Prefer controlling the campaign, then ad using Meta IDs.
     const campaignId = (liveAd as any).meta_campaign_id as string | null;
-    const adsetId = (liveAd as any).meta_adset_id as string | null;
     const adId = liveAd.meta_ad_id as string | null;
 
     let targetId: string | null = null;
@@ -64,9 +63,6 @@ export async function POST(req: Request) {
     if (campaignId) {
       targetId = campaignId;
       targetType = 'campaign';
-    } else if (adsetId) {
-      targetId = adsetId;
-      targetType = 'ad set';
     } else if (adId) {
       targetId = adId;
       targetType = 'ad';
