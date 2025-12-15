@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import AcceptTermsModal from '@/../app/components/AcceptTermsModal';
 import OfferCard from '@/components/OfferCard';
 import { supabase } from '../../../utils/supabase/pages-client';
 import { Search } from 'lucide-react';
@@ -26,6 +27,32 @@ export default function AffiliateMarketplace() {
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState('All');
   const [sortOrder, setSortOrder] = useState('None');
+
+  const [showAcceptTerms, setShowAcceptTerms] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+  useEffect(() => {
+    const checkTerms = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) return;
+
+      setUserId(user.id);
+
+      const { data, error } = await (supabase as any)
+        .from('profiles')
+        .select('terms_accepted')
+        .eq('id', user.id)
+        .single();
+
+      if (!error && data?.terms_accepted !== true) {
+        setShowAcceptTerms(true);
+      }
+    };
+
+    checkTerms();
+  }, []);
 
   useEffect(() => {
     type SupabaseOffer = {
@@ -146,6 +173,12 @@ export default function AffiliateMarketplace() {
 
   return (
     <div className="flex justify-center px-6 py-10 bg-[#0e0e0e] text-white min-h-screen">
+      {showAcceptTerms && userId && (
+        <AcceptTermsModal
+          userId={userId}
+          onAccepted={() => setShowAcceptTerms(false)}
+        />
+      )}
       <div className="w-full max-w-7xl">
         <div className="mb-8 text-center">
           <h1 className="text-3xl font-bold text-[#00C2CB] mb-2">Affiliate Marketplace</h1>

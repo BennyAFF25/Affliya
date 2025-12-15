@@ -33,20 +33,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             {children}
             <Toaster
               position="top-center"
+              gutter={10}
               toastOptions={{
+                duration: 3500,
                 style: {
-                  background: "#001718",
-                  color: "#F9FAFB",
-                  border: "1px solid #00C2CB",
-                  boxShadow: "0 0 25px rgba(0,194,203,0.25)",
-                  borderRadius: "9999px",
-                  paddingInline: "16px",
-                },
-                success: {
-                  iconTheme: {
-                    primary: "#00C2CB",
-                    secondary: "#001718",
-                  },
+                  fontSize: "14px",
+                  borderRadius: "14px",
                 },
               }}
             />

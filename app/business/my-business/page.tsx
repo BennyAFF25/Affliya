@@ -1,6 +1,7 @@
 'use client';
 
 import '@/globals.css';
+import AcceptTermsModal from '@/../app/components/AcceptTermsModal';
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { useSession } from '@supabase/auth-helpers-react';
@@ -131,6 +132,16 @@ interface Offer {
   type: string;
 }
 
+// ---- Pending Notification Dot ----
+const PendingDot = () => (
+  <span
+    className="ml-2 inline-block h-2 w-2 rounded-full bg-[#00C2CB]"
+    style={{
+      boxShadow: '0 0 6px rgba(0,194,203,0.8)',
+    }}
+  />
+);
+
 export default function MyBusinessPage() {
   const [offers, setOffers] = useState<Offer[]>([]);
   const [offersLoading, setOffersLoading] = useState<boolean>(true);
@@ -143,9 +154,58 @@ export default function MyBusinessPage() {
   const [onboardingComplete, setOnboardingComplete] = useState<boolean>(false);
   const [hasCard, setHasCard] = useState<boolean>(false);
 
+  const [hasPendingPostIdeas, setHasPendingPostIdeas] = useState(false);
+  const [hasPendingAdIdeas, setHasPendingAdIdeas] = useState(false);
+
+  const [showAcceptTerms, setShowAcceptTerms] = useState(false);
+
   const session = useSession();
   const user = session?.user;
   const supabase = createClientComponentClient();
+  useEffect(() => {
+    if (!user?.email || offers.length === 0) return;
+
+    const offerIds = offers.map(o => o.id);
+
+    const checkPending = async () => {
+      const [{ data: postIdeas }, { data: adIdeas }] = await Promise.all([
+        supabase
+          .from('organic_posts')
+          .select('id')
+          .in('offer_id', offerIds)
+          .eq('status', 'pending'),
+
+        supabase
+          .from('ad_ideas')
+          .select('id')
+          .in('offer_id', offerIds)
+          .eq('status', 'pending'),
+      ]);
+
+      setHasPendingPostIdeas(!!postIdeas?.length);
+      setHasPendingAdIdeas(!!adIdeas?.length);
+    };
+
+    checkPending();
+  }, [user?.email, offers, supabase]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const checkTerms = async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('terms_accepted')
+        .eq('id', user.id)
+        .single();
+
+      if (!error && !data?.terms_accepted) {
+        setShowAcceptTerms(true);
+      }
+    };
+
+    checkTerms();
+  }, [user?.id, supabase]);
 
   // Helper to safely parse JSON or fallback to text for error messages
   async function parseJsonSafe(res: Response) {
@@ -420,6 +480,12 @@ export default function MyBusinessPage() {
 
   return (
     <>
+      {showAcceptTerms && user?.id && (
+        <AcceptTermsModal
+          userId={user.id}
+          onAccepted={() => setShowAcceptTerms(false)}
+        />
+      )}
       {console.log("MyBusinessPage mounted")}
       <div className="bg-[#0a0a0a] text-white px-6 py-10 min-h-screen">
       {/* Header */}
@@ -589,12 +655,18 @@ export default function MyBusinessPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <Link href="/business/my-business/post-ideas/" prefetch={false}>
                     <ActionButton size="sm" secondary>
-                      View post ideas
+                      <span className="flex items-center gap-1">
+                        View post ideas
+                        {hasPendingPostIdeas && <PendingDot />}
+                      </span>
                     </ActionButton>
                   </Link>
                   <Link href="/business/my-business/ad-ideas/" prefetch={false}>
                     <ActionButton size="sm" secondary>
-                      View ad ideas
+                      <span className="flex items-center gap-1">
+                        View ad ideas
+                        {hasPendingAdIdeas && <PendingDot />}
+                      </span>
                     </ActionButton>
                   </Link>
                 </div>

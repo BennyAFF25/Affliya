@@ -22,6 +22,7 @@ function friendlyObjective(objective?: string): string {
 // eslint-disable-next-line
 
 import { useState, useEffect, useMemo, useRef, type ReactNode } from 'react';
+import { nmToast } from "@/components/ui/toast";
 import { FaSpinner } from "react-icons/fa";
 import { useRouter, useParams } from 'next/navigation';
 import { useSession } from '@supabase/auth-helpers-react';
@@ -843,8 +844,8 @@ function DateTimeField({
   // ─────────────────────────────
   const handleOrganicSubmit = async () => {
     try {
-      if (!userEmail) { alert('You must be signed in.'); return; }
-      if (!userId) { alert('Missing user id.'); return; }
+      if (!userEmail) { nmToast.error("You must be signed in."); return; }
+      if (!userId) { nmToast.error("Missing user session."); return; }
 
       // Fetch business_email for this offer
       const { data: offerRow, error: offerErr } = await (supabase as any)
@@ -921,7 +922,7 @@ function DateTimeField({
       ]);
       if (insertErr) throw new Error(insertErr.message || JSON.stringify(insertErr));
 
-      alert('Organic submission received. We’ll notify you when it’s approved.');
+      nmToast.success("Organic post submitted for review");
       // Reset organic fields
       setOgCaption('');
       setOgContent('');
@@ -929,7 +930,7 @@ function DateTimeField({
     } catch (e: any) {
       const msg = e?.message || (typeof e === 'string' ? e : JSON.stringify(e));
       console.error('[Organic Submit Error]', msg, e);
-      alert(msg || 'Failed to submit organic post.');
+      nmToast.error(msg || "Failed to submit organic post");
     }
   };
 
@@ -953,14 +954,14 @@ function DateTimeField({
       }
 
       if (!videoFile) {
-        alert('Please upload a video file.');
+        nmToast.error("Please upload a video file");
         return;
       }
 
       // 0) Ensure budget does not exceed prefunded wallet
       const budgetDollars = Number(form.budget_amount_dollars || 0);
       if (!budgetDollars || budgetDollars <= 0) {
-        alert('Please enter a valid daily budget before submitting.');
+        nmToast.error("Please enter a valid daily budget");
         setStep(2);
         return;
       }
@@ -982,12 +983,8 @@ function DateTimeField({
       }, 0);
 
       if (walletTotal < budgetDollars) {
-        alert(
-          `Your daily budget ($${budgetDollars.toFixed(
-            2
-          )}) exceeds your available prefunded wallet balance ($${walletTotal.toFixed(
-            2
-          )}). Please top up your wallet or lower your budget. We also recommend keeping a little extra loaded so ads don't pause before you can top up.`
+        nmToast.error(
+          `Daily budget ($${budgetDollars.toFixed(2)}) exceeds your available wallet balance ($${walletTotal.toFixed(2)}).`
         );
         setStep(2);
         return;
@@ -1084,11 +1081,11 @@ function DateTimeField({
       ]);
       if (insertErr) throw insertErr;
 
-      alert('Ad idea submitted for review.');
+      nmToast.success("Ad idea submitted for review");
       router.push('/affiliate/dashboard'); // back to dashboard after submit
     } catch (e: any) {
       console.error('[❌ Submit Error]', e);
-      alert(e?.message || 'Failed to submit.');
+      nmToast.error(e?.message || "Failed to submit ad idea");
     }
   };
 

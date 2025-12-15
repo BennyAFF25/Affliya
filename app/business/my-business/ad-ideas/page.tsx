@@ -5,6 +5,7 @@ import { useSession } from '@supabase/auth-helpers-react';
 import { useEffect, useState } from 'react';
 import { supabase } from 'utils/supabase/pages-client';
 import { useRouter } from 'next/navigation';
+import { nmToast } from "@/components/ui/toast";
 
 interface AdIdea {
   meta_ad_id?: string;
@@ -172,9 +173,9 @@ export default function AdIdeasPage() {
 
           if (insertError) {
             console.error('[❌ Live campaign insert failed]', insertError.message);
-            alert('Ad approved but campaign insert failed. Please check logs.');
+            nmToast.error("Ad approved, but campaign creation failed");
           } else {
-            alert('Ad approved and campaign created successfully!');
+            nmToast.success("Ad approved & campaign created");
             if ((inserted as any)?.id) {
               router.push(`/business/manage-campaigns/${(inserted as any).id}`);
             } else {
@@ -263,8 +264,10 @@ export default function AdIdeasPage() {
 
       if (!response.ok) {
         console.error('[❌ Meta Upload Failed]', data);
+        nmToast.error("Meta upload failed");
       } else {
         console.log('[✅ Meta Upload Success]', data);
+        nmToast.success("Meta ad uploaded successfully");
         // After successful Meta ad creation and response, update Supabase row with meta_status
         // Use status from Meta API response, e.g. data.status or data.metaStatus, fallback to 'RUNNING'
         let metaStatus = data?.status || data?.metaStatus || 'RUNNING';

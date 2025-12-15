@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useSessionContext } from '@supabase/auth-helpers-react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { ShieldCheck, Link2, Wallet, Cpu, Briefcase, Users, ArrowRight, Twitter, Linkedin, Mail } from 'lucide-react';
+import { ShieldCheck, Link2, Wallet, Cpu, Briefcase, Users, ArrowRight, Facebook, Instagram, Mail } from 'lucide-react';
 
 export default function Home() {
   const { session, isLoading, supabaseClient } = useSessionContext();
@@ -500,20 +500,58 @@ export default function Home() {
       </section>
 
       {/* FOOTER */}
-            <footer className="border-t border-white/10 bg-black">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-xs text-white/50">
-            © {new Date().getFullYear()} Nettmark. Built for performance teams and partners.
-          </p>
-          <div className="flex items-center gap-4 text-white/60">
-            <Link href="https://twitter.com" target="_blank" className="hover:text-[#7ff5fb]">
-              <Twitter className="w-4 h-4" />
+      <footer className="border-t border-white/10 bg-black">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 py-8 flex flex-col gap-6">
+          {/* Top row */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <p className="text-xs text-white/50">
+              © {new Date().getFullYear()} Nettmark. Built for performance teams and partners.
+            </p>
+
+            <div className="flex items-center gap-4 text-white/60">
+              <Link
+                href="https://www.facebook.com/profile.php?id=61583257776587"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-[#00C2CB] transition-colors"
+                aria-label="Nettmark Facebook"
+              >
+                <Facebook className="w-4 h-4" />
+              </Link>
+
+              <Link
+                href="https://www.instagram.com/nettmark_?igsh=MTNqOGUyYjgxOGRldg%3D%3D&utm_source=qr"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="hover:text-[#00C2CB] transition-colors"
+                aria-label="Nettmark Instagram"
+              >
+                <Instagram className="w-4 h-4" />
+              </Link>
+
+              <Link
+                href="mailto:contact@nettmark.com"
+                className="hover:text-[#00C2CB] transition-colors"
+                aria-label="Email Nettmark"
+              >
+                <Mail className="w-4 h-4" />
+              </Link>
+            </div>
+          </div>
+
+          {/* Policy links */}
+          <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-white/50">
+            <Link href="/legal/privacy" className="hover:text-[#00C2CB] transition-colors">
+              Privacy Policy
             </Link>
-            <Link href="https://linkedin.com" target="_blank" className="hover:text-[#7ff5fb]">
-              <Linkedin className="w-4 h-4" />
+            <Link href="/legal/privacy/terms-of-service" className="hover:text-[#00C2CB] transition-colors">
+              Terms of Service
             </Link>
-            <Link href="mailto:hello@nettmark.com" className="hover:text-[#7ff5fb]">
-              <Mail className="w-4 h-4" />
+            <Link href="/legal/privacy/cookies" className="hover:text-[#00C2CB] transition-colors">
+              Cookie Policy
+            </Link>
+            <Link href="/legal/privacy/acceptable-use" className="hover:text-[#00C2CB] transition-colors">
+              Acceptable Use
             </Link>
           </div>
         </div>

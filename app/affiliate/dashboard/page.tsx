@@ -106,6 +106,7 @@ function AffiliateDashboardContent() {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<Profile | null>(null);
 
+
   // live ads + payouts
   const [liveAds, setLiveAds] = useState<any[]>([]);
   const [walletPayouts, setWalletPayouts] = useState<any[]>([]);
@@ -146,9 +147,9 @@ function AffiliateDashboardContent() {
       }
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, role, onboarding_completed')
+        .select('id, role, onboarding_completed, terms_accepted')
         .eq('id', session.user.id)
-        .maybeSingle<Profile>();
+        .maybeSingle<any>();
 
       // Redirect logic commented out for now:
       /*
@@ -443,9 +444,13 @@ function AffiliateDashboardContent() {
   const visibleCampaigns = showAllCampaigns ? activeCampaigns : activeCampaigns.slice(0, 1);
   const visibleOffers = showAllOffers ? approvedOffers : approvedOffers.slice(0, 1);
 
-  if (loading) {
-    return <div className="p-4">Loading...</div>;
-  }
+if (loading) {
+  return (
+    <div className="min-h-screen bg-gradient-to-b from-[#0a0a0a] to-[#0d0d0d] text-white">
+      <div className="p-4">Loading...</div>
+    </div>
+  );
+}
   if (!user) {
     return null; // redirect handled above
   }

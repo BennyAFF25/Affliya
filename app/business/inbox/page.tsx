@@ -5,17 +5,58 @@ import { useSession } from '@supabase/auth-helpers-react';
 import { supabase } from 'utils/supabase/pages-client';
 import Link from 'next/link';
 
-interface AffiliateRequest {
+import {
+  Megaphone,
+  Image as ImageIcon,
+  Activity,
+  Archive as ArchiveIcon,
+} from 'lucide-react';
+
+const inboxMeta = {
+  ad_idea: {
+    label: 'Ad Idea',
+    icon: Megaphone,
+  },
+  live_ad: {
+    label: 'Live Ad',
+    icon: Activity,
+  },
+  organic_post: {
+    label: 'Organic Post',
+    icon: ImageIcon,
+  },
+};
+
+interface AdIdea {
   id: string;
   offer_id: string;
   affiliate_email: string;
   status: string;
-  notes?: string;
   created_at: string;
+  archived?: boolean;
 }
 
-interface AdIdea {
+interface LiveAd {
   id: string;
+  offer_id: string;
+  affiliate_email: string;
+  status: string;
+  created_at: string;
+  archived?: boolean;
+}
+
+interface OrganicPost {
+  id: string;
+  offer_id: string;
+  affiliate_email: string;
+  status: string;
+  created_at: string;
+  archived?: boolean;
+}
+
+interface InboxItem {
+  id: string;
+  type: 'ad_idea' | 'live_ad' | 'organic_post';
   offer_id: string;
   affiliate_email: string;
   status: string;
@@ -27,14 +68,37 @@ interface Offer {
   title: string;
 }
 
+const getArchiveKey = (email: string) => `nettmark_inbox_archived_${email}`;
+
+const loadArchived = (email: string): InboxItem[] => {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(getArchiveKey(email));
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+};
+
+const saveArchived = (email: string, items: InboxItem[]) => {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(getArchiveKey(email), JSON.stringify(items));
+};
+
 export default function BusinessInbox() {
   const session = useSession();
   const user = session?.user;
-  const [requests, setRequests] = useState<AffiliateRequest[]>([]);
-  const [adIdeas, setAdIdeas] = useState<AdIdea[]>([]);
+  const [inboxItems, setInboxItems] = useState<InboxItem[]>([]);
+  const [archivedItems, setArchivedItems] = useState<InboxItem[]>([]);
+  const [showArchived, setShowArchived] = useState(false);
   const [offers, setOffers] = useState<Offer[]>([]);
-  const [showRequests, setShowRequests] = useState(true);
-  const [showAdIdeas, setShowAdIdeas] = useState(true);
+
+  // Load archived items from localStorage on mount
+  useEffect(() => {
+    if (!user?.email) return;
+    const stored = loadArchived(user.email);
+    setArchivedItems(stored);
+  }, [user?.email]);
 
   // Load offers for this business (for display names)
   useEffect(() => {
@@ -67,47 +131,69 @@ export default function BusinessInbox() {
   // Load pending inbox items for THIS business
   useEffect(() => {
     const fetchInboxData = async () => {
-      const businessEmail = user?.email;
-      if (!businessEmail) {
-        console.warn('[⚠️ BusinessInbox] No session user email, skipping inbox fetch.');
+      const offerIds = offers.map(o => o.id);
+      if (offerIds.length === 0) {
+        setInboxItems([]);
         return;
       }
 
-      // Pending affiliate requests for this business
-      const { data: reqs, error: reqErr } = await supabase
-        .from('affiliate_requests')
-        .select('*')
-        .eq('business_email', businessEmail)
-        .eq('status', 'pending')
-        .order('created_at', { ascending: false });
+      const [ads, live, organic] = await Promise.all([
+        supabase
+          .from('ad_ideas')
+          .select('*')
+          .in('offer_id', offerIds),
 
-      if (reqErr) {
-        console.error('[❌ Error fetching affiliate_requests for inbox]', reqErr.message);
-      } else {
-        setRequests((reqs || []) as AffiliateRequest[]);
-      }
+        supabase
+          .from('live_ads')
+          .select('*')
+          .in('offer_id', offerIds),
 
-      // Pending ad ideas for this business
-      const { data: ads, error: adsErr } = await supabase
-        .from('ad_ideas')
-        .select('*')
-        .eq('business_email', businessEmail)
-        .eq('status', 'pending')
-        .order('created_at', { ascending: false });
+        supabase
+          .from('organic_posts')
+          .select('*')
+          .in('offer_id', offerIds),
+      ]);
 
-      if (adsErr) {
-        console.error('[❌ Error fetching ad_ideas for inbox]', adsErr.message);
-      } else {
-        setAdIdeas((ads || []) as AdIdea[]);
-      }
+      const combined: InboxItem[] = [
+        ...(ads.data || []).map((a: any) => ({ ...a, type: 'ad_idea' })),
+        ...(live.data || []).map((l: any) => ({ ...l, type: 'live_ad' })),
+        ...(organic.data || []).map((o: any) => ({ ...o, type: 'organic_post' })),
+      ];
+
+      combined.sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+
+      const archivedIds = new Set(
+        archivedItems.map((i) => `${i.type}-${i.id}`)
+      );
+
+      setInboxItems(
+        combined.filter(
+          (item) => !archivedIds.has(`${item.type}-${item.id}`)
+        )
+      );
     };
 
     fetchInboxData();
-  }, [user]);
+  }, [offers, archivedItems]);
 
   const getOfferName = (offerId: string) => {
     const offer = offers.find((o) => o.id === offerId);
     return offer?.title || 'Unknown Offer';
+  };
+
+  const archiveItem = async (item: InboxItem) => {
+    if (!user?.email) return;
+
+    const updatedArchived = [item, ...archivedItems];
+
+    setArchivedItems(updatedArchived);
+    saveArchived(user.email, updatedArchived);
+
+    setInboxItems((prev) =>
+      prev.filter((i) => !(i.id === item.id && i.type === item.type))
+    );
   };
 
   return (
@@ -120,108 +206,98 @@ export default function BusinessInbox() {
           </p>
         </div>
 
-        {/* Affiliate Requests */}
-        {requests.length > 0 && (
-          <section className="mb-14">
-            <div
-              onClick={() => setShowRequests(!showRequests)}
-              className="bg-[#121212] hover:bg-[#1c1c1c] px-6 py-4 rounded-md shadow border border-[#222] cursor-pointer flex items-center justify-between mb-4"
-            >
-              <h2 className="text-xl font-bold text-[#00C2CB]">Affiliate Requests</h2>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-[#00C2CB] bg-[#00C2CB]/10 px-2 py-0.5 rounded-full font-medium">
-                  {requests.length}
-                </span>
-                <span className="text-lg text-[#00C2CB]">{showRequests ? '−' : '+'}</span>
-              </div>
-            </div>
-            {showRequests && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {requests.map((req) => (
-                  <div
-                    key={req.id}
-                    className="bg-[#121212] rounded-xl p-7 border-l-4 border-[#00C2CB] hover:ring-1 hover:ring-[#00C2CB] shadow-md transition"
-                  >
-                    <p className="text-sm text-gray-400 mb-1">
-                      <span className="font-semibold text-[#00C2CB]">
-                        {req.affiliate_email}
-                      </span>{' '}
-                      wants to promote{' '}
-                      <span className="underline">{getOfferName(req.offer_id)}</span>
-                    </p>
-                    {req.notes && (
-                      <p className="text-sm italic text-gray-500 mt-1">“{req.notes}”</p>
-                    )}
-                    <p className="text-xs text-gray-500 mt-2">
-                      Requested on {new Date(req.created_at).toLocaleDateString()}
-                    </p>
-                    <div className="mt-4">
-                      <Link href="/business/my-business/affiliate-requests">
-                        <button className="px-4 py-1.5 bg-[#00C2CB] hover:bg-[#00b0b8] text-white rounded-md text-sm shadow-md transition">
-                          Manage Requests
-                        </button>
-                      </Link>
-                    </div>
+        {/* Unified Inbox List */}
+        {inboxItems.length > 0 ? (
+          <section className="space-y-6">
+            {inboxItems.map((item) => (
+              <div
+                key={`${item.type}-${item.id}`}
+                className="bg-[#121212] rounded-xl p-6 border-l-4 border-[#00C2CB] hover:bg-[#141414] transition"
+              >
+                <div>
+                  <div className="flex items-center gap-2 text-[#00C2CB] font-semibold">
+                    {(() => {
+                      const Icon = inboxMeta[item.type].icon;
+                      return <Icon size={16} />;
+                    })()}
+                    <span>{inboxMeta[item.type].label}</span>
                   </div>
-                ))}
-              </div>
-            )}
-          </section>
-        )}
+                  <p className="text-sm text-gray-300 mt-1">
+                    Offer: <span className="underline">{getOfferName(item.offer_id)}</span>
+                  </p>
+                  <p className="text-sm text-gray-400">
+                    Affiliate: {item.affiliate_email}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {new Date(item.created_at).toLocaleString()}
+                  </p>
+                </div>
 
-        {/* Ad Idea Submissions */}
-        {adIdeas.length > 0 && (
-          <section className="mb-14">
-            <div
-              onClick={() => setShowAdIdeas(!showAdIdeas)}
-              className="bg-[#121212] hover:bg-[#1c1c1c] px-6 py-4 rounded-md shadow border border-[#222] cursor-pointer flex items-center justify-between mb-4"
-            >
-              <h2 className="text-xl font-bold text-green-400">Ad Ideas</h2>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-green-400 bg-green-400/10 px-2 py-0.5 rounded-full font-medium">
-                  {adIdeas.length}
-                </span>
-                <span className="text-lg text-green-400">{showAdIdeas ? '−' : '+'}</span>
-              </div>
-            </div>
-            {showAdIdeas && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {adIdeas.map((ad) => (
-                  <div
-                    key={ad.id}
-                    className="bg-[#121212] rounded-xl p-7 border-l-4 border-green-500 hover:ring-1 hover:ring-green-500 shadow-md transition"
+                <div className="mt-4 flex justify-between">
+                  {item.type === 'organic_post' && (
+                    <Link href="/business/my-business/post-ideas">
+                      <button className="px-4 py-1.5 bg-[#00C2CB] hover:bg-[#00b0b8] text-white rounded-md text-sm flex items-center gap-2">
+                        Review Post
+                      </button>
+                    </Link>
+                  )}
+
+                  {item.type === 'live_ad' && (
+                    <Link href="/business/manage-campaigns">
+                      <button className="px-4 py-1.5 bg-[#00C2CB] hover:bg-[#00b0b8] text-white rounded-md text-sm flex items-center gap-2">
+                        View Campaign
+                      </button>
+                    </Link>
+                  )}
+
+                  <button
+                    onClick={() => archiveItem(item)}
+                    className="px-3 py-1.5 border border-gray-600 hover:border-[#00C2CB] text-gray-300 hover:text-[#00C2CB] rounded-md text-sm flex items-center gap-2"
                   >
-                    <p className="text-sm text-green-400 font-medium">
-                      New ad submitted for{' '}
-                      <span className="underline">{getOfferName(ad.offer_id)}</span>
-                    </p>
-                    <p className="text-sm text-gray-400 mt-1">
-                      From: {ad.affiliate_email}
-                    </p>
-                    <p className="text-xs text-gray-500 mt-2">
-                      Submitted on {new Date(ad.created_at).toLocaleDateString()}
-                    </p>
-                    <div className="mt-4">
-                      <Link href="/business/my-business/ad-ideas">
-                        <button className="px-4 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-md text-sm shadow-md transition">
-                          Review Ads
-                        </button>
-                      </Link>
-                    </div>
-                  </div>
-                ))}
+                    <ArchiveIcon size={14} />
+                    Archive
+                  </button>
+                </div>
               </div>
-            )}
+            ))}
           </section>
-        )}
-
-        {/* Empty state */}
-        {requests.length === 0 && adIdeas.length === 0 && (
+        ) : (
           <div className="text-center mt-32 text-gray-500">
             <h3 className="text-2xl font-bold">Nothing new yet</h3>
             <p className="mt-2 text-md">
               All affiliate and ad submissions will appear here once received.
             </p>
+          </div>
+        )}
+
+        {/* Archived toggle section */}
+        {archivedItems.length > 0 && (
+          <div className="mt-20 border-t border-[#1f1f1f] pt-10">
+            <button
+              onClick={() => setShowArchived(!showArchived)}
+              className="flex items-center gap-2 text-sm text-gray-400 hover:text-[#00C2CB]"
+            >
+              <ArchiveIcon size={14} />
+              {showArchived ? 'Hide Archived' : 'Show Archived'}
+            </button>
+
+            {showArchived && (
+              <div className="mt-6 space-y-3">
+                {archivedItems.map((item) => (
+                  <div
+                    key={`arch-${item.id}`}
+                    className="flex items-center gap-3 bg-[#101010] border border-[#1f1f1f] rounded-lg px-4 py-3 text-sm text-gray-400"
+                  >
+                    {(() => {
+                      const Icon = inboxMeta[item.type].icon;
+                      return <Icon size={14} className="text-[#00C2CB]" />;
+                    })()}
+                    <span className="capitalize">{inboxMeta[item.type].label}</span>
+                    <span className="text-gray-500">— {getOfferName(item.offer_id)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
