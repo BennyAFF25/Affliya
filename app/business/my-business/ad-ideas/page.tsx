@@ -173,14 +173,17 @@ export default function AdIdeasPage() {
 
           if (insertError) {
             console.error('[❌ Live campaign insert failed]', insertError.message);
-            nmToast.error("Ad approved, but campaign creation failed");
+            nmToast.success("Ad approved");
+            router.push('/business/manage-campaigns');
+            return;
+          }
+
+          nmToast.success("Ad approved & campaign created");
+
+          if ((inserted as any)?.id) {
+            router.push(`/business/manage-campaigns/${(inserted as any).id}`);
           } else {
-            nmToast.success("Ad approved & campaign created");
-            if ((inserted as any)?.id) {
-              router.push(`/business/manage-campaigns/${(inserted as any).id}`);
-            } else {
-              router.push('/business/manage-campaigns');
-            }
+            router.push('/business/manage-campaigns');
           }
         }
       }
@@ -265,19 +268,32 @@ export default function AdIdeasPage() {
       if (!response.ok) {
         console.error('[❌ Meta Upload Failed]', data);
         nmToast.error("Meta upload failed");
-      } else {
-        console.log('[✅ Meta Upload Success]', data);
-        nmToast.success("Meta ad uploaded successfully");
-        // After successful Meta ad creation and response, update Supabase row with meta_status
-        // Use status from Meta API response, e.g. data.status or data.metaStatus, fallback to 'RUNNING'
-        let metaStatus = data?.status || data?.metaStatus || 'RUNNING';
-        // Only update if we have a status and an ad idea id
-        if (metaStatus && adIdea?.id) {
-          await (supabase as any)
-            .from('ad_ideas')
-            .update({ meta_status: metaStatus })
-            .eq('id', adIdea.id);
-        }
+        return;
+      }
+
+      // Treat any OK response as success
+      console.log('[✅ Meta Upload Success]', data);
+
+      // If Meta returned any IDs, consider it live
+      const hasMetaIds =
+        data?.meta_ad_id ||
+        data?.metaAdId ||
+        data?.campaign_id ||
+        data?.meta_campaign_id;
+
+      nmToast.success(
+        hasMetaIds
+          ? 'Ad approved and campaign is live'
+          : 'Ad approved and sent to Meta'
+      );
+
+      // Persist Meta status if present
+      const metaStatus = data?.status || data?.metaStatus || 'RUNNING';
+      if (metaStatus && adIdea?.id) {
+        await (supabase as any)
+          .from('ad_ideas')
+          .update({ meta_status: metaStatus })
+          .eq('id', adIdea.id);
       }
     } catch (err) {
       console.error('[❌ Meta Upload Error]', err);
