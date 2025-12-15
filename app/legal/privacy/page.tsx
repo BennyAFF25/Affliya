@@ -1,5 +1,3 @@
-
-
 export default function PrivacyPolicy() {
   return (
     <main className="min-h-screen bg-[#0b0f10] text-gray-200">
@@ -123,7 +121,24 @@ export default function PrivacyPolicy() {
           </p>
 
           <h2 className="text-lg font-semibold text-[#00C2CB]">
-            7. Security
+            7. Data Deletion & Account Removal
+          </h2>
+          <p>
+            You may request deletion of your Nettmark account and associated personal
+            data at any time by contacting us at <strong>contact@nettmark.com</strong>.
+            Upon account deletion, Nettmark will remove or anonymise personal information
+            where reasonably possible and revoke access to any connected third-party
+            services, including Meta (Facebook and Instagram) advertising accounts.
+          </p>
+          <p>
+            Advertising and transaction data may be retained in an aggregated or
+            anonymised form where required for legal, compliance, fraud prevention, or
+            financial record-keeping purposes, but such data will no longer be linked to
+            an identifiable user.
+          </p>
+
+          <h2 className="text-lg font-semibold text-[#00C2CB]">
+            8. Security
           </h2>
           <p>
             We implement reasonable technical and organizational measures to
@@ -133,7 +148,7 @@ export default function PrivacyPolicy() {
           </p>
 
           <h2 className="text-lg font-semibold text-[#00C2CB]">
-            8. Your Rights
+            9. Your Rights
           </h2>
           <p>
             Depending on your location, you may have rights to access, correct, or
@@ -142,7 +157,7 @@ export default function PrivacyPolicy() {
           </p>
 
           <h2 className="text-lg font-semibold text-[#00C2CB]">
-            9. Children’s Privacy
+            10. Children’s Privacy
           </h2>
           <p>
             Nettmark is not intended for individuals under the age of 18. We do
@@ -150,7 +165,7 @@ export default function PrivacyPolicy() {
           </p>
 
           <h2 className="text-lg font-semibold text-[#00C2CB]">
-            10. Changes to This Policy
+            11. Changes to This Policy
           </h2>
           <p>
             We may update this Privacy Policy from time to time. Updates will be
@@ -158,7 +173,7 @@ export default function PrivacyPolicy() {
           </p>
 
           <h2 className="text-lg font-semibold text-[#00C2CB]">
-            11. Contact Us
+            12. Contact Us
           </h2>
           <p>
             If you have questions about this Privacy Policy, you can contact us at:
