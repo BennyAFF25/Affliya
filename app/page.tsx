@@ -8,7 +8,9 @@ import Image from 'next/image';
 import { ShieldCheck, Link2, Wallet, Cpu, Briefcase, Users, ArrowRight, Facebook, Instagram, Mail } from 'lucide-react';
 
 export default function Home() {
-  const { session, isLoading, supabaseClient } = useSessionContext();
+  const { supabaseClient } = useSessionContext();
+  const [session, setSession] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const user = session?.user ?? null;
   const router = useRouter();
   const [userType, setUserType] = useState<'business' | 'affiliate' | null>(null);
@@ -17,11 +19,24 @@ export default function Home() {
   const [showAffWhy, setShowAffWhy] = useState(false);
 
   useEffect(() => {
-    if (isLoading) return;
-    // Home should not auto-redirect. Any post-auth routing should happen in /auth-redirect or /auth/callback.
-    // If you want to clear old intent on landing home, uncomment the next line:
-    // try { localStorage.removeItem('userType'); } catch {}
-  }, [isLoading]);
+    const initSession = async () => {
+      const { data } = await supabaseClient.auth.getSession();
+      setSession(data.session);
+      setIsLoading(false);
+    };
+
+    initSession();
+
+    const {
+      data: { subscription },
+    } = supabaseClient.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [supabaseClient]);
 
   const handleLogin = (type: 'business' | 'affiliate') => {
     setUserType(type);
