@@ -1198,6 +1198,27 @@ function DateTimeField({
   // UI (single card stepper + right preview)
   // ─────────────────────────────
   const [step, setStep] = useState(1);
+
+  const canProceed = () => {
+    if (step === 1) {
+      return !!form.campaign_name && !!form.objective;
+    }
+
+    if (step === 2) {
+      return (
+        Number(form.budget_amount_dollars) > 0 &&
+        !!form.location_countries &&
+        form.age_min >= 13 &&
+        form.age_max >= form.age_min
+      );
+    }
+
+    if (step === 3) {
+      return !!videoFile && !!thumbnailFile;
+    }
+
+    return true;
+  };
   const steps = [
     { id: 1, label: 'Campaign' },
     { id: 2, label: 'Ad set' },
@@ -1254,21 +1275,28 @@ function DateTimeField({
             {/* Content */}
             <div className="px-6 sm:px-8 py-6 space-y-4 sm:space-y-6">
               {/* Step labels */}
-              <div className="flex justify-between gap-1 text-[11px] sm:text-sm">
-                {steps.map((s) => (
-                  <button
-                    key={s.id}
-                    onClick={() => setStep(s.id)}
-                    className={[
-                      'flex-1 min-w-0 text-center px-2 sm:px-3 py-2 rounded-full border transition whitespace-nowrap',
-                      step === s.id
-                        ? 'border-[#00C2CB] text-[#00C2CB]'
-                        : 'border-transparent text-gray-400 hover:text-white',
-                    ].join(' ')}
-                  >
-                    {s.id}. {s.label}
-                  </button>
-                ))}
+              <div className="flex justify-between gap-2 text-[11px] sm:text-sm">
+                {steps.map((s) => {
+                  const active = step === s.id;
+                  return (
+                    <button
+                      key={s.id}
+                      onClick={() => setStep(s.id)}
+                      className="flex-1 flex justify-center"
+                    >
+                      <span
+                        className={[
+                          'inline-flex items-center justify-center px-3 sm:px-4 py-2 rounded-full border transition whitespace-nowrap',
+                          active
+                            ? 'border-[#00C2CB] text-[#00C2CB]'
+                            : 'border-transparent text-gray-400 hover:text-white',
+                        ].join(' ')}
+                      >
+                        {s.id}. {s.label}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
 
               {/* Step 1: Campaign */}
@@ -1546,6 +1574,12 @@ function DateTimeField({
                     </label>
                   </div>
 
+                  {step === 3 && !thumbnailFile && (
+                    <div className="mt-3 px-3 py-1 border border-[#00C2CB]/50 text-[#00C2CB] text-sm rounded-md bg-[#001F20]/30">
+                      Please upload a thumbnail before submitting.
+                    </div>
+                  )}
+
                   <Disclosure title="How to craft a high‑performing Meta ad (tips & disclaimers)">
                     <ul className="list-disc pl-5 space-y-1">
                       <li><strong>Hook in 3 seconds:</strong> Front‑load the problem and benefit. Keep captions under ~125 characters for feed placements.</li>
@@ -1616,17 +1650,37 @@ function DateTimeField({
 
             {/* Footer / Nav */}
             <div className="px-6 sm:px-8 py-5 border-t border-[#232323]">
-              <div className="flex flex-col items-center mt-4">
-                <button
-                  onClick={handleAdSubmit}
-                  className="bg-[#00C2CB] text-white py-2 px-6 rounded-md hover:bg-[#00b0b8] transition-all"
-                >
-                  Submit Ad Idea
-                </button>
-                {thumbnailError && (
-                  <div className="mt-3 px-3 py-1 border border-[#00C2CB]/50 text-[#00C2CB] text-sm rounded-md bg-[#001F20]/30">
-                    {thumbnailError}
-                  </div>
+              <div className="flex items-center justify-between gap-3">
+                {step > 1 && (
+                  <button
+                    onClick={() => setStep(step - 1)}
+                    className="px-4 py-2 rounded-md border border-[#2a2a2a] text-gray-300 hover:bg-[#151515]"
+                  >
+                    Back
+                  </button>
+                )}
+
+                {step < 4 && (
+                  <button
+                    disabled={!canProceed()}
+                    onClick={() => setStep(step + 1)}
+                    className={`ml-auto px-6 py-2 rounded-md transition ${
+                      canProceed()
+                        ? 'bg-[#00C2CB] text-black hover:bg-[#00b0b8]'
+                        : 'bg-[#1a1a1a] text-gray-500 cursor-not-allowed'
+                    }`}
+                  >
+                    Next
+                  </button>
+                )}
+
+                {step === 4 && (
+                  <button
+                    onClick={handleAdSubmit}
+                    className="ml-auto bg-[#00C2CB] text-black px-6 py-2 rounded-md hover:bg-[#00b0b8]"
+                  >
+                    Submit Ad Idea
+                  </button>
                 )}
               </div>
             </div>
