@@ -34,19 +34,23 @@ export default function Home() {
 
   const handleLogout = async () => {
     try {
+      // Clear local intent/state
       localStorage.removeItem('userType');
       localStorage.removeItem('intent.role');
     } catch {}
+
     setMenuOpen(false);
 
     try {
-      await supabaseClient.auth.signOut();
+      // Force global sign‑out (clears all tabs/sessions)
+      await supabaseClient.auth.signOut({ scope: 'global' });
+      console.log('[✅ Signed out]');
     } catch (err) {
       console.error('[❌ Home sign out failed]', err);
     }
 
-    router.push('/');
-    router.refresh();
+    // Hard reset to guarantee UI + session refresh
+    window.location.href = '/';
   };
 
   return (
