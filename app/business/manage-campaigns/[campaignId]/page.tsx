@@ -943,17 +943,17 @@ export default function BusinessCampaignDetailPage() {
                     : 'Activate campaign'}
                 </button>
                 {(campaign.status || '').toLowerCase() === 'paused' ? (
-                  <p className="mt-1 max-w-xs text-[11px] text-amber-200/80 text-right">
-                    This campaign is currently paused. Its tracking link is
-                    temporarily disabled and affiliates cannot send traffic
-                    until you reactivate it.
-                  </p>
+                  <div className="mt-2 max-w-sm rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-[11px] text-amber-100 text-right shadow-[0_0_20px_rgba(245,158,11,0.15)]">
+                    <span className="font-semibold">Campaign paused.</span> The tracking link
+                    is temporarily disabled and affiliates cannot send traffic until you
+                    reactivate it.
+                  </div>
                 ) : (
-                  <p className="mt-1 max-w-xs text-[11px] text-white/50 text-right">
-                    Pausing will temporarily disable the tracking link and
-                    notify the affiliate. Use this only if there is a genuine
-                    issue with the offer, stock, or compliance.
-                  </p>
+                  <div className="mt-2 max-w-sm rounded-xl border border-[#00C2CB40] bg-[#00C2CB14] px-4 py-3 text-[11px] text-white/80 text-right shadow-[0_0_20px_rgba(0,194,203,0.15)]">
+                    <span className="font-semibold">Pausing this campaign</span> will temporarily
+                    disable the tracking link and notify the affiliate. Use this only if there is
+                    a genuine issue with the offer, stock, or compliance.
+                  </div>
                 )}
                 <Link href="/business/manage-campaigns">
                   <span className="text-[11px] text-white/60 hover:text-white cursor-pointer">
