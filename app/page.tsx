@@ -49,7 +49,7 @@ export default function Home() {
 
   const handleLogout = async () => {
     try {
-      // Clear local intent/state
+      // Clear local intent/state (routing helpers only)
       localStorage.removeItem('userType');
       localStorage.removeItem('intent.role');
     } catch {}
@@ -57,15 +57,17 @@ export default function Home() {
     setMenuOpen(false);
 
     try {
-      // Force global sign‑out (clears all tabs/sessions)
-      await supabaseClient.auth.signOut({ scope: 'global' });
-      console.log('[✅ Signed out]');
+      // Sign out from Supabase
+      await supabaseClient.auth.signOut();
     } catch (err) {
       console.error('[❌ Home sign out failed]', err);
     }
 
-    // Hard reset to guarantee UI + session refresh
-    window.location.href = '/';
+    // 🔑 Optimistically clear UI auth state immediately
+    setSession(null);
+
+    // Refresh App Router cache + header
+    router.refresh();
   };
 
   return (
