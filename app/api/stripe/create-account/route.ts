@@ -1,33 +1,37 @@
-// app/api/stripe/create-account/route.ts
-import { NextResponse } from 'next/server';
-import Stripe from 'stripe';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+// Paste this entire file into:
+// app/api/affiliates/create-account/route.ts
 
-export const runtime = 'nodejs';
+import { NextResponse } from "next/server";
+import Stripe from "stripe";
+
+export const runtime = "nodejs";
+
+const stripe = new Stripe((process.env.STRIPE_SECRET_KEY || "").trim(), {
+  apiVersion: "2024-06-20" as Stripe.LatestApiVersion,
+});
 
 function getBaseUrl() {
-  // Vercel env var can accidentally include whitespace/newlines when pasted
-  const explicit = (process.env.NEXT_PUBLIC_BASE_URL || '').trim();
+  // Explicit base (recommended)
+  const explicit = (process.env.NEXT_PUBLIC_BASE_URL || "").trim();
 
-  // Vercel provides VERCEL_URL without protocol (e.g. "nettmark.com")
-  const vercel = (process.env.VERCEL_URL || '').trim();
-  const fromVercel = vercel ? `https://${vercel}` : '';
+  // Vercel provides VERCEL_URL without protocol
+  const vercel = (process.env.VERCEL_URL || "").trim();
+  const fromVercel = vercel ? `https://${vercel}` : "";
 
-  const fallbackLocal = 'http://localhost:3000';
-
+  const fallbackLocal = "http://localhost:3000";
   const base = explicit || fromVercel || fallbackLocal;
 
-  // Validate and normalize
+  // Validate + normalize
   let u: URL;
   try {
     u = new URL(base);
   } catch {
-    throw new Error(`Invalid NEXT_PUBLIC_BASE_URL/VERCEL_URL: "${base}"`);
+    throw new Error(
+      `Invalid BASE URL. Got "${base}". Fix NEXT_PUBLIC_BASE_URL / VERCEL_URL (watch for hidden whitespace/newlines).`
+    );
   }
 
-  // Remove any trailing slash
-  return u.origin;
+  return u.origin; // ensures no trailing path/junk
 }
 
 function absUrl(pathname: string) {
@@ -36,68 +40,73 @@ function absUrl(pathname: string) {
 
 export async function POST(req: Request) {
   try {
-    const cookieStore = cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user?.email) return NextResponse.json({ error: 'Not signed in' }, { status: 401 });
-
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-      apiVersion: '2024-06-20' as Stripe.LatestApiVersion,
-    });
-
-    // 1) Check if we already saved an account id
-    const { data: biz, error: qErr } = await supabase
-      .from('business_profiles')
-      .select('id, business_email, stripe_account_id')
-      .eq('business_email', user.email)
-      .single();
-    if (qErr) return NextResponse.json({ error: qErr.message }, { status: 500 });
-
-    let acctId = biz?.stripe_account_id as string | null;
-
-    // 2) Create Express account if missing
-    if (!acctId) {
-      const acct = await stripe.accounts.create({
-        type: 'express',
-        country: 'AU',
-        email: user.email,
-        capabilities: { transfers: { requested: true } }, // for reimbursements via transfers
-        business_type: 'individual', // adjust if you collect company info
-      });
-      acctId = acct.id;
-
-      const { error: upErr } = await supabase
-        .from('business_profiles')
-        .update({ stripe_account_id: acctId, stripe_onboarding_complete: false })
-        .eq('business_email', user.email);
-      if (upErr) return NextResponse.json({ error: upErr.message }, { status: 500 });
+    if (!process.env.STRIPE_SECRET_KEY) {
+      return NextResponse.json(
+        { error: "Missing STRIPE_SECRET_KEY" },
+        { status: 500 }
+      );
     }
 
-    // 3) Create onboarding link
-    const refreshUrl = absUrl('/business/my-business');
-    const returnUrl = absUrl('/business/my-business');
+    const body = await req.json().catch(() => ({}));
+    const email = (body?.email || "").toString().trim();
 
-    const link = await stripe.accountLinks.create({
-      account: acctId,
-      refresh_url: refreshUrl,
-      return_url: returnUrl,
-      type: 'account_onboarding',
+    if (!email) {
+      return NextResponse.json({ error: "Missing email" }, { status: 400 });
+    }
+
+    // 1) Create Express account (live/test depends on STRIPE_SECRET_KEY)
+    const account = await stripe.accounts.create({
+      type: "express",
+      email,
+      capabilities: {
+        transfers: { requested: true },
+      },
+      metadata: {
+        email,
+        platform: "nettmark",
+      },
     });
 
-    console.log('[stripe/create-account]', {
-      email: user.email,
-      account: acctId,
+    // 2) Build absolute URLs safely
+    // NOTE: change these paths if your app uses different onboarding routes
+    const refreshUrl = absUrl("/affiliate/settings?onboarding=refresh");
+    const returnUrl = absUrl("/affiliate/settings?onboarding=return");
+
+    console.log("[stripe/affiliates-create-account]", {
+      mode: process.env.STRIPE_SECRET_KEY.startsWith("sk_live_")
+        ? "live"
+        : "test",
+      baseUrl: getBaseUrl(),
       refreshUrl,
       returnUrl,
-      baseUrl: getBaseUrl(),
-      mode: process.env.STRIPE_SECRET_KEY?.startsWith('sk_live_') ? 'live' : 'test',
+      account: account.id,
+      email,
     });
 
-    return NextResponse.json({ url: link.url }, { status: 200 });
+    // 3) Create onboarding link
+    const accountLink = await stripe.accountLinks.create({
+      account: account.id,
+      refresh_url: refreshUrl,
+      return_url: returnUrl,
+      type: "account_onboarding",
+    });
+
+    return NextResponse.json(
+      {
+        stripe_account_id: account.id,
+        url: accountLink.url,
+      },
+      { status: 200 }
+    );
   } catch (err: any) {
-    console.error('[create-account error]', err);
-    return NextResponse.json({ error: err?.message || 'Stripe error' }, { status: 500 });
+    console.error("[❌ affiliates/create-account]", {
+      message: err?.message,
+      stack: err?.stack,
+    });
+
+    return NextResponse.json(
+      { error: err?.message || "Create account failed" },
+      { status: 500 }
+    );
   }
 }
