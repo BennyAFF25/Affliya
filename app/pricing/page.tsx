@@ -43,7 +43,7 @@ export default function PricingPage() {
   const getMeta = (plan: Plan): Meta => {
     const isBusiness = plan === "business";
     return {
-      title: isBusiness ? "Business Plan" : "Affiliate Plan",
+      title: isBusiness ? "For Businesses" : "For Partners",
       price: displayPrice(plan),
       blurb: isBusiness
         ? "Publish offers, approve affiliates, and manage payouts."
@@ -122,25 +122,19 @@ export default function PricingPage() {
 
   const PlanCard = ({ plan }: { plan: Plan }) => {
     const meta = getMeta(plan);
-    const label = plan === "business" ? "Business" : "Affiliate";
+    const label = plan === "business" ? "Business" : "Partner";
 
     return (
-      <section className="relative w-full rounded-2xl border border-white/5 bg-gradient-to-b from-white/[0.02] to-white/[0.01] backdrop-blur-xl shadow-lg">
+      <section className="relative w-full rounded-2xl border border-white/10 bg-white/[0.02] transition-all duration-300 hover:border-[#00C2CB]/40 hover:shadow-[0_0_35px_rgba(0,194,203,0.25)] backdrop-blur-xl shadow-lg">
         <div className="relative p-8 md:p-10 flex flex-col items-center text-center gap-5">
-          <div className="flex items-center justify-center">
-            <span
-              className={`px-4 py-2 rounded-lg border text-sm ${
-                plan === "business"
-                  ? "bg-[#00C2CB] text-black font-semibold border-transparent"
-                  : "border-white/10 text-gray-300"
-              }`}
-            >
-              {label}
-            </span>
-          </div>
+          <span className="text-xs uppercase tracking-widest text-gray-400">
+            {label}
+          </span>
           <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">{meta.title}</h2>
           <p className="text-gray-400 max-w-md">{meta.blurb}</p>
-          <div className="mt-1 text-4xl sm:text-5xl font-black tracking-tight">{meta.price}</div>
+          <div className="mt-1 text-2xl font-semibold tracking-tight text-gray-200">
+            Platform access · {meta.price}
+          </div>
           <button
             onClick={() => {
               try {
@@ -151,9 +145,9 @@ export default function PricingPage() {
               startCheckout(plan);
             }}
             disabled={loadingPlan === plan}
-            className="mt-2 w-full sm:w-auto bg-[#00C2CB] text-black font-semibold px-6 py-2.5 rounded-lg hover:bg-[#00d7df] disabled:opacity-50 shadow-[0_8px_30px_-10px_rgba(0,194,203,0.45)]"
+            className="mt-2 w-full sm:w-auto bg-[#00C2CB]/90 text-black font-medium px-6 py-2.5 rounded-lg hover:bg-[#00C2CB] disabled:opacity-50 shadow-[0_8px_30px_-10px_rgba(0,194,203,0.45)]"
           >
-            {loadingPlan === plan ? "Starting…" : meta.cta}
+            {loadingPlan === plan ? "Starting…" : `Access as ${label}`}
           </button>
           <div className="mt-3 grid grid-cols-1 gap-2 text-xs text-gray-400 sm:grid-cols-3 w-full">
             <div className="rounded-md border border-white/10 bg-white/[0.03] px-3 py-2">50‑day free trial</div>
@@ -346,10 +340,22 @@ export default function PricingPage() {
 
       {/* Main */}
       <main className="flex-1 w-full px-6 md:px-10 py-8 md:py-12">
+        <section className="mx-auto mb-10 w-full max-w-5xl text-center">
+          <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-[#00C2CB] drop-shadow-[0_0_12px_rgba(0,194,203,0.35)]">
+            Access Nettmark’s Growth Infrastructure
+          </h1>
+          <p className="mt-3 text-gray-400 max-w-3xl mx-auto text-sm md:text-base">
+            Nettmark is a role-based platform. Choose how you want to participate in the ecosystem —
+            as a business, a partner, or both.
+          </p>
+        </section>
         <div className="mx-auto w-full max-w-5xl grid gap-6 md:gap-8 md:grid-cols-2">
           <PlanCard plan="business" />
           <PlanCard plan="affiliate" />
         </div>
+        <p className="mt-6 text-center text-xs text-gray-400">
+          You can operate as both a Business and a Partner using separate accounts.
+        </p>
 
         {err && (
           <p className="mt-6 text-center text-red-500 text-sm" role="status" aria-live="polite">
