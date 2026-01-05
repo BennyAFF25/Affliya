@@ -1,92 +1,119 @@
-// app/api/stripe/create-topup-session/route.ts
-import Stripe from 'stripe';
-import { NextResponse } from 'next/server';
+import { NextResponse } from "next/server";
+import Stripe from "stripe";
 
-const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY?.trim();
-if (!STRIPE_SECRET_KEY) {
-  throw new Error('Missing STRIPE_SECRET_KEY');
+export const runtime = "nodejs";
+
+const stripe = new Stripe((process.env.STRIPE_SECRET_KEY || "").trim(), {
+  apiVersion: "2024-06-20" as Stripe.LatestApiVersion,
+});
+
+/**
+ * Build a clean absolute base URL for Stripe redirect URLs.
+ * - Works in Vercel + local
+ * - Trims hidden whitespace/newlines
+ */
+function getBaseUrl() {
+  const explicit = (process.env.NEXT_PUBLIC_BASE_URL || "").trim();
+
+  // Vercel provides VERCEL_URL without protocol (e.g. "nettmark.com")
+  const vercel = (process.env.VERCEL_URL || "").trim();
+  const fromVercel = vercel ? `https://${vercel}` : "";
+
+  const fallbackLocal = "http://localhost:3000";
+
+  const base = explicit || fromVercel || fallbackLocal;
+
+  // Validate hard so we fail with a clear error, not Stripe's vague one
+  try {
+    new URL(base);
+  } catch {
+    throw new Error(
+      `Invalid BASE URL. Got "${base}". Check NEXT_PUBLIC_BASE_URL / VERCEL_URL env vars (hidden whitespace/newlines cause this).`
+    );
+  }
+
+  return base;
 }
 
-const stripe = new Stripe(STRIPE_SECRET_KEY, {
-  // Use Stripe SDK default unless explicitly overridden.
-  apiVersion: (process.env.STRIPE_API_VERSION as any) || '2024-06-20',
-});
+function absUrl(pathname: string) {
+  const base = getBaseUrl();
+  return new URL(pathname, base).toString();
+}
 
 export async function POST(req: Request) {
   try {
-    const { email, amount, currency } = await req.json();
-
-    // Debug (non-blocking): confirm which Stripe account the platform key belongs to
-    try {
-      const me = await stripe.accounts.retrieve();
-      console.log('[Stripe Platform Account for topups]', me.id, (me as any).email);
-    } catch (e) {
-      console.warn('[stripe] Unable to retrieve platform account (non-blocking)');
+    if (!process.env.STRIPE_SECRET_KEY) {
+      return NextResponse.json(
+        { error: "Missing STRIPE_SECRET_KEY" },
+        { status: 500 }
+      );
     }
 
-    if (!email || amount === undefined || amount === null) {
-      return NextResponse.json({ error: 'Missing email or amount' }, { status: 400 });
+    const body = await req.json().catch(() => ({}));
+    const email = (body?.email || "").toString().trim();
+    const currency = (body?.currency || "aud").toString().toLowerCase().trim();
+
+    // amount can come in as number (e.g. 10) or string (e.g. "10")
+    const amountRaw = body?.amount;
+    const amountNumber = typeof amountRaw === "number" ? amountRaw : Number(amountRaw);
+
+    if (!email) {
+      return NextResponse.json({ error: "Missing email" }, { status: 400 });
+    }
+    if (!Number.isFinite(amountNumber) || amountNumber <= 0) {
+      return NextResponse.json({ error: "Invalid amount" }, { status: 400 });
     }
 
-    const parsedAmount = Number(amount);
-    if (isNaN(parsedAmount) || parsedAmount <= 0) {
-      return NextResponse.json({ error: 'Invalid amount value' }, { status: 400 });
-    }
+    // Stripe expects "unit_amount" in the smallest currency unit (cents)
+    const unitAmount = Math.round(amountNumber * 100);
 
-    const currencyToUse = (currency?.toLowerCase() || 'aud');
+    // ✅ These are the lines that were breaking for you before
+    const successUrl = absUrl(`/affiliate/wallet?topup=success`);
+    const cancelUrl = absUrl(`/affiliate/wallet?topup=cancel`);
 
-    const envBase = process.env.NEXT_PUBLIC_BASE_URL || process.env.NEXT_PUBLIC_SITE_URL;
-    const vercelUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL;
-
-    const baseUrl = (envBase && envBase.startsWith('http'))
-      ? envBase
-      : (vercelUrl ? `https://${vercelUrl}` : 'http://localhost:3000');
-
-    if (!baseUrl.startsWith('http')) {
-      throw new Error('Invalid base URL for Stripe redirects');
-    }
+    // Optional: log sanitized values (doesn't expose secrets)
+    console.log("[stripe/create-topup-session]", {
+      baseUrl: getBaseUrl(),
+      successUrl,
+      cancelUrl,
+      email,
+      currency,
+      unitAmount,
+      mode: process.env.STRIPE_SECRET_KEY.startsWith("sk_live_") ? "live" : "test",
+    });
 
     const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
-      mode: 'payment',
+      mode: "payment",
       customer_email: email,
       line_items: [
         {
           price_data: {
-            currency: currencyToUse,
-            product_data: {
-              name: 'Nettmark Wallet Top-Up',
-            },
-            unit_amount: Math.round(parsedAmount * 100), // Convert dollars to cents safely
+            currency,
+            product_data: { name: "Nettmark Wallet Top-Up" },
+            unit_amount: unitAmount,
           },
           quantity: 1,
         },
       ],
-      success_url: `${baseUrl}/affiliate/wallet?status=success&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${baseUrl}/affiliate/wallet?status=cancel`,
-      metadata: { email, amount: parsedAmount.toString(), currency: currencyToUse },
-      payment_intent_data: {
-        metadata: {
-          email,
-          amount: parsedAmount.toString(),
-          currency: currencyToUse,
-        },
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+      // If you rely on metadata in webhooks:
+      metadata: {
+        email,
+        purpose: "wallet_topup",
       },
     });
 
-    console.log('[✅ Stripe Session Created]', { email, parsedAmount, currency: currencyToUse, sessionUrl: session.url });
-    return NextResponse.json({ url: session.url });
+    return NextResponse.json({ url: session.url }, { status: 200 });
   } catch (err: any) {
-    console.error('[❌ Stripe Session Error]', {
-      message: err.message,
-      stack: err.stack,
-      name: err.name,
-      raw: err.raw,
-      param: err.param,
-      code: err.code,
-      url: req.url,
-      payload: 'Create topup session failed (inputs may be missing/invalid)',
+    console.error("[❌ create-topup-session]", {
+      message: err?.message,
+      stack: err?.stack,
     });
-    return NextResponse.json({ error: 'Stripe session failed' }, { status: 500 });
+
+    return NextResponse.json(
+      { error: err?.message || "Create topup session failed" },
+      { status: 500 }
+    );
   }
 }

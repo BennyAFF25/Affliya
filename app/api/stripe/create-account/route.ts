@@ -1,8 +1,38 @@
-// app/api/stripe/businesses/create-account/route.ts
+// app/api/stripe/create-account/route.ts
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
+
+export const runtime = 'nodejs';
+
+function getBaseUrl() {
+  // Vercel env var can accidentally include whitespace/newlines when pasted
+  const explicit = (process.env.NEXT_PUBLIC_BASE_URL || '').trim();
+
+  // Vercel provides VERCEL_URL without protocol (e.g. "nettmark.com")
+  const vercel = (process.env.VERCEL_URL || '').trim();
+  const fromVercel = vercel ? `https://${vercel}` : '';
+
+  const fallbackLocal = 'http://localhost:3000';
+
+  const base = explicit || fromVercel || fallbackLocal;
+
+  // Validate and normalize
+  let u: URL;
+  try {
+    u = new URL(base);
+  } catch {
+    throw new Error(`Invalid NEXT_PUBLIC_BASE_URL/VERCEL_URL: "${base}"`);
+  }
+
+  // Remove any trailing slash
+  return u.origin;
+}
+
+function absUrl(pathname: string) {
+  return new URL(pathname, getBaseUrl()).toString();
+}
 
 export async function POST(req: Request) {
   try {
@@ -13,7 +43,9 @@ export async function POST(req: Request) {
     } = await supabase.auth.getUser();
     if (!user?.email) return NextResponse.json({ error: 'Not signed in' }, { status: 401 });
 
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2025-08-27.basil' });
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+      apiVersion: '2024-06-20' as Stripe.LatestApiVersion,
+    });
 
     // 1) Check if we already saved an account id
     const { data: biz, error: qErr } = await supabase
@@ -44,12 +76,23 @@ export async function POST(req: Request) {
     }
 
     // 3) Create onboarding link
-    const base = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+    const refreshUrl = absUrl('/business/my-business');
+    const returnUrl = absUrl('/business/my-business');
+
     const link = await stripe.accountLinks.create({
       account: acctId,
-      refresh_url: `${base}/business/my-business`,
-      return_url: `${base}/business/my-business`,
+      refresh_url: refreshUrl,
+      return_url: returnUrl,
       type: 'account_onboarding',
+    });
+
+    console.log('[stripe/create-account]', {
+      email: user.email,
+      account: acctId,
+      refreshUrl,
+      returnUrl,
+      baseUrl: getBaseUrl(),
+      mode: process.env.STRIPE_SECRET_KEY?.startsWith('sk_live_') ? 'live' : 'test',
     });
 
     return NextResponse.json({ url: link.url }, { status: 200 });
