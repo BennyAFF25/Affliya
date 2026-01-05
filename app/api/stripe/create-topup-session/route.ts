@@ -2,17 +2,27 @@
 import Stripe from 'stripe';
 import { NextResponse } from 'next/server';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-06-20',
+const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY?.trim();
+if (!STRIPE_SECRET_KEY) {
+  throw new Error('Missing STRIPE_SECRET_KEY');
+}
+
+const stripe = new Stripe(STRIPE_SECRET_KEY, {
+  // Use Stripe SDK default unless explicitly overridden.
+  apiVersion: (process.env.STRIPE_API_VERSION as any) || '2024-06-20',
 });
 
 export async function POST(req: Request) {
   try {
     const { email, amount, currency } = await req.json();
 
-    // Debug: confirm we're using the Platform Transactions account
-    const me = await stripe.accounts.retrieve();
-    console.log('[Stripe Platform Account for topups]', me.id, me.email);
+    // Debug (non-blocking): confirm which Stripe account the platform key belongs to
+    try {
+      const me = await stripe.accounts.retrieve();
+      console.log('[Stripe Platform Account for topups]', me.id, (me as any).email);
+    } catch (e) {
+      console.warn('[stripe] Unable to retrieve platform account (non-blocking)');
+    }
 
     if (!email || amount === undefined || amount === null) {
       return NextResponse.json({ error: 'Missing email or amount' }, { status: 400 });
@@ -25,7 +35,16 @@ export async function POST(req: Request) {
 
     const currencyToUse = (currency?.toLowerCase() || 'aud');
 
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL?.startsWith('http') ? process.env.NEXT_PUBLIC_BASE_URL : 'http://localhost:3000';
+    const envBase = process.env.NEXT_PUBLIC_BASE_URL || process.env.NEXT_PUBLIC_SITE_URL;
+    const vercelUrl = process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL;
+
+    const baseUrl = (envBase && envBase.startsWith('http'))
+      ? envBase
+      : (vercelUrl ? `https://${vercelUrl}` : 'http://localhost:3000');
+
+    if (!baseUrl.startsWith('http')) {
+      throw new Error('Invalid base URL for Stripe redirects');
+    }
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
@@ -36,7 +55,7 @@ export async function POST(req: Request) {
           price_data: {
             currency: currencyToUse,
             product_data: {
-              name: 'Affliya Wallet Top-Up',
+              name: 'Nettmark Wallet Top-Up',
             },
             unit_amount: Math.round(parsedAmount * 100), // Convert dollars to cents safely
           },
@@ -66,7 +85,7 @@ export async function POST(req: Request) {
       param: err.param,
       code: err.code,
       url: req.url,
-      payload: 'Unable to log email, amount, or currency due to scope',
+      payload: 'Create topup session failed (inputs may be missing/invalid)',
     });
     return NextResponse.json({ error: 'Stripe session failed' }, { status: 500 });
   }
