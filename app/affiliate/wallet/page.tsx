@@ -6,6 +6,28 @@ import { supabase } from '@/../utils/supabase/pages-client';
 import { useSession } from '@supabase/auth-helpers-react';
 import { useUserSettings } from '@/../utils/hooks/useUserSettings';
 
+
+type WalletTopup = {
+  amount_gross?: number | null;
+  amount_net?: number | null;
+  stripe_fees?: number | null;
+  stripe_id: string;
+  status?: string | null;
+  created_at: string;
+  amount_refunded?: number | null;
+};
+
+type WalletRefund = {
+  amount?: number | null;
+  status?: string | null;
+  stripe_refund_id: string;
+  created_at: string;
+};
+
+type WalletDeduction = {
+  amount?: number | null;
+};
+
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '');
 
 const currencySymbols: Record<string, string> = {
@@ -22,16 +44,16 @@ export default function AffiliateWalletPage() {
   const [amount, setAmount] = useState('');
   const [currency, setCurrency] = useState('');
   const [loading, setLoading] = useState(false);
-  const [walletData, setWalletData] = useState<any>(null);
+  const [walletData, setWalletData] = useState<WalletTopup[] | null>(null);
   const [connectLoading, setConnectLoading] = useState(false);
   const [totalNetAmount, setTotalNetAmount] = useState(0);
   const [wallet, setWallet] = useState<any>(null);
-  const [refunds, setRefunds] = useState<any[]>([]);
+  const [refunds, setRefunds] = useState<WalletRefund[]>([]);
   const [refundAmount, setRefundAmount] = useState('');
   const [refundLoading, setRefundLoading] = useState(false);
-  const [walletDeductions, setWalletDeductions] = useState<any[]>([]);
+  const [walletDeductions, setWalletDeductions] = useState<WalletDeduction[]>([]);
   // New state for refundable topups and selected topup
-  const [refundableTopups, setRefundableTopups] = useState<any[]>([]);
+  const [refundableTopups, setRefundableTopups] = useState<WalletTopup[]>([]);
   const [selectedTopupId, setSelectedTopupId] = useState<string | null>(null);
 
   // Fetch live wallet balance (wallets table)
@@ -111,15 +133,17 @@ export default function AffiliateWalletPage() {
         const netAmount = (stripeSession.amount_received ?? grossAmount * 0.97);
         const feeAmount = grossAmount - netAmount;
 
-        const { error } = await supabase.from('wallet_topups').insert({
-          affiliate_email: email,
-          amount_gross: grossAmount,
-          amount_net: netAmount,
-          stripe_fees: feeAmount,
-          stripe_id: stripeSession.id,
-          status: 'succeeded',
-          created_at: new Date().toISOString(),
-        });
+        const { error } = await supabase.from('wallet_topups').insert([
+          {
+            affiliate_email: email,
+            amount_gross: grossAmount,
+            amount_net: netAmount,
+            stripe_fees: feeAmount,
+            stripe_id: stripeSession.id,
+            status: 'succeeded',
+            created_at: new Date().toISOString(),
+          },
+        ]);
 
         if (!error) {
           console.log('[✅ Wallet Top-up Recorded]');
@@ -156,18 +180,19 @@ export default function AffiliateWalletPage() {
         .eq('affiliate_email', user.email)
         .order('created_at', { ascending: false });
       console.log('[💳 Wallet Fetch Result]', data);
+      const topups = (data as unknown as WalletTopup[]) || [];
 
       if (error) {
         console.error('[❌ Wallet Fetch Error]', error.message);
         return;
       }
 
-      setWalletData(data);
+      setWalletData(topups);
 
       // Derive refundable topups, sorted by created_at desc, filtered by amount_refunded < amount_net
-      if (data && data.length > 0) {
-        const refundable = data
-          .filter(t => (t.amount_refunded ?? 0) < (t.amount_net ?? 0))
+      if (topups.length > 0) {
+        const refundable = topups
+          .filter((t) => (t.amount_refunded ?? 0) < (t.amount_net ?? 0))
           .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
         setRefundableTopups(refundable);
         // Set default selected topup if not already set
@@ -175,7 +200,7 @@ export default function AffiliateWalletPage() {
           setSelectedTopupId(refundable[0].stripe_id);
         }
 
-        const totalNet = data.reduce((sum, item) => sum + (item.amount_net ?? 0), 0);
+        const totalNet = topups.reduce((sum, item) => sum + (item.amount_net ?? 0), 0);
         const totalRefunded = refunds.reduce((sum, r) => sum + (r.amount ?? 0), 0);
         const totalDeductions = walletDeductions.reduce((sum, d) => sum + (d.amount ?? 0), 0);
         const availableBalance = totalNet - totalRefunded - totalDeductions;
@@ -206,15 +231,41 @@ export default function AffiliateWalletPage() {
 
   const handleConnectStripe = async () => {
     setConnectLoading(true);
+
     try {
-      const res = await fetch('/api/stripe/create-account', {
+      const email = session?.user?.email;
+
+      if (!email) {
+        console.error('[❌ Stripe Connect] Missing user email (no session user)');
+        alert('Missing email. Please log out and log back in.');
+        return;
+      }
+
+      // ✅ Affiliates must use the affiliate connect endpoint
+      const res = await fetch('/api/stripe/affiliates/create-account', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          role: 'affiliate',
+        }),
       });
+
       const data = await res.json();
-      if (data.url) {
+
+      if (!res.ok) {
+        console.error('[❌ Stripe Connect] API error', { status: res.status, data });
+        alert(data?.error || 'Failed to create Stripe onboarding link.');
+        return;
+      }
+
+      if (data?.url) {
         window.location.href = data.url;
       } else {
-        alert('Failed to create Stripe account.');
+        console.error('[❌ Stripe Connect] Missing url in response', data);
+        alert('Failed to create Stripe onboarding link (missing URL).');
       }
     } catch (err) {
       console.error('[❌ Stripe Connect Error]', err);
@@ -295,7 +346,7 @@ export default function AffiliateWalletPage() {
       return;
     }
     // Find the selected topup
-    const selectedTopup = refundableTopups.find(t => t.stripe_id === selectedTopupId);
+    const selectedTopup = refundableTopups.find((t) => t.stripe_id === selectedTopupId);
     if (!selectedTopup) {
       alert('Please select a top-up to refund from.');
       return;
@@ -349,19 +400,20 @@ export default function AffiliateWalletPage() {
           .eq('affiliate_email', user.email)
           .order('created_at', { ascending: false });
         if (!walletError) {
-          setWalletData(walletTopupsData);
+          const topups = (walletTopupsData as unknown as WalletTopup[]) || [];
+          setWalletData(topups);
           // Also update refundableTopups and selectedTopupId after refund
-          const refundable = walletTopupsData
-            .filter((t: any) => (t.amount_refunded ?? 0) < (t.amount_net ?? 0))
-            .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+          const refundable = topups
+            .filter((t) => (t.amount_refunded ?? 0) < (t.amount_net ?? 0))
+            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
           setRefundableTopups(refundable);
           if (refundable.length > 0) {
             setSelectedTopupId(refundable[0].stripe_id);
           } else {
             setSelectedTopupId(null);
           }
-          if (walletTopupsData && walletTopupsData.length > 0) {
-            const totalNet = walletTopupsData.reduce((sum: number, item: any) => sum + (item.amount_net ?? 0), 0);
+          if (topups.length > 0) {
+            const totalNet = topups.reduce((sum, item) => sum + (item.amount_net ?? 0), 0);
             setTotalNetAmount(totalNet);
           } else {
             setTotalNetAmount(0);
@@ -466,7 +518,7 @@ export default function AffiliateWalletPage() {
                     d="M7 9h10M7 13h6M7 17h3"
                   />
                 </svg>
-                {connectLoading ? 'Opening history…' : 'View history'}
+                {connectLoading ? 'Opening Stripe…' : 'Connect Stripe'}
               </button>
             </div>
           </div>

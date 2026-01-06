@@ -38,6 +38,7 @@ export default function AffiliateSettingsPage() {
       setChecking(true);
       const res = await fetch('/api/stripe/affiliates/check-account', { cache: 'no-store' });
       const json: CheckResp = await res.json();
+      if (!res.ok) throw new Error(json.error || `Status check failed (${res.status})`);
       if (json.error) throw new Error(json.error);
       setStatus(json);
     } catch (err: any) {
@@ -77,10 +78,29 @@ export default function AffiliateSettingsPage() {
 
   async function startOnboarding() {
     try {
+      if (!user?.email) {
+        toast.error('Missing email in session. Please re-login.');
+        return;
+      }
+
       setLoading(true);
-      const res = await fetch('/api/stripe/affiliates/create-account', { method: 'POST' });
+
+      const res = await fetch('/api/stripe/affiliates/create-account', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: user.email,
+          // If we already have an accountId from check-account, re-use it so Stripe can issue a fresh onboarding link
+          stripe_account_id: status?.accountId || null,
+          role: 'affiliate',
+        }),
+      });
+
       const json = await res.json();
+      if (!res.ok) throw new Error(json?.error || 'Failed to start onboarding');
       if (json.error) throw new Error(json.error);
+      if (!json.url) throw new Error('Stripe onboarding URL missing');
+
       window.location.href = json.url; // Stripe Onboarding
     } catch (err: any) {
       toast.error(err.message || 'Failed to start onboarding');

@@ -8,13 +8,23 @@ const stripe = new Stripe((process.env.STRIPE_SECRET_KEY || "").trim(), {
 });
 
 function getBaseUrl() {
-  const explicit = (process.env.NEXT_PUBLIC_BASE_URL || "").trim();
+  const rawExplicit = process.env.NEXT_PUBLIC_BASE_URL || "";
+  const explicit = rawExplicit
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")
+    .trim()
+    .replace(/\s+/g, "")
+    .replace(/^['"]|['"]$/g, "");
 
-  // Vercel provides VERCEL_URL without protocol (e.g. "nettmark.com")
-  const vercel = (process.env.VERCEL_URL || "").trim();
+  const rawVercel = process.env.VERCEL_URL || "";
+  const vercel = rawVercel
+    .replace(/[\u200B-\u200D\uFEFF]/g, "")
+    .trim()
+    .replace(/\s+/g, "")
+    .replace(/^['"]|['"]$/g, "");
+
   const fromVercel = vercel ? `https://${vercel}` : "";
-
   const fallbackLocal = "http://localhost:3000";
+
   const base = explicit || fromVercel || fallbackLocal;
 
   let u: URL;
@@ -22,11 +32,16 @@ function getBaseUrl() {
     u = new URL(base);
   } catch {
     throw new Error(
-      `Invalid BASE URL. Got "${base}". Fix NEXT_PUBLIC_BASE_URL / VERCEL_URL (hidden whitespace/newlines cause this).`
+      `Invalid BASE URL. Got "${base}". NEXT_PUBLIC_BASE_URL="${rawExplicit}" VERCEL_URL="${rawVercel}"`
     );
   }
 
-  return u.origin; // ensures no trailing slash/path
+  const isLive = (process.env.STRIPE_SECRET_KEY || "").startsWith("sk_live_");
+  if (isLive && u.protocol !== "https:" && u.hostname !== "localhost") {
+    throw new Error(`Live mode requires https URLs. Got "${u.origin}".`);
+  }
+
+  return u.origin;
 }
 
 function absUrl(pathname: string) {
@@ -43,41 +58,124 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json().catch(() => ({}));
-    const email = (body?.email || "").toString().trim();
 
-    if (!email) {
-      return NextResponse.json({ error: "Missing email" }, { status: 400 });
+    // Accept multiple sources so the endpoint never breaks if the frontend changes.
+    // Priority: body -> querystring -> header
+    const url = new URL(req.url);
+
+    const emailFromBody = (
+      body?.email ||
+      body?.affiliate_email ||
+      body?.affiliateEmail ||
+      body?.user_email ||
+      body?.userEmail ||
+      ""
+    )
+      .toString()
+      .trim();
+
+    const emailFromQuery = (url.searchParams.get("email") || "").toString().trim();
+    const emailFromHeader = (req.headers.get("x-user-email") || "").toString().trim();
+
+    const email = (emailFromBody || emailFromQuery || emailFromHeader)
+      .replace(/[\u200B-\u200D\uFEFF]/g, "")
+      .trim();
+
+    const looksLikeEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+    let baseUrlForLog: string | null = null;
+    try {
+      baseUrlForLog = getBaseUrl();
+    } catch {
+      baseUrlForLog = null;
     }
 
-    const account = await stripe.accounts.create({
-      type: "express",
-      email,
-      capabilities: { transfers: { requested: true } },
-      metadata: { email, platform: "nettmark" },
+    console.log("[affiliates/create-account] incoming", {
+      hasBody: !!body,
+      bodyKeys: body && typeof body === "object" ? Object.keys(body) : null,
+      email: email || null,
+      emailSources: {
+        body: emailFromBody || null,
+        query: emailFromQuery || null,
+        header: emailFromHeader || null,
+      },
+      baseUrl: baseUrlForLog,
+      mode: (process.env.STRIPE_SECRET_KEY || "").startsWith("sk_live_") ? "live" : "test",
     });
 
-    // ✅ If you want these to land somewhere else, change ONLY these paths
-    const refreshUrl = absUrl("/affiliate/settings?onboarding=refresh");
-    const returnUrl = absUrl("/affiliate/settings?onboarding=return");
+    if (!email) {
+      return NextResponse.json(
+        {
+          error:
+            "Missing email. Provide it in JSON body (email/affiliateEmail), query (?email=), or header (x-user-email).",
+        },
+        { status: 400 }
+      );
+    }
 
-    console.log("[stripe/affiliates-create-account]", {
-      mode: process.env.STRIPE_SECRET_KEY.startsWith("sk_live_") ? "live" : "test",
-      baseUrl: getBaseUrl(),
+    if (!looksLikeEmail) {
+      return NextResponse.json(
+        { error: `Invalid email format: "${email}"` },
+        { status: 400 }
+      );
+    }
+
+    const existingAccountId = (
+      body?.stripe_account_id ||
+      body?.stripeAccountId ||
+      body?.account_id ||
+      body?.accountId ||
+      ""
+    )
+      .toString()
+      .trim();
+
+    // If an account already exists for this affiliate in your DB, pass it in so we can re-create an onboarding link.
+    const account = existingAccountId
+      ? await stripe.accounts.retrieve(existingAccountId)
+      : await stripe.accounts.create({
+          type: "express",
+          email,
+          capabilities: { transfers: { requested: true } },
+          metadata: { email, platform: "nettmark" },
+        });
+
+    // Default landing pages (can be overridden by frontend if needed)
+    const refreshPath = (body?.refresh_path || body?.refreshPath || "/affiliate/wallet?onboarding=refresh")
+      .toString()
+      .trim();
+    const returnPath = (body?.return_path || body?.returnPath || "/affiliate/wallet?onboarding=return")
+      .toString()
+      .trim();
+
+    const refreshUrl = absUrl(refreshPath.startsWith("/") ? refreshPath : `/${refreshPath}`);
+    const returnUrl = absUrl(returnPath.startsWith("/") ? returnPath : `/${returnPath}`);
+
+    const accountId = (account as any)?.id;
+
+    console.log("[affiliates/create-account] urls", {
       refreshUrl,
       returnUrl,
-      account: account.id,
-      email,
+      account: accountId,
+      reusedExisting: !!existingAccountId,
     });
 
+    if (!accountId) {
+      return NextResponse.json(
+        { error: "Stripe account id missing after create/retrieve." },
+        { status: 500 }
+      );
+    }
+
     const accountLink = await stripe.accountLinks.create({
-      account: account.id,
+      account: accountId,
       refresh_url: refreshUrl,
       return_url: returnUrl,
       type: "account_onboarding",
     });
 
     return NextResponse.json(
-      { stripe_account_id: account.id, url: accountLink.url },
+      { stripe_account_id: accountId, url: accountLink.url },
       { status: 200 }
     );
   } catch (err: any) {
