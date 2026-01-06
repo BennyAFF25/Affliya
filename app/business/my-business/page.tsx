@@ -380,9 +380,23 @@ export default function MyBusinessPage() {
 
   async function handleEnablePayouts() {
     try {
-      const res = await fetch('/api/stripe/create-account', { method: 'POST' });
+      const email = user?.email;
+      if (!email) throw new Error('Missing business email');
+
+      const res = await fetch('/api/stripe/create-account', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          role: 'business',
+          email,
+        }),
+      });
+
       const data = await parseJsonSafe(res);
-      if (!res.ok || !data?.url) throw new Error(data?.error || 'Failed to start payouts onboarding');
+      if (!res.ok || !data?.url) {
+        throw new Error(data?.error || 'Failed to start payouts onboarding');
+      }
+
       window.location.href = data.url;
     } catch (e: any) {
       console.error('[Enable payouts error]', e);
