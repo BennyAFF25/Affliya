@@ -32,6 +32,7 @@ export default function AffiliateSettingsPage() {
 
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
   const [billingLoading, setBillingLoading] = useState(false);
 
   async function refreshStatus() {
@@ -57,7 +58,6 @@ export default function AffiliateSettingsPage() {
     if (!user?.email) return;
 
     const loadProfile = async () => {
-      if (!user?.email) return;
       setLoadingProfile(true);
 
       const { data, error } = await (supabase as any)
@@ -91,7 +91,6 @@ export default function AffiliateSettingsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: user.email,
-          // If we already have an accountId from check-account, re-use it so Stripe can issue a fresh onboarding link
           stripe_account_id: status?.accountId || null,
           role: 'affiliate',
         }),
@@ -102,7 +101,7 @@ export default function AffiliateSettingsPage() {
       if (json.error) throw new Error(json.error);
       if (!json.url) throw new Error('Stripe onboarding URL missing');
 
-      window.location.href = json.url; // Stripe Onboarding
+      window.location.href = json.url;
     } catch (err: any) {
       toast.error(err.message || 'Failed to start onboarding');
     } finally {
@@ -111,30 +110,7 @@ export default function AffiliateSettingsPage() {
   }
 
   async function resumeOnboarding() {
-    // Re-use create-account; Stripe returns a fresh account_link if acct exists
     return startOnboarding();
-  }
-
-  async function openBillingPortal() {
-    try {
-      setBillingLoading(true);
-
-      const res = await fetch('/api/stripe-app/create-portal-session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accountType: 'affiliate' }),
-      });
-
-      const json = await res.json();
-      if (!res.ok) throw new Error(json?.error || 'Failed to open billing portal');
-      if (!json?.url) throw new Error('Billing portal URL missing');
-
-      window.location.href = json.url;
-    } catch (err: any) {
-      toast.error(err.message || 'Failed to open billing portal');
-    } finally {
-      setBillingLoading(false);
-    }
   }
 
   const handleSaveProfile = async (e: FormEvent) => {
@@ -154,6 +130,7 @@ export default function AffiliateSettingsPage() {
       );
 
     if (error) {
+      // This is the exact error you saw when email isn't unique yet
       toast.error(error.message || 'Failed to save profile');
     } else {
       toast.success('Profile updated');
@@ -190,15 +167,12 @@ export default function AffiliateSettingsPage() {
     try {
       setUploadingAvatar(true);
 
-      const fileExt =
-        file.name.split('.').pop()?.toLowerCase() || 'jpg';
+      const fileExt = file.name.split('.').pop()?.toLowerCase() || 'jpg';
       const filePath = `${user.id}/affiliate-avatar-${Date.now()}.${fileExt}`;
 
-      const { error: uploadError } = await (supabase as any)
-        .storage.from('avatars')
-        .upload(filePath, file, {
-          upsert: true,
-        });
+      const { error: uploadError } = await (supabase as any).storage.from('avatars').upload(filePath, file, {
+        upsert: true,
+      });
 
       if (uploadError) {
         console.error(uploadError);
@@ -206,11 +180,9 @@ export default function AffiliateSettingsPage() {
         return;
       }
 
-      const { data } = (supabase as any)
-        .storage.from('avatars')
-        .getPublicUrl(filePath);
-
+      const { data } = (supabase as any).storage.from('avatars').getPublicUrl(filePath);
       const publicUrl = (data as any)?.publicUrl as string | undefined;
+
       if (!publicUrl) {
         toast.error('Could not get image URL');
         return;
@@ -243,19 +215,50 @@ export default function AffiliateSettingsPage() {
     }
   };
 
-  const initials =
-    displayName?.trim()
-      ? displayName
-          .trim()
-          .split(' ')
-          .map((p) => p[0])
-          .join('')
-          .slice(0, 2)
-          .toUpperCase()
-      : (user?.email?.[0] || 'N').toUpperCase();
+  const handleManageSubscription = async () => {
+    try {
+      setBillingLoading(true);
 
-  const Badge = ({ children, tone = 'default' }:{children: ReactNode; tone?: 'ok'|'warn'|'bad'|'default'}) => {
-    const map:any = {
+      // This route should create a Stripe Billing Portal session on your REVENUE (stripe-app) account
+      const res = await fetch('/api/stripe-app/create-portal-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          role: 'affiliate',
+          returnUrl: `${window.location.origin}/affiliate/settings`,
+        }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error || 'Failed to open billing portal');
+      if (!json?.url) throw new Error('Missing portal URL');
+
+      window.location.href = json.url;
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to open billing portal');
+    } finally {
+      setBillingLoading(false);
+    }
+  };
+
+  const initials = displayName?.trim()
+    ? displayName
+        .trim()
+        .split(' ')
+        .map((p) => p[0])
+        .join('')
+        .slice(0, 2)
+        .toUpperCase()
+    : (user?.email?.[0] || 'N').toUpperCase();
+
+  const Badge = ({
+    children,
+    tone = 'default',
+  }: {
+    children: ReactNode;
+    tone?: 'ok' | 'warn' | 'bad' | 'default';
+  }) => {
+    const map: any = {
       ok: 'text-[#7ff5fb] border-[#00C2CB40] bg-white/5 shadow-[0_0_20px_#00C2CB40]',
       warn: 'text-amber-300 border-amber-500/30 bg-white/5',
       bad: 'text-rose-300 border-rose-500/30 bg-white/5',
@@ -271,54 +274,53 @@ export default function AffiliateSettingsPage() {
   return (
     <div className="min-h-screen w-full bg-[#121212]">
       <div className="relative max-w-4xl mx-auto px-6 py-10 space-y-10 text-white">
-        {/* Teal glow accent */}
         <div
           className="pointer-events-none absolute inset-x-0 -top-24 h-48 blur-3xl"
           style={{ background: 'radial-gradient(40% 60% at 50% 20%, rgba(0,194,203,0.22), rgba(0,0,0,0) 60%)' }}
         />
-      <header className="space-y-2">
-        <h1 className="text-3xl font-semibold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-[#7ff5fb] to-[#00C2CB]">
-          Affiliate settings
-        </h1>
-        <p className="text-sm text-white/70">
-          Connect your bank to receive withdrawals. <span className="text-white/50">(Powered by Stripe)</span>
-        </p>
-      </header>
 
-      {user && (
-        <section className="mt-6 rounded-3xl border border-white/10 bg-white/[0.04] backdrop-blur p-6 shadow-[0_0_60px_0_rgba(0,194,203,0.12)]">
-          <h2 className="text-sm font-semibold text-[#00C2CB] mb-4">
-            Profile
-          </h2>
-          {loadingProfile ? (
-            <p className="text-xs text-white/70">Loading profile…</p>
-          ) : (
-            <form onSubmit={handleSaveProfile} className="space-y-4">
-              <div className="flex items-center gap-4">
-                <div className="relative h-16 w-16">
-                  {avatarUrl ? (
-                    <img
-                      src={avatarUrl}
-                      alt="Affiliate avatar"
-                      className="h-16 w-16 rounded-full object-cover border border-white/20"
-                    />
-                  ) : (
-                    <div className="h-16 w-16 rounded-full bg-gradient-to-br from-[#00C2CB] to-[#7ff5fb] flex items-center justify-center text-lg font-medium text-black shadow-[0_0_30px_rgba(0,194,203,0.4)]">
-                      {initials}
-                    </div>
-                  )}
-                  {uploadingAvatar && (
-                    <div className="absolute inset-0 rounded-full bg-black/60 flex items-center justify-center text-[10px] text-white/80">
-                      Uploading…
-                    </div>
-                  )}
-                </div>
-                <div className="space-y-1">
-                  <p className="text-xs text-white/80">Profile photo</p>
-                  <p className="text-[11px] text-white/60">
-                    This will appear in your dashboard and on campaigns.
-                  </p>
-                  <div className="flex items-center gap-2">
+        <header className="space-y-2">
+          <h1 className="text-3xl font-semibold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-[#7ff5fb] to-[#00C2CB]">
+            Affiliate settings
+          </h1>
+          <p className="text-sm text-white/70">
+            Manage your account, billing, and withdrawals. <span className="text-white/50">(Powered by Stripe)</span>
+          </p>
+        </header>
+
+        {user && (
+          <section className="mt-6 rounded-3xl border border-white/10 bg-white/[0.04] backdrop-blur p-6 shadow-[0_0_60px_0_rgba(0,194,203,0.12)]">
+            <h2 className="text-sm font-semibold text-[#00C2CB] mb-4">Profile</h2>
+
+            {loadingProfile ? (
+              <p className="text-xs text-white/70">Loading profile…</p>
+            ) : (
+              <form onSubmit={handleSaveProfile} className="space-y-4">
+                <div className="flex items-center gap-4">
+                  <div className="relative h-16 w-16">
+                    {avatarUrl ? (
+                      <img
+                        src={avatarUrl}
+                        alt="Affiliate avatar"
+                        className="h-16 w-16 rounded-full object-cover border border-white/20"
+                      />
+                    ) : (
+                      <div className="h-16 w-16 rounded-full bg-gradient-to-br from-[#00C2CB] to-[#7ff5fb] flex items-center justify-center text-lg font-medium text-black shadow-[0_0_30px_rgba(0,194,203,0.4)]">
+                        {initials}
+                      </div>
+                    )}
+
+                    {uploadingAvatar && (
+                      <div className="absolute inset-0 rounded-full bg-black/60 flex items-center justify-center text-[10px] text-white/80">
+                        Uploading…
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-1">
+                    <p className="text-xs text-white/80">Profile photo</p>
+                    <p className="text-[11px] text-white/60">This will appear in your dashboard and on campaigns.</p>
+
                     <label className="inline-flex items-center rounded-full border border-[#00C2CB]/40 bg-white/5 px-3 py-1.5 text-[11px] font-medium text-[#00C2CB] hover:bg-[#00C2CB]/10 cursor-pointer">
                       {uploadingAvatar ? 'Uploading…' : 'Change photo'}
                       <input
@@ -331,90 +333,88 @@ export default function AffiliateSettingsPage() {
                     </label>
                   </div>
                 </div>
-              </div>
 
-              <hr className="border-white/10" />
+                <hr className="border-white/10" />
 
-              <div>
-                <label className="block text-[11px] text-white/60 mb-1">
-                  Email
-                </label>
-                <input
-                  disabled
-                  value={user.email ?? ''}
-                  className="w-full rounded-lg bg-black/40 border border-white/15 px-3 py-2 text-sm text-white/70 cursor-not-allowed"
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] text-white/60 mb-1">
-                  Display name
-                </label>
-                <input
-                  value={displayName}
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  className="w-full rounded-lg bg-black/40 border border-white/15 px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-[#00C2CB]"
-                  placeholder="e.g. Ben • Paid Ads"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={savingProfile}
-                className="inline-flex items-center rounded-full bg-[#00C2CB] px-4 py-2 text-xs font-medium text-black hover:bg-[#00b0b8] disabled:opacity-60"
-              >
-                {savingProfile ? 'Saving…' : 'Save changes'}
-              </button>
-            </form>
-          )}
-        </section>
-      )}
+                <div>
+                  <label className="block text-[11px] text-white/60 mb-1">Email</label>
+                  <input
+                    disabled
+                    value={user.email ?? ''}
+                    className="w-full rounded-lg bg-black/40 border border-white/15 px-3 py-2 text-sm text-white/70 cursor-not-allowed"
+                  />
+                </div>
 
-      {user && (
-        <section className="rounded-3xl border border-white/10 bg-white/[0.04] backdrop-blur p-6 shadow-[0_0_60px_0_rgba(0,194,203,0.12)]">
-          <h2 className="text-sm font-semibold text-[#00C2CB] mb-3">
-            Password
-          </h2>
-          <p className="text-xs text-white/70 mb-4">
-            We&apos;ll email you a secure link to set a new password for your Nettmark account.
-          </p>
-          <button
-            type="button"
-            onClick={handleSendReset}
-            disabled={resetSending}
-            className="inline-flex items-center rounded-full border border-[#00C2CB]/40 bg-white/5 px-4 py-2 text-xs font-medium text-[#00C2CB] hover:bg-[#00C2CB]/10 disabled:opacity-60"
-          >
-            {resetSending ? 'Sending reset link…' : 'Send reset password link'}
-          </button>
-          {resetMsg && (
-            <p className="mt-3 text-[11px] text-white/70">
-              {resetMsg}
+                <div>
+                  <label className="block text-[11px] text-white/60 mb-1">Display name</label>
+                  <input
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    className="w-full rounded-lg bg-black/40 border border-white/15 px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-[#00C2CB]"
+                    placeholder="e.g. Ben • Paid Ads"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={savingProfile}
+                  className="inline-flex items-center rounded-full bg-[#00C2CB] px-4 py-2 text-xs font-medium text-black hover:bg-[#00b0b8] disabled:opacity-60"
+                >
+                  {savingProfile ? 'Saving…' : 'Save changes'}
+                </button>
+              </form>
+            )}
+          </section>
+        )}
+
+        {user && (
+          <section className="rounded-3xl border border-white/10 bg-white/[0.04] backdrop-blur p-6 shadow-[0_0_60px_0_rgba(0,194,203,0.12)]">
+            <h2 className="text-sm font-semibold text-[#00C2CB] mb-3">Password</h2>
+            <p className="text-xs text-white/70 mb-4">
+              We&apos;ll email you a secure link to set a new password for your Nettmark account.
             </p>
-          )}
-        </section>
-      )}
+            <button
+              type="button"
+              onClick={handleSendReset}
+              disabled={resetSending}
+              className="inline-flex items-center rounded-full border border-[#00C2CB]/40 bg-white/5 px-4 py-2 text-xs font-medium text-[#00C2CB] hover:bg-[#00C2CB]/10 disabled:opacity-60"
+            >
+              {resetSending ? 'Sending reset link…' : 'Send reset password link'}
+            </button>
+            {resetMsg && <p className="mt-3 text-[11px] text-white/70">{resetMsg}</p>}
+          </section>
+        )}
 
-      {user && (
-        <section className="rounded-3xl border border-white/10 bg-white/[0.04] backdrop-blur p-6 shadow-[0_0_60px_0_rgba(0,194,203,0.12)]">
-          <h2 className="text-sm font-semibold text-[#00C2CB] mb-3">
-            Billing
-          </h2>
-          <p className="text-xs text-white/70 mb-4">
-            Manage your Nettmark subscription, payment method, and invoices.
-          </p>
-          <button
-            type="button"
-            onClick={openBillingPortal}
-            disabled={billingLoading}
-            className="inline-flex items-center rounded-full bg-[#00C2CB] px-4 py-2 text-xs font-medium text-black hover:bg-[#00b0b8] disabled:opacity-60"
-          >
-            {billingLoading ? 'Opening billing…' : 'Manage subscription'}
-          </button>
-        </section>
-      )}
+        {/* Billing (Revenue / Subscriptions) */}
+        {user && (
+          <section className="rounded-3xl border border-white/10 bg-white/[0.04] backdrop-blur p-6 shadow-[0_0_60px_0_rgba(0,194,203,0.12)]">
+            <h2 className="text-sm font-semibold text-[#00C2CB] mb-2">Billing</h2>
+            <p className="text-xs text-white/70 mb-4">
+              Manage your subscription, payment method, and invoices.
+            </p>
 
-      <section className="rounded-3xl border border-white/10 bg-white/[0.04] backdrop-blur p-6 shadow-[0_0_60px_0_rgba(0,194,203,0.15)]">
-        <div className="flex items-center justify-between gap-4">
-          <h2 className="text-lg font-medium text-white">Withdrawals <span className="text-white/70">(Stripe Connect)</span></h2>
-          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleManageSubscription}
+              disabled={billingLoading}
+              className="inline-flex items-center rounded-full bg-[#00C2CB] px-4 py-2 text-xs font-medium text-black hover:bg-[#00b0b8] disabled:opacity-60"
+            >
+              {billingLoading ? 'Opening…' : 'Manage subscription'}
+            </button>
+
+            <p className="mt-3 text-[11px] text-white/50">
+              This opens Stripe’s billing portal for your Nettmark subscription.
+            </p>
+          </section>
+        )}
+
+        {/* Withdrawals (Connect) */}
+        <section className="rounded-3xl border border-white/10 bg-white/[0.04] backdrop-blur p-6 shadow-[0_0_60px_0_rgba(0,194,203,0.15)]">
+          <div className="flex items-center justify-between gap-4">
+            <h2 className="text-lg font-medium text-white">
+              Withdrawals <span className="text-white/70">(Stripe Connect)</span>
+            </h2>
+
             <button
               onClick={refreshStatus}
               disabled={checking}
@@ -423,28 +423,24 @@ export default function AffiliateSettingsPage() {
               {checking ? 'Checking…' : 'Refresh'}
             </button>
           </div>
-        </div>
 
-        <div className="mt-4 space-y-4">
-          {status ? (
-            <>
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge tone={status.hasAccount ? 'ok' : 'default'}>
-                  {status.hasAccount ? 'Account created' : 'No account yet'}
-                </Badge>
-                <Badge tone={status.onboardingComplete ? 'ok' : status.hasAccount ? 'warn' : 'default'}>
-                  {status.onboardingComplete ? 'Onboarding complete' : status.hasAccount ? 'Action required' : 'Not started'}
-                </Badge>
-                <Badge tone={status.payoutsEnabled ? 'ok' : 'warn'}>
-                  {status.payoutsEnabled ? 'Payouts enabled' : 'Payouts not enabled'}
-                </Badge>
-                {status.accountId && (
-                  <Badge>acct: {status.accountId}</Badge>
-                )}
-              </div>
+          <div className="mt-4 space-y-4">
+            {status ? (
+              <>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge tone={status.hasAccount ? 'ok' : 'default'}>
+                    {status.hasAccount ? 'Account created' : 'No account yet'}
+                  </Badge>
+                  <Badge tone={status.onboardingComplete ? 'ok' : status.hasAccount ? 'warn' : 'default'}>
+                    {status.onboardingComplete ? 'Onboarding complete' : status.hasAccount ? 'Action required' : 'Not started'}
+                  </Badge>
+                  <Badge tone={status.payoutsEnabled ? 'ok' : 'warn'}>
+                    {status.payoutsEnabled ? 'Payouts enabled' : 'Payouts not enabled'}
+                  </Badge>
+                  {status.accountId && <Badge>acct: {status.accountId}</Badge>}
+                </div>
 
-              {!status.hasAccount && (
-                <div className="mt-4">
+                {!status.hasAccount && (
                   <button
                     onClick={startOnboarding}
                     disabled={loading}
@@ -452,50 +448,45 @@ export default function AffiliateSettingsPage() {
                   >
                     {loading ? 'Opening Stripe…' : 'Enable withdrawals'}
                   </button>
-                </div>
-              )}
+                )}
 
-              {status.hasAccount && !status.onboardingComplete && (
-                <div className="mt-4 space-y-2">
-                  {!!status.requirementsDue?.length && (
-                    <p className="text-sm text-amber-300">
-                      Stripe needs: {status.requirementsDue.join(', ')}
-                    </p>
-                  )}
-                  {status.disabledReason && (
-                    <p className="text-sm text-rose-300">
-                      Reason: {status.disabledReason}
-                    </p>
-                  )}
-                  <button
-                    onClick={resumeOnboarding}
-                    disabled={loading}
-                    className="rounded-full bg-[#00C2CB] px-5 py-2 text-black hover:bg-[#00b0b8] shadow-[0_0_20px_#00C2CB40] hover:shadow-[0_0_30px_#00C2CB80] transition"
-                  >
-                    {loading ? 'Opening Stripe…' : 'Resume onboarding'}
-                  </button>
-                </div>
-              )}
+                {status.hasAccount && !status.onboardingComplete && (
+                  <div className="space-y-2">
+                    {!!status.requirementsDue?.length && (
+                      <p className="text-sm text-amber-300">Stripe needs: {status.requirementsDue.join(', ')}</p>
+                    )}
+                    {status.disabledReason && <p className="text-sm text-rose-300">Reason: {status.disabledReason}</p>}
 
-              {status.onboardingComplete && (
-                <div className="mt-4 text-sm text-white/70">
-                  Your bank details are connected. You can withdraw from the <span className="text-[#7ff5fb] font-medium">Wallet</span> page.
-                </div>
-              )}
-            </>
-          ) : (
-            <p className="text-sm text-white/70">Loading…</p>
-          )}
-        </div>
-      </section>
+                    <button
+                      onClick={resumeOnboarding}
+                      disabled={loading}
+                      className="rounded-full bg-[#00C2CB] px-5 py-2 text-black hover:bg-[#00b0b8] shadow-[0_0_20px_#00C2CB40] hover:shadow-[0_0_30px_#00C2CB80] transition"
+                    >
+                      {loading ? 'Opening Stripe…' : 'Resume onboarding'}
+                    </button>
+                  </div>
+                )}
 
-      <section className="rounded-3xl border border-white/10 bg-white/[0.04] backdrop-blur p-6 shadow-[0_0_60px_0_rgba(0,194,203,0.15)]">
-        <h3 className="text-base font-medium mb-2 text-white">Where to withdraw/top-up?</h3>
-        <p className="text-sm text-white/70">
-          • Top-ups and withdrawals live on the <span className="text-[#7ff5fb]">Wallet</span> page.<br />
-          • This settings page is only for connecting or fixing your bank info.
-        </p>
-      </section>
+                {status.onboardingComplete && (
+                  <div className="text-sm text-white/70">
+                    Your bank details are connected. You can withdraw from the{' '}
+                    <span className="text-[#7ff5fb] font-medium">Wallet</span> page.
+                  </div>
+                )}
+              </>
+            ) : (
+              <p className="text-sm text-white/70">Loading…</p>
+            )}
+          </div>
+        </section>
+
+        <section className="rounded-3xl border border-white/10 bg-white/[0.04] backdrop-blur p-6 shadow-[0_0_60px_0_rgba(0,194,203,0.15)]">
+          <h3 className="text-base font-medium mb-2 text-white">Where to withdraw/top-up?</h3>
+          <p className="text-sm text-white/70">
+            • Top-ups and withdrawals live on the <span className="text-[#7ff5fb]">Wallet</span> page.
+            <br />• This settings page is only for connecting or fixing your bank info.
+          </p>
+        </section>
       </div>
     </div>
   );
