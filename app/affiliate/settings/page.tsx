@@ -32,6 +32,7 @@ export default function AffiliateSettingsPage() {
 
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [billingLoading, setBillingLoading] = useState(false);
 
   async function refreshStatus() {
     try {
@@ -112,6 +113,28 @@ export default function AffiliateSettingsPage() {
   async function resumeOnboarding() {
     // Re-use create-account; Stripe returns a fresh account_link if acct exists
     return startOnboarding();
+  }
+
+  async function openBillingPortal() {
+    try {
+      setBillingLoading(true);
+
+      const res = await fetch('/api/stripe-app/create-portal-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accountType: 'affiliate' }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error || 'Failed to open billing portal');
+      if (!json?.url) throw new Error('Billing portal URL missing');
+
+      window.location.href = json.url;
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to open billing portal');
+    } finally {
+      setBillingLoading(false);
+    }
   }
 
   const handleSaveProfile = async (e: FormEvent) => {
@@ -366,6 +389,25 @@ export default function AffiliateSettingsPage() {
               {resetMsg}
             </p>
           )}
+        </section>
+      )}
+
+      {user && (
+        <section className="rounded-3xl border border-white/10 bg-white/[0.04] backdrop-blur p-6 shadow-[0_0_60px_0_rgba(0,194,203,0.12)]">
+          <h2 className="text-sm font-semibold text-[#00C2CB] mb-3">
+            Billing
+          </h2>
+          <p className="text-xs text-white/70 mb-4">
+            Manage your Nettmark subscription, payment method, and invoices.
+          </p>
+          <button
+            type="button"
+            onClick={openBillingPortal}
+            disabled={billingLoading}
+            className="inline-flex items-center rounded-full bg-[#00C2CB] px-4 py-2 text-xs font-medium text-black hover:bg-[#00b0b8] disabled:opacity-60"
+          >
+            {billingLoading ? 'Opening billing…' : 'Manage subscription'}
+          </button>
         </section>
       )}
 

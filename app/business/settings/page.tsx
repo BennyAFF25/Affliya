@@ -19,6 +19,39 @@ export default function BusinessSettingsPage() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
+  const [openingPortal, setOpeningPortal] = useState(false);
+
+  const handleManageSubscription = async () => {
+    if (!user?.email) return;
+
+    try {
+      setOpeningPortal(true);
+
+      const res = await fetch('/api/stripe-app/create-portal-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accountType: 'business' }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        const msg = (json as any)?.error || 'Failed to open billing portal';
+        throw new Error(msg);
+      }
+
+      const url = (json as any)?.url as string | undefined;
+      if (!url) throw new Error('Missing portal URL');
+
+      window.location.href = url;
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err?.message || 'Failed to open billing portal');
+    } finally {
+      setOpeningPortal(false);
+    }
+  };
+
   useEffect(() => {
     if (!user?.email) return;
 
@@ -310,6 +343,28 @@ export default function BusinessSettingsPage() {
                 {resetMsg}
               </p>
             )}
+          </section>
+        )}
+
+        {user && (
+          <section className="relative rounded-3xl border border-white/10 bg-white/[0.04] backdrop-blur p-6 shadow-[0_0_60px_0_rgba(0,194,203,0.12)]">
+            <h2 className="text-sm font-semibold text-[#00C2CB] mb-3">Billing</h2>
+            <p className="text-xs text-white/70 mb-4">
+              Manage your Nettmark business subscription, update payment method, and view invoices.
+            </p>
+
+            <button
+              type="button"
+              onClick={handleManageSubscription}
+              disabled={openingPortal}
+              className="inline-flex items-center rounded-full bg-[#00C2CB] px-4 py-2 text-xs font-medium text-black hover:bg-[#00b0b8] disabled:opacity-60"
+            >
+              {openingPortal ? 'Opening billing…' : 'Manage subscription'}
+            </button>
+
+            <p className="mt-3 text-[11px] text-white/50">
+              You’ll be redirected to Stripe’s secure customer portal.
+            </p>
           </section>
         )}
       </div>
