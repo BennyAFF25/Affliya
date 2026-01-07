@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
+import { cookies } from "next/headers";
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 
 // Choose the correct Stripe secret key (Revenue account preferred), trim to avoid hidden whitespace
 const rawSecret =
@@ -48,7 +50,31 @@ function getBaseUrl() {
 
 export async function POST(req: Request) {
   try {
-    const { accountType } = await req.json();
+    const { accountType, userId, email } = await req.json();
+
+    // Resolve the authenticated user (preferred) so webhook can upsert revenue IDs reliably
+    const supabase = createRouteHandlerClient({ cookies });
+    const {
+      data: { user },
+      error: userErr,
+    } = await supabase.auth.getUser();
+
+    const resolvedUserId = user?.id || userId;
+    const resolvedEmail = user?.email || email;
+
+    if (!resolvedUserId || !resolvedEmail) {
+      // If the client is not logged in, or we can't resolve user identity, we can't map the subscription
+      // back to a Nettmark profile reliably.
+      return NextResponse.json(
+        { error: "Missing authenticated user (userId/email) for checkout." },
+        { status: 401 }
+      );
+    }
+
+    if (userErr) {
+      // eslint-disable-next-line no-console
+      console.warn("[stripe-app] supabase getUser warning:", userErr);
+    }
 
     // Validate accountType
     if (accountType !== "business" && accountType !== "affiliate") {
@@ -79,9 +105,28 @@ export async function POST(req: Request) {
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       line_items: [{ price: priceId, quantity: 1 }],
+
+      // Important: attach Nettmark user identity so webhook can persist
+      // revenue_stripe_customer_id / revenue_stripe_subscription_id on `public.profiles`.
+      client_reference_id: resolvedUserId,
+      customer_email: resolvedEmail,
+      metadata: {
+        user_id: resolvedUserId,
+        email: resolvedEmail,
+        role: accountType,
+        source: "stripe-app",
+      },
+
       subscription_data: {
         trial_period_days: 50, // 50-day free trial
+        metadata: {
+          user_id: resolvedUserId,
+          email: resolvedEmail,
+          role: accountType,
+          source: "stripe-app",
+        },
       },
+
       success_url: `${baseUrl}/stripe-redirect?role=${accountType}&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${baseUrl}/pricing?type=${accountType}`,
     });
