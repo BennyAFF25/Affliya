@@ -23,6 +23,29 @@ try {
 
 const stripe = new Stripe(secret);
 
+function getBaseUrl() {
+  const explicit =
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    process.env.NEXT_PUBLIC_BASE_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
+
+  // Stripe requires absolute URLs with a scheme
+  const candidate = (explicit || "http://localhost:3000").replace(/\/+$/, "");
+
+  try {
+    return new URL(candidate).origin;
+  } catch {
+    // If someone set `www.domain.com` without scheme, fix it
+    if (/^[A-Za-z0-9.-]+\.[A-Za-z]{2,}/.test(candidate)) {
+      try {
+        return new URL(`https://${candidate}`).origin;
+      } catch {}
+    }
+    return "http://localhost:3000";
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const { accountType } = await req.json();
@@ -51,10 +74,7 @@ export async function POST(req: Request) {
     }
 
     // Resolve base URL for redirects
-    const baseUrl =
-      (process.env.NEXT_PUBLIC_APP_URL ||
-        process.env.NEXT_PUBLIC_BASE_URL ||
-        "http://localhost:3000").replace(/\/+$/, "");
+    const baseUrl = getBaseUrl();
 
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
