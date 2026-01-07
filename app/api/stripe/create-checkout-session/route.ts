@@ -4,10 +4,15 @@ import { cookies } from 'next/headers';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2025-05-28.basil',
+  apiVersion: '2024-06-20',
 });
 
 const allowedCurrencies = ['usd', 'aud', 'eur', 'gbp', 'cad', 'nzd'];
+
+const baseUrl =
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : '') ||
+  'http://localhost:3000';
 
 export async function POST(req: Request) {
   const { amount, currency } = await req.json();
@@ -44,8 +49,8 @@ export async function POST(req: Request) {
         },
       ],
       mode: 'payment',
-      success_url: `${process.env.NEXT_PUBLIC_BASE_URL || 'https://affliya.com'}/affiliate/wallet?topup=success`,
-      cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL || 'https://affliya.com'}/affiliate/wallet?topup=cancelled`,
+      success_url: `${baseUrl}/affiliate/wallet?topup=success`,
+      cancel_url: `${baseUrl}/affiliate/wallet?topup=cancelled`,
       metadata: {
         email: user.email,
         type: 'wallet_topup',
