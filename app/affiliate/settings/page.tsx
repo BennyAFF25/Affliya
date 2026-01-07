@@ -55,7 +55,7 @@ export default function AffiliateSettingsPage() {
   }, []);
 
   useEffect(() => {
-    if (!user?.email) return;
+    if (!user?.id) return;
 
     const loadProfile = async () => {
       setLoadingProfile(true);
@@ -63,7 +63,7 @@ export default function AffiliateSettingsPage() {
       const { data, error } = await (supabase as any)
         .from('affiliate_profiles')
         .select('display_name, avatar_url')
-        .eq('email', user.email as string)
+        .eq('user_id', user.id)
         .single();
 
       if (!error && data) {
@@ -115,7 +115,7 @@ export default function AffiliateSettingsPage() {
 
   const handleSaveProfile = async (e: FormEvent) => {
     e.preventDefault();
-    if (!user?.email) return;
+    if (!user?.email || !user?.id) return;
 
     setSavingProfile(true);
 
@@ -123,14 +123,15 @@ export default function AffiliateSettingsPage() {
       .from('affiliate_profiles')
       .upsert(
         {
+          user_id: user.id,
           email: user.email as string,
           display_name: displayName,
         } as any,
-        { onConflict: 'email' }
+        { onConflict: 'user_id' }
       );
 
     if (error) {
-      // This is the exact error you saw when email isn't unique yet
+      // Most common cause here is RLS blocking inserts/updates if user_id/email aren't set correctly
       toast.error(error.message || 'Failed to save profile');
     } else {
       toast.success('Profile updated');
@@ -192,10 +193,11 @@ export default function AffiliateSettingsPage() {
         .from('affiliate_profiles')
         .upsert(
           {
+            user_id: user.id,
             email: user.email as string,
             avatar_url: publicUrl,
           } as any,
-          { onConflict: 'email' }
+          { onConflict: 'user_id' }
         );
 
       if (updateError) {
