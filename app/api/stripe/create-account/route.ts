@@ -3,6 +3,7 @@
 
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
+import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
 
@@ -38,6 +39,19 @@ function absUrl(pathname: string) {
   return new URL(pathname, getBaseUrl()).toString();
 }
 
+function getAdminSupabase() {
+  const url = (process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim();
+  const serviceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim();
+  if (!url || !serviceKey) {
+    throw new Error(
+      "Missing Supabase env: NEXT_PUBLIC_SUPABASE_URL and/or SUPABASE_SERVICE_ROLE_KEY"
+    );
+  }
+  return createClient(url, serviceKey, {
+    auth: { persistSession: false },
+  });
+}
+
 export async function POST(req: Request) {
   try {
     if (!process.env.STRIPE_SECRET_KEY) {
@@ -66,7 +80,8 @@ export async function POST(req: Request) {
       ""
     )
       .toString()
-      .trim();
+      .trim()
+      .toLowerCase();
 
     if (!email) {
       return NextResponse.json({ error: "Missing email" }, { status: 400 });
@@ -101,8 +116,61 @@ export async function POST(req: Request) {
       );
     }
 
+    // 1.5) Persist to DB (THIS is what was missing)
+    // Use service role so RLS can’t block the write.
+    const supabaseAdmin = getAdminSupabase();
+
+    // Prefer update-by-email (you already have a row with business_email)
+    // If no row exists, fallback to insert.
+    const { data: existingBiz, error: findErr } = await supabaseAdmin
+      .from("business_profiles")
+      .select("id, stripe_account_id")
+      .eq("business_email", email)
+      .maybeSingle();
+
+    if (findErr) {
+      console.error("[❌ business/create-account] DB lookup error", findErr);
+      return NextResponse.json(
+        { error: `DB lookup failed: ${findErr.message}` },
+        { status: 500 }
+      );
+    }
+
+    if (existingBiz?.id) {
+      // Only update if missing or different (safe)
+      if (!existingBiz.stripe_account_id || existingBiz.stripe_account_id !== accountId) {
+        const { error: upErr } = await supabaseAdmin
+          .from("business_profiles")
+          .update({ stripe_account_id: accountId })
+          .eq("id", existingBiz.id);
+
+        if (upErr) {
+          console.error("[❌ business/create-account] DB update error", upErr);
+          return NextResponse.json(
+            { error: `DB update failed: ${upErr.message}` },
+            { status: 500 }
+          );
+        }
+      }
+    } else {
+      const { error: insErr } = await supabaseAdmin
+        .from("business_profiles")
+        .insert({
+          business_email: email,
+          stripe_account_id: accountId,
+          stripe_onboarding_complete: false,
+        });
+
+      if (insErr) {
+        console.error("[❌ business/create-account] DB insert error", insErr);
+        return NextResponse.json(
+          { error: `DB insert failed: ${insErr.message}` },
+          { status: 500 }
+        );
+      }
+    }
+
     // 2) Build absolute URLs safely
-    // NOTE: change these paths if your app uses different onboarding routes
     const refreshUrl = absUrl("/business/my-business?onboarding=refresh");
     const returnUrl = absUrl("/business/my-business?onboarding=return");
 
@@ -113,6 +181,8 @@ export async function POST(req: Request) {
       returnUrl,
       account: accountId,
       email,
+      reusedExisting: !!existingAccountId,
+      dbWrite: "ok",
     });
 
     // 3) Create onboarding link
