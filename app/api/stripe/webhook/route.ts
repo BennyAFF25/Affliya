@@ -1,3 +1,6 @@
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 // app/api/stripe/webhook/route.ts
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
@@ -75,6 +78,37 @@ if (!stripeSecretKey || !endpointSecret) {
 
     try {
       switch (event.type) {
+        case "account.updated": {
+          const account = event.data.object as Stripe.Account;
+
+          const isComplete =
+            account.details_submitted === true &&
+            account.charges_enabled === true &&
+            account.payouts_enabled === true;
+
+          console.log("[✅ account.updated]", {
+            accountId: account.id,
+            isComplete,
+          });
+
+          if (isComplete) {
+            const { error } = await supabase
+              .from("affiliate_profiles")
+              .update({
+                stripe_account_id: account.id,
+                stripe_onboarding_complete: true,
+              })
+              .eq("stripe_account_id", account.id);
+
+            if (error) {
+              console.error("[❌ affiliate_profiles update failed]", error);
+            } else {
+              console.log("[✅ affiliate_profiles onboarding marked complete]");
+            }
+          }
+
+          break;
+        }
         case "checkout.session.completed": {
           console.log(
             `[✅ Handling checkout.session.completed] platformAcctId: ${platformAcctId}`
@@ -271,7 +305,7 @@ if (!stripeSecretKey || !endpointSecret) {
       console.error("[❌ Webhook handler error]", err.message);
     }
 
-    return NextResponse.json({ received: true });
+    return new Response(JSON.stringify({ received: true }), { status: 200 });
   };
 }
 
