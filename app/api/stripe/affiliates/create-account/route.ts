@@ -138,7 +138,19 @@ export async function POST(req: Request) {
           type: "express",
           business_type: "individual",
           email,
+
+          // Request only what we actually need for paying affiliates out
           capabilities: { transfers: { requested: true } },
+
+          // Pre-fill business profile so Stripe doesn't treat the affiliate like a traditional business.
+          // Stripe still requires either a URL or a product description for compliance.
+          business_profile: {
+            url: "https://nettmark.com",
+            product_description:
+              "Affiliate marketing/promotion earnings paid out via the Nettmark platform.",
+            name: "Nettmark Affiliate",
+          },
+
           metadata: { email, platform: "nettmark", role: "affiliate" },
         });
 
