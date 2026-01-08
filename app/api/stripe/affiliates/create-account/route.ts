@@ -134,11 +134,33 @@ export async function POST(req: Request) {
     const account = existingAccountId
       ? await stripe.accounts.retrieve(existingAccountId)
       : await stripe.accounts.create({
+          // Affiliate payouts: keep this strictly INDIVIDUAL (no business fields required)
           type: "express",
+          business_type: "individual",
           email,
           capabilities: { transfers: { requested: true } },
-          metadata: { email, platform: "nettmark" },
+          metadata: { email, platform: "nettmark", role: "affiliate" },
         });
+
+    // Safety: never onboard affiliates into a business-style account.
+    // If an existing account id was passed in, ensure it is an Express + Individual account.
+    if (existingAccountId) {
+      const acct: any = account;
+      const acctType = acct?.type;
+      const businessType = acct?.business_type;
+      if (acctType && acctType !== "express") {
+        return NextResponse.json(
+          { error: `Invalid affiliate payout account type: ${acctType}. Expected "express".` },
+          { status: 400 }
+        );
+      }
+      if (businessType && businessType !== "individual") {
+        return NextResponse.json(
+          { error: `Invalid affiliate payout business_type: ${businessType}. Expected "individual".` },
+          { status: 400 }
+        );
+      }
+    }
 
     // Default landing pages (can be overridden by frontend if needed)
     const refreshPath = (body?.refresh_path || body?.refreshPath || "/affiliate/wallet?onboarding=refresh")
