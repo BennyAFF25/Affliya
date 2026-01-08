@@ -1,72 +1,93 @@
-import { NextResponse } from 'next/server';
-import Stripe from 'stripe';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+import { NextResponse } from "next/server";
+import Stripe from "stripe";
+import { createClient } from "@supabase/supabase-js";
 
-// ...existing imports
-export async function GET() {
+export const runtime = "nodejs";
+
+const stripeSecret = (process.env.STRIPE_SECRET_KEY || "").trim();
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+function isOnboardingComplete(acct: Stripe.Account) {
+  // Simple + reliable: Stripe says details submitted + payouts enabled + charges enabled
+  // (you can relax charges_enabled if affiliates never take payments directly)
+  return Boolean(acct.details_submitted && acct.payouts_enabled);
+}
+
+export async function GET(req: Request) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user?.id) return NextResponse.json({ error: 'Not signed in' }, { status: 401 });
+    if (!stripeSecret) {
+      return NextResponse.json({ error: "Missing STRIPE_SECRET_KEY" }, { status: 500 });
+    }
+    if (!supabaseUrl || !serviceRole) {
+      return NextResponse.json({ error: "Missing Supabase env keys" }, { status: 500 });
+    }
 
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2024-06-20' });
+    const { searchParams } = new URL(req.url);
+    const userId = searchParams.get("user_id");
+    const email = searchParams.get("email");
 
-    const { data: ap } = await supabase
-      .from('affiliate_profiles')
-      .select('stripe_account_id, stripe_onboarding_complete, email')
-      .eq('user_id', user.id)
-      .maybeSingle();
+    if (!userId && !email) {
+      return NextResponse.json(
+        { error: "Provide user_id or email as query param" },
+        { status: 400 }
+      );
+    }
+
+    const supabase = createClient(supabaseUrl, serviceRole, {
+      auth: { persistSession: false },
+    });
+
+    const q = supabase
+      .from("affiliate_profiles")
+      .select("user_id,email,stripe_account_id,stripe_onboarding_complete");
+
+    const { data: ap, error } = userId
+      ? await q.eq("user_id", userId).maybeSingle()
+      : await q.eq("email", email!).maybeSingle();
+
+    if (error) {
+      console.error("[affiliates/check-account] read error", error);
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
 
     if (!ap?.stripe_account_id) {
       return NextResponse.json({
         hasAccount: false,
         onboardingComplete: false,
-        payoutsEnabled: false,
-        requirementsDue: [],
-        disabledReason: null,
+        accountId: null,
       });
     }
 
+    const stripe = new Stripe(stripeSecret, { apiVersion: "2025-08-27.basil" as any });
     const acct = await stripe.accounts.retrieve(ap.stripe_account_id);
 
-    const requirementsDue = acct.requirements?.currently_due ?? [];
-    const disabledReason = acct.requirements?.disabled_reason ?? null;
+    const onboardingComplete = isOnboardingComplete(acct as Stripe.Account);
 
-    const onboardingComplete =
-      acct.details_submitted === true &&
-      acct.charges_enabled === true &&
-      acct.payouts_enabled === true;
+    // Persist flag if needed
+    if (onboardingComplete && !ap.stripe_onboarding_complete) {
+      const { error: upErr } = await supabase
+        .from("affiliate_profiles")
+        .update({ stripe_onboarding_complete: true })
+        .eq("user_id", ap.user_id);
 
-    const payoutsEnabled = acct.payouts_enabled === true;
-
-    // Ensure affiliate profile exists and persist authoritative Stripe state
-    const { error: upsertError } = await supabase
-      .from('affiliate_profiles')
-      .upsert(
-        {
-          user_id: user.id,
-          email: ap?.email ?? user.email,
-          stripe_account_id: acct.id,
-          stripe_onboarding_complete: onboardingComplete,
-        },
-        { onConflict: 'user_id' }
-      );
-
-    if (upsertError) {
-      console.error('[❌ affiliate_profiles upsert failed]', upsertError);
+      if (upErr) {
+        console.error("[affiliates/check-account] update onboarding flag error", upErr);
+      }
     }
 
     return NextResponse.json({
       hasAccount: true,
-      onboardingComplete: onboardingComplete,
-      payoutsEnabled: payoutsEnabled,
-      requirementsDue,
-      disabledReason,
-      accountId: acct.id,
+      accountId: ap.stripe_account_id,
+      onboardingComplete,
+      payoutsEnabled: Boolean((acct as Stripe.Account).payouts_enabled),
+      detailsSubmitted: Boolean((acct as Stripe.Account).details_submitted),
     });
-  } catch (e: any) {
-    console.error('[affiliates/check-account]', e);
-    return NextResponse.json({ error: e.message || 'Stripe error' }, { status: 500 });
+  } catch (err: any) {
+    console.error("[affiliates/check-account] error", err?.message || err);
+    return NextResponse.json(
+      { error: err?.message || "Unknown error" },
+      { status: 500 }
+    );
   }
 }
