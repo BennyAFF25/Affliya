@@ -32,22 +32,38 @@ export async function GET() {
 
     const requirementsDue = acct.requirements?.currently_due ?? [];
     const disabledReason = acct.requirements?.disabled_reason ?? null;
-    const complete = !!acct.details_submitted && requirementsDue.length === 0;
-    const payoutsEnabled = !!acct.payouts_enabled;
 
-    if (complete !== ap.stripe_onboarding_complete) {
-      await supabase.from('affiliate_profiles')
-        .update({ stripe_onboarding_complete: complete })
-        .eq('user_id', user.id);
+    const onboardingComplete =
+      acct.details_submitted === true &&
+      acct.charges_enabled === true &&
+      acct.payouts_enabled === true;
+
+    const payoutsEnabled = acct.payouts_enabled === true;
+
+    // Ensure affiliate profile exists and persist authoritative Stripe state
+    const { error: upsertError } = await supabase
+      .from('affiliate_profiles')
+      .upsert(
+        {
+          user_id: user.id,
+          email: ap?.email ?? user.email,
+          stripe_account_id: acct.id,
+          stripe_onboarding_complete: onboardingComplete,
+        },
+        { onConflict: 'user_id' }
+      );
+
+    if (upsertError) {
+      console.error('[❌ affiliate_profiles upsert failed]', upsertError);
     }
 
     return NextResponse.json({
       hasAccount: true,
-      onboardingComplete: complete,
-      payoutsEnabled,
+      onboardingComplete: onboardingComplete,
+      payoutsEnabled: payoutsEnabled,
       requirementsDue,
       disabledReason,
-      accountId: ap.stripe_account_id,
+      accountId: acct.id,
     });
   } catch (e: any) {
     console.error('[affiliates/check-account]', e);
