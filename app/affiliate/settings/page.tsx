@@ -37,11 +37,23 @@ export default function AffiliateSettingsPage() {
 
   async function refreshStatus() {
     try {
+      if (!user?.id && !user?.email) {
+        // Don't call the API until we have a session
+        return;
+      }
+
       setChecking(true);
-      const res = await fetch('/api/stripe/affiliates/check-account', { cache: 'no-store' });
+
+      const qs = user?.id
+        ? `?user_id=${encodeURIComponent(user.id)}`
+        : `?email=${encodeURIComponent(user!.email!)}`;
+
+      const res = await fetch(`/api/stripe/affiliates/check-account${qs}`, { cache: 'no-store' });
       const json: CheckResp = await res.json();
+
       if (!res.ok) throw new Error(json.error || `Status check failed (${res.status})`);
       if (json.error) throw new Error(json.error);
+
       setStatus(json);
     } catch (err: any) {
       toast.error(err.message || 'Failed to check status');
@@ -52,7 +64,8 @@ export default function AffiliateSettingsPage() {
 
   useEffect(() => {
     refreshStatus();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, user?.email]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -79,8 +92,8 @@ export default function AffiliateSettingsPage() {
 
   async function startOnboarding() {
     try {
-      if (!user?.email) {
-        toast.error('Missing email in session. Please re-login.');
+      if (!user?.id || !user?.email) {
+        toast.error('Missing user session. Please re-login.');
         return;
       }
 
@@ -90,6 +103,7 @@ export default function AffiliateSettingsPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          user_id: user.id,
           email: user.email,
           stripe_account_id: status?.accountId || null,
           role: 'affiliate',
