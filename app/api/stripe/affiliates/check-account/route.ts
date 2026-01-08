@@ -1,54 +1,42 @@
+// app/api/stripe/affiliates/check-account/route.ts
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
 
-const stripeSecret = (process.env.STRIPE_SECRET_KEY || "").trim();
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const serviceRole = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
+  apiVersion: "2025-08-27.basil",
+});
 
-function isOnboardingComplete(acct: Stripe.Account) {
-  // Simple + reliable: Stripe says details submitted + payouts enabled + charges enabled
-  // (you can relax charges_enabled if affiliates never take payments directly)
-  return Boolean(acct.details_submitted && acct.payouts_enabled);
-}
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL as string,
+  process.env.SUPABASE_SERVICE_ROLE_KEY as string
+);
 
 export async function GET(req: Request) {
   try {
-    if (!stripeSecret) {
-      return NextResponse.json({ error: "Missing STRIPE_SECRET_KEY" }, { status: 500 });
-    }
-    if (!supabaseUrl || !serviceRole) {
-      return NextResponse.json({ error: "Missing Supabase env keys" }, { status: 500 });
-    }
-
     const { searchParams } = new URL(req.url);
-    const userId = searchParams.get("user_id");
+    const user_id = searchParams.get("user_id");
     const email = searchParams.get("email");
 
-    if (!userId && !email) {
+    if (!user_id && !email) {
       return NextResponse.json(
         { error: "Provide user_id or email as query param" },
         { status: 400 }
       );
     }
 
-    const supabase = createClient(supabaseUrl, serviceRole, {
-      auth: { persistSession: false },
-    });
+    // Prefer user_id since it’s the PK
+    let q = supabase.from("affiliate_profiles").select("user_id,email,stripe_account_id,stripe_onboarding_complete").limit(1);
 
-    const q = supabase
-      .from("affiliate_profiles")
-      .select("user_id,email,stripe_account_id,stripe_onboarding_complete");
+    if (user_id) q = q.eq("user_id", user_id);
+    else q = q.eq("email", email as string);
 
-    const { data: ap, error } = userId
-      ? await q.eq("user_id", userId).maybeSingle()
-      : await q.eq("email", email!).maybeSingle();
-
-    if (error) {
-      console.error("[affiliates/check-account] read error", error);
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    const { data: ap, error: apErr } = await q.maybeSingle();
+    if (apErr) {
+      console.error("[affiliates/check-account] ❌ affiliate_profiles select error", apErr);
+      return NextResponse.json({ error: "DB read failed", details: apErr }, { status: 500 });
     }
 
     if (!ap?.stripe_account_id) {
@@ -59,35 +47,35 @@ export async function GET(req: Request) {
       });
     }
 
-    const stripe = new Stripe(stripeSecret, { apiVersion: "2025-08-27.basil" as any });
     const acct = await stripe.accounts.retrieve(ap.stripe_account_id);
 
-    const onboardingComplete = isOnboardingComplete(acct as Stripe.Account);
+    const onboardingComplete = !!acct.charges_enabled && !!acct.payouts_enabled;
 
-    // Persist flag if needed
+    // Write completion status back to DB if changed
     if (onboardingComplete && !ap.stripe_onboarding_complete) {
-      const { error: upErr } = await supabase
+      const { error: updErr } = await supabase
         .from("affiliate_profiles")
         .update({ stripe_onboarding_complete: true })
         .eq("user_id", ap.user_id);
 
-      if (upErr) {
-        console.error("[affiliates/check-account] update onboarding flag error", upErr);
+      if (updErr) {
+        console.error("[affiliates/check-account] ❌ update onboarding flag failed", updErr);
+        return NextResponse.json({ error: "DB update failed", details: updErr }, { status: 500 });
       }
+
+      console.log("[affiliates/check-account] ✅ onboarding marked complete", {
+        user_id: ap.user_id,
+        stripe_account_id: ap.stripe_account_id,
+      });
     }
 
     return NextResponse.json({
       hasAccount: true,
-      accountId: ap.stripe_account_id,
       onboardingComplete,
-      payoutsEnabled: Boolean((acct as Stripe.Account).payouts_enabled),
-      detailsSubmitted: Boolean((acct as Stripe.Account).details_submitted),
+      accountId: ap.stripe_account_id,
     });
-  } catch (err: any) {
-    console.error("[affiliates/check-account] error", err?.message || err);
-    return NextResponse.json(
-      { error: err?.message || "Unknown error" },
-      { status: 500 }
-    );
+  } catch (e: any) {
+    console.error("[affiliates/check-account] ❌ unexpected", e?.message || e);
+    return NextResponse.json({ error: "Server error", details: e?.message }, { status: 500 });
   }
 }
