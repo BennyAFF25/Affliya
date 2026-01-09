@@ -173,25 +173,68 @@ export async function POST(req: Request) {
         log("profiles update error (subscription)", subUpdate.error);
       }
 
-      // 2) Fallback to pre_signup_revenue if no profile row updated
+      // 2) Fallback to update profiles by email if no profile row updated by customer id
       if (!subUpdate.data || subUpdate.data.length === 0) {
-        const { error: preErr } = await supabase
-          .from("pre_signup_revenue")
-          .upsert(
-            {
-              email: (sub.metadata as any)?.email ?? null,
+        const email = (sub.metadata as any)?.email ?? null;
+        if (email) {
+          const emailUpdate = await supabase
+            .from("profiles")
+            .update({
               revenue_stripe_customer_id: customerId,
               revenue_stripe_subscription_id: sub.id,
               revenue_subscription_status: sub.status,
               revenue_current_period_end: getCurrentPeriodEnd(sub),
-            },
-            { onConflict: "email" }
-          );
+            })
+            .eq("email", email)
+            .select("id");
 
-        if (preErr) {
-          log("pre_signup_revenue upsert error (subscription)", preErr);
+          if (emailUpdate.error) {
+            log("profiles update error (subscription fallback by email)", emailUpdate.error);
+          }
+
+          if (!emailUpdate.data || emailUpdate.data.length === 0) {
+            // 3) Fallback to pre_signup_revenue if no profile row updated by email
+            const { error: preErr } = await supabase
+              .from("pre_signup_revenue")
+              .upsert(
+                {
+                  email,
+                  revenue_stripe_customer_id: customerId,
+                  revenue_stripe_subscription_id: sub.id,
+                  revenue_subscription_status: sub.status,
+                  revenue_current_period_end: getCurrentPeriodEnd(sub),
+                },
+                { onConflict: "email" }
+              );
+
+            if (preErr) {
+              log("pre_signup_revenue upsert error (subscription)", preErr);
+            } else {
+              log("pre_signup_revenue upserted (subscription)");
+            }
+          } else {
+            log("profiles updated (subscription fallback by email)");
+          }
         } else {
-          log("pre_signup_revenue upserted (subscription)");
+          // If no email in metadata, fallback directly to pre_signup_revenue
+          const { error: preErr } = await supabase
+            .from("pre_signup_revenue")
+            .upsert(
+              {
+                email: null,
+                revenue_stripe_customer_id: customerId,
+                revenue_stripe_subscription_id: sub.id,
+                revenue_subscription_status: sub.status,
+                revenue_current_period_end: getCurrentPeriodEnd(sub),
+              },
+              { onConflict: "email" }
+            );
+
+          if (preErr) {
+            log("pre_signup_revenue upsert error (subscription)", preErr);
+          } else {
+            log("pre_signup_revenue upserted (subscription)");
+          }
         }
       } else {
         log("profiles updated (subscription)");
