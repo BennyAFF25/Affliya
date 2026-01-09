@@ -27,7 +27,12 @@ function toISO(seconds?: number | null) {
 function getCurrentPeriodEnd(sub?: Stripe.Subscription | null): string | null {
   if (!sub) return null;
   const anySub = sub as any;
-  return toISO(anySub.current_period_end ?? null);
+  // Prefer current_period_end; fallback to trial_end if needed
+  const seconds =
+    anySub.current_period_end ??
+    anySub.trial_end ??
+    null;
+  return toISO(seconds);
 }
 
 async function buffer(req: Request) {
