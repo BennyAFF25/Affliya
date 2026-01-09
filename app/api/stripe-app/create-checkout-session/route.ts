@@ -69,13 +69,6 @@ export async function POST(req: Request) {
     const resolvedUserId = userId || null;
     const resolvedEmail = email || null;
 
-    if (!resolvedEmail) {
-      return NextResponse.json(
-        { error: "Missing email for checkout session." },
-        { status: 400 }
-      );
-    }
-
     // Validate accountType
     if (accountType !== "business" && accountType !== "affiliate") {
       return NextResponse.json(
@@ -109,19 +102,19 @@ export async function POST(req: Request) {
       // Attach Nettmark user identity so stripe-app webhook can persist
       // revenue_stripe_customer_id / revenue_stripe_subscription_id on `public.profiles`.
       client_reference_id: resolvedUserId || undefined,
-      customer_email: resolvedEmail,
+      ...(resolvedEmail ? { customer_email: resolvedEmail } : {}),
       metadata: {
-        email: resolvedEmail,
         role: accountType,
         source: "stripe-app",
+        ...(resolvedEmail ? { email: resolvedEmail } : {}),
       },
 
       subscription_data: {
         trial_period_days: 50,
         metadata: {
-          email: resolvedEmail,
           role: accountType,
           source: "stripe-app",
+          ...(resolvedEmail ? { email: resolvedEmail } : {}),
         },
       },
 
