@@ -33,6 +33,8 @@ interface Profile {
   id: string;
   role: string | null;
   email: string | null;
+  revenue_subscription_status?: string | null;
+  revenue_current_period_end?: string | null;
 }
 
 type Timeframe = '7d' | '30d' | '1y' | 'all';
@@ -145,6 +147,9 @@ export default function BusinessDashboard() {
   const [showAllCampaigns, setShowAllCampaigns] = useState(false);
   const [showAllAffiliateActivity, setShowAllAffiliateActivity] = useState(false);
 
+  const revenueStatus = profile?.revenue_subscription_status ?? null;
+  const revenuePeriodEnd = profile?.revenue_current_period_end ?? null;
+
   // simple dynamic goal line for sales
   const salesGoal =
     salesSeries.length > 0
@@ -202,7 +207,7 @@ export default function BusinessDashboard() {
 
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
-        .select('id, role, email')
+        .select('id, role, email, revenue_subscription_status, revenue_current_period_end')
         .eq('id', user.id)
         .single();
 
@@ -217,6 +222,22 @@ export default function BusinessDashboard() {
       }
 
       setProfile(profileData as Profile);
+
+      const isTrialing =
+        profileData.revenue_subscription_status === 'trialing' &&
+        profileData.revenue_current_period_end;
+
+      let trialDaysRemaining: number | null = null;
+
+      if (isTrialing) {
+        const end = new Date(profileData.revenue_current_period_end);
+        if (!Number.isNaN(end.getTime())) {
+          trialDaysRemaining = Math.max(
+            0,
+            Math.ceil((end.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+          );
+        }
+      }
 
       const businessEmail = user?.email || '';
 
@@ -433,6 +454,34 @@ export default function BusinessDashboard() {
 
   return (
     <div className="min-h-screen w-full bg-gradient-to-b from-[#0b0b0b] to-[#0e0e0e] text-white px-4 py-4 sm:px-5 sm:py-6">
+      {revenueStatus === 'trialing' && revenuePeriodEnd && (
+        <div className="mb-4 rounded-xl border border-amber-400/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div>
+              <span className="font-semibold">Free trial active.</span>{' '}
+              Trial ends in{' '}
+              <span className="font-semibold text-amber-300">
+                {Math.max(
+                  0,
+                  Math.ceil(
+                    (new Date(revenuePeriodEnd).getTime() -
+                      Date.now()) /
+                      (1000 * 60 * 60 * 24)
+                  )
+                )}{' '}
+                days
+              </span>
+              .
+            </div>
+            <button
+              onClick={() => router.push('/pricing')}
+              className="inline-flex items-center justify-center rounded-md bg-amber-400/20 px-3 py-1.5 text-xs font-medium text-amber-300 hover:bg-amber-400/30 transition"
+            >
+              Upgrade now
+            </button>
+          </div>
+        </div>
+      )}
       {/* Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-6 mb-6 mt-2">
         <div className={`${CARD} ring-1 ring-[#00C2CB]/20 shadow-[0_0_30px_rgba(0,194,203,0.12)] relative overflow-hidden`}

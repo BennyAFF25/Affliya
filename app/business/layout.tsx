@@ -1,53 +1,14 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 import Link from 'next/link';
-
 import BusinessSidebar from './BusinessSidebar';
 import Topbar from '@/components/Topbar';
-
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 
 export default function BusinessLayout({ children }: { children: React.ReactNode }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
-  const router = useRouter();
-  const supabase = createClientComponentClient();
-
-  const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(null);
-  const [periodEnd, setPeriodEnd] = useState<string | null>(null);
-  const [loadingSub, setLoadingSub] = useState(true);
-
   const closeMobileNav = () => setMobileNavOpen(false);
-
-  useEffect(() => {
-    const loadSubscription = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) {
-        setLoadingSub(false);
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('revenue_subscription_status, revenue_current_period_end')
-        .eq('id', user.id)
-        .single();
-
-      if (!error && data) {
-        setSubscriptionStatus(data.revenue_subscription_status);
-        setPeriodEnd(data.revenue_current_period_end);
-      }
-
-      setLoadingSub(false);
-    };
-
-    loadSubscription();
-  }, []);
 
   return (
     <div className="flex flex-col min-h-screen text-white bg-[#0e0e0e]">
@@ -137,45 +98,6 @@ export default function BusinessLayout({ children }: { children: React.ReactNode
 
         {/* Page content */}
         <main className="flex-1 overflow-y-auto md:ml-64 bg-[#0e0e0e]">
-          {!loadingSub && subscriptionStatus === 'trialing' && (
-            <div className="sticky top-0 z-20 bg-[#1a1a1a] border-b border-yellow-500/40 px-4 py-3 text-sm text-yellow-300">
-              Trial ends in{' '}
-              <strong>
-                {periodEnd
-                  ? Math.max(
-                      0,
-                      Math.ceil(
-                        (new Date(periodEnd + 'Z').getTime() - Date.now()) /
-                          (1000 * 60 * 60 * 24)
-                      )
-                    )
-                  : '—'}
-              </strong>{' '}
-              days. Add payment details to keep access.
-            </div>
-          )}
-
-          {!loadingSub &&
-            subscriptionStatus &&
-            !['active', 'trialing'].includes(subscriptionStatus) && (
-              <div className="flex items-center justify-center h-full text-center px-6">
-                <div>
-                  <h2 className="text-xl font-semibold mb-3">
-                    Subscription required
-                  </h2>
-                  <p className="text-white/70 mb-6">
-                    Your trial has ended. Please activate a subscription to
-                    regain access.
-                  </p>
-                  <button
-                    onClick={() => router.push('/business/settings')}
-                    className="px-5 py-2 rounded-md bg-[#00C2CB] text-black font-medium hover:opacity-90"
-                  >
-                    Manage subscription
-                  </button>
-                </div>
-              </div>
-            )}
           {children}
         </main>
       </div>

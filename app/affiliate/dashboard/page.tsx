@@ -29,6 +29,8 @@ interface Profile {
   id: string;
   role: string | null;
   onboarding_completed: boolean | null;
+  revenue_subscription_status?: string | null;
+  revenue_current_period_end?: string | null;
 }
 
 interface ApprovedRequest {
@@ -147,7 +149,7 @@ function AffiliateDashboardContent() {
       }
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, role, onboarding_completed, terms_accepted')
+        .select('id, role, onboarding_completed, terms_accepted, revenue_subscription_status, revenue_current_period_end')
         .eq('id', session.user.id)
         .maybeSingle<any>();
 
@@ -413,6 +415,14 @@ function AffiliateDashboardContent() {
   }, [session, approvedIds]);
 
   const user = session?.user;
+  const trialDaysLeft =
+    profile?.revenue_subscription_status === 'trialing' &&
+    profile?.revenue_current_period_end
+      ? Math.ceil(
+          (new Date(profile.revenue_current_period_end).getTime() - Date.now()) /
+            (1000 * 60 * 60 * 24)
+        )
+      : null;
 
   const approvedOffers = offers.filter((offer) => approvedIds.includes(offer.id));
   const activeCampaigns = (liveCampaigns || [])
@@ -447,6 +457,17 @@ function AffiliateDashboardContent() {
 if (loading) {
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#0a0a0a] to-[#0d0d0d] text-white">
+      {trialDaysLeft !== null && trialDaysLeft >= 0 && (
+        <div className="mx-4 mt-4 mb-6 rounded-xl border border-yellow-400/30 bg-yellow-400/10 px-4 py-3 text-sm text-yellow-200">
+          <strong className="mr-1">Free trial active.</strong>
+          {trialDaysLeft === 0
+            ? 'Trial ends today.'
+            : `Trial ends in ${trialDaysLeft} day${trialDaysLeft !== 1 ? 's' : ''}.`}
+          <span className="ml-2 opacity-80">
+            Upgrade required to maintain access.
+          </span>
+        </div>
+      )}
       <div className="p-4">Loading...</div>
     </div>
   );
