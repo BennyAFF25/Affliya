@@ -28,7 +28,6 @@ import {
   X,
 } from 'lucide-react';
 import { supabase } from 'utils/supabase/pages-client';
-import TrialBanner from '@/../app/components/TrialBanner';
 
 interface Profile {
   id: string;
@@ -438,14 +437,6 @@ export default function BusinessDashboard() {
 
   return (
     <div className="min-h-screen w-full bg-gradient-to-b from-[#0b0b0b] to-[#0e0e0e] text-white px-4 py-4 sm:px-5 sm:py-6">
-      {/* Trial Banner */}
-      {profile && (
-        <TrialBanner
-          role="business"
-          subscriptionStatus={profile.revenue_subscription_status}
-          currentPeriodEnd={profile.revenue_current_period_end}
-        />
-      )}
       {/* Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-6 mb-6 mt-2">
         <div className={`${CARD} ring-1 ring-[#00C2CB]/20 shadow-[0_0_30px_rgba(0,194,203,0.12)] relative overflow-hidden`}

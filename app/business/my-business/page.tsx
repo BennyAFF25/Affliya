@@ -1,3 +1,4 @@
+
 'use client';
 
 import '@/globals.css';
@@ -299,8 +300,8 @@ export default function MyBusinessPage() {
   const readyForOffer = payoutsReady && billingReady;
   const hasAnyOffer = offers.length > 0;
 
-  // TEMP: disable onboarding gate for prod testing
-  const ignoreOnboardingGate = true;
+  // Enable onboarding gate (payouts + billing + first offer required)
+  const ignoreOnboardingGate = false;
 
   // Show checklist until: payouts + billing + at least one offer exist
   const showOnboardingChecklist = ignoreOnboardingGate
@@ -911,3 +912,4 @@ export default function MyBusinessPage() {
     </>
   );
 }
+

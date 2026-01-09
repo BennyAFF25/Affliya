@@ -21,6 +21,8 @@ export default function BusinessSettingsPage() {
 
   const [openingPortal, setOpeningPortal] = useState(false);
 
+  const [trialInfo, setTrialInfo] = useState<{ status: string | null; periodEnd: string | null } | null>(null);
+
   const handleManageSubscription = async () => {
     if (!user?.email) return;
 
@@ -73,6 +75,22 @@ export default function BusinessSettingsPage() {
         setBusinessName(row.business_name ?? '');
         setBillingEmail(row.billing_email ?? '');
         setAvatarUrl(row.avatar_url ?? null);
+      }
+
+      // New query for trial info
+      const { data: profileData, error: profileError } = await (supabase as any)
+        .from('profiles')
+        .select('revenue_subscription_status, revenue_current_period_end')
+        .eq('id', user.id)
+        .single();
+
+      if (!profileError && profileData) {
+        setTrialInfo({
+          status: profileData.revenue_subscription_status ?? null,
+          periodEnd: profileData.revenue_current_period_end ?? null,
+        });
+      } else {
+        setTrialInfo(null);
       }
 
       setLoadingProfile(false);
@@ -219,6 +237,32 @@ export default function BusinessSettingsPage() {
             Manage your Nettmark business profile and account security.
           </p>
         </header>
+
+        {trialInfo?.status === 'trialing' && trialInfo.periodEnd && (() => {
+          const daysLeft = Math.max(
+            0,
+            Math.ceil(
+              (new Date(trialInfo.periodEnd).getTime() - Date.now()) /
+                (1000 * 60 * 60 * 24)
+            )
+          );
+          const formattedDate = new Date(trialInfo.periodEnd).toLocaleDateString('en-GB', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric',
+          });
+          return (
+            <section className="relative rounded-3xl border border-white/10 bg-white/[0.04] backdrop-blur p-6 shadow-[0_0_60px_0_rgba(0,194,203,0.12)]">
+              <h2 className="text-sm font-semibold text-[#00C2CB] mb-2">Free Trial Active</h2>
+              <p className="text-xs text-white/70 mb-1">
+                Your free trial ends in {daysLeft} day{daysLeft !== 1 ? 's' : ''} ({formattedDate}).
+              </p>
+              <p className="text-[11px] text-white/60">
+                Add a payment method before your trial ends to avoid interruption.
+              </p>
+            </section>
+          );
+        })()}
 
         {!user && (
           <p className="text-sm text-white/70 relative">

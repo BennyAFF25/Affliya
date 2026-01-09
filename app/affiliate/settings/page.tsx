@@ -34,6 +34,8 @@ export default function AffiliateSettingsPage() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   const [billingLoading, setBillingLoading] = useState(false);
+  const [trialEndsAt, setTrialEndsAt] = useState<string | null>(null);
+  const [trialStatus, setTrialStatus] = useState<string | null>(null);
 
   async function refreshStatus() {
     try {
@@ -73,15 +75,28 @@ export default function AffiliateSettingsPage() {
     const loadProfile = async () => {
       setLoadingProfile(true);
 
+      // Fetch trial fields from 'profiles'
       const { data, error } = await (supabase as any)
+        .from('profiles')
+        .select('revenue_current_period_end, revenue_subscription_status')
+        .eq('id', user.id)
+        .single();
+
+      if (!error && data) {
+        setTrialEndsAt(data.revenue_current_period_end ?? null);
+        setTrialStatus(data.revenue_subscription_status ?? null);
+      }
+
+      // Fetch affiliate profile info as before
+      const { data: affiliateData, error: affiliateError } = await (supabase as any)
         .from('affiliate_profiles')
         .select('display_name, avatar_url')
         .eq('user_id', user.id)
         .single();
 
-      if (!error && data) {
-        setDisplayName((data as any).display_name ?? '');
-        setAvatarUrl((data as any).avatar_url ?? null);
+      if (!affiliateError && affiliateData) {
+        setDisplayName((affiliateData as any).display_name ?? '');
+        setAvatarUrl((affiliateData as any).avatar_url ?? null);
       }
 
       setLoadingProfile(false);
@@ -262,6 +277,15 @@ export default function AffiliateSettingsPage() {
     }
   };
 
+  const trialDaysRemaining = trialEndsAt
+    ? Math.max(
+        0,
+        Math.ceil(
+          (new Date(trialEndsAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+        )
+      )
+    : null;
+
   const initials = displayName?.trim()
     ? displayName
         .trim()
@@ -308,6 +332,28 @@ export default function AffiliateSettingsPage() {
             Manage your account, billing, and withdrawals. <span className="text-white/50">(Powered by Stripe)</span>
           </p>
         </header>
+
+        {trialStatus === 'trialing' && trialEndsAt && (
+          <div className="rounded-2xl border border-[#00C2CB40] bg-[#00C2CB]/10 p-4 text-sm text-white shadow-[0_0_30px_rgba(0,194,203,0.25)]">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+              <div>
+                <p className="font-medium text-[#7ff5fb]">Free trial active</p>
+                <p className="text-white/80">
+                  Your trial ends in{' '}
+                  <span className="font-semibold">
+                    {trialDaysRemaining !== null ? `${trialDaysRemaining} days` : '—'}
+                  </span>
+                </p>
+              </div>
+              <button
+                onClick={handleManageSubscription}
+                className="inline-flex items-center rounded-full bg-[#00C2CB] px-4 py-2 text-xs font-medium text-black hover:bg-[#00b0b8]"
+              >
+                Manage subscription
+              </button>
+            </div>
+          </div>
+        )}
 
         {user && (
           <section className="mt-6 rounded-3xl border border-white/10 bg-white/[0.04] backdrop-blur p-6 shadow-[0_0_60px_0_rgba(0,194,203,0.12)]">

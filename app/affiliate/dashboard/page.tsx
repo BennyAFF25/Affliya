@@ -7,7 +7,6 @@ import { useEffect, useState } from 'react';
 import { supabase } from 'utils/supabase/pages-client';
 import Link from 'next/link';
 import { TrendingUp, DollarSign, Wallet, CheckCircle } from 'lucide-react';
-import TrialBanner from '@/../app/components/TrialBanner';
 import {
   ResponsiveContainer,
   BarChart,
@@ -473,13 +472,7 @@ if (loading) {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#0a0a0a] to-[#0d0d0d] text-white">
-      {profile && (
-        <TrialBanner
-          subscriptionStatus={profile.revenue_subscription_status}
-          currentPeriodEnd={profile.revenue_current_period_end}
-          role="affiliate"
-        />
-      )}
+      
       <div className="max-w-8xl mx-auto px-4 sm:px-6 md:px-8 lg:px-10 py-6 md:py-8">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-10">
           {/* Stat Card: Active Campaigns */}
