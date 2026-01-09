@@ -137,17 +137,19 @@ export default function BusinessLayout({ children }: { children: React.ReactNode
 
         {/* Page content */}
         <main className="flex-1 overflow-y-auto md:ml-64 bg-[#0e0e0e]">
-          {!loadingSub && subscriptionStatus === 'trialing' && periodEnd && (
+          {!loadingSub && subscriptionStatus === 'trialing' && (
             <div className="sticky top-0 z-20 bg-[#1a1a1a] border-b border-yellow-500/40 px-4 py-3 text-sm text-yellow-300">
               Trial ends in{' '}
               <strong>
-                {Math.max(
-                  0,
-                  Math.ceil(
-                    (new Date(periodEnd).getTime() - Date.now()) /
-                      (1000 * 60 * 60 * 24)
-                  )
-                )}
+                {periodEnd
+                  ? Math.max(
+                      0,
+                      Math.ceil(
+                        (new Date(periodEnd + 'Z').getTime() - Date.now()) /
+                          (1000 * 60 * 60 * 24)
+                      )
+                    )
+                  : '—'}
               </strong>{' '}
               days. Add payment details to keep access.
             </div>
@@ -155,8 +157,7 @@ export default function BusinessLayout({ children }: { children: React.ReactNode
 
           {!loadingSub &&
             subscriptionStatus &&
-            subscriptionStatus !== 'active' &&
-            subscriptionStatus !== 'trialing' && (
+            !['active', 'trialing'].includes(subscriptionStatus) && (
               <div className="flex items-center justify-center h-full text-center px-6">
                 <div>
                   <h2 className="text-xl font-semibold mb-3">

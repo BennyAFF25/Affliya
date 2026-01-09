@@ -23,6 +23,7 @@ function AffiliateLayoutShell({ children }: { children: React.ReactNode }) {
 
   const [trialEndsAt, setTrialEndsAt] = useState<Date | null>(null);
   const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(null);
+  const [daysRemaining, setDaysRemaining] = useState<number | null>(null);
 
   useEffect(() => {
     if (!session?.user?.id) return;
@@ -37,8 +38,19 @@ function AffiliateLayoutShell({ children }: { children: React.ReactNode }) {
         revenue_current_period_end: string | null;
       } | null }) => {
         if (data?.revenue_current_period_end) {
-          setTrialEndsAt(new Date(data.revenue_current_period_end));
+          const end = new Date(data.revenue_current_period_end);
+          setTrialEndsAt(end);
+
+          const now = Date.now();
+          const diffDays = Math.max(
+            0,
+            Math.ceil((end.getTime() - now) / (1000 * 60 * 60 * 24))
+          );
+          setDaysRemaining(diffDays);
+        } else {
+          setDaysRemaining(null);
         }
+
         setSubscriptionStatus(data?.revenue_subscription_status || null);
       });
   }, [session?.user?.id]);
@@ -63,9 +75,12 @@ function AffiliateLayoutShell({ children }: { children: React.ReactNode }) {
         </div>
       </div>
 
-      {subscriptionStatus === 'trialing' && trialEndsAt && (
+      {subscriptionStatus === 'trialing' && daysRemaining !== null && (
         <div className="bg-yellow-500 text-black text-sm px-4 py-2 text-center">
-          Trial ends on {trialEndsAt.toLocaleDateString()} — upgrade to keep access
+          Free trial — {daysRemaining} day{daysRemaining === 1 ? '' : 's'} remaining.
+          <span className="ml-2 opacity-80">
+            Billing starts automatically after your trial ends.
+          </span>
         </div>
       )}
 
