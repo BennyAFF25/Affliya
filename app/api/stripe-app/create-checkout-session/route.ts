@@ -2,12 +2,13 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
+import { createClient } from "@supabase/supabase-js";
+
+// Ensure Node runtime (Stripe + Buffer usage in adjacent routes; keeps behavior consistent on Vercel)
+export const runtime = "nodejs";
 
 // Choose the correct Stripe secret key (Revenue account preferred), trim to avoid hidden whitespace
-const rawSecret =
-  process.env.STRIPE_APP_SECRET ??
-  process.env.STRIPE_SECRET_KEY ??
-  "";
+const rawSecret = process.env.STRIPE_APP_SECRET ?? process.env.STRIPE_SECRET_KEY ?? "";
 const secret = rawSecret.trim();
 
 if (!secret) {
@@ -17,13 +18,13 @@ if (!secret) {
 // Safe log of which key is being used (prefix/suffix only)
 try {
   // eslint-disable-next-line no-console
-  console.log(
-    "[stripe-app] using key:",
-    `${secret.slice(0, 10)}...${secret.slice(-6)}`
-  );
+  console.log("[stripe-app] using key:", `${secret.slice(0, 10)}...${secret.slice(-6)}`);
 } catch {}
 
-const stripe = new Stripe(secret);
+const stripe = new Stripe(secret, {
+  // Keep TS + Stripe versions aligned across the repo
+  apiVersion: "2025-08-27.basil" as Stripe.LatestApiVersion,
+});
 
 function getBaseUrl() {
   const explicit =
@@ -32,7 +33,6 @@ function getBaseUrl() {
     process.env.NEXT_PUBLIC_BASE_URL ||
     (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
 
-  // Stripe requires absolute URLs with a scheme
   const candidate = (explicit || "http://localhost:3000").replace(/\/+$/, "");
 
   try {
@@ -48,9 +48,24 @@ function getBaseUrl() {
   }
 }
 
+function supabaseAdmin() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+  const serviceKey =
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY;
+
+  if (!url || !serviceKey) return null;
+
+  return createClient(url, serviceKey, {
+    auth: { persistSession: false },
+  });
+}
+
 export async function POST(req: Request) {
   try {
-    const { accountType, userId, email } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const accountType = (body?.accountType || "").toString().trim().toLowerCase();
+    const userId = body?.userId;
+    const email = body?.email;
 
     // Resolve the authenticated user (preferred) so webhook can upsert revenue IDs reliably
     const supabase = createRouteHandlerClient({ cookies });
@@ -84,13 +99,45 @@ export async function POST(req: Request) {
       );
     }
 
+    // Ensure a profiles row exists BEFORE we start Stripe checkout.
+    // This prevents the revenue webhook from having nowhere to write customer/subscription IDs.
+    // Uses service-role if available; otherwise we just proceed (webhook will still work if row exists).
+    try {
+      const admin = supabaseAdmin();
+      if (admin) {
+        const { error: upsertErr } = await admin
+          .from("profiles")
+          .upsert(
+            {
+              id: resolvedUserId,
+              email: resolvedEmail,
+              role: accountType,
+            },
+            { onConflict: "id" }
+          );
+
+        if (upsertErr) {
+          // eslint-disable-next-line no-console
+          console.warn("[stripe-app] profiles upsert warning:", upsertErr);
+        }
+      } else {
+        // eslint-disable-next-line no-console
+        console.warn(
+          "[stripe-app] supabase admin client unavailable (missing SUPABASE_SERVICE_ROLE_KEY). Skipping profiles upsert."
+        );
+      }
+    } catch (e: any) {
+      // eslint-disable-next-line no-console
+      console.warn("[stripe-app] profiles upsert exception:", e?.message || e);
+    }
+
     // Resolve price id from env (prefer non-public vars; fall back to NEXT_PUBLIC_ if needed)
     const priceId =
       accountType === "business"
-        ? (process.env.STRIPE_PRICE_BUSINESS ||
-            process.env.NEXT_PUBLIC_STRIPE_PRICE_BUSINESS)
-        : (process.env.STRIPE_PRICE_AFFILIATE ||
-            process.env.NEXT_PUBLIC_STRIPE_PRICE_AFFILIATE);
+        ? process.env.STRIPE_PRICE_BUSINESS ||
+          process.env.NEXT_PUBLIC_STRIPE_PRICE_BUSINESS
+        : process.env.STRIPE_PRICE_AFFILIATE ||
+          process.env.NEXT_PUBLIC_STRIPE_PRICE_AFFILIATE;
 
     if (!priceId) {
       return NextResponse.json(
@@ -106,7 +153,7 @@ export async function POST(req: Request) {
       mode: "subscription",
       line_items: [{ price: priceId, quantity: 1 }],
 
-      // Important: attach Nettmark user identity so webhook can persist
+      // Attach Nettmark user identity so stripe-app webhook can persist
       // revenue_stripe_customer_id / revenue_stripe_subscription_id on `public.profiles`.
       client_reference_id: resolvedUserId,
       customer_email: resolvedEmail,
@@ -135,8 +182,7 @@ export async function POST(req: Request) {
   } catch (err: any) {
     // eslint-disable-next-line no-console
     console.error("[stripe-app] checkout error:", err);
-    const message =
-      err?.message || "Failed to create Stripe Checkout Session.";
+    const message = err?.message || "Failed to create Stripe Checkout Session.";
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }

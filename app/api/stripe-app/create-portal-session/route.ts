@@ -14,15 +14,33 @@ if (!secret) {
 }
 
 const stripe = new Stripe(secret, {
-  apiVersion: "2024-08-01",
+  apiVersion: "2025-08-27.basil" as Stripe.LatestApiVersion,
 });
 
 function getBaseUrl() {
-  return (
+  const explicit = (
     process.env.NEXT_PUBLIC_APP_URL ||
     process.env.NEXT_PUBLIC_BASE_URL ||
-    "http://localhost:3000"
-  ).replace(/\/+$/, "");
+    ""
+  ).trim();
+
+  const vercel = (process.env.VERCEL_URL || "").trim();
+  const fromVercel = vercel ? `https://${vercel}` : "";
+
+  const fallbackLocal = "http://localhost:3000";
+  const base = explicit || fromVercel || fallbackLocal;
+
+  // Normalize + validate
+  let u: URL;
+  try {
+    u = new URL(base);
+  } catch {
+    throw new Error(
+      `Invalid base URL: "${base}". Check NEXT_PUBLIC_APP_URL / NEXT_PUBLIC_BASE_URL / VERCEL_URL.`
+    );
+  }
+
+  return u.origin;
 }
 
 // Supabase admin (service role) for reading customer id regardless of RLS
@@ -65,51 +83,39 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Missing email" }, { status: 400 });
     }
 
-    // Find stripe_customer_id in your DB (adjust tables/columns if needed)
+    // Find revenue Stripe customer id in profiles (preferred for subscriptions)
     const admin = supabaseAdmin();
 
-    let stripeCustomerId: string | null = null;
+    const { data: profile, error: profErr } = await admin
+      .from("profiles")
+      .select("revenue_stripe_customer_id, stripe_customer_id")
+      .eq("email", userEmail)
+      .maybeSingle();
 
-    // 1) Try profiles table (most common)
-    {
-      const { data } = await admin
-        .from("profiles")
-        .select("stripe_customer_id")
-        .eq("email", userEmail)
-        .maybeSingle();
-
-      stripeCustomerId = (data as any)?.stripe_customer_id ?? null;
+    if (profErr) {
+      console.error("[stripe-app] profiles lookup error", profErr);
     }
 
-    // 2) Fallback: business_profiles if you store business info separately
-    if (!stripeCustomerId && accountType === "business") {
-      const { data } = await admin
-        .from("business_profiles")
-        .select("stripe_customer_id")
-        .eq("email", userEmail)
-        .maybeSingle();
+    // Prefer revenue customer id (subscriptions). Fallback to legacy stripe_customer_id if present.
+    const revenueCustomerId = (profile as any)?.revenue_stripe_customer_id ?? null;
+    const legacyCustomerId = (profile as any)?.stripe_customer_id ?? null;
 
-      stripeCustomerId = (data as any)?.stripe_customer_id ?? null;
-    }
-
-    // 3) Fallback: user_settings (some builds store billing there)
-    if (!stripeCustomerId) {
-      const { data } = await admin
-        .from("user_settings")
-        .select("stripe_customer_id")
-        .eq("email", userEmail)
-        .maybeSingle();
-
-      stripeCustomerId = (data as any)?.stripe_customer_id ?? null;
-    }
+    const stripeCustomerId: string | null = revenueCustomerId || legacyCustomerId;
 
     if (!stripeCustomerId) {
       return NextResponse.json(
         {
           error:
-            "No stripe_customer_id found for this user. Complete checkout first (and ensure webhook saves customer id).",
+            "No revenue_stripe_customer_id found for this user. Complete checkout (subscription) first and ensure stripe-app webhook writes to profiles.",
         },
         { status: 400 }
+      );
+    }
+
+    if (!revenueCustomerId && legacyCustomerId) {
+      console.warn(
+        "[stripe-app] Using legacy profiles.stripe_customer_id (revenue_stripe_customer_id is missing). Consider backfilling revenue fields via webhook.",
+        { email: userEmail }
       );
     }
 

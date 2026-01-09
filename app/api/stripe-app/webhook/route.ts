@@ -2,20 +2,14 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
 
-// Ensure this route runs on Node (Buffer is used for raw body signature verification)
 export const runtime = "nodejs";
-
-// NOTE: In the App Router, body parsing is not enabled by default.
-// This export is harmless, but not required.
 export const config = { api: { bodyParser: false } };
 
-// Use the App Revenue account secret for subscriptions webhook verification
 const stripeApp = new Stripe(process.env.STRIPE_APP_SECRET as string, {
-  apiVersion: "2024-06-20",
+  // Keep this aligned with your installed stripe types (prevents TS literal mismatch)
+  apiVersion: "2025-08-27.basil" as Stripe.LatestApiVersion,
 });
 
-// Admin client (service role) for server-side updates from webhooks
-// NEVER expose this key client-side.
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL as string,
   process.env.SUPABASE_SERVICE_ROLE_KEY as string,
@@ -29,8 +23,62 @@ async function buffer(req: Request) {
 
 function toPeriodEndTs(periodEnd: number | null | undefined) {
   if (!periodEnd) return null;
-  // Stripe gives seconds
-  return new Date(periodEnd * 1000).toISOString();
+  return new Date(periodEnd * 1000).toISOString(); // Stripe seconds -> ms
+}
+
+async function resolveProfileId(input: { userId?: string | null; email?: string | null }) {
+  const userId = (input.userId || "").trim() || null;
+  const email = (input.email || "").trim().toLowerCase() || null;
+
+  if (userId) return userId;
+  if (!email) return null;
+
+  const { data, error } = await supabaseAdmin
+    .from("profiles")
+    .select("id")
+    .eq("email", email)
+    .maybeSingle();
+
+  if (error) {
+    console.error("[❌ stripe-app] resolveProfileId select error", error);
+    return null;
+  }
+
+  return data?.id ?? null;
+}
+
+async function updateProfilesById(profileId: string, updatePayload: Record<string, any>) {
+  // Use select to know whether any row was actually updated.
+  const { data, error } = await supabaseAdmin
+    .from("profiles")
+    .update(updatePayload)
+    .eq("id", profileId)
+    .select("id");
+
+  if (error) return { ok: false, updated: 0, error };
+  return { ok: true, updated: (data?.length || 0), error: null };
+}
+
+async function updateProfilesByRevenueSubId(subscriptionId: string, updatePayload: Record<string, any>) {
+  const { data, error } = await supabaseAdmin
+    .from("profiles")
+    .update(updatePayload)
+    .eq("revenue_stripe_subscription_id", subscriptionId)
+    .select("id");
+
+  if (error) return { ok: false, updated: 0, error };
+  return { ok: true, updated: (data?.length || 0), error: null };
+}
+
+async function updateProfilesByRevenueCustomerId(customerId: string, updatePayload: Record<string, any>) {
+  const { data, error } = await supabaseAdmin
+    .from("profiles")
+    .update(updatePayload)
+    .eq("revenue_stripe_customer_id", customerId)
+    .select("id");
+
+  if (error) return { ok: false, updated: 0, error };
+  return { ok: true, updated: (data?.length || 0), error: null };
 }
 
 export async function POST(req: Request) {
@@ -45,31 +93,22 @@ export async function POST(req: Request) {
       process.env.STRIPE_APP_WEBHOOK_SECRET!
     );
   } catch (err: any) {
-    console.error(
-      "[❌ stripe-app webhook signature error]",
-      err?.message || err
-    );
+    console.error("[❌ stripe-app webhook signature error]", err?.message || err);
     return NextResponse.json(
-      { error: `Webhook Error: ${err.message}` },
+      { error: `Webhook Error: ${err?.message || "signature failed"}` },
       { status: 400 }
     );
   }
 
-  const supabase = supabaseAdmin;
-
   try {
-    // 1) BEST place to map subscription/customer -> user (via metadata/client_reference_id/email)
+    // ✅ 1) Main mapping point: checkout.session.completed
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session;
 
-      const customerId =
-        typeof session.customer === "string" ? session.customer : null;
-      const subscriptionId =
-        typeof session.subscription === "string" ? session.subscription : null;
+      const customerId = typeof session.customer === "string" ? session.customer : null;
+      const subscriptionId = typeof session.subscription === "string" ? session.subscription : null;
 
-      const status = session.status || null; // complete | open | expired
-
-      const userId =
+      const metaUserId =
         (session.metadata && (session.metadata as any).user_id) ||
         session.client_reference_id ||
         null;
@@ -80,155 +119,137 @@ export async function POST(req: Request) {
         null;
 
       console.info("[stripe-app] checkout.session.completed", {
-        userId,
-        email,
+        userId: metaUserId || null,
+        email: email || null,
         customerId: customerId ? "set" : null,
         subscriptionId: subscriptionId ? "set" : null,
-        status,
+        sessionStatus: session.status || null,
       });
 
-      // If we can't map to a user, we can't store anything.
-      if (!userId && !email) {
-        console.warn(
-          "[stripe-app] checkout.session.completed: missing user mapping (no user_id/client_reference_id/email)"
-        );
+      // We MUST be able to map to an existing profiles row.
+      const profileId = await resolveProfileId({ userId: metaUserId, email });
+      if (!profileId) {
+        console.warn("[stripe-app] checkout.session.completed: could not resolve profiles.id (no mapping)");
         return NextResponse.json({ received: true });
       }
 
-      // Fetch subscription to capture period end + status
+      // Pull subscription to store status + current_period_end
       let sub: Stripe.Subscription | null = null;
       if (subscriptionId) {
         try {
           sub = await stripeApp.subscriptions.retrieve(subscriptionId);
         } catch (e: any) {
-          console.warn(
-            "[stripe-app] could not retrieve subscription for period end",
-            e?.message || e
-          );
+          console.warn("[stripe-app] could not retrieve subscription", e?.message || e);
         }
       }
-
-      const revenue_subscription_status = sub?.status || null;
-      const revenue_current_period_end = toPeriodEndTs(
-        sub?.current_period_end
-      );
 
       const updatePayload: Record<string, any> = {
         revenue_stripe_customer_id: customerId,
         revenue_stripe_subscription_id: subscriptionId,
-        revenue_subscription_status,
-        revenue_current_period_end,
+        revenue_subscription_status: sub?.status || null,
+        revenue_current_period_end: toPeriodEndTs((sub as any)?.current_period_end),
       };
 
-      // Update by user id first (preferred), else by email
-      const q = userId
-        ? supabase.from("profiles").update(updatePayload).eq("id", userId)
-        : supabase.from("profiles").update(updatePayload).eq("email", email);
-
-      const { error } = await q;
-      if (error) {
-        console.error("[❌ stripe-app] DB update failed (checkout)", error);
+      const res = await updateProfilesById(profileId, updatePayload);
+      if (!res.ok) {
+        console.error("[❌ stripe-app] DB update failed (checkout)", res.error);
+      } else if (res.updated === 0) {
+        console.warn("[stripe-app] checkout: 0 rows updated (profiles row missing?)", { profileId });
       } else {
-        console.info("[✅ stripe-app] saved revenue subscription mapping");
+        console.info("[✅ stripe-app] saved revenue subscription mapping", { profileId });
       }
 
       return NextResponse.json({ received: true });
     }
 
-    // 2) Keep subscription status in sync (fallback / ongoing updates)
+    // ✅ 2) Subscription status sync: created/updated
     if (
       event.type === "customer.subscription.updated" ||
       event.type === "customer.subscription.created"
     ) {
       const sub = event.data.object as Stripe.Subscription;
+
       const status = sub.status; // trialing | active | past_due | canceled | unpaid
       const customerId = typeof sub.customer === "string" ? sub.customer : null;
       const subscriptionId = sub.id;
-      const periodEnd = toPeriodEndTs(sub.current_period_end);
+      const periodEnd = toPeriodEndTs((sub as any).current_period_end);
+
+      const updatePayload: Record<string, any> = {
+        revenue_subscription_status: status,
+        revenue_current_period_end: periodEnd,
+        revenue_stripe_subscription_id: subscriptionId,
+        ...(customerId ? { revenue_stripe_customer_id: customerId } : {}),
+      };
 
       console.info("[stripe-app] customer.subscription.*", {
-        customerId: customerId ? "set" : null,
         subscriptionId,
+        customerId: customerId ? "set" : null,
         status,
       });
 
-      // Prefer matching by stored revenue subscription id, then customer id
-      let updateQuery = supabase
-        .from("profiles")
-        .update({
-          revenue_subscription_status: status,
-          revenue_current_period_end: periodEnd,
-          revenue_stripe_subscription_id: subscriptionId,
-          // keep customer id synced if present
-          ...(customerId ? { revenue_stripe_customer_id: customerId } : {}),
-        })
-        .eq("revenue_stripe_subscription_id", subscriptionId);
+      // Try match by subscription id first
+      const res1 = await updateProfilesByRevenueSubId(subscriptionId, updatePayload);
 
-      let { error } = await updateQuery;
-
-      // If no row matched by subscription id (or column empty), try matching by customer id
-      if (error && customerId) {
-        console.warn(
-          "[stripe-app] update by revenue_stripe_subscription_id failed; trying customer id",
-          error
-        );
-        const res2 = await supabase
-          .from("profiles")
-          .update({
-            revenue_subscription_status: status,
-            revenue_current_period_end: periodEnd,
-            revenue_stripe_subscription_id: subscriptionId,
-            revenue_stripe_customer_id: customerId,
-          })
-          .eq("revenue_stripe_customer_id", customerId);
-        error = res2.error;
+      if (!res1.ok) {
+        console.error("[❌ stripe-app] DB update failed (subscription by sub id)", res1.error);
+        return NextResponse.json({ received: true });
       }
 
-      if (error) {
-        console.error("[❌ stripe-app] DB update failed (subscription)", error);
+      // If 0 rows updated, try customer id
+      if (res1.updated === 0 && customerId) {
+        const res2 = await updateProfilesByRevenueCustomerId(customerId, updatePayload);
+        if (!res2.ok) {
+          console.error("[❌ stripe-app] DB update failed (subscription by customer id)", res2.error);
+        } else if (res2.updated === 0) {
+          console.warn("[stripe-app] subscription: 0 rows updated by sub id AND customer id", {
+            subscriptionId,
+            customerId,
+          });
+        }
       }
 
       return NextResponse.json({ received: true });
     }
 
+    // ✅ 3) Subscription deleted
     if (event.type === "customer.subscription.deleted") {
       const sub = event.data.object as Stripe.Subscription;
+
       const customerId = typeof sub.customer === "string" ? sub.customer : null;
       const subscriptionId = sub.id;
 
+      const updatePayload: Record<string, any> = {
+        revenue_subscription_status: "canceled",
+        revenue_current_period_end: null,
+      };
+
       console.info("[stripe-app] customer.subscription.deleted", {
-        customerId: customerId ? "set" : null,
         subscriptionId,
+        customerId: customerId ? "set" : null,
       });
 
-      // Prefer matching by subscription id, then customer id
-      let { error } = await supabase
-        .from("profiles")
-        .update({
-          revenue_subscription_status: "canceled",
-          revenue_current_period_end: null,
-        })
-        .eq("revenue_stripe_subscription_id", subscriptionId);
+      const res1 = await updateProfilesByRevenueSubId(subscriptionId, updatePayload);
 
-      if (error && customerId) {
-        const res2 = await supabase
-          .from("profiles")
-          .update({
-            revenue_subscription_status: "canceled",
-            revenue_current_period_end: null,
-          })
-          .eq("revenue_stripe_customer_id", customerId);
-        error = res2.error;
+      if (!res1.ok) {
+        console.error("[❌ stripe-app] DB update failed (deleted by sub id)", res1.error);
+        return NextResponse.json({ received: true });
       }
 
-      if (error) {
-        console.error("[❌ stripe-app] DB update failed (deleted)", error);
+      if (res1.updated === 0 && customerId) {
+        const res2 = await updateProfilesByRevenueCustomerId(customerId, updatePayload);
+        if (!res2.ok) {
+          console.error("[❌ stripe-app] DB update failed (deleted by customer id)", res2.error);
+        } else if (res2.updated === 0) {
+          console.warn("[stripe-app] deleted: 0 rows updated by sub id AND customer id", {
+            subscriptionId,
+            customerId,
+          });
+        }
       }
 
       return NextResponse.json({ received: true });
     }
 
-    // Ignore other events
     return NextResponse.json({ received: true });
   } catch (err: any) {
     console.error("[❌ stripe-app webhook handler error]", err?.message || err);
