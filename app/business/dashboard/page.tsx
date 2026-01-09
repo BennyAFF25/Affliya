@@ -28,6 +28,7 @@ import {
   X,
 } from 'lucide-react';
 import { supabase } from 'utils/supabase/pages-client';
+import TrialBanner from '@/../app/components/TrialBanner';
 
 interface Profile {
   id: string;
@@ -147,8 +148,6 @@ export default function BusinessDashboard() {
   const [showAllCampaigns, setShowAllCampaigns] = useState(false);
   const [showAllAffiliateActivity, setShowAllAffiliateActivity] = useState(false);
 
-  const revenueStatus = profile?.revenue_subscription_status ?? null;
-  const revenuePeriodEnd = profile?.revenue_current_period_end ?? null;
 
   // simple dynamic goal line for sales
   const salesGoal =
@@ -223,21 +222,6 @@ export default function BusinessDashboard() {
 
       setProfile(profileData as Profile);
 
-      const isTrialing =
-        profileData.revenue_subscription_status === 'trialing' &&
-        profileData.revenue_current_period_end;
-
-      let trialDaysRemaining: number | null = null;
-
-      if (isTrialing) {
-        const end = new Date(profileData.revenue_current_period_end);
-        if (!Number.isNaN(end.getTime())) {
-          trialDaysRemaining = Math.max(
-            0,
-            Math.ceil((end.getTime() - Date.now()) / (1000 * 60 * 60 * 24))
-          );
-        }
-      }
 
       const businessEmail = user?.email || '';
 
@@ -454,62 +438,13 @@ export default function BusinessDashboard() {
 
   return (
     <div className="min-h-screen w-full bg-gradient-to-b from-[#0b0b0b] to-[#0e0e0e] text-white px-4 py-4 sm:px-5 sm:py-6">
-      {profile?.revenue_subscription_status === 'trialing' &&
-        profile?.revenue_current_period_end && (
-          <div className="mb-4 rounded-xl border border-amber-400/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-              <div>
-                <span className="font-semibold">Free trial active.</span>{' '}
-                Trial ends in{' '}
-                <span className="font-semibold text-amber-300">
-                  {Math.max(
-                    0,
-                    Math.ceil(
-                      (new Date(profile.revenue_current_period_end).getTime() -
-                        Date.now()) /
-                        (1000 * 60 * 60 * 24)
-                    )
-                  )}{' '}
-                  days
-                </span>
-                .
-              </div>
-              <button
-                onClick={() => router.push('/pricing')}
-                className="inline-flex items-center justify-center rounded-md bg-amber-400/20 px-3 py-1.5 text-xs font-medium text-amber-300 hover:bg-amber-400/30 transition"
-              >
-                Upgrade now
-              </button>
-            </div>
-          </div>
-        )}
-      {revenueStatus === 'trialing' && revenuePeriodEnd && (
-        <div className="mb-4 rounded-xl border border-amber-400/40 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-            <div>
-              <span className="font-semibold">Free trial active.</span>{' '}
-              Trial ends in{' '}
-              <span className="font-semibold text-amber-300">
-                {Math.max(
-                  0,
-                  Math.ceil(
-                    (new Date(revenuePeriodEnd).getTime() -
-                      Date.now()) /
-                      (1000 * 60 * 60 * 24)
-                  )
-                )}{' '}
-                days
-              </span>
-              .
-            </div>
-            <button
-              onClick={() => router.push('/pricing')}
-              className="inline-flex items-center justify-center rounded-md bg-amber-400/20 px-3 py-1.5 text-xs font-medium text-amber-300 hover:bg-amber-400/30 transition"
-            >
-              Upgrade now
-            </button>
-          </div>
-        </div>
+      {/* Trial Banner */}
+      {profile && (
+        <TrialBanner
+          role="business"
+          subscriptionStatus={profile.revenue_subscription_status}
+          currentPeriodEnd={profile.revenue_current_period_end}
+        />
       )}
       {/* Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-6 mb-6 mt-2">

@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from 'utils/supabase/pages-client';
 import Link from 'next/link';
 import { TrendingUp, DollarSign, Wallet, CheckCircle } from 'lucide-react';
+import TrialBanner from '@/../app/components/TrialBanner';
 import {
   ResponsiveContainer,
   BarChart,
@@ -457,17 +458,6 @@ function AffiliateDashboardContent() {
 if (loading) {
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#0a0a0a] to-[#0d0d0d] text-white">
-      {trialDaysLeft !== null && trialDaysLeft >= 0 && (
-        <div className="mx-4 mt-4 mb-6 rounded-xl border border-yellow-400/30 bg-yellow-400/10 px-4 py-3 text-sm text-yellow-200">
-          <strong className="mr-1">Free trial active.</strong>
-          {trialDaysLeft === 0
-            ? 'Trial ends today.'
-            : `Trial ends in ${trialDaysLeft} day${trialDaysLeft !== 1 ? 's' : ''}.`}
-          <span className="ml-2 opacity-80">
-            Upgrade required to maintain access.
-          </span>
-        </div>
-      )}
       <div className="p-4">Loading...</div>
     </div>
   );
@@ -483,24 +473,13 @@ if (loading) {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#0a0a0a] to-[#0d0d0d] text-white">
-      {profile?.revenue_subscription_status === 'trialing' &&
-        profile?.revenue_current_period_end && (
-          <div className="mx-4 mt-4 mb-6 rounded-xl border border-yellow-400/30 bg-yellow-400/10 px-4 py-3 text-sm text-yellow-200">
-            <strong className="mr-1">Free trial active.</strong>
-            {(() => {
-              const daysLeft = Math.ceil(
-                (new Date(profile.revenue_current_period_end).getTime() - Date.now()) /
-                  (1000 * 60 * 60 * 24)
-              );
-
-              if (daysLeft <= 0) return 'Trial ends today.';
-              return `Trial ends in ${daysLeft} day${daysLeft !== 1 ? 's' : ''}.`;
-            })()}
-            <span className="ml-2 opacity-80">
-              Upgrade required to maintain access.
-            </span>
-          </div>
-        )}
+      {profile && (
+        <TrialBanner
+          subscriptionStatus={profile.revenue_subscription_status}
+          currentPeriodEnd={profile.revenue_current_period_end}
+          role="affiliate"
+        />
+      )}
       <div className="max-w-8xl mx-auto px-4 sm:px-6 md:px-8 lg:px-10 py-6 md:py-8">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-10">
           {/* Stat Card: Active Campaigns */}
