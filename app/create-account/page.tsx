@@ -4,13 +4,6 @@ import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/../utils/supabase/pages-client';
 
-type ProfileInsert = {
-  id: string;
-  email: string;
-  role: 'affiliate' | 'business';
-  onboarding_completed?: boolean;
-};
-
 function CreateAccountInner() {
   const sp = useSearchParams();
   const router = useRouter();
@@ -74,6 +67,43 @@ function CreateAccountInner() {
         if (profileError) {
           console.error('[PROFILE INSERT ERROR]', profileError);
           throw profileError;
+        }
+
+        // ─────────────────────────────────
+        // Merge pre-signup Stripe revenue (if exists)
+        // ─────────────────────────────────
+        const { data: preRevenueRow, error: preErr } = await supabase
+          .from('pre_signup_revenue')
+          .select('*')
+          .eq('email', email)
+          .maybeSingle();
+
+        if (preErr && preErr.code !== 'PGRST116') {
+          console.error('[PRE-SIGNUP REVENUE FETCH ERROR]', preErr);
+        }
+
+        if (preRevenueRow) {
+          const { error: mergeErr } = await supabase
+            .from('profiles')
+            .update({
+              revenue_stripe_customer_id: preRevenueRow.revenue_stripe_customer_id,
+              revenue_stripe_subscription_id: preRevenueRow.revenue_stripe_subscription_id,
+              revenue_subscription_status: preRevenueRow.revenue_subscription_status,
+              revenue_current_period_end: preRevenueRow.revenue_current_period_end
+                ? new Date(preRevenueRow.revenue_current_period_end).toISOString()
+                : null,
+            })
+            .eq('id', data.user.id);
+
+          if (mergeErr) {
+            console.error('[PRE-SIGNUP REVENUE MERGE ERROR]', mergeErr);
+            throw mergeErr;
+          }
+
+          await supabase
+            .from('pre_signup_revenue')
+            .delete()
+            .eq('email', email);
         }
       }
 

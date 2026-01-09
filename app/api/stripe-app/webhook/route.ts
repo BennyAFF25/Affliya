@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
 
+const log = (...args: any[]) => console.log("[stripe-app]", ...args);
+
 export const runtime = "nodejs";
 
 // Stripe revenue account
@@ -48,6 +50,7 @@ export async function POST(req: Request) {
       sig,
       process.env.STRIPE_APP_WEBHOOK_SECRET!
     );
+    log("WEBHOOK HIT", event.type);
   } catch (err: any) {
     console.error("[stripe-app webhook] signature error", err.message);
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
@@ -62,7 +65,7 @@ export async function POST(req: Request) {
 
       const email =
         session.customer_details?.email ||
-        session.metadata?.email ||
+        (session.metadata && (session.metadata as any).email) ||
         null;
 
       const customerId =
@@ -72,6 +75,13 @@ export async function POST(req: Request) {
         typeof session.subscription === "string"
           ? session.subscription
           : null;
+
+      log("checkout.session.completed payload", {
+        email,
+        customerId,
+        subscriptionId,
+        metadata: session.metadata,
+      });
 
       if (!email) {
         console.warn("[stripe-app] checkout completed without email");
@@ -85,16 +95,45 @@ export async function POST(req: Request) {
         } catch {}
       }
 
-      await supabase.from("profiles").upsert(
-        {
-          email,
+      // 1) Try update existing profile
+      const profileUpdate = await supabase
+        .from("profiles")
+        .update({
           revenue_stripe_customer_id: customerId,
           revenue_stripe_subscription_id: subscriptionId,
-          revenue_subscription_status: subscription?.status ?? null,
+          revenue_subscription_status: subscription?.status ?? "trialing",
           revenue_current_period_end: getCurrentPeriodEnd(subscription),
-        },
-        { onConflict: "email" }
-      );
+        })
+        .eq("email", email)
+        .select("id");
+
+      if (profileUpdate.error) {
+        log("profiles update error (checkout)", profileUpdate.error);
+      }
+
+      // 2) If no profile row updated, store in pre_signup_revenue
+      if (!profileUpdate.data || profileUpdate.data.length === 0) {
+        const { error: preErr } = await supabase
+          .from("pre_signup_revenue")
+          .upsert(
+            {
+              email,
+              revenue_stripe_customer_id: customerId,
+              revenue_stripe_subscription_id: subscriptionId,
+              revenue_subscription_status: subscription?.status ?? "trialing",
+              revenue_current_period_end: getCurrentPeriodEnd(subscription),
+            },
+            { onConflict: "email" }
+          );
+
+        if (preErr) {
+          log("pre_signup_revenue upsert error (checkout)", preErr);
+        } else {
+          log("pre_signup_revenue upserted (checkout)");
+        }
+      } else {
+        log("profiles updated (checkout)");
+      }
 
       return NextResponse.json({ received: true });
     }
@@ -111,15 +150,52 @@ export async function POST(req: Request) {
       const customerId =
         typeof sub.customer === "string" ? sub.customer : null;
 
-      await supabase.from("profiles").upsert(
-        {
+      log("subscription event", {
+        type: event.type,
+        subId: sub.id,
+        customerId,
+        status: sub.status,
+      });
+
+      // 1) Try update profiles by customer id
+      const subUpdate = await supabase
+        .from("profiles")
+        .update({
           revenue_stripe_customer_id: customerId,
           revenue_stripe_subscription_id: sub.id,
           revenue_subscription_status: sub.status,
           revenue_current_period_end: getCurrentPeriodEnd(sub),
-        },
-        { onConflict: "revenue_stripe_customer_id" }
-      );
+        })
+        .eq("revenue_stripe_customer_id", customerId)
+        .select("id");
+
+      if (subUpdate.error) {
+        log("profiles update error (subscription)", subUpdate.error);
+      }
+
+      // 2) Fallback to pre_signup_revenue if no profile row updated
+      if (!subUpdate.data || subUpdate.data.length === 0) {
+        const { error: preErr } = await supabase
+          .from("pre_signup_revenue")
+          .upsert(
+            {
+              email: (sub.metadata as any)?.email ?? null,
+              revenue_stripe_customer_id: customerId,
+              revenue_stripe_subscription_id: sub.id,
+              revenue_subscription_status: sub.status,
+              revenue_current_period_end: getCurrentPeriodEnd(sub),
+            },
+            { onConflict: "email" }
+          );
+
+        if (preErr) {
+          log("pre_signup_revenue upsert error (subscription)", preErr);
+        } else {
+          log("pre_signup_revenue upserted (subscription)");
+        }
+      } else {
+        log("profiles updated (subscription)");
+      }
 
       return NextResponse.json({ received: true });
     }
@@ -132,6 +208,8 @@ export async function POST(req: Request) {
 
       const customerId =
         typeof sub.customer === "string" ? sub.customer : null;
+
+      log("subscription deleted", { customerId });
 
       if (customerId) {
         await supabase
@@ -149,6 +227,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ received: true });
   } catch (err: any) {
     console.error("[stripe-app webhook] handler error", err.message);
-    return NextResponse.json({ error: "Webhook handler failed" }, { status: 400 });
+    return NextResponse.json({ received: true });
   }
 }
