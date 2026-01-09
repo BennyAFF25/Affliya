@@ -6,22 +6,22 @@ const faqs = [
   {
     question: 'How do I get approved to promote an offer?',
     answer:
-      'Find an offer in the marketplace and click "Request to Promote". Include a short note to the business. They’ll approve or reject your request.',
+      'Go to the Marketplace, choose an offer, and click “Request to Promote”. Businesses manually review and approve requests.',
   },
   {
     question: 'When do I get paid?',
     answer:
-      'Payouts are handled automatically after a sale is confirmed. You’ll be paid to your selected method once funds clear.',
+      'Payouts are processed automatically once a sale is confirmed and the hold period clears.',
   },
   {
     question: 'Can I promote multiple businesses?',
     answer:
-      'Yes! You can request to promote as many offers as you like. Each business handles approvals separately.',
+      'Yes. You can promote multiple businesses at once, as long as each approves you.',
   },
   {
     question: 'What if my ad gets rejected?',
     answer:
-      'You’ll be notified with feedback. Update your ad idea and resubmit — make sure it follows the brand’s guidelines.',
+      'You’ll receive feedback from the business. Update the ad and resubmit for review.',
   },
 ];
 
@@ -29,62 +29,88 @@ export default function AffiliateSupportPage() {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   const [message, setMessage] = useState('');
 
-  const toggle = (index: number) => {
-    setOpenIndex(openIndex === index ? null : index);
-  };
-
-  const handleSend = () => {
-    alert('Message sent! Our team will get back to you shortly.');
-    setMessage('');
-  };
-
   return (
-    <div className="min-h-screen p-10 bg-[#0f0f0f] text-white">
-      <h1 className="text-3xl font-bold text-[#00C2CB] mb-2">Affiliate Support</h1>
-      <p className="text-gray-600 mb-8">
-        Need help? Start with these common questions, or send us a message directly.
-      </p>
+    <div className="min-h-screen bg-[#0a0d0f] text-white px-6 py-14">
+      <div className="max-w-6xl mx-auto">
 
-      {/* FAQ Section */}
-      <div className="space-y-4 mb-12">
-        {faqs.map((faq, index) => (
-          <div key={index} className="border border-[#00C2CB]/20 rounded-xl bg-[#1a1a1a] shadow">
+        {/* Header */}
+        <div className="mb-16">
+          <h1 className="text-4xl font-semibold tracking-tight">
+            Affiliate Support
+          </h1>
+          <p className="mt-3 text-white/60 max-w-xl">
+            Clear answers, fast support, and zero guesswork.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+
+          {/* FAQ Column */}
+          <div className="lg:col-span-2 space-y-4">
+            {faqs.map((faq, index) => {
+              const open = openIndex === index;
+              return (
+                <div
+                  key={index}
+                  className="border border-white/10 rounded-xl bg-[#0f1316]"
+                >
+                  <button
+                    onClick={() => setOpenIndex(open ? null : index)}
+                    className="w-full flex items-center justify-between px-6 py-5 text-left"
+                  >
+                    <span className="font-medium text-white">
+                      {faq.question}
+                    </span>
+                    <span className="text-[#00C2CB] text-lg">
+                      {open ? '–' : '+'}
+                    </span>
+                  </button>
+
+                  {open && (
+                    <div className="px-6 pb-6 text-sm text-white/70 leading-relaxed">
+                      {faq.answer}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Support Card */}
+          <div className="relative rounded-2xl border border-[#00C2CB]/30 bg-[#0e1114] p-8">
+            <div className="mb-6">
+              <h2 className="text-xl font-semibold">
+                Contact support
+              </h2>
+              <p className="mt-2 text-sm text-white/60">
+                If something’s unclear or broken, message us directly.
+              </p>
+            </div>
+
+            <textarea
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder="Describe your issue or question..."
+              rows={6}
+              className="w-full rounded-lg bg-[#0a0d0f] border border-white/10 p-4 text-sm text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#00C2CB]/50"
+            />
+
             <button
-              onClick={() => toggle(index)}
-              className="w-full px-6 py-4 text-left flex justify-between items-center hover:bg-[#112f2f] rounded-t-xl transition"
+              onClick={() => {
+                alert('Message sent. Support will reach out shortly.');
+                setMessage('');
+              }}
+              className="mt-5 w-full rounded-lg bg-[#00C2CB] py-3 font-semibold text-black hover:bg-[#00b0b8]"
             >
-              <span className="font-semibold text-[#00C2CB]">{faq.question}</span>
-              <span className="text-[#00C2CB] text-xl">{openIndex === index ? '-' : '+'}</span>
+              Send message
             </button>
 
-            {openIndex === index && (
-              <div className="px-6 pb-4 pt-2 text-sm text-gray-300">
-                {faq.answer}
-              </div>
-            )}
+            <div className="mt-6 text-xs text-white/40">
+              Typical response time: under 24 hours
+            </div>
           </div>
-        ))}
-      </div>
 
-      {/* Contact Card */}
-      <div className="bg-[#1a1a1a] border border-[#00C2CB]/20 rounded-xl p-6 shadow max-w-xl mx-auto">
-        <h2 className="text-xl font-semibold text-[#00C2CB] mb-2">Still need help?</h2>
-        <p className="text-sm text-gray-400 mb-4">Send us a message and our support team will reach out.</p>
-
-        <textarea
-          placeholder="Write your message here..."
-          className="w-full border border-[#00C2CB]/30 bg-[#121212] text-white rounded-lg p-3 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-[#00C2CB]"
-          rows={4}
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-        />
-
-        <button
-          onClick={handleSend}
-          className="bg-[#00C2CB] text-white px-6 py-2 rounded hover:bg-[#00b0b8] font-medium"
-        >
-          Send Message
-        </button>
+        </div>
       </div>
     </div>
   );
