@@ -97,12 +97,16 @@ export async function POST(req: Request) {
 
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
+
       line_items: [{ price: priceId, quantity: 1 }],
 
-      // Attach Nettmark user identity so stripe-app webhook can persist
-      // revenue_stripe_customer_id / revenue_stripe_subscription_id on `public.profiles`.
-      client_reference_id: resolvedUserId || undefined,
+      // Only attach email if it exists (Stripe may null this later)
       ...(resolvedEmail ? { customer_email: resolvedEmail } : {}),
+
+      // MUST be a stable internal identifier (never email)
+      client_reference_id: resolvedUserId || undefined,
+
+      // Always persist identity via metadata (webhook-safe)
       metadata: {
         role: accountType,
         source: "stripe-app",
