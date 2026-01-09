@@ -1,6 +1,4 @@
 'use client';
-
-import { useState } from 'react';
 import Link from 'next/link';
 import AffiliateSidebar from './AffiliateSidebar';
 import Topbar from '@/components/Topbar';
@@ -8,6 +6,8 @@ import { useSession } from '@supabase/auth-helpers-react';
 import { useRouter, usePathname } from 'next/navigation';
 import { Toast } from '@/components/Toast';
 import { useInboxNotifier } from '../../utils/hooks/useInboxNotifier';
+import { useEffect, useState } from 'react';
+import { supabase } from '@/../utils/supabase/pages-client';
 
 export default function AffiliateLayout({ children }: { children: React.ReactNode }) {
   return <AffiliateLayoutShell>{children}</AffiliateLayoutShell>;
@@ -20,6 +20,28 @@ function AffiliateLayoutShell({ children }: { children: React.ReactNode }) {
   const { toast, setToast, unreadCount } = useInboxNotifier(userEmail);
   const pathname = usePathname();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  const [trialEndsAt, setTrialEndsAt] = useState<Date | null>(null);
+  const [subscriptionStatus, setSubscriptionStatus] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!session?.user?.id) return;
+
+    supabase
+      .from('profiles')
+      .select('revenue_subscription_status, revenue_current_period_end')
+      .eq('id', session.user.id)
+      .single()
+      .then(({ data }: { data: {
+        revenue_subscription_status: string | null;
+        revenue_current_period_end: string | null;
+      } | null }) => {
+        if (data?.revenue_current_period_end) {
+          setTrialEndsAt(new Date(data.revenue_current_period_end));
+        }
+        setSubscriptionStatus(data?.revenue_subscription_status || null);
+      });
+  }, [session?.user?.id]);
 
   const closeMobileNav = () => setMobileNavOpen(false);
 
@@ -39,62 +61,13 @@ function AffiliateLayoutShell({ children }: { children: React.ReactNode }) {
             <span className="block w-5 h-[2px] bg-white rounded" />
           </button>
         </div>
-
-        {/* Mobile pill slider */}
-        {mobileNavOpen && (
-          <div className="md:hidden bg-[#111111] border-t border-black/40 py-3 px-4 flex overflow-x-auto gap-3">
-            <Link
-              href="/affiliate/dashboard"
-              onClick={closeMobileNav}
-              className="px-4 py-2 rounded-full bg-[#00C2CB] text-black text-sm whitespace-nowrap"
-            >
-              Dashboard
-            </Link>
-            <Link
-              href="/affiliate/marketplace"
-              onClick={closeMobileNav}
-              className="px-4 py-2 rounded-full bg-[#222222] text-gray-100 text-sm whitespace-nowrap"
-            >
-              Marketplace
-            </Link>
-            <Link
-              href="/affiliate/dashboard/manage-campaigns"
-              onClick={closeMobileNav}
-              className="px-4 py-2 rounded-full bg-[#222222] text-gray-100 text-sm whitespace-nowrap"
-            >
-              Campaigns
-            </Link>
-            <Link
-              href="/affiliate/inbox"
-              onClick={closeMobileNav}
-              className="px-4 py-2 rounded-full bg-[#222222] text-gray-100 text-sm whitespace-nowrap"
-            >
-              Inbox
-            </Link>
-            <Link
-              href="/affiliate/settings"
-              onClick={closeMobileNav}
-              className="px-4 py-2 rounded-full bg-[#222222] text-gray-100 text-sm whitespace-nowrap"
-            >
-              Settings
-            </Link>
-            <Link
-              href="/affiliate/support"
-              onClick={closeMobileNav}
-              className="px-4 py-2 rounded-full bg-[#222222] text-gray-100 text-sm whitespace-nowrap"
-            >
-              Support
-            </Link>
-            <Link
-              href="/affiliate/wallet"
-              onClick={closeMobileNav}
-              className="px-4 py-2 rounded-full bg-[#222222] text-gray-100 text-sm whitespace-nowrap"
-            >
-              Wallet
-            </Link>
-          </div>
-        )}
       </div>
+
+      {subscriptionStatus === 'trialing' && trialEndsAt && (
+        <div className="bg-yellow-500 text-black text-sm px-4 py-2 text-center">
+          Trial ends on {trialEndsAt.toLocaleDateString()} — upgrade to keep access
+        </div>
+      )}
 
       {/* Sidebar + content row, pushed down under Topbar */}
       <div className="flex flex-1 pt-[64px] min-h-0">
