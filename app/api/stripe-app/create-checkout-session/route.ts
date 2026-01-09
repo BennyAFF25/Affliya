@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { cookies } from "next/headers";
-import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { createClient } from "@supabase/supabase-js";
 
 // Ensure Node runtime (Stripe + Buffer usage in adjacent routes; keeps behavior consistent on Vercel)
@@ -67,28 +66,14 @@ export async function POST(req: Request) {
     const userId = body?.userId;
     const email = body?.email;
 
-    // Resolve the authenticated user (preferred) so webhook can upsert revenue IDs reliably
-    const supabase = createRouteHandlerClient({ cookies });
-    const {
-      data: { user },
-      error: userErr,
-    } = await supabase.auth.getUser();
+    const resolvedUserId = userId || null;
+    const resolvedEmail = email || null;
 
-    const resolvedUserId = user?.id || userId;
-    const resolvedEmail = user?.email || email;
-
-    if (!resolvedUserId || !resolvedEmail) {
-      // If the client is not logged in, or we can't resolve user identity, we can't map the subscription
-      // back to a Nettmark profile reliably.
+    if (!resolvedEmail) {
       return NextResponse.json(
-        { error: "Missing authenticated user (userId/email) for checkout." },
-        { status: 401 }
+        { error: "Missing email for checkout session." },
+        { status: 400 }
       );
-    }
-
-    if (userErr) {
-      // eslint-disable-next-line no-console
-      console.warn("[stripe-app] supabase getUser warning:", userErr);
     }
 
     // Validate accountType
@@ -97,38 +82,6 @@ export async function POST(req: Request) {
         { error: "Invalid accountType. Expected 'business' or 'affiliate'." },
         { status: 400 }
       );
-    }
-
-    // Ensure a profiles row exists BEFORE we start Stripe checkout.
-    // This prevents the revenue webhook from having nowhere to write customer/subscription IDs.
-    // Uses service-role if available; otherwise we just proceed (webhook will still work if row exists).
-    try {
-      const admin = supabaseAdmin();
-      if (admin) {
-        const { error: upsertErr } = await admin
-          .from("profiles")
-          .upsert(
-            {
-              id: resolvedUserId,
-              email: resolvedEmail,
-              role: accountType,
-            },
-            { onConflict: "id" }
-          );
-
-        if (upsertErr) {
-          // eslint-disable-next-line no-console
-          console.warn("[stripe-app] profiles upsert warning:", upsertErr);
-        }
-      } else {
-        // eslint-disable-next-line no-console
-        console.warn(
-          "[stripe-app] supabase admin client unavailable (missing SUPABASE_SERVICE_ROLE_KEY). Skipping profiles upsert."
-        );
-      }
-    } catch (e: any) {
-      // eslint-disable-next-line no-console
-      console.warn("[stripe-app] profiles upsert exception:", e?.message || e);
     }
 
     // Resolve price id from env (prefer non-public vars; fall back to NEXT_PUBLIC_ if needed)
@@ -155,19 +108,17 @@ export async function POST(req: Request) {
 
       // Attach Nettmark user identity so stripe-app webhook can persist
       // revenue_stripe_customer_id / revenue_stripe_subscription_id on `public.profiles`.
-      client_reference_id: resolvedUserId,
+      client_reference_id: resolvedUserId || undefined,
       customer_email: resolvedEmail,
       metadata: {
-        user_id: resolvedUserId,
         email: resolvedEmail,
         role: accountType,
         source: "stripe-app",
       },
 
       subscription_data: {
-        trial_period_days: 50, // 50-day free trial
+        trial_period_days: 50,
         metadata: {
-          user_id: resolvedUserId,
           email: resolvedEmail,
           role: accountType,
           source: "stripe-app",

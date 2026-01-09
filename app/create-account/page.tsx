@@ -63,13 +63,14 @@ function CreateAccountInner() {
       if (data?.user) {
         const { error: profileError } = await supabase
           .from('profiles')
-          .insert([
+          .upsert(
             {
               id: data.user.id,
               email,
               role,
             },
-          ] as any);
+            { onConflict: 'id' }
+          );
         if (profileError) {
           console.error('[PROFILE INSERT ERROR]', profileError);
           throw profileError;
@@ -77,11 +78,7 @@ function CreateAccountInner() {
       }
 
       // Redirect straight to dashboard based on role
-      if (role === 'affiliate') {
-        router.replace('/affiliate/dashboard');
-      } else {
-        router.replace('/business/dashboard');
-      }
+      router.replace(onboardingPath);
     } catch (e: any) {
       setErr(e?.message || 'Sign up failed');
     } finally {

@@ -30,7 +30,11 @@ export default function BusinessSettingsPage() {
       const res = await fetch('/api/stripe-app/create-portal-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accountType: 'business' }),
+        body: JSON.stringify({
+          accountType: 'business',
+          userId: user.id,
+          email: user.email,
+        }),
       });
 
       const json = await res.json().catch(() => ({}));

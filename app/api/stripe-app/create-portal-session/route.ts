@@ -70,27 +70,32 @@ export async function POST(req: Request) {
       );
     }
 
-    // Get logged-in user from cookies session
+    // Get logged-in user from cookies session or fallback to request body
     const supabase = createRouteHandlerClient({ cookies });
-    const { data: authData, error: authErr } = await supabase.auth.getUser();
+    const { data: authData } = await supabase.auth.getUser();
 
-    if (authErr || !authData?.user) {
-      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-    }
+    const bodyUserId = body?.userId || body?.user_id || null;
+    const bodyEmail = body?.email || null;
 
-    const userEmail = authData.user.email;
-    if (!userEmail) {
-      return NextResponse.json({ error: "Missing email" }, { status: 400 });
+    const resolvedUser = authData?.user || null;
+    const userId = resolvedUser?.id || bodyUserId;
+    const userEmail = resolvedUser?.email || bodyEmail;
+
+    if (!userId && !userEmail) {
+      return NextResponse.json(
+        { error: "Unable to resolve user (no session or email provided)." },
+        { status: 400 }
+      );
     }
 
     // Find revenue Stripe customer id in profiles (preferred for subscriptions)
     const admin = supabaseAdmin();
 
-    const { data: profile, error: profErr } = await admin
-      .from("profiles")
-      .select("revenue_stripe_customer_id, stripe_customer_id")
-      .eq("email", userEmail)
-      .maybeSingle();
+    const query = userId
+      ? admin.from("profiles").select("revenue_stripe_customer_id, stripe_customer_id").eq("id", userId)
+      : admin.from("profiles").select("revenue_stripe_customer_id, stripe_customer_id").eq("email", userEmail);
+
+    const { data: profile, error: profErr } = await query.maybeSingle();
 
     if (profErr) {
       console.error("[stripe-app] profiles lookup error", profErr);

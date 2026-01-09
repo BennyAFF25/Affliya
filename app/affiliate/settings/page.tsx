@@ -233,15 +233,20 @@ export default function AffiliateSettingsPage() {
 
   const handleManageSubscription = async () => {
     try {
+      if (!user?.id || !user?.email) {
+        toast.error('Missing user session. Please re-login.');
+        return;
+      }
+
       setBillingLoading(true);
 
-      // This route should create a Stripe Billing Portal session on your REVENUE (stripe-app) account
       const res = await fetch('/api/stripe-app/create-portal-session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          role: 'affiliate',
-          returnUrl: `${window.location.origin}/affiliate/settings`,
+          accountType: 'affiliate',
+          userId: user.id,
+          email: user.email,
         }),
       });
 
