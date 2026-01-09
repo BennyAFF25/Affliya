@@ -126,11 +126,35 @@ export async function POST(req: Request) {
         sessionStatus: session.status || null,
       });
 
-      // We MUST be able to map to an existing profiles row.
-      const profileId = await resolveProfileId({ userId: metaUserId, email });
+      let profileId = await resolveProfileId({ userId: metaUserId, email });
+
       if (!profileId) {
-        console.warn("[stripe-app] checkout.session.completed: could not resolve profiles.id (no mapping)");
-        return NextResponse.json({ received: true });
+        if (!metaUserId || !email) {
+          console.warn("[stripe-app] checkout.session.completed: cannot create profile (missing userId/email)");
+          return NextResponse.json({ received: true });
+        }
+
+        console.warn("[stripe-app] profiles row missing — creating placeholder profile", {
+          userId: metaUserId,
+          email,
+        });
+
+        const { data: inserted, error: insertErr } = await supabaseAdmin
+          .from("profiles")
+          .insert({
+            id: metaUserId,
+            email,
+            role: (session.metadata as any)?.role || null,
+          })
+          .select("id")
+          .single();
+
+        if (insertErr) {
+          console.error("[❌ stripe-app] failed to insert profiles row", insertErr);
+          return NextResponse.json({ received: true });
+        }
+
+        profileId = inserted.id;
       }
 
       // Pull subscription to store status + current_period_end
