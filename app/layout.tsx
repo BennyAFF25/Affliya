@@ -3,6 +3,7 @@ import Providers from './Providers';
 import ThemeWrapper from '@/components/ThemeWrapper';
 import { Toaster } from 'react-hot-toast';
 import Script from 'next/script';
+import { Analytics } from "@vercel/analytics/next"
 
 export const metadata = {
   title: 'Nettmark',
