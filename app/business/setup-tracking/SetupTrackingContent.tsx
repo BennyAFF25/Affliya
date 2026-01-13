@@ -383,19 +383,29 @@ export default function SetupTrackingContent() {
               )}
 
               {/* Mark tracking installed */}
-              <div className="mt-6 flex flex-col items-center">
+              <div className="mt-8 flex flex-col items-center gap-4">
                 {!trackingMarkedInstalled ? (
                   <button
                     type="button"
                     onClick={() => setTrackingMarkedInstalled(true)}
-                    className="px-5 py-2 rounded-md bg-[#00C2CB] hover:bg-[#00b0b8] text-black text-sm font-semibold shadow-md transition"
+                    className="px-6 py-3 rounded-full bg-[#00C2CB] hover:bg-[#00b0b8] text-black text-sm font-semibold shadow-lg transition"
                   >
-                    Click finish once your tracking code is installed
+                    Finish installation
                   </button>
                 ) : (
-                  <p className="text-sm text-[#7ff5fb]">
-                    Nice. Now run a quick test below to confirm events are reaching Nettmark.
-                  </p>
+                  <>
+                    <p className="text-sm text-[#7ff5fb] text-center">
+                      Tracking marked as installed. You can test it now or return to your dashboard.
+                    </p>
+
+                    <button
+                      type="button"
+                      onClick={() => router.push('/business/my-business')}
+                      className="px-6 py-3 rounded-full bg-[#00C2CB] hover:bg-[#00b0b8] text-black text-sm font-semibold shadow-lg transition"
+                    >
+                      Return to dashboard
+                    </button>
+                  </>
                 )}
               </div>
 
