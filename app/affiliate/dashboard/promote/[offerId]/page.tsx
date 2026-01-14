@@ -70,6 +70,46 @@ export default function PromoteOfferPage() {
   // ─────────────────────────────
   const [mode, setMode] = useState<'ad' | 'organic'>('ad');
 
+  // Wallet balance state (real-time gating)
+  const [walletBalance, setWalletBalance] = useState<number>(0);
+  const [walletLoading, setWalletLoading] = useState<boolean>(true);
+  // ─────────────────────────────
+  // Wallet balance loader
+  // ─────────────────────────────
+  useEffect(() => {
+    if (!userEmail) return;
+
+    const loadWallet = async () => {
+      setWalletLoading(true);
+      const { data, error } = await (supabase as any)
+        .from('wallet_topups')
+        .select('amount_net, amount_refunded, status')
+        .eq('affiliate_email', userEmail)
+        .eq('status', 'succeeded');
+
+      if (error) {
+        console.error('[wallet load error]', error);
+        setWalletBalance(0);
+      } else {
+        const total = (data || []).reduce((sum: number, row: any) => {
+          const net = Number(row.amount_net || 0);
+          const refunded = Number(row.amount_refunded || 0);
+          return sum + Math.max(0, net - refunded);
+        }, 0);
+        setWalletBalance(total);
+      }
+      setWalletLoading(false);
+    };
+
+    loadWallet();
+  }, [userEmail]);
+  // ─────────────────────────────
+  // Wallet gating derived values
+  // ─────────────────────────────
+  const requiredBudget = Number(form.budget_amount_dollars || 0);
+  const walletDeficit = Math.max(0, requiredBudget - walletBalance);
+  const canRunWithWallet = walletBalance >= requiredBudget;
+
   // Organic method + fields
   const [ogMethod, setOgMethod] = useState<'social' | 'email' | 'forum' | 'other'>('social');
   const [ogPlatform, setOgPlatform] = useState<string>('Facebook'); // for social
@@ -1363,6 +1403,23 @@ function DateTimeField({
                     <Chip onClick={() => incBudget(10)}>+ $10</Chip>
                     <Chip onClick={() => incBudget(20)}>+ $20</Chip>
                   </div>
+                  {/* Wallet balance gating UI */}
+                  <div className="mt-2 rounded-lg border border-[#2a2a2a] bg-[#0f0f0f] p-3 text-sm">
+                    {walletLoading ? (
+                      <span className="text-gray-400">Checking wallet balance…</span>
+                    ) : canRunWithWallet ? (
+                      <span className="text-emerald-400">
+                        Wallet balance: ${walletBalance.toFixed(2)} — ready to run this ad
+                      </span>
+                    ) : (
+                      <span className="text-red-400">
+                        Wallet balance: ${walletBalance.toFixed(2)}. You need ${walletDeficit.toFixed(2)} more to run this ad.
+                        <span className="block mt-1 text-xs text-gray-400">
+                          Top up your wallet to continue.
+                        </span>
+                      </span>
+                    )}
+                  </div>
 
                   <div className="flex flex-col sm:flex-row gap-3">
                     <label className="flex-1 min-w-0">
@@ -1677,7 +1734,12 @@ function DateTimeField({
                 {step === 4 && (
                   <button
                     onClick={handleAdSubmit}
-                    className="ml-auto bg-[#00C2CB] text-black px-6 py-2 rounded-md hover:bg-[#00b0b8]"
+                    disabled={!canRunWithWallet}
+                    className={`ml-auto px-6 py-2 rounded-md transition ${
+                      canRunWithWallet
+                        ? 'bg-[#00C2CB] text-black hover:bg-[#00b0b8]'
+                        : 'bg-[#1a1a1a] text-gray-500 cursor-not-allowed'
+                    }`}
                   >
                     Submit Ad Idea
                   </button>
