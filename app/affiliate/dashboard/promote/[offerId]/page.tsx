@@ -103,12 +103,6 @@ export default function PromoteOfferPage() {
 
     loadWallet();
   }, [userEmail]);
-  // ─────────────────────────────
-  // Wallet gating derived values
-  // ─────────────────────────────
-  const requiredBudget = Number(form.budget_amount_dollars || 0);
-  const walletDeficit = Math.max(0, requiredBudget - walletBalance);
-  const canRunWithWallet = walletBalance >= requiredBudget;
 
   // Organic method + fields
   const [ogMethod, setOgMethod] = useState<'social' | 'email' | 'forum' | 'other'>('social');
@@ -134,6 +128,10 @@ export default function PromoteOfferPage() {
     [offerId, userEmail]
   );
 
+  // ─────────────────────────────
+  // Simplified, Meta-aligned form state
+  // (campaign → ad set → ad creative)
+  // ─────────────────────────────
   // ─────────────────────────────
   // Simplified, Meta-aligned form state
   // (campaign → ad set → ad creative)
@@ -170,6 +168,13 @@ export default function PromoteOfferPage() {
     call_to_action: 'LEARN_MORE',
     display_link: '',
   });
+
+  // ─────────────────────────────
+  // Wallet gating derived values (safe – after form init)
+  // ─────────────────────────────
+  const requiredBudget = Number(form?.budget_amount_dollars || 0);
+  const walletDeficit = Math.max(0, requiredBudget - walletBalance);
+  const canRunWithWallet = walletBalance >= requiredBudget;
 
   // Media
   const [videoFile, setVideoFile] = useState<File | null>(null);
