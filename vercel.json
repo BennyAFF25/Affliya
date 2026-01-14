@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/meta/ad-insights",
+      "schedule": "*/5 * * * *"
+    }
+  ]
+}
