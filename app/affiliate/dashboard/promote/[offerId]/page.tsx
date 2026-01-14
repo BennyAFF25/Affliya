@@ -1737,17 +1737,21 @@ function DateTimeField({
                 )}
 
                 {step === 4 && (
-                  <button
-                    onClick={handleAdSubmit}
-                    disabled={!canRunWithWallet}
-                    className={`ml-auto px-6 py-2 rounded-md transition ${
-                      canRunWithWallet
-                        ? 'bg-[#00C2CB] text-black hover:bg-[#00b0b8]'
-                        : 'bg-[#1a1a1a] text-gray-500 cursor-not-allowed'
-                    }`}
-                  >
-                    Submit Ad Idea
-                  </button>
+                  canRunWithWallet ? (
+                    <button
+                      onClick={handleAdSubmit}
+                      className="ml-auto px-6 py-2 rounded-md transition bg-[#00C2CB] text-black hover:bg-[#00b0b8]"
+                    >
+                      Submit Ad Idea
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => router.push('/affiliate/wallet')}
+                      className="ml-auto px-6 py-2 rounded-md transition bg-[#1a1a1a] text-[#00C2CB] border border-[#00C2CB]/40 hover:bg-[#0f1f20]"
+                    >
+                      Top Up Wallet
+                    </button>
+                  )
                 )}
               </div>
             </div>
