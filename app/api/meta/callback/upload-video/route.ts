@@ -319,12 +319,27 @@ export async function POST(req: Request) {
       // ignore interests parse error
     }
 
+    // ---- Optimisation & bidding (from ad_ideas) ----
+    const optimisationGoal =
+      adIdea?.performance_goal === 'OFFSITE_CONVERSIONS'
+        ? 'OFFSITE_CONVERSIONS'
+        : 'REACH';
+
+    const isBidCap = adIdea?.bid_strategy === 'BID_CAP';
+    const bidAmount =
+      isBidCap && adIdea?.bid_cap
+        ? String(adIdea.bid_cap)
+        : null;
+
     const adsetParams: Record<string, string> = {
       name: adsetName || `Ad Set – ${campaignData.id}`,
       campaign_id: campaignData.id,
+
       billing_event: 'IMPRESSIONS',
-      optimization_goal: 'REACH',
-      bid_amount: '100',
+      optimization_goal: optimisationGoal,
+
+      ...(bidAmount ? { bid_amount: bidAmount } : {}),
+
       targeting: JSON.stringify({
         geo_locations: { countries },
         age_min: parseInt(
@@ -354,6 +369,7 @@ export async function POST(req: Request) {
         ...(instagram_positions.length ? { instagram_positions } : {}),
         ...(flexible_spec ? { flexible_spec } : {}),
       }),
+
       pacing_type: JSON.stringify(['standard']),
       status: 'ACTIVE',
     };

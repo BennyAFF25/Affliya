@@ -167,6 +167,10 @@ export default function PromoteOfferPage() {
     caption: '',
     call_to_action: 'LEARN_MORE',
     display_link: '',
+
+    // Bidding
+    bid_strategy: 'LOWEST_COST' as 'LOWEST_COST' | 'BID_CAP',
+    bid_cap_dollars: '' as number | '',
   });
 
   // ─────────────────────────────
@@ -1066,6 +1070,15 @@ function DateTimeField({
         }
       }
 
+      // Force stronger optimisation defaults (critical for spend)
+      const optimisation_goal =
+        form.objective === 'OUTCOME_SALES'
+          ? 'OFFSITE_CONVERSIONS'
+          : 'REACH';
+
+      const conversion_location =
+        form.objective === 'OUTCOME_SALES' ? 'WEBSITE' : null;
+
       // 3) Build normalized fields for DB
       const interests = form.interests_csv
         ? form.interests_csv.split(',').map((s) => s.trim()).filter(Boolean)
@@ -1092,6 +1105,8 @@ function DateTimeField({
         // campaign/adset/ad
         campaign_name: form.campaign_name || null,
         objective: form.objective || 'OUTCOME_TRAFFIC',
+        performance_goal: optimisation_goal,
+        conversion_location,
         budget_amount: budget_amount || 0,
         budget_type: form.budget_type,
         start_time: form.start_time ? new Date(form.start_time).toISOString() : null,
@@ -1115,6 +1130,13 @@ function DateTimeField({
         display_link: form.display_link || null,
         // tracking_link is the hidden redirect we use for attribution
         tracking_link: trackingLink,
+
+        // bidding
+        bid_strategy: form.bid_strategy,
+        bid_cap:
+          form.bid_strategy === 'BID_CAP'
+            ? Math.round(Number(form.bid_cap_dollars) * 100)
+            : null,
 
         // workflow
         status: 'pending', // business will approve → then we push to Meta via server route
