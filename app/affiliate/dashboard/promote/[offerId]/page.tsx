@@ -1545,6 +1545,91 @@ function DateTimeField({
                     </div>
                   </div>
 
+                  {/* Advanced bidding (optional) */}
+                  <div className="mt-4">
+                    <Disclosure title="Advanced bidding (optional)">
+                      <div className="space-y-4">
+                        {/* Bid strategy */}
+                        <div>
+                          <label className="block text-sm font-semibold text-gray-200 mb-2">
+                            Bid strategy
+                          </label>
+                          <div className="space-y-2">
+                            <label className="flex items-center gap-3 cursor-pointer">
+                              <input
+                                type="radio"
+                                name="bid_strategy"
+                                value="LOWEST_COST"
+                                checked={form.bid_strategy === 'LOWEST_COST'}
+                                onChange={() =>
+                                  setForm((p) => ({
+                                    ...p,
+                                    bid_strategy: 'LOWEST_COST',
+                                    bid_cap_dollars: '',
+                                  }))
+                                }
+                              />
+                              <span>
+                                <strong>Lowest cost</strong>{' '}
+                                <span className="text-gray-400 text-xs">
+                                  (recommended — Meta bids freely)
+                                </span>
+                              </span>
+                            </label>
+
+                            <label className="flex items-center gap-3 cursor-pointer">
+                              <input
+                                type="radio"
+                                name="bid_strategy"
+                                value="BID_CAP"
+                                checked={form.bid_strategy === 'BID_CAP'}
+                                onChange={() =>
+                                  setForm((p) => ({
+                                    ...p,
+                                    bid_strategy: 'BID_CAP',
+                                  }))
+                                }
+                              />
+                              <span>
+                                <strong>Bid cap</strong>{' '}
+                                <span className="text-gray-400 text-xs">
+                                  (advanced — control auction aggressiveness)
+                                </span>
+                              </span>
+                            </label>
+                          </div>
+                        </div>
+
+                        {/* Bid cap input */}
+                        {form.bid_strategy === 'BID_CAP' && (
+                          <div>
+                            <label className="block text-sm font-semibold text-gray-200 mb-1">
+                              Bid cap (AUD)
+                            </label>
+                            <input
+                              type="number"
+                              min={0.01}
+                              step={0.01}
+                              placeholder="e.g. 3.00"
+                              className={`${INPUT} w-full`}
+                              value={form.bid_cap_dollars}
+                              onChange={(e) =>
+                                setForm((p) => ({
+                                  ...p,
+                                  bid_cap_dollars: e.target.value === '' ? '' : Number(e.target.value),
+                                }))
+                              }
+                            />
+                            <p className="mt-1 text-xs text-gray-400">
+                              Limits how much Meta will bid per auction.{` `}
+                              <span className="text-gray-300">Too low = ads may not spend.</span>
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </Disclosure>
+                  </div>
+
                   {(reachDaily !== null || reachMonthly !== null) && (
                     <div className="mt-2 p-3 rounded-xl border border-[#2a2a2a] bg-[#0f0f0f]">
                       <div className="text-xs text-gray-400 mb-1">Estimated Reach (unique users)</div>
@@ -1700,6 +1785,14 @@ function DateTimeField({
                       <div className="text-sm text-gray-300 mt-1">
                         Type: <span className="text-[#00C2CB]">{form.budget_type}</span>
                       </div>
+                      {form.bid_strategy === 'BID_CAP' && (
+                        <div className="text-sm text-gray-300 mt-1">
+                          Bid cap:{' '}
+                          <span className="text-[#00C2CB]">
+                            ${Number(form.bid_cap_dollars || 0).toFixed(2)}
+                          </span>
+                        </div>
+                      )}
                     </div>
 
                     {/* Targeting */}
