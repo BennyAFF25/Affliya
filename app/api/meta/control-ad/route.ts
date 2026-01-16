@@ -39,9 +39,16 @@ export async function POST(req: Request) {
     // 2) Get the Meta access token for this business from meta_connections
     const { data: metaConn, error: metaErr } = await supabase
       .from('meta_connections')
-      .select('access_token')
+      .select('access_token, id, ad_account_id, created_at')
       .eq('business_email', (liveAd as any).business_email)
+      .order('created_at', { ascending: false })
+      .limit(1)
       .single();
+
+    console.log('[Meta control] Using meta connection', {
+      metaConnectionId: metaConn?.id,
+      adAccountId: metaConn?.ad_account_id,
+    });
 
     if (metaErr || !metaConn?.access_token) {
       console.error('[❌ meta_connections lookup failed]', metaErr);
