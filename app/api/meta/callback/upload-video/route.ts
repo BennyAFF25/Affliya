@@ -350,12 +350,17 @@ export async function POST(req: Request) {
       );
     }
 
+    // --- Meta bid strategy mapping (CRITICAL) ---
+    const metaBidStrategy = isBidCap
+      ? 'LOWEST_COST_WITH_BID_CAP'
+      : 'LOWEST_COST_WITHOUT_CAP';
+
     const adsetParams: Record<string, string> = {
       name: adsetName || `Ad Set – ${campaignData.id}`,
       campaign_id: campaignData.id,
       billing_event: 'IMPRESSIONS',
       optimization_goal: optimisationGoal,
-      ...(isBidCap ? { bid_strategy: 'BID_CAP' } : { bid_strategy: 'LOWEST_COST' }),
+      bid_strategy: metaBidStrategy,
       ...(bidAmount ? { bid_amount: bidAmount } : {}),
       targeting: JSON.stringify({
         geo_locations: { countries },
