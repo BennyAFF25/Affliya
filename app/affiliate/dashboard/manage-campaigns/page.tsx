@@ -96,9 +96,14 @@ export default function ManageCampaignsPage() {
         return;
       }
 
-      // 3. Fetch offers only for organic campaigns (live_campaigns has offer_id)
+      // 3. Fetch offers for BOTH organic and paid campaigns
       const offerIds = Array.from(
-        new Set((organic as any[]).map((c) => c.offer_id).filter(Boolean))
+        new Set(
+          [
+            ...(organic as any[]).map((c) => c.offer_id),
+            ...(paid as any[]).map((c) => (c as any).offer_id),
+          ].filter(Boolean)
+        )
       );
       let offersById: { [id: string]: Offer } = {};
 
