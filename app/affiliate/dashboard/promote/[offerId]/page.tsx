@@ -989,6 +989,14 @@ function DateTimeField({
   const handleAdSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      // UI-side safety: if Bid Cap selected, require a value
+      if (form.bid_strategy === 'BID_CAP') {
+        const cap = Number(form.bid_cap_dollars);
+        if (!cap || cap <= 0) {
+          nmToast.error('Please enter a valid bid cap amount when using Bid Cap.');
+          return;
+        }
+      }
       // Require thumbnail before submission
       let thumbnailUrl: string | null = null;
       if (thumbnailFile) {
@@ -1587,6 +1595,8 @@ function DateTimeField({
                                   setForm((p) => ({
                                     ...p,
                                     bid_strategy: 'BID_CAP',
+                                    bid_cap_dollars:
+                                      p.bid_cap_dollars === '' ? '' : Number(p.bid_cap_dollars),
                                   }))
                                 }
                               />
@@ -1616,7 +1626,8 @@ function DateTimeField({
                               onChange={(e) =>
                                 setForm((p) => ({
                                   ...p,
-                                  bid_cap_dollars: e.target.value === '' ? '' : Number(e.target.value),
+                                  bid_cap_dollars:
+                                    e.target.value === '' ? '' : Number(e.target.value),
                                 }))
                               }
                             />
@@ -1789,7 +1800,7 @@ function DateTimeField({
                         <div className="text-sm text-gray-300 mt-1">
                           Bid cap:{' '}
                           <span className="text-[#00C2CB]">
-                            ${Number(form.bid_cap_dollars || 0).toFixed(2)}
+                            ${form.bid_cap_dollars ? Number(form.bid_cap_dollars).toFixed(2) : '—'}
                           </span>
                         </div>
                       )}

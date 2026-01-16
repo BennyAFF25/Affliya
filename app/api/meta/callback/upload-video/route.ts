@@ -325,21 +325,38 @@ export async function POST(req: Request) {
         ? 'OFFSITE_CONVERSIONS'
         : 'REACH';
 
-    const isBidCap = adIdea?.bid_strategy === 'BID_CAP';
+    // --- PATCH: Bid Cap Logic ---
+    const isBidCap =
+      (payload as any)?.bid_strategy === 'BID_CAP' ||
+      adIdea?.bid_strategy === 'BID_CAP';
+
+    const rawBidCap =
+      (payload as any)?.bid_cap ??
+      adIdea?.bid_cap ??
+      null;
+
+    // Meta expects minor units (e.g. $3.00 AUD → 300)
     const bidAmount =
-      isBidCap && adIdea?.bid_cap
-        ? String(adIdea.bid_cap)
+      isBidCap && rawBidCap
+        ? String(Math.round(Number(rawBidCap) * 100))
         : null;
+
+    // --- PATCH: Safety check for BID_CAP ---
+    if (isBidCap && !bidAmount) {
+      console.error('[❌ BID_CAP selected but no bid amount provided]');
+      return NextResponse.json(
+        { success: false, error: 'Bid cap selected but no bid amount provided' },
+        { status: 400 }
+      );
+    }
 
     const adsetParams: Record<string, string> = {
       name: adsetName || `Ad Set – ${campaignData.id}`,
       campaign_id: campaignData.id,
-
       billing_event: 'IMPRESSIONS',
       optimization_goal: optimisationGoal,
-
+      ...(isBidCap ? { bid_strategy: 'BID_CAP' } : { bid_strategy: 'LOWEST_COST' }),
       ...(bidAmount ? { bid_amount: bidAmount } : {}),
-
       targeting: JSON.stringify({
         geo_locations: { countries },
         age_min: parseInt(
@@ -369,7 +386,6 @@ export async function POST(req: Request) {
         ...(instagram_positions.length ? { instagram_positions } : {}),
         ...(flexible_spec ? { flexible_spec } : {}),
       }),
-
       pacing_type: JSON.stringify(['standard']),
       status: 'ACTIVE',
     };
