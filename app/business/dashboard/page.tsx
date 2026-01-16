@@ -242,7 +242,7 @@ export default function BusinessDashboard() {
           }
         > = {};
         offers.forEach((o: any) => {
-          lookup[o.id] = o.title || 'Untitled offer';
+          lookup[o.id] = o.title ?? null;
           payoutMeta[o.id] = {
             payout_mode: o.payout_mode ?? null,
             payout_interval: o.payout_interval ?? null,
@@ -320,15 +320,41 @@ export default function BusinessDashboard() {
         console.error('[❌ Failed to fetch affiliate requests for dashboard]', affiliateReqError);
       }
 
-      // Fetch active campaigns from both paid ads (live_ads) and organic (live_campaigns)
+      // Fetch active campaigns from both paid ads (live_ads) and organic (live_campaigns) with offers join
       const [liveAdsResult, liveCampaignsResult] = await Promise.all([
         supabase
           .from('live_ads')
-          .select('id, affiliate_email, business_email, status, created_at, spend, campaign_type')
+          .select(`
+            id,
+            offer_id,
+            affiliate_email,
+            business_email,
+            status,
+            created_at,
+            spend,
+            campaign_type,
+            offers (
+              id,
+              title
+            )
+          `)
           .eq('business_email', businessEmail),
         supabase
           .from('live_campaigns')
-          .select('id, offer_id, affiliate_email, business_email, status, created_at, platform, type')
+          .select(`
+            id,
+            offer_id,
+            affiliate_email,
+            business_email,
+            status,
+            created_at,
+            platform,
+            type,
+            offers (
+              id,
+              title
+            )
+          `)
           .eq('business_email', businessEmail),
       ]);
 
@@ -351,10 +377,14 @@ export default function BusinessDashboard() {
       console.log('[📊 live_ads rows]', liveAds);
       console.log('[📊 live_campaigns rows]', liveOrganic);
 
-      // For now, treat everything returned as an active campaign so we can verify data flow.
-      const activeForDashboard = [...liveAds, ...liveOrganic];
+      // Normalize both paid and organic campaigns into a consistent shape
+      const normalizedCampaigns = [...liveAds, ...liveOrganic].map((c: any) => ({
+        ...c,
+        __source: c.campaign_type ? 'paid' : 'organic',
+        resolved_offer_title: c.offers?.title ?? null,
+      }));
 
-      setActiveCampaigns(activeForDashboard);
+      setActiveCampaigns(normalizedCampaigns);
 
       // Fetch conversion events and build sales series and total revenue
       if (offerIds.length > 0) {
@@ -778,7 +808,7 @@ export default function BusinessDashboard() {
                     )
                     .slice(0, 1)
             ).map((c: any) => {
-              const title = c.offer_id ? offerLookup[c.offer_id] : null;
+              const title = c.resolved_offer_title ?? undefined;
               const status = (c.status || 'scheduled') as string;
               const typeLabel = c.campaign_type || c.type || c.platform || 'Campaign';
 
@@ -801,7 +831,7 @@ export default function BusinessDashboard() {
                     <div className="flex items-center gap-2">
                       <div className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.8)]" />
                       <div className="font-medium text-white truncate">
-                        {title || 'Untitled offer'}
+                        {title || '⚠️ Offer not resolved'}
                       </div>
                     </div>
                     <div className="mt-1 text-[11px] text-gray-400 flex flex-wrap items-center gap-2 pl-4">
