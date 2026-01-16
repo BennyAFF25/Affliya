@@ -94,6 +94,7 @@ export default function BusinessCampaignDetailPage() {
     addToCarts: [],
     conversions: [],
   });
+  const [metaCurrency, setMetaCurrency] = useState<string>('USD');
 
   useEffect(() => {
     if (!user?.email || !campaignId) return;
@@ -161,6 +162,16 @@ export default function BusinessCampaignDetailPage() {
         };
 
         setCampaign(mapped);
+        // Fetch Meta ad account currency from meta_connections
+        const { data: metaConn } = await (supabase as any)
+          .from('meta_connections')
+          .select('ad_account_currency')
+          .eq('business_email', user.email as string)
+          .single();
+
+        if (metaConn?.ad_account_currency) {
+          setMetaCurrency(metaConn.ad_account_currency);
+        }
         setLoading(false);
         return;
       }
@@ -367,11 +378,16 @@ export default function BusinessCampaignDetailPage() {
     return new Date(d).toLocaleString();
   };
 
+  // Derived pause state: respects status, billing_state, and billing_paused_at
+  const isPaused =
+    (campaign?.status || '').toUpperCase() === 'PAUSED' ||
+    (campaign as any)?.billing_state === 'PAUSED' ||
+    !!(campaign as any)?.billing_paused_at;
+
   const handleToggleStatus = async () => {
     if (!campaign) return;
 
-    const current = (campaign.status || '').toUpperCase();
-    const isCurrentlyLive = current === 'ACTIVE' || current === 'LIVE';
+    const isCurrentlyLive = !isPaused;
 
     // Shared warning when pausing a live campaign
     if (isCurrentlyLive) {
@@ -756,7 +772,7 @@ export default function BusinessCampaignDetailPage() {
                                 undefined,
                                 {
                                   style: 'currency',
-                                  currency: 'USD',
+                                  currency: metaCurrency,
                                 }
                               )}
                             </p>

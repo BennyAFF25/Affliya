@@ -432,7 +432,10 @@ export default function ManageCampaignPage() {
   }, [campaignId, affiliateId]);
 
   const rawStatus = campaign?.status ? String(campaign.status).toUpperCase() : '';
-  const isPaused = rawStatus === 'PAUSED';
+  const isPaused =
+    rawStatus === 'PAUSED' ||
+    campaign?.billing_state === 'PAUSED' ||
+    !!campaign?.billing_paused_at;
   const isOrganic = campaign?.type === 'organic';
   const isMetaPaid = !isOrganic;
   const isTerminatedByBusiness =

@@ -53,19 +53,23 @@ export async function POST(req: Request) {
 
     const accessToken = metaConn.access_token;
 
-    // Prefer controlling the campaign, then ad using Meta IDs.
-    const campaignId = (liveAd as any).meta_campaign_id as string | null;
+    // Prefer controlling the ad first, then ad set, then campaign
     const adId = liveAd.meta_ad_id as string | null;
+    const adSetId = (liveAd as any).ad_set_id as string | null;
+    const campaignId = (liveAd as any).meta_campaign_id as string | null;
 
     let targetId: string | null = null;
     let targetType: string | null = null;
 
-    if (campaignId) {
-      targetId = campaignId;
-      targetType = 'campaign';
-    } else if (adId) {
+    if (adId) {
       targetId = adId;
       targetType = 'ad';
+    } else if (adSetId) {
+      targetId = adSetId;
+      targetType = 'adset';
+    } else if (campaignId) {
+      targetId = campaignId;
+      targetType = 'campaign';
     }
 
     if (!targetId) {
