@@ -187,10 +187,16 @@ export default function ManageCampaignPage() {
     console.log('✅ CAMPAIGN ID FROM ROUTE:', campaignId);
 
     const load = async () => {
-      // 1) Organic / live_campaigns
+      // 1) Organic / live_campaigns, join offers
       const { data: organic, error: organicErr } = await supabase
         .from('live_campaigns')
-        .select('*')
+        .select(`
+          *,
+          offers:offers (
+            id,
+            title
+          )
+        `)
         .eq('id', campaignId)
         .maybeSingle();
 
@@ -206,10 +212,16 @@ export default function ManageCampaignPage() {
         return;
       }
 
-      // 2) Paid Meta / live_ads
+      // 2) Paid Meta / live_ads, join offers
       const { data: paid, error: paidErr } = await supabase
         .from('live_ads')
-        .select('*')
+        .select(`
+          *,
+          offers:offers (
+            id,
+            title
+          )
+        `)
         .eq('id', campaignId)
         .maybeSingle();
 
@@ -422,6 +434,7 @@ export default function ManageCampaignPage() {
       cancelled = true;
     };
   }, [campaign]);
+// No UI rendering for offer name in this file, so nothing more to update here.
 
   // --------------------
   // Derived flags / values
