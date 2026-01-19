@@ -57,6 +57,8 @@ type PlacementKey =
   };
 
 export default function PromoteOfferPage() {
+  // Advanced bidding accordion state
+  const [showAdvancedBidding, setShowAdvancedBidding] = useState<boolean>(false);
   // Removed loading states
   const router = useRouter();
   const params = useParams();
@@ -471,10 +473,17 @@ export default function PromoteOfferPage() {
     const [open, setOpen] = useState(defaultOpen);
     return (
       <div className="border border-[#232323] rounded-xl overflow-hidden">
-        <button
-          type="button"
+        <div
+          role="button"
+          tabIndex={0}
           onClick={() => setOpen((o) => !o)}
-          className="w-full flex items-center justify-between px-4 py-3 bg-[#121212] hover:bg-[#151515]"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setOpen((o) => !o);
+            }
+          }}
+          className="w-full flex items-center justify-between px-4 py-3 bg-[#121212] hover:bg-[#151515] cursor-pointer"
         >
           <span className="text-sm font-semibold">{title}</span>
           <span
@@ -486,9 +495,12 @@ export default function PromoteOfferPage() {
           >
             ▾
           </span>
-        </button>
+        </div>
         {open && (
-          <div className="px-4 py-3 bg-[#0f0f0f] text-[13px] text-gray-300 space-y-2">
+          <div
+            className="px-4 py-3 bg-[#0f0f0f] text-[13px] text-gray-300 space-y-2"
+            onClick={(e) => e.stopPropagation()}
+          >
             {children}
           </div>
         )}
@@ -1555,15 +1567,49 @@ function DateTimeField({
 
                   {/* Advanced bidding (optional) */}
                   <div className="mt-4">
-                    <Disclosure title="Advanced bidding (optional)">
-                      <div className="space-y-4">
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      className="w-full flex items-center justify-between px-4 py-3 cursor-pointer rounded-xl border border-[#00C2CB]/40 bg-gradient-to-r from-[#081f22] to-[#0e0e0e] hover:border-[#00C2CB] transition"
+                      onClick={() => setShowAdvancedBidding(v => !v)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          setShowAdvancedBidding(v => !v);
+                        }
+                      }}
+                    >
+                      <span className="text-[#00C2CB] font-bold tracking-wide">
+                        Advanced bidding
+                        <span className="ml-2 text-xs font-normal text-gray-400">(optional)</span>
+                      </span>
+                      <span
+                        className={[
+                          'text-[#00C2CB] transition-transform duration-200',
+                          showAdvancedBidding ? 'rotate-180' : 'rotate-0',
+                        ].join(' ')}
+                      >
+                        ▾
+                      </span>
+                    </div>
+                    {showAdvancedBidding && (
+                      <div
+                        className="mt-3 px-5 py-4 rounded-xl border border-[#00C2CB]/30 bg-[#0b1415] space-y-5"
+                        onClick={(e) => e.stopPropagation()}
+                        onMouseDown={(e) => e.stopPropagation()}
+                      >
                         {/* Bid strategy */}
                         <div>
-                          <label className="block text-sm font-semibold text-gray-200 mb-2">
+                          <div className="text-[#00C2CB] font-semibold text-sm tracking-wide mb-3">
                             Bid strategy
-                          </label>
+                          </div>
                           <div className="space-y-2">
-                            <label className="flex items-center gap-3 cursor-pointer">
+                            <label className={[
+                              'flex items-center gap-4 p-3 rounded-lg border cursor-pointer transition',
+                              form.bid_strategy === 'LOWEST_COST'
+                                ? 'border-[#00C2CB] bg-[#062a2d]'
+                                : 'border-[#2a2a2a] hover:border-[#00C2CB]/40'
+                            ].join(' ')}>
                               <input
                                 type="radio"
                                 name="bid_strategy"
@@ -1576,6 +1622,7 @@ function DateTimeField({
                                     bid_cap_dollars: '',
                                   }))
                                 }
+                                onClick={(e) => e.stopPropagation()}
                               />
                               <span>
                                 <strong>Lowest cost</strong>{' '}
@@ -1585,7 +1632,12 @@ function DateTimeField({
                               </span>
                             </label>
 
-                            <label className="flex items-center gap-3 cursor-pointer">
+                            <label className={[
+                              'flex items-center gap-4 p-3 rounded-lg border cursor-pointer transition',
+                              form.bid_strategy === 'BID_CAP'
+                                ? 'border-[#00C2CB] bg-[#062a2d]'
+                                : 'border-[#2a2a2a] hover:border-[#00C2CB]/40'
+                            ].join(' ')}>
                               <input
                                 type="radio"
                                 name="bid_strategy"
@@ -1599,6 +1651,7 @@ function DateTimeField({
                                       p.bid_cap_dollars === '' ? '' : Number(p.bid_cap_dollars),
                                   }))
                                 }
+                                onClick={(e) => e.stopPropagation()}
                               />
                               <span>
                                 <strong>Bid cap</strong>{' '}
@@ -1611,34 +1664,59 @@ function DateTimeField({
                         </div>
 
                         {/* Bid cap input */}
-                        {form.bid_strategy === 'BID_CAP' && (
-                          <div>
-                            <label className="block text-sm font-semibold text-gray-200 mb-1">
-                              Bid cap (AUD)
-                            </label>
-                            <input
-                              type="number"
-                              min={0.01}
-                              step={0.01}
-                              placeholder="e.g. 3.00"
-                              className={`${INPUT} w-full`}
-                              value={form.bid_cap_dollars}
-                              onChange={(e) =>
-                                setForm((p) => ({
-                                  ...p,
-                                  bid_cap_dollars:
-                                    e.target.value === '' ? '' : Number(e.target.value),
-                                }))
-                              }
-                            />
-                            <p className="mt-1 text-xs text-gray-400">
-                              Limits how much Meta will bid per auction.{` `}
-                              <span className="text-gray-300">Too low = ads may not spend.</span>
-                            </p>
-                          </div>
-                        )}
+                        {form.bid_strategy === 'BID_CAP' && (() => {
+                          const cap = Number(form.bid_cap_dollars || 0);
+
+                          let helperText = 'Meta will not bid above this amount per auction.';
+                          let helperClass = 'text-gray-400';
+                          let ringClass = 'focus:ring-[#00C2CB]/30 focus:border-[#00C2CB]';
+
+                          if (cap > 0 && cap < 0.5) {
+                            helperText = 'Too low may limit delivery.';
+                            helperClass = 'text-amber-400';
+                            ringClass = 'focus:ring-amber-500/30 focus:border-amber-500';
+                          }
+
+                          if (cap >= 10) {
+                            helperText = 'May exceed Meta placement limits.';
+                            helperClass = 'text-red-400';
+                            ringClass = 'focus:ring-red-500/30 focus:border-red-500';
+                          }
+
+                          return (
+                            <div className="space-y-1">
+                              <div className="text-[#00C2CB] font-semibold text-sm tracking-wide mb-1">
+                                Bid cap
+                              </div>
+                              <div className="relative rounded-lg overflow-hidden border border-[#00C2CB]/50 focus-within:border-[#00C2CB] focus-within:shadow-[0_0_0_3px_rgba(0,194,203,0.25)] transition">
+                                {/* Currency pill */}
+                                <div className="absolute inset-y-0 left-0 flex items-center px-4 bg-[#00C2CB] text-black font-semibold text-xs">
+                                  AUD
+                                </div>
+                                <input
+                                  type="number"
+                                  min={0.01}
+                                  step={0.01}
+                                  placeholder="3.00"
+                                  className="w-full bg-[#0e0e0e] pl-16 pr-3 py-2 text-white focus:outline-none"
+                                  value={form.bid_cap_dollars}
+                                  onChange={(e) =>
+                                    setForm((p) => ({
+                                      ...p,
+                                      bid_cap_dollars:
+                                        e.target.value === '' ? '' : Number(e.target.value),
+                                    }))
+                                  }
+                                />
+                              </div>
+                              <p className={`text-xs font-medium ${helperClass}`}>
+                                {helperText}
+                              </p>
+                            </div>
+                          );
+                        })()}
                       </div>
-                    </Disclosure>
+                    )}
                   </div>
 
                   {(reachDaily !== null || reachMonthly !== null) && (
