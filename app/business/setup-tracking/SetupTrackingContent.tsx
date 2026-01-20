@@ -40,6 +40,11 @@ export default function SetupTrackingContent() {
   const [testMsg, setTestMsg] = useState<string>('');
   const [trackingMarkedInstalled, setTrackingMarkedInstalled] = useState(false);
   const [showInstallPanel, setShowInstallPanel] = useState(true);
+
+  // Meta Pixel verification state
+  const [verifyingPixel, setVerifyingPixel] = useState(false);
+  const [pixelStatus, setPixelStatus] = useState<'idle' | 'ok' | 'fail'>('idle');
+  const [pixelMsg, setPixelMsg] = useState('');
   // Combined test: creates a test tracking event in Nettmark for this offer
   async function startCombinedTest() {
     try {
@@ -90,6 +95,35 @@ export default function SetupTrackingContent() {
       setTestMsg(e?.message || 'Unexpected error while testing.');
     } finally {
       setTesting(false);
+    }
+  }
+
+  async function verifyMetaPixel() {
+    try {
+      setVerifyingPixel(true);
+      setPixelStatus('idle');
+      setPixelMsg('');
+
+      const res = await fetch('/api/meta/verify-pixel', {
+        method: 'POST',
+        credentials: 'include',
+      });
+
+      const json = await res.json();
+
+      if (!res.ok) {
+        setPixelStatus('fail');
+        setPixelMsg(json?.error || 'Pixel not detected yet.');
+        return;
+      }
+
+      setPixelStatus('ok');
+      setPixelMsg('Meta pixel detected successfully.');
+    } catch (e: any) {
+      setPixelStatus('fail');
+      setPixelMsg(e?.message || 'Verification failed.');
+    } finally {
+      setVerifyingPixel(false);
     }
   }
 
@@ -295,6 +329,53 @@ export default function SetupTrackingContent() {
             </button>
           </>
         )}
+
+        {/* -------- Meta Pixel (Sales campaigns) -------- */}
+        <div className="mt-8 rounded-xl bg-[#121212] border border-[#00C2CB]/20">
+          <div className="px-5 py-4 border-b border-[#00C2CB]/10">
+            <h2 className="text-lg font-semibold text-[#00C2CB]">Meta Pixel (Required for Sales)</h2>
+            <p className="text-sm text-gray-400 mt-1">
+              Required to run conversion‑optimised (Sales) campaigns on Meta.
+            </p>
+          </div>
+
+          <div className="p-5 space-y-4 text-sm text-gray-300">
+            <ol className="list-decimal list-inside space-y-2">
+              <li>Install the Meta Pixel on your website (Shopify or custom).</li>
+              <li>Open your website in a new tab and browse a page.</li>
+              <li>Return here and click <span className="text-white font-medium">Verify Pixel</span>.</li>
+            </ol>
+
+            <div className="flex items-center gap-3 flex-wrap">
+              <button
+                type="button"
+                onClick={verifyMetaPixel}
+                disabled={verifyingPixel}
+                className="px-4 py-2 rounded-md bg-[#00C2CB] hover:bg-[#00b0b8] text-black text-sm font-semibold disabled:opacity-50"
+              >
+                {verifyingPixel ? 'Verifying…' : 'Verify Pixel'}
+              </button>
+
+              {pixelStatus === 'ok' && (
+                <span className="text-xs px-2 py-1 rounded-full bg-[#10b981]/15 text-[#bbf7d0] border border-[#10b981]/25">
+                  Connected
+                </span>
+              )}
+
+              {pixelStatus === 'fail' && (
+                <span className="text-xs px-2 py-1 rounded-full bg-[#ef4444]/15 text-[#fecaca] border border-[#ef4444]/25">
+                  Not detected
+                </span>
+              )}
+            </div>
+
+            {pixelMsg && <p className="text-xs text-gray-400">{pixelMsg}</p>}
+
+            <div className="text-[11px] text-gray-500">
+              Sales campaigns are only enabled once the Meta Pixel is detected.
+            </div>
+          </div>
+        </div>
 
         {/* -------- Implementation Instructions -------- */}
         <div className="mt-8 rounded-xl bg-[#121212] border border-[#00C2CB]/20">

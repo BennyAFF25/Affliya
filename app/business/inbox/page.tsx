@@ -3,13 +3,15 @@
 import { useEffect, useState } from 'react';
 import { useSession } from '@supabase/auth-helpers-react';
 import { supabase } from 'utils/supabase/pages-client';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 import {
   Megaphone,
   Image as ImageIcon,
   Activity,
   Archive as ArchiveIcon,
+  ChevronRight,
+  Clock,
 } from 'lucide-react';
 
 const inboxMeta = {
@@ -88,6 +90,7 @@ const saveArchived = (email: string, items: InboxItem[]) => {
 export default function BusinessInbox() {
   const session = useSession();
   const user = session?.user;
+  const router = useRouter();
   const [inboxItems, setInboxItems] = useState<InboxItem[]>([]);
   const [archivedItems, setArchivedItems] = useState<InboxItem[]>([]);
   const [showArchived, setShowArchived] = useState(false);
@@ -178,6 +181,13 @@ export default function BusinessInbox() {
     fetchInboxData();
   }, [offers, archivedItems]);
 
+  const getItemRoute = (item: InboxItem) => {
+    if (item.type === 'ad_idea') return '/business/my-business/ad-ideas';
+    if (item.type === 'organic_post') return '/business/my-business/post-ideas';
+    if (item.type === 'live_ad') return '/business/manage-campaigns';
+    return null;
+  };
+
   const getOfferName = (offerId: string) => {
     const offer = offers.find((o) => o.id === offerId);
     return offer?.title || 'Unknown Offer';
@@ -212,51 +222,109 @@ export default function BusinessInbox() {
             {inboxItems.map((item) => (
               <div
                 key={`${item.type}-${item.id}`}
-                className="bg-[#121212] rounded-xl p-6 border-l-4 border-[#00C2CB] hover:bg-[#141414] transition"
+                role="button"
+                tabIndex={0}
+                onClick={() => {
+                  const route = getItemRoute(item);
+                  if (route) router.push(route);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    const route = getItemRoute(item);
+                    if (route) router.push(route);
+                  }
+                }}
+                className="bg-[#121212]/70 backdrop-blur rounded-2xl p-6 border border-[#1f1f1f] border-l-4 border-l-[#00C2CB]/70 hover:border-[#00C2CB]/40 hover:bg-[#141414]/70 transition-all cursor-pointer group shadow-[0_0_0_1px_rgba(255,255,255,0.02)] hover:shadow-[0_10px_30px_rgba(0,0,0,0.45)]"
               >
-                <div>
-                  <div className="flex items-center gap-2 text-[#00C2CB] font-semibold">
-                    {(() => {
-                      const Icon = inboxMeta[item.type].icon;
-                      return <Icon size={16} />;
-                    })()}
-                    <span>{inboxMeta[item.type].label}</span>
+                <div className="flex items-start justify-between gap-6">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 text-[#00C2CB] font-semibold">
+                      {(() => {
+                        const Icon = inboxMeta[item.type].icon;
+                        return <Icon size={16} />;
+                      })()}
+                      <span>{inboxMeta[item.type].label}</span>
+                    </div>
+
+                    <div className="mt-2 space-y-1">
+                      <p className="text-sm text-gray-300">
+                        Offer:{' '}
+                        <span className="underline underline-offset-2 decoration-[#00C2CB]/40">
+                          {getOfferName(item.offer_id)}
+                        </span>
+                      </p>
+                      <p className="text-sm text-gray-400 truncate">
+                        Affiliate: {item.affiliate_email}
+                      </p>
+                    </div>
+
+                    <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-gray-500">
+                      <span className="inline-flex items-center gap-1.5">
+                        <Clock size={14} className="opacity-80" />
+                        {new Date(item.created_at).toLocaleString()}
+                      </span>
+
+                      <span className="px-2 py-0.5 rounded-full border border-[#1f1f1f] text-gray-400 bg-[#0f0f0f] capitalize">
+                        {item.status || 'pending'}
+                      </span>
+                    </div>
                   </div>
-                  <p className="text-sm text-gray-300 mt-1">
-                    Offer: <span className="underline">{getOfferName(item.offer_id)}</span>
-                  </p>
-                  <p className="text-sm text-gray-400">
-                    Affiliate: {item.affiliate_email}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {new Date(item.created_at).toLocaleString()}
-                  </p>
-                </div>
 
-                <div className="mt-4 flex justify-between">
-                  {item.type === 'organic_post' && (
-                    <Link href="/business/my-business/post-ideas">
-                      <button className="px-4 py-1.5 bg-[#00C2CB] hover:bg-[#00b0b8] text-white rounded-md text-sm flex items-center gap-2">
-                        Review Post
+                  <div className="shrink-0 flex flex-col items-end gap-3">
+                    <ChevronRight
+                      size={18}
+                      className="text-gray-600 group-hover:text-[#00C2CB] transition"
+                    />
+
+                    <div className="flex items-center gap-2">
+                      {item.type === 'ad_idea' && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            router.push('/business/my-business/ad-ideas');
+                          }}
+                          className="px-4 py-2 bg-[#00C2CB] hover:bg-[#00b0b8] text-white rounded-lg text-sm font-medium"
+                        >
+                          Review Ad
+                        </button>
+                      )}
+
+                      {item.type === 'organic_post' && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            router.push('/business/my-business/post-ideas');
+                          }}
+                          className="px-4 py-2 bg-[#00C2CB] hover:bg-[#00b0b8] text-white rounded-lg text-sm font-medium"
+                        >
+                          Review Post
+                        </button>
+                      )}
+
+                      {item.type === 'live_ad' && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            router.push('/business/manage-campaigns');
+                          }}
+                          className="px-4 py-2 bg-[#00C2CB] hover:bg-[#00b0b8] text-white rounded-lg text-sm font-medium"
+                        >
+                          View Campaign
+                        </button>
+                      )}
+
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          archiveItem(item);
+                        }}
+                        className="px-3 py-2 border border-[#2a2a2a] hover:border-[#00C2CB]/60 text-gray-300 hover:text-[#00C2CB] rounded-lg text-sm flex items-center gap-2"
+                      >
+                        <ArchiveIcon size={14} />
+                        Archive
                       </button>
-                    </Link>
-                  )}
-
-                  {item.type === 'live_ad' && (
-                    <Link href="/business/manage-campaigns">
-                      <button className="px-4 py-1.5 bg-[#00C2CB] hover:bg-[#00b0b8] text-white rounded-md text-sm flex items-center gap-2">
-                        View Campaign
-                      </button>
-                    </Link>
-                  )}
-
-                  <button
-                    onClick={() => archiveItem(item)}
-                    className="px-3 py-1.5 border border-gray-600 hover:border-[#00C2CB] text-gray-300 hover:text-[#00C2CB] rounded-md text-sm flex items-center gap-2"
-                  >
-                    <ArchiveIcon size={14} />
-                    Archive
-                  </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             ))}
@@ -286,7 +354,7 @@ export default function BusinessInbox() {
                 {archivedItems.map((item) => (
                   <div
                     key={`arch-${item.id}`}
-                    className="flex items-center gap-3 bg-[#101010] border border-[#1f1f1f] rounded-lg px-4 py-3 text-sm text-gray-400"
+                    className="flex items-center gap-3 bg-[#101010]/70 border border-[#1f1f1f] rounded-xl px-4 py-3 text-sm text-gray-400 hover:border-[#00C2CB]/30 transition"
                   >
                     {(() => {
                       const Icon = inboxMeta[item.type].icon;

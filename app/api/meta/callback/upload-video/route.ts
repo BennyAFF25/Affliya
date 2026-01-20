@@ -47,10 +47,10 @@ export async function POST(req: Request) {
     const fallback_image_url = rest.thumbnail_url;
     const image_hash = null;
 
-    // 1. Fetch the offer from Supabase (now also pulling website for display link)
+    // 1. Fetch the offer from Supabase (now also pulling website and meta_pixel_id for display link)
     const { data: offer, error: offerError } = await supabase
       .from('offers')
-      .select('business_email, website')
+      .select('business_email, website, meta_pixel_id')
       .eq('id', offerId)
       .single();
 
@@ -61,13 +61,15 @@ export async function POST(req: Request) {
 
     const businessEmail = offer.business_email;
     const offerWebsite = (offer as any)?.website || null;
+    const offerPixelId = (offer as any)?.meta_pixel_id || null;
     console.log('[📇 Matched Business Email]', businessEmail);
     console.log('[🌐 Offer Website]', offerWebsite);
+    console.log('[🧩 Offer Meta Pixel ID]', offerPixelId);
 
     // 2. Lookup the correct ad account ID from meta_connections
     const { data: connection, error: connectionError } = await supabase
       .from('meta_connections')
-      .select('ad_account_id, page_id, access_token')
+      .select('ad_account_id, page_id, access_token, pixel_id')
       .eq('business_email', businessEmail)
       .order('created_at', { ascending: false })
       .limit(1)
@@ -78,8 +80,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'Meta connection lookup failed' }, { status: 400 });
     }
 
-    const { ad_account_id, page_id, access_token } = connection;
-    console.log('[📎 Matched Meta IDs]', { ad_account_id, page_id });
+    const { ad_account_id, page_id, access_token, pixel_id } = connection;
+    console.log('[📎 Matched Meta IDs]', { ad_account_id, page_id, pixel_id, offerPixelId });
 
     if (!access_token) {
       console.error('[❌ Missing Access Token]');
@@ -97,8 +99,19 @@ export async function POST(req: Request) {
       Conversions: 'CONVERSIONS',
       'App Installs': 'APP_INSTALLS',
     };
+
+    // Accept Meta enums coming from the UI/DB (e.g. OUTCOME_SALES) as-is.
+    const normalizeObjective = (obj: any): string => {
+      const o = String(obj ?? '').trim();
+      if (!o) return 'OUTCOME_TRAFFIC';
+      if (o.startsWith('OUTCOME_')) return o;
+      if (['CONVERSIONS', 'VIDEO_VIEWS', 'APP_INSTALLS'].includes(o)) return o;
+      return objectiveMap[o] || 'OUTCOME_TRAFFIC';
+    };
+
     const rawObjective = prefer(rest.objective, adIdea?.objective, 'Traffic');
-    const mappedObjective = objectiveMap[rawObjective as string] || 'OUTCOME_TRAFFIC';
+    const mappedObjective = normalizeObjective(rawObjective);
+    const isSalesObjective = mappedObjective === 'OUTCOME_SALES';
 
     // 3. Build payload for Meta API (keep misc fields)
     const payload = {
@@ -321,7 +334,7 @@ export async function POST(req: Request) {
 
     // ---- Optimisation & bidding (from ad_ideas) ----
     const optimisationGoal =
-      adIdea?.performance_goal === 'OFFSITE_CONVERSIONS'
+      isSalesObjective || adIdea?.performance_goal === 'OFFSITE_CONVERSIONS'
         ? 'OFFSITE_CONVERSIONS'
         : 'REACH';
 
@@ -336,10 +349,38 @@ export async function POST(req: Request) {
       null;
 
     // Meta expects minor units (e.g. $3.00 AUD → 300)
-    const bidAmount =
-      isBidCap && rawBidCap
-        ? String(Math.round(Number(rawBidCap) * 100))
-        : null;
+    // IMPORTANT: We store bid_cap in **major units** (e.g. 9.00) in Supabase.
+    // Guardrail: If a value looks like it was already converted (e.g. 900 for $9),
+    // treat it as minor units to avoid accidental 100x.
+    const toMinorUnits = (v: any): { minor: string | null; inferred: 'major' | 'minor' | 'none' | 'invalid' } => {
+      if (v === null || v === undefined || v === '') return { minor: null, inferred: 'none' };
+
+      // If the user passed a string with decimals, assume major units.
+      const str = typeof v === 'string' ? v.trim() : null;
+      const num = Number(str ?? v);
+      if (!Number.isFinite(num)) return { minor: null, inferred: 'invalid' };
+
+      // Heuristic: if it's an integer between 100 and 5000, it is very likely already minor units
+      // (e.g. 900 == $9.00). This prevents the classic double-*100 bug.
+      const isInt = Number.isInteger(num);
+      if (isInt && num >= 100 && num <= 5000) {
+        return { minor: String(Math.round(num)), inferred: 'minor' };
+      }
+
+      // Default: treat as major units and convert once.
+      return { minor: String(Math.round(num * 100)), inferred: 'major' };
+    };
+
+    const bidCapInfo = isBidCap ? toMinorUnits(rawBidCap) : { minor: null, inferred: 'none' as const };
+    const bidAmount = isBidCap ? bidCapInfo.minor : null;
+
+    if (isBidCap) {
+      console.log('[🎯 Bid Cap]', {
+        rawBidCap,
+        inferredUnit: bidCapInfo.inferred,
+        bid_amount_minor_units: bidAmount,
+      });
+    }
 
     // --- PATCH: Safety check for BID_CAP ---
     if (isBidCap && !bidAmount) {
@@ -394,6 +435,23 @@ export async function POST(req: Request) {
       pacing_type: JSON.stringify(['standard']),
       status: 'ACTIVE',
     };
+
+    // 🔥 REQUIRED: promoted_object when optimising for OFFSITE_CONVERSIONS (includes Sales)
+    const resolvedPixelId = prefer(offerPixelId, pixel_id, null);
+    if (optimisationGoal === 'OFFSITE_CONVERSIONS') {
+      if (!resolvedPixelId) {
+        console.error('[❌ OFFSITE_CONVERSIONS blocked: no pixel_id on offer or connection]');
+        return NextResponse.json(
+          { success: false, error: 'Sales/Conversion campaigns require a Meta Pixel selected on the Offer.' },
+          { status: 400 }
+        );
+      }
+
+      adsetParams.promoted_object = JSON.stringify({
+        pixel_id: resolvedPixelId,
+        custom_event_type: 'PURCHASE',
+      });
+    }
 
     if (budgetType === 'LIFETIME') {
       adsetParams.lifetime_budget = budgetAmountStr;

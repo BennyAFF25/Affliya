@@ -188,6 +188,35 @@ export default function PromoteOfferPage() {
   // Thumbnail error state for submission validation
   const [thumbnailError, setThumbnailError] = useState<string | null>(null);
 
+  // Thumbnail validation (Meta does NOT accept SVG thumbnails)
+  const ALLOWED_THUMB_MIME = ['image/jpeg', 'image/png', 'image/webp'];
+  const MAX_THUMB_BYTES = 8 * 1024 * 1024; // 8MB
+
+  function validateThumbnailFile(file: File): string | null {
+    const name = (file?.name || '').toLowerCase();
+    const type = file?.type || '';
+
+    // Block SVG explicitly (Meta ingestion fails)
+    if (type === 'image/svg+xml' || name.endsWith('.svg')) {
+      return 'Thumbnail must be a PNG/JPG/WebP (SVG is not supported by Meta).';
+    }
+
+    // Block HEIC/HEIF (common iPhone format that often fails)
+    if (type === 'image/heic' || type === 'image/heif' || name.endsWith('.heic') || name.endsWith('.heif')) {
+      return 'Thumbnail must be a PNG/JPG/WebP (HEIC/HEIF is not supported).';
+    }
+
+    if (!ALLOWED_THUMB_MIME.includes(type)) {
+      return 'Thumbnail must be a PNG/JPG/WebP image.';
+    }
+
+    if (file.size > MAX_THUMB_BYTES) {
+      return 'Thumbnail is too large. Please upload an image under 8MB.';
+    }
+
+    return null;
+  }
+
   // Brand preview data (from offers table / offer-logos bucket)
   const [brandName, setBrandName] = useState<string>('Your Brand Name');
   const [brandLogoUrl, setBrandLogoUrl] = useState<string | null>(null);
@@ -1152,16 +1181,24 @@ function DateTimeField({
         tracking_link: trackingLink,
 
         // bidding
+        // NOTE: bid_cap is stored in DOLLARS in `ad_ideas`.
+        // The server route should convert to cents ONCE right before sending to Meta.
         bid_strategy: form.bid_strategy,
         bid_cap:
           form.bid_strategy === 'BID_CAP'
-            ? Math.round(Number(form.bid_cap_dollars) * 100)
+            ? Number(form.bid_cap_dollars)
             : null,
 
         // workflow
         status: 'pending', // business will approve → then we push to Meta via server route
         meta_status: null,
       };
+
+      console.log('[BID CAP DEBUG]', {
+        bid_strategy: form.bid_strategy,
+        bid_cap_dollars: form.bid_cap_dollars,
+        bid_cap_saved_to_db: insertPayload.bid_cap,
+      });
 
       const { error: insertErr } = await (supabase.from('ad_ideas') as any).insert([
         insertPayload as any,
@@ -1791,50 +1828,65 @@ function DateTimeField({
                   <div className="grid sm:grid-cols-2 gap-4">
                     <label className="block">
                       <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Upload Video</span>
-                  <input
-                    type="file"
-                    accept="video/*"
-                    className={`${INPUT} w-full text-sm sm:text-base`}
-                    onChange={(e) => {
-                      const file = e.target.files?.[0] || null;
-                      setVideoFile(file);
-                      if (file) {
-                        const url = URL.createObjectURL(file);
-                        setVideoPreviewUrl(url);
-                        // clear any thumbnail preview when video is chosen
-                        setThumbPreviewUrl(null);
-                      } else {
-                        setVideoPreviewUrl(null);
-                      }
-                    }}
-                  />
+                      <input
+                        type="file"
+                        accept="video/*"
+                        className={`${INPUT} w-full text-sm sm:text-base`}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0] || null;
+                          setVideoFile(file);
+                          if (file) {
+                            const url = URL.createObjectURL(file);
+                            setVideoPreviewUrl(url);
+                            // clear any thumbnail preview when video is chosen
+                            setThumbPreviewUrl(null);
+                          } else {
+                            setVideoPreviewUrl(null);
+                          }
+                        }}
+                      />
                     </label>
 
                     <label className="block">
                       <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Optional Thumbnail</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className={`${INPUT} w-full text-sm sm:text-base`}
-                    onChange={(e) => {
-                      const file = e.target.files?.[0] || null;
-                      setThumbnailFile(file);
-                      if (file) {
-                        const url = URL.createObjectURL(file);
-                        setThumbPreviewUrl(url);
-                        // clear any video preview when thumbnail is chosen
-                        setVideoPreviewUrl(null);
-                      } else {
-                        setThumbPreviewUrl(null);
-                      }
-                    }}
-                  />
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp"
+                        className={`${INPUT} w-full text-sm sm:text-base`}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0] || null;
+
+                          if (!file) {
+                            setThumbnailFile(null);
+                            setThumbPreviewUrl(null);
+                            setThumbnailError(null);
+                            return;
+                          }
+
+                          const err = validateThumbnailFile(file);
+                          if (err) {
+                            // Reset the input so the user can re-select the same file after fixing
+                            e.currentTarget.value = '';
+                            setThumbnailFile(null);
+                            setThumbPreviewUrl(null);
+                            setThumbnailError(err);
+                            nmToast.error(err);
+                            return;
+                          }
+
+                          setThumbnailError(null);
+                          setThumbnailFile(file);
+                          const url = URL.createObjectURL(file);
+                          setThumbPreviewUrl(url);
+                          // Do NOT clear the video preview here; user needs both
+                        }}
+                      />
                     </label>
                   </div>
 
-                  {step === 3 && !thumbnailFile && (
-                    <div className="mt-3 px-3 py-1 border border-[#00C2CB]/50 text-[#00C2CB] text-sm rounded-md bg-[#001F20]/30">
-                      Please upload a thumbnail before submitting.
+                  {step === 3 && (thumbnailError || !thumbnailFile) && (
+                    <div className="mt-3 px-3 py-2 border border-[#00C2CB]/50 text-[#00C2CB] text-sm rounded-md bg-[#001F20]/30">
+                      {thumbnailError ? thumbnailError : 'Please upload a PNG/JPG/WebP thumbnail before submitting.'}
                     </div>
                   )}
 

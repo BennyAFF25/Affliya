@@ -300,7 +300,7 @@ export default function MyBusinessPage() {
   const hasAnyOffer = offers.length > 0;
 
   // Enable onboarding gate (payouts + billing + first offer required)
-  const ignoreOnboardingGate = false;
+  const ignoreOnboardingGate = true;
 
   // Show checklist until: payouts + billing + at least one offer exist
   const showOnboardingChecklist = ignoreOnboardingGate
