@@ -1955,10 +1955,21 @@ function DateTimeField({
                       <div className="text-lg font-semibold text-[#00C2CB]">{form.headline || 'No headline'}</div>
                       <div className="text-sm text-gray-400">{form.caption || 'No caption'}</div>
                       <div className="text-sm mt-1 text-gray-300">
-                        CTA: <span className="text-[#00C2CB]">{form.call_to_action?.replace('_', ' ')}</span> →{' '}
-                        <a href={form.display_link || '#'} className="underline text-[#00C2CB] hover:text-[#00b0b8]" target="_blank">
-                          {form.display_link || '—'}
-                        </a>
+                        <div className="text-sm mt-1 text-gray-300">
+                        <div className="flex flex-wrap items-start gap-1 min-w-0">
+                        <span>CTA:</span>
+                        <span className="text-[#00C2CB]">{form.call_to_action?.replace('_', ' ')}</span>
+                        <span aria-hidden>→</span>
+                        <a
+                        href={form.display_link || '#'}
+                        target="_blank"
+                        rel="noreferrer"
+                   className="underline text-[#00C2CB] hover:text-[#00b0b8] inline-block max-w-full min-w-0 whitespace-normal break-all"
+                 >
+                {form.display_link || '—'}
+              </a>
+             </div>
+           </div>
                       </div>
                     </div>
                   </div>

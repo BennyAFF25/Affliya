@@ -13,22 +13,29 @@ type Plan = "business" | "affiliate";
 
 type Meta = {
   title: string;
-  price: string;
+  priceNow: string;
+  priceLater: string;
   blurb: string;
   cta: string;
 };
 
 export default function PricingPage() {
-  const [err, setErr] = useState<string | null>(null);
-  const [loadingPlan, setLoadingPlan] = useState<Plan | null>(null);
-
   const { session } = useSessionContext();
   const user = session?.user ?? null;
+
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
 
   const handleLogin = (type: "business" | "affiliate") => {
     router.push(`/login?role=${type}`);
+  };
+
+  const handleCreateAccount = (type: "business" | "affiliate") => {
+    try {
+      localStorage.setItem("intent.role", type);
+      localStorage.setItem("intent.flow", "signup");
+    } catch {}
+    router.push(`/create-account?role=${type}`);
   };
 
   const handleLogout = async () => {
@@ -44,75 +51,27 @@ export default function PricingPage() {
     const isBusiness = plan === "business";
     return {
       title: isBusiness ? "For Businesses" : "For Partners",
-      price: displayPrice(plan),
+      priceNow: "$0/mo (Early Access)",
+      priceLater: `Then ${displayPrice(plan)}`,
       blurb: isBusiness
         ? "Publish offers, approve affiliates, and manage payouts."
         : "Access offers, run ads, and track commissions.",
-      cta: "Start Free 50-Day Trial",
+      cta: isBusiness ? "Create Business Account" : "Create Partner Account",
     };
   };
 
-  const startCheckout = async (plan: Plan) => {
-    setErr(null);
-    setLoadingPlan(plan);
-    try {
-      // eslint-disable-next-line no-console
-      console.log("[pricing] starting checkout with plan =", plan);
-
-      const res = await fetch("/api/stripe-app/create-checkout-session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accountType: plan }),
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        setErr(data?.error || `Could not start checkout for ${plan}.`);
-        // eslint-disable-next-line no-console
-        console.error("[pricing] checkout error:", data);
-        return;
-      }
-
-      if (data?.url) {
-        // eslint-disable-next-line no-console
-        console.log("[pricing] redirecting to Stripe Checkout:", data.url);
-        window.location.href = data.url;
-        return;
-      }
-
-      setErr("Checkout session did not return a URL.");
-    } catch (e: any) {
-      // eslint-disable-next-line no-console
-      console.error("[pricing] unexpected error:", e);
-      setErr(e?.message || "Unexpected error.");
-    } finally {
-      setLoadingPlan(null);
-    }
-  };
-
-  const features = [
-    { label: "Publish offers & approvals", business: true, affiliate: false },
-    { label: "Access marketplace offers", business: false, affiliate: true },
-    { label: "Account-hosted Meta ads", business: true, affiliate: true },
-    { label: "Unified tracking", business: true, affiliate: true },
-    { label: "Auto Stripe payouts", business: true, affiliate: true },
-  ] as const;
-
-  const Tick = () => <span className="inline-block h-4 w-4 rounded-full bg-emerald-400/90" />;
-  const Dash = () => <span className="inline-block h-4 w-4 rounded bg-white/15" />;
-
   const faqs = [
     {
-      q: "When am I charged?",
-      a: "After your free trial ends, monthly on the same date. Cancel anytime from settings.",
+      q: "Is it really free right now?",
+      a: "Yes. The first 150 users get Nettmark free for life. This Early Access window is mainly for feedback while we polish onboarding, support, and overall UX.",
+    },
+    {
+      q: "What will pricing be after Early Access?",
+      a: "Once Early Access is full, pricing returns to $150/month for Businesses and $50/month for Partners.",
     },
     {
       q: "Does Business pay for ads?",
       a: "No. Partners fund ad spend from their pre-funded wallets. You only pay commissions on verified conversions.",
-    },
-    {
-      q: "Can I keep control of my brand?",
-      a: "Yes. All creatives and audiences are submitted for approval and run under your guardrails.",
     },
     {
       q: "How do payouts work?",
@@ -123,6 +82,7 @@ export default function PricingPage() {
   const PlanCard = ({ plan }: { plan: Plan }) => {
     const meta = getMeta(plan);
     const label = plan === "business" ? "Business" : "Partner";
+    const role = plan === "business" ? "business" : "affiliate";
 
     return (
       <section className="relative w-full rounded-2xl border border-white/10 bg-white/[0.02] transition-all duration-300 hover:border-[#00C2CB]/40 hover:shadow-[0_0_35px_rgba(0,194,203,0.25)] backdrop-blur-xl shadow-lg">
@@ -130,33 +90,43 @@ export default function PricingPage() {
           <span className="text-xs uppercase tracking-widest text-gray-400">
             {label}
           </span>
-          <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">{meta.title}</h2>
+
+          <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+            {meta.title}
+          </h2>
           <p className="text-gray-400 max-w-md">{meta.blurb}</p>
+
           <div className="mt-1 text-2xl font-semibold tracking-tight text-gray-200">
-            Platform access · {meta.price}
+            Platform access ·{" "}
+            <span className="text-[#00C2CB]">{meta.priceNow}</span>
           </div>
+          <div className="text-xs text-gray-400 -mt-2">
+            <span className="line-through opacity-70">{displayPrice(plan)}</span>{" "}
+            <span className="opacity-70">({meta.priceLater})</span>
+          </div>
+
           <button
-            onClick={() => {
-              try {
-                // Map UI plan to canonical role used elsewhere
-                const role = plan === 'business' ? 'business' : 'affiliate';
-                localStorage.setItem('intent.role', role);
-              } catch {}
-              startCheckout(plan);
-            }}
-            disabled={loadingPlan === plan}
-            className="mt-2 w-full sm:w-auto bg-[#00C2CB]/90 text-black font-medium px-6 py-2.5 rounded-lg hover:bg-[#00C2CB] disabled:opacity-50 shadow-[0_8px_30px_-10px_rgba(0,194,203,0.45)]"
+            onClick={() => handleCreateAccount(role)}
+            className="mt-2 w-full sm:w-auto bg-[#00C2CB]/90 text-black font-medium px-6 py-2.5 rounded-lg hover:bg-[#00C2CB] shadow-[0_8px_30px_-10px_rgba(0,194,203,0.45)]"
           >
-            {loadingPlan === plan ? "Starting…" : `Access as ${label}`}
+            {meta.cta}
           </button>
+
           <div className="mt-3 grid grid-cols-1 gap-2 text-xs text-gray-400 sm:grid-cols-3 w-full">
-            <div className="rounded-md border border-white/10 bg-white/[0.03] px-3 py-2">50‑day free trial</div>
-            <div className="rounded-md border border-white/10 bg-white/[0.03] px-3 py-2">Cancel anytime</div>
-            <div className="rounded-md border border-white/10 bg-white/[0.03] px-3 py-2">Stripe‑powered, secure</div>
+            <div className="rounded-md border border-white/10 bg-white/[0.03] px-3 py-2">
+              First 150 free for life
+            </div>
+            <div className="rounded-md border border-white/10 bg-white/[0.03] px-3 py-2">
+              Early user feedback
+            </div>
+            <div className="rounded-md border border-white/10 bg-white/[0.03] px-3 py-2">
+              No card required
+            </div>
           </div>
+
           <details className="mt-4 w-full rounded-xl border border-white/10 bg-white/[0.02] p-3 text-left">
             <summary className="cursor-pointer select-none text-sm font-medium list-none">
-              What you’re paying for
+              What you get
             </summary>
             <ul className="mt-2 space-y-1 text-xs text-gray-300 list-disc list-inside">
               {(plan === "business"
@@ -177,6 +147,17 @@ export default function PricingPage() {
               ))}
             </ul>
           </details>
+
+          <div className="text-xs text-gray-500">
+            Already have an account?{" "}
+            <button
+              type="button"
+              onClick={() => handleLogin(role)}
+              className="text-[#00C2CB] hover:text-[#7ff5fb] underline underline-offset-2"
+            >
+              Log in
+            </button>
+          </div>
         </div>
       </section>
     );
@@ -278,7 +259,12 @@ export default function PricingPage() {
           </button>
         </div>
       </header>
-      <div aria-hidden className="pointer-events-none" style={{ height: "calc(4rem + env(safe-area-inset-top))" }} />
+
+      <div
+        aria-hidden
+        className="pointer-events-none"
+        style={{ height: "calc(4rem + env(safe-area-inset-top))" }}
+      />
 
       {menuOpen && (
         <div
@@ -342,72 +328,50 @@ export default function PricingPage() {
       <main className="flex-1 w-full px-6 md:px-10 py-8 md:py-12">
         <section className="mx-auto mb-10 w-full max-w-5xl text-center">
           <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-[#00C2CB] drop-shadow-[0_0_12px_rgba(0,194,203,0.35)]">
-            Access Nettmark’s Growth Infrastructure
+            Early Access is Live
           </h1>
+
           <p className="mt-3 text-gray-400 max-w-3xl mx-auto text-sm md:text-base">
-            Nettmark is a role-based platform. Choose how you want to participate in the ecosystem —
-            as a business, a partner, or both.
+            The first <span className="text-white/90 font-semibold">150 users</span> get{" "}
+            <span className="text-[#00C2CB] font-semibold">free access for life</span>. This Early
+            Access window is mainly for early user feedback while we tighten onboarding and polish
+            the platform. Choose how you want to join — as a business or a partner.
           </p>
+
+          <div className="mt-5 mx-auto max-w-3xl rounded-2xl border border-[#00C2CB]/25 bg-gradient-to-b from-[#001f20] via-[#0b0b0b] to-black p-5 text-left shadow-[0_0_25px_rgba(0,194,203,0.12)]">
+            <div className="flex items-start gap-3">
+              <span className="mt-1 inline-block h-2 w-2 rounded-full bg-[#00C2CB]" />
+              <div className="text-sm text-gray-200">
+                <div className="font-semibold text-[#00C2CB]">
+                  Free for life (first 150 users)
+                </div>
+                <div className="text-gray-400">
+                  No card required. After Early Access fills up, pricing returns to{" "}
+                  <span className="text-white/80 font-medium">$150/mo for Businesses</span> and{" "}
+                  <span className="text-white/80 font-medium">$50/mo for Partners</span>.
+                </div>
+              </div>
+            </div>
+          </div>
         </section>
+
         <div className="mx-auto w-full max-w-5xl grid gap-6 md:gap-8 md:grid-cols-2">
           <PlanCard plan="business" />
           <PlanCard plan="affiliate" />
         </div>
+
         <p className="mt-6 text-center text-xs text-gray-400">
           You can operate as both a Business and a Partner using separate accounts.
         </p>
-
-        {err && (
-          <p className="mt-6 text-center text-red-500 text-sm" role="status" aria-live="polite">
-            {err}
-          </p>
-        )}
-
-        <section className="mx-auto mt-12 w-full max-w-5xl rounded-2xl border border-[#00C2CB]/20 bg-gradient-to-b from-[#001f20] via-[#0b0b0b] to-black p-6 md:p-8 shadow-[0_0_25px_rgba(0,194,203,0.15)]">
-          <h3 className="text-xl font-semibold mb-4 flex items-center gap-2"><span className="inline-block w-2 h-2 bg-[#00C2CB] rounded-full"></span> Why Nettmark is worth it</h3>
-          <p className="text-sm text-gray-300 mb-6 max-w-3xl">
-            Whether you&apos;re a brand or a partner, you&apos;re paying for infrastructure you
-            could never justify building alone — tracking, payouts, and guardrails that let
-            you focus on the work, not the plumbing.
-          </p>
-          <div className="grid gap-4 md:grid-cols-2">
-            {/* Business card */}
-            <div className="rounded-xl border border-[#00C2CB]/20 bg-[#001718]/60 p-5 shadow-[0_0_20px_rgba(0,194,203,0.12)]">
-              <h4 className="text-base font-semibold mb-2 text-[#00C2CB]">If you&apos;re a business</h4>
-              <p className="text-xs text-gray-300 mb-3">
-                Turn partner traffic into a predictable channel without bloated retainers or
-                handing out logins.
-              </p>
-              <ul className="list-none space-y-1 text-xs text-gray-300">
-                <li><span className="inline-block w-2 h-2 rounded-full bg-[#00C2CB] mr-2"></span>Always-on exposure inside the Nettmark marketplace.</li>
-                <li><span className="inline-block w-2 h-2 rounded-full bg-[#00C2CB] mr-2"></span>Low-risk, pay-on-results acquisition instead of fixed ad retainers.</li>
-                <li><span className="inline-block w-2 h-2 rounded-full bg-[#00C2CB] mr-2"></span>Meta ad infrastructure that lets partners run ads from your account safely.</li>
-                <li><span className="inline-block w-2 h-2 rounded-full bg-[#00C2CB] mr-2"></span>Automated, compliant Stripe payouts on verified conversions only.</li>
-              </ul>
-            </div>
-
-            {/* Partner card */}
-            <div className="rounded-xl border border-[#00C2CB]/20 bg-[#001718]/60 p-5 shadow-[0_0_20px_rgba(0,194,203,0.12)]">
-              <h4 className="text-base font-semibold mb-2 text-[#00C2CB]">If you&apos;re a partner</h4>
-              <p className="text-xs text-gray-300 mb-3">
-                Plug into ready-to-sell offers with rails for both paid campaigns and
-                organic content.
-              </p>
-              <ul className="list-none space-y-1 text-xs text-gray-300">
-                <li><span className="inline-block w-2 h-2 rounded-full bg-[#00C2CB] mr-2"></span>Instant access to vetted offers and clear commission structures.</li>
-                <li><span className="inline-block w-2 h-2 rounded-full bg-[#00C2CB] mr-2"></span>Use Nettmark&apos;s tracking, wallets, and reporting instead of duct-taping tools.</li>
-                <li><span className="inline-block w-2 h-2 rounded-full bg-[#00C2CB] mr-2"></span>Run paid Meta ads or lean on organic / UGC flows from the same dashboard.</li>
-                <li><span className="inline-block w-2 h-2 rounded-full bg-[#00C2CB] mr-2"></span>Get paid automatically via Stripe without chasing invoices.</li>
-              </ul>
-            </div>
-          </div>
-        </section>
 
         <section className="mx-auto mt-12 w-full max-w-5xl">
           <h3 className="text-xl font-semibold mb-4">FAQs</h3>
           <div className="grid md:grid-cols-2 gap-4">
             {faqs.map(({ q, a }) => (
-              <details key={q} className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
+              <details
+                key={q}
+                className="rounded-xl border border-white/10 bg-white/[0.02] p-4"
+              >
                 <summary className="cursor-pointer select-none font-medium list-none">
                   {q}
                 </summary>
@@ -419,7 +383,11 @@ export default function PricingPage() {
 
         <section className="mx-auto mt-12 w-full max-w-5xl rounded-2xl border border-white/10 bg-white/[0.02] p-5 text-center">
           <p className="text-gray-300">
-            Still comparing? <Link className="text-[#00C2CB] hover:text-[#7ff5fb]" href="/contact">Talk to us</Link> — we’ll help you choose.
+            Still comparing?{" "}
+            <Link className="text-[#00C2CB] hover:text-[#7ff5fb]" href="/contact">
+              Talk to us
+            </Link>{" "}
+            — we’ll help you choose.
           </p>
         </section>
       </main>
