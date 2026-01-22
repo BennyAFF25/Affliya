@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { Line } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
@@ -29,21 +29,33 @@ import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/../utils/supabase/pages-client';
 import type { PostgrestError } from '@supabase/supabase-js';
 import {
-  CursorArrowRaysIcon,
   ShoppingCartIcon,
   CurrencyDollarIcon,
   TrashIcon,
+  ArrowPathIcon,
+  CursorArrowRaysIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
 
 type Campaign = {
   id: string;
   caption?: string;
-  media_url?: string;
-  affiliate_id?: string;
+  media_url?: string | null;
+  file_url?: string | null;
+  affiliate_id?: string | null;
+  affiliate_email?: string | null;
+  business_email?: string | null;
   type?: string;
   platform?: string;
   status?: string;
-  offer_id?: string;
+  offer_id?: string | null;
+
+  // Paid Meta-only fields (live_ads)
+  campaign_type?: string | null;
+  spend?: number | null;
+  conversions?: number | null;
+  tracking_link?: string | null;
+
   billing_state?: string | null;
   terminated_by_business_at?: string | null;
   terminated_by_business_note?: string | null;
@@ -52,6 +64,12 @@ type Campaign = {
 };
 
 type Stats = { clicks: number; carts: number; conversions: number };
+
+type ChartSeries = {
+  labels: string[];
+  carts: number[];
+  conversions: number[];
+};
 
 export default function ManageCampaignPage() {
   const params = useParams();
@@ -66,14 +84,13 @@ export default function ManageCampaignPage() {
 
   const [offer, setOffer] = useState<{ website?: string; title?: string; commission?: number } | null>(null);
   const [stats, setStats] = useState<Stats>({ clicks: 0, carts: 0, conversions: 0 });
-  const [chartSeries, setChartSeries] = useState<{
-    labels: string[];
-    clicks: number[];
-    carts: number[];
-    conversions: number[];
-  }>({ labels: [], clicks: [], carts: [], conversions: [] });
+  const [chartSeries, setChartSeries] = useState<ChartSeries>({ labels: [], carts: [], conversions: [] });
   const [loadingStats, setLoadingStats] = useState<boolean>(false);
   const [pendingPayout, setPendingPayout] = useState<number>(0);
+
+  // Meta spend formatting
+  const [metaCurrency, setMetaCurrency] = useState<string>('AUD');
+  const [syncingSpend, setSyncingSpend] = useState(false);
 
   // --------------------
   // Helpers
@@ -90,72 +107,134 @@ export default function ManageCampaignPage() {
     return labels;
   }
 
+  const formatMoney = useCallback(
+    (val: any) => {
+      const n = Number(val);
+      const safe = Number.isFinite(n) ? n : 0;
+      const currency = String(metaCurrency || 'AUD').toUpperCase();
+      try {
+        return new Intl.NumberFormat('en-AU', { style: 'currency', currency }).format(safe);
+      } catch {
+        return `A$${safe.toFixed(2)}`;
+      }
+    },
+    [metaCurrency]
+  );
+
+  async function loadMetaCurrencyForBusiness(businessEmail?: string | null) {
+    if (!businessEmail) return;
+
+    const { data, error: connErr } = await supabase
+      .from('meta_connections')
+      .select('currency, account_currency, ad_account_currency, created_at')
+      .eq('business_email', businessEmail)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (connErr) {
+      console.warn('[⚠️ meta currency lookup failed]', connErr);
+      return;
+    }
+
+    const cur = (data as any)?.currency || (data as any)?.account_currency || (data as any)?.ad_account_currency;
+    if (cur) setMetaCurrency(String(cur).toUpperCase());
+  }
+
   // --------------------
   // Stats loader
-  // This loader is shared for both organic (live_campaigns) and paid Meta (live_ads) campaigns,
-  // relying on the unified campaignId used in campaign_tracking_events.
+  // Tracking-system stats only (no Meta clicks to avoid crossing wires)
+  // IMPORTANT: Clicks should match business-side logic.
+  // Business counts "Clicks / Page views" as any of:
+  // page_view, view, landing_view, click (case-insensitive).
   // --------------------
   async function loadCampaignStats(currentCampaignId: string) {
     try {
       setLoadingStats(true);
-      // Exact counts
-      const [clicksRes, cartsRes, convRes] = await Promise.all([
-        supabase
+
+      // 🔑 Single source of truth: stats are always per campaign_id (same as business side)
+      const resp = await (supabase as any)
+        .from('campaign_tracking_events')
+        .select('id, event_type, amount, created_at, offer_id, affiliate_id, campaign_id')
+        .eq('campaign_id', currentCampaignId);
+
+      let rows: any[] = resp?.data || [];
+      const fetchErr: any = resp?.error;
+
+      if (fetchErr) {
+        console.error('[❌ Failed to fetch campaign stats]', fetchErr);
+      }
+
+      // Optional fallback (only if needed): some legacy setups may not attach campaign_id
+      // In that case, count events by offer_id + affiliate_id.
+      if ((!rows || rows.length === 0) && campaign?.offer_id && affiliateId) {
+        const fallback = await (supabase as any)
           .from('campaign_tracking_events')
-          .select('id', { count: 'exact', head: true })
-          .eq('campaign_id', currentCampaignId)
-          .eq('event_type', 'page_view'),
-        supabase
-          .from('campaign_tracking_events')
-          .select('id', { count: 'exact', head: true })
-          .eq('campaign_id', currentCampaignId)
-          .eq('event_type', 'add_to_cart'),
-        supabase
-          .from('campaign_tracking_events')
-          .select('id', { count: 'exact', head: true })
-          .eq('campaign_id', currentCampaignId)
-          .eq('event_type', 'conversion'),
-      ]);
+          .select('id, event_type, amount, created_at, offer_id, affiliate_id, campaign_id')
+          .eq('offer_id', campaign.offer_id)
+          .eq('affiliate_id', affiliateId);
+
+        rows = fallback?.data || [];
+        if (fallback?.error) {
+          console.warn('[⚠️ Fallback stats query failed]', fallback.error);
+        }
+      }
+
+      // If no events exist, reset UI cleanly.
+      if (!rows || rows.length === 0) {
+        setStats({ clicks: 0, carts: 0, conversions: 0 });
+        const labels = buildLast7DaysBuckets();
+        setChartSeries({ labels, carts: Array(labels.length).fill(0), conversions: Array(labels.length).fill(0) });
+        return;
+      }
+
+      // ✅ Aggregate totals (matches business logic)
+      let pageViews = 0;
+      let addToCarts = 0;
+      let conversions = 0;
+
+      for (const evt of rows) {
+        const t = String(evt?.event_type || '').toLowerCase();
+
+        // Business treats these as "Clicks" (meta) / "Page views" (organic)
+        if (t === 'page_view' || t === 'view' || t === 'landing_view' || t === 'click') {
+          pageViews += 1;
+        } else if (t === 'add_to_cart' || t === 'cart') {
+          addToCarts += 1;
+        } else if (t === 'conversion' || t === 'purchase' || t === 'order') {
+          conversions += 1;
+        }
+      }
 
       setStats({
-        clicks: clicksRes.count || 0,
-        carts: cartsRes.count || 0,
-        conversions: convRes.count || 0,
+        clicks: pageViews,
+        carts: addToCarts,
+        conversions: conversions,
       });
 
-      // Time-series last 7 days
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
-      const { data: recent, error: recentErr } = await supabase
-        .from('campaign_tracking_events')
-        .select('created_at, event_type')
-        .eq('campaign_id', currentCampaignId)
-        .gte('created_at', sevenDaysAgo.toISOString())
-        .order('created_at', { ascending: true });
+      // ✅ Build last-7-days series for chart (we chart carts + conversions here)
+      const labels = buildLast7DaysBuckets();
+      const cartsSeries = Array(labels.length).fill(0);
+      const conversionsSeries = Array(labels.length).fill(0);
 
-      if (!recentErr) {
-        const labels = buildLast7DaysBuckets();
-        const clicks = Array(labels.length).fill(0);
-        const carts = Array(labels.length).fill(0);
-        const conversions = Array(labels.length).fill(0);
+      const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      const today = startOfDay(new Date());
 
-        recent?.forEach((row: { created_at: string; event_type: string }) => {
-          const d = new Date(row.created_at);
-          const idx = (() => {
-            const base = new Date();
-            const baseStart = new Date(base.getFullYear(), base.getMonth(), base.getDate());
-            const rowStart = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-            const diffDays = Math.round((rowStart.getTime() - baseStart.getTime()) / 86400000);
-            const pos = 6 + diffDays; // -6..0 -> 0..6
-            return Math.min(6, Math.max(0, pos));
-          })();
-          if (row.event_type === 'page_view') clicks[idx] += 1;
-          else if (row.event_type === 'add_to_cart') carts[idx] += 1;
-          else if (row.event_type === 'conversion') conversions[idx] += 1;
-        });
+      for (const row of rows) {
+        const createdAt = row?.created_at;
+        if (!createdAt) continue;
 
-        setChartSeries({ labels, clicks, carts, conversions });
+        const d = new Date(createdAt);
+        const rowDay = startOfDay(d);
+        const diffDays = Math.round((rowDay.getTime() - today.getTime()) / 86400000);
+        const idx = Math.min(labels.length - 1, Math.max(0, (labels.length - 1) + diffDays));
+
+        const t = String(row?.event_type || '').toLowerCase();
+        if (t === 'add_to_cart' || t === 'cart') cartsSeries[idx] += 1;
+        else if (t === 'conversion' || t === 'purchase' || t === 'order') conversionsSeries[idx] += 1;
       }
+
+      setChartSeries({ labels, carts: cartsSeries, conversions: conversionsSeries });
     } finally {
       setLoadingStats(false);
     }
@@ -177,103 +256,109 @@ export default function ManageCampaignPage() {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [campaignId]);
+  }, [campaignId, affiliateId, campaign?.offer_id]);
 
   // --------------------
   // Load campaign (organic first, then paid meta from live_ads)
   // --------------------
+  const reloadCampaign = useCallback(async () => {
+    if (!campaignId) return;
+
+    // 1) Organic / live_campaigns
+    const { data: organic, error: organicErr } = await supabase
+      .from('live_campaigns')
+      .select(
+        `
+          *,
+          offers:offers (
+            id,
+            title
+          )
+        `
+      )
+      .eq('id', campaignId)
+      .maybeSingle();
+
+    if (organic) {
+      const normalised: Campaign = {
+        ...(organic as any),
+        type: (organic as any).type || 'organic',
+        media_url: (organic as any).media_url || (organic as any).file_url || null,
+      };
+      setCampaign(normalised);
+      if (organicErr) setError(organicErr);
+      return;
+    }
+
+    // 2) Paid Meta / live_ads
+    const { data: paid, error: paidErr } = await supabase
+      .from('live_ads')
+      .select(
+        `
+          *,
+          offers:offers (
+            id,
+            title
+          )
+        `
+      )
+      .eq('id', campaignId)
+      .maybeSingle();
+
+    if (paid) {
+      // Start with anything stored on live_ads
+      let mediaUrl: string | null = (paid as any).media_url || (paid as any).file_url || null;
+      let caption: string | undefined = (paid as any).caption;
+
+      // If no media on live_ads, fall back to the original ad_idea (approved only)
+      if ((!mediaUrl || mediaUrl === '') && (paid as any).ad_idea_id) {
+        // NOTE: Some Supabase type setups infer `ad_ideas` as `never` if generated DB types are out of date.
+        // We cast the query to `any` so TS doesn't error on `file_url` / `caption`.
+        type AdIdeaMini = { file_url?: string | null; caption?: string | null };
+
+        const { data: idea } = await (supabase as any)
+          .from('ad_ideas')
+          .select('file_url, caption')
+          .eq('id', (paid as any).ad_idea_id)
+          .eq('status', 'approved')
+          .maybeSingle();
+
+        const typedIdea = (idea as AdIdeaMini | null) ?? null;
+        if (typedIdea?.file_url) mediaUrl = typedIdea.file_url;
+        if (!caption && typedIdea?.caption) caption = typedIdea.caption;
+      }
+
+      const normalised: Campaign = {
+        ...(paid as any),
+        type: (paid as any).campaign_type || 'paid_meta',
+        platform: (paid as any).platform || 'Meta',
+        media_url: mediaUrl,
+        caption: caption,
+        spend: Number((paid as any).spend ?? 0),
+        tracking_link: (paid as any).tracking_link ?? null,
+      };
+
+      setCampaign(normalised);
+      if (paidErr) setError(paidErr);
+
+      // pull currency from latest meta_connections for this business
+      await loadMetaCurrencyForBusiness((paid as any).business_email);
+      return;
+    }
+
+    if (organicErr || paidErr) {
+      setError((organicErr || paidErr) as PostgrestError);
+    }
+  }, [campaignId]);
+
   useEffect(() => {
     if (!campaignId) return;
     console.log('✅ CAMPAIGN ID FROM ROUTE:', campaignId);
-
-    const load = async () => {
-      // 1) Organic / live_campaigns, join offers
-      const { data: organic, error: organicErr } = await supabase
-        .from('live_campaigns')
-        .select(`
-          *,
-          offers:offers (
-            id,
-            title
-          )
-        `)
-        .eq('id', campaignId)
-        .maybeSingle();
-
-      if (organic) {
-        console.log('✅ ORGANIC CAMPAIGN DATA:', organic);
-        const normalised: Campaign = {
-          ...(organic as any),
-          type: (organic as any).type || 'organic',
-          media_url: (organic as any).media_url || (organic as any).file_url || null,
-        };
-        setCampaign(normalised);
-        if (organicErr) setError(organicErr);
-        return;
-      }
-
-      // 2) Paid Meta / live_ads, join offers
-      const { data: paid, error: paidErr } = await supabase
-        .from('live_ads')
-        .select(`
-          *,
-          offers:offers (
-            id,
-            title
-          )
-        `)
-        .eq('id', campaignId)
-        .maybeSingle();
-
-      if (paid) {
-        console.log('✅ META CAMPAIGN DATA (live_ads):', paid);
-
-        // Start with anything stored on live_ads
-        let mediaUrl: string | null =
-          (paid as any).media_url || (paid as any).file_url || null;
-        let caption: string | undefined = (paid as any).caption;
-
-        // If no media on live_ads, fall back to the original ad_idea (approved only)
-        if ((!mediaUrl || mediaUrl === '') && (paid as any).ad_idea_id) {
-          const { data: idea, error: ideaErr } = await supabase
-            .from('ad_ideas')
-            .select('file_url, caption, status')
-            .eq('id', (paid as any).ad_idea_id)
-            .eq('status', 'approved')
-            .maybeSingle();
-
-          console.log('🎨 AD IDEA FOR PAID CAMPAIGN:', idea, ideaErr);
-
-          if (idea) {
-            if (idea.file_url) mediaUrl = idea.file_url;
-            if (!caption && idea.caption) caption = idea.caption;
-          }
-        }
-
-        const normalised: Campaign = {
-          ...(paid as any),
-          type: (paid as any).campaign_type || 'paid_meta',
-          platform: (paid as any).platform || 'Meta',
-          media_url: mediaUrl,
-          caption: caption,
-        };
-
-        setCampaign(normalised);
-        if (paidErr) setError(paidErr);
-        return;
-      }
-
-      if (organicErr || paidErr) {
-        console.log('❌ CAMPAIGN FETCH ERROR:', organicErr || paidErr);
-        setError((organicErr || paidErr) as PostgrestError);
-      }
-    };
-
-    load();
-  }, [campaignId]);
+    reloadCampaign();
+  }, [campaignId, reloadCampaign]);
 
   // --------------------
-  // Meta control (pause / resume) – affiliates can soft-control; biz has hard stop
+  // Meta control (pause / resume)
   // --------------------
   async function handleMetaControl(action: 'PAUSE' | 'RESUME') {
     if (!campaign?.id) return;
@@ -310,6 +395,36 @@ export default function ManageCampaignPage() {
       setMetaControlLoading(false);
     }
   }
+
+  // --------------------
+  // Sync Meta spend (paid only)
+  // --------------------
+  const handleSyncSpend = useCallback(async () => {
+    if (!campaign?.id) return;
+
+    try {
+      setSyncingSpend(true);
+      const res = await fetch('/api/meta/ad-insights', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ liveAdId: campaign.id }),
+      });
+
+      const json = await res.json().catch(() => null);
+      if (!res.ok || (json && (json as any).error)) {
+        console.error('[❌ Sync spend failed]', json);
+        alert('Failed to sync spend. Check terminal logs.');
+        return;
+      }
+
+      await reloadCampaign();
+    } catch (err) {
+      console.error('[❌ Sync spend threw]', err);
+      alert('Failed to sync spend. Check terminal logs.');
+    } finally {
+      setSyncingSpend(false);
+    }
+  }, [campaign?.id, reloadCampaign]);
 
   // --------------------
   // Resolve affiliateId
@@ -434,27 +549,33 @@ export default function ManageCampaignPage() {
       cancelled = true;
     };
   }, [campaign]);
-// No UI rendering for offer name in this file, so nothing more to update here.
 
   // --------------------
   // Derived flags / values
   // --------------------
-  const trackingUrl = useMemo(() => {
-    if (!campaignId || !affiliateId) return '';
-    return `https://www.nettmark.com/go/${campaignId}-${affiliateId}`;
-  }, [campaignId, affiliateId]);
-
   const rawStatus = campaign?.status ? String(campaign.status).toUpperCase() : '';
   const isPaused =
     rawStatus === 'PAUSED' ||
     campaign?.billing_state === 'PAUSED' ||
     !!campaign?.billing_paused_at;
+
   const isOrganic = campaign?.type === 'organic';
   const isMetaPaid = !isOrganic;
+
   const isTerminatedByBusiness =
-    campaign?.billing_state === 'TERMINATED_BY_BUSINESS' || !!campaign?.terminated_by_business_at;
+    campaign?.billing_state === 'TERMINATED_BY_BUSINESS' ||
+    !!campaign?.terminated_by_business_at;
 
   const canAffiliateControlMeta = isMetaPaid && !isTerminatedByBusiness;
+
+  const trackingUrl = useMemo(() => {
+    // Prefer the stored tracking_link on live_ads
+    if (campaign?.tracking_link) return String(campaign.tracking_link);
+
+    if (!campaignId || !affiliateId) return '';
+    // fallback legacy format
+    return `https://www.nettmark.com/go/${campaignId}-${affiliateId}`;
+  }, [campaign?.tracking_link, campaignId, affiliateId]);
 
   if (error) return <div>Error: {error.message}</div>;
   if (!campaign) return <div>Loading...</div>;
@@ -465,7 +586,6 @@ export default function ManageCampaignPage() {
       {isTerminatedByBusiness && (
         <div className="max-w-6xl mx-auto mb-4">
           <div className="rounded-xl border border-red-500/40 bg-red-500/10 text-red-100 px-4 py-3 text-xs md:text-sm flex items-start gap-3">
-            <span className="mt-0.5">🛑</span>
             <div>
               <p className="font-semibold uppercase tracking-wide text-[0.7rem] md:text-[0.75rem] text-red-200">
                 Campaign permanently stopped by business
@@ -487,7 +607,6 @@ export default function ManageCampaignPage() {
       {!isTerminatedByBusiness && isPaused && (
         <div className="max-w-6xl mx-auto mb-4">
           <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-100 px-4 py-3 text-xs md:text-sm flex items-start gap-3">
-            <span className="mt-0.5">⏸️</span>
             <div>
               <p className="font-semibold uppercase tracking-wide text-[0.7rem] md:text-[0.75rem] text-amber-200">
                 Campaign paused
@@ -543,7 +662,7 @@ export default function ManageCampaignPage() {
       <div className="grid grid-cols-1 lg:grid-cols-[340px,minmax(0,1fr)] gap-8 items-start justify-center max-w-6xl mx-auto">
         {/* Left side: media / email preview */}
         <div className="w-full flex justify-center items-start">
-          {campaign.platform && campaign.platform.toLowerCase() === 'email' ? (
+          {campaign.platform && String(campaign.platform).toLowerCase() === 'email' ? (
             <div className="bg-gradient-to-b from-[#181d22] to-[#101214] rounded-2xl border border-[#232931] shadow-xl w-full max-w-lg min-h-[340px] flex flex-col justify-between p-12 relative drop-shadow-[0_0_16px_rgba(0,194,203,0.11)]">
               <div>
                 <div className="flex items-center gap-3 mb-4">
@@ -588,29 +707,25 @@ export default function ManageCampaignPage() {
                 />
               </div>
               <div className="h-[calc(100%-48px)] overflow-hidden">
-                {campaign.media_url.match(/\.(mp4|mov)$/i) ? (
+                {String(campaign.media_url).match(/\.(mp4|mov)$/i) ? (
                   <video controls className="w-full h-full object-cover bg-black">
-                    <source src={campaign.media_url} type="video/mp4" />
+                    <source src={String(campaign.media_url)} type="video/mp4" />
                     Your browser does not support the video tag.
                   </video>
-                ) : campaign.media_url.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                ) : String(campaign.media_url).match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
                   <img
-                    src={campaign.media_url}
+                    src={String(campaign.media_url)}
                     alt="Ad Preview"
                     className="w-full h-full object-cover bg-black"
                   />
                 ) : (
-                  <div className="p-8 text-center text-gray-500">
-                    Unsupported media format
-                  </div>
+                  <div className="p-8 text-center text-gray-500">Unsupported media format</div>
                 )}
               </div>
             </div>
           ) : (
             <div className="bg-[#1A1A1A] w-[90%] max-w-md rounded-xl border border-[#2A2A2A] p-8 shadow-lg flex items-center justify-center">
-              <span className="text-gray-500 text-center">
-                No content available for this campaign type
-              </span>
+              <span className="text-gray-500 text-center">No content available for this campaign type</span>
             </div>
           )}
         </div>
@@ -618,7 +733,32 @@ export default function ManageCampaignPage() {
         {/* Right side: stats */}
         <div className="w-full min-w-[320px] h-[640px] flex flex-col gap-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-none">
-            {/* Clicks */}
+            {/* Spend (Meta) - Paid only */}
+            {isMetaPaid && (
+              <div className="bg-[#171717] hover:bg-[#1C1C1C] transition-all duration-300 p-4 rounded-2xl shadow-md flex items-center justify-between h-24 border border-[#2A2A2A] drop-shadow-[0_0_10px_rgba(0,194,203,0.12)]">
+                <div>
+                  <h2 className="text-gray-300 text-sm font-medium mb-1 tracking-wide uppercase">
+                    Spend (Meta)
+                  </h2>
+                  <p className="text-2xl font-semibold text-white">
+                    {formatMoney((campaign as any).spend ?? 0)}
+                  </p>
+                  <button
+                    onClick={handleSyncSpend}
+                    disabled={syncingSpend}
+                    className="mt-2 inline-flex items-center gap-2 text-[0.7rem] font-semibold text-[#7ff5fb] hover:text-white disabled:opacity-60"
+                  >
+                    <ArrowPathIcon className={`w-4 h-4 ${syncingSpend ? 'animate-spin' : ''}`} />
+                    {syncingSpend ? 'Syncing…' : 'Sync spend'}
+                  </button>
+                </div>
+                <div className="w-9 h-9 rounded-full bg-[#0F0F0F] flex items-center justify-center shadow-inner">
+                  <CurrencyDollarIcon className="w-5 h-5 text-[#00C2CB]/80" />
+                </div>
+              </div>
+            )}
+
+            {/* Clicks (Nettmark tracking) */}
             <div className="bg-[#171717] hover:bg-[#1C1C1C] transition-all duration-300 p-4 rounded-2xl shadow-md flex items-center justify-between h-24 border border-[#2A2A2A] drop-shadow-[0_0_10px_rgba(0,194,203,0.12)]">
               <div>
                 <h2 className="text-gray-300 text-sm font-medium mb-1 tracking-wide uppercase">
@@ -627,6 +767,7 @@ export default function ManageCampaignPage() {
                 <p className="text-2xl font-semibold text-white">
                   {stats.clicks.toLocaleString()}
                 </p>
+                <p className="text-[0.6rem] text-gray-500 mt-1">Tracked by Nettmark</p>
               </div>
               <div className="w-9 h-9 rounded-full bg-[#0F0F0F] flex items-center justify-center shadow-inner">
                 <CursorArrowRaysIcon className="w-5 h-5 text-[#00C2CB]/80" />
@@ -696,22 +837,6 @@ export default function ManageCampaignPage() {
                     ? chartSeries.labels
                     : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
                   datasets: [
-                    {
-                      label: 'Clicks',
-                      data: chartSeries.clicks.length ? chartSeries.clicks : [0, 0, 0, 0, 0, 0, 0],
-                      fill: true,
-                      backgroundColor: (context) => {
-                        const gradient = context.chart.ctx.createLinearGradient(0, 0, 0, 200);
-                        gradient.addColorStop(0, 'rgba(0,194,203,0.15)');
-                        gradient.addColorStop(1, 'rgba(0,194,203,0)');
-                        return gradient;
-                      },
-                      borderColor: '#00C2CB',
-                      borderWidth: 2,
-                      tension: 0.35,
-                      pointRadius: 2,
-                      pointHoverRadius: 4,
-                    },
                     {
                       label: 'Add to Carts',
                       data: chartSeries.carts.length ? chartSeries.carts : [0, 0, 0, 0, 0, 0, 0],
@@ -811,9 +936,7 @@ export default function ManageCampaignPage() {
             </summary>
             <div className="p-4 space-y-3 text-gray-200 text-xs md:text-sm bg-[#0F0F0F]">
               {Object.entries(campaign)
-                .filter(([key]) =>
-                  ['caption', 'type', 'status', 'platform', 'billing_state'].includes(key)
-                )
+                .filter(([key]) => ['caption', 'type', 'status', 'platform', 'billing_state'].includes(key))
                 .map(([key, value]) => (
                   <div key={key} className="flex justify-between border-b border-[#1C1C1C] pb-2">
                     <span className="text-gray-400 capitalize">
@@ -979,17 +1102,12 @@ export default function ManageCampaignPage() {
                 <>
                   <p>
                     This is a <span className="text-[#00C2CB] font-medium">paid ad campaign</span> managed via Meta.
-                    Your ad creative, targeting, and spend are handled within Nettmark’s ad automation system.
+                    Spend is pulled from Meta insights, while conversions are shown from Nettmark tracking.
                   </p>
                   <p>
                     You can <span className="text-[#00C2CB] font-medium">pause or re-activate</span> this campaign from
                     here to manage your cashflow. If the business permanently stops the campaign, it will be locked and
                     shown as stopped inside Nettmark.
-                  </p>
-                  <p>
-                    Spend, clicks, and conversions are tracked automatically through Meta and Nettmark’s tracking
-                    pipeline. Use this screen as your control hub to make sure performance and budget align with your
-                    goals.
                   </p>
                 </>
               )}
@@ -1004,7 +1122,7 @@ export default function ManageCampaignPage() {
           <button
             onClick={async () => {
               const confirmDelete = window.confirm(
-                `⚠️ Permanently delete this organic campaign?\n\nThis action cannot be undone.`
+                `Permanently delete this organic campaign?\n\nThis action cannot be undone.`
               );
               if (!confirmDelete) return;
 
@@ -1041,8 +1159,12 @@ export default function ManageCampaignPage() {
           >
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-semibold text-[#00C2CB]">Email Preview</h2>
-              <button onClick={() => setShowEmailModal(false)} className="text-gray-400 hover:text-white">
-                ✖
+              <button
+                onClick={() => setShowEmailModal(false)}
+                className="text-gray-400 hover:text-white inline-flex items-center justify-center"
+                aria-label="Close"
+              >
+                <XMarkIcon className="w-5 h-5" />
               </button>
             </div>
             <div className="text-gray-300 whitespace-pre-line">{campaign.caption}</div>

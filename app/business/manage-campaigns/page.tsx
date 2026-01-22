@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useSession } from '@supabase/auth-helpers-react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from 'utils/supabase/pages-client';
 
 const ManageCampaignsBusiness = () => {
@@ -13,70 +13,146 @@ const ManageCampaignsBusiness = () => {
   const [showActive, setShowActive] = useState(true);
   const [showArchived, setShowArchived] = useState(false);
 
-  useEffect(() => {
-    if (!user) return;
+  const [metaCurrency, setMetaCurrency] = useState<string>('AUD');
+  const [syncingById, setSyncingById] = useState<Record<string, boolean>>({});
 
-    const fetchCampaigns = async () => {
-      // 1) Fetch organic campaigns
-      const { data: organic, error: organicError } = await supabase
-        .from('live_campaigns')
-        .select(`
-          id,
-          type,
-          offer_id,
-          business_email,
-          affiliate_email,
-          media_url,
-          caption,
-          platform,
-          created_from,
-          status,
-          created_at
-        `)
+  const formatMoney = (val: any) => {
+    const n = Number(val);
+    const safe = Number.isFinite(n) ? n : 0;
+    try {
+      return new Intl.NumberFormat('en-AU', {
+        style: 'currency',
+        currency: metaCurrency || 'AUD',
+      }).format(safe);
+    } catch {
+      // Fallback if an unexpected currency code is stored
+      return `A$${safe.toFixed(2)}`;
+    }
+  };
+
+  const fetchCampaigns = useCallback(async () => {
+    if (!user?.email) return;
+
+    // Pull currency from the latest meta connection (so UI matches the ad account)
+    try {
+      const { data: metaConn, error: metaConnErr } = await supabase
+        .from('meta_connections')
+        .select('*')
         .eq('business_email', user.email as string)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single();
 
-      if (organicError) {
-        console.error('[❌ Failed to fetch live_campaigns (organic)]', organicError);
+      if (metaConnErr) {
+        console.warn('[⚠️ meta_connections currency lookup failed]', metaConnErr);
+      } else {
+        const cur =
+          (metaConn as any)?.currency ||
+          (metaConn as any)?.account_currency ||
+          (metaConn as any)?.ad_account_currency ||
+          null;
+        if (cur && typeof cur === 'string') {
+          setMetaCurrency(cur.toUpperCase());
+        } else {
+          setMetaCurrency('AUD');
+        }
       }
+    } catch (e) {
+      console.warn('[⚠️ meta_connections currency lookup threw]', e);
+      setMetaCurrency('AUD');
+    }
 
-      // 2) Fetch paid Meta ads
-      const { data: metaAds, error: metaError } = await supabase
-        .from('live_ads')
-        .select(`
-          id,
-          ad_idea_id,
-          business_email,
-          affiliate_email,
-          caption,
-          status,
-          spend,
-          clicks,
-          conversions,
-          tracking_link,
-          campaign_type,
-          created_from,
-          created_at
-        `)
-        .eq('business_email', user.email as string)
-        .order('created_at', { ascending: false });
+    // 1) Fetch organic campaigns
+    const { data: organic, error: organicError } = await supabase
+      .from('live_campaigns')
+      .select(`
+        id,
+        type,
+        offer_id,
+        business_email,
+        affiliate_email,
+        media_url,
+        caption,
+        platform,
+        created_from,
+        status,
+        created_at
+      `)
+      .eq('business_email', user.email as string)
+      .order('created_at', { ascending: false });
 
-      if (metaError) {
-        console.error('[❌ Failed to fetch live_ads (meta)]', metaError);
-      }
+    if (organicError) {
+      console.error('[❌ Failed to fetch live_campaigns (organic)]', organicError);
+    }
 
-      const merged = [
-        ...(organic || []).map((c: any) => ({ ...c, _source: 'organic' })),
-        ...(metaAds || []).map((a: any) => ({ ...a, _source: 'meta' })),
-      ];
+    // 2) Fetch paid Meta ads
+    const { data: metaAds, error: metaError } = await supabase
+      .from('live_ads')
+      .select(`
+        id,
+        ad_idea_id,
+        business_email,
+        affiliate_email,
+        caption,
+        status,
+        spend,
+        clicks,
+        conversions,
+        tracking_link,
+        campaign_type,
+        created_from,
+        created_at
+      `)
+      .eq('business_email', user.email as string)
+      .order('created_at', { ascending: false });
 
-      setCampaigns(merged);
-    };
+    if (metaError) {
+      console.error('[❌ Failed to fetch live_ads (meta)]', metaError);
+    }
 
-    fetchCampaigns();
+    const merged = [
+      ...(organic || []).map((c: any) => ({ ...c, _source: 'organic' })),
+      ...(metaAds || []).map((a: any) => ({ ...a, _source: 'meta' })),
+    ];
+
+    setCampaigns(merged);
   }, [user]);
 
+  useEffect(() => {
+    if (!user) return;
+    fetchCampaigns();
+  }, [user, fetchCampaigns]);
+
   console.log('[📢 useEffect Completed]');
+
+  const handleSyncSpend = async (liveAdId: string) => {
+    try {
+      setSyncingById((prev) => ({ ...prev, [liveAdId]: true }));
+
+      console.log('[🔄 Sync Spend] calling /api/meta/ad-insights', { liveAdId });
+      const res = await fetch('/api/meta/ad-insights', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ liveAdId }),
+      });
+
+      const json = await res.json().catch(() => null);
+      console.log('[🔄 Sync Spend] response', { ok: res.ok, json });
+
+      if (!res.ok || (json && (json as any).error)) {
+        alert('Failed to sync spend. Check terminal logs.');
+        return;
+      }
+
+      // Re-fetch so the updated spend shows immediately in the list
+      await fetchCampaigns();
+    } catch (err) {
+      console.error('[❌ Sync Spend failed]', err);
+      alert('Failed to sync spend. Check terminal logs.');
+    } finally {
+      setSyncingById((prev) => ({ ...prev, [liveAdId]: false }));
+    }
+  };
 
   const handleToggleStatus = async (id: string, currentStatus: string) => {
     const newStatus =
@@ -265,6 +341,12 @@ const ManageCampaignsBusiness = () => {
                                       {campaign.campaign_type}
                                     </span>
                                   )}
+                                  <span className="rounded-full border border-[#00C2CB]/30 bg-[#00C2CB]/10 px-2 py-0.5 text-[#7ff5fb]">
+                                    Spend {formatMoney((campaign as any).spend || 0)}
+                                  </span>
+                                  <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
+                                    Conversions {Number((campaign as any).conversions || 0).toLocaleString()}
+                                  </span>
                                 </>
                               ) : (
                                 <>
@@ -300,13 +382,23 @@ const ManageCampaignsBusiness = () => {
                               </Link>
 
                               {campaign._source === 'meta' ? (
-                                // Paid Meta campaigns: business can only permanently stop them
-                                <button
-                                  onClick={() => handlePermanentStop(campaign.id)}
-                                  className="rounded-full border border-red-500/70 bg-red-500/10 px-4 py-1.5 text-xs font-semibold text-red-300 hover:bg-red-500/20 hover:text-red-200"
-                                >
-                                  Stop permanently
-                                </button>
+                                <>
+                                  <button
+                                    onClick={() => handleSyncSpend(campaign.id)}
+                                    disabled={!!syncingById[campaign.id]}
+                                    className={`rounded-full border border-white/20 bg-transparent px-4 py-1.5 text-xs font-semibold text-white/80 hover:bg-white/5 ${
+                                      syncingById[campaign.id] ? 'opacity-60 cursor-not-allowed' : ''
+                                    }`}
+                                  >
+                                    {syncingById[campaign.id] ? 'Syncing…' : 'Sync spend'}
+                                  </button>
+                                  <button
+                                    onClick={() => handlePermanentStop(campaign.id)}
+                                    className="rounded-full border border-red-500/70 bg-red-500/10 px-4 py-1.5 text-xs font-semibold text-red-300 hover:bg-red-500/20 hover:text-red-200"
+                                  >
+                                    Stop permanently
+                                  </button>
+                                </>
                               ) : (
                                 // Organic campaigns keep the softer pause/activate toggle
                                 <button
@@ -407,6 +499,12 @@ const ManageCampaignsBusiness = () => {
                                       {campaign.campaign_type}
                                     </span>
                                   )}
+                                  <span className="rounded-full border border-[#00C2CB]/30 bg-[#00C2CB]/10 px-2 py-0.5 text-[#7ff5fb]">
+                                    Spend {formatMoney((campaign as any).spend || 0)}
+                                  </span>
+                                  <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
+                                    Conversions {Number((campaign as any).conversions || 0).toLocaleString()}
+                                  </span>
                                 </>
                               ) : (
                                 <>
@@ -453,6 +551,19 @@ const ManageCampaignsBusiness = () => {
                                   View campaign
                                 </button>
                               </Link>
+
+                              {campaign._source === 'meta' && (
+                                <button
+                                  onClick={() => handleSyncSpend(campaign.id)}
+                                  disabled={!!syncingById[campaign.id]}
+                                  className={`rounded-full border border-white/20 bg-transparent px-4 py-1.5 text-xs font-semibold text-white/80 hover:bg-white/5 ${
+                                    syncingById[campaign.id] ? 'opacity-60 cursor-not-allowed' : ''
+                                  }`}
+                                >
+                                  {syncingById[campaign.id] ? 'Syncing…' : 'Sync spend'}
+                                </button>
+                              )}
+
                               <button className="rounded-full border border-white/20 bg-transparent px-4 py-1.5 text-xs font-semibold text-white/80 hover:bg-white/5">
                                 Edit details
                               </button>

@@ -94,7 +94,10 @@ export default function BusinessCampaignDetailPage() {
     addToCarts: [],
     conversions: [],
   });
-  const [metaCurrency, setMetaCurrency] = useState<string>('USD');
+  // ✅ Currency shown for Meta spend (should match Meta account currency, usually AUD)
+  const [metaCurrency, setMetaCurrency] = useState<string>('AUD');
+  const [syncingSpend, setSyncingSpend] = useState(false);
+  const [syncSpendMsg, setSyncSpendMsg] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user?.email || !campaignId) return;
@@ -162,16 +165,35 @@ export default function BusinessCampaignDetailPage() {
         };
 
         setCampaign(mapped);
-        // Fetch Meta ad account currency from meta_connections
-        const { data: metaConn } = await (supabase as any)
-          .from('meta_connections')
-          .select('ad_account_currency')
-          .eq('business_email', user.email as string)
-          .single();
 
-        if (metaConn?.ad_account_currency) {
-          setMetaCurrency(metaConn.ad_account_currency);
+        // ✅ Pull the latest Meta ad account currency from meta_connections
+        // Supports either `ad_account_currency` or `currency` (some older rows may use `currency`).
+        const { data: metaConn, error: metaConnErr } = await (supabase as any)
+          .from('meta_connections')
+          .select('ad_account_currency, currency, created_at')
+          .eq('business_email', user.email as string)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (metaConnErr) {
+          console.warn('[⚠️ meta_connections currency lookup failed]', metaConnErr);
         }
+
+        const cur =
+          (metaConn?.ad_account_currency as string | undefined) ||
+          (metaConn?.currency as string | undefined) ||
+          'AUD';
+
+        setMetaCurrency(String(cur).toUpperCase());
+
+        console.log('[💱 Meta currency]', {
+          business_email: user.email,
+          ad_account_currency: metaConn?.ad_account_currency,
+          currency: metaConn?.currency,
+          selected: String(cur).toUpperCase(),
+        });
+
         setLoading(false);
         return;
       }
@@ -376,6 +398,72 @@ export default function BusinessCampaignDetailPage() {
   const formatDate = (d?: string | null) => {
     if (!d) return '';
     return new Date(d).toLocaleString();
+  };
+
+  const handleSyncSpend = async () => {
+    if (!campaign || campaign.meta_source !== 'meta') return;
+
+    try {
+      setSyncingSpend(true);
+      setSyncSpendMsg(null);
+
+      console.log('[🔄 Sync Spend] Requesting Meta insights for live ad', {
+        liveAdId: campaign.id,
+        offerId: campaign.offer_id,
+      });
+
+      const res = await fetch('/api/meta/ad-insights', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ liveAdId: campaign.id }),
+      });
+
+      const json = await res.json().catch(() => null);
+
+      if (!res.ok || !json?.success) {
+        console.error('[❌ Sync Spend] ad-insights failed', json);
+        setSyncSpendMsg('Failed to sync spend. Check console logs.');
+        return;
+      }
+
+      // Re-fetch from live_ads so we always reflect the DB source of truth
+      const { data: refreshed, error: refreshErr } = await (supabase as any)
+        .from('live_ads')
+        .select('spend, clicks')
+        .eq('id', campaign.id)
+        .single();
+
+      if (refreshErr) {
+        console.error('[❌ Sync Spend] Failed to re-fetch live_ads row', refreshErr);
+        setSyncSpendMsg('Spend synced, but failed to refresh UI.');
+        return;
+      }
+
+      const nextSpend = Number(refreshed?.spend || 0);
+      const nextClicks = Number(refreshed?.clicks || 0);
+
+      console.log('[✅ Sync Spend] Updated values', {
+        spend: nextSpend,
+        clicks: nextClicks,
+      });
+
+      setCampaign((prev) =>
+        prev
+          ? {
+              ...prev,
+              spend: nextSpend,
+              clicks: nextClicks,
+            }
+          : prev
+      );
+
+      setSyncSpendMsg('Spend updated from Meta insights.');
+    } catch (err) {
+      console.error('[❌ Sync Spend] Unhandled error', err);
+      setSyncSpendMsg('Failed to sync spend. Check console logs.');
+    } finally {
+      setSyncingSpend(false);
+    }
   };
 
   // Derived pause state: respects status, billing_state, and billing_paused_at
@@ -693,12 +781,35 @@ export default function BusinessCampaignDetailPage() {
                       </span>
                       Performance
                     </h2>
-                    <span className="rounded-full bg-black/40 px-3 py-1 text-[10px] text-white/50 uppercase tracking-[0.16em]">
-                      {campaign.meta_source === 'meta'
-                        ? 'Meta performance'
-                        : 'Live tracking'}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      {campaign.meta_source === 'meta' && (
+                        <button
+                          type="button"
+                          onClick={handleSyncSpend}
+                          disabled={syncingSpend}
+                          className="inline-flex items-center gap-2 rounded-full border border-[#00C2CB40] bg-[#00C2CB14] px-3 py-1 text-[10px] font-semibold text-[#00C2CB] hover:bg-[#00C2CB1F] disabled:opacity-60"
+                          title="Fetch latest spend/clicks from Meta insights"
+                        >
+                          {syncingSpend ? (
+                            <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-[#00C2CB] border-t-transparent" />
+                          ) : (
+                            <span className="text-[12px] leading-none">↻</span>
+                          )}
+                          Sync spend
+                        </button>
+                      )}
+
+                      <span className="rounded-full bg-black/40 px-3 py-1 text-[10px] text-white/50 uppercase tracking-[0.16em]">
+                        {campaign.meta_source === 'meta' ? 'Meta performance' : 'Live tracking'}
+                      </span>
+                    </div>
                   </div>
+
+                  {campaign.meta_source === 'meta' && syncSpendMsg && (
+                    <div className="mb-3 rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-[11px] text-white/70">
+                      {syncSpendMsg}
+                    </div>
+                  )}
 
                   {statsLoading ? (
                     <p className="text-xs text-white/60">Loading stats…</p>
