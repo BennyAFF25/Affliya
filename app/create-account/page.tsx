@@ -10,13 +10,24 @@ function CreateAccountInner() {
 
   const roleParam = (sp.get('role') || '').toLowerCase();
   // accept legacy "partner" but normalize to "affiliate"
-  const normalizedRole = roleParam === 'affiliate' ? 'affiliate' : roleParam === 'business' ? 'business' : roleParam === 'partner' ? 'affiliate' : null;
-  const role: 'business' | 'affiliate' = (normalizedRole ?? 'business');
+  const normalizedRole =
+    roleParam === 'affiliate'
+      ? 'affiliate'
+      : roleParam === 'business'
+      ? 'business'
+      : roleParam === 'partner'
+      ? 'affiliate'
+      : null;
 
-  const onboardingPath = role === 'affiliate' ? '/onboarding/for-partners' : '/onboarding/for-business';
+  const role: 'business' | 'affiliate' = normalizedRole ?? 'business';
+
+  const onboardingPath =
+    role === 'affiliate' ? '/onboarding/for-partners' : '/onboarding/for-business';
 
   useEffect(() => {
-    try { localStorage.setItem('intent.role', role); } catch {}
+    try {
+      localStorage.setItem('intent.role', role);
+    } catch {}
   }, [role]);
 
   const [username, setUsername] = useState(''); // used on signup only
@@ -33,6 +44,19 @@ function CreateAccountInner() {
   const redirectQuery = `post=${encodeURIComponent(onboardingPath)}&role=${role}`;
   const authRedirect = `${origin}/auth-redirect?${redirectQuery}`;
 
+  // Fire-and-forget email events (Resend). Never block signup.
+  const fireEmailEvent = async (type: string, payload: Record<string, any>) => {
+    try {
+      await fetch('/api/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type, ...payload }),
+      });
+    } catch (err) {
+      console.warn('[Email event failed]', type, err);
+    }
+  };
+
   // ─────────────────────────────────
   // SIGNUP (existing)
   // ─────────────────────────────────
@@ -40,8 +64,10 @@ function CreateAccountInner() {
     e.preventDefault();
     setErr(null);
     setSubmitting(true);
+
     try {
       if (!username.trim()) throw new Error('Please choose a username.');
+
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -50,20 +76,20 @@ function CreateAccountInner() {
           data: { role, username: username.trim() }, // stored in user_metadata
         },
       });
+
       if (error) throw error;
 
       // Insert into profiles after signup
       if (data?.user) {
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .upsert(
-            {
-              id: data.user.id,
-              email,
-              role,
-            },
-            { onConflict: 'id' }
-          );
+        const { error: profileError } = await supabase.from('profiles').upsert(
+          {
+            id: data.user.id,
+            email,
+            role,
+          },
+          { onConflict: 'id' }
+        );
+
         if (profileError) {
           console.error('[PROFILE INSERT ERROR]', profileError);
           throw profileError;
@@ -78,7 +104,7 @@ function CreateAccountInner() {
           .eq('email', email)
           .maybeSingle();
 
-        if (preErr && preErr.code !== 'PGRST116') {
+        if (preErr && (preErr as any).code !== 'PGRST116') {
           console.error('[PRE-SIGNUP REVENUE FETCH ERROR]', preErr);
         }
 
@@ -100,11 +126,19 @@ function CreateAccountInner() {
             throw mergeErr;
           }
 
-          await supabase
-            .from('pre_signup_revenue')
-            .delete()
-            .eq('email', email);
+          await supabase.from('pre_signup_revenue').delete().eq('email', email);
         }
+      }
+
+      // Fire signup email (non-blocking)
+      const cleanEmail = (email || '').trim().toLowerCase();
+      if (cleanEmail) {
+        void fireEmailEvent(
+          role === 'affiliate' ? 'affiliate_signup_success' : 'business_signup_success',
+          role === 'affiliate'
+            ? { affiliateEmail: cleanEmail, username: username.trim() }
+            : { businessEmail: cleanEmail, username: username.trim() }
+        );
       }
 
       // Redirect straight to dashboard based on role
@@ -117,7 +151,9 @@ function CreateAccountInner() {
   };
 
   const goHome = () => {
-    try { localStorage.removeItem('intent.role'); } catch {}
+    try {
+      localStorage.removeItem('intent.role');
+    } catch {}
     if (typeof window !== 'undefined') {
       window.location.href = '/';
     } else {
@@ -134,13 +170,18 @@ function CreateAccountInner() {
           <div className="mb-6 flex items-start justify-between gap-3">
             <div>
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-[#00C2CB]/20 bg-[#00C2CB]/10 text-[#7ff5fb] text-xs font-semibold">
-                Setting up a <span className="text-white/90">{role === 'affiliate' ? 'affiliate' : 'business'}</span> account
+                Setting up a{' '}
+                <span className="text-white/90">
+                  {role === 'affiliate' ? 'affiliate' : 'business'}
+                </span>{' '}
+                account
               </div>
               <h1 className="mt-3 text-2xl font-bold tracking-tight">
                 Create your account
               </h1>
               <p className="mt-1 text-sm text-white/60">
-                Get instant access after a quick signup. You can switch roles later in settings.
+                Get instant access after a quick signup. You can switch roles later in
+                settings.
               </p>
             </div>
 

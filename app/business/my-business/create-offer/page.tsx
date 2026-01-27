@@ -15,6 +15,19 @@ function CreateOfferPageInner() {
   const isOnboard = searchParams?.get('onboard') === 'tracking';
   const [showOnboard, setShowOnboard] = useState(false);
 
+  // Fire-and-forget email events (Resend). Never block the user flow.
+  const fireEmailEvent = async (type: string, payload: Record<string, any>) => {
+    try {
+      await fetch('/api/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type, ...payload }),
+      });
+    } catch (err) {
+      console.warn('[Email event failed]', type, err);
+    }
+  };
+
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [siteHost, setSiteHost] = useState('');
 
@@ -370,6 +383,33 @@ function CreateOfferPageInner() {
     if (insertError) {
       console.error('[❌ Offer Insert Error]', insertError.message);
       return;
+    }
+
+    // Email: offer created (non-blocking)
+    try {
+      const cleanBusinessEmail = (userEmail || '').trim().toLowerCase();
+      if (cleanBusinessEmail) {
+        void fireEmailEvent('offer_created', {
+          businessEmail: cleanBusinessEmail,
+          offerId: newOffer.id,
+          offerTitle: newOffer.title,
+          website: newOffer.website,
+          currency: newOffer.currency,
+          commission: newOffer.commission,
+          price: newOffer.price,
+        });
+
+        // Optional: internal admin notification (safe even if the backend ignores/doesn't support it)
+        void fireEmailEvent('admin_notify', {
+          event: 'offer_created',
+          businessEmail: cleanBusinessEmail,
+          offerId: newOffer.id,
+          offerTitle: newOffer.title,
+          website: newOffer.website,
+        });
+      }
+    } catch (e) {
+      console.warn('[Offer email trigger failed]', e);
     }
 
     if (isOnboard) {

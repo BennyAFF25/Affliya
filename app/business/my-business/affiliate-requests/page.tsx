@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { useSession } from '@supabase/auth-helpers-react';
-import { useRouter } from 'next/navigation';
 import { supabase } from '@/../utils/supabase/pages-client';
 
 interface AffiliateRequest {
@@ -23,7 +22,6 @@ interface AffiliateRequest {
 
 export default function AffiliateRequestsPage() {
   const session = useSession();
-  const router = useRouter();
   const [requests, setRequests] = useState<AffiliateRequest[]>([]);
 
   useEffect(() => {
@@ -56,7 +54,7 @@ export default function AffiliateRequestsPage() {
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('❌ Error fetching requests:', error.message);
+        console.error('[affiliate-requests] Error fetching requests:', error.message);
         return;
       }
 
@@ -67,13 +65,20 @@ export default function AffiliateRequestsPage() {
   }, [session]);
 
   const handleUpdateStatus = async (requestId: string, newStatus: string) => {
+    // Gather current data before update for notifications
+    const current = requests.find((r) => r.id === requestId);
+    const currentAffiliateEmail = current?.affiliate_email;
+    const currentOfferId = (current as any)?.offer?.id;
+    const currentOfferTitle = (current as any)?.offer?.title || 'Your offer';
+    const currentBusinessEmail = session?.user?.email;
+
     const { error } = await supabase
       .from('affiliate_requests')
       .update({ status: newStatus })
       .eq('id', requestId);
 
     if (error) {
-      console.error('❌ Error updating status:', error.message);
+      console.error('[affiliate-requests] Error updating status:', error.message);
       return;
     }
 
@@ -82,6 +87,46 @@ export default function AffiliateRequestsPage() {
         r.id === requestId ? { ...r, status: newStatus } : r
       )
     );
+
+    // Email notifications (non-blocking)
+    try {
+      const emailType =
+        newStatus === 'approved'
+          ? 'affiliate_request_approved'
+          : newStatus === 'rejected'
+          ? 'affiliate_request_rejected'
+          : null;
+
+      if (emailType && currentAffiliateEmail && currentBusinessEmail) {
+        fetch('/api/email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: emailType,
+            affiliateEmail: currentAffiliateEmail,
+            businessEmail: currentBusinessEmail,
+            offerId: currentOfferId,
+            offerTitle: currentOfferTitle,
+          }),
+        }).catch(() => {});
+
+        // Admin ping (you)
+        fetch('/api/email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'admin_notify',
+            event: emailType,
+            affiliateEmail: currentAffiliateEmail,
+            businessEmail: currentBusinessEmail,
+            offerId: currentOfferId,
+            offerTitle: currentOfferTitle,
+          }),
+        }).catch(() => {});
+      }
+    } catch (e) {
+      console.error('[affiliate-requests] Email notify failed', e);
+    }
   };
 
   const pending = requests.filter((r) => r.status === 'pending');

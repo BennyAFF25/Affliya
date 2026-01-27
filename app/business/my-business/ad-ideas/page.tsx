@@ -6,6 +6,61 @@ import { useEffect, useState } from 'react';
 import { supabase } from 'utils/supabase/pages-client';
 import { useRouter } from 'next/navigation';
 import { nmToast } from "@/components/ui/toast";
+// Email notifications (client -> server)
+async function postJson(url: string, body: any) {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  let json: any = null;
+  try {
+    json = await res.json();
+  } catch {
+    // ignore
+  }
+
+  return { ok: res.ok, status: res.status, json };
+}
+
+// Try a small list of possible email endpoints so this works regardless of the exact route name.
+async function sendEmailEvent(payload: any) {
+  const endpoints = ['/api/email/send', '/api/emails/send', '/api/notify/email'];
+  let last: any = null;
+
+  for (const url of endpoints) {
+    try {
+      const result = await postJson(url, payload);
+      last = result;
+      if (result.ok) return result;
+    } catch (e) {
+      last = { ok: false, status: 0, json: { error: String(e) } };
+    }
+  }
+
+  return last;
+}
+
+async function notifyAdRejected(params: {
+  affiliateEmail: string;
+  businessEmail: string;
+  offerId: string;
+  offerTitle?: string;
+  adIdeaId: string;
+  reason?: string;
+}) {
+  const payload = {
+    type: 'ad_rejected',
+    event: 'ad_rejected',
+    ...params,
+  };
+
+  const res = await sendEmailEvent(payload);
+  if (!res?.ok) {
+    console.error('[email] ad_rejected failed', res);
+  }
+}
 
 interface AdIdea {
   meta_ad_id?: string;
@@ -148,6 +203,24 @@ export default function AdIdeasPage() {
         setSelectedReason('');
         setCustomReason('');
       }
+      if (newStatus === 'rejected') {
+        const rejected = ideas.find((idea) => idea.id === id);
+        if (rejected) {
+          const offerTitle = offersMap[rejected.offer_id] || 'Unknown Offer';
+          try {
+            await notifyAdRejected({
+              affiliateEmail: rejected.affiliate_email,
+              businessEmail: user.email,
+              offerId: rejected.offer_id,
+              offerTitle,
+              adIdeaId: rejected.id,
+              reason: rejectionReason || '',
+            });
+          } catch (e) {
+            console.error('[email] notifyAdRejected crashed', e);
+          }
+        }
+      }
       if (newStatus === 'approved') {
         const ad = ideas.find((idea) => idea.id === id);
         if (ad) {
@@ -172,8 +245,8 @@ export default function AdIdeasPage() {
             .maybeSingle();
 
           if (insertError) {
-            console.error('[❌ Live campaign insert failed]', insertError.message);
-            nmToast.success("Ad approved");
+            console.error('[Live campaign insert failed]', insertError.message);
+            nmToast.error('Failed to create campaign');
             router.push('/business/manage-campaigns');
             return;
           }
@@ -795,10 +868,7 @@ export default function AdIdeasPage() {
                       </button>
                       <button
                         onClick={async () => {
-                          await handleStatusChange(
-                            selectedIdea.id,
-                            'rejected'
-                          );
+                          await handleStatusChange(selectedIdea.id, 'rejected', 'Rejected by business');
                           setSelectedIdea((prev) =>
                             prev ? { ...prev, status: 'rejected' } : null
                           );

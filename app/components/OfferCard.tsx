@@ -36,6 +36,19 @@ export default function OfferCard({
   const [notes, setNotes] = useState('');
   const [requested, setRequested] = useState(alreadyRequested);
 
+  const sendEmail = async (payload: any) => {
+    try {
+      // Fire-and-forget email trigger (should never block UX)
+      await fetch('/api/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+    } catch (e) {
+      console.warn('[email] failed to send', e);
+    }
+  };
+
   const handleRequest = async () => {
     const supabase = createClientComponentClient();
 
@@ -50,17 +63,15 @@ export default function OfferCard({
     console.log('[👤 Affiliate Email]', affiliateEmail);
     console.log('[🧪 Offer Debug]', {
       id: offer.id,
-      business_email: offer.businessEmail,
+      business_email: offer.businessEmail || offer.business_email,
       businessName: offer.businessName,
     });
 
     // Normalize backend field naming (supports both camelCase and snake_case)
-    if (!offer.businessEmail && offer.business_email) {
-      offer.businessEmail = offer.business_email;
-    }
+    const businessEmail = offer.businessEmail || offer.business_email || '';
 
-    if (!offer.businessEmail) {
-      console.error('[❌ Missing business email in offer]');
+    if (!businessEmail) {
+      console.error('[missing business email in offer]');
       alert('This offer is missing business information. Please contact support.');
       return;
     }
@@ -75,7 +86,7 @@ export default function OfferCard({
     const payload = {
       offer_id: offer.id,
       affiliate_email: affiliateEmail,
-      business_email: offer.businessEmail ?? '',
+      business_email: businessEmail,
       status: 'pending',
       notes: notes || '',
     };
@@ -93,6 +104,25 @@ export default function OfferCard({
       alert('Request sent!');
       // mark request as sent so the button disables
       setRequested(true);
+
+      // Trigger email notifications (non-blocking)
+      void sendEmail({
+        type: 'affiliate_request_sent',
+        businessEmail,
+        affiliateEmail,
+        offerId: offer.id,
+        businessName: offer.businessName || '',
+        notes: notes || '',
+      });
+
+      void sendEmail({
+        type: 'admin_notify',
+        event: 'affiliate_request_sent',
+        businessEmail,
+        affiliateEmail,
+        offerId: offer.id,
+        businessName: offer.businessName || '',
+      });
     }
   };
 

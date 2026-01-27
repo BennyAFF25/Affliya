@@ -6,6 +6,7 @@ if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { randomUUID } from 'crypto';
+import { Resend } from 'resend';
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -25,11 +26,36 @@ async function safeParse(res: Response) {
 const prefer = <T,>(...vals: Array<T | null | undefined>) =>
   vals.find((v) => v !== undefined && v !== null) as T | undefined;
 
+const resend = process.env.RESEND_API_KEY ? new Resend(process.env.RESEND_API_KEY) : null;
+
+async function sendEmailSafe(args: { to: string; subject: string; html: string }) {
+  try {
+    if (!resend) {
+      console.warn('[email] RESEND_API_KEY missing – skipping email');
+      return;
+    }
+
+    const fromEmail = process.env.RESEND_FROM_EMAIL || 'no-reply@nettmark.com';
+    const fromName = process.env.RESEND_FROM_NAME || 'Nettmark';
+
+    await resend.emails.send({
+      from: `${fromName} <${fromEmail}>`,
+      to: args.to,
+      subject: args.subject,
+      html: args.html,
+    });
+
+    console.log('[email] sent', { to: args.to, subject: args.subject });
+  } catch (e: any) {
+    console.warn('[email] send failed', e?.message || e);
+  }
+}
+
 export async function POST(req: Request) {
   try {
     let liveAdRow: any = null; // will hold inserted live_ads row for response
     const body = await req.json();
-    console.log('[📥 Meta Upload Request Body]', body);
+    console.log('[meta-upload] request body', body);
 
     const { adIdeaId, offerId, ...rest } = body;
 
@@ -50,7 +76,7 @@ export async function POST(req: Request) {
     // 1. Fetch the offer from Supabase (now also pulling website and meta_pixel_id for display link)
     const { data: offer, error: offerError } = await supabase
       .from('offers')
-      .select('business_email, website, meta_pixel_id')
+      .select('business_email, website, meta_pixel_id, title')
       .eq('id', offerId)
       .single();
 
@@ -62,9 +88,9 @@ export async function POST(req: Request) {
     const businessEmail = offer.business_email;
     const offerWebsite = (offer as any)?.website || null;
     const offerPixelId = (offer as any)?.meta_pixel_id || null;
-    console.log('[📇 Matched Business Email]', businessEmail);
-    console.log('[🌐 Offer Website]', offerWebsite);
-    console.log('[🧩 Offer Meta Pixel ID]', offerPixelId);
+    console.log('[meta-upload] business_email', businessEmail);
+    console.log('[meta-upload] offer_website', offerWebsite);
+    console.log('[meta-upload] offer_meta_pixel_id', offerPixelId);
 
     // 2. Lookup the correct ad account ID from meta_connections
     const { data: connection, error: connectionError } = await supabase
@@ -213,13 +239,13 @@ export async function POST(req: Request) {
       videoUrl,
     });
 
-    console.log('[📤 Sending Final Payload to Meta API]', payload);
+    console.log('[meta-upload] final payload', payload);
 
     // 5. Create campaign
     const cleanAdAccountId = ad_account_id.startsWith('act_')
       ? ad_account_id
       : `act_${ad_account_id}`;
-    console.log('[🛠 Clean Ad Account ID]', cleanAdAccountId);
+    console.log('[meta-upload] clean_ad_account_id', cleanAdAccountId);
 
     const createCampaignRes = await fetch(
       `https://graph.facebook.com/v19.0/${cleanAdAccountId}/campaigns`,
@@ -613,15 +639,67 @@ export async function POST(req: Request) {
           if (liveAdErr) {
             console.error('[❌ live_ads insert error]', liveAdErr);
           } else if (insertedLiveAdRow?.id) {
-            console.log('[✅ live_ads insert success]', insertedLiveAdRow);
+            console.log('[live_ads] insert success', insertedLiveAdRow);
+
             // Update internal campaign_id to match the internal UUID
             const { error: updateErr } = await supabase
               .from('live_ads')
               .update({ campaign_id: insertedLiveAdRow.id })
               .eq('id', insertedLiveAdRow.id);
-            if (updateErr) console.error('[⚠️ live_ads campaign_id sync failed]', updateErr);
-            else console.log('[✅ live_ads campaign_id synced]', insertedLiveAdRow.id);
+
+            if (updateErr) {
+              console.error('[live_ads] campaign_id sync failed', updateErr);
+            } else {
+              console.log('[live_ads] campaign_id synced', insertedLiveAdRow.id);
+            }
+
             liveAdRow = insertedLiveAdRow;
+
+            // ------------------------------
+            // EMAIL: Ad approved / launched
+            // ------------------------------
+            const offerTitle = (offer as any)?.title || 'your offer';
+            const affiliateEmail =
+              (liveAdsPayload as any)?.affiliate_email ||
+              (adIdea as any)?.affiliate_email ||
+              null;
+
+            if (affiliateEmail) {
+              await sendEmailSafe({
+                to: affiliateEmail,
+                subject: `Your Facebook ad is live for ${offerTitle}`,
+                html: `
+                  <div style="font-family:Arial,sans-serif;line-height:1.5">
+                    <h2 style="margin:0 0 12px">Ad approved ✅</h2>
+                    <p>Your Facebook ad has been approved and launched for <strong>${offerTitle}</strong>.</p>
+                    <p style="margin:12px 0">Tracking link:</p>
+                    <p><a href="${trackingLink || destinationLink || 'https://nettmark.com'}">${trackingLink || destinationLink || 'https://nettmark.com'}</a></p>
+                    <p style="margin-top:18px;color:#666;font-size:12px">Nettmark</p>
+                  </div>
+                `,
+              });
+            } else {
+              console.warn('[email] affiliate_email missing – cannot notify affiliate');
+            }
+
+            const adminEmail = process.env.ADMIN_NOTIFY_EMAIL;
+            if (adminEmail) {
+              await sendEmailSafe({
+                to: adminEmail,
+                subject: `Nettmark: Ad launched (${offerTitle})`,
+                html: `
+                  <div style="font-family:Arial,sans-serif;line-height:1.5">
+                    <h2 style="margin:0 0 12px">Ad launched</h2>
+                    <p><strong>Offer:</strong> ${offerTitle}</p>
+                    <p><strong>Business:</strong> ${businessEmail}</p>
+                    <p><strong>Affiliate:</strong> ${affiliateEmail || 'unknown'}</p>
+                    <p><strong>Live Ad ID:</strong> ${insertedLiveAdRow.id}</p>
+                    <p><strong>Meta Campaign ID:</strong> ${campaignData.id}</p>
+                    <p><strong>Meta Ad ID:</strong> ${(liveAdsPayload as any)?.meta_ad_id || 'unknown'}</p>
+                  </div>
+                `,
+              });
+            }
           }
         }
       }

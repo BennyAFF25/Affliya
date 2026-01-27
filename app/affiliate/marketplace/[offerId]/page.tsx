@@ -78,7 +78,7 @@ export default function AffiliateOfferProfilePage() {
       if (cancelled) return;
 
       if (error) {
-        console.error('[❌ Error fetching offer profile]', error);
+        console.error('[Error fetching offer profile]', error);
         setLoadError(error.message || 'Failed to load offer.');
         setOffer(null);
       } else {
@@ -101,15 +101,17 @@ export default function AffiliateOfferProfilePage() {
     const checkRequest = async () => {
       const { data, error } = await (supabase as any)
         .from('affiliate_requests')
-        .select('id,status,notes')
+        .select('id,status,notes,created_at')
         .eq('offer_id', offerId)
         .eq('affiliate_email', userEmail)
+        .order('created_at', { ascending: false })
+        .limit(1)
         .maybeSingle();
 
       if (cancelled) return;
 
       if (error && error.code !== 'PGRST116') {
-        console.warn('[⚠️ Error checking affiliate request]', error);
+        console.warn('[Error checking affiliate request]', error);
         return;
       }
 
@@ -135,6 +137,27 @@ export default function AffiliateOfferProfilePage() {
     setRequestSuccess(null);
 
     try {
+      // Safety: check again to prevent duplicates (double-click / refresh / race)
+      const { data: existing, error: existingErr } = await (supabase as any)
+        .from('affiliate_requests')
+        .select('id,status,notes,created_at')
+        .eq('offer_id', offerId)
+        .eq('affiliate_email', userEmail)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (existingErr && existingErr.code !== 'PGRST116') {
+        console.warn('[Error checking existing affiliate request]', existingErr);
+      }
+
+      if (existing?.id) {
+        setRequested(true);
+        if ((existing as any).notes) setRequestNotes((existing as any).notes as string);
+        setRequestSuccess('Request already sent to the business for approval.');
+        return;
+      }
+
       const payload: any = {
         offer_id: offerId,
         affiliate_email: userEmail,
@@ -150,18 +173,36 @@ export default function AffiliateOfferProfilePage() {
         payload.business_name = offer.business_name;
       }
 
-      const { error } = await (supabase as any)
-        .from('affiliate_requests')
-        .insert(payload);
+      const { error } = await (supabase as any).from('affiliate_requests').insert(payload);
 
       if (error) {
-        console.error('[❌ Error inserting affiliate request]', error);
+        console.error('[Error inserting affiliate request]', error);
         setRequestError(error.message || 'Failed to send request.');
         return;
       }
 
       setRequested(true);
       setRequestSuccess('Request sent to the business for approval.');
+
+      // Optional: email notify the business (non-blocking)
+      try {
+        const businessEmail = (offer as any).business_email || null;
+        if (businessEmail) {
+          await fetch('/api/emails/affiliate-request', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              affiliateEmail: userEmail,
+              businessEmail,
+              offerId,
+              offerTitle: offer.title || offer.business_name || 'Offer',
+              notes: requestNotes || '',
+            }),
+          });
+        }
+      } catch (emailErr) {
+        console.warn('[Email notify failed - non blocking]', emailErr);
+      }
     } finally {
       setRequestLoading(false);
     }
@@ -231,7 +272,6 @@ export default function AffiliateOfferProfilePage() {
           <div className="space-y-4">
             <div className="rounded-3xl border border-white/10 bg-white/[0.04] backdrop-blur shadow-[0_0_50px_rgba(0,194,203,0.18)] overflow-hidden">
               <div className="relative h-56 sm:h-72 md:h-80 bg-[#141414]">
-
                 {images.length > 0 ? (
                   <img
                     key={images[currentSlide]}
@@ -280,9 +320,7 @@ export default function AffiliateOfferProfilePage() {
                       <div
                         key={idx}
                         className={`h-1.5 w-1.5 rounded-full transition ${
-                          idx === currentSlide
-                            ? 'bg-[#00C2CB]'
-                            : 'bg-white/30'
+                          idx === currentSlide ? 'bg-[#00C2CB]' : 'bg-white/30'
                         }`}
                       />
                     ))}
@@ -365,9 +403,7 @@ export default function AffiliateOfferProfilePage() {
                     <p className="text-xs uppercase tracking-[0.18em] text-white/50">
                       Destination
                     </p>
-                    <p className="text-sm text-white/80 break-all">
-                      {offer.website}
-                    </p>
+                    <p className="text-sm text-white/80 break-all">{offer.website}</p>
                   </div>
                   <a
                     href={offer.website}
@@ -389,9 +425,7 @@ export default function AffiliateOfferProfilePage() {
             <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 space-y-4">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <h3 className="text-sm font-semibold text-[#00C2CB]">
-                    Request to promote
-                  </h3>
+                  <h3 className="text-sm font-semibold text-[#00C2CB]">Request to promote</h3>
                   <p className="text-xs text-white/60 mt-1">
                     This sends a request to the business. Once approved, the offer unlocks
                     in your dashboard so you can start running campaigns.
@@ -416,16 +450,8 @@ export default function AffiliateOfferProfilePage() {
                 />
               </div>
 
-              {requestError && (
-                <p className="text-xs text-red-400">
-                  {requestError}
-                </p>
-              )}
-              {requestSuccess && (
-                <p className="text-xs text-[#7ff5fb]">
-                  {requestSuccess}
-                </p>
-              )}
+              {requestError && <p className="text-xs text-red-400">{requestError}</p>}
+              {requestSuccess && <p className="text-xs text-[#7ff5fb]">{requestSuccess}</p>}
 
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <button
@@ -434,11 +460,7 @@ export default function AffiliateOfferProfilePage() {
                   disabled={requestLoading || requested || !userEmail}
                   className="inline-flex items-center rounded-full bg-[#00C2CB] hover:bg-[#00b0b8] text-black text-xs font-medium px-5 py-2 disabled:opacity-60"
                 >
-                  {requested
-                    ? 'Request sent'
-                    : requestLoading
-                    ? 'Sending…'
-                    : 'Request to promote'}
+                  {requested ? 'Request sent' : requestLoading ? 'Sending…' : 'Request to promote'}
                 </button>
                 {!userEmail && (
                   <p className="text-[11px] text-red-300">
