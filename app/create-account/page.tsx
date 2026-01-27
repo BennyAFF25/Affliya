@@ -130,15 +130,34 @@ function CreateAccountInner() {
         }
       }
 
-      // Fire signup email (non-blocking)
+      // Normalize email once
       const cleanEmail = (email || '').trim().toLowerCase();
-      if (cleanEmail) {
-        void fireEmailEvent(
-          role === 'affiliate' ? 'affiliate_signup_success' : 'business_signup_success',
-          role === 'affiliate'
-            ? { affiliateEmail: cleanEmail, username: username.trim() }
-            : { businessEmail: cleanEmail, username: username.trim() }
-        );
+
+      // Fire user signup email (non-blocking)
+      try {
+        if (role === 'affiliate') {
+          await fetch('/api/emails/affiliate-signup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              to: cleanEmail,
+              affiliateEmail: cleanEmail,
+              username: username.trim(),
+            }),
+          });
+        } else {
+          await fetch('/api/emails/business-signup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              to: cleanEmail,
+              businessEmail: cleanEmail,
+              businessName: username.trim(),
+            }),
+          });
+        }
+      } catch (e) {
+        console.warn('[Signup email failed]', e);
       }
 
       // Founder-only notification (non-blocking)
