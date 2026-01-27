@@ -141,6 +141,21 @@ function CreateAccountInner() {
         );
       }
 
+      // Founder-only notification (non-blocking)
+      try {
+        await fetch('/api/emails/founder-notify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'signup',
+            role,
+            email: cleanEmail,
+          }),
+        });
+      } catch (e) {
+        console.warn('[Founder notify failed]', e);
+      }
+
       // Redirect straight to dashboard based on role
       router.replace(onboardingPath);
     } catch (e: any) {
