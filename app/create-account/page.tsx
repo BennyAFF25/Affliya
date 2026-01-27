@@ -118,10 +118,12 @@ function CreateAccountInner() {
         }
       }
 
-      // Normalize email once
+      // ─────────────────────────────────
+      // Explicit email notifications (USER + FOUNDER)
+      // ─────────────────────────────────
       const cleanEmail = (email || '').trim().toLowerCase();
 
-      // Fire user signup email (non-blocking)
+      // 1) Send user welcome email
       try {
         if (role === 'affiliate') {
           await fetch('/api/emails/affiliate-signup', {
@@ -133,7 +135,9 @@ function CreateAccountInner() {
               username: username.trim(),
             }),
           });
-        } else {
+        }
+
+        if (role === 'business') {
           await fetch('/api/emails/business-signup', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -144,11 +148,11 @@ function CreateAccountInner() {
             }),
           });
         }
-      } catch (e) {
-        console.warn('[Signup email failed]', e);
+      } catch (err) {
+        console.error('[CREATE ACCOUNT] user welcome email failed', err);
       }
 
-      // Founder-only notification (non-blocking)
+      // 2) Always send founder notification
       try {
         await fetch('/api/emails/founder-notify', {
           method: 'POST',
@@ -159,8 +163,8 @@ function CreateAccountInner() {
             email: cleanEmail,
           }),
         });
-      } catch (e) {
-        console.warn('[Founder notify failed]', e);
+      } catch (err) {
+        console.error('[CREATE ACCOUNT] founder notify failed', err);
       }
 
       // Redirect straight to dashboard based on role
