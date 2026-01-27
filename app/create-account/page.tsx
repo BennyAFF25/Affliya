@@ -44,18 +44,6 @@ function CreateAccountInner() {
   const redirectQuery = `post=${encodeURIComponent(onboardingPath)}&role=${role}`;
   const authRedirect = `${origin}/auth-redirect?${redirectQuery}`;
 
-  // Fire-and-forget email events (Resend). Never block signup.
-  const fireEmailEvent = async (type: string, payload: Record<string, any>) => {
-    try {
-      await fetch('/api/email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type, ...payload }),
-      });
-    } catch (err) {
-      console.warn('[Email event failed]', type, err);
-    }
-  };
 
   // ─────────────────────────────────
   // SIGNUP (existing)

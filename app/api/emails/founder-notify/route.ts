@@ -53,7 +53,7 @@ export async function POST(req: Request) {
             <tr>
               <td style="padding:24px 22px;">
                 <div style="font-size:22px;font-weight:900;color:#ffffff;margin-bottom:10px;">
-                  🚀 New \${role} just joined
+                  🚀 New ${role} just joined
                 </div>
 
                 <div style="font-size:14px;line-height:1.7;color:#e5e7eb;">
@@ -66,9 +66,9 @@ export async function POST(req: Request) {
                     EVENT DETAILS
                   </div>
                   <div style="font-size:14px;color:#ffffff;line-height:1.6;">
-                    <b>Type:</b> \${type}<br/>
-                    <b>Role:</b> \${role}<br/>
-                    <b>Email:</b> \${email}
+                    <b>Type:</b> ${type}<br/>
+                    <b>Role:</b> ${role}<br/>
+                    <b>Email:</b> ${email}
                   </div>
                 </div>
 
