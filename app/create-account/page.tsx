@@ -119,52 +119,49 @@ function CreateAccountInner() {
       }
 
       // ─────────────────────────────────
-      // Explicit email notifications (USER + FOUNDER)
+      // SEND EMAILS (ABSOLUTE URL – REQUIRED)
       // ─────────────────────────────────
-      const cleanEmail = (email || '').trim().toLowerCase();
+      const baseUrl =
+        process.env.NEXT_PUBLIC_SITE_URL ||
+        window.location.origin;
 
-      // 1) Send user welcome email
       try {
-        if (role === 'affiliate') {
-          await fetch('/api/emails/affiliate-signup', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+        if (role === "affiliate") {
+          await fetch(`${baseUrl}/api/emails/affiliate-signup`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              to: cleanEmail,
-              affiliateEmail: cleanEmail,
+              to: email.trim().toLowerCase(),
+              affiliateEmail: email.trim().toLowerCase(),
               username: username.trim(),
             }),
           });
         }
 
-        if (role === 'business') {
-          await fetch('/api/emails/business-signup', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+        if (role === "business") {
+          await fetch(`${baseUrl}/api/emails/business-signup`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              to: cleanEmail,
-              businessEmail: cleanEmail,
+              to: email.trim().toLowerCase(),
+              businessEmail: email.trim().toLowerCase(),
               businessName: username.trim(),
             }),
           });
         }
-      } catch (err) {
-        console.error('[CREATE ACCOUNT] user welcome email failed', err);
-      }
 
-      // 2) Always send founder notification
-      try {
-        await fetch('/api/emails/founder-notify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+        // Founder notify (always)
+        await fetch(`${baseUrl}/api/emails/founder-notify`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            type: 'signup',
+            type: "signup",
             role,
-            email: cleanEmail,
+            email: email.trim().toLowerCase(),
           }),
         });
-      } catch (err) {
-        console.error('[CREATE ACCOUNT] founder notify failed', err);
+      } catch (emailErr) {
+        console.error("[CREATE ACCOUNT] email send failed", emailErr);
       }
 
       // Redirect straight to dashboard based on role
