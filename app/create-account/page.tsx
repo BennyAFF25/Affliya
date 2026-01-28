@@ -33,6 +33,7 @@ function CreateAccountInner() {
   const [username, setUsername] = useState(''); // used on signup only
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+
   const [showPwd, setShowPwd] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -44,39 +45,124 @@ function CreateAccountInner() {
   const redirectQuery = `post=${encodeURIComponent(onboardingPath)}&role=${role}`;
   const authRedirect = `${origin}/auth-redirect?${redirectQuery}`;
 
+  // Absolute base URL for API calls (works in prod + local)
+  const baseUrl =
+    (process.env.NEXT_PUBLIC_SITE_URL && process.env.NEXT_PUBLIC_SITE_URL.trim()) ||
+    (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000');
+
+  async function postJson(path: string, payload: any) {
+    const url = `${baseUrl}${path}`;
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        // keepalive helps avoid fetch being dropped on navigation in some browsers
+        // (payload is small, so it’s safe)
+        keepalive: true as any,
+        body: JSON.stringify(payload),
+      });
+
+      const text = await res.text().catch(() => '');
+      let json: any = null;
+      try {
+        json = text ? JSON.parse(text) : null;
+      } catch {
+        json = { raw: text };
+      }
+
+      console.log(`[EMAIL POST] ${path} -> ${res.status}`, json);
+      return { ok: res.ok, status: res.status, json };
+    } catch (e: any) {
+      console.error(`[EMAIL POST ERROR] ${path}`, e?.message || e);
+      return { ok: false, status: 0, json: { error: e?.message || String(e) } };
+    }
+  }
 
   // ─────────────────────────────────
-  // SIGNUP (existing)
+  // SIGNUP
   // ─────────────────────────────────
   const handleEmailSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     setErr(null);
     setSubmitting(true);
 
+    const trimmedUsername = username.trim();
+    const trimmedEmail = email.trim();
+
     try {
-      if (!username.trim()) throw new Error('Please choose a username.');
+      if (!trimmedUsername) throw new Error('Please choose a username.');
+      if (!trimmedEmail) throw new Error('Please enter an email.');
+
+      console.log('[SIGNUP] starting', { role, email: trimmedEmail, username: trimmedUsername });
 
       const { data, error } = await supabase.auth.signUp({
-        email,
+        email: trimmedEmail,
         password,
         options: {
           emailRedirectTo: authRedirect,
-          data: { role, username: username.trim() }, // stored in user_metadata
+          data: { role, username: trimmedUsername }, // stored in user_metadata
         },
       });
 
       if (error) throw error;
 
-      // Insert into profiles after signup
-      if (data?.user) {
-        const { error: profileError } = await supabase.from('profiles').upsert(
-          {
-            id: data.user.id,
-            email,
+      console.log('[SIGNUP] signUp success', {
+        hasUser: !!data?.user,
+        userId: data?.user?.id || null,
+      });
+
+      // ✅ SEND EMAILS IMMEDIATELY AFTER SIGNUP SUCCESS (DO NOT DEPEND ON data.user)
+      // This fixes the exact “founder email sends but user welcome doesn’t” scenario.
+      try {
+        const tasks: Promise<any>[] = [];
+
+        if (role === 'affiliate') {
+          tasks.push(
+            postJson('/api/emails/affiliate-signup', {
+              to: trimmedEmail,
+              affiliateEmail: trimmedEmail,
+              username: trimmedUsername,
+            })
+          );
+        }
+
+        if (role === 'business') {
+          tasks.push(
+            postJson('/api/emails/business-signup', {
+              to: trimmedEmail,
+              businessEmail: trimmedEmail,
+              businessName: trimmedUsername,
+            })
+          );
+        }
+
+        // Founder notify (always)
+        tasks.push(
+          postJson('/api/emails/founder-notify', {
+            type: 'signup',
             role,
-          },
-          { onConflict: 'id' }
+            email: trimmedEmail,
+          })
         );
+
+        await Promise.allSettled(tasks);
+        console.log('[SIGNUP] email dispatch finished');
+      } catch (emailErr) {
+        console.error('[SIGNUP] email dispatch failed:', emailErr);
+      }
+
+      // Insert into profiles after signup (if we have a user id)
+      if (data?.user?.id) {
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .upsert(
+            {
+              id: data.user.id,
+              email: trimmedEmail,
+              role,
+            },
+            { onConflict: 'id' }
+          );
 
         if (profileError) {
           console.error('[PROFILE INSERT ERROR]', profileError);
@@ -89,7 +175,7 @@ function CreateAccountInner() {
         const { data: preRevenueRow, error: preErr } = await supabase
           .from('pre_signup_revenue')
           .select('*')
-          .eq('email', email)
+          .eq('email', trimmedEmail)
           .maybeSingle();
 
         if (preErr && (preErr as any).code !== 'PGRST116') {
@@ -114,59 +200,18 @@ function CreateAccountInner() {
             throw mergeErr;
           }
 
-          await supabase.from('pre_signup_revenue').delete().eq('email', email);
+          await supabase.from('pre_signup_revenue').delete().eq('email', trimmedEmail);
         }
+      } else {
+        console.warn(
+          '[SIGNUP] No user id returned from signUp (email-confirm flow likely). Skipping profile upsert for now.'
+        );
       }
 
-      // ─────────────────────────────────
-      // SEND EMAILS (ABSOLUTE URL – REQUIRED)
-      // ─────────────────────────────────
-      const baseUrl =
-        process.env.NEXT_PUBLIC_SITE_URL ||
-        window.location.origin;
-
-      try {
-        if (role === "affiliate") {
-          await fetch(`${baseUrl}/api/emails/affiliate-signup`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              to: email.trim().toLowerCase(),
-              affiliateEmail: email.trim().toLowerCase(),
-              username: username.trim(),
-            }),
-          });
-        }
-
-        if (role === "business") {
-          await fetch(`${baseUrl}/api/emails/business-signup`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              to: email.trim().toLowerCase(),
-              businessEmail: email.trim().toLowerCase(),
-              businessName: username.trim(),
-            }),
-          });
-        }
-
-        // Founder notify (always)
-        await fetch(`${baseUrl}/api/emails/founder-notify`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            type: "signup",
-            role,
-            email: email.trim().toLowerCase(),
-          }),
-        });
-      } catch (emailErr) {
-        console.error("[CREATE ACCOUNT] email send failed", emailErr);
-      }
-
-      // Redirect straight to dashboard based on role
+      // ✅ Redirect only AFTER emails were attempted
       router.replace(onboardingPath);
     } catch (e: any) {
+      console.error('[SIGNUP] failed:', e);
       setErr(e?.message || 'Sign up failed');
     } finally {
       setSubmitting(false);
@@ -186,7 +231,6 @@ function CreateAccountInner() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[radial-gradient(60%_80%_at_50%_0%,#0b2a2b_0%,#090909_40%,#000_100%)] text-white px-6">
-      {/* Outer glow card */}
       <div className="relative w-full max-w-md">
         <div className="absolute -inset-0.5 rounded-3xl bg-gradient-to-b from-[#00C2CB]/40 to-transparent blur-xl opacity-60 pointer-events-none" />
         <div className="relative w-full rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl p-7 shadow-[0_10px_40px_rgba(0,0,0,0.6)]">
@@ -199,16 +243,12 @@ function CreateAccountInner() {
                 </span>{' '}
                 account
               </div>
-              <h1 className="mt-3 text-2xl font-bold tracking-tight">
-                Create your account
-              </h1>
+              <h1 className="mt-3 text-2xl font-bold tracking-tight">Create your account</h1>
               <p className="mt-1 text-sm text-white/60">
-                Get instant access after a quick signup. You can switch roles later in
-                settings.
+                Get instant access after a quick signup. You can switch roles later in settings.
               </p>
             </div>
 
-            {/* Home Button Only */}
             <div className="shrink-0 flex items-center">
               <button
                 type="button"
@@ -221,7 +261,6 @@ function CreateAccountInner() {
             </div>
           </div>
 
-          {/* Signup Form */}
           <form onSubmit={handleEmailSignup} className="space-y-4">
             <div>
               <label className="mb-1 block text-xs text-white/60">Username</label>

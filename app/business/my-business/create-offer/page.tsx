@@ -15,16 +15,22 @@ function CreateOfferPageInner() {
   const isOnboard = searchParams?.get('onboard') === 'tracking';
   const [showOnboard, setShowOnboard] = useState(false);
 
-  // Fire-and-forget email events (Resend). Never block the user flow.
-  const fireEmailEvent = async (type: string, payload: Record<string, any>) => {
+  // Fire-and-forget emails (Resend). Never block the user flow.
+  // NOTE: We no longer use the legacy `/api/email` router.
+  const fireEmail = async (path: string, payload: Record<string, any>) => {
     try {
-      await fetch('/api/email', {
+      const baseUrl =
+        process.env.NEXT_PUBLIC_SITE_URL ||
+        process.env.NEXT_PUBLIC_APP_URL ||
+        window.location.origin;
+
+      await fetch(`${baseUrl}${path}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type, ...payload }),
+        body: JSON.stringify(payload),
       });
     } catch (err) {
-      console.warn('[Email event failed]', type, err);
+      console.warn('[Email send failed]', path, err);
     }
   };
 
@@ -385,27 +391,28 @@ function CreateOfferPageInner() {
       return;
     }
 
-    // Email: offer created (non-blocking)
+    // Emails: offer created (non-blocking)
     try {
       const cleanBusinessEmail = (userEmail || '').trim().toLowerCase();
       if (cleanBusinessEmail) {
-        void fireEmailEvent('offer_created', {
-          businessEmail: cleanBusinessEmail,
+        // Notify affiliates (broadcast handled server-side)
+        void fireEmail('/api/emails/new-offer', {
           offerId: newOffer.id,
           offerTitle: newOffer.title,
+          businessEmail: cleanBusinessEmail,
           website: newOffer.website,
           currency: newOffer.currency,
           commission: newOffer.commission,
           price: newOffer.price,
         });
 
-        // Optional: internal admin notification (safe even if the backend ignores/doesn't support it)
-        void fireEmailEvent('admin_notify', {
-          event: 'offer_created',
-          businessEmail: cleanBusinessEmail,
+        // Founder notify (internal)
+        void fireEmail('/api/emails/founder-notify', {
+          type: 'offer_created',
+          role: 'business',
+          email: cleanBusinessEmail,
           offerId: newOffer.id,
           offerTitle: newOffer.title,
-          website: newOffer.website,
         });
       }
     } catch (e) {

@@ -2,9 +2,9 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
 
-const LOGO_URL = "https://www.nettmark.com/icon.png";
-
 export const runtime = "nodejs";
+
+const LOGO_URL = "https://www.nettmark.com/icon.png";
 
 // Simple HTML escaping so user-provided strings can’t break the email
 function escapeHtml(input: unknown) {
@@ -18,7 +18,6 @@ function escapeHtml(input: unknown) {
 }
 
 function getBaseUrl(req: Request) {
-  // Prefer explicit env if you have it
   const envUrl =
     process.env.NEXT_PUBLIC_APP_URL ||
     process.env.APP_URL ||
@@ -26,7 +25,6 @@ function getBaseUrl(req: Request) {
 
   if (envUrl) return envUrl.replace(/\/$/, "");
 
-  // Fallback to request headers (works on Vercel)
   const host =
     req.headers.get("x-forwarded-host") ||
     req.headers.get("host") ||
@@ -45,10 +43,12 @@ export async function POST(req: Request) {
       affiliateEmail,
       offerTitle,
       notes,
-      // optional if you want later
       offerId,
       requestId,
     } = body || {};
+
+    // 🔎 Debug (so we stop guessing)
+    console.log("[affiliate-request-sent] body:", body);
 
     if (!process.env.RESEND_API_KEY) {
       return NextResponse.json(
@@ -57,12 +57,24 @@ export async function POST(req: Request) {
       );
     }
 
-    if (!to || !businessEmail || !affiliateEmail || !offerTitle) {
+    // ✅ Make recipient robust: default to businessEmail
+    const resolvedTo = (to || businessEmail || "").trim();
+
+    // ✅ Only truly required fields
+    if (!resolvedTo || !businessEmail || !affiliateEmail) {
       return NextResponse.json(
         {
           ok: false,
           error:
-            "Missing required fields: to, businessEmail, affiliateEmail, offerTitle",
+            "Missing required fields: businessEmail, affiliateEmail (and recipient via to or businessEmail)",
+          received: {
+            to,
+            businessEmail,
+            affiliateEmail,
+            offerTitle,
+            offerId,
+            requestId,
+          },
         },
         { status: 400 }
       );
@@ -75,24 +87,27 @@ export async function POST(req: Request) {
 
     const baseUrl = getBaseUrl(req);
 
-    // Keep this simple: send them to the affiliate-requests page
-    // If you later want deep-linking, you can wire offerId/requestId into a filtered view.
-    const ctaUrl = `${baseUrl}/business/my-business/affiliate-requests${
-      offerId ? `?offerId=${encodeURIComponent(String(offerId))}` : ""
-    }${offerId && requestId ? `&requestId=${encodeURIComponent(String(requestId))}` : requestId && !offerId ? `?requestId=${encodeURIComponent(String(requestId))}` : ""}`;
+    const ctaUrl =
+      `${baseUrl}/business/my-business/affiliate-requests` +
+      (offerId ? `?offerId=${encodeURIComponent(String(offerId))}` : "") +
+      (offerId && requestId
+        ? `&requestId=${encodeURIComponent(String(requestId))}`
+        : requestId && !offerId
+        ? `?requestId=${encodeURIComponent(String(requestId))}`
+        : "");
 
     const subject = "New affiliate request";
 
     const safeBusinessEmail = escapeHtml(businessEmail);
     const safeAffiliateEmail = escapeHtml(affiliateEmail);
-    const safeOfferTitle = escapeHtml(offerTitle);
+    const safeOfferTitle = escapeHtml(offerTitle || "Your offer"); // ✅ fallback
     const safeNotes = notes ? escapeHtml(notes) : "";
 
     const html = `
 <!doctype html>
 <html>
   <head>
-    <meta charSet="utf-8" />
+    <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>${escapeHtml(subject)}</title>
   </head>
@@ -109,33 +124,23 @@ export async function POST(req: Request) {
             <tr>
               <td style="padding:0 0 14px 0;">
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-  <tr>
-    <td style="width:38px;vertical-align:middle;">
-      <img
-        src="${LOGO_URL}"
-        width="38"
-        height="38"
-        alt="Nettmark"
-        style="display:block;border-radius:10px;"
-      />
-    </td>
+                  <tr>
+                    <td style="width:38px;vertical-align:middle;">
+                      <img src="${LOGO_URL}" width="38" height="38" alt="Nettmark" style="display:block;border-radius:10px;" />
+                    </td>
 
-    <td style="padding-left:12px;vertical-align:middle;font-family:Arial,Helvetica,sans-serif;">
-      <div style="font-size:18px;font-weight:700;line-height:1;color:#0b0b0b;">
-        Nettmark
-      </div>
-      <div style="font-size:12px;color:#6b7280;margin-top:3px;">
-        Business notifications
-      </div>
-    </td>
+                    <td style="padding-left:12px;vertical-align:middle;font-family:Arial,Helvetica,sans-serif;">
+                      <div style="font-size:18px;font-weight:700;line-height:1;color:#0b0b0b;">Nettmark</div>
+                      <div style="font-size:12px;color:#6b7280;margin-top:3px;">Business notifications</div>
+                    </td>
 
-    <td align="right" style="vertical-align:middle;">
-      <span style="font-family:Arial,sans-serif;font-size:11px;letter-spacing:0.12em;color:#6b7280;border:1px solid #e5e7eb;background:#ffffff;padding:7px 10px;border-radius:999px;">
-        REQUEST
-      </span>
-    </td>
-  </tr>
-</table>
+                    <td align="right" style="vertical-align:middle;">
+                      <span style="font-family:Arial,sans-serif;font-size:11px;letter-spacing:0.12em;color:#6b7280;border:1px solid #e5e7eb;background:#ffffff;padding:7px 10px;border-radius:999px;">
+                        REQUEST
+                      </span>
+                    </td>
+                  </tr>
+                </table>
               </td>
             </tr>
 
@@ -207,10 +212,12 @@ export async function POST(req: Request) {
 
     const result = await resend.emails.send({
       from: `${fromName} <${fromEmail}>`,
-      to: [to],
+      to: [resolvedTo],
       subject,
       html,
     });
+
+    console.log("[affiliate-request-sent] resend result:", result);
 
     return NextResponse.json({ ok: true, result });
   } catch (e: any) {

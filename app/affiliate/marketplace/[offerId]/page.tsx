@@ -173,13 +173,19 @@ export default function AffiliateOfferProfilePage() {
         payload.business_name = offer.business_name;
       }
 
-      const { error } = await (supabase as any).from('affiliate_requests').insert(payload);
+      const { data: inserted, error } = await (supabase as any)
+        .from('affiliate_requests')
+        .insert(payload)
+        .select('id')
+        .single();
 
       if (error) {
         console.error('[Error inserting affiliate request]', error);
         setRequestError(error.message || 'Failed to send request.');
         return;
       }
+
+      const requestId = (inserted as any)?.id as string | undefined;
 
       setRequested(true);
       setRequestSuccess('Request sent to the business for approval.');
@@ -188,17 +194,33 @@ export default function AffiliateOfferProfilePage() {
       try {
         const businessEmail = (offer as any).business_email || null;
         if (businessEmail) {
-          await fetch('/api/emails/affiliate-request', {
+          const baseUrl =
+            process.env.NEXT_PUBLIC_SITE_URL ||
+            process.env.NEXT_PUBLIC_APP_URL ||
+            window.location.origin;
+
+          void fetch(`${baseUrl}/api/emails/affiliate-request-sent`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
+              to: businessEmail,
               affiliateEmail: userEmail,
               businessEmail,
               offerId,
+              requestId,
               offerTitle: offer.title || offer.business_name || 'Offer',
               notes: requestNotes || '',
             }),
-          });
+          })
+            .then(async (res) => {
+              if (!res.ok) {
+                const txt = await res.text().catch(() => '');
+                console.warn('[affiliate-request email] failed', res.status, txt);
+              }
+            })
+            .catch((err) => {
+              console.warn('[affiliate-request email] error', err);
+            });
         }
       } catch (emailErr) {
         console.warn('[Email notify failed - non blocking]', emailErr);

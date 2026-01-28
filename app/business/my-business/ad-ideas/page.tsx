@@ -1,6 +1,5 @@
 'use client';
 
-import axios from 'axios';
 import { useSession } from '@supabase/auth-helpers-react';
 import { useEffect, useState } from 'react';
 import { supabase } from 'utils/supabase/pages-client';
@@ -24,25 +23,8 @@ async function postJson(url: string, body: any) {
   return { ok: res.ok, status: res.status, json };
 }
 
-// Try a small list of possible email endpoints so this works regardless of the exact route name.
-async function sendEmailEvent(payload: any) {
-  const endpoints = ['/api/email/send', '/api/emails/send', '/api/notify/email'];
-  let last: any = null;
-
-  for (const url of endpoints) {
-    try {
-      const result = await postJson(url, payload);
-      last = result;
-      if (result.ok) return result;
-    } catch (e) {
-      last = { ok: false, status: 0, json: { error: String(e) } };
-    }
-  }
-
-  return last;
-}
-
 async function notifyAdRejected(params: {
+  to: string;
   affiliateEmail: string;
   businessEmail: string;
   offerId: string;
@@ -56,9 +38,30 @@ async function notifyAdRejected(params: {
     ...params,
   };
 
-  const res = await sendEmailEvent(payload);
+  const res = await postJson('/api/emails/ad-rejected', payload);
   if (!res?.ok) {
-    console.error('[email] ad_rejected failed', res);
+    console.error('[email] /api/emails/ad-rejected failed', res);
+  }
+}
+
+async function notifyAdApproved(params: {
+  to: string;
+  affiliateEmail: string;
+  businessEmail: string;
+  offerId: string;
+  offerTitle?: string;
+  adIdeaId: string;
+  campaignId?: string;
+}) {
+  const payload = {
+    type: 'ad_approved',
+    event: 'ad_approved',
+    ...params,
+  };
+
+  const res = await postJson('/api/emails/ad-approved', payload);
+  if (!res?.ok) {
+    console.error('[email] /api/emails/ad-approved failed', res);
   }
 }
 
@@ -209,6 +212,7 @@ export default function AdIdeasPage() {
           const offerTitle = offersMap[rejected.offer_id] || 'Unknown Offer';
           try {
             await notifyAdRejected({
+              to: rejected.affiliate_email,
               affiliateEmail: rejected.affiliate_email,
               businessEmail: user.email,
               offerId: rejected.offer_id,
@@ -252,6 +256,21 @@ export default function AdIdeasPage() {
           }
 
           nmToast.success("Ad approved & campaign created");
+
+          try {
+            const offerTitle = offersMap[ad.offer_id] || 'Unknown Offer';
+            await notifyAdApproved({
+              to: ad.affiliate_email,
+              affiliateEmail: ad.affiliate_email,
+              businessEmail: ad.business_email,
+              offerId: ad.offer_id,
+              offerTitle,
+              adIdeaId: ad.id,
+              campaignId: (inserted as any)?.id,
+            });
+          } catch (e) {
+            console.error('[email] notifyAdApproved crashed', e);
+          }
 
           if ((inserted as any)?.id) {
             router.push(`/business/manage-campaigns/${(inserted as any).id}`);

@@ -90,39 +90,41 @@ export default function AffiliateRequestsPage() {
 
     // Email notifications (non-blocking)
     try {
-      const emailType =
+      const baseUrl =
+        process.env.NEXT_PUBLIC_SITE_URL ||
+        process.env.NEXT_PUBLIC_APP_URL ||
+        window.location.origin;
+
+      const decisionEndpoint =
         newStatus === 'approved'
-          ? 'affiliate_request_approved'
+          ? '/api/emails/affiliate-request-approved'
           : newStatus === 'rejected'
-          ? 'affiliate_request_rejected'
+          ? '/api/emails/affiliate-request-rejected'
           : null;
 
-      if (emailType && currentAffiliateEmail && currentBusinessEmail) {
-        fetch('/api/email', {
+      // Notify the affiliate about the decision
+      if (decisionEndpoint && currentAffiliateEmail && currentBusinessEmail) {
+        fetch(`${baseUrl}${decisionEndpoint}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            type: emailType,
+            to: currentAffiliateEmail,
             affiliateEmail: currentAffiliateEmail,
             businessEmail: currentBusinessEmail,
             offerId: currentOfferId,
             offerTitle: currentOfferTitle,
+            requestId,
           }),
-        }).catch(() => {});
-
-        // Admin ping (you)
-        fetch('/api/email', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            type: 'admin_notify',
-            event: emailType,
-            affiliateEmail: currentAffiliateEmail,
-            businessEmail: currentBusinessEmail,
-            offerId: currentOfferId,
-            offerTitle: currentOfferTitle,
-          }),
-        }).catch(() => {});
+        })
+          .then(async (res) => {
+            if (!res.ok) {
+              const txt = await res.text().catch(() => '');
+              console.error('[affiliate-requests] decision email failed', res.status, txt);
+            }
+          })
+          .catch((err) => {
+            console.error('[affiliate-requests] decision email error', err);
+          });
       }
     } catch (e) {
       console.error('[affiliate-requests] Email notify failed', e);

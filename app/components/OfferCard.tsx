@@ -36,16 +36,22 @@ export default function OfferCard({
   const [notes, setNotes] = useState('');
   const [requested, setRequested] = useState(alreadyRequested);
 
-  const sendEmail = async (payload: any) => {
+  const sendEmail = async (endpoint: string, payload: any) => {
     try {
       // Fire-and-forget email trigger (should never block UX)
-      await fetch('/api/email', {
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
+
+      // Log non-2xx responses so we can debug missing emails
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        console.warn('[email] non-ok response', endpoint, res.status, text);
+      }
     } catch (e) {
-      console.warn('[email] failed to send', e);
+      console.warn('[email] failed to send', endpoint, e);
     }
   };
 
@@ -93,9 +99,13 @@ export default function OfferCard({
 
     console.log('[📩 Request Payload]', payload);
 
-    const { error } = await supabase.from('affiliate_requests').upsert(payload, {
-      onConflict: 'offer_id,affiliate_email',
-    });
+    const { data: requestRow, error } = await supabase
+      .from('affiliate_requests')
+      .upsert(payload, {
+        onConflict: 'offer_id,affiliate_email',
+      })
+      .select('id')
+      .single();
 
     if (error) {
       console.error('[❌ Request Error]', error);
@@ -105,23 +115,18 @@ export default function OfferCard({
       // mark request as sent so the button disables
       setRequested(true);
 
-      // Trigger email notifications (non-blocking)
-      void sendEmail({
-        type: 'affiliate_request_sent',
-        businessEmail,
-        affiliateEmail,
-        offerId: offer.id,
-        businessName: offer.businessName || '',
-        notes: notes || '',
-      });
+      // Trigger business notification email (non-blocking)
+      const offerTitle = offer.businessName || 'New offer';
+      const requestId = requestRow?.id;
 
-      void sendEmail({
-        type: 'admin_notify',
-        event: 'affiliate_request_sent',
+      void sendEmail('/api/emails/affiliate-request-sent', {
+        to: businessEmail,
         businessEmail,
         affiliateEmail,
+        offerTitle,
+        notes: notes || '',
         offerId: offer.id,
-        businessName: offer.businessName || '',
+        requestId,
       });
     }
   };
