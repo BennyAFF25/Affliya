@@ -165,20 +165,9 @@ export default function ManageCampaignPage() {
         console.error('[❌ Failed to fetch campaign stats]', fetchErr);
       }
 
-      // Optional fallback (only if needed): some legacy setups may not attach campaign_id
-      // In that case, count events by offer_id + affiliate_id.
-      if ((!rows || rows.length === 0) && campaign?.offer_id && affiliateId) {
-        const fallback = await (supabase as any)
-          .from('campaign_tracking_events')
-          .select('id, event_type, amount, created_at, offer_id, affiliate_id, campaign_id')
-          .eq('offer_id', campaign.offer_id)
-          .eq('affiliate_id', affiliateId);
-
-        rows = fallback?.data || [];
-        if (fallback?.error) {
-          console.warn('[⚠️ Fallback stats query failed]', fallback.error);
-        }
-      }
+      // 🚫 No fallback to offer_id/affiliate_id here.
+      // This page must be campaign-scoped only.
+      // If a campaign has no events yet, we show zeros (prevents cross-campaign data bleed).
 
       // If no events exist, reset UI cleanly.
       if (!rows || rows.length === 0) {
@@ -256,7 +245,7 @@ export default function ManageCampaignPage() {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [campaignId, affiliateId, campaign?.offer_id]);
+  }, [campaignId]);
 
   // --------------------
   // Load campaign (organic first, then paid meta from live_ads)
