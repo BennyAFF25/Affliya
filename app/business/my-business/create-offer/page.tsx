@@ -304,6 +304,14 @@ function CreateOfferPageInner() {
       return;
     }
 
+    if (hasMetaConnections) {
+      if (!selectedPage || !selectedAdAccount) {
+        alert('Please select a Facebook Page and Ad Account.');
+        setStep(3);
+        return;
+      }
+    }
+
     let uploadedLogoUrl: string | null = null;
 
     if (logoFile) {
@@ -353,6 +361,15 @@ function CreateOfferPageInner() {
     const metaAdAccountId = selectedAdAccount || null;
     const metaPixelId = selectedPixel || null;
 
+    // Resolve selected Meta asset names (for display + preventing cross-over confusion)
+    const selectedPageObj = uniquePages.find((c) => c.page_id === selectedPage);
+    const selectedAdAccountObj = uniqueAdAccounts.find((c) => c.ad_account_id === selectedAdAccount);
+    const selectedPixelObj = availablePixels.find((p) => p.id === selectedPixel);
+
+    const metaPageName = selectedPageObj?.page_name || null;
+    const metaAdAccountName = selectedAdAccountObj?.ad_account_name || null;
+    const metaPixelName = selectedPixelObj?.name || null;
+
     const finalPayoutMode = type === 'recurring' ? payoutMode : 'upfront';
     const finalPayoutInterval = type === 'recurring' ? payoutInterval : 'monthly';
     const finalPayoutCycles = type === 'recurring' && payoutMode === 'spread' ? payoutCycles : null;
@@ -366,8 +383,11 @@ function CreateOfferPageInner() {
       commission: Number(commission),
       created_at: new Date().toISOString(),
       meta_ad_account_id: metaAdAccountId,
+      meta_ad_account_name: metaAdAccountName,
       meta_page_id: metaPageId,
+      meta_page_name: metaPageName,
       meta_pixel_id: metaPixelId,
+      meta_pixel_name: metaPixelName,
       price: Number(price),
       commission_value: commissionValue,
       currency,

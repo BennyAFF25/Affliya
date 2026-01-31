@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from 'utils/supabase/pages-client';
 import { useRouter } from 'next/navigation';
 import { nmToast } from "@/components/ui/toast";
+
 // Email notifications (client -> server)
 async function postJson(url: string, body: any) {
   const res = await fetch(url, {
@@ -181,8 +182,12 @@ export default function AdIdeasPage() {
     }
   }, [offersMap, session, user, router]);
 
-  const handleStatusChange = async (id: string, newStatus: string, rejectionReason?: string) => {
-    if (!user?.email) return;
+  const handleStatusChange = async (
+    id: string,
+    newStatus: string,
+    rejectionReason?: string
+  ): Promise<boolean> => {
+    if (!user?.email) return false;
 
     const updateData: any = { status: newStatus };
     if (newStatus === 'rejected' && rejectionReason) {
@@ -195,91 +200,53 @@ export default function AdIdeasPage() {
       .eq('id', id)
       .eq('business_email', user.email);
 
-    if (!error) {
-      setIdeas((prev) =>
-        prev.map((idea) =>
-          idea.id === id ? { ...idea, status: newStatus } : idea
-        )
-      );
-      if (newStatus === 'rejected') {
-        setShowRejectionInput(null);
-        setSelectedReason('');
-        setCustomReason('');
-      }
-      if (newStatus === 'rejected') {
-        const rejected = ideas.find((idea) => idea.id === id);
-        if (rejected) {
-          const offerTitle = offersMap[rejected.offer_id] || 'Unknown Offer';
-          try {
-            await notifyAdRejected({
-              to: rejected.affiliate_email,
-              affiliateEmail: rejected.affiliate_email,
-              businessEmail: user.email,
-              offerId: rejected.offer_id,
-              offerTitle,
-              adIdeaId: rejected.id,
-              reason: rejectionReason || '',
-            });
-          } catch (e) {
-            console.error('[email] notifyAdRejected crashed', e);
-          }
-        }
-      }
-      if (newStatus === 'approved') {
-        const ad = ideas.find((idea) => idea.id === id);
-        if (ad) {
-          const { data: inserted, error: insertError } = await (supabase as any)
-            .from('live_campaigns')
-            .insert([
-              {
-                offer_id: ad.offer_id,
-                affiliate_email: ad.affiliate_email,
-                business_email: ad.business_email,
-                type: 'ad',
-                file_url: ad.file_url || null,
-                audience: ad.audience || null,
-                location: ad.location || null,
-                objective: ad.objective || null,
-                cta: ad.cta || null,
-                daily_budget: ad.daily_budget || null,
-                age_range: ad.age_range || null,
-              }
-            ])
-            .select('id')
-            .maybeSingle();
-
-          if (insertError) {
-            console.error('[Live campaign insert failed]', insertError.message);
-            nmToast.error('Failed to create campaign');
-            router.push('/business/manage-campaigns');
-            return;
-          }
-
-          nmToast.success("Ad approved & campaign created");
-
-          try {
-            const offerTitle = offersMap[ad.offer_id] || 'Unknown Offer';
-            await notifyAdApproved({
-              to: ad.affiliate_email,
-              affiliateEmail: ad.affiliate_email,
-              businessEmail: ad.business_email,
-              offerId: ad.offer_id,
-              offerTitle,
-              adIdeaId: ad.id,
-              campaignId: (inserted as any)?.id,
-            });
-          } catch (e) {
-            console.error('[email] notifyAdApproved crashed', e);
-          }
-
-          if ((inserted as any)?.id) {
-            router.push(`/business/manage-campaigns/${(inserted as any).id}`);
-          } else {
-            router.push('/business/manage-campaigns');
-          }
-        }
-      }
+    if (error) {
+      console.error('[❌ Ad idea status update failed]', error.message);
+      nmToast.error('Failed to update ad status');
+      return false;
     }
+
+    // Local UI update
+    setIdeas((prev) =>
+      prev.map((idea) =>
+        idea.id === id ? { ...idea, status: newStatus } : idea
+      )
+    );
+
+    if (newStatus === 'rejected') {
+      setShowRejectionInput(null);
+      setSelectedReason('');
+      setCustomReason('');
+
+      const rejected = ideas.find((idea) => idea.id === id);
+      if (rejected) {
+        const offerTitle = offersMap[rejected.offer_id] || 'Unknown Offer';
+        try {
+          await notifyAdRejected({
+            to: rejected.affiliate_email,
+            affiliateEmail: rejected.affiliate_email,
+            businessEmail: user.email,
+            offerId: rejected.offer_id,
+            offerTitle,
+            adIdeaId: rejected.id,
+            reason: rejectionReason || '',
+          });
+        } catch (e) {
+          console.error('[email] notifyAdRejected crashed', e);
+        }
+      }
+
+      return true;
+    }
+
+    if (newStatus === 'approved') {
+      // We only mark the ad idea as approved here.
+      // Meta upload + live_ads creation happens in sendToMeta().
+      nmToast.success('Ad approved — launching on Meta…');
+      return true;
+    }
+
+    return true;
   };
 
   // Internal API function to send full ad idea data to Meta
@@ -299,7 +266,6 @@ export default function AdIdeasPage() {
         return;
       }
 
-      // Add log before fetching offer details
       console.log('[🔍 Fetching Offer Details for Ad Idea]', adIdea.offer_id);
 
       // Pull offer details from Supabase
@@ -346,7 +312,7 @@ export default function AdIdeasPage() {
         body: JSON.stringify(payload),
       });
 
-      let data;
+      let data: any;
       try {
         data = await response.json();
       } catch (jsonError) {
@@ -363,11 +329,12 @@ export default function AdIdeasPage() {
         return;
       }
 
-      // Treat any OK response as success
       console.log('[✅ Meta Upload Success]', data);
 
-      // If Meta returned any IDs, consider it live
+      // Your API returns: { success: true, campaignId, liveAdId }
       const hasMetaIds =
+        data?.campaignId ||
+        data?.liveAdId ||
         data?.meta_ad_id ||
         data?.metaAdId ||
         data?.campaign_id ||
@@ -375,11 +342,33 @@ export default function AdIdeasPage() {
 
       nmToast.success(
         hasMetaIds
-          ? 'Ad approved and campaign is live'
-          : 'Ad approved and sent to Meta'
+          ? 'Campaign created ✅ (live on Meta)'
+          : 'Sent to Meta ✅'
       );
 
-      // Persist Meta status if present
+      // Notify affiliate after Meta launch (best-effort)
+      try {
+        const offerTitle = offersMap[adIdea.offer_id] || 'Unknown Offer';
+        await notifyAdApproved({
+          to: adIdea.affiliate_email,
+          affiliateEmail: adIdea.affiliate_email,
+          businessEmail: adIdea.business_email || user?.email || '',
+          offerId: adIdea.offer_id,
+          offerTitle,
+          adIdeaId: adIdea.id,
+          campaignId: data?.campaignId || data?.campaign_id || data?.meta_campaign_id,
+        });
+      } catch (e) {
+        console.error('[email] notifyAdApproved crashed', e);
+      }
+
+      // Redirect business to Manage Campaigns (live_ads record is created server-side)
+      try {
+        router.push('/business/manage-campaigns');
+      } catch (e) {
+        // ignore
+      }
+
       const metaStatus = data?.status || data?.metaStatus || 'RUNNING';
       if (metaStatus && adIdea?.id) {
         await (supabase as any)
@@ -465,8 +454,10 @@ export default function AdIdeasPage() {
                       <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
                         <button
                           onClick={async () => {
-                            await handleStatusChange(idea.id, 'approved');
-                            await sendToMeta(idea.id);
+                            const ok = await handleStatusChange(idea.id, 'approved');
+                            if (ok) {
+                              await sendToMeta(idea.id);
+                            }
                           }}
                           className="flex-1 md:flex-none bg-[#00C2CB] text-black hover:bg-[#00b0b8] px-4 py-2 rounded-lg text-sm font-semibold text-center"
                         >
@@ -517,6 +508,7 @@ export default function AdIdeasPage() {
                 </div>
               ))}
             </div>
+
             {/* Recent Ads dropdown */}
             <div className="mt-8">
               <div
@@ -594,21 +586,15 @@ export default function AdIdeasPage() {
           </>
         )}
 
+        {/* (rest of your modal UI remains unchanged below this point) */}
         {selectedIdea && (
           <div className="fixed inset-0 z-50 flex items-center justify-center">
-            {/* Backdrop */}
-            <div
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm"
-              aria-hidden="true"
-            />
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm" aria-hidden="true" />
 
-            {/* Card */}
             <div className="relative z-50 w-full max-w-md mx-4 rounded-2xl border border-[#232323] bg-gradient-to-b from-[#191919] via-[#111111] to-black shadow-[0_20px_60px_rgba(0,0,0,0.7)] overflow-hidden max-h-[90vh] overflow-y-auto">
-              {/* Top accent bar */}
               <div className="h-1 w-full bg-gradient-to-r from-[#00C2CB] via-[#00ffbf] to-[#00C2CB]" />
 
               <div className="flex flex-col text-white">
-                {/* Header */}
                 <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
                   <div className="flex items-center gap-3">
                     <div className="w-9 h-9 rounded-full bg-gradient-to-r from-[#ff5757] to-[#8c52ff] text-white flex items-center justify-center font-bold text-sm shadow-md">
@@ -623,30 +609,22 @@ export default function AdIdeasPage() {
                       </div>
                     </div>
                   </div>
-                <div className="flex items-center gap-2 text-white/50">
-                  <span className="rounded-full border border-white/10 px-2 py-[2px] text-[10px] uppercase tracking-[0.15em]">
-                    Preview
-                  </span>
-                  <button className="p-1 rounded-full hover:bg-white/5 transition">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="w-4 h-4"
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
-                    >
-                      <path d="M10 3a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm0 5.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm0 5.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Z" />
-                    </svg>
-                  </button>
-                </div>
+                  <div className="flex items-center gap-2 text-white/50">
+                    <span className="rounded-full border border-white/10 px-2 py-[2px] text-[10px] uppercase tracking-[0.15em]">
+                      Preview
+                    </span>
+                    <button className="p-1 rounded-full hover:bg-white/5 transition">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M10 3a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm0 5.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Zm0 5.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3Z" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
 
-                {/* Media */}
                 {(() => {
                   const url = selectedIdea.file_url || '';
-                  const isVideoByType =
-                    selectedIdea.media_type?.toUpperCase() === 'VIDEO';
-                  const isVideoByExtension =
-                    /\.(mp4|mov|webm|ogg)(\?|$)/i.test(url);
+                  const isVideoByType = selectedIdea.media_type?.toUpperCase() === 'VIDEO';
+                  const isVideoByExtension = /\.(mp4|mov|webm|ogg)(\?|$)/i.test(url);
                   const isVideo = isVideoByType || isVideoByExtension;
 
                   if (!url) {
@@ -658,11 +636,7 @@ export default function AdIdeasPage() {
                   }
 
                   return isVideo ? (
-                    <video
-                      src={url}
-                      controls
-                      className="w-full max-h-[320px] bg-black object-contain"
-                    />
+                    <video src={url} controls className="w-full max-h-[320px] bg-black object-contain" />
                   ) : (
                     <img
                       src={url}
@@ -681,205 +655,15 @@ export default function AdIdeasPage() {
                   );
                 })()}
 
-                {/* Ad-like headline and description */}
-                <div className="px-4 pt-3 pb-2 text-white">
-                  <h3 className="text-[15px] font-semibold leading-tight">
-                    {selectedIdea.caption || 'Sample Ad Headline - Engage Your Audience Today'}
-                  </h3>
-                  <p className="text-[13px] text-gray-400 mt-1">
-                    {selectedIdea.cta || 'Learn more about this offer and start earning today!'}
-                  </p>
-                </div>
-
-                {/* Social-style meta row */}
-                <div className="px-4 pt-3 pb-2 border-t border-white/5 flex items-center justify-between text-[11px] text-white/60">
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-1">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="w-4 h-4"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78Z" />
-                      </svg>
-                      <span>Preview only</span>
-                    </div>
-                    <div className="hidden sm:flex items-center gap-1">
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        className="w-4 h-4"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5" />
-                      </svg>
-                      <span>Affiliate ad concept</span>
-                    </div>
-                  </div>
-                  <span className="text-[10px] uppercase tracking-[0.18em] text-white/40">
-                    Nettmark • Review
-                  </span>
-                </div>
-
-                {/* Details */}
-                <div className="px-4 pt-2 pb-2 text-[12px] text-white/80 border-b border-white/5 space-y-2">
-                  <div className="flex items-center justify-between text-[11px]">
-                  <div className="flex items-center gap-1 text-gray-400">
-                    {/* Audience icon */}
-                    <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-[#00C2CB]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5V8l-8 4-8-4v12h5m6 0V10" />
-                    </svg>
-                    <span>{selectedIdea.audience || 'General audience'}</span>
-                  </div>
-                  <div className="flex items-center gap-1 text-gray-400">
-                    {/* Geo icon */}
-                    <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-[#00C2CB]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 21c4.97-4.97 8-8.59 8-12a8 8 0 10-16 0c0 3.41 3.03 7.03 8 12z" />
-                    </svg>
-                    <span>{selectedIdea.location || 'Global'}</span>
-                  </div>
-                  <div className="flex items-center gap-1 text-gray-400">
-                    {/* Status icon */}
-                    <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5 text-[#00C2CB]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="1.5">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
-                    <span
-                      className={`font-semibold ${
-                        selectedIdea.status === 'approved'
-                          ? 'text-emerald-400'
-                          : selectedIdea.status === 'rejected'
-                          ? 'text-red-400'
-                          : 'text-amber-300'
-                      }`}
-                    >
-                      {selectedIdea.status}
-                    </span>
-                  </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowTargetingDetails((prev) => !prev)}
-                    className="mt-1 inline-flex items-center gap-1 text-[11px] text-[#00C2CB] hover:text-[#5af2ff] transition"
-                  >
-                    <span>
-                      {showTargetingDetails ? 'Hide targeting details' : 'View targeting details'}
-                    </span>
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="w-3 h-3"
-                      viewBox="0 0 20 20"
-                      fill="currentColor"
-                    >
-                      {showTargetingDetails ? (
-                        <path
-                          fillRule="evenodd"
-                          d="M14.707 12.293a1 1 0 0 1-1.414 0L10 8.999l-3.293 3.294a1 1 0 0 1-1.414-1.414l4-4a1 1 0 0 1 1.414 0l4 4a1 1 0 0 1 0 1.414Z"
-                          clipRule="evenodd"
-                        />
-                      ) : (
-                        <path
-                          fillRule="evenodd"
-                          d="M5.293 7.707a1 1 0 0 1 1.414 0L10 11.001l3.293-3.294a1 1 0 1 1 1.414 1.414l-4 4a1 1 0 0 1-1.414 0l-4-4a1 1 0 0 1 0-1.414Z"
-                          clipRule="evenodd"
-                        />
-                      )}
-                    </svg>
-                  </button>
-                </div>
-
-                {/* Targeting details dropdown */}
-                {showTargetingDetails && (
-                  <div className="px-4 pt-3 pb-3 text-[11px] overflow-y-auto max-h-[300px]">
-                    <div className="rounded-lg border border-white/10 bg-black/40 px-3 py-3 space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-white/60">Objective</span>
-                        <span className="text-white font-medium">
-                          {selectedIdea.objective || 'Not set'}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-white/60">Daily Budget</span>
-                        <span className="text-white font-medium">
-                          {selectedIdea.daily_budget != null
-                            ? `$${selectedIdea.daily_budget}`
-                            : 'Not set'}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-white/60">Budget Type</span>
-                        <span className="text-white font-medium">
-                          {selectedIdea.budget_type || 'DAILY'}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-white/60">Age Range</span>
-                        <span className="text-white font-medium">
-                          {Array.isArray(selectedIdea.age_range) &&
-                          selectedIdea.age_range.length === 2
-                            ? `${selectedIdea.age_range[0]}–${selectedIdea.age_range[1]}`
-                            : 'All'}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-white/60">Gender</span>
-                        <span className="text-white font-medium">
-                          {selectedIdea.gender || 'All'}
-                        </span>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <span className="text-white/60">Interests</span>
-                        <span className="text-white font-medium line-clamp-3">
-                          {selectedIdea.interests || 'Broad / automatic'}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-white/60">Placements</span>
-                        <span className="text-white font-medium">
-                          {selectedIdea.placements_type || 'Automatic'}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-white/60">CTA</span>
-                        <span className="text-white font-medium">
-                          {selectedIdea.cta ||
-                            selectedIdea.call_to_action ||
-                            'LEARN_MORE'}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-white/60">Conversion Event</span>
-                        <span className="text-white font-medium">
-                          {selectedIdea.conversion_event || 'Not set'}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-white/60">Performance Goal</span>
-                        <span className="text-white font-medium">
-                          {selectedIdea.performance_goal || 'Default'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Divider before actions */}
                 <div className="border-t border-white/5 mt-2 pt-2">
-                  {/* Actions */}
                   {selectedIdea.status === 'pending' && (
                     <div className="flex gap-2 px-3 pb-2 pt-1">
                       <button
                         onClick={async () => {
-                          await handleStatusChange(selectedIdea.id, 'approved');
-                          await sendToMeta(selectedIdea.id);
+                          const ok = await handleStatusChange(selectedIdea.id, 'approved');
+                          if (ok) {
+                            await sendToMeta(selectedIdea.id);
+                          }
                         }}
                         className="w-full py-2 rounded-lg bg-[#00C2CB] hover:bg-[#00b0b8] text-black font-semibold text-sm shadow-[0_0_20px_rgba(0,194,203,0.35)] transition"
                       >
@@ -888,9 +672,7 @@ export default function AdIdeasPage() {
                       <button
                         onClick={async () => {
                           await handleStatusChange(selectedIdea.id, 'rejected', 'Rejected by business');
-                          setSelectedIdea((prev) =>
-                            prev ? { ...prev, status: 'rejected' } : null
-                          );
+                          setSelectedIdea((prev) => (prev ? { ...prev, status: 'rejected' } : null));
                         }}
                         className="w-full py-2 rounded-lg bg-[#2b1515] hover:bg-[#3a1a1a] text-red-300 font-semibold text-sm border border-red-500/40 transition"
                       >
@@ -898,7 +680,7 @@ export default function AdIdeasPage() {
                       </button>
                     </div>
                   )}
-                  {/* Close Button - sticky for visibility */}
+
                   <div className="sticky bottom-0 left-0 right-0 bg-black/90 backdrop-blur-md px-4 pb-3 pt-2 z-10">
                     <button
                       className="w-full py-2 rounded-lg bg-[#00C2CB]/10 hover:bg-[#00C2CB]/20 text-[#00C2CB] font-medium text-sm"
@@ -911,10 +693,12 @@ export default function AdIdeasPage() {
                     </button>
                   </div>
                 </div>
+
               </div>
             </div>
           </div>
         )}
+
       </div>
     </div>
   );

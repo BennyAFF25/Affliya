@@ -73,10 +73,10 @@ export async function POST(req: Request) {
     const fallback_image_url = rest.thumbnail_url;
     const image_hash = null;
 
-    // 1. Fetch the offer from Supabase (now also pulling website and meta_pixel_id for display link)
+    // 1. Fetch the offer from Supabase (offer is source of truth for Meta IDs)
     const { data: offer, error: offerError } = await supabase
       .from('offers')
-      .select('business_email, website, meta_pixel_id, title')
+      .select('business_email, website, meta_pixel_id, meta_page_id, meta_ad_account_id, title')
       .eq('id', offerId)
       .single();
 
@@ -85,17 +85,35 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'Offer lookup failed' }, { status: 400 });
     }
 
-    const businessEmail = offer.business_email;
+    const businessEmail = (offer as any).business_email;
     const offerWebsite = (offer as any)?.website || null;
     const offerPixelId = (offer as any)?.meta_pixel_id || null;
+
     console.log('[meta-upload] business_email', businessEmail);
     console.log('[meta-upload] offer_website', offerWebsite);
     console.log('[meta-upload] offer_meta_pixel_id', offerPixelId);
 
-    // 2. Lookup the correct ad account ID from meta_connections
+    const selectedPageId = (offer as any)?.meta_page_id || null;
+    const selectedAdAccountId = (offer as any)?.meta_ad_account_id || null;
+
+    if (!selectedPageId || !selectedAdAccountId) {
+      console.error('[❌ Offer missing Meta selections]', { selectedPageId, selectedAdAccountId });
+      return NextResponse.json(
+        { success: false, error: 'Offer is missing Meta Page or Ad Account selection. Please re-save the offer.' },
+        { status: 400 }
+      );
+    }
+
+    console.log('[✅ Selected Meta IDs from Offer]', {
+      meta_page_id: selectedPageId,
+      meta_ad_account_id: selectedAdAccountId,
+      meta_pixel_id: offerPixelId,
+    });
+
+    // 2. Lookup access_token from meta_connections (IDs come from the offer)
     const { data: connection, error: connectionError } = await supabase
       .from('meta_connections')
-      .select('ad_account_id, page_id, access_token, pixel_id')
+      .select('access_token, created_at')
       .eq('business_email', businessEmail)
       .order('created_at', { ascending: false })
       .limit(1)
@@ -106,8 +124,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: 'Meta connection lookup failed' }, { status: 400 });
     }
 
-    const { ad_account_id, page_id, access_token, pixel_id } = connection;
-    console.log('[📎 Matched Meta IDs]', { ad_account_id, page_id, pixel_id, offerPixelId });
+    const { access_token } = connection as any;
 
     if (!access_token) {
       console.error('[❌ Missing Access Token]');
@@ -144,8 +161,8 @@ export async function POST(req: Request) {
       ...rest,
       adIdeaId,
       offerId,
-      metaAdAccountId: ad_account_id,
-      metaPageId: page_id,
+      metaAdAccountId: selectedAdAccountId,
+      metaPageId: selectedPageId,
     };
 
     // ----- Dynamic field resolution (payload overrides DB; DB overrides defaults) -----
@@ -190,25 +207,11 @@ export async function POST(req: Request) {
     );
 
     // 🔗 LINKS: unified tracking vs display logic
-    // 1) Canonical tracking link = Nettmark /go/... (we trust the DB column first)
-    const trackingLink =
-      (adIdea as any)?.tracking_link ||
-      (body as any)?.tracking_link ||
-      null;
+    const trackingLink = (adIdea as any)?.tracking_link || (body as any)?.tracking_link || null;
 
-    // 2) Public-facing display link = brand website, fallback to tracking if needed
-    const displayLink =
-      offerWebsite ||
-      (body as any)?.display_link ||
-      trackingLink ||
-      null;
+    const displayLink = offerWebsite || (body as any)?.display_link || trackingLink || null;
 
-    // 3) Destination link (Meta click-through) = tracking first, then website, then display, then safe fallback
-    const destinationLink =
-      trackingLink ||
-      offerWebsite ||
-      displayLink ||
-      'https://nettmark.com';
+    const destinationLink = trackingLink || offerWebsite || displayLink || 'https://nettmark.com';
 
     // Media
     const videoUrl = prefer(
@@ -217,11 +220,7 @@ export async function POST(req: Request) {
       adIdea?.file_url,
       rest.file_url
     );
-    const thumbnailUrl = prefer(
-      (body as any).thumbnail_url,
-      adIdea?.thumbnail_url,
-      null
-    );
+    const thumbnailUrl = prefer((body as any).thumbnail_url, adIdea?.thumbnail_url, null);
 
     console.log('[Dynamic fields]', {
       campaignName,
@@ -242,9 +241,10 @@ export async function POST(req: Request) {
     console.log('[meta-upload] final payload', payload);
 
     // 5. Create campaign
-    const cleanAdAccountId = ad_account_id.startsWith('act_')
-      ? ad_account_id
-      : `act_${ad_account_id}`;
+    const cleanAdAccountId = String(selectedAdAccountId).startsWith('act_')
+      ? String(selectedAdAccountId)
+      : `act_${selectedAdAccountId}`;
+
     console.log('[meta-upload] clean_ad_account_id', cleanAdAccountId);
 
     const createCampaignRes = await fetch(
@@ -276,10 +276,7 @@ export async function POST(req: Request) {
     console.log('[✅ Campaign Created]', campaignData);
 
     // Update ad_ideas with the new Meta campaign ID
-    const updateRes = await supabase
-      .from('ad_ideas')
-      .update({ meta_campaign_id: campaignData.id })
-      .eq('id', adIdeaId);
+    const updateRes = await supabase.from('ad_ideas').update({ meta_campaign_id: campaignData.id }).eq('id', adIdeaId);
 
     if (updateRes.error) {
       console.error('[❌ Failed to Update Campaign ID in Supabase]', updateRes.error.message);
@@ -298,23 +295,15 @@ export async function POST(req: Request) {
       India: 'IN',
     };
     const countries = (() => {
-      const src = (
-        payload.location ??
-        (adIdea as any)?.location ??
-        'AU'
-      ).toString();
+      const src = (payload.location ?? (adIdea as any)?.location ?? 'AU').toString();
       return src
         .split(/[\s,]+/)
         .map((s: string) => s.trim())
         .filter(Boolean)
-        .map((s: string) =>
-          s.length === 2 ? s.toUpperCase() : countryMap[s] || s.toUpperCase()
-        );
+        .map((s: string) => (s.length === 2 ? s.toUpperCase() : countryMap[s] || s.toUpperCase()));
     })();
 
-    const rawPlacements: string[] = Array.isArray((payload as any).manual_placements)
-      ? (payload as any).manual_placements
-      : [];
+    const rawPlacements: string[] = Array.isArray((payload as any).manual_placements) ? (payload as any).manual_placements : [];
     const mapFB: Record<string, string> = {
       facebook_feed: 'feed',
       facebook_stories: 'story',
@@ -325,12 +314,8 @@ export async function POST(req: Request) {
       instagram_stories: 'story',
       instagram_reels: 'reels',
     };
-    const facebook_positions = rawPlacements
-      .filter((p) => p in mapFB)
-      .map((p) => mapFB[p]);
-    const instagram_positions = rawPlacements
-      .filter((p) => p in mapIG)
-      .map((p) => mapIG[p]);
+    const facebook_positions = rawPlacements.filter((p) => p in mapFB).map((p) => mapFB[p]);
+    const instagram_positions = rawPlacements.filter((p) => p in mapIG).map((p) => mapIG[p]);
     const publisher_platforms: string[] = [];
     if (facebook_positions.length) publisher_platforms.push('facebook');
     if (instagram_positions.length) publisher_platforms.push('instagram');
@@ -345,11 +330,7 @@ export async function POST(req: Request) {
         : [];
       const ids = (arr || [])
         .map((i: any) =>
-          typeof i === 'object' && i?.id
-            ? String(i.id)
-            : /^\d+$/.test(String(i))
-            ? String(i)
-            : null
+          typeof i === 'object' && i?.id ? String(i.id) : /^\d+$/.test(String(i)) ? String(i) : null
         )
         .filter(Boolean)
         .map((id: string) => ({ id }));
@@ -360,40 +341,27 @@ export async function POST(req: Request) {
 
     // ---- Optimisation & bidding (from ad_ideas) ----
     const optimisationGoal =
-      isSalesObjective || adIdea?.performance_goal === 'OFFSITE_CONVERSIONS'
-        ? 'OFFSITE_CONVERSIONS'
-        : 'REACH';
+      isSalesObjective || adIdea?.performance_goal === 'OFFSITE_CONVERSIONS' ? 'OFFSITE_CONVERSIONS' : 'REACH';
 
     // --- PATCH: Bid Cap Logic ---
-    const isBidCap =
-      (payload as any)?.bid_strategy === 'BID_CAP' ||
-      adIdea?.bid_strategy === 'BID_CAP';
+    const isBidCap = (payload as any)?.bid_strategy === 'BID_CAP' || adIdea?.bid_strategy === 'BID_CAP';
 
-    const rawBidCap =
-      (payload as any)?.bid_cap ??
-      adIdea?.bid_cap ??
-      null;
+    const rawBidCap = (payload as any)?.bid_cap ?? adIdea?.bid_cap ?? null;
 
-    // Meta expects minor units (e.g. $3.00 AUD → 300)
-    // IMPORTANT: We store bid_cap in **major units** (e.g. 9.00) in Supabase.
-    // Guardrail: If a value looks like it was already converted (e.g. 900 for $9),
-    // treat it as minor units to avoid accidental 100x.
-    const toMinorUnits = (v: any): { minor: string | null; inferred: 'major' | 'minor' | 'none' | 'invalid' } => {
+    const toMinorUnits = (
+      v: any
+    ): { minor: string | null; inferred: 'major' | 'minor' | 'none' | 'invalid' } => {
       if (v === null || v === undefined || v === '') return { minor: null, inferred: 'none' };
 
-      // If the user passed a string with decimals, assume major units.
       const str = typeof v === 'string' ? v.trim() : null;
       const num = Number(str ?? v);
       if (!Number.isFinite(num)) return { minor: null, inferred: 'invalid' };
 
-      // Heuristic: if it's an integer between 100 and 5000, it is very likely already minor units
-      // (e.g. 900 == $9.00). This prevents the classic double-*100 bug.
       const isInt = Number.isInteger(num);
       if (isInt && num >= 100 && num <= 5000) {
         return { minor: String(Math.round(num)), inferred: 'minor' };
       }
 
-      // Default: treat as major units and convert once.
       return { minor: String(Math.round(num * 100)), inferred: 'major' };
     };
 
@@ -408,7 +376,6 @@ export async function POST(req: Request) {
       });
     }
 
-    // --- PATCH: Safety check for BID_CAP ---
     if (isBidCap && !bidAmount) {
       console.error('[❌ BID_CAP selected but no bid amount provided]');
       return NextResponse.json(
@@ -417,10 +384,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // --- Meta bid strategy mapping (CRITICAL) ---
-    const metaBidStrategy = isBidCap
-      ? 'LOWEST_COST_WITH_BID_CAP'
-      : 'LOWEST_COST_WITHOUT_CAP';
+    const metaBidStrategy = isBidCap ? 'LOWEST_COST_WITH_BID_CAP' : 'LOWEST_COST_WITHOUT_CAP';
 
     const adsetParams: Record<string, string> = {
       name: adsetName || `Ad Set – ${campaignData.id}`,
@@ -431,18 +395,8 @@ export async function POST(req: Request) {
       ...(bidAmount ? { bid_amount: bidAmount } : {}),
       targeting: JSON.stringify({
         geo_locations: { countries },
-        age_min: parseInt(
-          (payload as any).age_range?.[0] ||
-            (adIdea as any)?.age_range?.[0] ||
-            '18',
-          10
-        ),
-        age_max: parseInt(
-          (payload as any).age_range?.[1] ||
-            (adIdea as any)?.age_range?.[1] ||
-            '65',
-          10
-        ),
+        age_min: parseInt((payload as any).age_range?.[0] || (adIdea as any)?.age_range?.[0] || '18', 10),
+        age_max: parseInt((payload as any).age_range?.[1] || (adIdea as any)?.age_range?.[1] || '65', 10),
         genders:
           (payload as any).gender === 'Male'
             ? [1]
@@ -463,10 +417,10 @@ export async function POST(req: Request) {
     };
 
     // 🔥 REQUIRED: promoted_object when optimising for OFFSITE_CONVERSIONS (includes Sales)
-    const resolvedPixelId = prefer(offerPixelId, pixel_id, null);
+    const resolvedPixelId = prefer(offerPixelId, null);
     if (optimisationGoal === 'OFFSITE_CONVERSIONS') {
       if (!resolvedPixelId) {
-        console.error('[❌ OFFSITE_CONVERSIONS blocked: no pixel_id on offer or connection]');
+        console.error('[❌ OFFSITE_CONVERSIONS blocked: no pixel_id on offer]');
         return NextResponse.json(
           { success: false, error: 'Sales/Conversion campaigns require a Meta Pixel selected on the Offer.' },
           { status: 400 }
@@ -482,25 +436,21 @@ export async function POST(req: Request) {
     if (budgetType === 'LIFETIME') {
       adsetParams.lifetime_budget = budgetAmountStr;
       adsetParams.start_time = startTimeISO || new Date(Date.now() + 60000).toISOString();
-      adsetParams.end_time =
-        endTimeISO || new Date(Date.now() + 7 * 86400000).toISOString();
+      adsetParams.end_time = endTimeISO || new Date(Date.now() + 7 * 86400000).toISOString();
     } else {
       adsetParams.daily_budget = budgetAmountStr;
       adsetParams.start_time = new Date(Date.now() + 60000).toISOString();
       adsetParams.end_time = new Date(Date.now() + 7 * 86400000).toISOString();
     }
 
-    const adSetRes = await fetch(
-      `https://graph.facebook.com/v19.0/${cleanAdAccountId}/adsets`,
-      {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${access_token}`,
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams(adsetParams),
-      }
-    ).then((res) => safeParse(res));
+    const adSetRes = await fetch(`https://graph.facebook.com/v19.0/${cleanAdAccountId}/adsets`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${access_token}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: new URLSearchParams(adsetParams),
+    }).then((res) => safeParse(res));
     console.log('[HTTP] adset', adSetRes?.id ? 200 : 400);
 
     if (!adSetRes?.id) {
@@ -509,20 +459,17 @@ export async function POST(req: Request) {
       console.log('[✅ Ad Set Created]', adSetRes);
 
       // --- Upload Video to Meta ---
-      const videoUploadRes = await fetch(
-        `https://graph.facebook.com/v19.0/${cleanAdAccountId}/advideos`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${access_token}`,
-          },
-          body: new URLSearchParams({
-            file_url: videoUrl,
-            name: adName || 'Affliya Video',
-            description: caption || '',
-          }),
-        }
-      ).then((res) => safeParse(res));
+      const videoUploadRes = await fetch(`https://graph.facebook.com/v19.0/${cleanAdAccountId}/advideos`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${access_token}`,
+        },
+        body: new URLSearchParams({
+          file_url: videoUrl,
+          name: adName || 'Affliya Video',
+          description: caption || '',
+        }),
+      }).then((res) => safeParse(res));
       console.log('[HTTP] video', videoUploadRes?.id ? 200 : 400);
 
       if (!videoUploadRes?.id) {
@@ -537,40 +484,36 @@ export async function POST(req: Request) {
       console.log('[✅ Video Uploaded to Meta]', video_id);
 
       // --- Create Ad Creative ---
-      const creativeRes = await fetch(
-        `https://graph.facebook.com/v19.0/${cleanAdAccountId}/adcreatives`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${access_token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            name: adName || `Creative – ${campaignData.id}`,
-            object_story_spec: {
-              page_id,
-              video_data: {
-                video_id,
-                title: headline || undefined,
-                message: caption || '',
-                link_description: description || undefined,
-                call_to_action: {
-                  type: ctaType || 'LEARN_MORE',
-                  value: {
-                    // Backend click destination = Nettmark tracking link when available
-                    link: destinationLink,
-                  },
+      const creativeRes = await fetch(`https://graph.facebook.com/v19.0/${cleanAdAccountId}/adcreatives`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: adName || `Creative – ${campaignData.id}`,
+          object_story_spec: {
+            page_id: selectedPageId,
+            video_data: {
+              video_id,
+              title: headline || undefined,
+              message: caption || '',
+              link_description: description || undefined,
+              call_to_action: {
+                type: ctaType || 'LEARN_MORE',
+                value: {
+                  link: destinationLink,
                 },
-                ...(image_hash
-                  ? { image_hash }
-                  : fallback_image_url || thumbnailUrl
-                  ? { image_url: fallback_image_url || thumbnailUrl }
-                  : {}),
               },
+              ...(image_hash
+                ? { image_hash }
+                : fallback_image_url || thumbnailUrl
+                ? { image_url: fallback_image_url || thumbnailUrl }
+                : {}),
             },
-          }),
-        }
-      ).then((res) => safeParse(res));
+          },
+        }),
+      }).then((res) => safeParse(res));
       console.log('[HTTP] creative', creativeRes?.id ? 200 : 400);
 
       if (!creativeRes?.id) {
@@ -579,23 +522,20 @@ export async function POST(req: Request) {
         console.log('[✅ Ad Creative Created]', creativeRes);
 
         // --- Create Ad ---
-        const adRes = await fetch(
-          `https://graph.facebook.com/v19.0/${cleanAdAccountId}/ads`,
-          {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${access_token}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              name: adName || `Ad – ${campaignData.id}`,
-              adset_id: adSetRes.id,
-              creative: { creative_id: creativeRes.id },
-              status: 'ACTIVE',
-              start_time: new Date(Date.now() + 60000).toISOString(),
-            }),
-          }
-        ).then((res) => safeParse(res));
+        const adRes = await fetch(`https://graph.facebook.com/v19.0/${cleanAdAccountId}/ads`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            name: adName || `Ad – ${campaignData.id}`,
+            adset_id: adSetRes.id,
+            creative: { creative_id: creativeRes.id },
+            status: 'ACTIVE',
+            start_time: new Date(Date.now() + 60000).toISOString(),
+          }),
+        }).then((res) => safeParse(res));
         console.log('[HTTP] ad', adRes?.id ? 200 : 400);
 
         if (!adRes?.id) {
@@ -603,19 +543,15 @@ export async function POST(req: Request) {
         } else {
           console.log('[✅ Ad Created]', adRes);
 
-          // Prepare payload for live_ads insert (matches live_ads schema)
           const liveAdsPayload = {
             ad_idea_id: adIdeaId,
             offer_id: prefer(offerId, adIdea?.offer_id, null),
             meta_campaign_id: campaignData.id,
-            campaign_id: randomUUID(), // ✅ generate valid UUID for NOT NULL constraint
+            campaign_id: randomUUID(),
             meta_ad_id: adRes.id,
             ad_set_id: adSetRes.id,
             creative_id: creativeRes.id,
-            affiliate_email:
-              (payload as any)?.affiliate_email ??
-              (adIdea as any)?.affiliate_email ??
-              null,
+            affiliate_email: (payload as any)?.affiliate_email ?? (adIdea as any)?.affiliate_email ?? null,
             business_email: businessEmail,
             status: 'active',
             spend: 0,
@@ -641,7 +577,6 @@ export async function POST(req: Request) {
           } else if (insertedLiveAdRow?.id) {
             console.log('[live_ads] insert success', insertedLiveAdRow);
 
-            // Update internal campaign_id to match the internal UUID
             const { error: updateErr } = await supabase
               .from('live_ads')
               .update({ campaign_id: insertedLiveAdRow.id })
@@ -655,14 +590,8 @@ export async function POST(req: Request) {
 
             liveAdRow = insertedLiveAdRow;
 
-            // ------------------------------
-            // EMAIL: Ad approved / launched
-            // ------------------------------
             const offerTitle = (offer as any)?.title || 'your offer';
-            const affiliateEmail =
-              (liveAdsPayload as any)?.affiliate_email ||
-              (adIdea as any)?.affiliate_email ||
-              null;
+            const affiliateEmail = (liveAdsPayload as any)?.affiliate_email || (adIdea as any)?.affiliate_email || null;
 
             if (affiliateEmail) {
               await sendEmailSafe({
