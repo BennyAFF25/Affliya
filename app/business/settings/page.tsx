@@ -218,7 +218,7 @@ export default function BusinessSettingsPage() {
       : (user?.email?.[0] || 'N').toUpperCase();
 
   return (
-    <div className="min-h-screen w-full bg-[#121212]">
+    <div className="min-h-screen w-full bg-surface">
       <div className="relative max-w-4xl mx-auto px-6 py-10 space-y-10 text-white">
         {/* Teal glow accent */}
         <div

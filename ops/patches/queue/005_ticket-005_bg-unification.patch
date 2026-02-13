@@ -1,0 +1,288 @@
+diff --git a/app/affiliate/dashboard/manage-campaigns/[campaignId]/page.tsx b/app/affiliate/dashboard/manage-campaigns/[campaignId]/page.tsx
+index 003cf6b..521da09 100644
+--- a/app/affiliate/dashboard/manage-campaigns/[campaignId]/page.tsx
++++ b/app/affiliate/dashboard/manage-campaigns/[campaignId]/page.tsx
+@@ -570,7 +570,7 @@ export default function ManageCampaignPage() {
+   if (!campaign) return <div>Loading...</div>;
+ 
+   return (
+-    <div className="min-h-screen bg-[#0e0e0e] text-gray-100 px-4 py-6 md:px-8 md:py-8">
++    <div className="min-h-screen bg-surface text-gray-100 px-4 py-6 md:px-8 md:py-8">
+       {/* Status banners */}
+       {isTerminatedByBusiness && (
+         <div className="max-w-6xl mx-auto mb-4">
+diff --git a/app/affiliate/dashboard/manage-campaigns/page.tsx b/app/affiliate/dashboard/manage-campaigns/page.tsx
+index 0f1f564..6e898f5 100644
+--- a/app/affiliate/dashboard/manage-campaigns/page.tsx
++++ b/app/affiliate/dashboard/manage-campaigns/page.tsx
+@@ -343,7 +343,7 @@ export default function AffiliateManageCampaignsPage() {
+   const archivedCount = archivedItems.length;
+ 
+   return (
+-    <div className="min-h-screen bg-[#0b0b0b] p-6 text-white">
++    <div className="min-h-screen bg-surface p-6 text-white">
+       <div className="mx-auto w-full max-w-6xl">
+         <div className="mb-8">
+           <div className="mb-2 text-xs tracking-[0.35em] text-gray-400">CAMPAIGNS</div>
+diff --git a/app/affiliate/dashboard/page.tsx b/app/affiliate/dashboard/page.tsx
+index 42f12a3..660bac7 100644
+--- a/app/affiliate/dashboard/page.tsx
++++ b/app/affiliate/dashboard/page.tsx
+@@ -457,7 +457,7 @@ function AffiliateDashboardContent() {
+ 
+ if (loading) {
+   return (
+-    <div className="min-h-screen bg-gradient-to-b from-[#0a0a0a] to-[#0d0d0d] text-white">
++    <div className="min-h-screen bg-surface text-white">
+       <div className="p-4">Loading...</div>
+     </div>
+   );
+@@ -472,7 +472,7 @@ if (loading) {
+   ];
+ 
+   return (
+-    <div className="min-h-screen bg-gradient-to-b from-[#0a0a0a] to-[#0d0d0d] text-white">
++    <div className="min-h-screen bg-surface text-white">
+       
+       <div className="max-w-8xl mx-auto px-4 sm:px-6 md:px-8 lg:px-10 py-6 md:py-8">
+         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-10">
+diff --git a/app/affiliate/dashboard/promote/[offerId]/page.tsx b/app/affiliate/dashboard/promote/[offerId]/page.tsx
+index e335f0c..71cf7fc 100644
+--- a/app/affiliate/dashboard/promote/[offerId]/page.tsx
++++ b/app/affiliate/dashboard/promote/[offerId]/page.tsx
+@@ -1360,7 +1360,7 @@ function DateTimeField({
+   );
+ 
+   return (
+-    <div className="min-h-screen py-10 px-6 bg-[#0e0e0e] text-white pb-8">
++    <div className="min-h-screen py-10 px-6 bg-surface text-white pb-8">
+       <div className="max-w-6xl mx-auto grid lg:grid-cols-[1fr_360px] gap-8">
+         {/* Mode toggle (Ad vs Organic) */}
+         <div className="lg:col-span-2 -mb-2 flex items-center justify-between">
+@@ -1735,7 +1735,7 @@ function DateTimeField({
+                                   min={0.01}
+                                   step={0.01}
+                                   placeholder="3.00"
+-                                  className="w-full bg-[#0e0e0e] pl-16 pr-3 py-2 text-white focus:outline-none"
++                                  className="w-full bg-surface pl-16 pr-3 py-2 text-white focus:outline-none"
+                                   value={form.bid_cap_dollars}
+                                   onChange={(e) =>
+                                     setForm((p) => ({
+diff --git a/app/affiliate/inbox/page.tsx b/app/affiliate/inbox/page.tsx
+index bb83502..3bcce43 100644
+--- a/app/affiliate/inbox/page.tsx
++++ b/app/affiliate/inbox/page.tsx
+@@ -321,7 +321,7 @@ export default function AffiliateInbox() {
+   ].filter(Boolean) as { title: string; body: string; href: string; label: string }[];
+ 
+   return (
+-    <div className="min-h-screen bg-gradient-to-b from-[#050505] to-[#0f0f0f] text-white px-4 sm:px-8 lg:px-12 py-10">
++    <div className="min-h-screen bg-surface text-white px-4 sm:px-8 lg:px-12 py-10">
+       <div className="mx-auto w-full max-w-6xl space-y-10">
+         <header className="space-y-3">
+           <p className="text-sm uppercase tracking-[0.2em] text-[#00C2CB]/70">Command Center</p>
+diff --git a/app/affiliate/marketplace/[offerId]/page.tsx b/app/affiliate/marketplace/[offerId]/page.tsx
+index 0b0756e..83f7a84 100644
+--- a/app/affiliate/marketplace/[offerId]/page.tsx
++++ b/app/affiliate/marketplace/[offerId]/page.tsx
+@@ -232,7 +232,7 @@ export default function AffiliateOfferProfilePage() {
+ 
+   if (loading) {
+     return (
+-      <div className="min-h-screen bg-[#0e0e0e] text-white flex items-center justify-center">
++      <div className="min-h-screen bg-surface text-white flex items-center justify-center">
+         <p className="text-sm text-gray-400">Loading offer…</p>
+       </div>
+     );
+@@ -240,7 +240,7 @@ export default function AffiliateOfferProfilePage() {
+ 
+   if (loadError || !offer) {
+     return (
+-      <div className="min-h-screen bg-[#0e0e0e] text-white flex items-center justify-center">
++      <div className="min-h-screen bg-surface text-white flex items-center justify-center">
+         <div className="max-w-md text-center px-4">
+           <p className="text-lg font-semibold text-red-400 mb-2">
+             Couldn&apos;t load offer
+@@ -275,7 +275,7 @@ export default function AffiliateOfferProfilePage() {
+       : offer.type || 'Standard';
+ 
+   return (
+-    <div className="min-h-screen bg-[#0e0e0e] text-white px-4 py-8">
++    <div className="min-h-screen bg-surface text-white px-4 py-8">
+       <div className="max-w-6xl mx-auto space-y-8">
+         {/* Top breadcrumb / back */}
+         <div className="flex items-center justify-between gap-3">
+diff --git a/app/affiliate/marketplace/page.tsx b/app/affiliate/marketplace/page.tsx
+index 7101555..441dec0 100644
+--- a/app/affiliate/marketplace/page.tsx
++++ b/app/affiliate/marketplace/page.tsx
+@@ -172,7 +172,7 @@ export default function AffiliateMarketplace() {
+   });
+ 
+   return (
+-    <div className="flex justify-center px-6 py-10 bg-[#0e0e0e] text-white min-h-screen">
++    <div className="flex justify-center px-6 py-10 bg-surface text-white min-h-screen">
+       {showAcceptTerms && userId && (
+         <AcceptTermsModal
+           userId={userId}
+diff --git a/app/affiliate/settings/page.tsx b/app/affiliate/settings/page.tsx
+index e828454..637ae2d 100644
+--- a/app/affiliate/settings/page.tsx
++++ b/app/affiliate/settings/page.tsx
+@@ -317,7 +317,7 @@ export default function AffiliateSettingsPage() {
+   };
+ 
+   return (
+-    <div className="min-h-screen w-full bg-[#121212]">
++    <div className="min-h-screen w-full bg-surface">
+       <div className="relative max-w-4xl mx-auto px-6 py-10 space-y-10 text-white">
+         <div
+           className="pointer-events-none absolute inset-x-0 -top-24 h-48 blur-3xl"
+diff --git a/app/business/dashboard/page.tsx b/app/business/dashboard/page.tsx
+index 2eb5109..f9d249c 100644
+--- a/app/business/dashboard/page.tsx
++++ b/app/business/dashboard/page.tsx
+@@ -466,7 +466,7 @@ export default function BusinessDashboard() {
+   }, [session, router, user]);
+ 
+   return (
+-    <div className="min-h-screen w-full bg-gradient-to-b from-[#0b0b0b] to-[#0e0e0e] text-white px-4 py-4 sm:px-5 sm:py-6">
++    <div className="min-h-screen w-full bg-surface text-white px-4 py-4 sm:px-5 sm:py-6">
+       {/* Stat Cards */}
+       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-6 mb-6 mt-2">
+         <div className={`${CARD} ring-1 ring-[#00C2CB]/20 shadow-[0_0_30px_rgba(0,194,203,0.12)] relative overflow-hidden`}
+diff --git a/app/business/inbox/page.tsx b/app/business/inbox/page.tsx
+index 98a4b8f..33702a9 100644
+--- a/app/business/inbox/page.tsx
++++ b/app/business/inbox/page.tsx
+@@ -277,7 +277,7 @@ export default function BusinessInbox() {
+   ].filter(Boolean) as { title: string; body: string; href: string; label: string }[];
+ 
+   return (
+-    <div className="min-h-screen bg-gradient-to-b from-[#050505] to-[#0f0f0f] text-white px-4 sm:px-8 lg:px-12 py-10">
++    <div className="min-h-screen bg-surface text-white px-4 sm:px-8 lg:px-12 py-10">
+       <div className="mx-auto w-full max-w-6xl space-y-10">
+         <header className="space-y-3">
+           <p className="text-sm uppercase tracking-[0.2em] text-[#00C2CB]/70">Business Ops</p>
+diff --git a/app/business/manage-campaigns/[campaignId]/page.tsx b/app/business/manage-campaigns/[campaignId]/page.tsx
+index 74c500e..1acc858 100644
+--- a/app/business/manage-campaigns/[campaignId]/page.tsx
++++ b/app/business/manage-campaigns/[campaignId]/page.tsx
+@@ -553,7 +553,7 @@ export default function BusinessCampaignDetailPage() {
+ 
+   if (!session) {
+     return (
+-      <div className="min-h-screen bg-[#0e0e0e] text-white flex items-center justify-center">
++      <div className="min-h-screen bg-surface text-white flex items-center justify-center">
+         <p className="text-sm text-white/70">
+           You need to be signed in to view this campaign.
+         </p>
+@@ -562,7 +562,7 @@ export default function BusinessCampaignDetailPage() {
+   }
+ 
+   return (
+-    <div className="min-h-screen bg-[#0e0e0e] text-white">
++    <div className="min-h-screen bg-surface text-white">
+       <div className="mx-auto max-w-5xl px-4 sm:px-8 py-4 space-y-4">
+         {/* Back link */}
+         <button
+diff --git a/app/business/manage-campaigns/page.tsx b/app/business/manage-campaigns/page.tsx
+index b708e5d..24991af 100644
+--- a/app/business/manage-campaigns/page.tsx
++++ b/app/business/manage-campaigns/page.tsx
+@@ -242,7 +242,7 @@ const ManageCampaignsBusiness = () => {
+   };
+ 
+   return (
+-    <div className="min-h-screen bg-[#0e0e0e] text-white">
++    <div className="min-h-screen bg-surface text-white">
+       <div className="mx-auto max-w-6xl px-8 py-10">
+         {/* Page header */}
+         <header className="mb-8">
+diff --git a/app/business/marketplace/page.tsx b/app/business/marketplace/page.tsx
+index 0375802..6848280 100644
+--- a/app/business/marketplace/page.tsx
++++ b/app/business/marketplace/page.tsx
+@@ -29,7 +29,7 @@ export default function BusinessMarketplace() {
+   }, []);
+ 
+   return (
+-    <div className="p-8 bg-[#0e0e0e] min-h-screen text-white">
++    <div className="p-8 bg-surface min-h-screen text-white">
+       <h1 className="text-3xl font-extrabold mb-8 text-[#00C2CB] tracking-tight">Business Marketplace</h1>
+       {offers.length > 0 ? (
+         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+diff --git a/app/business/settings/page.tsx b/app/business/settings/page.tsx
+index 92db68f..b6e9f7e 100644
+--- a/app/business/settings/page.tsx
++++ b/app/business/settings/page.tsx
+@@ -218,7 +218,7 @@ export default function BusinessSettingsPage() {
+       : (user?.email?.[0] || 'N').toUpperCase();
+ 
+   return (
+-    <div className="min-h-screen w-full bg-[#121212]">
++    <div className="min-h-screen w-full bg-surface">
+       <div className="relative max-w-4xl mx-auto px-6 py-10 space-y-10 text-white">
+         {/* Teal glow accent */}
+         <div
+diff --git a/app/business/setup-tracking/SetupTrackingContent.tsx b/app/business/setup-tracking/SetupTrackingContent.tsx
+index b0095e2..1585293 100644
+--- a/app/business/setup-tracking/SetupTrackingContent.tsx
++++ b/app/business/setup-tracking/SetupTrackingContent.tsx
+@@ -215,7 +215,7 @@ export default function SetupTrackingContent() {
+ 
+ 
+   return (
+-    <div className="min-h-screen bg-[#0e0e0e] py-10 px-4">
++    <div className="min-h-screen bg-surface py-10 px-4">
+       <div className="max-w-3xl mx-auto mt-12 p-8 bg-[#1a1a1a] text-white rounded-xl shadow-lg border border-gray-700 ring-2 ring-[#00C2CB]/10">
+         <h1 className="text-4xl font-extrabold mb-6 text-[#00C2CB] tracking-tight text-center">
+           Install Your Nettmark Tracking Code
+diff --git a/app/business/setup-tracking/page.tsx b/app/business/setup-tracking/page.tsx
+index ed3bebe..5c01195 100644
+--- a/app/business/setup-tracking/page.tsx
++++ b/app/business/setup-tracking/page.tsx
+@@ -7,7 +7,7 @@ export default function SetupTrackingPage() {
+   return (
+     <Suspense
+       fallback={
+-        <div className="min-h-screen w-full bg-[#0e0e0e] flex items-center justify-center text-gray-300">
++        <div className="min-h-screen w-full bg-surface flex items-center justify-center text-gray-300">
+           Loading…
+         </div>
+       }
+diff --git a/app/business/support/page.tsx b/app/business/support/page.tsx
+index 918ebe9..85b6d94 100644
+--- a/app/business/support/page.tsx
++++ b/app/business/support/page.tsx
+@@ -39,7 +39,7 @@ export default function BusinessSupportPage() {
+   };
+ 
+   return (
+-    <div className="min-h-screen bg-[#0e0e0e] text-white px-6 md:px-10 py-12 relative">
++    <div className="min-h-screen bg-surface text-white px-6 md:px-10 py-12 relative">
+       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(0,194,203,0.08),transparent_50%)] pointer-events-none" />
+       <h1 className="text-4xl font-extrabold text-[#00C2CB] mb-3 flex items-center gap-2">
+         <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8 text-[#00C2CB]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+@@ -91,7 +91,7 @@ export default function BusinessSupportPage() {
+ 
+         <textarea
+           placeholder="Write your message here..."
+-          className="w-full border border-[#00C2CB]/20 bg-[#0e0e0e] text-white rounded-lg p-3 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-[#00C2CB] transition"
++          className="w-full border border-[#00C2CB]/20 bg-surface text-white rounded-lg p-3 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-[#00C2CB] transition"
+           rows={4}
+           value={message}
+           onChange={(e) => setMessage(e.target.value)}
+diff --git a/app/globals.css b/app/globals.css
+index 223022c..6b5b479 100644
+--- a/app/globals.css
++++ b/app/globals.css
+@@ -57,7 +57,7 @@ body {
+   margin: 0;
+   padding: 0;
+   color-scheme: dark;
+-  background: linear-gradient(180deg, #0b0b0b 0%, #0e0e0e 100%);
++  background: radial-gradient(circle at top, rgba(255,255,255,0.02), transparent 45%), linear-gradient(180deg, var(--color-surface-base) 0%, var(--color-surface-deep) 100%);
+   min-height: 100%;
+   width: 100%;
+   color: #fff;
