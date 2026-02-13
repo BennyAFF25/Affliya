@@ -1,0 +1,95 @@
+==============================
+NETTMARK CONTEXT BUNDLE
+==============================
+
+--- Repo status ---
+## main...origin/main
+ M .gitignore
+ M package.json
+ M yarn.lock
+?? docs/
+?? eslint.config.mjs
+?? jot
+?? ops/
+?? scripts/
+
+--- Current branch + last 5 commits ---
+main
+2ef2e69 ad fix
+c3ca6b8 manage campaigns
+89ed713 Fuck it
+aa264a7 final x2
+4d91968 final
+
+--- Schema snapshot (today) ---
+==============================
+SCHEMA SNAPSHOT
+==============================
+Wrote: ops/schema/schema_public_20260212.txt
+
+No previous snapshot to diff against yet.
+
+--- Blockers report ---
+==============================
+NETTMARK BLOCKERS REPORT
+==============================
+
+--- Negative Wallet Balances ---
+OK
+
+--- Conversions Missing Affiliate ID ---
+OK
+
+--- Conversions Missing Offer ID ---
+OK
+
+--- Live Ads Missing Meta Campaign ID ---
+OK
+
+--- Live Ads Spend Mismatch ---
+OK
+
+--- Wallet Deductions Missing Ad ID ---
+4762e4be-efcb-485a-a9e8-10ae25706217
+e82a6ffe-ff50-4074-b1e7-5cd965eb39f4
+097aa59d-c9fa-4ef2-94f9-e24e80792fb9
+
+--- Wallet Deductions Missing Ad ID (last 30d) ---
+OK
+
+⚠️  BLOCKERS DETECTED
+
+--- Tables list (public) ---
+                  List of relations
+ Schema |           Name           | Type  |  Owner   
+--------+--------------------------+-------+----------
+ public | ad_ideas                 | table | postgres
+ public | affiliate_profiles       | table | postgres
+ public | affiliate_requests       | table | postgres
+ public | business_creatives       | table | postgres
+ public | business_profiles        | table | postgres
+ public | campaign_tracking_events | table | postgres
+ public | clicks                   | table | postgres
+ public | conversions              | table | postgres
+ public | live_ads                 | table | postgres
+ public | live_campaigns           | table | postgres
+ public | meta_connections         | table | postgres
+ public | meta_pixels              | table | postgres
+ public | notifications            | table | postgres
+ public | offers                   | table | postgres
+ public | organic_posts            | table | postgres
+ public | pre_signup_revenue       | table | postgres
+ public | processed_conversions    | table | postgres
+ public | profiles                 | table | postgres
+ public | user_settings            | table | postgres
+ public | wallet_deductions        | table | postgres
+ public | wallet_payouts           | table | postgres
+ public | wallet_refunds           | table | postgres
+ public | wallet_topups            | table | postgres
+ public | wallets                  | table | postgres
+(24 rows)
+
+
+==============================
+END CONTEXT
+==============================

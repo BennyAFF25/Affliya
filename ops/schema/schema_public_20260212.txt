@@ -1,0 +1,41 @@
+                                       List of schemas
+  Name  |       Owner       |           Access privileges            |      Description       
+--------+-------------------+----------------------------------------+------------------------
+ public | pg_database_owner | pg_database_owner=UC/pg_database_owner+| standard public schema
+        |                   | =U/pg_database_owner                  +| 
+        |                   | postgres=U/pg_database_owner          +| 
+        |                   | anon=U/pg_database_owner              +| 
+        |                   | authenticated=U/pg_database_owner     +| 
+        |                   | service_role=U/pg_database_owner      +| 
+        |                   | nettmark_operator=U/pg_database_owner  | 
+(1 row)
+
+                                               List of relations
+ Schema |           Name           | Type  |  Owner   | Persistence | Access method |    Size    | Description 
+--------+--------------------------+-------+----------+-------------+---------------+------------+-------------
+ public | ad_ideas                 | table | postgres | permanent   | heap          | 24 kB      | 
+ public | affiliate_profiles       | table | postgres | permanent   | heap          | 16 kB      | 
+ public | affiliate_requests       | table | postgres | permanent   | heap          | 32 kB      | 
+ public | business_creatives       | table | postgres | permanent   | heap          | 8192 bytes | 
+ public | business_profiles        | table | postgres | permanent   | heap          | 48 kB      | 
+ public | campaign_tracking_events | table | postgres | permanent   | heap          | 664 kB     | 
+ public | clicks                   | table | postgres | permanent   | heap          | 8192 bytes | 
+ public | conversions              | table | postgres | permanent   | heap          | 8192 bytes | 
+ public | live_ads                 | table | postgres | permanent   | heap          | 16 kB      | 
+ public | live_campaigns           | table | postgres | permanent   | heap          | 16 kB      | 
+ public | meta_connections         | table | postgres | permanent   | heap          | 16 kB      | 
+ public | meta_pixels              | table | postgres | permanent   | heap          | 16 kB      | 
+ public | notifications            | table | postgres | permanent   | heap          | 16 kB      | 
+ public | offers                   | table | postgres | permanent   | heap          | 16 kB      | 
+ public | organic_posts            | table | postgres | permanent   | heap          | 16 kB      | 
+ public | pre_signup_revenue       | table | postgres | permanent   | heap          | 16 kB      | 
+ public | processed_conversions    | table | postgres | permanent   | heap          | 0 bytes    | 
+ public | profiles                 | table | postgres | permanent   | heap          | 48 kB      | 
+ public | user_settings            | table | postgres | permanent   | heap          | 16 kB      | 
+ public | wallet_deductions        | table | postgres | permanent   | heap          | 16 kB      | 
+ public | wallet_payouts           | table | postgres | permanent   | heap          | 16 kB      | 
+ public | wallet_refunds           | table | postgres | permanent   | heap          | 16 kB      | 
+ public | wallet_topups            | table | postgres | permanent   | heap          | 16 kB      | 
+ public | wallets                  | table | postgres | permanent   | heap          | 16 kB      | 
+(24 rows)
+
