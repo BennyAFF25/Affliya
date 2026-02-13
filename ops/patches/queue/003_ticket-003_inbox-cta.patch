@@ -1,0 +1,25 @@
+diff --git a/app/affiliate/inbox/page.tsx b/app/affiliate/inbox/page.tsx
+index 557033c..bb83502 100644
+--- a/app/affiliate/inbox/page.tsx
++++ b/app/affiliate/inbox/page.tsx
+@@ -312,14 +312,12 @@ export default function AffiliateInbox() {
+           label: 'Browse marketplace',
+         }
+       : null,
+-    approvedAds.length === 0
+-      ? {
+-          title: 'Need creatives approved?',
+-          body: 'Submit fresh ad ideas so businesses can green-light your next tests.',
+-          href: '/affiliate/dashboard/promote',
+-          label: 'Submit idea',
+-        }
+-      : null,
++    {
++      title: 'Want new offers?',
++      body: 'Head to the marketplace to discover fresh offers and request promotion access.',
++      href: '/affiliate/marketplace',
++      label: 'Open marketplace',
++    },
+   ].filter(Boolean) as { title: string; body: string; href: string; label: string }[];
+ 
+   return (
