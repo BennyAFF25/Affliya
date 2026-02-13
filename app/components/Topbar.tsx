@@ -113,12 +113,12 @@ export default function Topbar() {
     <header
       className="
         w-full 
-        bg-[#1F1F1F]
+        bg-surface-deep
         h-[64px]
         flex items-center
         justify-between
         px-4 sm:px-6
-        border-b border-black/20
+        border-b border-surface
       "
     >
       {/* LEFT SIDE */}

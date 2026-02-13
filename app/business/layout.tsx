@@ -22,16 +22,16 @@ export default function BusinessLayout({ children }: { children: React.ReactNode
   ];
 
   return (
-    <div className="flex flex-col min-h-screen text-white bg-[#0e0e0e]">
+    <div className="flex flex-col min-h-screen text-white bg-surface">
       {/* Fixed Topbar */}
-      <header className="fixed top-0 inset-x-0 h-16 bg-[#1F1F1F] z-30 flex items-center justify-between px-2">
+      <header className="fixed top-0 inset-x-0 h-16 bg-surface-deep z-30 flex items-center justify-between px-2">
         <Topbar />
 
         {/* Mobile hamburger */}
         <button
           type="button"
           onClick={() => setMobileNavOpen((prev) => !prev)}
-          className="md:hidden flex flex-col items-center justify-center w-9 h-9 bg-[#1A1A1A] rounded-md border border-white/15"
+          className="md:hidden flex flex-col items-center justify-center w-9 h-9 bg-surface-deep rounded-md border border-white/15"
         >
           <span className="block w-5 h-[2px] bg-white mb-[3px]" />
           <span className="block w-5 h-[2px] bg-white mb-[3px]" />
@@ -41,7 +41,7 @@ export default function BusinessLayout({ children }: { children: React.ReactNode
 
       {/* Mobile pill slider */}
       {mobileNavOpen && (
-        <div className="md:hidden fixed top-16 left-0 right-0 z-40 bg-[#111111] border-b border-white/10 py-3 px-4">
+        <div className="md:hidden fixed top-16 left-0 right-0 z-40 bg-surface-deep border-b border-white/10 py-3 px-4">
           <MobileNavSlider tabs={mobileTabs} onNavigate={closeMobileNav} />
         </div>
       )}
@@ -54,7 +54,7 @@ export default function BusinessLayout({ children }: { children: React.ReactNode
         </aside>
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto md:ml-64 bg-[#0e0e0e]">
+        <main className="flex-1 overflow-y-auto md:ml-64 bg-surface">
           {children}
         </main>
       </div>
