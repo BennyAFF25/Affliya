@@ -1,109 +1,78 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSession } from '@supabase/auth-helpers-react';
+import Link from 'next/link';
 import { supabase } from 'utils/supabase/pages-client';
-import { useRouter } from 'next/navigation';
-
 import {
   Megaphone,
   Image as ImageIcon,
   Activity,
-  Archive as ArchiveIcon,
-  ChevronRight,
-  Clock,
+  Inbox as InboxIcon,
+  Archive,
+  ArchiveRestore,
+  Users,
+  Sparkles,
 } from 'lucide-react';
-
-const inboxMeta = {
-  ad_idea: {
-    label: 'Ad Idea',
-    icon: Megaphone,
-  },
-  live_ad: {
-    label: 'Live Ad',
-    icon: Activity,
-  },
-  organic_post: {
-    label: 'Organic Post',
-    icon: ImageIcon,
-  },
-};
-
-interface AdIdea {
-  id: string;
-  offer_id: string;
-  affiliate_email: string;
-  status: string;
-  created_at: string;
-  archived?: boolean;
-}
-
-interface LiveAd {
-  id: string;
-  offer_id: string;
-  affiliate_email: string;
-  status: string;
-  created_at: string;
-  archived?: boolean;
-}
-
-interface OrganicPost {
-  id: string;
-  offer_id: string;
-  affiliate_email: string;
-  status: string;
-  created_at: string;
-  archived?: boolean;
-}
-
-interface InboxItem {
-  id: string;
-  type: 'ad_idea' | 'live_ad' | 'organic_post';
-  offer_id: string;
-  affiliate_email: string;
-  status: string;
-  created_at: string;
-}
+import { InboxTabs } from '@/components/inbox/InboxTabs';
+import { InboxCard } from '@/components/inbox/InboxCard';
 
 interface Offer {
   id: string;
   title: string;
 }
 
-const getArchiveKey = (email: string) => `nettmark_inbox_archived_${email}`;
+type EntryKind = 'ad_idea' | 'live_ad' | 'organic_post';
 
-const loadArchived = (email: string): InboxItem[] => {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = localStorage.getItem(getArchiveKey(email));
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
+interface EntryData {
+  id: string;
+  kind: EntryKind;
+  offerId: string;
+  affiliateEmail: string;
+  status?: string;
+  title: string;
+  subtitle?: string;
+  body?: string;
+  timestamp: string;
+  link: { href: string; label: string };
+}
+
+interface DecoratedEntry extends EntryData {
+  icon: JSX.Element;
+  accent: 'teal' | 'amber' | 'neutral';
+}
+
+const iconMap: Record<EntryKind, JSX.Element> = {
+  ad_idea: <Megaphone className="h-4 w-4" />,
+  live_ad: <Activity className="h-4 w-4" />,
+  organic_post: <ImageIcon className="h-4 w-4" />,
 };
 
-const saveArchived = (email: string, items: InboxItem[]) => {
-  if (typeof window === 'undefined') return;
-  localStorage.setItem(getArchiveKey(email), JSON.stringify(items));
+const accentMap: Record<EntryKind, DecoratedEntry['accent']> = {
+  ad_idea: 'teal',
+  live_ad: 'amber',
+  organic_post: 'neutral',
 };
+
+const archiveStorageKey = (email?: string | null) =>
+  email ? `nettmark_business_inbox_${email}` : null;
 
 export default function BusinessInbox() {
   const session = useSession();
   const user = session?.user;
-  const router = useRouter();
-  const [inboxItems, setInboxItems] = useState<InboxItem[]>([]);
-  const [archivedItems, setArchivedItems] = useState<InboxItem[]>([]);
-  const [showArchived, setShowArchived] = useState(false);
+
   const [offers, setOffers] = useState<Offer[]>([]);
+  const [entries, setEntries] = useState<EntryData[]>([]);
+  const [archivedData, setArchivedData] = useState<EntryData[]>([]);
 
-  // Load archived items from localStorage on mount
-  useEffect(() => {
-    if (!user?.email) return;
-    const stored = loadArchived(user.email);
-    setArchivedItems(stored);
-  }, [user?.email]);
+  const [activeTab, setActiveTab] = useState('all');
+  const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
 
-  // Load offers for this business (for display names)
+  const offerName = (offerId: string) => {
+    const offer = offers.find((offer) => offer.id === offerId);
+    return offer?.title || 'Unknown offer';
+  };
+
   useEffect(() => {
     const fetchOffers = async () => {
       const { data, error } = await supabase.auth.getUser();
@@ -131,243 +100,348 @@ export default function BusinessInbox() {
     fetchOffers();
   }, []);
 
-  // Load pending inbox items for THIS business
   useEffect(() => {
-    const fetchInboxData = async () => {
-      const offerIds = offers.map(o => o.id);
-      if (offerIds.length === 0) {
-        setInboxItems([]);
+    if (!user?.email) return;
+    const key = archiveStorageKey(user.email);
+    if (!key) return;
+    try {
+      const raw = localStorage.getItem(key);
+      setArchivedData(raw ? JSON.parse(raw) : []);
+    } catch {
+      setArchivedData([]);
+    }
+  }, [user?.email]);
+
+  useEffect(() => {
+    if (!user?.email) return;
+    const key = archiveStorageKey(user.email);
+    if (!key) return;
+    localStorage.setItem(key, JSON.stringify(archivedData));
+  }, [archivedData, user?.email]);
+
+  useEffect(() => {
+    const loadEntries = async () => {
+      if (offers.length === 0) {
+        setEntries([]);
         return;
       }
 
-      const [ads, live, organic] = await Promise.all([
-        supabase
-          .from('ad_ideas')
-          .select('*')
-          .in('offer_id', offerIds),
+      const offerIds = offers.map((offer) => offer.id);
 
-        supabase
-          .from('live_ads')
-          .select('*')
-          .in('offer_id', offerIds),
-
-        supabase
-          .from('organic_posts')
-          .select('*')
-          .in('offer_id', offerIds),
+      const [adIdeas, liveAds, organicPosts] = await Promise.all([
+        supabase.from('ad_ideas').select('*').in('offer_id', offerIds),
+        supabase.from('live_ads').select('*').in('offer_id', offerIds),
+        supabase.from('organic_posts').select('*').in('offer_id', offerIds),
       ]);
 
-      const combined: InboxItem[] = [
-        ...(ads.data || []).map((a: any) => ({ ...a, type: 'ad_idea' })),
-        ...(live.data || []).map((l: any) => ({ ...l, type: 'live_ad' })),
-        ...(organic.data || []).map((o: any) => ({ ...o, type: 'organic_post' })),
-      ];
+      const list: EntryData[] = [];
 
-      combined.sort(
-        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      );
+      (adIdeas.data || []).forEach((item: any) => {
+        list.push({
+          id: `adidea-${item.id}`,
+          kind: 'ad_idea',
+          offerId: item.offer_id,
+          affiliateEmail: item.affiliate_email,
+          status: item.status,
+          title: `Ad idea from ${item.affiliate_email}`,
+          subtitle: offerName(item.offer_id),
+          body: 'Review the creative, leave notes, and approve before Meta submission.',
+          timestamp: new Date(item.created_at).toLocaleString(),
+          link: { href: '/business/my-business/ad-ideas', label: 'Review ad idea' },
+        });
+      });
 
-      const archivedIds = new Set(
-        archivedItems.map((i) => `${i.type}-${i.id}`)
-      );
+      (liveAds.data || []).forEach((item: any) => {
+        list.push({
+          id: `livead-${item.id}`,
+          kind: 'live_ad',
+          offerId: item.offer_id,
+          affiliateEmail: item.affiliate_email,
+          status: item.status,
+          title: `Live ad update: ${offerName(item.offer_id)}`,
+          subtitle: item.affiliate_email,
+          body: 'Monitor performance and ensure wallet transfers stay synced to spend.',
+          timestamp: new Date(item.created_at).toLocaleString(),
+          link: { href: '/business/manage-campaigns', label: 'Open campaigns' },
+        });
+      });
 
-      setInboxItems(
-        combined.filter(
-          (item) => !archivedIds.has(`${item.type}-${item.id}`)
-        )
-      );
+      (organicPosts.data || []).forEach((item: any) => {
+        list.push({
+          id: `organic-${item.id}`,
+          kind: 'organic_post',
+          offerId: item.offer_id,
+          affiliateEmail: item.affiliate_email,
+          status: item.status,
+          title: `Organic post idea: ${offerName(item.offer_id)}`,
+          subtitle: item.affiliate_email,
+          body: 'Publish across owned channels or schedule with your team.',
+          timestamp: new Date(item.created_at).toLocaleString(),
+          link: { href: '/business/my-business/post-ideas', label: 'Review post idea' },
+        });
+      });
+
+      list.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      setEntries(list);
     };
 
-    fetchInboxData();
-  }, [offers, archivedItems]);
+    loadEntries();
+  }, [offers]);
 
-  const getItemRoute = (item: InboxItem) => {
-    if (item.type === 'ad_idea') return '/business/my-business/ad-ideas';
-    if (item.type === 'organic_post') return '/business/my-business/post-ideas';
-    if (item.type === 'live_ad') return '/business/manage-campaigns';
-    return null;
+  const archivedIds = new Set(archivedData.map((entry) => entry.id));
+  const activeEntriesData = entries.filter((entry) => !archivedIds.has(entry.id));
+
+  const decorateEntries = (data: EntryData[]): DecoratedEntry[] =>
+    data.map((entry) => ({
+      ...entry,
+      icon: iconMap[entry.kind],
+      accent: accentMap[entry.kind],
+    }));
+
+  const filterByTab = (data: EntryData[], tab: string) => {
+    switch (tab) {
+      case 'ad_ideas':
+        return data.filter((entry) => entry.kind === 'ad_idea');
+      case 'live_ads':
+        return data.filter((entry) => entry.kind === 'live_ad');
+      case 'organic_posts':
+        return data.filter((entry) => entry.kind === 'organic_post');
+      case 'archived':
+        return data;
+      default:
+        return data;
+    }
   };
 
-  const getOfferName = (offerId: string) => {
-    const offer = offers.find((o) => o.id === offerId);
-    return offer?.title || 'Unknown Offer';
+  const displayedData = useMemo(() => {
+    const source = activeTab === 'archived' ? archivedData : activeEntriesData;
+    return filterByTab(source, activeTab);
+  }, [activeTab, activeEntriesData, archivedData]);
+
+  const displayedEntries = decorateEntries(displayedData);
+  const archivedEntries = decorateEntries(archivedData);
+  const liveEntries = decorateEntries(entries);
+  const allEntriesMap = new Map<string, DecoratedEntry>();
+  liveEntries.forEach((entry) => allEntriesMap.set(entry.id, entry));
+  archivedEntries.forEach((entry) => allEntriesMap.set(entry.id, entry));
+  const allEntries = Array.from(allEntriesMap.values());
+
+  useEffect(() => {
+    if (displayedEntries.length === 0) {
+      setSelectedEntryId(null);
+      return;
+    }
+    if (!selectedEntryId || !displayedEntries.some((entry) => entry.id === selectedEntryId)) {
+      setSelectedEntryId(displayedEntries[0].id);
+    }
+  }, [displayedEntries, selectedEntryId]);
+
+  const selectedEntry = allEntries.find((entry) => entry.id === selectedEntryId) || null;
+
+  const handleArchive = (entryId: string) => {
+    if (archivedIds.has(entryId)) return;
+    const entry = entries.find((item) => item.id === entryId);
+    if (!entry) return;
+    setArchivedData((prev) => [entry, ...prev.filter((item) => item.id !== entryId)]);
   };
 
-  const archiveItem = async (item: InboxItem) => {
-    if (!user?.email) return;
-
-    const updatedArchived = [item, ...archivedItems];
-
-    setArchivedItems(updatedArchived);
-    saveArchived(user.email, updatedArchived);
-
-    setInboxItems((prev) =>
-      prev.filter((i) => !(i.id === item.id && i.type === item.type))
-    );
+  const handleRestore = (entryId: string) => {
+    setArchivedData((prev) => prev.filter((item) => item.id !== entryId));
   };
+
+  const tabs = [
+    { id: 'all', label: 'All', count: activeEntriesData.length, icon: <InboxIcon className="h-3.5 w-3.5" /> },
+    { id: 'ad_ideas', label: 'Ad ideas', count: activeEntriesData.filter((i) => i.kind === 'ad_idea').length },
+    { id: 'live_ads', label: 'Live ads', count: activeEntriesData.filter((i) => i.kind === 'live_ad').length },
+    { id: 'organic_posts', label: 'Organic', count: activeEntriesData.filter((i) => i.kind === 'organic_post').length },
+    { id: 'archived', label: 'Archived', count: archivedData.length, icon: <Archive className="h-3.5 w-3.5" /> },
+  ];
+
+  const suggestionCards = [
+    activeEntriesData.length === 0
+      ? {
+          title: 'Zero inbound requests',
+          body: 'Share your offer listing with affiliates so they can request access.',
+          href: '/business/my-business/create-offer',
+          label: 'Boost visibility',
+        }
+      : null,
+    offers.length === 0
+      ? {
+          title: 'No offers live',
+          body: 'Create a fresh offer so affiliates can promote you through Nettmark.',
+          href: '/business/my-business/create-offer',
+          label: 'Create offer',
+        }
+      : null,
+  ].filter(Boolean) as { title: string; body: string; href: string; label: string }[];
 
   return (
-    <div className="min-h-screen bg-[#0e0e0e] text-white px-12 pt-12 pb-24 w-full">
-      <div className="w-full max-w-6xl mx-auto">
-        <div className="mb-12">
-          <h1 className="text-5xl font-extrabold text-[#00C2CB] tracking-tight">Inbox</h1>
-          <p className="text-gray-400 mt-2 text-lg">
-            Affiliate requests and ad idea submissions for your offers.
-          </p>
-        </div>
-
-        {/* Unified Inbox List */}
-        {inboxItems.length > 0 ? (
-          <section className="space-y-6">
-            {inboxItems.map((item) => (
-              <div
-                key={`${item.type}-${item.id}`}
-                role="button"
-                tabIndex={0}
-                onClick={() => {
-                  const route = getItemRoute(item);
-                  if (route) router.push(route);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    const route = getItemRoute(item);
-                    if (route) router.push(route);
-                  }
-                }}
-                className="bg-[#121212]/70 backdrop-blur rounded-2xl p-6 border border-[#1f1f1f] border-l-4 border-l-[#00C2CB]/70 hover:border-[#00C2CB]/40 hover:bg-[#141414]/70 transition-all cursor-pointer group shadow-[0_0_0_1px_rgba(255,255,255,0.02)] hover:shadow-[0_10px_30px_rgba(0,0,0,0.45)]"
-              >
-                <div className="flex items-start justify-between gap-6">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2 text-[#00C2CB] font-semibold">
-                      {(() => {
-                        const Icon = inboxMeta[item.type].icon;
-                        return <Icon size={16} />;
-                      })()}
-                      <span>{inboxMeta[item.type].label}</span>
-                    </div>
-
-                    <div className="mt-2 space-y-1">
-                      <p className="text-sm text-gray-300">
-                        Offer:{' '}
-                        <span className="underline underline-offset-2 decoration-[#00C2CB]/40">
-                          {getOfferName(item.offer_id)}
-                        </span>
-                      </p>
-                      <p className="text-sm text-gray-400 truncate">
-                        Affiliate: {item.affiliate_email}
-                      </p>
-                    </div>
-
-                    <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-gray-500">
-                      <span className="inline-flex items-center gap-1.5">
-                        <Clock size={14} className="opacity-80" />
-                        {new Date(item.created_at).toLocaleString()}
-                      </span>
-
-                      <span className="px-2 py-0.5 rounded-full border border-[#1f1f1f] text-gray-400 bg-[#0f0f0f] capitalize">
-                        {item.status || 'pending'}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="shrink-0 flex flex-col items-end gap-3">
-                    <ChevronRight
-                      size={18}
-                      className="text-gray-600 group-hover:text-[#00C2CB] transition"
-                    />
-
-                    <div className="flex items-center gap-2">
-                      {item.type === 'ad_idea' && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            router.push('/business/my-business/ad-ideas');
-                          }}
-                          className="px-4 py-2 bg-[#00C2CB] hover:bg-[#00b0b8] text-white rounded-lg text-sm font-medium"
-                        >
-                          Review Ad
-                        </button>
-                      )}
-
-                      {item.type === 'organic_post' && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            router.push('/business/my-business/post-ideas');
-                          }}
-                          className="px-4 py-2 bg-[#00C2CB] hover:bg-[#00b0b8] text-white rounded-lg text-sm font-medium"
-                        >
-                          Review Post
-                        </button>
-                      )}
-
-                      {item.type === 'live_ad' && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            router.push('/business/manage-campaigns');
-                          }}
-                          className="px-4 py-2 bg-[#00C2CB] hover:bg-[#00b0b8] text-white rounded-lg text-sm font-medium"
-                        >
-                          View Campaign
-                        </button>
-                      )}
-
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          archiveItem(item);
-                        }}
-                        className="px-3 py-2 border border-[#2a2a2a] hover:border-[#00C2CB]/60 text-gray-300 hover:text-[#00C2CB] rounded-lg text-sm flex items-center gap-2"
-                      >
-                        <ArchiveIcon size={14} />
-                        Archive
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </section>
-        ) : (
-          <div className="text-center mt-32 text-gray-500">
-            <h3 className="text-2xl font-bold">Nothing new yet</h3>
-            <p className="mt-2 text-md">
-              All affiliate and ad submissions will appear here once received.
+    <div className="min-h-screen bg-gradient-to-b from-[#050505] to-[#0f0f0f] text-white px-4 sm:px-8 lg:px-12 py-10">
+      <div className="mx-auto w-full max-w-6xl space-y-10">
+        <header className="space-y-3">
+          <p className="text-sm uppercase tracking-[0.2em] text-[#00C2CB]/70">Business Ops</p>
+          <div>
+            <h1 className="text-4xl font-bold tracking-tight text-white sm:text-5xl">Inbox</h1>
+            <p className="mt-2 text-base text-white/70">
+              Review affiliate submissions, live campaign updates, and organic assets without leaving one surface.
             </p>
           </div>
-        )}
+        </header>
 
-        {/* Archived toggle section */}
-        {archivedItems.length > 0 && (
-          <div className="mt-20 border-t border-[#1f1f1f] pt-10">
-            <button
-              onClick={() => setShowArchived(!showArchived)}
-              className="flex items-center gap-2 text-sm text-gray-400 hover:text-[#00C2CB]"
-            >
-              <ArchiveIcon size={14} />
-              {showArchived ? 'Hide Archived' : 'Show Archived'}
-            </button>
-
-            {showArchived && (
-              <div className="mt-6 space-y-3">
-                {archivedItems.map((item) => (
-                  <div
-                    key={`arch-${item.id}`}
-                    className="flex items-center gap-3 bg-[#101010]/70 border border-[#1f1f1f] rounded-xl px-4 py-3 text-sm text-gray-400 hover:border-[#00C2CB]/30 transition"
-                  >
-                    {(() => {
-                      const Icon = inboxMeta[item.type].icon;
-                      return <Icon size={14} className="text-[#00C2CB]" />;
-                    })()}
-                    <span className="capitalize">{inboxMeta[item.type].label}</span>
-                    <span className="text-gray-500">— {getOfferName(item.offer_id)}</span>
-                  </div>
-                ))}
+        {suggestionCards.length > 0 && (
+          <div className="grid gap-4 md:grid-cols-2">
+            {suggestionCards.map((card) => (
+              <div key={card.title} className="rounded-2xl border border-white/10 bg-[#0c0c0c] px-6 py-5 shadow-[0_10px_30px_rgba(0,0,0,0.35)]">
+                <p className="text-sm font-semibold text-white">{card.title}</p>
+                <p className="mt-2 text-sm text-white/70">{card.body}</p>
+                <Link
+                  href={card.href}
+                  className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-[#00C2CB] hover:text-[#00b0b8]"
+                >
+                  {card.label}
+                  <Sparkles className="h-4 w-4" />
+                </Link>
               </div>
-            )}
+            ))}
           </div>
         )}
+
+        <InboxTabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
+
+        <div className="grid gap-6 lg:grid-cols-[360px,1fr]">
+          <div className="space-y-3">
+            {displayedEntries.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-white/10 bg-white/5 px-5 py-10 text-center text-sm text-white/60">
+                No submissions in this view. Encourage affiliates to submit creatives or sync live ads.
+              </div>
+            ) : (
+              displayedEntries.map((entry) => {
+                const isArchived = archivedIds.has(entry.id);
+                const primaryAction = (
+                  <Link
+                    href={entry.link.href}
+                    className="rounded-lg bg-[#00C2CB] px-3 py-1.5 text-xs font-semibold text-black transition hover:bg-[#00b0b8]"
+                  >
+                    {entry.link.label}
+                  </Link>
+                );
+
+                const archiveButton = (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      isArchived ? handleRestore(entry.id) : handleArchive(entry.id);
+                    }}
+                    className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
+                      isArchived
+                        ? 'border-[#00C2CB]/30 text-[#00C2CB] hover:border-[#00C2CB]'
+                        : 'border-white/15 text-white/70 hover:text-[#00C2CB] hover:border-[#00C2CB]/50'
+                    }`}
+                  >
+                    {isArchived ? 'Restore' : 'Archive'}
+                  </button>
+                );
+
+                const swipeActions = (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      isArchived ? handleRestore(entry.id) : handleArchive(entry.id);
+                    }}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
+                      isArchived ? 'bg-[#00C2CB]/20 text-[#00C2CB]' : 'bg-[#00C2CB] text-black'
+                    }`}
+                  >
+                    {isArchived ? 'Restore' : 'Archive'}
+                  </button>
+                );
+
+                return (
+                  <InboxCard
+                    key={entry.id}
+                    title={entry.title}
+                    subtitle={`${entry.subtitle || offerName(entry.offerId)} • ${entry.affiliateEmail}`}
+                    body={entry.body}
+                    statusBadge={entry.status}
+                    timestamp={entry.timestamp}
+                    icon={entry.icon}
+                    accent={entry.accent}
+                    selected={entry.id === selectedEntryId}
+                    onSelect={() => setSelectedEntryId(entry.id)}
+                    actions={
+                      <>
+                        {primaryAction}
+                        {archiveButton}
+                      </>
+                    }
+                    swipeActions={swipeActions}
+                  />
+                );
+              })
+            )}
+          </div>
+
+          <aside className="rounded-2xl border border-white/10 bg-gradient-to-b from-[#0c0c0c] to-[#070707] p-6 shadow-[0_15px_40px_rgba(0,0,0,0.45)]">
+            {selectedEntry ? (
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 text-[#00C2CB]">
+                  <span className="rounded-full bg-[#00C2CB]/10 p-2 text-white">{selectedEntry.icon}</span>
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.2em] text-white/60">{selectedEntry.kind}</p>
+                    <h2 className="text-lg font-semibold text-white">{selectedEntry.title}</h2>
+                  </div>
+                </div>
+                <div className="space-y-2 text-sm text-white/70">
+                  <p>
+                    <span className="text-white/50">Offer: </span>
+                    {offerName(selectedEntry.offerId)}
+                  </p>
+                  <p>
+                    <span className="text-white/50">Affiliate: </span>
+                    {selectedEntry.affiliateEmail}
+                  </p>
+                  {selectedEntry.body && <p>{selectedEntry.body}</p>}
+                  <p className="text-xs text-white/40">{selectedEntry.timestamp}</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Link
+                    href={selectedEntry.link.href}
+                    className="inline-flex items-center gap-2 rounded-lg bg-[#00C2CB] px-4 py-2 text-sm font-semibold text-black transition hover:bg-[#00b0b8]"
+                  >
+                    {selectedEntry.link.label}
+                  </Link>
+                  <button
+                    onClick={() =>
+                      archivedIds.has(selectedEntry.id)
+                        ? handleRestore(selectedEntry.id)
+                        : handleArchive(selectedEntry.id)
+                    }
+                    className="inline-flex items-center gap-2 rounded-lg border border-white/15 px-4 py-2 text-sm font-semibold text-white/80 transition hover:border-[#00C2CB]/50 hover:text-[#00C2CB]"
+                  >
+                    {archivedIds.has(selectedEntry.id) ? (
+                      <>
+                        <ArchiveRestore className="h-4 w-4" /> Restore
+                      </>
+                    ) : (
+                      <>
+                        <Archive className="h-4 w-4" /> Archive
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex h-full flex-col items-center justify-center text-center text-white/60">
+                <Users className="mb-4 h-10 w-10 text-[#00C2CB]" />
+                <p className="text-lg font-semibold text-white">Select a submission</p>
+                <p className="mt-1 text-sm text-white/70">
+                  Choose an item on the left to see affiliate details, offer context, and quick actions.
+                </p>
+              </div>
+            )}
+          </aside>
+        </div>
       </div>
     </div>
   );
