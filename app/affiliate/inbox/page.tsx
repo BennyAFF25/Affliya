@@ -321,7 +321,7 @@ export default function AffiliateInbox() {
   ].filter(Boolean) as { title: string; body: string; href: string; label: string }[];
 
   return (
-    <div className="min-h-screen bg-surface text-white px-4 sm:px-8 lg:px-12 py-10">
+    <div className="min-h-screen bg-gradient-to-b from-[#050505] to-[#0f0f0f] text-white px-4 sm:px-8 lg:px-12 py-10">
       <div className="mx-auto w-full max-w-6xl space-y-10">
         <header className="space-y-3">
           <p className="text-sm uppercase tracking-[0.2em] text-[#00C2CB]/70">Command Center</p>

@@ -457,7 +457,7 @@ function AffiliateDashboardContent() {
 
 if (loading) {
   return (
-    <div className="min-h-screen bg-surface text-white">
+    <div className="min-h-screen bg-gradient-to-b from-[#0a0a0a] to-[#0d0d0d] text-white">
       <div className="p-4">Loading...</div>
     </div>
   );
@@ -472,7 +472,7 @@ if (loading) {
   ];
 
   return (
-    <div className="min-h-screen bg-surface text-white">
+    <div className="min-h-screen bg-gradient-to-b from-[#0a0a0a] to-[#0d0d0d] text-white">
       
       <div className="max-w-8xl mx-auto px-4 sm:px-6 md:px-8 lg:px-10 py-6 md:py-8">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-10">

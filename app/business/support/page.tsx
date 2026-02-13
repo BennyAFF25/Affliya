@@ -39,7 +39,7 @@ export default function BusinessSupportPage() {
   };
 
   return (
-    <div className="min-h-screen bg-surface text-white px-6 md:px-10 py-12 relative">
+    <div className="min-h-screen bg-[#0e0e0e] text-white px-6 md:px-10 py-12 relative">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(0,194,203,0.08),transparent_50%)] pointer-events-none" />
       <h1 className="text-4xl font-extrabold text-[#00C2CB] mb-3 flex items-center gap-2">
         <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8 text-[#00C2CB]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -91,7 +91,7 @@ export default function BusinessSupportPage() {
 
         <textarea
           placeholder="Write your message here..."
-          className="w-full border border-[#00C2CB]/20 bg-surface text-white rounded-lg p-3 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-[#00C2CB] transition"
+          className="w-full border border-[#00C2CB]/20 bg-[#0e0e0e] text-white rounded-lg p-3 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-[#00C2CB] transition"
           rows={4}
           value={message}
           onChange={(e) => setMessage(e.target.value)}

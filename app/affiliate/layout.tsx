@@ -1,12 +1,13 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import AffiliateSidebar from './AffiliateSidebar';
 import Topbar from '@/components/Topbar';
 import { MobileNavSlider, MobileNavTab } from '@/components/navigation/MobileNavSlider';
 import { useSession } from '@supabase/auth-helpers-react';
 import { LayoutDashboard, Store, Inbox, Wallet, Settings, LifeBuoy } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { Toast } from '@/components/Toast';
 import { useInboxNotifier } from '../../utils/hooks/useInboxNotifier';
 
@@ -19,6 +20,7 @@ function AffiliateLayoutShell({ children }: { children: React.ReactNode }) {
   const userEmail = session?.user?.email || '';
   const router = useRouter();
   const { toast, setToast, unreadCount } = useInboxNotifier(userEmail);
+  const pathname = usePathname();
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const closeMobileNav = () => setMobileNavOpen(false);
@@ -33,14 +35,14 @@ function AffiliateLayoutShell({ children }: { children: React.ReactNode }) {
   ];
 
   return (
-    <div className="flex flex-col min-h-screen text-white bg-surface">
+    <div className="flex flex-col min-h-screen text-white bg-[#0e0e0e]">
       {/* Fixed Topbar at the top */}
-      <div className="fixed top-0 left-0 right-0 z-30 bg-surface-deep">
+      <div className="fixed top-0 left-0 right-0 z-30 bg-[#1F1F1F]">
         <div className="flex items-center justify-between px-2">
           <Topbar {...({ unreadCount } as any)} />
           {/* Mobile hamburger */}
           <button
-            className="md:hidden flex flex-col items-center justify-center w-9 h-9 bg-surface-deep border border-white/10 rounded-md"
+            className="md:hidden flex flex-col items-center justify-center w-9 h-9 bg-[#1F1F1F] border border-white/10 rounded-md"
             onClick={() => setMobileNavOpen((prev) => !prev)}
           >
             <span className="block w-5 h-[2px] bg-white mb-[3px] rounded" />
@@ -51,7 +53,7 @@ function AffiliateLayoutShell({ children }: { children: React.ReactNode }) {
 
         {/* Mobile pill slider */}
         {mobileNavOpen && (
-          <div className="md:hidden bg-surface-deep border-t border-black/40 py-3 px-4">
+          <div className="md:hidden bg-[#111111] border-t border-black/40 py-3 px-4">
             <MobileNavSlider tabs={mobileTabs} onNavigate={closeMobileNav} />
           </div>
         )}
@@ -61,13 +63,13 @@ function AffiliateLayoutShell({ children }: { children: React.ReactNode }) {
       <div className="flex flex-1 pt-[64px] min-h-0">
         {/* Desktop sidebar */}
         <div className="hidden md:block w-64">
-          <div className="hidden md:block fixed left-0 top-[64px] bottom-0 w-64 bg-surface-deep text-white">
+          <div className="hidden md:block fixed left-0 top-[64px] bottom-0 w-64 bg-[#1F1F1F] text-white">
             <AffiliateSidebar {...({ unreadCount } as any)} />
           </div>
         </div>
 
         {/* Scrollable main content area */}
-        <main className="flex-1 bg-surface text-white overflow-y-auto">
+        <main className="flex-1 bg-[#0e0e0e] text-white overflow-y-auto">
           {children}
         </main>
       </div>

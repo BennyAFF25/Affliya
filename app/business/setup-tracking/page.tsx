@@ -7,7 +7,7 @@ export default function SetupTrackingPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen w-full bg-surface flex items-center justify-center text-gray-300">
+        <div className="min-h-screen w-full bg-[#0e0e0e] flex items-center justify-center text-gray-300">
           Loading…
         </div>
       }

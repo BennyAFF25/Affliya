@@ -1360,7 +1360,7 @@ function DateTimeField({
   );
 
   return (
-    <div className="min-h-screen py-10 px-6 bg-surface text-white pb-8">
+    <div className="min-h-screen py-10 px-6 bg-[#0e0e0e] text-white pb-8">
       <div className="max-w-6xl mx-auto grid lg:grid-cols-[1fr_360px] gap-8">
         {/* Mode toggle (Ad vs Organic) */}
         <div className="lg:col-span-2 -mb-2 flex items-center justify-between">
@@ -1735,7 +1735,7 @@ function DateTimeField({
                                   min={0.01}
                                   step={0.01}
                                   placeholder="3.00"
-                                  className="w-full bg-surface pl-16 pr-3 py-2 text-white focus:outline-none"
+                                  className="w-full bg-[#0e0e0e] pl-16 pr-3 py-2 text-white focus:outline-none"
                                   value={form.bid_cap_dollars}
                                   onChange={(e) =>
                                     setForm((p) => ({

@@ -570,7 +570,7 @@ export default function ManageCampaignPage() {
   if (!campaign) return <div>Loading...</div>;
 
   return (
-    <div className="min-h-screen bg-surface text-gray-100 px-4 py-6 md:px-8 md:py-8">
+    <div className="min-h-screen bg-[#0e0e0e] text-gray-100 px-4 py-6 md:px-8 md:py-8">
       {/* Status banners */}
       {isTerminatedByBusiness && (
         <div className="max-w-6xl mx-auto mb-4">

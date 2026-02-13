@@ -172,7 +172,7 @@ export default function AffiliateMarketplace() {
   });
 
   return (
-    <div className="flex justify-center px-6 py-10 bg-surface text-white min-h-screen">
+    <div className="flex justify-center px-6 py-10 bg-[#0e0e0e] text-white min-h-screen">
       {showAcceptTerms && userId && (
         <AcceptTermsModal
           userId={userId}

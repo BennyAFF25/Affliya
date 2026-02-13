@@ -232,7 +232,7 @@ export default function AffiliateOfferProfilePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-surface text-white flex items-center justify-center">
+      <div className="min-h-screen bg-[#0e0e0e] text-white flex items-center justify-center">
         <p className="text-sm text-gray-400">Loading offer…</p>
       </div>
     );
@@ -240,7 +240,7 @@ export default function AffiliateOfferProfilePage() {
 
   if (loadError || !offer) {
     return (
-      <div className="min-h-screen bg-surface text-white flex items-center justify-center">
+      <div className="min-h-screen bg-[#0e0e0e] text-white flex items-center justify-center">
         <div className="max-w-md text-center px-4">
           <p className="text-lg font-semibold text-red-400 mb-2">
             Couldn&apos;t load offer
@@ -275,7 +275,7 @@ export default function AffiliateOfferProfilePage() {
       : offer.type || 'Standard';
 
   return (
-    <div className="min-h-screen bg-surface text-white px-4 py-8">
+    <div className="min-h-screen bg-[#0e0e0e] text-white px-4 py-8">
       <div className="max-w-6xl mx-auto space-y-8">
         {/* Top breadcrumb / back */}
         <div className="flex items-center justify-between gap-3">

@@ -553,7 +553,7 @@ export default function BusinessCampaignDetailPage() {
 
   if (!session) {
     return (
-      <div className="min-h-screen bg-surface text-white flex items-center justify-center">
+      <div className="min-h-screen bg-[#0e0e0e] text-white flex items-center justify-center">
         <p className="text-sm text-white/70">
           You need to be signed in to view this campaign.
         </p>
@@ -562,7 +562,7 @@ export default function BusinessCampaignDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-surface text-white">
+    <div className="min-h-screen bg-[#0e0e0e] text-white">
       <div className="mx-auto max-w-5xl px-4 sm:px-8 py-4 space-y-4">
         {/* Back link */}
         <button

@@ -343,7 +343,7 @@ export default function AffiliateManageCampaignsPage() {
   const archivedCount = archivedItems.length;
 
   return (
-    <div className="min-h-screen bg-surface p-6 text-white">
+    <div className="min-h-screen bg-[#0b0b0b] p-6 text-white">
       <div className="mx-auto w-full max-w-6xl">
         <div className="mb-8">
           <div className="mb-2 text-xs tracking-[0.35em] text-gray-400">CAMPAIGNS</div>

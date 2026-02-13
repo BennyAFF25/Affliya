@@ -21,29 +21,6 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --color-surface-base: #050505;
-  --color-surface-deep: #080808;
-  --color-surface-card: #101010;
-  --color-surface-border: rgba(255, 255, 255, 0.08);
-}
-
-.bg-surface {
-  background-color: var(--color-surface-base);
-}
-
-.bg-surface-deep {
-  background-color: var(--color-surface-deep);
-}
-
-.bg-card {
-  background-color: var(--color-surface-card);
-}
-
-.border-surface {
-  border-color: var(--color-surface-border);
-}
-
 @keyframes fade-in-up {
   0% {
     opacity: 0;
@@ -68,7 +45,7 @@ body {
   margin: 0;
   padding: 0;
   color-scheme: dark;
-  background: radial-gradient(circle at top, rgba(255,255,255,0.02), transparent 45%), linear-gradient(180deg, var(--color-surface-base) 0%, var(--color-surface-deep) 100%);
+  background: linear-gradient(180deg, #0b0b0b 0%, #0e0e0e 100%);
   min-height: 100%;
   width: 100%;
   color: #fff;

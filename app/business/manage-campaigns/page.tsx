@@ -242,7 +242,7 @@ const ManageCampaignsBusiness = () => {
   };
 
   return (
-    <div className="min-h-screen bg-surface text-white">
+    <div className="min-h-screen bg-[#0e0e0e] text-white">
       <div className="mx-auto max-w-6xl px-8 py-10">
         {/* Page header */}
         <header className="mb-8">
