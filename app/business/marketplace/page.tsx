@@ -29,7 +29,7 @@ export default function BusinessMarketplace() {
   }, []);
 
   return (
-    <div className="p-8 bg-[#0e0e0e] min-h-screen text-white">
+    <div className="p-8 bg-surface min-h-screen text-white">
       <h1 className="text-3xl font-extrabold mb-8 text-[#00C2CB] tracking-tight">Business Marketplace</h1>
       {offers.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">

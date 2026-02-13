@@ -215,7 +215,7 @@ export default function SetupTrackingContent() {
 
 
   return (
-    <div className="min-h-screen bg-[#0e0e0e] py-10 px-4">
+    <div className="min-h-screen bg-surface py-10 px-4">
       <div className="max-w-3xl mx-auto mt-12 p-8 bg-[#1a1a1a] text-white rounded-xl shadow-lg border border-gray-700 ring-2 ring-[#00C2CB]/10">
         <h1 className="text-4xl font-extrabold mb-6 text-[#00C2CB] tracking-tight text-center">
           Install Your Nettmark Tracking Code
