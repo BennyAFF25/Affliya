@@ -4,11 +4,22 @@ import { useState } from 'react';
 import Link from 'next/link';
 import BusinessSidebar from './BusinessSidebar';
 import Topbar from '@/components/Topbar';
+import { MobileNavSlider, MobileNavTab } from '@/components/navigation/MobileNavSlider';
+import { LayoutDashboard, Store, Building, Inbox, LifeBuoy, Settings as SettingsIcon } from 'lucide-react';
 
 export default function BusinessLayout({ children }: { children: React.ReactNode }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const closeMobileNav = () => setMobileNavOpen(false);
+
+  const mobileTabs: MobileNavTab[] = [
+    { id: 'dashboard', label: 'Dashboard', href: '/business/dashboard', icon: <LayoutDashboard size={16} /> },
+    { id: 'my-business', label: 'My Business', href: '/business/my-business', icon: <Building size={16} /> },
+    { id: 'marketplace', label: 'Marketplace', href: '/business/marketplace', icon: <Store size={16} /> },
+    { id: 'inbox', label: 'Inbox', href: '/business/inbox', icon: <Inbox size={16} /> },
+    { id: 'support', label: 'Support', href: '/business/support', icon: <LifeBuoy size={16} /> },
+    { id: 'settings', label: 'Settings', href: '/business/settings', icon: <SettingsIcon size={16} /> },
+  ];
 
   return (
     <div className="flex flex-col min-h-screen text-white bg-[#0e0e0e]">
@@ -30,62 +41,8 @@ export default function BusinessLayout({ children }: { children: React.ReactNode
 
       {/* Mobile pill slider */}
       {mobileNavOpen && (
-        <div className="md:hidden fixed top-16 left-0 right-0 z-40 bg-[#111111] border-b border-white/10 py-3 px-4 flex overflow-x-auto gap-3">
-          <Link
-            href="/business/dashboard"
-            onClick={closeMobileNav}
-            className="px-4 py-2 rounded-full bg-[#222222] text-white text-sm border border-white/10 whitespace-nowrap hover:bg-[#333333]"
-          >
-            Dashboard
-          </Link>
-
-          <Link
-            href="/business/my-business"
-            onClick={closeMobileNav}
-            className="px-4 py-2 rounded-full bg-[#222222] text-white text-sm border border-white/10 whitespace-nowrap hover:bg-[#333333]"
-          >
-            My Business
-          </Link>
-
-          <Link
-            href="/business/marketplace"
-            onClick={closeMobileNav}
-            className="px-4 py-2 rounded-full bg-[#222222] text-white text-sm border border-white/10 whitespace-nowrap hover:bg-[#333333]"
-          >
-            Marketplace
-          </Link>
-
-          <Link
-            href="/business/manage-campaigns"
-            onClick={closeMobileNav}
-            className="px-4 py-2 rounded-full bg-[#222222] text-white text-sm border border-white/10 whitespace-nowrap hover:bg-[#333333]"
-          >
-            Campaigns
-          </Link>
-
-          <Link
-            href="/business/inbox"
-            onClick={closeMobileNav}
-            className="px-4 py-2 rounded-full bg-[#222222] text-white text-sm border border-white/10 whitespace-nowrap hover:bg-[#333333]"
-          >
-            Inbox
-          </Link>
-
-          <Link
-            href="/business/settings"
-            onClick={closeMobileNav}
-            className="px-4 py-2 rounded-full bg-[#222222] text-white text-sm border border-white/10 whitespace-nowrap hover:bg-[#333333]"
-          >
-            Settings
-          </Link>
-
-          <Link
-            href="/business/support"
-            onClick={closeMobileNav}
-            className="px-4 py-2 rounded-full bg-[#222222] text-white text-sm border border-white/10 whitespace-nowrap hover:bg-[#333333]"
-          >
-            Support
-          </Link>
+        <div className="md:hidden fixed top-16 left-0 right-0 z-40 bg-[#111111] border-b border-white/10 py-3 px-4">
+          <MobileNavSlider tabs={mobileTabs} onNavigate={closeMobileNav} />
         </div>
       )}
 

@@ -4,7 +4,9 @@ import { useState } from 'react';
 import Link from 'next/link';
 import AffiliateSidebar from './AffiliateSidebar';
 import Topbar from '@/components/Topbar';
+import { MobileNavSlider, MobileNavTab } from '@/components/navigation/MobileNavSlider';
 import { useSession } from '@supabase/auth-helpers-react';
+import { LayoutDashboard, Store, Inbox, Wallet, Settings, LifeBuoy } from 'lucide-react';
 import { useRouter, usePathname } from 'next/navigation';
 import { Toast } from '@/components/Toast';
 import { useInboxNotifier } from '../../utils/hooks/useInboxNotifier';
@@ -22,6 +24,15 @@ function AffiliateLayoutShell({ children }: { children: React.ReactNode }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const closeMobileNav = () => setMobileNavOpen(false);
+
+  const mobileTabs: MobileNavTab[] = [
+    { id: 'dashboard', label: 'Dashboard', href: '/affiliate/dashboard', icon: <LayoutDashboard size={16} /> },
+    { id: 'marketplace', label: 'Marketplace', href: '/affiliate/marketplace', icon: <Store size={16} /> },
+    { id: 'inbox', label: 'Inbox', href: '/affiliate/inbox', icon: <Inbox size={16} />, badge: unreadCount },
+    { id: 'wallet', label: 'Wallet', href: '/affiliate/wallet', icon: <Wallet size={16} /> },
+    { id: 'support', label: 'Support', href: '/affiliate/support', icon: <LifeBuoy size={16} /> },
+    { id: 'settings', label: 'Settings', href: '/affiliate/settings', icon: <Settings size={16} /> },
+  ];
 
   return (
     <div className="flex flex-col min-h-screen text-white bg-[#0e0e0e]">
@@ -42,56 +53,8 @@ function AffiliateLayoutShell({ children }: { children: React.ReactNode }) {
 
         {/* Mobile pill slider */}
         {mobileNavOpen && (
-          <div className="md:hidden bg-[#111111] border-t border-black/40 py-3 px-4 flex overflow-x-auto gap-3">
-            <Link
-              href="/affiliate/dashboard"
-              onClick={closeMobileNav}
-              className="px-4 py-2 rounded-full bg-[#00C2CB] text-black text-sm whitespace-nowrap"
-            >
-              Dashboard
-            </Link>
-            <Link
-              href="/affiliate/marketplace"
-              onClick={closeMobileNav}
-              className="px-4 py-2 rounded-full bg-[#222222] text-gray-100 text-sm whitespace-nowrap"
-            >
-              Marketplace
-            </Link>
-            <Link
-              href="/affiliate/dashboard/manage-campaigns"
-              onClick={closeMobileNav}
-              className="px-4 py-2 rounded-full bg-[#222222] text-gray-100 text-sm whitespace-nowrap"
-            >
-              Campaigns
-            </Link>
-            <Link
-              href="/affiliate/inbox"
-              onClick={closeMobileNav}
-              className="px-4 py-2 rounded-full bg-[#222222] text-gray-100 text-sm whitespace-nowrap"
-            >
-              Inbox
-            </Link>
-            <Link
-              href="/affiliate/settings"
-              onClick={closeMobileNav}
-              className="px-4 py-2 rounded-full bg-[#222222] text-gray-100 text-sm whitespace-nowrap"
-            >
-              Settings
-            </Link>
-            <Link
-              href="/affiliate/support"
-              onClick={closeMobileNav}
-              className="px-4 py-2 rounded-full bg-[#222222] text-gray-100 text-sm whitespace-nowrap"
-            >
-              Support
-            </Link>
-            <Link
-              href="/affiliate/wallet"
-              onClick={closeMobileNav}
-              className="px-4 py-2 rounded-full bg-[#222222] text-gray-100 text-sm whitespace-nowrap"
-            >
-              Wallet
-            </Link>
+          <div className="md:hidden bg-[#111111] border-t border-black/40 py-3 px-4">
+            <MobileNavSlider tabs={mobileTabs} onNavigate={closeMobileNav} />
           </div>
         )}
       </div>
