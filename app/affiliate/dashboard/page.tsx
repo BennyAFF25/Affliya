@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from 'utils/supabase/pages-client';
 import Link from 'next/link';
 import { TrendingUp, DollarSign, Wallet, CheckCircle } from 'lucide-react';
+import DashboardCard from '@/components/DashboardCard';
 import {
   ResponsiveContainer,
   BarChart,
@@ -476,8 +477,8 @@ if (loading) {
       <div className="max-w-8xl mx-auto px-4 sm:px-6 md:px-8 lg:px-10 py-6 md:py-8">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-10">
           {/* Stat Card: Active Campaigns */}
-          <div className="group relative rounded-2xl border border-white/10 bg-[#0f0f0f] overflow-hidden backdrop-blur-md shadow-[0_8px_24px_rgba(0,0,0,0.45)] p-4 transition-transform duration-300 ease-out hover:scale-[1.01]">
-            <div className="flex items-center gap-4 relative z-10">
+          <DashboardCard>
+            <div className="flex items-center gap-4">
               <div className="text-[#00C2CB] bg-[#00C2CB]/10 rounded-lg p-2.5">
                 <TrendingUp className="h-6 w-6" />
               </div>
@@ -486,11 +487,11 @@ if (loading) {
                 <h2 className="text-3xl font-bold text-white">{activeCampaignCount}</h2>
               </div>
             </div>
-          </div>
+          </DashboardCard>
 
           {/* Stat Card: Total Spent */}
-          <div className="group relative rounded-2xl border border-white/10 bg-[#0f0f0f] overflow-hidden backdrop-blur-md shadow-[0_8px_24px_rgba(0,0,0,0.45)] p-4 transition-transform duration-300 ease-out hover:scale-[1.01]">
-            <div className="flex items-center gap-4 relative z-10">
+          <DashboardCard>
+            <div className="flex items-center gap-4">
               <div className="text-[#00C2CB] bg-[#00C2CB]/10 rounded-lg p-2.5">
                 <DollarSign className="h-6 w-6" />
               </div>
@@ -499,11 +500,11 @@ if (loading) {
                 <h2 className="text-3xl font-bold text-white">{formatCurrency(totalSpent)}</h2>
               </div>
             </div>
-          </div>
+          </DashboardCard>
 
           {/* Stat Card: Pending Payout */}
-          <div className="group relative rounded-2xl border border-white/10 bg-[#0f0f0f] overflow-hidden backdrop-blur-md shadow-[0_8px_24px_rgba(0,0,0,0.45)] p-4 transition-transform duration-300 ease-out hover:scale-[1.01]">
-            <div className="flex items-center gap-4 relative z-10">
+          <DashboardCard>
+            <div className="flex items-center gap-4">
               <div className="text-[#00C2CB] bg-[#00C2CB]/10 rounded-lg p-2.5">
                 <Wallet className="h-6 w-6" />
               </div>
@@ -512,11 +513,11 @@ if (loading) {
                 <h2 className="text-3xl font-bold text-white">{formatCurrency(pendingPayoutTotal)}</h2>
               </div>
             </div>
-          </div>
+          </DashboardCard>
 
           {/* Stat Card: Approved Offers */}
-          <div className="group relative rounded-2xl border border-white/10 bg-[#0f0f0f] overflow-hidden backdrop-blur-md shadow-[0_8px_24px_rgba(0,0,0,0.45)] p-4 transition-transform duration-300 ease-out hover:scale-[1.01]">
-            <div className="flex items-center gap-4 relative z-10">
+          <DashboardCard>
+            <div className="flex items-center gap-4">
               <div className="text-[#00C2CB] bg-[#00C2CB]/10 rounded-lg p-2.5">
                 <CheckCircle className="h-6 w-6" />
               </div>
@@ -525,7 +526,7 @@ if (loading) {
                 <h2 className="text-3xl font-bold text-white">{approvedOffers.length}</h2>
               </div>
             </div>
-          </div>
+          </DashboardCard>
         </div>
 
 
@@ -674,95 +675,99 @@ if (loading) {
 
         <div className="flex flex-col md:flex-row justify-between gap-6 mt-8">
           {/* Active Campaigns */}
-          <div className="w-full md:w-1/2 rounded-2xl border border-white/10 bg-gradient-to-b from-[#0f0f0f] to-[#111] p-4 shadow-[0_8px_24px_rgba(0,0,0,0.45)]">
-            <h2 className="text-lg font-semibold text-[#00C2CB] mb-4">Active Campaigns</h2>
-            {activeCampaigns.length === 0 ? (
-              <div className="rounded-xl border border-white/10 bg-black/30 p-6 text-center text-white/70">
-                No active campaigns yet.
-              </div>
-            ) : (
-              <>
-                {visibleCampaigns.map((offer) => (
-                  <div
-                    key={`${offer.id}-${offer.ideaId}`}
-                    className="flex items-center justify-between bg-[#121212] border border-white/10 rounded-xl px-4 py-3 hover:bg-[#171717] transition mb-3"
-                  >
-                    <div className="flex flex-col">
-                      <p className="text-white font-semibold">{offer.title}</p>
-                      <div className="flex items-center">
-                        <RocketLaunchIcon className="w-5 h-5 text-[#00C2CB] mr-2" />
-                        <span className="truncate text-sm text-white/70">
-                          Campaign: {offer.ideaId?.slice(0, 8)}...
-                        </span>
-                      </div>
-                    </div>
-                    <Link
-                      href={`/affiliate/dashboard/manage-campaigns/${offer.ideaId}`}
-                      className="text-sm px-3 py-1 rounded-lg bg-[#00C2CB] text-black font-semibold hover:bg-[#00b0b8]"
+          <div className="w-full md:w-1/2">
+            <DashboardCard interactive={false} className="h-full">
+              <h2 className="text-lg font-semibold text-[#00C2CB] mb-4">Active Campaigns</h2>
+              {activeCampaigns.length === 0 ? (
+                <div className="rounded-xl border border-white/10 bg-black/30 p-6 text-center text-white/70">
+                  No active campaigns yet.
+                </div>
+              ) : (
+                <>
+                  {visibleCampaigns.map((offer) => (
+                    <div
+                      key={`${offer.id}-${offer.ideaId}`}
+                      className="flex items-center justify-between bg-[#121212] border border-white/10 rounded-xl px-4 py-3 hover:bg-[#171717] transition mb-3"
                     >
-                      View
-                    </Link>
-                  </div>
-                ))}
-                {activeCampaigns.length > 1 && (
-                  <button
-                    onClick={() => setShowAllCampaigns((prev) => !prev)}
-                    className="w-full text-center text-sm text-[#00C2CB] hover:text-[#00b0b8] mt-2"
-                  >
-                    {showAllCampaigns ? 'Show Less' : `View All (${activeCampaigns.length})`}
-                  </button>
-                )}
-              </>
-            )}
+                      <div className="flex flex-col">
+                        <p className="text-white font-semibold">{offer.title}</p>
+                        <div className="flex items-center">
+                          <RocketLaunchIcon className="w-5 h-5 text-[#00C2CB] mr-2" />
+                          <span className="truncate text-sm text-white/70">
+                            Campaign: {offer.ideaId?.slice(0, 8)}...
+                          </span>
+                        </div>
+                      </div>
+                      <Link
+                        href={`/affiliate/dashboard/manage-campaigns/${offer.ideaId}`}
+                        className="text-sm px-3 py-1 rounded-lg bg-[#00C2CB] text-black font-semibold hover:bg-[#00b0b8]"
+                      >
+                        View
+                      </Link>
+                    </div>
+                  ))}
+                  {activeCampaigns.length > 1 && (
+                    <button
+                      onClick={() => setShowAllCampaigns((prev) => !prev)}
+                      className="w-full text-center text-sm text-[#00C2CB] hover:text-[#00b0b8] mt-2"
+                    >
+                      {showAllCampaigns ? 'Show Less' : `View All (${activeCampaigns.length})`}
+                    </button>
+                  )}
+                </>
+              )}
+            </DashboardCard>
           </div>
 
           {/* Approved Offers */}
-          <div className="w-full md:w-1/2 rounded-2xl border border-white/10 bg-gradient-to-b from-[#0f0f0f] to-[#111] p-4 shadow-[0_8px_24px_rgba(0,0,0,0.45)]">
-            <h2 className="text-lg font-semibold text-[#00C2CB] mb-4">Approved Offers</h2>
-            {approvedOffers.length === 0 ? (
-              <div className="rounded-xl border border-white/10 bg-black/30 p-6 text-center text-white/70">
-                You haven't been approved to promote any offers yet.
-                <br />
-                Head over to the{' '}
-                <Link href="/affiliate/marketplace" className="underline">
-                  Marketplace
-                </Link>{' '}
-                to request one!
-              </div>
-            ) : (
-              <>
-                {visibleOffers.map((offer) => (
-                  <div
-                    key={`${offer.id}-${offer.title}`}
-                    className="flex items-center justify-between bg-[#121212] border border-white/10 rounded-xl px-4 py-3 hover:bg-[#171717] transition mb-3"
-                  >
-                    <div className="flex flex-col">
-                      <p className="text-white font-semibold">{offer.title}</p>
-                      <div className="flex items-center">
-                        <RocketLaunchIcon className="w-5 h-5 text-[#00C2CB] mr-2" />
-                        <span className="truncate text-sm text-white/70">
-                          Commission: {offer.commission}% | Type: {offer.payoutType}
-                        </span>
-                      </div>
-                    </div>
-                    <Link
-                      href={`/affiliate/dashboard/promote/${offer.id}`}
-                      className="text-sm px-3 py-1 rounded-lg bg-[#00C2CB] text-black font-semibold hover:bg-[#00b0b8]"
+          <div className="w-full md:w-1/2">
+            <DashboardCard interactive={false} className="h-full">
+              <h2 className="text-lg font-semibold text-[#00C2CB] mb-4">Approved Offers</h2>
+              {approvedOffers.length === 0 ? (
+                <div className="rounded-xl border border-white/10 bg-black/30 p-6 text-center text-white/70">
+                  You haven't been approved to promote any offers yet.
+                  <br />
+                  Head over to the{' '}
+                  <Link href="/affiliate/marketplace" className="underline">
+                    Marketplace
+                  </Link>{' '}
+                  to request one!
+                </div>
+              ) : (
+                <>
+                  {visibleOffers.map((offer) => (
+                    <div
+                      key={`${offer.id}-${offer.title}`}
+                      className="flex items-center justify-between bg-[#121212] border border-white/10 rounded-xl px-4 py-3 hover:bg-[#171717] transition mb-3"
                     >
-                      Promote
-                    </Link>
-                  </div>
-                ))}
-                {approvedOffers.length > 1 && (
-                  <button
-                    onClick={() => setShowAllOffers((prev) => !prev)}
-                    className="w-full text-center text-sm text-[#00C2CB] hover:text-[#00b0b8] mt-2"
-                  >
-                    {showAllOffers ? 'Show Less' : `View All (${approvedOffers.length})`}
-                  </button>
-                )}
-              </>
-            )}
+                      <div className="flex flex-col">
+                        <p className="text-white font-semibold">{offer.title}</p>
+                        <div className="flex items-center">
+                          <RocketLaunchIcon className="w-5 h-5 text-[#00C2CB] mr-2" />
+                          <span className="truncate text-sm text-white/70">
+                            Commission: {offer.commission}% | Type: {offer.payoutType}
+                          </span>
+                        </div>
+                      </div>
+                      <Link
+                        href={`/affiliate/dashboard/promote/${offer.id}`}
+                        className="text-sm px-3 py-1 rounded-lg bg-[#00C2CB] text-black font-semibold hover:bg-[#00b0b8]"
+                      >
+                        Promote
+                      </Link>
+                    </div>
+                  ))}
+                  {approvedOffers.length > 1 && (
+                    <button
+                      onClick={() => setShowAllOffers((prev) => !prev)}
+                      className="w-full text-center text-sm text-[#00C2CB] hover:text-[#00b0b8] mt-2"
+                    >
+                      {showAllOffers ? 'Show Less' : `View All (${approvedOffers.length})`}
+                    </button>
+                  )}
+                </>
+              )}
+            </DashboardCard>
           </div>
         </div>
       </div>
