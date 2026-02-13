@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useSessionContext } from '@supabase/auth-helpers-react';
 import Link from 'next/link';
 import Image from 'next/image';
+import MarketingHeader from '@/components/marketing/MarketingHeader';
 import { ShieldCheck, Link2, Wallet, Cpu, Briefcase, Users, ArrowRight, Facebook, Instagram, Mail } from 'lucide-react';
 
 export default function Home() {
@@ -14,7 +15,6 @@ export default function Home() {
   const user = session?.user ?? null;
   const router = useRouter();
   const [userType, setUserType] = useState<'business' | 'affiliate' | null>(null);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [showBizWhy, setShowBizWhy] = useState(false);
   const [showAffWhy, setShowAffWhy] = useState(false);
 
@@ -47,172 +47,10 @@ export default function Home() {
     router.push(`/login?role=${type}`);
   };
 
-  const handleLogout = async () => {
-    try {
-      // Clear local intent/state (routing helpers only)
-      localStorage.removeItem('userType');
-      localStorage.removeItem('intent.role');
-    } catch {}
-
-    setMenuOpen(false);
-
-    try {
-      // Sign out from Supabase
-      await supabaseClient.auth.signOut();
-    } catch (err) {
-      console.error('[❌ Home sign out failed]', err);
-    }
-
-    // 🔑 Optimistically clear UI auth state immediately
-    setSession(null);
-
-    // Refresh App Router cache + header
-    router.refresh();
-  };
-
   return (
     <div className="min-h-screen flex flex-col overflow-x-hidden bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#0b1a1b] via-[#0b0b0b] to-black text-white">
-      <header
-        className="fixed inset-x-0 top-0 z-50 w-full px-6"
-        style={{ paddingTop: 'env(safe-area-inset-top)' }}
-      >
-        {/* glass background */}
-        <div className="absolute inset-0 bg-[#0f1416]/85 backdrop-blur-xl border-b border-white/10" />
+      <MarketingHeader />
 
-        <div className="relative mx-auto max-w-7xl h-16 flex items-center justify-between">
-          {/* Logo */}
-          <Link href="/" className="flex items-center gap-2">
-            <Image
-              src="/nettmark-logo.png"
-              alt="Nettmark"
-              width={140}
-              height={40}
-              priority
-              className="rounded-sm"
-            />
-          </Link>
-
-          {/* Desktop nav pill */}
-          <nav className="hidden md:flex items-center gap-1 px-2 py-1 rounded-full bg-white/5 border border-white/10">
-            <Link
-              href="/for-businesses"
-              className="px-4 py-1.5 rounded-full text-sm font-medium text-white/70 hover:text-white hover:bg-white/10 transition"
-            >
-              For Businesses
-            </Link>
-            <Link
-              href="/for-partners"
-              className="px-4 py-1.5 rounded-full text-sm font-medium text-white/70 hover:text-white hover:bg-white/10 transition"
-            >
-              For Partners
-            </Link>
-            <Link
-              href="/pricing"
-              className="px-4 py-1.5 rounded-full text-sm font-medium text-white/70 hover:text-white hover:bg-white/10 transition"
-            >
-              Pricing
-            </Link>
-          </nav>
-
-          {/* Right actions */}
-          <div className="flex items-center gap-3">
-            {user ? (
-              <button
-                onClick={handleLogout}
-                className="hidden md:inline-flex text-sm font-medium text-white/70 hover:text-white transition"
-              >
-                Sign out
-              </button>
-            ) : (
-              <button
-                onClick={() => router.push('/login')}
-                className="hidden md:inline-flex px-4 py-2 rounded-full bg-[#00C2CB] text-black text-sm font-semibold hover:bg-[#00b0b8] transition"
-              >
-                Login
-              </button>
-            )}
-
-            {/* Mobile menu toggle */}
-            <button
-              onClick={() => setMenuOpen((prev) => !prev)}
-              className="md:hidden p-2 rounded-md text-white hover:bg-white/10 transition"
-              aria-label={menuOpen ? 'Close menu' : 'Open menu'}
-            >
-              {menuOpen ? (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 6l12 12M6 18L18 6" />
-                </svg>
-              ) : (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-              )}
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* Spacer for fixed header */}
-      <div aria-hidden className="pointer-events-none" style={{ height: 'calc(4rem + env(safe-area-inset-top))' }} />
-
-      {/* Mobile nav panel */}
-      {menuOpen && (
-        <div className="md:hidden fixed inset-x-0 top-16 z-40 border-b border-white/10 bg-gradient-to-b from-black/95 via-black/92 to-black/90 backdrop-blur-xl">
-          <div className="px-6 py-5 space-y-4">
-            <p className="text-[11px] uppercase tracking-[0.18em] text-white/40">
-              Navigation
-            </p>
-
-            <div className="space-y-3">
-              <Link
-                href="/for-businesses"
-                className="block text-base text-[#00C2CB] font-medium"
-                onClick={() => setMenuOpen(false)}
-              >
-                For Businesses
-              </Link>
-              <Link
-                href="/for-partners"
-                className="block text-base text-[#00C2CB] font-medium"
-                onClick={() => setMenuOpen(false)}
-              >
-                For Partners
-              </Link>
-              <Link
-                href="/pricing"
-                className="block text-base text-[#00C2CB] font-medium"
-                onClick={() => setMenuOpen(false)}
-              >
-                Pricing
-              </Link>
-            </div>
-
-            <div className="border-t border-white/10 pt-4 mt-3 space-y-3">
-              <p className="text-[11px] uppercase tracking-[0.18em] text-white/40">
-                Account
-              </p>
-              {user ? (
-                <button
-                  onClick={handleLogout}
-                  className="block w-full text-left text-base text-[#ffefef] font-medium"
-                >
-                  Sign out
-                </button>
-              ) : (
-                <button
-                  onClick={() => {
-                    setMenuOpen(false);
-                    router.push('/login');
-                  }}
-                  className="block w-full text-left text-base text-[#00C2CB] font-medium"
-                >
-                  Login
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
       <main className="flex-1">
         {/* HERO */}
