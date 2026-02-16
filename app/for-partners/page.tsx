@@ -5,134 +5,13 @@ import Link from 'next/link';
 import Image from 'next/image';
 import Script from 'next/script';
 import { useState } from 'react';
+import MarketingHeader from '@/components/marketing/MarketingHeader';
 
 
 export default function ForPartnersPage() {
-  const [menuOpen, setMenuOpen] = useState(false);
   return (
     <main className="min-h-screen bg-[#0a0a0a] text-white">
-      {/* TOP BAR (same UI as home / for-businesses) */}
-      <header
-        className="fixed inset-x-0 top-0 z-50 w-full h-16 px-6 bg-black/80 backdrop-blur text-white flex justify-between items-center border-b border-white/10"
-        style={{ paddingTop: 'env(safe-area-inset-top)' }}
-      >
-        <Link href="/" className="flex items-center gap-2 group">
-          <Image
-            src="/nettmark-logo.png"
-            alt="Nettmark"
-            width={140}
-            height={40}
-            priority
-            className="rounded-sm"
-          />
-        </Link>
-
-        {/* centered primary nav */}
-        <nav className="hidden md:flex items-center gap-8 text-sm justify-center absolute left-1/2 -translate-x-1/2">
-          <Link
-            href="/"
-            className="text-[#00C2CB] hover:text-[#7ff5fb] font-semibold tracking-wide transition-colors"
-          >
-            Home
-          </Link>
-          <Link
-            href="/for-businesses"
-            className="text-[#00C2CB] hover:text-[#7ff5fb] font-semibold tracking-wide transition-colors"
-          >
-            For Businesses
-          </Link>
-          <Link
-            href="/for-partners"
-            className="text-[#00C2CB] hover:text-[#7ff5fb] font-semibold tracking-wide transition-colors"
-          >
-            For Partners
-          </Link>
-          <Link
-            href="/pricing"
-            className="text-[#00C2CB] hover:text-[#7ff5fb] font-semibold tracking-wide transition-colors"
-          >
-            Pricing
-          </Link>
-        </nav>
-
-        {/* MOBILE BURGER MENU (matches For Businesses) */}
-        <div className="md:hidden flex items-center">
-          <button
-            onClick={() => setMenuOpen((prev) => !prev)}
-            className="p-2 text-white"
-            aria-label="Toggle menu"
-          >
-            <svg
-              className="w-6 h-6"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M4 6h16M4 12h16M4 18h16"
-              />
-            </svg>
-          </button>
-        </div>
-      </header>
-
-      {/* spacer for fixed header */}
-      <div
-        aria-hidden
-        className="pointer-events-none"
-        style={{ height: 'calc(4rem + env(safe-area-inset-top))' }}
-      />
-
-      {/* Mobile dropdown menu (full-width, same structure as For Businesses) */}
-      {menuOpen && (
-        <div
-          className="md:hidden px-6 py-4 space-y-4 bg-black/90 backdrop-blur border-b border-white/10 text-white"
-          style={{ paddingTop: 'env(safe-area-inset-top)' }}
-        >
-          <Link
-            href="/"
-            className="block w-full text-left text-[#00C2CB] font-medium"
-          >
-            Home
-          </Link>
-          <Link
-            href="/for-businesses"
-            className="block w-full text-left text-[#00C2CB] font-medium"
-          >
-            For Businesses
-          </Link>
-          <Link
-            href="/for-partners"
-            className="block w-full text-left text-[#00C2CB] font-medium"
-          >
-            For Partners
-          </Link>
-          <Link
-            href="/pricing"
-            className="block w-full text-left text-[#00C2CB] font-medium"
-          >
-            Pricing
-          </Link>
-
-          <div className="border-t border-white/10 pt-4" />
-
-          <Link
-            href="/login?role=business"
-            className="block w-full text-left text-[#00C2CB] font-medium"
-          >
-            Business Login
-          </Link>
-          <Link
-            href="/login?role=affiliate"
-            className="block w-full text-left text-[#00C2CB] font-medium"
-          >
-            Affiliate Login
-          </Link>
-        </div>
-      )}
+      <MarketingHeader />
 
       {/* HERO */}
       <section className="relative overflow-hidden">

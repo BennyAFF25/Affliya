@@ -56,12 +56,50 @@ start_ticket() {
     echo "   Usage: ops/bot/guard.sh start <ticket-name>"
     exit 1
   fi
+
   # normalize: spaces -> dashes
   name="${name// /-}"
   local branch="bot/${name}"
   git checkout -b "${branch}"
   echo "✅ Created and switched to ${branch}"
   status_report
+}
+
+fix_marketing() {
+  ensure_git_repo
+  require_not_main
+
+  if [[ ! -f "./scripts/ops/dedupe_marketing_header.sh" ]]; then
+    echo "❌ Missing: scripts/ops/dedupe_marketing_header.sh"
+    exit 1
+  fi
+  if [[ ! -x "./scripts/ops/dedupe_marketing_header.sh" ]]; then
+    echo "❌ Not executable: scripts/ops/dedupe_marketing_header.sh"
+    echo "   Fix: chmod +x scripts/ops/dedupe_marketing_header.sh"
+    exit 1
+  fi
+
+  echo "=== FIX: marketing self-heal ==="
+  ./scripts/ops/dedupe_marketing_header.sh
+  echo
+
+  echo "Changed files after fix:"
+  git status --porcelain || true
+}
+
+verify_marketing() {
+  ensure_git_repo
+  require_not_main
+
+  echo "=== VERIFY: marketing ==="
+  ./scripts/ops/dedupe_marketing_header.sh
+  echo
+
+  echo "Running build…"
+  yarn -s build
+  echo
+
+  echo "✅ Marketing verify passed."
 }
 
 case "${cmd}" in
@@ -75,12 +113,20 @@ case "${cmd}" in
   start)
     start_ticket "${2:-}"
     ;;
+  fix-marketing)
+    fix_marketing
+    ;;
+  verify-marketing)
+    verify_marketing
+    ;;
   *)
     echo "Unknown command: ${cmd}"
     echo "Commands:"
     echo "  status"
     echo "  require-not-main"
     echo "  start <ticket-name>"
+    echo "  fix-marketing"
+    echo "  verify-marketing"
     exit 1
     ;;
 esac
