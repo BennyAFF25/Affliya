@@ -585,8 +585,8 @@ export default function PromoteOfferPage() {
   // ─────────────────────────────
   // Submit (Uploads → ad_ideas insert)
   // ─────────────────────────────
-  const handleAdSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleAdSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault();
     try {
       // UI-side safety: if Bid Cap selected, require a value
       if (form.bid_strategy === 'BID_CAP') {
