@@ -69,6 +69,7 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
 
   const [step, setStep] = useState(1);
   const [showAdvancedBidding, setShowAdvancedBidding] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const steps = [
     { id: 1, label: "Campaign" },
@@ -101,6 +102,16 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
   const StepPill = ({ active }: { active: boolean }) => (
     <span className={["h-2 w-2 rounded-full", active ? "bg-[#00C2CB]" : "bg-[#2b2b2b]"].join(" ")} />
   );
+
+  const onSubmitClick = async () => {
+    if (isSubmitting) return;
+    try {
+      setIsSubmitting(true);
+      await handleAdSubmit();
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <div className="relative bg-[#141414] border border-[#232323] rounded-2xl shadow-xl overflow-hidden w-full max-w-full mx-auto">
@@ -146,7 +157,7 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
               <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Campaign name</span>
               <input
                 placeholder="e.g. Affliya – Launch"
-                className={`${INPUT} w-full text-sm sm:text-base`}
+                className={`${INPUT} w-full text-base`}
                 value={form.campaign_name}
                 onChange={onInput("campaign_name")}
               />
@@ -155,7 +166,7 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
             <label className="block">
               <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Objective</span>
               <select
-                className={`${INPUT} w-full text-sm sm:text-base`}
+                className={`${INPUT} w-full text-base`}
                 value={form.objective}
                 onChange={onInput("objective")}
               >
@@ -179,7 +190,7 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
                 <input
                   type="number"
                   min={1}
-                  className={`${INPUT} w-full text-sm sm:text-base`}
+                  className={`${INPUT} w-full text-base`}
                   value={form.budget_amount_dollars}
                   onChange={onInput("budget_amount_dollars")}
                 />
@@ -187,7 +198,7 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
               <label className="flex-1 min-w-0">
                 <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Type</span>
                 <select
-                  className={`${INPUT} w-full text-sm sm:text-base`}
+                  className={`${INPUT} w-full text-base`}
                   value={form.budget_type}
                   onChange={onInput("budget_type")}
                 >
@@ -277,7 +288,7 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
               <label className="block">
                 <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Interests (comma-separated)</span>
                 <textarea
-                  className={`${INPUT} w-full text-sm sm:text-base`}
+                  className={`${INPUT} w-full text-base`}
                   placeholder="fitness, skincare, ecom"
                   value={form.interests_csv}
                   onChange={onInput("interests_csv")}
@@ -525,7 +536,7 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
               <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Headline</span>
               <input
                 placeholder="Your headline"
-                className={`${INPUT} w-full text-sm sm:text-base`}
+                className={`${INPUT} w-full text-base`}
                 value={form.headline}
                 onChange={onInput("headline")}
               />
@@ -535,7 +546,7 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
               <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Caption</span>
               <textarea
                 placeholder="Say something compelling…"
-                className={`${INPUT} w-full text-sm sm:text-base`}
+                className={`${INPUT} w-full text-base`}
                 value={form.caption}
                 onChange={onInput("caption")}
               />
@@ -545,7 +556,7 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
               <label className="flex-1 min-w-0">
                 <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Call to Action</span>
                 <select
-                  className={`${INPUT} w-full text-sm sm:text-base`}
+                  className={`${INPUT} w-full text-base`}
                   value={form.call_to_action}
                   onChange={onInput("call_to_action")}
                 >
@@ -558,7 +569,7 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
                 <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Destination URL</span>
                 <input
                   placeholder="https://your-landing-page.com"
-                  className={`${INPUT} w-full text-sm sm:text-base`}
+                  className={`${INPUT} w-full text-base`}
                   value={form.display_link}
                   onChange={onInput("display_link")}
                 />
@@ -571,7 +582,7 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
                 <input
                   type="file"
                   accept="video/*"
-                  className={`${INPUT} w-full text-sm sm:text-base`}
+                  className={`${INPUT} w-full text-base`}
                   onChange={(e) => {
                     const file = e.target.files?.[0] || null;
                     setVideoFile(file);
@@ -591,7 +602,7 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
                 <input
                   type="file"
                   accept="image/png,image/jpeg,image/webp"
-                  className={`${INPUT} w-full text-sm sm:text-base`}
+                  className={`${INPUT} w-full text-base`}
                   onChange={(e) => {
                     const file = e.target.files?.[0] || null;
                     if (!file) {
@@ -735,10 +746,20 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
           {step === 4 && (
             canRunWithWallet ? (
               <button
-                onClick={handleAdSubmit}
-                className="sm:ml-auto w-full sm:w-auto px-6 py-2 rounded-md transition bg-[#00C2CB] text-black hover:bg-[#00b0b8]"
+                onClick={onSubmitClick}
+                disabled={isSubmitting}
+                className={`sm:ml-auto w-full sm:w-auto px-6 py-2 rounded-md transition flex items-center justify-center gap-2 ${
+                  isSubmitting ? "bg-[#1a1a1a] text-gray-400 cursor-not-allowed" : "bg-[#00C2CB] text-black hover:bg-[#00b0b8]"
+                }`}
               >
-                Submit Ad Idea
+                {isSubmitting ? (
+                  <>
+                    <span className="h-4 w-4 rounded-full border-2 border-gray-500 border-t-[#00C2CB] animate-spin" />
+                    Submitting…
+                  </>
+                ) : (
+                  "Submit Ad Idea"
+                )}
               </button>
             ) : (
               <button
