@@ -99,24 +99,30 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
   };
 
   const StepPill = ({ active }: { active: boolean }) => (
-    <span
-      className={["h-2 w-2 rounded-full", active ? "bg-[#00C2CB]" : "bg-[#2b2b2b]"].join(" ")}
-    />
+    <span className={["h-2 w-2 rounded-full", active ? "bg-[#00C2CB]" : "bg-[#2b2b2b]"].join(" ")} />
   );
 
   return (
-    <div className="relative bg-[#141414] border border-[#232323] rounded-2xl shadow-xl overflow-hidden w-full max-w-full sm:max-w-md mx-auto space-y-4 sm:space-y-6">
-      <div className="px-6 sm:px-8 py-5 border-b border-[#232323] flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-[#00C2CB]">Create New Ad Campaign</h1>
-        <div className="flex items-center gap-2">
-          {steps.map((s) => (
-            <StepPill key={s.id} active={step >= s.id} />
-          ))}
+    <div className="relative bg-[#141414] border border-[#232323] rounded-2xl shadow-xl overflow-hidden w-full max-w-full mx-auto">
+      <div className="px-4 sm:px-8 py-5 border-b border-[#232323] bg-gradient-to-r from-[#101616] to-[#121212]">
+        <div className="flex items-start sm:items-center justify-between gap-3">
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold text-[#00C2CB]">Create New Ad Campaign</h1>
+            <p className="text-[11px] sm:text-xs text-gray-400 mt-1">Step {step} of 4 · Mobile + desktop ready</p>
+          </div>
+          <div className="hidden sm:flex items-center gap-2">
+            {steps.map((s) => (
+              <StepPill key={s.id} active={step >= s.id} />
+            ))}
+          </div>
+        </div>
+        <div className="mt-3 h-1.5 w-full rounded-full bg-[#1f1f1f] overflow-hidden">
+          <div className="h-full bg-gradient-to-r from-[#00C2CB] to-[#7ff5fb]" style={{ width: `${(step / 4) * 100}%` }} />
         </div>
       </div>
 
-      <div className="px-6 sm:px-8 py-6 space-y-4 sm:space-y-6">
-        <div className="flex justify-between gap-2 text-[11px] sm:text-sm">
+      <div className="px-4 sm:px-8 py-6 space-y-4 sm:space-y-6">
+        <div className="flex justify-between gap-2 text-[11px] sm:text-sm overflow-x-auto pb-1">
           {steps.map((s) => {
             const active = step === s.id;
             return (
@@ -196,18 +202,24 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
               <Chip onClick={() => incBudget(10)}>+ $10</Chip>
               <Chip onClick={() => incBudget(20)}>+ $20</Chip>
             </div>
-            <div className="mt-2 rounded-lg border border-[#2a2a2a] bg-[#0f0f0f] p-3 text-sm">
-              {walletLoading ? (
-                <span className="text-gray-400">Checking wallet balance…</span>
-              ) : canRunWithWallet ? (
-                <span className="text-emerald-400">
-                  Wallet balance: ${walletBalance.toFixed(2)} — ready to run this ad
-                </span>
-              ) : (
-                <span className="text-red-400">
-                  Wallet balance: ${walletBalance.toFixed(2)}. You need ${walletDeficit.toFixed(2)} more to run this ad.
-                  <span className="block mt-1 text-xs text-gray-400">Top up your wallet to continue.</span>
-                </span>
+            <div className="mt-2 rounded-xl border border-[#2a2a2a] bg-[#0f0f0f] p-4 text-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-wider text-gray-500">Wallet guard</p>
+                  {walletLoading ? (
+                    <span className="text-gray-400">Checking wallet balance…</span>
+                  ) : canRunWithWallet ? (
+                    <span className="text-emerald-400">Wallet balance: ${walletBalance.toFixed(2)} — ready to run this ad</span>
+                  ) : (
+                    <span className="text-red-400">Wallet balance: ${walletBalance.toFixed(2)}. You need ${walletDeficit.toFixed(2)} more to run this ad.</span>
+                  )}
+                </div>
+                {!walletLoading && !canRunWithWallet && (
+                  <span className="text-[11px] px-2 py-1 rounded-full border border-red-500/40 text-red-300">Action needed</span>
+                )}
+              </div>
+              {!walletLoading && !canRunWithWallet && (
+                <span className="block mt-2 text-xs text-gray-400">Top up your wallet before submitting this campaign.</span>
               )}
             </div>
 
@@ -697,8 +709,8 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
         )}
       </div>
 
-      <div className="px-6 sm:px-8 py-5 border-t border-[#232323]">
-        <div className="flex items-center justify-between gap-3">
+      <div className="px-4 sm:px-8 py-5 border-t border-[#232323] bg-[#111111]">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           {step > 1 && (
             <button
               onClick={() => setStep(step - 1)}
@@ -712,7 +724,7 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
             <button
               disabled={!canProceed()}
               onClick={() => setStep(step + 1)}
-              className={`ml-auto px-6 py-2 rounded-md transition ${
+              className={`sm:ml-auto w-full sm:w-auto px-6 py-2 rounded-md transition ${
                 canProceed() ? "bg-[#00C2CB] text-black hover:bg-[#00b0b8]" : "bg-[#1a1a1a] text-gray-500 cursor-not-allowed"
               }`}
             >
@@ -724,14 +736,14 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
             canRunWithWallet ? (
               <button
                 onClick={handleAdSubmit}
-                className="ml-auto px-6 py-2 rounded-md transition bg-[#00C2CB] text-black hover:bg-[#00b0b8]"
+                className="sm:ml-auto w-full sm:w-auto px-6 py-2 rounded-md transition bg-[#00C2CB] text-black hover:bg-[#00b0b8]"
               >
                 Submit Ad Idea
               </button>
             ) : (
               <button
                 onClick={onNavigateToWallet}
-                className="ml-auto px-6 py-2 rounded-md transition bg-[#1a1a1a] text-[#00C2CB] border border-[#00C2CB]/40 hover:bg-[#0f1f20]"
+                className="sm:ml-auto w-full sm:w-auto px-6 py-2 rounded-md transition bg-[#1a1a1a] text-[#00C2CB] border border-[#00C2CB]/40 hover:bg-[#0f1f20]"
               >
                 Top Up Wallet
               </button>
@@ -742,3 +754,5 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
     </div>
   );
 }
+
+// stage2-check

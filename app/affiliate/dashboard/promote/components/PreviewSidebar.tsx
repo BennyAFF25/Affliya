@@ -1,11 +1,10 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
-import { INPUT } from "../constants";
 import { AdFormState } from "../types";
 
 interface PreviewSidebarProps {
-  mode: 'ad' | 'organic';
+  mode: "ad" | "organic";
   reachDaily: number | null;
   reachMonthly: number | null;
   interestsIgnored: boolean;
@@ -16,10 +15,19 @@ interface PreviewSidebarProps {
   videoPreviewUrl: string | null;
   thumbPreviewUrl: string | null;
   form: AdFormState;
-  ogMethod: 'social' | 'email' | 'forum' | 'other';
+  ogMethod: "social" | "email" | "forum" | "other";
   ogFile: File | null;
   ogPlatform: string;
   ogCaption: string;
+}
+
+function StatCell({ label, value, loading }: { label: string; value: string; loading?: boolean }) {
+  return (
+    <div>
+      <div className="text-[11px] text-gray-400">{label}</div>
+      {loading ? <div className="h-7 w-20 rounded bg-[#1b1b1b] animate-pulse mt-1" /> : <div className="text-2xl font-extrabold text-[#00C2CB]">{value}</div>}
+    </div>
+  );
 }
 
 export function PreviewSidebar(props: PreviewSidebarProps) {
@@ -52,22 +60,21 @@ export function PreviewSidebar(props: PreviewSidebarProps) {
     };
   }, [socialPreviewUrl]);
 
+  const reachLoading = mode === "ad" && reachDaily === null && reachMonthly === null;
+
   return (
-    <aside className="space-y-6">
-      {mode === 'ad' && (
+    <aside className="space-y-4 sm:space-y-6 lg:sticky lg:top-24 self-start">
+      {mode === "ad" && (
         <div className="rounded-xl border border-[#2a2a2a] bg-[#0f0f0f] p-4 sm:p-6">
-          <div className="text-[#00C2CB] font-semibold text-base sm:text-lg mb-2">Estimated Reach</div>
-          <div className="flex items-center gap-8">
-            <div>
-              <div className="text-[11px] text-gray-400">Daily</div>
-              <div className="text-2xl font-extrabold text-[#00C2CB]">{reachDaily !== null ? reachDaily.toLocaleString() : '—'}</div>
-            </div>
-            <div>
-              <div className="text-[11px] text-gray-400">Monthly</div>
-              <div className="text-2xl font-extrabold text-[#00C2CB]">{reachMonthly !== null ? reachMonthly.toLocaleString() : '—'}</div>
-            </div>
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <div className="text-[#00C2CB] font-semibold text-base sm:text-lg">Estimated Reach</div>
+            <span className="text-[10px] uppercase tracking-wider text-gray-500">Live</span>
           </div>
-          <div className="text-xs text-gray-400 mt-1">
+          <div className="flex items-center gap-8">
+            <StatCell label="Daily" value={reachDaily !== null ? reachDaily.toLocaleString() : "—"} loading={reachLoading} />
+            <StatCell label="Monthly" value={reachMonthly !== null ? reachMonthly.toLocaleString() : "—"} loading={reachLoading} />
+          </div>
+          <div className="text-xs text-gray-400 mt-2">
             Estimated unique users based on your ad set targeting.
             {interestsIgnored && (
               <span className="block mt-1 text-[11px] text-gray-500">Some typed interests were ignored because they didn’t match official Meta interest IDs.</span>
@@ -76,27 +83,17 @@ export function PreviewSidebar(props: PreviewSidebarProps) {
         </div>
       )}
 
-      {mode === 'ad' && (
+      {mode === "ad" && (
         <div className="rounded-xl border border-[#2a2a2a] bg-[#0f0f0f] p-4 sm:p-6">
           <div className="text-[#00C2CB] font-semibold text-base sm:text-lg mb-3">Estimated Conversions</div>
           <div className="flex gap-8 items-end">
-            <div>
-              <div className="text-[11px] text-gray-400">Daily</div>
-              <div className="text-2xl font-extrabold text-[#00C2CB]">
-                {Number.isFinite(dailyConversions) ? Math.floor(dailyConversions || 0).toLocaleString() : '—'}
-              </div>
-            </div>
-            <div>
-              <div className="text-[11px] text-gray-400">Monthly</div>
-              <div className="text-2xl font-extrabold text-[#00C2CB]">
-                {Number.isFinite(monthlyConversions) ? Math.floor(monthlyConversions || 0).toLocaleString() : '—'}
-              </div>
-            </div>
+            <StatCell label="Daily" value={Number.isFinite(dailyConversions) ? Math.floor(dailyConversions || 0).toLocaleString() : "—"} />
+            <StatCell label="Monthly" value={Number.isFinite(monthlyConversions) ? Math.floor(monthlyConversions || 0).toLocaleString() : "—"} />
           </div>
         </div>
       )}
 
-      {mode === 'ad' && (
+      {mode === "ad" && (
         <div className="rounded-xl border border-[#2a2a2a] bg-[#0f0f0f] p-4 sm:p-6">
           <div className="flex items-center gap-3 mb-3">
             {brandLogoUrl ? (
@@ -106,7 +103,7 @@ export function PreviewSidebar(props: PreviewSidebarProps) {
             )}
             <div>
               <div className="text-sm font-semibold">{brandName}</div>
-              <div className="text-xs text-gray-400">Sponsored</div>
+              <div className="text-xs text-gray-400">Sponsored preview</div>
             </div>
           </div>
 
@@ -116,24 +113,24 @@ export function PreviewSidebar(props: PreviewSidebarProps) {
             ) : thumbPreviewUrl ? (
               <img src={thumbPreviewUrl} alt="Thumbnail preview" className="h-full w-full object-cover" />
             ) : (
-              <div className="h-full w-full flex items-center justify-center text-gray-500 text-sm">Your ad image/video will appear here</div>
+              <div className="h-full w-full flex items-center justify-center text-gray-500 text-sm px-4 text-center">Your ad image/video will appear here</div>
             )}
           </div>
 
           <div className="mt-3">
-            <div className="font-semibold">{form.headline || 'Your headline will appear here'}</div>
-            <div className="text-sm text-gray-400">{form.caption || 'Your ad description will appear here. Make it compelling!'}</div>
-            <div className="mt-3 flex items-center justify-between">
-              <div className="text-xs text-gray-500">{form.display_link || 'yourdomain.com'}</div>
-              <button className="px-4 py-2 rounded-lg bg-[#00C2CB] text-black text-sm font-semibold">
-                {form.call_to_action.replace('_', ' ') || 'Learn More'}
+            <div className="font-semibold">{form.headline || "Your headline will appear here"}</div>
+            <div className="text-sm text-gray-400">{form.caption || "Your ad description will appear here. Make it compelling!"}</div>
+            <div className="mt-3 flex items-center justify-between gap-3">
+              <div className="text-xs text-gray-500 truncate">{form.display_link || "yourdomain.com"}</div>
+              <button className="px-4 py-2 rounded-lg bg-[#00C2CB] text-black text-sm font-semibold shrink-0">
+                {form.call_to_action.replace("_", " ") || "Learn More"}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {mode === 'organic' && ogMethod === 'social' && (
+      {mode === "organic" && ogMethod === "social" && (
         <div className="rounded-xl border border-[#2a2a2a] bg-[#0f0f0f] p-4 sm:p-6">
           <div className="flex items-center gap-3 mb-3">
             {brandLogoUrl ? (
@@ -148,18 +145,18 @@ export function PreviewSidebar(props: PreviewSidebarProps) {
           </div>
 
           <div className="aspect-[4/5] w-full rounded-lg bg-[#0f0f0f] border border-[#232323] overflow-hidden">
-            {socialPreviewUrl && ogFile?.type.startsWith('video/') ? (
+            {socialPreviewUrl && ogFile?.type.startsWith("video/") ? (
               <video src={socialPreviewUrl} className="h-full w-full object-cover" controls playsInline muted />
-            ) : socialPreviewUrl && ogFile?.type.startsWith('image/') ? (
+            ) : socialPreviewUrl && ogFile?.type.startsWith("image/") ? (
               <img src={socialPreviewUrl} alt="Organic media preview" className="h-full w-full object-cover" />
             ) : (
-              <div className="h-full w-full flex items-center justify-center text-gray-500 text-sm">Your social media image/video will appear here</div>
+              <div className="h-full w-full flex items-center justify-center text-gray-500 text-sm px-4 text-center">Your social media image/video will appear here</div>
             )}
           </div>
 
           <div className="mt-3">
             <div className="font-semibold">{ogPlatform}</div>
-            <div className="text-sm text-gray-400 whitespace-pre-wrap">{ogCaption || 'Write your caption to preview it here.'}</div>
+            <div className="text-sm text-gray-400 whitespace-pre-wrap">{ogCaption || "Write your caption to preview it here."}</div>
           </div>
         </div>
       )}

@@ -4,8 +4,8 @@ import { Disclosure } from "./AdFormFields";
 import { INPUT } from "../constants";
 
 interface OrganicSubmissionFormProps {
-  ogMethod: 'social' | 'email' | 'forum' | 'other';
-  setOgMethod: (value: 'social' | 'email' | 'forum' | 'other') => void;
+  ogMethod: "social" | "email" | "forum" | "other";
+  setOgMethod: (value: "social" | "email" | "forum" | "other") => void;
   ogPlatform: string;
   setOgPlatform: (value: string) => void;
   ogCaption: string;
@@ -30,13 +30,32 @@ export function OrganicSubmissionForm({
   setOgFile,
   handleOrganicSubmit,
 }: OrganicSubmissionFormProps) {
+  const applyTemplate = (kind: "social" | "email" | "forum") => {
+    if (kind === "social") {
+      setOgCaption("Tried this and genuinely impressed. If you're curious, check it here 👇");
+      setOgContent("");
+      return;
+    }
+    if (kind === "email") {
+      setOgCaption("Quick recommendation for you");
+      setOgContent("Hey {{first_name}},\n\nFound something that might help with {{pain_point}}.\n\nWhy I liked it:\n- {{benefit_1}}\n- {{benefit_2}}\n\nWorth checking out here: {{tracking_link}}\n\n— {{your_name}}");
+      return;
+    }
+    setOgCaption("reddit.com/r/yourcommunity");
+    setOgContent("I tested this for {{timeframe}}.\n\nWhat worked:\n- {{result_1}}\n- {{result_2}}\n\nIf anyone wants to look at the exact one I used: {{tracking_link}}");
+  };
+
   return (
-    <div className="bg-[#141414] border border-[#232323] rounded-2xl shadow-xl overflow-hidden w-full max-w-full sm:max-w-md mx-auto space-y-4 sm:space-y-6">
-      <div className="px-6 sm:px-8 py-5 border-b border-[#232323] flex items-center justify-between">
-        <h2 className="text-2xl font-bold text-[#00C2CB]">Submit Organic Promotion</h2>
+    <div className="bg-[#141414] border border-[#232323] rounded-2xl shadow-xl overflow-hidden w-full max-w-full mx-auto">
+      <div className="px-4 sm:px-8 py-5 border-b border-[#232323] flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-xl sm:text-2xl font-bold text-[#00C2CB]">Submit Organic Promotion</h2>
+          <p className="text-xs sm:text-sm text-gray-400 mt-1">Mobile-friendly, no ad spend required.</p>
+        </div>
+        <span className="hidden sm:inline-flex text-xs px-2 py-1 rounded-full border border-[#00C2CB]/40 text-[#7ff5fb]">Organic track</span>
       </div>
 
-      <div className="px-6 sm:px-8 py-6 space-y-4 sm:space-y-6">
+      <div className="px-4 sm:px-8 py-6 space-y-4 sm:space-y-6">
         <label className="block">
           <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Method</span>
           <select className={`${INPUT} w-full text-sm sm:text-base`} value={ogMethod} onChange={(e) => setOgMethod(e.target.value as any)}>
@@ -47,7 +66,13 @@ export function OrganicSubmissionForm({
           </select>
         </label>
 
-        {ogMethod === 'social' && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <button type="button" onClick={() => applyTemplate("social")} className="px-3 py-2 text-xs rounded-lg border border-[#2a2a2a] hover:border-[#00C2CB]/50 hover:bg-[#101b1c] text-left">Use social template</button>
+          <button type="button" onClick={() => applyTemplate("email")} className="px-3 py-2 text-xs rounded-lg border border-[#2a2a2a] hover:border-[#00C2CB]/50 hover:bg-[#101b1c] text-left">Use email template</button>
+          <button type="button" onClick={() => applyTemplate("forum")} className="px-3 py-2 text-xs rounded-lg border border-[#2a2a2a] hover:border-[#00C2CB]/50 hover:bg-[#101b1c] text-left">Use forum template</button>
+        </div>
+
+        {ogMethod === "social" && (
           <>
             <label className="block">
               <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Platform</span>
@@ -77,11 +102,12 @@ export function OrganicSubmissionForm({
                   setOgFile(file || null);
                 }}
               />
+              <p className="mt-1 text-[11px] text-gray-500">Tip: MP4/H.264 works best for cross-platform preview. {ogFile ? "File attached." : "No file selected."}</p>
             </label>
           </>
         )}
 
-        {ogMethod === 'email' && (
+        {ogMethod === "email" && (
           <>
             <label className="block">
               <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Subject line</span>
@@ -94,7 +120,7 @@ export function OrganicSubmissionForm({
           </>
         )}
 
-        {ogMethod === 'forum' && (
+        {ogMethod === "forum" && (
           <>
             <label className="block">
               <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Forum / URL</span>
@@ -107,7 +133,7 @@ export function OrganicSubmissionForm({
           </>
         )}
 
-        {ogMethod === 'other' && (
+        {ogMethod === "other" && (
           <>
             <label className="block">
               <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Channel / summary</span>
@@ -130,10 +156,10 @@ export function OrganicSubmissionForm({
         </Disclosure>
       </div>
 
-      <div className="px-6 sm:px-8 py-5 border-t border-[#232323] flex items-center justify-end">
+      <div className="px-4 sm:px-8 py-5 border-t border-[#232323] flex items-center justify-end">
         <button
           onClick={handleOrganicSubmit}
-          className="w-full bg-[#00C2CB] hover:bg-[#00b0b8] text-black font-semibold py-3 rounded-lg flex items-center justify-center gap-2 transition-all duration-200"
+          className="w-full sm:w-auto sm:min-w-[240px] bg-[#00C2CB] hover:bg-[#00b0b8] text-black font-semibold py-3 px-6 rounded-lg flex items-center justify-center gap-2 transition-all duration-200"
         >
           Submit for Review
         </button>
