@@ -618,7 +618,6 @@ export default function PromoteOfferPage() {
       const budgetDollars = Number(form.budget_amount_dollars || 0);
       if (!budgetDollars || budgetDollars <= 0) {
         nmToast.error("Please enter a valid daily budget");
-        setStep(2);
         return;
       }
 
@@ -642,7 +641,6 @@ export default function PromoteOfferPage() {
         nmToast.error(
           `Daily budget ($${budgetDollars.toFixed(2)}) exceeds your available wallet balance ($${walletTotal.toFixed(2)}).`
         );
-        setStep(2);
         return;
       }
 
