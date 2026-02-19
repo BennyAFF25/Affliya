@@ -224,19 +224,6 @@ export default function MarketingHeader() {
                     </div>
                   ))}
 
-                  <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-[#022426] via-[#041a1c] to-black p-5">
-                    <p className="text-xs uppercase tracking-[0.2em] text-[#7ff5fb]">Need a walkthrough?</p>
-                    <p className="mt-2 text-lg font-semibold text-white">Book a 15-min product tour.</p>
-                    <p className="mt-1 text-sm text-white/70">We’ll show you the partner workflow + Nettmark Shop.</p>
-                    <Link
-                      href="/for-businesses"
-                      onClick={() => setMenuOpen(false)}
-                      className="mt-4 inline-flex items-center justify-center rounded-2xl bg-[#00C2CB] px-4 py-2 text-sm font-semibold text-black shadow-[0_12px_40px_-20px_#00C2CB]"
-                    >
-                      Talk to us
-                    </Link>
-                  </div>
-
                   <div className="space-y-3 border-t border-white/10 pt-5">
                     <p className="text-[11px] uppercase tracking-[0.25em] text-white/35">Account</p>
                     {user ? (
@@ -247,26 +234,15 @@ export default function MarketingHeader() {
                         Sign out
                       </button>
                     ) : (
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <button
-                          onClick={() => {
-                            setMenuOpen(false);
-                            router.push("/login?role=business");
-                          }}
-                          className="rounded-2xl border border-white/15 px-4 py-3 text-left text-white hover:border-white/40"
-                        >
-                          Business Login
-                        </button>
-                        <button
-                          onClick={() => {
-                            setMenuOpen(false);
-                            router.push("/login?role=affiliate");
-                          }}
-                          className="rounded-2xl border border-white/15 px-4 py-3 text-left text-white hover:border-white/40"
-                        >
-                          Partner Login
-                        </button>
-                      </div>
+                      <button
+                        onClick={() => {
+                          setMenuOpen(false);
+                          router.push('/login');
+                        }}
+                        className="w-full rounded-2xl border border-white/15 px-4 py-3 text-left text-white hover:border-white/40"
+                      >
+                        Login
+                      </button>
                     )}
                   </div>
                 </div>
