@@ -472,6 +472,13 @@ if (loading) {
     { id: 'conv', title: 'Conversions', data: conversionSeries },
   ];
 
+  const quickActions = [
+    { label: 'Promote offer', href: '/affiliate/marketplace' },
+    { label: 'Manage campaigns', href: '/affiliate/dashboard/manage-campaigns' },
+    { label: 'Open wallet', href: '/affiliate/wallet' },
+    { label: 'Support', href: '/affiliate/support' },
+  ];
+
   return (
     <div className="min-h-screen bg-surface text-white">
       
@@ -508,6 +515,24 @@ if (loading) {
           </div>
         </section>
 
+        <section className="mb-7">
+          <p className="mb-3 text-xs uppercase tracking-[0.2em] text-white/45">Quick actions</p>
+          <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {quickActions.map((action) => (
+              <Link
+                key={action.href}
+                href={action.href}
+                className="shrink-0 rounded-full border border-white/15 bg-white/[0.04] px-4 py-2 text-sm font-medium text-white/85 transition hover:border-[#00C2CB]/50 hover:bg-[#00C2CB]/10 hover:text-white"
+              >
+                {action.label}
+              </Link>
+            ))}
+          </div>
+        </section>
+
+        <section className="mb-4">
+          <p className="text-xs uppercase tracking-[0.2em] text-white/45">Snapshot</p>
+        </section>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-10">
           {/* Stat Card: Active Campaigns */}
           <DashboardCard>
@@ -563,7 +588,9 @@ if (loading) {
         </div>
 
 
-        {/* Area Charts */}
+        <section className="mb-4">
+          <p className="text-xs uppercase tracking-[0.2em] text-white/45">Performance</p>
+        </section>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
           {chartConfigs.map((chart, i) => {
             const isSpendChart = chart.id === 'spend';
@@ -706,14 +733,24 @@ if (loading) {
           })}
         </div>
 
-        <div className="flex flex-col md:flex-row justify-between gap-6 mt-8">
+        <section className="mb-4">
+          <p className="text-xs uppercase tracking-[0.2em] text-white/45">Action queue</p>
+        </section>
+        <div className="flex flex-col md:flex-row justify-between gap-6 mt-2">
           {/* Active Campaigns */}
           <div className="w-full md:w-1/2">
             <DashboardCard interactive={false} className="h-full">
               <h2 className="text-lg font-semibold text-[#00C2CB] mb-4">Active Campaigns</h2>
               {activeCampaigns.length === 0 ? (
                 <div className="rounded-xl border border-white/10 bg-black/30 p-6 text-center text-white/70">
-                  No active campaigns yet.
+                  <p className="font-medium text-white/85">No active campaigns yet.</p>
+                  <p className="mt-1 text-sm text-white/60">Start by promoting an approved offer and launch your first campaign.</p>
+                  <Link
+                    href="/affiliate/marketplace"
+                    className="mt-4 inline-flex items-center gap-2 rounded-lg bg-[#00C2CB] px-3.5 py-2 text-sm font-semibold text-black hover:bg-[#00b0b8]"
+                  >
+                    Start first campaign <ArrowRight className="h-4 w-4" />
+                  </Link>
                 </div>
               ) : (
                 <>
@@ -758,13 +795,14 @@ if (loading) {
               <h2 className="text-lg font-semibold text-[#00C2CB] mb-4">Approved Offers</h2>
               {approvedOffers.length === 0 ? (
                 <div className="rounded-xl border border-white/10 bg-black/30 p-6 text-center text-white/70">
-                  You haven't been approved to promote any offers yet.
-                  <br />
-                  Head over to the{' '}
-                  <Link href="/affiliate/marketplace" className="underline">
-                    Marketplace
-                  </Link>{' '}
-                  to request one!
+                  <p className="font-medium text-white/85">No approved offers yet.</p>
+                  <p className="mt-1 text-sm text-white/60">Browse the marketplace and request offers to unlock your promotion queue.</p>
+                  <Link
+                    href="/affiliate/marketplace"
+                    className="mt-4 inline-flex items-center gap-2 rounded-lg border border-white/20 bg-white/5 px-3.5 py-2 text-sm font-semibold text-white hover:bg-white/10"
+                  >
+                    Browse marketplace <ArrowRight className="h-4 w-4" />
+                  </Link>
                 </div>
               ) : (
                 <>
