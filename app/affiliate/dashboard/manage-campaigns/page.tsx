@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { supabase } from "@/../utils/supabase/pages-client";
+import { Sparkles, ArrowRight, Activity, Archive, Wallet, Megaphone } from "lucide-react";
 
 type LiveAdRow = {
   id: string;
@@ -341,18 +342,54 @@ export default function AffiliateManageCampaignsPage() {
 
   const activeCount = activeItems.length;
   const archivedCount = archivedItems.length;
+  const totalPaidSpend = paidMeta.reduce((sum, r) => sum + (Number(r.spend ?? 0) || 0), 0);
+  const totalUnpaidSpend = paidMeta.reduce((sum, r) => {
+    const spend = Number(r.spend ?? 0) || 0;
+    const transferred = Number(r.spend_transferred ?? 0) || 0;
+    return sum + Math.max(0, spend - transferred);
+  }, 0);
+  const organicCount = organic.length;
 
   return (
     <div className="min-h-screen bg-surface p-6 text-white">
       <div className="mx-auto w-full max-w-6xl">
-        <div className="mb-8">
-          <div className="mb-2 text-xs tracking-[0.35em] text-gray-400">CAMPAIGNS</div>
-          <h1 className="text-4xl font-semibold text-[#00C2CB]">Manage campaigns</h1>
-          <p className="mt-2 max-w-3xl text-sm text-gray-300">
-            See every campaign you’re running, sync Meta spend, and jump into a detailed view.
-            Organic posts also appear here.
-          </p>
-        </div>
+        <section className="relative mb-7 overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-[#0a1719] via-[#0b0f10] to-black p-6 shadow-[0_20px_60px_rgba(0,0,0,0.45)]">
+          <div className="pointer-events-none absolute -top-16 -right-16 h-48 w-48 rounded-full bg-[#00C2CB]/20 blur-3xl" />
+          <div className="relative z-10 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="inline-flex items-center gap-2 rounded-full border border-[#00C2CB]/30 bg-[#00C2CB]/10 px-3 py-1 text-[11px] uppercase tracking-widest text-[#7ff5fb]">
+                <Sparkles className="h-3.5 w-3.5" /> Campaign command deck
+              </p>
+              <h1 className="mt-3 text-3xl font-semibold text-[#00C2CB]">Manage campaigns</h1>
+              <p className="mt-2 max-w-3xl text-sm text-gray-300">
+                Track every campaign in one place, sync Meta spend, and jump straight into the actions that matter.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <Link
+                href="/affiliate/marketplace"
+                className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/5 px-4 py-2 text-sm font-semibold text-white hover:bg-white/10"
+              >
+                Promote offer <ArrowRight className="h-4 w-4" />
+              </Link>
+              <Link
+                href="/affiliate/dashboard"
+                className="inline-flex items-center gap-2 rounded-xl bg-[#00C2CB] px-4 py-2 text-sm font-semibold text-black hover:bg-[#00b0b8]"
+              >
+                Dashboard overview
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        <section className="mb-7 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <MetricCard label="Live campaigns" value={activeCount.toString()} icon={<Activity className="h-4 w-4" />} tone="cyan" />
+          <MetricCard label="Archived" value={archivedCount.toString()} icon={<Archive className="h-4 w-4" />} tone="slate" />
+          <MetricCard label="Total paid spend" value={`$${fmtMoney(totalPaidSpend)}`} icon={<Wallet className="h-4 w-4" />} tone="cyan" />
+          <MetricCard label="Unsettled spend" value={`$${fmtMoney(totalUnpaidSpend)}`} icon={<Wallet className="h-4 w-4" />} tone="slate" />
+          <MetricCard label="Organic campaigns" value={organicCount.toString()} icon={<Megaphone className="h-4 w-4" />} tone="slate" />
+        </section>
 
         {error && (
           <div className="mb-6 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
@@ -463,6 +500,33 @@ export default function AffiliateManageCampaignsPage() {
             </div>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function MetricCard({
+  label,
+  value,
+  icon,
+  tone,
+}: {
+  label: string;
+  value: string;
+  icon: ReactNode;
+  tone: "cyan" | "slate";
+}) {
+  const toneClass =
+    tone === "cyan"
+      ? "border-[#00C2CB]/30 bg-[#00C2CB]/10 text-[#7ff5fb]"
+      : "border-white/15 bg-white/5 text-white/80";
+
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+      <div className="flex items-center gap-2 text-xs text-white/55">{label}</div>
+      <div className="mt-3 flex items-center justify-between">
+        <p className="text-2xl font-bold text-white">{value}</p>
+        <div className={`rounded-lg border px-2.5 py-2 ${toneClass}`}>{icon}</div>
       </div>
     </div>
   );
