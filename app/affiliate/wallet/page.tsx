@@ -45,7 +45,6 @@ export default function AffiliateWalletPage() {
   const [currency, setCurrency] = useState('');
   const [loading, setLoading] = useState(false);
   const [walletData, setWalletData] = useState<WalletTopup[] | null>(null);
-  const [connectLoading, setConnectLoading] = useState(false);
   const [totalNetAmount, setTotalNetAmount] = useState(0);
   const [wallet, setWallet] = useState<any>(null);
   const [refunds, setRefunds] = useState<WalletRefund[]>([]);
@@ -230,54 +229,6 @@ export default function AffiliateWalletPage() {
     );
   }
 
-  const handleConnectStripe = async () => {
-    setConnectLoading(true);
-
-    try {
-      const email = session?.user?.email;
-
-      if (!email) {
-        console.error('[❌ Stripe Connect] Missing user email (no session user)');
-        alert('Missing email. Please log out and log back in.');
-        return;
-      }
-
-      // ✅ Affiliates must use the affiliate connect endpoint
-      const res = await fetch('/api/stripe/affiliates/create-account', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email,
-          role: 'affiliate',
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        console.error('[❌ Stripe Connect] API error', { status: res.status, data });
-        alert(data?.error || 'Failed to create Stripe onboarding link.');
-        return;
-      }
-
-      if (data?.url) {
-        window.location.href = data.url;
-      } else {
-        console.error('[❌ Stripe Connect] Missing url in response', data);
-        alert('Failed to create Stripe onboarding link (missing URL).');
-      }
-    } catch (err) {
-      console.error('[❌ Stripe Connect Error]', err);
-      alert('Stripe connection failed.');
-    } finally {
-      setConnectLoading(false);
-    }
-  };
-
-
-
   const handleTopUp = async () => {
     const amountInDollars = parseFloat(amount);
 
@@ -434,10 +385,7 @@ export default function AffiliateWalletPage() {
   const totalTopups = (walletData || []).reduce((sum, item) => sum + (item.amount_net ?? 0), 0);
   const totalRefunded = refunds.reduce((sum, item) => sum + (item.amount ?? 0), 0);
   const totalDeductions = walletDeductions.reduce((sum, item) => sum + (item.amount ?? 0), 0);
-  const refundableBalance = refundableTopups.reduce(
-    (sum, item) => sum + ((item.amount_net ?? 0) - (item.amount_refunded ?? 0)),
-    0
-  );
+  const refundableBalance = totalNetAmount;
 
   const activity = [
     ...(walletData || []).map((item) => ({
@@ -519,36 +467,6 @@ export default function AffiliateWalletPage() {
                   />
                 </svg>
                 {refundLoading ? 'Processing...' : 'Transfer out'}
-              </button>
-
-              <button
-                onClick={handleConnectStripe}
-                disabled={connectLoading}
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/60 bg-black/15 px-4 py-2.5 text-sm font-semibold text-white shadow-sm backdrop-blur transition hover:bg-black/25"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <rect
-                    x="3"
-                    y="4"
-                    width="18"
-                    height="16"
-                    rx="2"
-                    className="stroke-current"
-                  />
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M7 9h10M7 13h6M7 17h3"
-                  />
-                </svg>
-                {connectLoading ? 'Opening Stripe…' : 'Connect Stripe'}
               </button>
             </div>
           </div>
