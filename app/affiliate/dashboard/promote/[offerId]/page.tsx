@@ -43,6 +43,7 @@ import { PreviewSidebar } from '../components/PreviewSidebar';
     logo_url?: string | null;
     business_email?: string | null;
     website?: string | null; // use website from offers table
+    meta_page_id?: string | null;
   };
 
   type OfferBusinessEmailRow = {
@@ -52,6 +53,8 @@ import { PreviewSidebar } from '../components/PreviewSidebar';
   type MetaConnectionRow = {
     access_token?: string | null;
     ad_account_id?: string | null;
+    page_id?: string | null;
+    updated_at?: string | null;
   };
 
 export default function PromoteOfferPage() {
@@ -238,7 +241,7 @@ export default function PromoteOfferPage() {
       // 1) Offer core fields
       const { data: offer, error: offerErr } = await (supabase as any)
         .from('offers')
-        .select('title, logo_url, business_email, website')
+        .select('title, logo_url, business_email, website, meta_page_id')
         .eq('id', offerId)
         .single();
 
@@ -259,17 +262,32 @@ export default function PromoteOfferPage() {
       }
 
       // 2) Meta creds by business_email (from meta_connections)
+      // AppleDash + similar cases can have multiple rows per business_email (different pages/ad accounts).
+      // Pick the row that matches offer.meta_page_id first, then fallback to most recent valid row.
+      setBiz(null);
       if (offer?.business_email) {
-        const { data: mc, error: mcErr } = await (supabase as any)
+        const { data: mcRows, error: mcErr } = await (supabase as any)
           .from('meta_connections')
-          .select('access_token, ad_account_id')
+          .select('access_token, ad_account_id, page_id, updated_at')
           .eq('business_email', offer.business_email as string)
-          .single();
+          .order('updated_at', { ascending: false });
 
         if (mcErr) {
           console.warn('[meta_connections fetch warn]', mcErr);
-        } else if (mc?.access_token && mc?.ad_account_id) {
-          setBiz({ access_token: mc.access_token, ad_account_id: mc.ad_account_id });
+        } else {
+          const rows = (mcRows || []) as MetaConnectionRow[];
+          const valid = rows.filter((r) => !!r?.access_token && !!r?.ad_account_id);
+          const offerPageId = String((offer as OfferRow)?.meta_page_id || '').trim();
+
+          const matchedByPage = offerPageId
+            ? valid.find((r) => String(r.page_id || '').trim() === offerPageId)
+            : null;
+
+          const chosen = matchedByPage || valid[0] || null;
+
+          if (chosen?.access_token && chosen?.ad_account_id) {
+            setBiz({ access_token: chosen.access_token, ad_account_id: chosen.ad_account_id });
+          }
         }
       }
     };
