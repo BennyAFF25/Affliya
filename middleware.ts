@@ -7,19 +7,12 @@ export async function middleware(req: NextRequest) {
   const supabase = createMiddlewareClient(req, res);
 
   // Refresh auth/session cookies on every matched request.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  await supabase.auth.getUser();
 
-  const { pathname } = req.nextUrl;
-  const isProtected = pathname.startsWith('/affiliate') || pathname.startsWith('/business');
-
-  if (isProtected && !user) {
-    const url = req.nextUrl.clone();
-    url.pathname = '/';
-    return NextResponse.redirect(url);
-  }
-
+  // Important: do NOT hard-redirect here.
+  // In some login transitions, middleware can briefly see no user before client cookies settle,
+  // which causes a false redirect loop back to home.
+  // We only refresh cookies here; page-level guards handle route access.
   return res;
 }
 
