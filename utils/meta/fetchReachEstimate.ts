@@ -9,6 +9,7 @@ export type ReachParams = {
   interests: { id?: string | number; name?: string }[];
   optimization_goal: 'REACH' | 'IMPRESSIONS' | 'LEAD_GENERATION' | string;
   currency: string;
+  placementSpec?: Record<string, any>;
 };
 
 export async function fetchReachEstimate(params: ReachParams) {
@@ -22,6 +23,7 @@ export async function fetchReachEstimate(params: ReachParams) {
     interests,
     optimization_goal,
     currency,
+    placementSpec,
   } = params;
 
   // normalize once: numeric only on the wire; server will prefix act_
@@ -40,6 +42,7 @@ export async function fetchReachEstimate(params: ReachParams) {
       interests,
       optimization_goal,
       currency,
+      placementSpec,
     }),
   });
 

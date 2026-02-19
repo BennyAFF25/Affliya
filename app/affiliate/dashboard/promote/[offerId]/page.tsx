@@ -311,6 +311,8 @@ export default function PromoteOfferPage() {
   // ─────────────────────────────
   const [reachDaily, setReachDaily] = useState<number | null>(null);
   const [reachMonthly, setReachMonthly] = useState<number | null>(null);
+  const [reachStatus, setReachStatus] = useState<'idle' | 'loading' | 'ready' | 'unavailable' | 'error'>('idle');
+  const [reachMessage, setReachMessage] = useState<string>('');
   const [interestsIgnored, setInterestsIgnored] = useState(false);
   const [assumeCPM, setAssumeCPM] = useState<number>(10); // $10 CPM default
   const [assumeCTR, setAssumeCTR] = useState<number>(1);  // 1% CTR default
@@ -351,21 +353,48 @@ export default function PromoteOfferPage() {
 
   const triggerReach = useDebounce(async () => {
     try {
-      if (!biz?.access_token || !biz?.ad_account_id) return;
+      if (!biz?.access_token || !biz?.ad_account_id) {
+        setReachStatus('unavailable');
+        setReachMessage('Meta account not connected for this offer.');
+        setReachDaily(null);
+        setReachMonthly(null);
+        return;
+      }
 
       // Normalize ad account id: ensure numeric only (server will prefix act_ once)
       const numericAd = String(biz.ad_account_id).replace(/^act_/, '');
-      if (!numericAd) return;
+      if (!numericAd) {
+        setReachStatus('unavailable');
+        setReachMessage('Missing ad account ID for estimator.');
+        setReachDaily(null);
+        setReachMonthly(null);
+        return;
+      }
 
       const countries = form.location_countries
         .split(',')
         .map((c) => c.trim())
         .filter(Boolean);
-      if (countries.length === 0) return; // wait until user picks at least one
+      if (countries.length === 0) {
+        setReachStatus('idle');
+        setReachMessage('Select at least one country to estimate reach.');
+        setReachDaily(null);
+        setReachMonthly(null);
+        return;
+      }
 
       const age_min = Number(form.age_min || 18);
       const age_max = Number(form.age_max || 65);
-      if (age_min < 13 || age_max < age_min) return;
+      if (age_min < 13 || age_max < age_min) {
+        setReachStatus('idle');
+        setReachMessage('Adjust age range to continue estimating reach.');
+        setReachDaily(null);
+        setReachMonthly(null);
+        return;
+      }
+
+      setReachStatus('loading');
+      setReachMessage('Loading estimate…');
 
       const genders = form.gender === '' ? [] : [Number(form.gender)];
 
@@ -418,10 +447,25 @@ export default function PromoteOfferPage() {
 
       setReachDaily(dau);
       setReachMonthly(mau);
-    } catch (e) {
+
+      if (dau !== null || mau !== null) {
+        setReachStatus('ready');
+        setReachMessage('Estimate updated from Meta delivery data.');
+      } else {
+        setReachStatus('unavailable');
+        setReachMessage('Meta returned no estimate for this targeting.');
+      }
+    } catch (e: any) {
       console.warn('[Reach Estimate Error]', e);
       setReachDaily(null);
       setReachMonthly(null);
+      setReachStatus('error');
+      const msg = e?.message?.toLowerCase?.() || '';
+      if (msg.includes('access token')) {
+        setReachMessage('Meta token expired or invalid. Reconnect Meta to restore estimates.');
+      } else {
+        setReachMessage('Could not load estimate right now. Please try again.');
+      }
     }
   }, 600);
 
@@ -951,6 +995,8 @@ export default function PromoteOfferPage() {
           mode={mode}
           reachDaily={reachDaily}
           reachMonthly={reachMonthly}
+          reachStatus={reachStatus}
+          reachMessage={reachMessage}
           interestsIgnored={interestsIgnored}
           dailyConversions={dailyConversions}
           monthlyConversions={monthlyConversions}
