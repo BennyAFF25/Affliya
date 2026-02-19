@@ -371,23 +371,8 @@ export default function PromoteOfferPage() {
 
   const triggerReach = useDebounce(async () => {
     try {
-      if (!biz?.access_token || !biz?.ad_account_id) {
-        setReachStatus('unavailable');
-        setReachMessage('Meta account not connected for this offer.');
-        setReachDaily(null);
-        setReachMonthly(null);
-        return;
-      }
-
-      // Normalize ad account id: ensure numeric only (server will prefix act_ once)
-      const numericAd = String(biz.ad_account_id).replace(/^act_/, '');
-      if (!numericAd) {
-        setReachStatus('unavailable');
-        setReachMessage('Missing ad account ID for estimator.');
-        setReachDaily(null);
-        setReachMonthly(null);
-        return;
-      }
+      // We prefer client-resolved biz creds when available, but server can fallback via offer_id.
+      const numericAd = biz?.ad_account_id ? String(biz.ad_account_id).replace(/^act_/, '') : '';
 
       const countries = form.location_countries
         .split(',')
@@ -428,8 +413,9 @@ export default function PromoteOfferPage() {
       const placementSpec = buildPlacementTargeting(form.placements);
 
       const est = await fetchReachEstimate({
-        access_token: biz.access_token,
+        access_token: biz?.access_token,
         ad_account_id: numericAd,
+        offer_id: offerId,
         countries,
         age_min,
         age_max,
@@ -492,6 +478,7 @@ export default function PromoteOfferPage() {
     // include placements so toggling them updates estimate
   }, [
     biz,
+    offerId,
     form.location_countries,
     form.age_min,
     form.age_max,
