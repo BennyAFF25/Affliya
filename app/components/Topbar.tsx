@@ -165,27 +165,29 @@ export default function Topbar() {
           </div>
         )}
 
-        {/* Sign Out – shrinks on mobile */}
-        <button
-          onClick={async () => {
-            await supabase.auth.signOut();
-            router.push('/');
-          }}
-          className="
-            flex items-center justify-center
-            bg-[#00C2CB] hover:bg-[#00b0b8] 
-            text-white 
-            px-2 py-1.5
-            rounded-md
-            text-xs
-            sm:px-3 sm:py-2 sm:rounded-lg sm:text-sm
-            whitespace-nowrap
-            transition
-          "
-        >
-          <LogOut size={18} className="sm:size-[16px]" />
-          <span className="hidden sm:inline">Sign Out</span>
-        </button>
+        {/* Sign Out – only when authenticated */}
+        {user && (
+          <button
+            onClick={async () => {
+              await supabase.auth.signOut();
+              router.push('/');
+            }}
+            className="
+              flex items-center justify-center
+              bg-[#00C2CB] hover:bg-[#00b0b8] 
+              text-white 
+              px-2 py-1.5
+              rounded-md
+              text-xs
+              sm:px-3 sm:py-2 sm:rounded-lg sm:text-sm
+              whitespace-nowrap
+              transition
+            "
+          >
+            <LogOut size={18} className="sm:size-[16px]" />
+            <span className="hidden sm:inline">Sign Out</span>
+          </button>
+        )}
       </div>
     </header>
   );

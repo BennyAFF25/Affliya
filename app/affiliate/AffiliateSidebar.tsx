@@ -12,28 +12,22 @@ import {
   LifeBuoy,
   type LucideIcon,
 } from 'lucide-react';
-import { useSession } from '@supabase/auth-helpers-react';
+import { useSessionContext } from '@supabase/auth-helpers-react';
 import { useRouter } from 'next/navigation';
 
 export default function AffiliateSidebar() {
   const pathname = usePathname();
   const [hasNotification, setHasNotification] = useState(false);
 
-  const session = useSession();
+  const { session, isLoading } = useSessionContext();
   const router = useRouter();
 
-  const [isClient, setIsClient] = useState(false);
-
   useEffect(() => {
-    setIsClient(true);
-  }, []);
-
-  useEffect(() => {
-    if (isClient && session === null) {
+    if (!isLoading && !session) {
       router.push('/');
     }
-  }, [isClient, session, router]);
-  
+  }, [isLoading, session, router]);
+
   const user = session?.user;
 
   useEffect(() => {
