@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { supabase } from 'utils/supabase/pages-client';
 import Link from 'next/link';
-import { TrendingUp, DollarSign, Wallet, CheckCircle } from 'lucide-react';
+import { TrendingUp, DollarSign, Wallet, CheckCircle, Sparkles, ArrowRight } from 'lucide-react';
 import DashboardCard from '@/components/DashboardCard';
 import {
   ResponsiveContainer,
@@ -416,6 +416,7 @@ function AffiliateDashboardContent() {
   }, [session, approvedIds]);
 
   const user = session?.user;
+  const firstName = (user?.email || 'Partner').split('@')[0];
   const trialDaysLeft =
     profile?.revenue_subscription_status === 'trialing' &&
     profile?.revenue_current_period_end
@@ -475,6 +476,38 @@ if (loading) {
     <div className="min-h-screen bg-surface text-white">
       
       <div className="max-w-8xl mx-auto px-4 sm:px-6 md:px-8 lg:px-10 py-6 md:py-8">
+        <section className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-[#0a1719] via-[#0b0f10] to-black p-6 md:p-8 mb-8 shadow-[0_24px_60px_rgba(0,0,0,0.45)]">
+          <div className="pointer-events-none absolute -top-20 -right-16 h-56 w-56 rounded-full bg-[#00C2CB]/20 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-20 -left-16 h-56 w-56 rounded-full bg-[#00C2CB]/10 blur-3xl" />
+
+          <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
+            <div>
+              <p className="inline-flex items-center gap-2 rounded-full border border-[#00C2CB]/30 bg-[#00C2CB]/10 px-3 py-1 text-[11px] uppercase tracking-widest text-[#7ff5fb]">
+                <Sparkles className="h-3.5 w-3.5" /> Affiliate HQ
+              </p>
+              <h1 className="mt-3 text-2xl md:text-3xl font-bold tracking-tight text-white">Welcome back, {firstName}</h1>
+              <p className="mt-2 text-sm text-white/70 max-w-2xl">
+                Track campaign performance, monitor spend, and launch approved offers faster.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              <Link
+                href="/affiliate/marketplace"
+                className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/5 px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/10"
+              >
+                Browse Offers <ArrowRight className="h-4 w-4" />
+              </Link>
+              <Link
+                href="/affiliate/wallet"
+                className="inline-flex items-center gap-2 rounded-xl bg-[#00C2CB] px-4 py-2.5 text-sm font-semibold text-black hover:bg-[#00b0b8]"
+              >
+                Open Wallet
+              </Link>
+            </div>
+          </div>
+        </section>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-10">
           {/* Stat Card: Active Campaigns */}
           <DashboardCard>
