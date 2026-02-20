@@ -13,7 +13,7 @@ interface AdCampaignWizardProps {
     name: keyof AdFormState
   ) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void;
   onPlacementToggle: (key: PlacementKey) => void;
-  applyEstimatorPreset: (kind: "ugc" | "dtc" | "lead") => void;
+  applyEstimatorPreset: (kind: "dtc" | "lead") => void;
   walletBalance: number;
   walletLoading: boolean;
   canRunWithWallet: boolean;
@@ -345,14 +345,6 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
             </div>
 
             <div className="grid sm:grid-cols-2 gap-3 text-sm">
-              <button
-                type="button"
-                onClick={() => applyEstimatorPreset("ugc")}
-                className="px-3 py-2 rounded-lg border border-[#2a2a2a] text-left hover:bg-[#151515]"
-              >
-                <div className="font-semibold text-white">UGC</div>
-                <div className="text-gray-400 text-xs">CPM $8 / CTR 1.2% / CVR 2%</div>
-              </button>
               <button
                 type="button"
                 onClick={() => applyEstimatorPreset("dtc")}

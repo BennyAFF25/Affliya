@@ -507,8 +507,7 @@ export default function PromoteOfferPage() {
   };
 
   // Apply estimator preset for CPM, CTR, CVR
-  function applyEstimatorPreset(kind: 'ugc' | 'dtc' | 'lead') {
-    if (kind === 'ugc') { setAssumeCPM(8); setAssumeCTR(1.2); setAssumeCVR(2.0); }
+  function applyEstimatorPreset(kind: 'dtc' | 'lead') {
     if (kind === 'dtc') { setAssumeCPM(12); setAssumeCTR(1.5); setAssumeCVR(1.5); }
     if (kind === 'lead') { setAssumeCPM(10); setAssumeCTR(1.0); setAssumeCVR(4.0); }
   }
