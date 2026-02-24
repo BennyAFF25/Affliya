@@ -17,26 +17,44 @@ export default function BusinessLogin() {
     setLoading(true);
     setError('');
 
-    // LOGIN ONLY
-    const { data, error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const trimmedEmail = email.trim();
+    const trimmedPassword = password.trim();
 
-    if (signInError) {
-      setError(signInError.message);
+    if (!trimmedEmail || !trimmedPassword) {
+      setError('Enter your email and password.');
       setLoading(false);
       return;
     }
 
-    if (data?.user) {
-      const profileData = { id: data.user.id, email, role: 'business' };
-      await supabase.from('profiles').upsert([profileData] as any);
-
-      router.push('/auth-redirect');
+    try {
+      await supabase.auth.signOut();
+    } catch (signOutErr) {
+      console.warn('[Business login] signOut before login failed (safe to ignore)', signOutErr);
     }
 
-    setLoading(false);
+    try {
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email: trimmedEmail,
+        password: trimmedPassword,
+      });
+
+      if (signInError) {
+        console.error('[Business login] signIn error', signInError);
+        setError(signInError.message || 'Login failed. Check your credentials.');
+        return;
+      }
+
+      if (data?.user) {
+        const profileData = { id: data.user.id, email: trimmedEmail, role: 'business' };
+        await supabase.from('profiles').upsert([profileData] as any);
+        router.push('/auth-redirect');
+      }
+    } catch (err: any) {
+      console.error('[Business login] unexpected error', err);
+      setError('Login failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

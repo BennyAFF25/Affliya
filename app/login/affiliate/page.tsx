@@ -17,18 +17,40 @@ export default function AffiliateLogin() {
     setLoading(true);
     setError('');
 
-    const { data, error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const trimmedEmail = email.trim();
+    const trimmedPassword = password.trim();
 
-    if (signInError) {
-      setError(signInError.message);
+    if (!trimmedEmail || !trimmedPassword) {
+      setError('Enter your email and password.');
       setLoading(false);
       return;
     }
 
-    router.push('/auth-redirect');
+    try {
+      await supabase.auth.signOut();
+    } catch (signOutErr) {
+      console.warn('[Affiliate login] signOut before login failed (safe to ignore)', signOutErr);
+    }
+
+    try {
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: trimmedEmail,
+        password: trimmedPassword,
+      });
+
+      if (signInError) {
+        console.error('[Affiliate login] signIn error', signInError);
+        setError(signInError.message || 'Login failed. Check your credentials.');
+        return;
+      }
+
+      router.push('/auth-redirect');
+    } catch (err: any) {
+      console.error('[Affiliate login] unexpected error', err);
+      setError('Login failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -139,6 +161,7 @@ export default function AffiliateLogin() {
                 </label>
                 <input
                   type="email"
+                  autoComplete="email"
                   placeholder="you@example.com"
                   className="w-full rounded-lg bg-black/40 border border-white/15 px-3 py-2 text-sm text-white placeholder-white/40 focus:outline-none focus:ring-1 focus:ring-[#00C2CB]"
                   value={email}
@@ -154,6 +177,7 @@ export default function AffiliateLogin() {
                 <div className="relative">
                   <input
                     type={showPassword ? 'text' : 'password'}
+                    autoComplete="current-password"
                     placeholder="••••••••"
                     className="w-full rounded-lg bg-black/40 border border-white/15 px-3 py-2 pr-16 text-sm text-white placeholder-white/40 focus:outline-none focus:ring-1 focus:ring-[#00C2CB]"
                     value={password}
