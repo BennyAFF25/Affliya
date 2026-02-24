@@ -8,6 +8,7 @@ import { supabase } from 'utils/supabase/pages-client';
 import Link from 'next/link';
 import { TrendingUp, DollarSign, Wallet, CheckCircle, Sparkles, ArrowRight } from 'lucide-react';
 import DashboardCard from '@/components/DashboardCard';
+import { AffiliateOnboardingQuickstart } from './components/AffiliateOnboardingQuickstart';
 import {
   ResponsiveContainer,
   BarChart,
@@ -416,6 +417,7 @@ function AffiliateDashboardContent() {
   }, [session, approvedIds]);
 
   const user = session?.user;
+  const [showQuickstart, setShowQuickstart] = useState(false);
   const firstName = (user?.email || 'Partner').split('@')[0];
   const trialDaysLeft =
     profile?.revenue_subscription_status === 'trialing' &&
