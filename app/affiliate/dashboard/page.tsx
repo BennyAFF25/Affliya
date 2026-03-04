@@ -33,6 +33,7 @@ interface Profile {
   onboarding_completed: boolean | null;
   revenue_subscription_status?: string | null;
   revenue_current_period_end?: string | null;
+  username?: string | null;
 }
 
 interface ApprovedRequest {
@@ -110,7 +111,6 @@ function AffiliateDashboardContent() {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<Profile | null>(null);
 
-
   // live ads + payouts
   const [liveAds, setLiveAds] = useState<any[]>([]);
   const [walletPayouts, setWalletPayouts] = useState<any[]>([]);
@@ -151,7 +151,7 @@ function AffiliateDashboardContent() {
       }
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, role, onboarding_completed, terms_accepted, revenue_subscription_status, revenue_current_period_end')
+        .select('id, role, onboarding_completed, terms_accepted, revenue_subscription_status, revenue_current_period_end, username')
         .eq('id', session.user.id)
         .maybeSingle<any>();
 
@@ -418,6 +418,8 @@ function AffiliateDashboardContent() {
 
   const user = session?.user;
   const [showQuickstart, setShowQuickstart] = useState(false);
+  const shopHandle = profile?.username || session?.user?.email?.split('@')[0] || null;
+  const shopUrl = shopHandle ? `https://www.nettmark.com/shop/${shopHandle}` : null;
   const firstName = (user?.email || 'Partner').split('@')[0];
   const trialDaysLeft =
     profile?.revenue_subscription_status === 'trialing' &&
@@ -516,6 +518,13 @@ if (loading) {
             </div>
           </div>
         </section>
+
+        {shopUrl && (
+          <div className="mb-7 rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-3 text-sm text-white/80 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <span className="text-white/50 uppercase tracking-[0.25em] text-[10px]">Your NettmarkShop link</span>
+            <span className="font-semibold text-[#7ff5fb] break-all">{shopUrl}</span>
+          </div>
+        )}
 
         <section className="mb-7">
           <p className="mb-3 text-xs uppercase tracking-[0.2em] text-white/45">Quick actions</p>
