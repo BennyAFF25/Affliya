@@ -25,6 +25,7 @@ export default function MyShopPage() {
   const [overrides, setOverrides] = useState<Record<string, ShopRow>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
@@ -106,6 +107,28 @@ export default function MyShopPage() {
       },
     }));
   };
+  const handleImageUpload = async (offerId: string, file: File | null) => {
+    if (!file || !session?.user) return;
+    setUploadingImage(offerId);
+    setError(null);
+    try {
+      const fileExt = file.name.split('.').pop();
+      const filePath = `${session.user.id}/${offerId}-${Date.now()}.${fileExt}`;
+      const { error: uploadError } = await (supabase as any).storage
+        .from('shop-images')
+        .upload(filePath, file, { upsert: true });
+      if (uploadError) throw uploadError;
+      const { data } = (supabase as any).storage.from('shop-images').getPublicUrl(filePath);
+      updateOverride(offerId, { custom_image_url: data.publicUrl });
+      setMessage('Image updated');
+    } catch (err: any) {
+      console.error('[MyShop] image upload failed', err);
+      setError('Image upload failed.');
+    } finally {
+      setUploadingImage(null);
+    }
+  };
+
 
   const handleSave = async () => {
     if (!session?.user) return;
@@ -159,7 +182,8 @@ export default function MyShopPage() {
             <p className="text-xs uppercase tracking-[0.3em] text-white/50">NettmarkShop</p>
             <h1 className="text-3xl font-bold">My Shop</h1>
           </div>
-          {shopLink && (
+          <p className="text-sm text-white/60">Customize how each approved offer appears on your NettmarkShop page. Override images, price labels, descriptions, and ordering — then copy your link below.</p>
+        {shopLink && (
             <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
               <span className="text-xs text-white/60 break-all">{shopLink}</span>
               <button
@@ -194,11 +218,48 @@ export default function MyShopPage() {
                 key={offer.id}
                 className="rounded-3xl border border-white/10 bg-white/[0.02] p-4 flex flex-col gap-4 sm:flex-row"
               >
-                <div className="flex-1">
-                  <h3 className="text-lg font-semibold">{offer.title}</h3>
+                <div className="flex-1 space-y-3">
+                  <div className="flex items-center gap-4">
+                    <h3 className="text-lg font-semibold flex-1">{offer.title}</h3>
+                    <button
+                      type="button"
+                      onClick={() => updateOverride(offer.id, { custom_price: null, custom_description: null, custom_image_url: null, display_order: 0 })}
+                      className="text-xs text-white/50 hover:text-white"
+                    >
+                      Reset all
+                    </button>
+                  </div>
                   <p className="text-sm text-white/60">
                     {offer.description || 'No description yet.'}
                   </p>
+                  <div className="flex flex-wrap items-center gap-3 mt-3">
+                    <div className="h-16 w-16 rounded-2xl border border-white/10 bg-black/30 overflow-hidden flex-shrink-0">
+                      {(override?.custom_image_url || offer.logo_url) ? (
+                        <img src={override?.custom_image_url || offer.logo_url || ''} alt={offer.title} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-xs text-white/40">No image</div>
+                      )}
+                    </div>
+                    <label className="text-xs text-white/50 cursor-pointer">
+                      <span className="inline-flex items-center gap-1 rounded-full border border-white/15 px-3 py-1 text-[11px]">{uploadingImage === offer.id ? 'Uploading…' : 'Upload image'}</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => handleImageUpload(offer.id, e.target.files?.[0] || null)}
+                        disabled={uploadingImage === offer.id}
+                      />
+                    </label>
+                    {override?.custom_image_url && (
+                      <button
+                        type="button"
+                        onClick={() => updateOverride(offer.id, { custom_image_url: null })}
+                        className="text-xs text-white/50 hover:text-white"
+                      >
+                        Reset image
+                      </button>
+                    )}
+                  </div>
                   <div className="mt-3 grid gap-3 sm:grid-cols-2">
                     <label className="text-xs text-white/50">
                       Image URL

@@ -10,6 +10,7 @@ import {
   Mail,
   Settings,
   LifeBuoy,
+  Store,
   type LucideIcon,
 } from 'lucide-react';
 import { useSessionContext } from '@supabase/auth-helpers-react';
@@ -61,6 +62,7 @@ export default function AffiliateSidebar() {
     { name: 'Dashboard', href: '/affiliate/dashboard', icon: Home },
     { name: 'Marketplace', href: '/affiliate/marketplace', icon: Package },
     { name: 'Manage Campaigns', href: '/affiliate/dashboard/manage-campaigns', icon: Package },
+    { name: 'My Shop', href: '/affiliate/dashboard/my-shop', icon: Store },
     { name: 'Inbox', href: '/affiliate/inbox', icon: Mail },
     { name: 'Settings', href: '/affiliate/settings', icon: Settings },
     { name: 'Support', href: '/affiliate/support', icon: LifeBuoy },
