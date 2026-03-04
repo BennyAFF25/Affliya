@@ -29,7 +29,7 @@ export function ProductCard({ title, description, price, imageUrl, ctaHref }: Pr
         ) : (
           <div className="w-full h-48 flex items-center justify-center text-white/40 text-sm">
             Image coming soon
-          </motion.div>
+          </div>
         )}
       </div>
       <div className="flex flex-col gap-2 mt-4 flex-1">
@@ -48,6 +48,6 @@ export function ProductCard({ title, description, price, imageUrl, ctaHref }: Pr
       >
         View product
       </Link>
-    </div>
+    </motion.div>
   );
 }
