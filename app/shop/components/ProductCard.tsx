@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { motion } from 'framer-motion';
 
 interface ProductCardProps {
   title: string;
@@ -12,7 +13,11 @@ interface ProductCardProps {
 
 export function ProductCard({ title, description, price, imageUrl, ctaHref }: ProductCardProps) {
   return (
-    <div className="rounded-3xl border border-white/10 bg-white/[0.02] backdrop-blur p-4 flex flex-col">
+    <motion.div
+      className="rounded-3xl border border-white/10 bg-white/[0.03] backdrop-blur p-4 flex flex-col shadow-[0_20px_60px_rgba(0,0,0,0.4)]"
+      whileHover={{ translateY: -4 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+    >
       <div className="relative w-full overflow-hidden rounded-2xl bg-black/30 border border-white/5">
         {imageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -24,7 +29,7 @@ export function ProductCard({ title, description, price, imageUrl, ctaHref }: Pr
         ) : (
           <div className="w-full h-48 flex items-center justify-center text-white/40 text-sm">
             Image coming soon
-          </div>
+          </motion.div>
         )}
       </div>
       <div className="flex flex-col gap-2 mt-4 flex-1">
