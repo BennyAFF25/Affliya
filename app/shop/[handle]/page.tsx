@@ -109,10 +109,25 @@ async function getShopData(handle: string) {
       image: override?.custom_image_url ?? offer.logo_url,
       order: override?.display_order ?? 0,
       website: offer.website,
+      priceValue: offer.price,
+      currency: offer.currency,
     };
   });
 
   cards.sort((a, b) => a.order - b.order || a.title.localeCompare(b.title));
+
+  const priceSamples = cards.filter(
+    (card) =>
+      typeof card.priceValue === "number" && card.priceValue && card.currency,
+  );
+
+  const averagePrice = priceSamples.length
+    ? formatPrice(
+        priceSamples.reduce((sum, card) => sum + (card.priceValue || 0), 0) /
+          priceSamples.length,
+        priceSamples[0].currency,
+      )
+    : null;
 
   return {
     affiliate: {
@@ -124,6 +139,9 @@ async function getShopData(handle: string) {
       bio: (affiliateProfile as any)?.bio || null,
     },
     offers: cards,
+    metrics: {
+      averagePrice,
+    },
   };
 }
 
@@ -139,21 +157,30 @@ export default async function ShopPage({
   }
 
   const shopUrl = `https://www.nettmark.com/shop/${params.handle}`;
+  const stats = [
+    {
+      label: "Offers live",
+      value: data!.offers.length
+        ? data!.offers.length.toString().padStart(2, "0")
+        : "00",
+    },
+    { label: "Avg price", value: data!.metrics?.averagePrice ?? "Dynamic" },
+    { label: "Tracking", value: "Nettmark /go" },
+  ];
+  const hasOffers = data!.offers.length > 0;
 
   return (
-    <div className="min-h-screen bg-[#02070a] text-white px-4 py-10">
+    <div className="min-h-screen bg-[#010508] text-white px-4 py-10">
       <div className="max-w-5xl mx-auto space-y-6">
         <ShopHero
           name={data!.affiliate.name}
           avatarUrl={data!.affiliate.avatar_url}
           shopUrl={shopUrl}
+          tagline={data!.affiliate.bio}
+          stats={stats}
         />
 
-        {data!.offers.length === 0 ? (
-          <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-8 text-center text-white/70">
-            No products yet. Check back soon!
-          </div>
-        ) : (
+        {hasOffers ? (
           <ShopGrid>
             {data!.offers.map((offer) => (
               <ProductCard
@@ -166,6 +193,19 @@ export default async function ShopPage({
               />
             ))}
           </ShopGrid>
+        ) : (
+          <div className="rounded-[32px] border border-dashed border-white/15 bg-white/[0.02] p-10 text-center space-y-4">
+            <p className="text-white/70">
+              No offers are live just yet. Follow this storefront to catch the
+              first drops.
+            </p>
+            <a
+              href="https://www.nettmark.com"
+              className="inline-flex items-center justify-center rounded-full bg-white/10 px-5 py-2 text-sm text-white hover:bg-white/15"
+            >
+              Visit Nettmark
+            </a>
+          </div>
         )}
       </div>
     </div>
