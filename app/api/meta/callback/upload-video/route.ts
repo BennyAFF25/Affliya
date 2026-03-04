@@ -487,6 +487,39 @@ export async function POST(req: Request) {
       advantageAudienceRaw === 1 ||
       advantageAudienceRaw === "enable";
 
+    const targetingPayload = {
+      geo_locations: { countries },
+      age_min: parseInt(
+        (payload as any).age_range?.[0] ||
+          (adIdea as any)?.age_range?.[0] ||
+          "18",
+        10,
+      ),
+      age_max: parseInt(
+        (payload as any).age_range?.[1] ||
+          (adIdea as any)?.age_range?.[1] ||
+          "65",
+        10,
+      ),
+      genders:
+        (payload as any).gender === "Male"
+          ? [1]
+          : (payload as any).gender === "Female"
+            ? [2]
+            : (adIdea as any)?.gender === "Male"
+              ? [1]
+              : (adIdea as any)?.gender === "Female"
+                ? [2]
+                : [1, 2],
+      ...(publisher_platforms.length ? { publisher_platforms } : {}),
+      ...(facebook_positions.length ? { facebook_positions } : {}),
+      ...(instagram_positions.length ? { instagram_positions } : {}),
+      ...(flexible_spec ? { flexible_spec } : {}),
+      targeting_automation: {
+        advantage_audience: advantageAudienceFlag ? 1 : 0,
+      },
+    };
+
     const adsetParams: Record<string, string> = {
       name: adsetName || `Ad Set – ${campaignData.id}`,
       campaign_id: campaignData.id,
@@ -494,38 +527,7 @@ export async function POST(req: Request) {
       optimization_goal: optimisationGoal,
       bid_strategy: metaBidStrategy,
       ...(bidAmount ? { bid_amount: bidAmount } : {}),
-      targeting: JSON.stringify({
-        geo_locations: { countries },
-        age_min: parseInt(
-          (payload as any).age_range?.[0] ||
-            (adIdea as any)?.age_range?.[0] ||
-            "18",
-          10,
-        ),
-        age_max: parseInt(
-          (payload as any).age_range?.[1] ||
-            (adIdea as any)?.age_range?.[1] ||
-            "65",
-          10,
-        ),
-        genders:
-          (payload as any).gender === "Male"
-            ? [1]
-            : (payload as any).gender === "Female"
-              ? [2]
-              : (adIdea as any)?.gender === "Male"
-                ? [1]
-                : (adIdea as any)?.gender === "Female"
-                  ? [2]
-                  : [1, 2],
-        ...(publisher_platforms.length ? { publisher_platforms } : {}),
-        ...(facebook_positions.length ? { facebook_positions } : {}),
-        ...(instagram_positions.length ? { instagram_positions } : {}),
-        ...(flexible_spec ? { flexible_spec } : {}),
-      }),
-      targeting_automation: JSON.stringify({
-        advantage_audience: advantageAudienceFlag ? 1 : 0,
-      }),
+      targeting: JSON.stringify(targetingPayload),
       pacing_type: JSON.stringify(["standard"]),
       status: "ACTIVE",
     };
@@ -562,6 +564,8 @@ export async function POST(req: Request) {
       adsetParams.start_time = new Date(Date.now() + 60000).toISOString();
       adsetParams.end_time = new Date(Date.now() + 7 * 86400000).toISOString();
     }
+
+    console.log("[meta-upload] adset params", adsetParams);
 
     const adSetRes = await fetch(
       `https://graph.facebook.com/v19.0/${cleanAdAccountId}/adsets`,
