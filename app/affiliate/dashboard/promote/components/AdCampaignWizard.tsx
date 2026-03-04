@@ -3,15 +3,24 @@
 import { useMemo, useState } from "react";
 import { nmToast } from "@/components/ui/toast";
 import { AdFormState, PlacementKey } from "../types";
-import { CountryMultiSelect, DateTimeField, Chip, Disclosure } from "./AdFormFields";
+import {
+  CountryMultiSelect,
+  DateTimeField,
+  Chip,
+  Disclosure,
+} from "./AdFormFields";
 import { INPUT } from "../constants";
 
 interface AdCampaignWizardProps {
   form: AdFormState;
   setForm: React.Dispatch<React.SetStateAction<AdFormState>>;
   onInput: (
-    name: keyof AdFormState
-  ) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => void;
+    name: keyof AdFormState,
+  ) => (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >,
+  ) => void;
   onPlacementToggle: (key: PlacementKey) => void;
   applyEstimatorPreset: (kind: "dtc" | "lead") => void;
   walletBalance: number;
@@ -100,7 +109,12 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
   };
 
   const StepPill = ({ active }: { active: boolean }) => (
-    <span className={["h-2 w-2 rounded-full", active ? "bg-[#00C2CB]" : "bg-[#2b2b2b]"].join(" ")} />
+    <span
+      className={[
+        "h-2 w-2 rounded-full",
+        active ? "bg-[#00C2CB]" : "bg-[#2b2b2b]",
+      ].join(" ")}
+    />
   );
 
   const onSubmitClick = async () => {
@@ -118,8 +132,12 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
       <div className="px-4 sm:px-8 py-5 border-b border-[#232323] bg-gradient-to-r from-[#101616] to-[#121212]">
         <div className="flex items-start sm:items-center justify-between gap-3">
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-[#00C2CB]">Create New Ad Campaign</h1>
-            <p className="text-[11px] sm:text-xs text-gray-400 mt-1">Step {step} of 4 · Mobile + desktop ready</p>
+            <h1 className="text-xl sm:text-2xl font-bold text-[#00C2CB]">
+              Create New Ad Campaign
+            </h1>
+            <p className="text-[11px] sm:text-xs text-gray-400 mt-1">
+              Step {step} of 4 · Mobile + desktop ready
+            </p>
           </div>
           <div className="hidden sm:flex items-center gap-2">
             {steps.map((s) => (
@@ -128,7 +146,10 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
           </div>
         </div>
         <div className="mt-3 h-1.5 w-full rounded-full bg-[#1f1f1f] overflow-hidden">
-          <div className="h-full bg-gradient-to-r from-[#00C2CB] to-[#7ff5fb]" style={{ width: `${(step / 4) * 100}%` }} />
+          <div
+            className="h-full bg-gradient-to-r from-[#00C2CB] to-[#7ff5fb]"
+            style={{ width: `${(step / 4) * 100}%` }}
+          />
         </div>
       </div>
 
@@ -137,11 +158,17 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
           {steps.map((s) => {
             const active = step === s.id;
             return (
-              <button key={s.id} onClick={() => setStep(s.id)} className="flex-1 flex justify-center">
+              <button
+                key={s.id}
+                onClick={() => setStep(s.id)}
+                className="flex-1 flex justify-center"
+              >
                 <span
                   className={[
                     "inline-flex items-center justify-center px-3 sm:px-4 py-2 rounded-full border transition whitespace-nowrap",
-                    active ? "border-[#00C2CB] text-[#00C2CB]" : "border-transparent text-gray-400 hover:text-white",
+                    active
+                      ? "border-[#00C2CB] text-[#00C2CB]"
+                      : "border-transparent text-gray-400 hover:text-white",
                   ].join(" ")}
                 >
                   {s.id}. {s.label}
@@ -154,7 +181,9 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
         {step === 1 && (
           <div className="space-y-4 sm:space-y-6">
             <label className="block">
-              <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Campaign name</span>
+              <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">
+                Campaign name
+              </span>
               <input
                 placeholder="e.g. Affliya – Launch"
                 className={`${INPUT} w-full text-base`}
@@ -164,7 +193,9 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
             </label>
 
             <label className="block">
-              <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Objective</span>
+              <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">
+                Objective
+              </span>
               <select
                 className={`${INPUT} w-full text-base`}
                 value={form.objective}
@@ -186,7 +217,9 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
           <div className="space-y-4 sm:space-y-6">
             <div className="flex flex-col sm:flex-row gap-3">
               <label className="flex-1 min-w-0">
-                <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Budget (AUD)</span>
+                <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">
+                  Budget (AUD)
+                </span>
                 <input
                   type="number"
                   min={1}
@@ -196,7 +229,9 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
                 />
               </label>
               <label className="flex-1 min-w-0">
-                <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Type</span>
+                <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">
+                  Type
+                </span>
                 <select
                   className={`${INPUT} w-full text-base`}
                   value={form.budget_type}
@@ -216,33 +251,55 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
             <div className="mt-2 rounded-xl border border-[#2a2a2a] bg-[#0f0f0f] p-4 text-sm">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-xs uppercase tracking-wider text-gray-500">Wallet guard</p>
+                  <p className="text-xs uppercase tracking-wider text-gray-500">
+                    Wallet guard
+                  </p>
                   {walletLoading ? (
-                    <span className="text-gray-400">Checking wallet balance…</span>
+                    <span className="text-gray-400">
+                      Checking wallet balance…
+                    </span>
                   ) : canRunWithWallet ? (
-                    <span className="text-emerald-400">Wallet balance: ${walletBalance.toFixed(2)} — ready to run this ad</span>
+                    <span className="text-emerald-400">
+                      Wallet balance: ${walletBalance.toFixed(2)} — ready to run
+                      this ad
+                    </span>
                   ) : (
-                    <span className="text-red-400">Wallet balance: ${walletBalance.toFixed(2)}. You need ${walletDeficit.toFixed(2)} more to run this ad.</span>
+                    <span className="text-red-400">
+                      Wallet balance: ${walletBalance.toFixed(2)}. You need $
+                      {walletDeficit.toFixed(2)} more to run this ad.
+                    </span>
                   )}
                 </div>
                 {!walletLoading && !canRunWithWallet && (
-                  <span className="text-[11px] px-2 py-1 rounded-full border border-red-500/40 text-red-300">Action needed</span>
+                  <span className="text-[11px] px-2 py-1 rounded-full border border-red-500/40 text-red-300">
+                    Action needed
+                  </span>
                 )}
               </div>
               {!walletLoading && !canRunWithWallet && (
-                <span className="block mt-2 text-xs text-gray-400">Top up your wallet before submitting this campaign.</span>
+                <span className="block mt-2 text-xs text-gray-400">
+                  Top up your wallet before submitting this campaign.
+                </span>
               )}
             </div>
 
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="flex-1 min-w-0">
-                <DateTimeField label="Start" value={form.start_time} onChange={(v) => setForm((p) => ({ ...p, start_time: v }))} />
+                <DateTimeField
+                  label="Start"
+                  value={form.start_time}
+                  onChange={(v) => setForm((p) => ({ ...p, start_time: v }))}
+                />
                 <div className="flex gap-2 mt-1">
                   <Chip onClick={setStartIn15m}>Start in 15m</Chip>
                 </div>
               </div>
               <div className="flex-1 min-w-0">
-                <DateTimeField label="End" value={form.end_time} onChange={(v) => setForm((p) => ({ ...p, end_time: v }))} />
+                <DateTimeField
+                  label="End"
+                  value={form.end_time}
+                  onChange={(v) => setForm((p) => ({ ...p, end_time: v }))}
+                />
                 <div className="flex gap-2 mt-1">
                   <Chip onClick={setEndIn7d}>+7 days</Chip>
                 </div>
@@ -251,13 +308,22 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
 
             <div className="space-y-3">
               <label className="block">
-                <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Countries</span>
-                <CountryMultiSelect value={form.location_countries} onChange={(csv) => setForm((p) => ({ ...p, location_countries: csv }))} />
+                <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">
+                  Countries
+                </span>
+                <CountryMultiSelect
+                  value={form.location_countries}
+                  onChange={(csv) =>
+                    setForm((p) => ({ ...p, location_countries: csv }))
+                  }
+                />
               </label>
 
               <div className="grid sm:grid-cols-2 gap-3">
                 <label className="block">
-                  <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Age range</span>
+                  <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">
+                    Age range
+                  </span>
                   <div className="flex gap-2">
                     <input
                       type="number"
@@ -276,8 +342,14 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
                   </div>
                 </label>
                 <label className="block">
-                  <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Gender</span>
-                  <select className={`${INPUT} mt-0 w-full`} value={form.gender} onChange={onInput("gender")}>
+                  <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">
+                    Gender
+                  </span>
+                  <select
+                    className={`${INPUT} mt-0 w-full`}
+                    value={form.gender}
+                    onChange={onInput("gender")}
+                  >
                     <option value="">All</option>
                     <option value="1">Male</option>
                     <option value="2">Female</option>
@@ -286,7 +358,9 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
               </div>
 
               <label className="block">
-                <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Interests (comma-separated)</span>
+                <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">
+                  Interests (comma-separated)
+                </span>
                 <textarea
                   className={`${INPUT} w-full text-base`}
                   placeholder="fitness, skincare, ecom"
@@ -298,7 +372,9 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Placements</span>
+                <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">
+                  Placements
+                </span>
                 <div className="text-xs text-gray-300 flex gap-1">
                   <button
                     type="button"
@@ -335,13 +411,45 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
                     type="button"
                     onClick={() => onPlacementToggle(key)}
                     className={`px-3 py-2 rounded-lg border text-left text-sm ${
-                      form.placements[key] ? "border-[#00C2CB] bg-[#0b1f20] text-white" : "border-[#2a2a2a] text-gray-300 hover:border-[#00C2CB]/30"
+                      form.placements[key]
+                        ? "border-[#00C2CB] bg-[#0b1f20] text-white"
+                        : "border-[#2a2a2a] text-gray-300 hover:border-[#00C2CB]/30"
                     }`}
                   >
                     {label}
                   </button>
                 ))}
               </div>
+            </div>
+
+            <div className="rounded-xl border border-[#1f3b3d] bg-[#0a1112] p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+              <div className="flex-1">
+                <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">
+                  Meta Advantage Audience
+                </span>
+                <p className="text-sm text-gray-400 mt-1">
+                  Allow Meta to automatically broaden beyond your selected
+                  targeting when it detects cheaper conversions. Leave this off
+                  to stay strict.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  setForm((p) => ({
+                    ...p,
+                    advantage_audience: !p.advantage_audience,
+                  }))
+                }
+                className={[
+                  "min-w-[130px] px-4 py-2 rounded-full border text-sm font-semibold transition",
+                  form.advantage_audience
+                    ? "bg-[#00C2CB] text-black border-[#00C2CB]"
+                    : "border-[#2a2a2a] text-gray-200 hover:border-[#00C2CB]/40",
+                ].join(" ")}
+              >
+                {form.advantage_audience ? "Enabled" : "Disabled"}
+              </button>
             </div>
 
             <div className="grid sm:grid-cols-2 gap-3 text-sm">
@@ -351,7 +459,9 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
                 className="px-3 py-2 rounded-lg border border-[#2a2a2a] text-left hover:bg-[#151515]"
               >
                 <div className="font-semibold text-white">DTC</div>
-                <div className="text-gray-400 text-xs">CPM $12 / CTR 1.5% / CVR 1.5%</div>
+                <div className="text-gray-400 text-xs">
+                  CPM $12 / CTR 1.5% / CVR 1.5%
+                </div>
               </button>
               <button
                 type="button"
@@ -359,7 +469,9 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
                 className="px-3 py-2 rounded-lg border border-[#2a2a2a] text-left hover:bg-[#151515]"
               >
                 <div className="font-semibold text-white">Lead gen</div>
-                <div className="text-gray-400 text-xs">CPM $10 / CTR 1% / CVR 4%</div>
+                <div className="text-gray-400 text-xs">
+                  CPM $10 / CTR 1% / CVR 4%
+                </div>
               </button>
             </div>
 
@@ -378,10 +490,16 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
               >
                 <span className="text-[#00C2CB] font-bold tracking-wide">
                   Advanced bidding
-                  <span className="ml-2 text-xs font-normal text-gray-400">(optional)</span>
+                  <span className="ml-2 text-xs font-normal text-gray-400">
+                    (optional)
+                  </span>
                 </span>
                 <span
-                  className={["text-[#00C2CB] transition-transform duration-200", showAdvancedBidding ? "rotate-180" : "rotate-0"].join(" ")}>
+                  className={[
+                    "text-[#00C2CB] transition-transform duration-200",
+                    showAdvancedBidding ? "rotate-180" : "rotate-0",
+                  ].join(" ")}
+                >
                   ▾
                 </span>
               </div>
@@ -392,7 +510,9 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
                   onMouseDown={(e) => e.stopPropagation()}
                 >
                   <div>
-                    <div className="text-[#00C2CB] font-semibold text-sm tracking-wide mb-3">Bid strategy</div>
+                    <div className="text-[#00C2CB] font-semibold text-sm tracking-wide mb-3">
+                      Bid strategy
+                    </div>
                     <div className="space-y-2">
                       <label
                         className={[
@@ -418,7 +538,9 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
                         />
                         <span>
                           <strong>Lowest cost</strong>{" "}
-                          <span className="text-gray-400 text-xs">(recommended — Meta bids freely)</span>
+                          <span className="text-gray-400 text-xs">
+                            (recommended — Meta bids freely)
+                          </span>
                         </span>
                       </label>
 
@@ -439,65 +561,83 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
                             setForm((p) => ({
                               ...p,
                               bid_strategy: "BID_CAP",
-                              bid_cap_dollars: p.bid_cap_dollars === "" ? "" : Number(p.bid_cap_dollars),
+                              bid_cap_dollars:
+                                p.bid_cap_dollars === ""
+                                  ? ""
+                                  : Number(p.bid_cap_dollars),
                             }))
                           }
                           onClick={(e) => e.stopPropagation()}
                         />
                         <span>
                           <strong>Bid cap</strong>{" "}
-                          <span className="text-gray-400 text-xs">(advanced — control auction aggressiveness)</span>
+                          <span className="text-gray-400 text-xs">
+                            (advanced — control auction aggressiveness)
+                          </span>
                         </span>
                       </label>
                     </div>
                   </div>
 
-                  {form.bid_strategy === "BID_CAP" && (() => {
-                    const cap = Number(form.bid_cap_dollars || 0);
-                    let helperText = "Meta will not bid above this amount per auction.";
-                    let helperClass = "text-gray-400";
+                  {form.bid_strategy === "BID_CAP" &&
+                    (() => {
+                      const cap = Number(form.bid_cap_dollars || 0);
+                      let helperText =
+                        "Meta will not bid above this amount per auction.";
+                      let helperClass = "text-gray-400";
 
-                    if (cap > 0 && cap < 0.5) {
-                      helperText = "Too low may limit delivery.";
-                      helperClass = "text-amber-400";
-                    }
+                      if (cap > 0 && cap < 0.5) {
+                        helperText = "Too low may limit delivery.";
+                        helperClass = "text-amber-400";
+                      }
 
-                    if (cap >= 10) {
-                      helperText = "May exceed Meta placement limits.";
-                      helperClass = "text-red-400";
-                    }
+                      if (cap >= 10) {
+                        helperText = "May exceed Meta placement limits.";
+                        helperClass = "text-red-400";
+                      }
 
-                    return (
-                      <div className="space-y-1">
-                        <div className="text-[#00C2CB] font-semibold text-sm tracking-wide mb-1">Bid cap</div>
-                        <div className="relative rounded-lg overflow-hidden border border-[#00C2CB]/50 focus-within:border-[#00C2CB] focus-within:shadow-[0_0_0_3px_rgba(0,194,203,0.25)] transition">
-                          <div className="absolute inset-y-0 left-0 flex items-center px-4 bg-[#00C2CB] text-black font-semibold text-xs">AUD</div>
-                          <input
-                            type="number"
-                            min={0.01}
-                            step={0.01}
-                            placeholder="3.00"
-                            className="w-full bg-surface pl-16 pr-3 py-2 text-white focus:outline-none"
-                            value={form.bid_cap_dollars}
-                            onChange={(e) =>
-                              setForm((p) => ({
-                                ...p,
-                                bid_cap_dollars: e.target.value === "" ? "" : Number(e.target.value),
-                              }))
-                            }
-                          />
+                      return (
+                        <div className="space-y-1">
+                          <div className="text-[#00C2CB] font-semibold text-sm tracking-wide mb-1">
+                            Bid cap
+                          </div>
+                          <div className="relative rounded-lg overflow-hidden border border-[#00C2CB]/50 focus-within:border-[#00C2CB] focus-within:shadow-[0_0_0_3px_rgba(0,194,203,0.25)] transition">
+                            <div className="absolute inset-y-0 left-0 flex items-center px-4 bg-[#00C2CB] text-black font-semibold text-xs">
+                              AUD
+                            </div>
+                            <input
+                              type="number"
+                              min={0.01}
+                              step={0.01}
+                              placeholder="3.00"
+                              className="w-full bg-surface pl-16 pr-3 py-2 text-white focus:outline-none"
+                              value={form.bid_cap_dollars}
+                              onChange={(e) =>
+                                setForm((p) => ({
+                                  ...p,
+                                  bid_cap_dollars:
+                                    e.target.value === ""
+                                      ? ""
+                                      : Number(e.target.value),
+                                }))
+                              }
+                            />
+                          </div>
+                          <p className={`text-xs font-medium ${helperClass}`}>
+                            {helperText}
+                          </p>
                         </div>
-                        <p className={`text-xs font-medium ${helperClass}`}>{helperText}</p>
-                      </div>
-                    );
-                  })()}
+                      );
+                    })()}
                 </div>
               )}
             </div>
 
             {(reachDaily !== null || reachMonthly !== null) && (
               <div className="mt-2 p-3 rounded-xl border border-[#2a2a2a] bg-[#0f0f0f]">
-                <div className="text-xs text-gray-400 mb-1">Estimated Reach (unique users)</div>
+                <div className="text-xs text-gray-400 mb-1">
+                  Estimated Reach (unique users)
+                </div>
                 <div className="flex items-center gap-6">
                   <div>
                     <div className="text-[11px] text-gray-400">Daily</div>
@@ -508,13 +648,16 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
                   <div>
                     <div className="text-[11px] text-gray-400">Monthly</div>
                     <div className="text-lg font-bold text-[#00C2CB]">
-                      {reachMonthly !== null ? reachMonthly.toLocaleString() : "—"}
+                      {reachMonthly !== null
+                        ? reachMonthly.toLocaleString()
+                        : "—"}
                     </div>
                   </div>
                 </div>
                 {interestsIgnored && (
                   <span className="block mt-1 text-[11px] text-gray-500">
-                    Some typed interests were ignored because they didn’t match official Meta interest IDs.
+                    Some typed interests were ignored because they didn’t match
+                    official Meta interest IDs.
                   </span>
                 )}
               </div>
@@ -525,7 +668,9 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
         {step === 3 && (
           <div className="space-y-4 sm:space-y-6">
             <label className="block">
-              <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Headline</span>
+              <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">
+                Headline
+              </span>
               <input
                 placeholder="Your headline"
                 className={`${INPUT} w-full text-base`}
@@ -535,7 +680,9 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
             </label>
 
             <label className="block">
-              <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Caption</span>
+              <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">
+                Caption
+              </span>
               <textarea
                 placeholder="Say something compelling…"
                 className={`${INPUT} w-full text-base`}
@@ -546,7 +693,9 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
 
             <div className="flex flex-col sm:flex-row gap-3">
               <label className="flex-1 min-w-0">
-                <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Call to Action</span>
+                <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">
+                  Call to Action
+                </span>
                 <select
                   className={`${INPUT} w-full text-base`}
                   value={form.call_to_action}
@@ -558,7 +707,9 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
                 </select>
               </label>
               <label className="flex-1 min-w-0">
-                <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Destination URL</span>
+                <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">
+                  Destination URL
+                </span>
                 <input
                   placeholder="https://your-landing-page.com"
                   className={`${INPUT} w-full text-base`}
@@ -570,7 +721,9 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
 
             <div className="grid sm:grid-cols-2 gap-4">
               <label className="block">
-                <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Upload Video</span>
+                <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">
+                  Upload Video
+                </span>
                 <input
                   type="file"
                   accept="video/*"
@@ -590,7 +743,9 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
               </label>
 
               <label className="block">
-                <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Optional Thumbnail</span>
+                <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">
+                  Optional Thumbnail
+                </span>
                 <input
                   type="file"
                   accept="image/png,image/jpeg,image/webp"
@@ -623,29 +778,40 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
 
             {thumbnailError || !thumbnailFile ? (
               <div className="mt-3 px-3 py-2 border border-[#00C2CB]/50 text-[#00C2CB] text-sm rounded-md bg-[#001F20]/30">
-                {thumbnailError ? thumbnailError : "Please upload a PNG/JPG/WebP thumbnail before submitting."}
+                {thumbnailError
+                  ? thumbnailError
+                  : "Please upload a PNG/JPG/WebP thumbnail before submitting."}
               </div>
             ) : null}
 
             <Disclosure title="How to craft a high‑performing Meta ad (tips & disclaimers)">
               <ul className="list-disc pl-5 space-y-1">
                 <li>
-                  <strong>Hook in 3 seconds:</strong> Front-load the problem and benefit. Keep captions under ~125 characters for feed placements.
+                  <strong>Hook in 3 seconds:</strong> Front-load the problem and
+                  benefit. Keep captions under ~125 characters for feed
+                  placements.
                 </li>
                 <li>
-                  <strong>Clear CTA:</strong> Your button must match intent (e.g., “Shop Now” for sales, “Learn More” for top-funnel).
+                  <strong>Clear CTA:</strong> Your button must match intent
+                  (e.g., “Shop Now” for sales, “Learn More” for top-funnel).
                 </li>
                 <li>
-                  <strong>Mobile-first creative:</strong> Upload 1080×1350 or 1080×1920 where possible; keep safe margins for subtitles.
+                  <strong>Mobile-first creative:</strong> Upload 1080×1350 or
+                  1080×1920 where possible; keep safe margins for subtitles.
                 </li>
                 <li>
-                  <strong>Destination vs Display link:</strong> Destination should be your <em>tracking link</em>; Display can be your brand URL.
+                  <strong>Destination vs Display link:</strong> Destination
+                  should be your <em>tracking link</em>; Display can be your
+                  brand URL.
                 </li>
                 <li>
-                  <strong>Budget realism:</strong> If CPM is high, broaden placements or interests; avoid stacking too many narrow interests.
+                  <strong>Budget realism:</strong> If CPM is high, broaden
+                  placements or interests; avoid stacking too many narrow
+                  interests.
                 </li>
                 <li>
-                  <strong>Compliance:</strong> Don’t include restricted claims. You’re responsible for adhering to Meta’s ad policies.
+                  <strong>Compliance:</strong> Don’t include restricted claims.
+                  You’re responsible for adhering to Meta’s ad policies.
                 </li>
               </ul>
             </Disclosure>
@@ -656,45 +822,88 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
           <div className="space-y-4 sm:space-y-6">
             <div className="grid gap-3">
               <div className="p-4 sm:p-6 rounded-xl border border-[#2a2a2a] bg-[#0f0f0f]">
-                <div className="text-xs uppercase text-gray-400 tracking-wide mb-1">Campaign</div>
-                <div className="text-lg font-semibold text-[#00C2CB]">{form.campaign_name || "Untitled"}</div>
-                <div className="text-sm text-gray-300">Objective: {form.objective.replace("OUTCOME_", "")}</div>
+                <div className="text-xs uppercase text-gray-400 tracking-wide mb-1">
+                  Campaign
+                </div>
+                <div className="text-lg font-semibold text-[#00C2CB]">
+                  {form.campaign_name || "Untitled"}
+                </div>
+                <div className="text-sm text-gray-300">
+                  Objective: {form.objective.replace("OUTCOME_", "")}
+                </div>
               </div>
 
               <div className="p-4 sm:p-6 rounded-xl border border-[#2a2a2a] bg-[#0f0f0f]">
-                <div className="text-xs uppercase text-gray-400 tracking-wide mb-1">Budget</div>
-                <div className="text-lg font-semibold text-[#00C2CB]">${Number(form.budget_amount_dollars || 0).toFixed(2)}</div>
-                <div className="text-sm text-gray-300">Type: <span className="text-[#00C2CB]">{form.budget_type}</span></div>
+                <div className="text-xs uppercase text-gray-400 tracking-wide mb-1">
+                  Budget
+                </div>
+                <div className="text-lg font-semibold text-[#00C2CB]">
+                  ${Number(form.budget_amount_dollars || 0).toFixed(2)}
+                </div>
+                <div className="text-sm text-gray-300">
+                  Type:{" "}
+                  <span className="text-[#00C2CB]">{form.budget_type}</span>
+                </div>
                 {form.bid_strategy === "BID_CAP" && (
                   <div className="text-sm text-gray-300 mt-1">
                     Bid cap:{" "}
                     <span className="text-[#00C2CB]">
-                      {form.bid_cap_dollars ? `$${Number(form.bid_cap_dollars).toFixed(2)}` : "—"}
+                      {form.bid_cap_dollars
+                        ? `$${Number(form.bid_cap_dollars).toFixed(2)}`
+                        : "—"}
                     </span>
                   </div>
                 )}
               </div>
 
               <div className="p-4 sm:p-6 rounded-xl border border-[#2a2a2a] bg-[#0f0f0f]">
-                <div className="text-xs uppercase text-gray-400 tracking-wide mb-1">Targeting</div>
+                <div className="text-xs uppercase text-gray-400 tracking-wide mb-1">
+                  Targeting
+                </div>
                 <div className="text-sm text-gray-300">
-                  {form.location_countries} • {form.age_min}-{form.age_max} • {form.gender === "" ? "All" : form.gender === "1" ? "Male" : "Female"}
+                  {form.location_countries} • {form.age_min}-{form.age_max} •{" "}
+                  {form.gender === ""
+                    ? "All"
+                    : form.gender === "1"
+                      ? "Male"
+                      : "Female"}
                 </div>
                 {form.interests_csv && (
                   <div className="text-sm text-gray-400 mt-1">
-                    Interests: <span className="text-[#00C2CB]">{form.interests_csv}</span>
+                    Interests:{" "}
+                    <span className="text-[#00C2CB]">{form.interests_csv}</span>
                   </div>
                 )}
+                <div className="text-sm text-gray-400 mt-1">
+                  Advantage audience:{" "}
+                  <span
+                    className={
+                      form.advantage_audience
+                        ? "text-emerald-300"
+                        : "text-gray-500"
+                    }
+                  >
+                    {form.advantage_audience ? "Enabled" : "Disabled"}
+                  </span>
+                </div>
               </div>
 
               <div className="p-4 sm:p-6 rounded-xl border border-[#2a2a2a] bg-[#0f0f0f]">
-                <div className="text-xs uppercase text-gray-400 tracking-wide mb-1">Creative</div>
-                <div className="text-lg font-semibold text-[#00C2CB]">{form.headline || "No headline"}</div>
-                <div className="text-sm text-gray-400">{form.caption || "No caption"}</div>
+                <div className="text-xs uppercase text-gray-400 tracking-wide mb-1">
+                  Creative
+                </div>
+                <div className="text-lg font-semibold text-[#00C2CB]">
+                  {form.headline || "No headline"}
+                </div>
+                <div className="text-sm text-gray-400">
+                  {form.caption || "No caption"}
+                </div>
                 <div className="text-sm mt-1 text-gray-300">
                   <div className="flex flex-wrap items-start gap-1 min-w-0">
                     <span>CTA:</span>
-                    <span className="text-[#00C2CB]">{form.call_to_action?.replace("_", " ")}</span>
+                    <span className="text-[#00C2CB]">
+                      {form.call_to_action?.replace("_", " ")}
+                    </span>
                     <span aria-hidden>→</span>
                     <a
                       href={form.display_link || "#"}
@@ -728,20 +937,24 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
               disabled={!canProceed()}
               onClick={() => setStep(step + 1)}
               className={`sm:ml-auto w-full sm:w-auto px-6 py-2 rounded-md transition ${
-                canProceed() ? "bg-[#00C2CB] text-black hover:bg-[#00b0b8]" : "bg-[#1a1a1a] text-gray-500 cursor-not-allowed"
+                canProceed()
+                  ? "bg-[#00C2CB] text-black hover:bg-[#00b0b8]"
+                  : "bg-[#1a1a1a] text-gray-500 cursor-not-allowed"
               }`}
             >
               Next
             </button>
           )}
 
-          {step === 4 && (
-            canRunWithWallet ? (
+          {step === 4 &&
+            (canRunWithWallet ? (
               <button
                 onClick={onSubmitClick}
                 disabled={isSubmitting}
                 className={`sm:ml-auto w-full sm:w-auto px-6 py-2 rounded-md transition flex items-center justify-center gap-2 ${
-                  isSubmitting ? "bg-[#1a1a1a] text-gray-400 cursor-not-allowed" : "bg-[#00C2CB] text-black hover:bg-[#00b0b8]"
+                  isSubmitting
+                    ? "bg-[#1a1a1a] text-gray-400 cursor-not-allowed"
+                    : "bg-[#00C2CB] text-black hover:bg-[#00b0b8]"
                 }`}
               >
                 {isSubmitting ? (
@@ -760,8 +973,7 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
               >
                 Top Up Wallet
               </button>
-            )
-          )}
+            ))}
         </div>
       </div>
     </div>
