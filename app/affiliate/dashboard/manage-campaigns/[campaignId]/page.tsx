@@ -720,7 +720,7 @@ export default function ManageCampaignPage() {
         </div>
 
         {/* Right side: stats */}
-        <div className="w-full min-w-[320px] h-[640px] flex flex-col gap-6">
+        <div className="w-full min-w-0 flex flex-col gap-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-none">
             {/* Spend (Meta) - Paid only */}
             {isMetaPaid && (
