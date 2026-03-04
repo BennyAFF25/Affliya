@@ -26,6 +26,7 @@ function AffiliateLayoutShell({ children }: { children: React.ReactNode }) {
   const mobileTabs: MobileNavTab[] = [
     { id: 'dashboard', label: 'Dashboard', href: '/affiliate/dashboard', icon: <LayoutDashboard size={16} /> },
     { id: 'marketplace', label: 'Marketplace', href: '/affiliate/marketplace', icon: <Store size={16} /> },
+    { id: 'my-shop', label: 'My Shop', href: '/affiliate/dashboard/my-shop', icon: <Store size={16} /> },
     { id: 'inbox', label: 'Inbox', href: '/affiliate/inbox', icon: <Inbox size={16} />, badge: unreadCount },
     { id: 'wallet', label: 'Wallet', href: '/affiliate/wallet', icon: <Wallet size={16} /> },
     { id: 'support', label: 'Support', href: '/affiliate/support', icon: <LifeBuoy size={16} /> },
