@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { ProductCard } from "../components/ProductCard";
 import { ShopHero } from "../components/ShopHero";
 import { ShopGrid } from "../components/ShopGrid";
+import type { ThemePaletteJson } from "../theme";
 import type { ShopThemeKey } from "../theme";
 
 const supabase = createClient(
@@ -32,6 +33,7 @@ interface ShopSettingsRow {
   theme?: ShopThemeKey | null;
   hero_image_url?: string | null;
   hero_blurb?: string | null;
+  theme_json?: ThemePaletteJson | null;
 }
 
 const formatPrice = (price: number | null, currency: string | null) => {
@@ -149,7 +151,7 @@ async function getShopData(handle: string) {
 
   const { data: settingsRow } = await supabase
     .from("affiliate_shop_settings")
-    .select("theme, hero_image_url, hero_blurb")
+    .select("theme, hero_image_url, hero_blurb, theme_json")
     .eq("affiliate_email", affiliateEmail)
     .maybeSingle();
 
@@ -177,6 +179,7 @@ async function getShopData(handle: string) {
       theme: (settings.theme as ShopThemeKey) || "midnight",
       hero_image_url: settings.hero_image_url || null,
       hero_blurb: settings.hero_blurb || null,
+      palette: (settings.theme_json as ThemePaletteJson) || null,
     },
     metrics: {
       averagePrice,
@@ -208,17 +211,6 @@ export default async function ShopPage({
   }
 
   const shopUrl = `https://www.nettmark.com/shop/${params.handle}`;
-  const stats = [
-    {
-      label: "Offers live",
-      value: data!.offers.length
-        ? data!.offers.length.toString().padStart(2, "0")
-        : "00",
-    },
-    { label: "Views 24h", value: data!.metrics?.views24h.toString() ?? "0" },
-    { label: "Clicks 24h", value: data!.metrics?.clicks24h.toString() ?? "0" },
-    { label: "Avg price", value: data!.metrics?.averagePrice ?? "Dynamic" },
-  ];
   const hasOffers = data!.offers.length > 0;
 
   return (
@@ -231,24 +223,35 @@ export default async function ShopPage({
           tagline={data!.affiliate.bio}
           heroBlurb={data!.settings.hero_blurb}
           heroImageUrl={data!.settings.hero_image_url}
-          stats={stats}
           theme={data!.settings.theme}
+          customPalette={data!.settings.palette}
         />
 
         {hasOffers ? (
-          <ShopGrid>
-            {data!.offers.map((offer) => (
-              <ProductCard
-                key={offer.id}
-                title={offer.title}
-                description={offer.description}
-                price={offer.priceLabel}
-                imageUrl={offer.image}
-                ctaHref={`/go/${offer.id}___${data!.affiliate.email}`}
-                theme={data!.settings.theme}
-              />
-            ))}
-          </ShopGrid>
+          <>
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-lg font-semibold text-white">
+                Featured drops
+              </h2>
+              <span className="text-sm text-white/60">
+                {data!.offers.length} offers
+              </span>
+            </div>
+            <ShopGrid>
+              {data!.offers.map((offer) => (
+                <ProductCard
+                  key={offer.id}
+                  title={offer.title}
+                  description={offer.description}
+                  price={offer.priceLabel}
+                  imageUrl={offer.image}
+                  ctaHref={`/go/${offer.id}___${data!.affiliate.email}`}
+                  theme={data!.settings.theme}
+                  customPalette={data!.settings.palette}
+                />
+              ))}
+            </ShopGrid>
+          </>
         ) : (
           <div className="rounded-[32px] border border-dashed border-white/15 bg-white/[0.02] p-10 text-center space-y-4">
             <p className="text-white/70">

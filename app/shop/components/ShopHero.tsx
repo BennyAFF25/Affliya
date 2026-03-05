@@ -1,30 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import {
-  Share2,
-  Link2,
-  Sparkles,
-  Activity,
-  ShieldCheck,
-  ShoppingBag,
-} from "lucide-react";
-import type { ShopThemeKey } from "../theme";
-import { SHOP_THEMES } from "../theme";
-
-const iconMap = {
-  sparkles: Sparkles,
-  activity: Activity,
-  shield: ShieldCheck,
-  bag: ShoppingBag,
-};
-
-interface Stat {
-  label: string;
-  value: string;
-  hint?: string;
-  icon?: keyof typeof iconMap;
-}
+import { Share2, Link2 } from "lucide-react";
+import type { ShopThemeKey, ThemePaletteJson } from "../theme";
+import { resolveTheme } from "../theme";
 
 interface ShopHeroProps {
   name: string;
@@ -34,8 +13,8 @@ interface ShopHeroProps {
   tagline?: string | null;
   heroBlurb?: string | null;
   heroImageUrl?: string | null;
-  stats?: Stat[];
   theme?: ShopThemeKey;
+  customPalette?: ThemePaletteJson | null;
 }
 
 export function ShopHero({
@@ -46,11 +25,11 @@ export function ShopHero({
   tagline,
   heroBlurb,
   heroImageUrl,
-  stats = [],
   theme = "midnight",
+  customPalette = null,
 }: ShopHeroProps) {
   const [copied, setCopied] = useState(false);
-  const themeStyles = SHOP_THEMES[theme] ?? SHOP_THEMES.midnight;
+  const themeStyles = resolveTheme(theme, customPalette);
 
   const handleCopy = async () => {
     try {
@@ -110,7 +89,7 @@ export function ShopHero({
             )}
             <div className="space-y-3">
               <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.3em] text-white/70">
-                <span>Nettmark creator</span>
+                <span>Trusted Nettmark storefront</span>
                 {handle && (
                   <span
                     className="rounded-full px-3 py-1 text-[11px] tracking-[0.2em] normal-case"
@@ -125,7 +104,7 @@ export function ShopHero({
               </h1>
               <p className="text-base sm:text-lg text-white/80 max-w-2xl">
                 {tagline ||
-                  "Curated offers with instant Nettmark tracking + payouts."}
+                  "Hand-picked offers from top Nettmark partners. Every product ships directly from the brand."}
               </p>
             </div>
           </div>
@@ -149,8 +128,8 @@ export function ShopHero({
                   color: "#f9fafb",
                 }}
               >
-                <Share2 size={16} />{" "}
-                {copied ? "Link copied" : "Share storefront"}
+                <Share2 size={16} />
+                {copied ? "Link copied" : "Share with friends"}
               </button>
               <a
                 href={shopUrl}
@@ -162,53 +141,22 @@ export function ShopHero({
                   color: theme === "luminous" ? "#111827" : "#000",
                 }}
               >
-                <Link2 size={16} /> Follow storefront
+                <Link2 size={16} /> Visit shop
               </a>
             </div>
           </div>
         </div>
 
-        {(stats.length > 0 || heroBlurb) && (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {stats.map((stat) => {
-              const Icon = iconMap[stat.icon || "sparkles"] || Sparkles;
-              return (
-                <div
-                  key={stat.label}
-                  className="rounded-3xl border px-4 py-5 backdrop-blur"
-                  style={{
-                    borderColor: themeStyles.cardBorder,
-                    background: "rgba(0,0,0,0.15)",
-                  }}
-                >
-                  <div
-                    className="flex items-center gap-2 text-xs uppercase tracking-[0.2em]"
-                    style={{ color: themeStyles.accentSoft }}
-                  >
-                    <Icon size={14} />
-                    {stat.label}
-                  </div>
-                  <p className="text-2xl font-semibold text-white mt-2">
-                    {stat.value}
-                  </p>
-                  {stat.hint && (
-                    <p className="text-xs text-white/70 mt-1">{stat.hint}</p>
-                  )}
-                </div>
-              );
-            })}
-            {heroBlurb && (
-              <div
-                className="rounded-3xl border px-4 py-5 text-sm"
-                style={{
-                  borderColor: themeStyles.cardBorder,
-                  color: "#f4f4f5",
-                  background: "rgba(0,0,0,0.2)",
-                }}
-              >
-                {heroBlurb}
-              </div>
-            )}
+        {heroBlurb && (
+          <div
+            className="rounded-3xl border px-4 py-5 text-sm leading-relaxed"
+            style={{
+              borderColor: themeStyles.cardBorder,
+              color: "#f4f4f5",
+              background: "rgba(0,0,0,0.2)",
+            }}
+          >
+            {heroBlurb}
           </div>
         )}
       </div>

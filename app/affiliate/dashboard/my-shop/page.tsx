@@ -3,7 +3,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSessionContext } from "@supabase/auth-helpers-react";
 import { supabase } from "@/../utils/supabase/pages-client";
-import { SHOP_THEMES, type ShopThemeKey } from "../../../shop/theme";
+import {
+  SHOP_THEMES,
+  type ShopThemeKey,
+  type ThemePaletteJson,
+} from "../../../shop/theme";
 
 interface ShopRow {
   offer_id: string;
@@ -45,7 +49,22 @@ const THEME_OPTIONS: Array<{
     label: "Muted Neon",
     preview: "linear-gradient(135deg,#120c1f,#041a21)",
   },
+  {
+    key: "custom",
+    label: "Custom",
+    preview: "linear-gradient(135deg,#f4f4f5,#e2e8f0)",
+  },
 ];
+
+const DEFAULT_CUSTOM_PALETTE: ThemePaletteJson = {
+  heroBackground: "linear-gradient(135deg, #f4f4f5 0%, #e2e8f0 100%)",
+  heroOverlay:
+    "radial-gradient(circle at top, rgba(0,0,0,0.05), transparent 60%)",
+  cardBackground: "#ffffff",
+  cardBorder: "rgba(15,23,42,0.08)",
+  accent: "#0f172a",
+  accentSoft: "#475569",
+};
 
 export default function MyShopPage() {
   const { session } = useSessionContext();
@@ -61,14 +80,24 @@ export default function MyShopPage() {
   const [heroImageUrl, setHeroImageUrl] = useState<string | null>(null);
   const [heroBlurb, setHeroBlurb] = useState("");
   const [stats, setStats] = useState<ShopStats>({ views24h: 0, clicks24h: 0 });
+  const [customPalette, setCustomPalette] = useState<ThemePaletteJson>(
+    DEFAULT_CUSTOM_PALETTE,
+  );
+  const [initialTheme, setInitialTheme] = useState<ShopThemeKey>("midnight");
+  const [initialHeroImageUrl, setInitialHeroImageUrl] = useState<string | null>(
+    null,
+  );
+  const [initialHeroBlurb, setInitialHeroBlurb] = useState("");
+  const [initialPalette, setInitialPalette] = useState<ThemePaletteJson>(
+    DEFAULT_CUSTOM_PALETTE,
+  );
 
   const username = (session?.user?.user_metadata as any)?.username;
-  const [handle, setHandle] = useState<string>(username || '');
+  const [handle, setHandle] = useState<string>(username || "");
   const [handleSaved, setHandleSaved] = useState<boolean>(!!username);
   const [handleSaving, setHandleSaving] = useState(false);
-  const shopLink = handleSaved && handle
-    ? `https://www.nettmark.com/shop/${handle}`
-    : null;
+  const shopLink =
+    handleSaved && handle ? `https://www.nettmark.com/shop/${handle}` : null;
 
   useEffect(() => {
     if (!session?.user?.email) return;
@@ -127,24 +156,40 @@ export default function MyShopPage() {
 
         const { data: settingsRow } = await supabase
           .from("affiliate_shop_settings")
-          .select("theme, hero_image_url, hero_blurb")
+          .select("theme, hero_image_url, hero_blurb, theme_json")
           .eq("affiliate_email", session.user.email)
           .maybeSingle();
 
         if (settingsRow) {
-          setTheme((settingsRow.theme as ShopThemeKey) || "midnight");
+          const palette = {
+            ...DEFAULT_CUSTOM_PALETTE,
+            ...(settingsRow.theme_json || {}),
+          };
+          const nextTheme = (settingsRow.theme as ShopThemeKey) || "midnight";
+          setTheme(nextTheme);
           setHeroImageUrl(settingsRow.hero_image_url || null);
           setHeroBlurb(settingsRow.hero_blurb || "");
+          setCustomPalette(palette);
+          setInitialTheme(nextTheme);
+          setInitialHeroImageUrl(settingsRow.hero_image_url || null);
+          setInitialHeroBlurb(settingsRow.hero_blurb || "");
+          setInitialPalette(palette);
         } else {
           setTheme("midnight");
           setHeroImageUrl(null);
           setHeroBlurb("");
+          setCustomPalette(DEFAULT_CUSTOM_PALETTE);
+          setInitialTheme("midnight");
+          setInitialHeroImageUrl(null);
+          setInitialHeroBlurb("");
+          setInitialPalette(DEFAULT_CUSTOM_PALETTE);
         }
 
-        const profileHandle = (session?.user?.user_metadata as any)?.username || '';
+        const profileHandle =
+          (session?.user?.user_metadata as any)?.username || "";
         setHandle(profileHandle);
         setHandleSaved(!!profileHandle);
-      return () => {};
+        return () => {};
       } catch (err: any) {
         console.error("[MyShop] load failed", err);
         setError("Failed to load shop data.");
@@ -171,30 +216,39 @@ export default function MyShopPage() {
 
   const featuredProduct = rows[0]?.offer.title ?? "—";
 
+  const themeSettingsDirty =
+    theme !== initialTheme ||
+    heroImageUrl !== initialHeroImageUrl ||
+    heroBlurb !== initialHeroBlurb ||
+    (theme === "custom" &&
+      JSON.stringify(customPalette) !== JSON.stringify(initialPalette));
+
   const handleHandleSave = async () => {
     if (!handle.trim()) {
-      setError('Handle cannot be empty.');
+      setError("Handle cannot be empty.");
       return;
     }
     setHandleSaving(true);
     setError(null);
     setMessage(null);
     try {
-      const res = await fetch('/api/my-shop/handle', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/my-shop/handle", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ handle }),
       });
       const json = await res.json();
       if (!res.ok) {
-        throw new Error(json?.message || json?.error || 'Failed to save handle');
+        throw new Error(
+          json?.message || json?.error || "Failed to save handle",
+        );
       }
       setHandle(json.handle);
       setHandleSaved(true);
-      setMessage('Handle updated');
+      setMessage("Handle updated");
     } catch (err: any) {
-      console.error('[MyShop] handle save failed', err);
-      setError(err.message || 'Failed to save handle');
+      console.error("[MyShop] handle save failed", err);
+      setError(err.message || "Failed to save handle");
     } finally {
       setHandleSaving(false);
     }
@@ -279,6 +333,7 @@ export default function MyShopPage() {
             theme,
             hero_image_url: heroImageUrl,
             hero_blurb: heroBlurb,
+            palette: theme === "custom" ? customPalette : null,
           },
         }),
       });
@@ -288,6 +343,12 @@ export default function MyShopPage() {
         throw new Error(json?.error || "Save failed");
       }
 
+      setInitialTheme(theme);
+      setInitialHeroImageUrl(heroImageUrl || null);
+      setInitialHeroBlurb(heroBlurb);
+      setInitialPalette(
+        theme === "custom" ? customPalette : DEFAULT_CUSTOM_PALETTE,
+      );
       setMessage("Shop updated");
     } catch (err: any) {
       console.error("[MyShop] save failed", err);
@@ -332,14 +393,22 @@ export default function MyShopPage() {
 
         <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-4 space-y-3">
           <div className="flex flex-col gap-1">
-            <span className="text-xs uppercase tracking-[0.3em] text-white/50">Shop handle</span>
-            <p className="text-sm text-white/60">Pick a public URL slug. Lowercase letters, numbers, and dashes only.</p>
+            <span className="text-xs uppercase tracking-[0.3em] text-white/50">
+              Shop handle
+            </span>
+            <p className="text-sm text-white/60">
+              Pick a public URL slug. Lowercase letters, numbers, and dashes
+              only.
+            </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-3">
             <input
               type="text"
               value={handle}
-              onChange={(e) => { setHandle(e.target.value.toLowerCase()); setHandleSaved(false); }}
+              onChange={(e) => {
+                setHandle(e.target.value.toLowerCase());
+                setHandleSaved(false);
+              }}
               placeholder="e.g. nettmark"
               className="flex-1 rounded-xl border border-white/10 bg-black/30 px-4 py-2 text-sm"
             />
@@ -349,7 +418,7 @@ export default function MyShopPage() {
               disabled={handleSaving}
               className="rounded-full bg-[#00C2CB] px-4 py-2 text-sm font-semibold text-black hover:bg-[#00b0b8] disabled:opacity-60"
             >
-              {handleSaving ? 'Saving…' : 'Save handle'}
+              {handleSaving ? "Saving…" : "Save handle"}
             </button>
           </div>
         </div>
@@ -439,6 +508,78 @@ export default function MyShopPage() {
           </div>
         </div>
 
+        {theme === "custom" && (
+          <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-4 space-y-4">
+            <div className="flex flex-col gap-2">
+              <span className="text-xs uppercase tracking-[0.3em] text-white/50">
+                Custom palette
+              </span>
+              <p className="text-sm text-white/60">
+                Tune your storefront colors. Gradient fields accept plain colors
+                or full CSS gradients.
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {[
+                { key: "accent", label: "Accent color" },
+                { key: "accentSoft", label: "Accent soft" },
+                { key: "cardBackground", label: "Card background" },
+                { key: "cardBorder", label: "Card border" },
+              ].map((field) => (
+                <label
+                  key={field.key}
+                  className="text-xs text-white/50 flex flex-col gap-1"
+                >
+                  {field.label}
+                  <input
+                    type="color"
+                    value={(customPalette as any)[field.key] || "#ffffff"}
+                    onChange={(e) =>
+                      setCustomPalette((prev) => ({
+                        ...prev,
+                        [field.key]: e.target.value,
+                      }))
+                    }
+                    className="h-10 w-full rounded border border-white/10 bg-black/30 cursor-pointer"
+                  />
+                </label>
+              ))}
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="text-xs text-white/50">
+                Hero background (color or gradient)
+                <input
+                  type="text"
+                  value={customPalette.heroBackground || ""}
+                  onChange={(e) =>
+                    setCustomPalette((prev) => ({
+                      ...prev,
+                      heroBackground: e.target.value,
+                    }))
+                  }
+                  className="mt-1 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm"
+                  placeholder="linear-gradient(...)"
+                />
+              </label>
+              <label className="text-xs text-white/50">
+                Hero overlay (optional)
+                <input
+                  type="text"
+                  value={customPalette.heroOverlay || ""}
+                  onChange={(e) =>
+                    setCustomPalette((prev) => ({
+                      ...prev,
+                      heroOverlay: e.target.value,
+                    }))
+                  }
+                  className="mt-1 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm"
+                  placeholder="radial-gradient(...)"
+                />
+              </label>
+            </div>
+          </div>
+        )}
+
         <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-4 space-y-4">
           <div className="flex flex-col gap-2">
             <span className="text-xs uppercase tracking-[0.3em] text-white/50">
@@ -456,7 +597,11 @@ export default function MyShopPage() {
                 className="rounded-full border border-white/20 px-4 py-2 text-sm text-white hover:bg-white/10"
                 disabled={heroUploading || !handleSaved}
               >
-                {heroUploading ? "Uploading…" : handleSaved ? "Upload hero image" : "Set handle first"}
+                {heroUploading
+                  ? "Uploading…"
+                  : handleSaved
+                    ? "Upload hero image"
+                    : "Set handle first"}
               </button>
               {heroImageUrl && (
                 <button
@@ -501,7 +646,8 @@ export default function MyShopPage() {
 
         {!handleSaved ? (
           <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-8 text-center text-white/70">
-            Set your shop handle above to unlock product customization and generate your NettmarkShop link.
+            Set your shop handle above to unlock product customization and
+            generate your NettmarkShop link.
           </div>
         ) : rows.length === 0 ? (
           <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-8 text-center text-white/70">
@@ -647,8 +793,7 @@ export default function MyShopPage() {
           </div>
         )}
 
-        {(rows.length > 0 ||
-          themeSettingsChanged(theme, heroImageUrl, heroBlurb)) && (
+        {handleSaved && (rows.length > 0 || themeSettingsDirty) && (
           <div className="flex justify-end">
             <button
               onClick={handleSave}
@@ -662,12 +807,4 @@ export default function MyShopPage() {
       </div>
     </div>
   );
-}
-
-function themeSettingsChanged(
-  theme: ShopThemeKey,
-  heroImageUrl: string | null,
-  heroBlurb: string,
-) {
-  return theme !== "midnight" || !!heroImageUrl || !!heroBlurb;
 }

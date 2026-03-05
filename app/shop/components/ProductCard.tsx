@@ -2,8 +2,12 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowUpRight, Sparkles, ShieldCheck } from "lucide-react";
-import { SHOP_THEMES, type ShopThemeKey } from "../theme";
+import { ArrowUpRight } from "lucide-react";
+import {
+  resolveTheme,
+  type ShopThemeKey,
+  type ThemePaletteJson,
+} from "../theme";
 
 interface ProductCardProps {
   title: string;
@@ -12,6 +16,7 @@ interface ProductCardProps {
   imageUrl?: string | null;
   ctaHref: string;
   theme?: ShopThemeKey;
+  customPalette?: ThemePaletteJson | null;
 }
 
 export function ProductCard({
@@ -22,7 +27,7 @@ export function ProductCard({
   ctaHref,
   theme = "midnight",
 }: ProductCardProps) {
-  const themeStyles = SHOP_THEMES[theme] ?? SHOP_THEMES.midnight;
+  const themeStyles = resolveTheme(theme, customPalette);
   const ctaTextColor = theme === "luminous" ? "#111827" : "#000";
 
   return (
@@ -81,18 +86,14 @@ export function ProductCard({
           )}
         </div>
         <div
-          className="grid grid-cols-2 gap-2 text-xs border rounded-2xl px-3 py-2"
+          className="text-xs rounded-2xl px-3 py-2"
           style={{
-            borderColor: themeStyles.cardBorder,
+            backgroundColor:
+              theme === "luminous" ? "rgba(15,23,42,0.05)" : "rgba(0,0,0,0.15)",
             color: themeStyles.accentSoft,
           }}
         >
-          <span className="inline-flex items-center gap-1">
-            <Sparkles size={14} /> High-intent
-          </span>
-          <span className="inline-flex items-center gap-1">
-            <ShieldCheck size={14} /> Tracked payout
-          </span>
+          Loved by Nettmark shoppers · Tap to view details
         </div>
       </div>
 

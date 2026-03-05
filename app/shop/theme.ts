@@ -1,17 +1,20 @@
-export type ShopThemeKey = "midnight" | "luminous" | "neon";
+export type ShopThemeKey = "midnight" | "luminous" | "neon" | "custom";
 
-export const SHOP_THEMES: Record<
-  ShopThemeKey,
-  {
-    name: string;
-    heroBackground: string;
-    heroOverlay?: string;
-    cardBackground: string;
-    cardBorder: string;
-    accent: string;
-    accentSoft: string;
-  }
-> = {
+export type ThemeStyles = {
+  name: string;
+  heroBackground: string;
+  heroOverlay?: string;
+  cardBackground: string;
+  cardBorder: string;
+  accent: string;
+  accentSoft: string;
+};
+
+export type ThemePaletteJson = Partial<Omit<ThemeStyles, "name">> & {
+  name?: string;
+};
+
+export const SHOP_THEMES: Record<ShopThemeKey, ThemeStyles> = {
   midnight: {
     name: "Midnight",
     heroBackground:
@@ -44,6 +47,36 @@ export const SHOP_THEMES: Record<
     accent: "#ff3fb4",
     accentSoft: "#ff9cdc",
   },
+  custom: {
+    name: "Custom",
+    heroBackground: "linear-gradient(135deg, #f4f4f5 0%, #e2e8f0 100%)",
+    heroOverlay:
+      "radial-gradient(circle at top, rgba(0,0,0,0.05), transparent 60%)",
+    cardBackground: "rgba(255,255,255,0.95)",
+    cardBorder: "rgba(15,23,42,0.08)",
+    accent: "#0f172a",
+    accentSoft: "#334155",
+  },
 };
 
 export const DEFAULT_SHOP_THEME: ShopThemeKey = "midnight";
+
+export function resolveTheme(
+  theme: ShopThemeKey,
+  custom?: ThemePaletteJson | null,
+): ThemeStyles {
+  if (theme === "custom" && custom) {
+    const base = SHOP_THEMES.midnight;
+    return {
+      ...base,
+      ...custom,
+      name: custom.name || "Custom",
+      heroBackground: custom.heroBackground || base.heroBackground,
+      cardBackground: custom.cardBackground || base.cardBackground,
+      cardBorder: custom.cardBorder || base.cardBorder,
+      accent: custom.accent || base.accent,
+      accentSoft: custom.accentSoft || base.accentSoft,
+    };
+  }
+  return SHOP_THEMES[theme] || SHOP_THEMES.midnight;
+}

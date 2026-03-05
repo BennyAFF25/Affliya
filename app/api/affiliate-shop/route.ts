@@ -20,6 +20,7 @@ export async function POST(request: Request) {
       theme?: string;
       hero_image_url?: string | null;
       hero_blurb?: string | null;
+      palette?: Record<string, any> | null;
     };
   } = await request.json();
 
@@ -59,11 +60,16 @@ export async function POST(request: Request) {
 
     if (themeSettings) {
       const themeKey = (themeSettings.theme || "midnight").toLowerCase();
+      const palettePayload =
+        themeKey === "custom" && themeSettings.palette
+          ? themeSettings.palette
+          : null;
       const settingsPayload = {
         affiliate_email: user.email,
         theme: themeKey,
         hero_image_url: themeSettings.hero_image_url?.trim() || null,
         hero_blurb: themeSettings.hero_blurb?.trim() || null,
+        theme_json: palettePayload,
         updated_at: new Date().toISOString(),
       };
 
