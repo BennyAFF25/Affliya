@@ -61,16 +61,19 @@ export function ProductCard({
           >
             {price || "View details"}
           </span>
-          <span
-            className="inline-flex items-center gap-1 rounded-full border px-3 py-1 text-[11px] uppercase tracking-[0.15em]"
-            style={{
-              borderColor: themeStyles.cardBorder,
-              color: themeStyles.accentSoft,
-            }}
-          >
-            Nettmark
-          </span>
         </div>
+        <span
+          className="absolute top-3 right-3 inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em]"
+          style={{
+            backgroundColor:
+              theme === "luminous"
+                ? "rgba(17,23,42,0.1)"
+                : "rgba(255,255,255,0.08)",
+            color: themeStyles.accentSoft,
+          }}
+        >
+          <Sparkles size={12} /> Curated
+        </span>
       </div>
 
       <div className="flex flex-col gap-4 mt-5 flex-1">
@@ -85,15 +88,16 @@ export function ProductCard({
             <p className="text-sm text-white/70 line-clamp-3">{description}</p>
           )}
         </div>
-        <div
-          className="text-xs rounded-2xl px-3 py-2"
-          style={{
-            backgroundColor:
-              theme === "luminous" ? "rgba(15,23,42,0.05)" : "rgba(0,0,0,0.15)",
-            color: themeStyles.accentSoft,
-          }}
-        >
-          Loved by Nettmark shoppers · Tap to view details
+        <div className="flex items-center justify-between text-xs mt-3">
+          <span
+            className="inline-flex items-center gap-1"
+            style={{ color: themeStyles.accentSoft }}
+          >
+            <ShoppingBag size={14} /> Ships direct
+          </span>
+          <span className="inline-flex items-center gap-1 text-white/70">
+            Tap to view <ArrowUpRight size={14} />
+          </span>
         </div>
       </div>
 

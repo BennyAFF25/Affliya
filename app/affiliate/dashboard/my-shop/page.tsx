@@ -732,34 +732,6 @@ export default function MyShopPage() {
                     )}
                   </div>
                   <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                    <label className="text-xs text-white/50">
-                      Image URL
-                      <input
-                        type="text"
-                        className="mt-1 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm"
-                        value={override?.custom_image_url ?? ""}
-                        onChange={(e) =>
-                          updateOverride(offer.id, {
-                            custom_image_url: e.target.value,
-                          })
-                        }
-                        placeholder={offer.logo_url || "https://…"}
-                      />
-                    </label>
-                    <label className="text-xs text-white/50">
-                      Price label
-                      <input
-                        type="text"
-                        className="mt-1 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm"
-                        value={override?.custom_price ?? ""}
-                        onChange={(e) =>
-                          updateOverride(offer.id, {
-                            custom_price: e.target.value,
-                          })
-                        }
-                        placeholder="$49.00"
-                      />
-                    </label>
                     <label className="text-xs text-white/50 sm:col-span-2">
                       Short description
                       <textarea
