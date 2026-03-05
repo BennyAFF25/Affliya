@@ -63,8 +63,11 @@ export default function MyShopPage() {
   const [stats, setStats] = useState<ShopStats>({ views24h: 0, clicks24h: 0 });
 
   const username = (session?.user?.user_metadata as any)?.username;
-  const shopLink = username
-    ? `https://www.nettmark.com/shop/${username}`
+  const [handle, setHandle] = useState<string>(username || '');
+  const [handleSaved, setHandleSaved] = useState<boolean>(!!username);
+  const [handleSaving, setHandleSaving] = useState(false);
+  const shopLink = handleSaved && handle
+    ? `https://www.nettmark.com/shop/${handle}`
     : null;
 
   useEffect(() => {
@@ -137,6 +140,11 @@ export default function MyShopPage() {
           setHeroImageUrl(null);
           setHeroBlurb("");
         }
+
+        const profileHandle = (session?.user?.user_metadata as any)?.username || '';
+        setHandle(profileHandle);
+        setHandleSaved(!!profileHandle);
+      return () => {};
       } catch (err: any) {
         console.error("[MyShop] load failed", err);
         setError("Failed to load shop data.");
@@ -162,6 +170,35 @@ export default function MyShopPage() {
   }, [offers, overrides]);
 
   const featuredProduct = rows[0]?.offer.title ?? "—";
+
+  const handleHandleSave = async () => {
+    if (!handle.trim()) {
+      setError('Handle cannot be empty.');
+      return;
+    }
+    setHandleSaving(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const res = await fetch('/api/my-shop/handle', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ handle }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json?.message || json?.error || 'Failed to save handle');
+      }
+      setHandle(json.handle);
+      setHandleSaved(true);
+      setMessage('Handle updated');
+    } catch (err: any) {
+      console.error('[MyShop] handle save failed', err);
+      setError(err.message || 'Failed to save handle');
+    } finally {
+      setHandleSaving(false);
+    }
+  };
 
   const updateOverride = (offerId: string, patch: Partial<ShopRow>) => {
     setOverrides((prev) => ({
@@ -293,7 +330,31 @@ export default function MyShopPage() {
           </p>
         </header>
 
-        {shopLink && (
+        <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-4 space-y-3">
+          <div className="flex flex-col gap-1">
+            <span className="text-xs uppercase tracking-[0.3em] text-white/50">Shop handle</span>
+            <p className="text-sm text-white/60">Pick a public URL slug. Lowercase letters, numbers, and dashes only.</p>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <input
+              type="text"
+              value={handle}
+              onChange={(e) => { setHandle(e.target.value.toLowerCase()); setHandleSaved(false); }}
+              placeholder="e.g. nettmark"
+              className="flex-1 rounded-xl border border-white/10 bg-black/30 px-4 py-2 text-sm"
+            />
+            <button
+              type="button"
+              onClick={handleHandleSave}
+              disabled={handleSaving}
+              className="rounded-full bg-[#00C2CB] px-4 py-2 text-sm font-semibold text-black hover:bg-[#00b0b8] disabled:opacity-60"
+            >
+              {handleSaving ? 'Saving…' : 'Save handle'}
+            </button>
+          </div>
+        </div>
+
+        {handleSaved && shopLink ? (
           <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
             <span className="text-xs text-white/60 break-all">{shopLink}</span>
             <button
@@ -303,7 +364,7 @@ export default function MyShopPage() {
               Copy link
             </button>
           </div>
-        )}
+        ) : null}
 
         {error && (
           <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm text-red-200">
@@ -393,9 +454,9 @@ export default function MyShopPage() {
                 type="button"
                 onClick={() => document.getElementById("heroUpload")?.click()}
                 className="rounded-full border border-white/20 px-4 py-2 text-sm text-white hover:bg-white/10"
-                disabled={heroUploading}
+                disabled={heroUploading || !handleSaved}
               >
-                {heroUploading ? "Uploading…" : "Upload hero image"}
+                {heroUploading ? "Uploading…" : handleSaved ? "Upload hero image" : "Set handle first"}
               </button>
               {heroImageUrl && (
                 <button
@@ -438,7 +499,11 @@ export default function MyShopPage() {
           </div>
         </div>
 
-        {rows.length === 0 ? (
+        {!handleSaved ? (
+          <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-8 text-center text-white/70">
+            Set your shop handle above to unlock product customization and generate your NettmarkShop link.
+          </div>
+        ) : rows.length === 0 ? (
           <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-8 text-center text-white/70">
             No approved offers yet. Once a business approves you, the offers
             will appear here.
