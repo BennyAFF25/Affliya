@@ -214,8 +214,8 @@ export default async function ShopPage({
   const hasOffers = data!.offers.length > 0;
 
   return (
-    <div className="min-h-screen bg-[#010508] text-white px-4 py-10">
-      <div className="max-w-5xl mx-auto space-y-6">
+    <div className="min-h-screen bg-[#010508] text-white px-4 py-10 overflow-x-hidden">
+      <div className="max-w-5xl mx-auto space-y-6 overflow-x-hidden">
         <ShopHero
           name={data!.affiliate.name}
           avatarUrl={data!.affiliate.avatar_url}
@@ -226,7 +226,9 @@ export default async function ShopPage({
           theme={data!.settings.theme}
           customPalette={data!.settings.palette}
         />
-        <div className="h-12 w-full rounded-full bg-gradient-to-r from-transparent via-white/10 to-transparent blur-3xl" />
+        <div className="relative overflow-hidden">
+          <div className="pointer-events-none h-12 w-full rounded-full bg-gradient-to-r from-transparent via-white/10 to-transparent blur-3xl" />
+        </div>
 
         {hasOffers ? (
           <>

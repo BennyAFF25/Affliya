@@ -43,7 +43,7 @@ export function ShopHero({
 
   return (
     <section
-      className="relative overflow-hidden rounded-[36px] border p-6 sm:p-10 shadow-[0_30px_90px_rgba(0,0,0,0.65)]"
+      className="relative w-full overflow-hidden rounded-[36px] border p-6 sm:p-10 shadow-[0_30px_90px_rgba(0,0,0,0.65)]"
       style={{
         borderColor: themeStyles.cardBorder,
         background: themeStyles.heroBackground,
