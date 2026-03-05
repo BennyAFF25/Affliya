@@ -1,24 +1,56 @@
 "use client";
 
 import { useState } from "react";
-import { Share2, Link2 } from "lucide-react";
+import {
+  Share2,
+  Link2,
+  Sparkles,
+  Activity,
+  ShieldCheck,
+  ShoppingBag,
+} from "lucide-react";
+import type { ShopThemeKey } from "../theme";
+import { SHOP_THEMES } from "../theme";
+
+const iconMap = {
+  sparkles: Sparkles,
+  activity: Activity,
+  shield: ShieldCheck,
+  bag: ShoppingBag,
+};
+
+interface Stat {
+  label: string;
+  value: string;
+  hint?: string;
+  icon?: keyof typeof iconMap;
+}
 
 interface ShopHeroProps {
   name: string;
+  handle?: string | null;
   avatarUrl?: string | null;
   shopUrl: string;
   tagline?: string | null;
-  stats?: { label: string; value: string }[];
+  heroBlurb?: string | null;
+  heroImageUrl?: string | null;
+  stats?: Stat[];
+  theme?: ShopThemeKey;
 }
 
 export function ShopHero({
   name,
+  handle,
   avatarUrl,
   shopUrl,
   tagline,
+  heroBlurb,
+  heroImageUrl,
   stats = [],
+  theme = "midnight",
 }: ShopHeroProps) {
   const [copied, setCopied] = useState(false);
+  const themeStyles = SHOP_THEMES[theme] ?? SHOP_THEMES.midnight;
 
   const handleCopy = async () => {
     try {
@@ -31,70 +63,152 @@ export function ShopHero({
   };
 
   return (
-    <section className="relative overflow-hidden rounded-[32px] border border-white/10 bg-gradient-to-r from-[#031319] via-[#02070a] to-[#041926] p-6 sm:p-8 shadow-[0_25px_80px_rgba(0,0,0,0.65)]">
-      <div className="absolute inset-0 opacity-30 bg-[radial-gradient(circle_at_top,_rgba(0,194,203,0.4),_transparent_55%)]" />
-      <div className="relative flex flex-col gap-6">
-        <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-4">
+    <section
+      className="relative overflow-hidden rounded-[36px] border p-6 sm:p-10 shadow-[0_30px_90px_rgba(0,0,0,0.65)]"
+      style={{
+        borderColor: themeStyles.cardBorder,
+        background: themeStyles.heroBackground,
+      }}
+    >
+      {themeStyles.heroOverlay && (
+        <div
+          className="absolute inset-0"
+          style={{ backgroundImage: themeStyles.heroOverlay }}
+        />
+      )}
+      {heroImageUrl && (
+        <div
+          className="absolute inset-0 opacity-45"
+          style={{
+            backgroundImage: `url(${heroImageUrl})`,
+            backgroundSize: "cover",
+            backgroundPosition: "center",
+          }}
+        />
+      )}
+      <div className="relative flex flex-col gap-8">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-start gap-5">
             {avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={avatarUrl}
                 alt={name}
-                className="h-24 w-24 rounded-[28px] object-cover border border-white/20"
+                className="h-28 w-28 rounded-[32px] object-cover border"
+                style={{ borderColor: themeStyles.cardBorder }}
               />
             ) : (
-              <div className="h-24 w-24 rounded-[28px] bg-white/10 text-3xl font-semibold grid place-items-center">
+              <div
+                className="h-28 w-28 rounded-[32px] grid place-items-center text-3xl font-semibold"
+                style={{
+                  backgroundColor: "rgba(0,0,0,0.15)",
+                  color: themeStyles.accent,
+                }}
+              >
                 {name.charAt(0).toUpperCase()}
               </div>
             )}
-            <div>
-              <p className="text-[11px] uppercase tracking-[0.3em] text-white/50">
-                NettmarkShop
-              </p>
-              <h1 className="text-4xl font-bold text-white mt-2">{name}</h1>
-              <p className="text-sm text-white/70 mt-2 max-w-xl">
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.3em] text-white/70">
+                <span>Nettmark creator</span>
+                {handle && (
+                  <span
+                    className="rounded-full px-3 py-1 text-[11px] tracking-[0.2em] normal-case"
+                    style={{ border: `1px solid ${themeStyles.cardBorder}` }}
+                  >
+                    @{handle}
+                  </span>
+                )}
+              </div>
+              <h1 className="text-4xl sm:text-5xl font-bold text-white">
+                {name}
+              </h1>
+              <p className="text-base sm:text-lg text-white/80 max-w-2xl">
                 {tagline ||
                   "Curated offers with instant Nettmark tracking + payouts."}
               </p>
             </div>
           </div>
-          <div className="flex flex-col gap-3 sm:items-end">
-            <div className="text-xs text-white/60 break-all">{shopUrl}</div>
+          <div className="flex flex-col gap-3 lg:items-end">
+            <div
+              className="text-xs break-all rounded-2xl border px-4 py-2"
+              style={{
+                borderColor: themeStyles.cardBorder,
+                backgroundColor: "rgba(0,0,0,0.25)",
+                color: "#f9fafb",
+              }}
+            >
+              {shopUrl}
+            </div>
             <div className="flex flex-wrap gap-3">
               <button
                 onClick={handleCopy}
-                className="inline-flex items-center gap-2 rounded-full border border-white/20 px-4 py-2 text-sm text-white hover:bg-white/10"
+                className="inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm"
+                style={{
+                  borderColor: themeStyles.cardBorder,
+                  color: "#f9fafb",
+                }}
               >
-                <Share2 size={16} /> {copied ? "Link copied" : "Share link"}
+                <Share2 size={16} />{" "}
+                {copied ? "Link copied" : "Share storefront"}
               </button>
               <a
                 href={shopUrl}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-2 rounded-full bg-[#00C2CB] px-4 py-2 text-sm font-semibold text-black hover:bg-[#00b0b8]"
+                className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold"
+                style={{
+                  backgroundColor: themeStyles.accent,
+                  color: theme === "luminous" ? "#111827" : "#000",
+                }}
               >
-                <Link2 size={16} /> Open storefront
+                <Link2 size={16} /> Follow storefront
               </a>
             </div>
           </div>
         </div>
 
-        {stats.length > 0 && (
-          <div className="grid gap-4 sm:grid-cols-3">
-            {stats.map((stat) => (
+        {(stats.length > 0 || heroBlurb) && (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {stats.map((stat) => {
+              const Icon = iconMap[stat.icon || "sparkles"] || Sparkles;
+              return (
+                <div
+                  key={stat.label}
+                  className="rounded-3xl border px-4 py-5 backdrop-blur"
+                  style={{
+                    borderColor: themeStyles.cardBorder,
+                    background: "rgba(0,0,0,0.15)",
+                  }}
+                >
+                  <div
+                    className="flex items-center gap-2 text-xs uppercase tracking-[0.2em]"
+                    style={{ color: themeStyles.accentSoft }}
+                  >
+                    <Icon size={14} />
+                    {stat.label}
+                  </div>
+                  <p className="text-2xl font-semibold text-white mt-2">
+                    {stat.value}
+                  </p>
+                  {stat.hint && (
+                    <p className="text-xs text-white/70 mt-1">{stat.hint}</p>
+                  )}
+                </div>
+              );
+            })}
+            {heroBlurb && (
               <div
-                key={stat.label}
-                className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 backdrop-blur"
+                className="rounded-3xl border px-4 py-5 text-sm"
+                style={{
+                  borderColor: themeStyles.cardBorder,
+                  color: "#f4f4f5",
+                  background: "rgba(0,0,0,0.2)",
+                }}
               >
-                <p className="text-[11px] uppercase tracking-[0.2em] text-white/50">
-                  {stat.label}
-                </p>
-                <p className="text-2xl font-semibold text-white mt-1">
-                  {stat.value}
-                </p>
+                {heroBlurb}
               </div>
-            ))}
+            )}
           </div>
         )}
       </div>

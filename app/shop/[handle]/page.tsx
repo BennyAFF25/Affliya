@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { ProductCard } from "../components/ProductCard";
 import { ShopHero } from "../components/ShopHero";
 import { ShopGrid } from "../components/ShopGrid";
+import type { ShopThemeKey } from "../theme";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -25,6 +26,12 @@ interface ShopItemOverride {
   custom_price: string | null;
   custom_description: string | null;
   display_order: number | null;
+}
+
+interface ShopSettingsRow {
+  theme?: ShopThemeKey | null;
+  hero_image_url?: string | null;
+  hero_blurb?: string | null;
 }
 
 const formatPrice = (price: number | null, currency: string | null) => {
@@ -64,17 +71,28 @@ async function getShopData(handle: string) {
     .eq("affiliate_email", affiliateEmail)
     .eq("status", "approved");
 
+  const affiliateInfo = {
+    id: affiliateId,
+    email: affiliateEmail,
+    name: affiliateProfile?.display_name || profile.username || affiliateEmail,
+    avatar_url: affiliateProfile?.avatar_url || null,
+    bio: (affiliateProfile as any)?.bio || null,
+  };
+
   if (!approved || approved.length === 0) {
     return {
-      affiliate: {
-        id: affiliateId,
-        email: affiliateEmail,
-        name:
-          affiliateProfile?.display_name || profile.username || affiliateEmail,
-        avatar_url: affiliateProfile?.avatar_url || null,
-        bio: (affiliateProfile as any)?.bio || null,
-      },
+      affiliate: affiliateInfo,
       offers: [],
+      settings: {
+        theme: "midnight" as ShopThemeKey,
+        hero_image_url: null,
+        hero_blurb: null,
+      },
+      metrics: {
+        averagePrice: null,
+        views24h: 0,
+        clicks24h: 0,
+      },
     };
   }
 
@@ -129,18 +147,41 @@ async function getShopData(handle: string) {
       )
     : null;
 
+  const { data: settingsRow } = await supabase
+    .from("affiliate_shop_settings")
+    .select("theme, hero_image_url, hero_blurb")
+    .eq("affiliate_email", affiliateEmail)
+    .maybeSingle();
+
+  const settings: ShopSettingsRow = settingsRow || {};
+
+  const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
+    .toISOString()
+    .slice(0, 10);
+
+  const { data: hitRows } = await supabase
+    .from("shop_hits")
+    .select("views, clicks, event_date")
+    .eq("affiliate_email", affiliateEmail)
+    .gte("event_date", dayAgo);
+
+  const views24h =
+    hitRows?.reduce((sum, row) => sum + (row.views ?? 0), 0) ?? 0;
+  const clicks24h =
+    hitRows?.reduce((sum, row) => sum + (row.clicks ?? 0), 0) ?? 0;
+
   return {
-    affiliate: {
-      id: affiliateId,
-      email: affiliateEmail,
-      name:
-        affiliateProfile?.display_name || profile.username || affiliateEmail,
-      avatar_url: affiliateProfile?.avatar_url || null,
-      bio: (affiliateProfile as any)?.bio || null,
-    },
+    affiliate: affiliateInfo,
     offers: cards,
+    settings: {
+      theme: (settings.theme as ShopThemeKey) || "midnight",
+      hero_image_url: settings.hero_image_url || null,
+      hero_blurb: settings.hero_blurb || null,
+    },
     metrics: {
       averagePrice,
+      views24h,
+      clicks24h,
     },
   };
 }
@@ -156,6 +197,16 @@ export default async function ShopPage({
     notFound();
   }
 
+  // Increment view count asynchronously (best-effort)
+  try {
+    await supabase.rpc("increment_shop_hit", {
+      p_affiliate_email: data!.affiliate.email,
+      p_kind: "view",
+    });
+  } catch (err) {
+    console.warn("[shop] increment view failed", err);
+  }
+
   const shopUrl = `https://www.nettmark.com/shop/${params.handle}`;
   const stats = [
     {
@@ -164,8 +215,9 @@ export default async function ShopPage({
         ? data!.offers.length.toString().padStart(2, "0")
         : "00",
     },
+    { label: "Views 24h", value: data!.metrics?.views24h.toString() ?? "0" },
+    { label: "Clicks 24h", value: data!.metrics?.clicks24h.toString() ?? "0" },
     { label: "Avg price", value: data!.metrics?.averagePrice ?? "Dynamic" },
-    { label: "Tracking", value: "Nettmark /go" },
   ];
   const hasOffers = data!.offers.length > 0;
 
@@ -177,7 +229,10 @@ export default async function ShopPage({
           avatarUrl={data!.affiliate.avatar_url}
           shopUrl={shopUrl}
           tagline={data!.affiliate.bio}
+          heroBlurb={data!.settings.hero_blurb}
+          heroImageUrl={data!.settings.hero_image_url}
           stats={stats}
+          theme={data!.settings.theme}
         />
 
         {hasOffers ? (
@@ -190,6 +245,7 @@ export default async function ShopPage({
                 price={offer.priceLabel}
                 imageUrl={offer.image}
                 ctaHref={`/go/${offer.id}___${data!.affiliate.email}`}
+                theme={data!.settings.theme}
               />
             ))}
           </ShopGrid>

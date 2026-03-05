@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowUpRight, Sparkles } from "lucide-react";
+import { ArrowUpRight, Sparkles, ShieldCheck } from "lucide-react";
+import { SHOP_THEMES, type ShopThemeKey } from "../theme";
 
 interface ProductCardProps {
   title: string;
@@ -10,6 +11,7 @@ interface ProductCardProps {
   price?: string | null;
   imageUrl?: string | null;
   ctaHref: string;
+  theme?: ShopThemeKey;
 }
 
 export function ProductCard({
@@ -18,13 +20,19 @@ export function ProductCard({
   price,
   imageUrl,
   ctaHref,
+  theme = "midnight",
 }: ProductCardProps) {
-  const priceBadge = price || "View details";
+  const themeStyles = SHOP_THEMES[theme] ?? SHOP_THEMES.midnight;
+  const ctaTextColor = theme === "luminous" ? "#111827" : "#000";
 
   return (
     <motion.div
-      className="group rounded-[28px] border border-white/10 bg-white/[0.03] backdrop-blur-xl p-4 flex flex-col shadow-[0_20px_60px_rgba(0,0,0,0.4)] transition-colors"
-      whileHover={{ translateY: -6 }}
+      className="group relative rounded-[32px] backdrop-blur-xl p-4 flex flex-col shadow-[0_25px_70px_rgba(0,0,0,0.45)]"
+      style={{
+        background: themeStyles.cardBackground,
+        border: `1px solid ${themeStyles.cardBorder}`,
+      }}
+      whileHover={{ translateY: -8 }}
       transition={{ type: "spring", stiffness: 260, damping: 28 }}
     >
       <div className="relative w-full overflow-hidden rounded-2xl bg-black/40 border border-white/5">
@@ -40,40 +48,62 @@ export function ProductCard({
             Image coming soon
           </div>
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-70" />
-        <div className="absolute top-3 left-3">
-          <span className="inline-flex items-center gap-1 rounded-full bg-black/70 px-3 py-1 text-xs font-semibold text-white">
-            {priceBadge}
+        <div className="absolute inset-0 opacity-70 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+        <div className="absolute top-3 left-3 flex flex-col gap-2">
+          <span
+            className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold text-white"
+            style={{ backgroundColor: "rgba(0,0,0,0.65)" }}
+          >
+            {price || "View details"}
           </span>
-        </div>
-        <div className="absolute top-3 right-3">
-          <span className="inline-flex items-center gap-1 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[11px] uppercase tracking-[0.1em] text-white/80">
+          <span
+            className="inline-flex items-center gap-1 rounded-full border px-3 py-1 text-[11px] uppercase tracking-[0.15em]"
+            style={{
+              borderColor: themeStyles.cardBorder,
+              color: themeStyles.accentSoft,
+            }}
+          >
             Nettmark
           </span>
         </div>
       </div>
 
-      <div className="flex flex-col gap-3 mt-4 flex-1">
-        <div className="space-y-1">
-          <h3 className="text-xl font-semibold text-white">{title}</h3>
+      <div className="flex flex-col gap-4 mt-5 flex-1">
+        <div className="space-y-2">
+          <h3
+            className="text-2xl font-semibold leading-tight"
+            style={{ color: themeStyles.accent }}
+          >
+            {title}
+          </h3>
           {description && (
-            <p className="text-sm text-white/60 line-clamp-3">{description}</p>
+            <p className="text-sm text-white/70 line-clamp-3">{description}</p>
           )}
         </div>
-        <div className="mt-auto border-t border-white/5 pt-3 text-xs text-white/60 flex items-center justify-between">
-          <span className="inline-flex items-center gap-1 text-white/70">
-            <Sparkles size={14} /> Verified listing
+        <div
+          className="grid grid-cols-2 gap-2 text-xs border rounded-2xl px-3 py-2"
+          style={{
+            borderColor: themeStyles.cardBorder,
+            color: themeStyles.accentSoft,
+          }}
+        >
+          <span className="inline-flex items-center gap-1">
+            <Sparkles size={14} /> High-intent
           </span>
-          <span className="text-white/40">/go redirect</span>
+          <span className="inline-flex items-center gap-1">
+            <ShieldCheck size={14} /> Tracked payout
+          </span>
         </div>
       </div>
 
       <Link
         href={ctaHref}
-        className="mt-4 inline-flex items-center justify-center gap-2 rounded-2xl bg-[#00C2CB] text-black font-semibold py-2 hover:bg-[#00b0b8] transition"
+        className="mt-5 inline-flex items-center justify-between gap-2 rounded-2xl font-semibold py-3 px-4 transition"
+        style={{ backgroundColor: themeStyles.accent, color: ctaTextColor }}
         prefetch={false}
       >
-        Explore offer <ArrowUpRight size={16} />
+        Explore offer
+        <ArrowUpRight size={18} />
       </Link>
     </motion.div>
   );
