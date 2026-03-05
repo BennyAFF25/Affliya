@@ -8,6 +8,17 @@ import {
   type ShopThemeKey,
   type ThemePaletteJson,
 } from "../../../shop/theme";
+import {
+  Eye,
+  MousePointerClick,
+  Sparkles as SparklesIcon,
+  Link2,
+  Palette as PaletteIcon,
+  Image as ImageIcon,
+  UploadCloud,
+  RotateCcw,
+  LayoutGrid,
+} from "lucide-react";
 
 interface ShopRow {
   offer_id: string;
@@ -223,6 +234,16 @@ export default function MyShopPage() {
     (theme === "custom" &&
       JSON.stringify(customPalette) !== JSON.stringify(initialPalette));
 
+  const statCards = [
+    { label: "Views (24h)", value: stats.views24h, Icon: Eye },
+    { label: "Clicks (24h)", value: stats.clicks24h, Icon: MousePointerClick },
+    {
+      label: "Featured product",
+      value: featuredProduct || "—",
+      Icon: SparklesIcon,
+    },
+  ];
+
   const handleHandleSave = async () => {
     if (!handle.trim()) {
       setError("Handle cannot be empty.");
@@ -377,31 +398,44 @@ export default function MyShopPage() {
   return (
     <div className="min-h-screen bg-surface text-white px-4 py-6">
       <div className="max-w-5xl mx-auto space-y-6">
-        <header className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <header className="rounded-3xl border border-white/10 bg-gradient-to-r from-[#020a12] via-[#04121d] to-[#030a14] p-6 shadow-[0_25px_80px_rgba(0,0,0,0.5)] flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-xs uppercase tracking-[0.3em] text-white/50">
+            <p className="text-xs uppercase tracking-[0.3em] text-white/60">
               NettmarkShop
             </p>
-            <h1 className="text-3xl font-bold">My Shop</h1>
-          </div>
-          <p className="text-sm text-white/60">
-            Customize how each approved offer appears on your NettmarkShop page.
-            Override images, price labels, descriptions, and ordering — then
-            copy your link below.
-          </p>
-        </header>
-
-        <div className="rounded-3xl border border-white/10 bg-gradient-to-r from-white/5 via-transparent to-white/5 p-4 space-y-3 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
-          <div className="flex flex-col gap-1">
-            <span className="text-xs uppercase tracking-[0.3em] text-white/50">
-              Shop handle
-            </span>
-            <p className="text-sm text-white/60">
-              Pick a public URL slug. Lowercase letters, numbers, and dashes
-              only.
+            <h1 className="text-3xl font-bold text-white">My Shop</h1>
+            <p className="text-sm text-white/70 mt-1 max-w-2xl">
+              Craft the public storefront your followers see. Tweak handle,
+              theme, imagery, and copy — everything updates live in the preview.
             </p>
           </div>
-          <div className="flex flex-col sm:flex-row gap-3">
+          <div className="hidden sm:flex flex-col text-sm text-white/60">
+            <span className="font-semibold text-white">Live preview</span>
+            <span>Updates automatically as you edit.</span>
+          </div>
+        </header>
+
+        <div className="rounded-3xl border border-white/10 bg-gradient-to-r from-[#01070d] via-[#04121e] to-[#01070d] p-5 shadow-[0_30px_80px_rgba(0,0,0,0.55)] space-y-4">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs uppercase tracking-[0.3em] text-white/60 flex items-center gap-3">
+                <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/10">
+                  <Link2 size={14} className="text-[#00C2CB]" />
+                </span>
+                Shop handle
+              </p>
+              <p className="text-sm text-white/60">
+                Pick a public slug — lowercase letters, numbers, and dashes
+                only.
+              </p>
+            </div>
+            {handleSaved && shopLink && (
+              <span className="text-xs font-semibold text-emerald-300">
+                Active
+              </span>
+            )}
+          </div>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <input
               type="text"
               value={handle}
@@ -409,17 +443,32 @@ export default function MyShopPage() {
                 setHandle(e.target.value.toLowerCase());
                 setHandleSaved(false);
               }}
-              placeholder="e.g. nettmark"
-              className="flex-1 rounded-xl border border-white/10 bg-black/30 px-4 py-2 text-sm"
+              placeholder="your-handle"
+              className="flex-1 rounded-2xl border border-white/10 bg-black/30 px-4 py-2 text-sm focus:border-[#00C2CB]"
             />
             <button
               type="button"
               onClick={handleHandleSave}
               disabled={handleSaving}
-              className="rounded-full bg-[#00C2CB] px-4 py-2 text-sm font-semibold text-black hover:bg-[#00b0b8] disabled:opacity-60"
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-[#00C2CB] px-5 py-2 text-sm font-semibold text-black shadow-[0_12px_35px_rgba(0,194,203,0.35)] hover:bg-[#00b0b8] disabled:opacity-60"
             >
               {handleSaving ? "Saving…" : "Save handle"}
             </button>
+          </div>
+          <div className="flex flex-col gap-2 text-xs text-white/60 sm:flex-row sm:items-center sm:justify-between">
+            <span className="break-all">
+              {handleSaved && shopLink
+                ? shopLink
+                : "Handle must be saved before your shop is public."}
+            </span>
+            {handleSaved && shopLink && (
+              <button
+                onClick={copyLink}
+                className="inline-flex items-center gap-2 rounded-full border border-white/20 px-3 py-1 text-[11px] font-semibold text-white hover:bg-white/10"
+              >
+                Copy link
+              </button>
+            )}
           </div>
         </div>
 
@@ -447,33 +496,37 @@ export default function MyShopPage() {
         )}
 
         <div className="grid gap-3 sm:grid-cols-3">
-          {[{ label: "Views (24h)", value: stats.views24h, icon: "👁️" },
-            { label: "Clicks (24h)", value: stats.clicks24h, icon: "🖱️" },
-            { label: "Featured product", value: featuredProduct || "—", icon: "✨" }].map((stat) => (
+          {statCards.map(({ label, value, Icon }) => (
             <div
-              key={stat.label}
-              className="rounded-2xl border border-white/10 bg-gradient-to-br from-[#050d14] via-[#02070a] to-[#050d14] p-4 shadow-[0_15px_50px_rgba(0,0,0,0.4)]"
+              key={label}
+              className="rounded-2xl border border-white/10 bg-gradient-to-br from-[#050d14] via-[#02070a] to-[#050d14] p-4 shadow-[0_20px_55px_rgba(0,0,0,0.5)]"
             >
               <div className="text-xs text-white/60 uppercase tracking-wide flex items-center gap-2">
-                <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/10 text-[0.6rem] font-semibold">
-                  {stat.icon}
+                <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/10">
+                  <Icon size={13} className="text-[#00C2CB]" />
                 </span>
-                {stat.label}
+                {label}
               </div>
-              <p className="text-2xl font-semibold text-white mt-1">{stat.value}</p>
+              <p className="mt-1 text-2xl font-semibold text-white">{value}</p>
             </div>
           ))}
         </div>
 
-        <div className="rounded-3xl border border-white/10 bg-gradient-to-r from-[#030b10] via-[#040c14] to-[#030b10] p-4 space-y-4 shadow-[0_25px_70px_rgba(0,0,0,0.45)]">
-          <div className="flex flex-col gap-2">
-            <span className="text-xs uppercase tracking-[0.3em] text-white/50">
-              Themes
-            </span>
-            <p className="text-sm text-white/60">
-              Pick a storefront vibe. Themes update the hero gradient and
-              product cards instantly.
-            </p>
+        <div className="rounded-3xl border border-white/10 bg-gradient-to-r from-[#03101a] via-[#041827] to-[#020b13] p-5 space-y-4 shadow-[0_30px_90px_rgba(0,0,0,0.6)]">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-[0.3em] text-white/60 flex items-center gap-2">
+                <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/10">
+                  <PaletteIcon size={14} className="text-[#00C2CB]" />
+                </span>
+                Themes
+              </p>
+              <p className="text-sm text-white/60">
+                Pick a storefront vibe. Themes update the hero gradient and
+                product cards instantly.
+              </p>
+            </div>
+            <span className="text-xs text-white/50">Choose one</span>
           </div>
           <div className="grid gap-3 sm:grid-cols-3">
             {THEME_OPTIONS.map((opt) => (
@@ -483,12 +536,12 @@ export default function MyShopPage() {
                 onClick={() => setTheme(opt.key)}
                 className={`rounded-2xl border p-3 text-left transition ${
                   theme === opt.key
-                    ? "border-[#00C2CB] bg-[#00c2cb1a]"
+                    ? "border-[#00C2CB] bg-[#00c2cb1f] shadow-[0_15px_40px_rgba(0,194,203,0.25)]"
                     : "border-white/10 bg-black/20 hover:border-white/30"
                 }`}
               >
                 <div
-                  className="h-20 w-full rounded-xl mb-3"
+                  className="mb-3 h-20 w-full rounded-xl"
                   style={{ backgroundImage: opt.preview }}
                 />
                 <p className="text-sm font-semibold">
@@ -572,38 +625,45 @@ export default function MyShopPage() {
           </div>
         )}
 
-        <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-4 space-y-4">
-          <div className="flex flex-col gap-2">
-            <span className="text-xs uppercase tracking-[0.3em] text-white/50">
-              Hero customization
-            </span>
-            <p className="text-sm text-white/60">
-              Drop a hero background and add a short blurb to set expectations.
-            </p>
+        <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-[#050f18] via-[#03101a] to-[#050f18] p-5 space-y-4 shadow-[0_30px_90px_rgba(0,0,0,0.55)]">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-[0.3em] text-white/60 flex items-center gap-2">
+                <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/10">
+                  <ImageIcon size={14} className="text-[#00C2CB]" />
+                </span>
+                Hero customization
+              </p>
+              <p className="text-sm text-white/60">
+                Drop a hero background and add a short blurb to set
+                expectations.
+              </p>
+            </div>
+            {heroImageUrl && (
+              <button
+                type="button"
+                onClick={() => setHeroImageUrl(null)}
+                className="text-xs text-white/60 hover:text-white"
+              >
+                Remove
+              </button>
+            )}
           </div>
-          <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-4">
             <div className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
                 onClick={() => document.getElementById("heroUpload")?.click()}
-                className="rounded-full border border-white/20 px-4 py-2 text-sm text-white hover:bg-white/10"
+                className="inline-flex items-center gap-2 rounded-full border border-white/20 px-4 py-2 text-sm text-white shadow-[0_10px_35px_rgba(0,0,0,0.35)] hover:bg-white/10"
                 disabled={heroUploading || !handleSaved}
               >
+                <UploadCloud size={16} />
                 {heroUploading
                   ? "Uploading…"
                   : handleSaved
                     ? "Upload hero image"
                     : "Set handle first"}
               </button>
-              {heroImageUrl && (
-                <button
-                  type="button"
-                  onClick={() => setHeroImageUrl(null)}
-                  className="text-xs text-white/70 hover:text-white"
-                >
-                  Remove image
-                </button>
-              )}
               <input
                 id="heroUpload"
                 type="file"
@@ -613,7 +673,7 @@ export default function MyShopPage() {
               />
             </div>
             {heroImageUrl && (
-              <div className="rounded-2xl border border-white/10 overflow-hidden shadow-[0_15px_40px_rgba(0,0,0,0.45)]">
+              <div className="rounded-2xl border border-white/10 overflow-hidden shadow-[0_20px_50px_rgba(0,0,0,0.55)]">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={heroImageUrl}
@@ -625,7 +685,7 @@ export default function MyShopPage() {
             <label className="text-xs text-white/50">
               Hero blurb
               <textarea
-                className="mt-1 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm"
+                className="mt-1 w-full rounded-2xl border border-white/10 bg-black/30 px-3 py-2 text-sm"
                 maxLength={240}
                 rows={3}
                 value={heroBlurb}
@@ -651,94 +711,93 @@ export default function MyShopPage() {
             {rows.map(({ offer, override }) => (
               <div
                 key={offer.id}
-                className="rounded-3xl border border-white/10 bg-white/[0.02] p-4 flex flex-col gap-4 sm:flex-row"
+                className="rounded-3xl border border-white/10 bg-gradient-to-br from-[#040c14] via-[#050f18] to-[#02060b] p-5 shadow-[0_25px_80px_rgba(0,0,0,0.55)] space-y-4"
               >
-                <div className="flex-1 space-y-3">
-                  <div className="flex items-center gap-4">
-                    <h3 className="text-lg font-semibold flex-1">
-                      {offer.title}
-                    </h3>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.3em] text-white/50 flex items-center gap-2">
+                      <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/10">
+                        <LayoutGrid size={13} className="text-[#00C2CB]" />
+                      </span>
+                      Offer card
+                    </p>
+                    <h3 className="text-lg font-semibold">{offer.title}</h3>
+                    <p className="text-sm text-white/60">
+                      {offer.description || "No description yet."}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      updateOverride(offer.id, {
+                        custom_price: null,
+                        custom_description: null,
+                        custom_image_url: null,
+                        display_order: 0,
+                      })
+                    }
+                    className="inline-flex items-center gap-2 text-xs text-white/60 hover:text-white"
+                  >
+                    <RotateCcw size={12} />
+                    Reset all
+                  </button>
+                </div>
+                <div className="flex flex-wrap items-center gap-4">
+                  <div className="h-20 w-20 overflow-hidden rounded-2xl border border-white/10 bg-black/30">
+                    {override?.custom_image_url || offer.logo_url ? (
+                      <img
+                        src={override?.custom_image_url || offer.logo_url || ""}
+                        alt={offer.title}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-xs text-white/40">
+                        No image
+                      </div>
+                    )}
+                  </div>
+                  <label className="text-xs text-white/60 cursor-pointer">
+                    <span className="inline-flex items-center gap-2 rounded-full border border-white/15 px-3 py-1 text-[11px]">
+                      <UploadCloud size={14} />
+                      {uploadingImage === offer.id
+                        ? "Uploading…"
+                        : "Upload image"}
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) =>
+                        handleImageUpload(offer.id, e.target.files?.[0] || null)
+                      }
+                      disabled={uploadingImage === offer.id}
+                    />
+                  </label>
+                  {override?.custom_image_url && (
                     <button
                       type="button"
                       onClick={() =>
-                        updateOverride(offer.id, {
-                          custom_price: null,
-                          custom_description: null,
-                          custom_image_url: null,
-                          display_order: 0,
-                        })
+                        updateOverride(offer.id, { custom_image_url: null })
                       }
-                      className="text-xs text-white/50 hover:text-white"
+                      className="text-xs text-white/60 hover:text-white"
                     >
-                      Reset all
+                      Reset image
                     </button>
-                  </div>
-                  <p className="text-sm text-white/60">
-                    {offer.description || "No description yet."}
-                  </p>
-                  <div className="flex flex-wrap items-center gap-3 mt-3">
-                    <div className="h-16 w-16 rounded-2xl border border-white/10 bg-black/30 overflow-hidden flex-shrink-0">
-                      {override?.custom_image_url || offer.logo_url ? (
-                        <img
-                          src={
-                            override?.custom_image_url || offer.logo_url || ""
-                          }
-                          alt={offer.title}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-xs text-white/40">
-                          No image
-                        </div>
-                      )}
-                    </div>
-                    <label className="text-xs text-white/50 cursor-pointer">
-                      <span className="inline-flex items-center gap-1 rounded-full border border-white/15 px-3 py-1 text-[11px]">
-                        {uploadingImage === offer.id
-                          ? "Uploading…"
-                          : "Upload image"}
-                      </span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e) =>
-                          handleImageUpload(
-                            offer.id,
-                            e.target.files?.[0] || null,
-                          )
-                        }
-                        disabled={uploadingImage === offer.id}
-                      />
-                    </label>
-                    {override?.custom_image_url && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          updateOverride(offer.id, { custom_image_url: null })
-                        }
-                        className="text-xs text-white/50 hover:text-white"
-                      >
-                        Reset image
-                      </button>
-                    )}
-                  </div>
-                  <div className="mt-3 grid gap-3">
-                    <label className="text-xs text-white/50 sm:col-span-2">
-                      Short description
-                      <textarea
-                        className="mt-1 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm"
-                        value={override?.custom_description ?? ""}
-                        onChange={(e) =>
-                          updateOverride(offer.id, {
-                            custom_description: e.target.value,
-                          })
-                        }
-                        rows={2}
-                      />
-                    </label>
-                  </div>
+                  )}
                 </div>
+                <label className="text-xs text-white/60">
+                  Short description
+                  <textarea
+                    className="mt-1 w-full rounded-2xl border border-white/10 bg-black/30 px-3 py-2 text-sm"
+                    value={override?.custom_description ?? ""}
+                    onChange={(e) =>
+                      updateOverride(offer.id, {
+                        custom_description: e.target.value,
+                      })
+                    }
+                    rows={2}
+                  />
+                </label>
               </div>
             ))}
           </div>
