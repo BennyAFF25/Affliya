@@ -103,9 +103,12 @@ export default function MyShopPage() {
     DEFAULT_CUSTOM_PALETTE,
   );
 
-  const username = (session?.user?.user_metadata as any)?.username;
-  const [handle, setHandle] = useState<string>(username || "");
-  const [handleSaved, setHandleSaved] = useState<boolean>(!!username);
+  const initialMetadataHandle =
+    (session?.user?.user_metadata as any)?.username || "";
+  const [handle, setHandle] = useState<string>(initialMetadataHandle);
+  const [handleSaved, setHandleSaved] = useState<boolean>(
+    !!initialMetadataHandle,
+  );
   const [handleSaving, setHandleSaving] = useState(false);
   const shopLink =
     handleSaved && handle ? `https://www.nettmark.com/shop/${handle}` : null;
@@ -196,11 +199,20 @@ export default function MyShopPage() {
           setInitialPalette(DEFAULT_CUSTOM_PALETTE);
         }
 
-        const profileHandle =
+        let resolvedHandle =
           (session?.user?.user_metadata as any)?.username || "";
-        setHandle(profileHandle);
-        setHandleSaved(!!profileHandle);
-        return () => {};
+        if (session?.user?.id) {
+          const { data: profileRow } = await supabase
+            .from("profiles")
+            .select("username")
+            .eq("id", session.user.id)
+            .maybeSingle();
+          if (profileRow?.username) {
+            resolvedHandle = profileRow.username;
+          }
+        }
+        setHandle(resolvedHandle);
+        setHandleSaved(!!resolvedHandle);
       } catch (err: any) {
         console.error("[MyShop] load failed", err);
         setError("Failed to load shop data.");
@@ -210,7 +222,7 @@ export default function MyShopPage() {
     };
 
     void load();
-  }, [session?.user?.email]);
+  }, [session?.user?.email, session?.user?.id]);
 
   const rows = useMemo(() => {
     return offers
@@ -266,6 +278,9 @@ export default function MyShopPage() {
       }
       setHandle(json.handle);
       setHandleSaved(true);
+      if (session?.user?.user_metadata) {
+        (session.user.user_metadata as any).username = json.handle;
+      }
       setMessage("Handle updated");
     } catch (err: any) {
       console.error("[MyShop] handle save failed", err);
