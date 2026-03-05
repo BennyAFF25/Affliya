@@ -745,19 +745,6 @@ export default function MyShopPage() {
                         rows={2}
                       />
                     </label>
-                    <label className="text-xs text-white/50">
-                      Display order
-                      <input
-                        type="number"
-                        className="mt-1 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm"
-                        value={override?.display_order ?? 0}
-                        onChange={(e) =>
-                          updateOverride(offer.id, {
-                            display_order: Number(e.target.value),
-                          })
-                        }
-                      />
-                    </label>
                   </div>
                 </div>
               </div>
