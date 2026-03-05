@@ -391,7 +391,7 @@ export default function MyShopPage() {
           </p>
         </header>
 
-        <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-4 space-y-3">
+        <div className="rounded-3xl border border-white/10 bg-gradient-to-r from-white/5 via-transparent to-white/5 p-4 space-y-3 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
           <div className="flex flex-col gap-1">
             <span className="text-xs uppercase tracking-[0.3em] text-white/50">
               Shop handle
@@ -447,33 +447,25 @@ export default function MyShopPage() {
         )}
 
         <div className="grid gap-3 sm:grid-cols-3">
-          <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
-            <p className="text-xs text-white/60 uppercase tracking-wide">
-              Views (24h)
-            </p>
-            <p className="text-2xl font-semibold text-white">
-              {stats.views24h}
-            </p>
-          </div>
-          <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
-            <p className="text-xs text-white/60 uppercase tracking-wide">
-              Clicks (24h)
-            </p>
-            <p className="text-2xl font-semibold text-white">
-              {stats.clicks24h}
-            </p>
-          </div>
-          <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
-            <p className="text-xs text-white/60 uppercase tracking-wide">
-              Featured product
-            </p>
-            <p className="text-base font-semibold text-white">
-              {featuredProduct}
-            </p>
-          </div>
+          {[{ label: "Views (24h)", value: stats.views24h, icon: "👁️" },
+            { label: "Clicks (24h)", value: stats.clicks24h, icon: "🖱️" },
+            { label: "Featured product", value: featuredProduct || "—", icon: "✨" }].map((stat) => (
+            <div
+              key={stat.label}
+              className="rounded-2xl border border-white/10 bg-gradient-to-br from-[#050d14] via-[#02070a] to-[#050d14] p-4 shadow-[0_15px_50px_rgba(0,0,0,0.4)]"
+            >
+              <div className="text-xs text-white/60 uppercase tracking-wide flex items-center gap-2">
+                <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/10 text-[0.6rem] font-semibold">
+                  {stat.icon}
+                </span>
+                {stat.label}
+              </div>
+              <p className="text-2xl font-semibold text-white mt-1">{stat.value}</p>
+            </div>
+          ))}
         </div>
 
-        <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-4 space-y-4">
+        <div className="rounded-3xl border border-white/10 bg-gradient-to-r from-[#030b10] via-[#040c14] to-[#030b10] p-4 space-y-4 shadow-[0_25px_70px_rgba(0,0,0,0.45)]">
           <div className="flex flex-col gap-2">
             <span className="text-xs uppercase tracking-[0.3em] text-white/50">
               Themes
@@ -509,7 +501,7 @@ export default function MyShopPage() {
         </div>
 
         {theme === "custom" && (
-          <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-4 space-y-4">
+          <div className="rounded-3xl border border-white/10 bg-gradient-to-r from-[#040d13] via-[#050f16] to-[#040d13] p-4 space-y-4 shadow-[0_30px_80px_rgba(0,0,0,0.45)]">
             <div className="flex flex-col gap-2">
               <span className="text-xs uppercase tracking-[0.3em] text-white/50">
                 Custom palette
@@ -621,7 +613,7 @@ export default function MyShopPage() {
               />
             </div>
             {heroImageUrl && (
-              <div className="rounded-2xl border border-white/10 overflow-hidden">
+              <div className="rounded-2xl border border-white/10 overflow-hidden shadow-[0_15px_40px_rgba(0,0,0,0.45)]">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={heroImageUrl}
