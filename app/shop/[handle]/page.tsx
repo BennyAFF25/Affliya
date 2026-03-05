@@ -226,6 +226,7 @@ export default async function ShopPage({
           theme={data!.settings.theme}
           customPalette={data!.settings.palette}
         />
+        <div className="h-12 w-full rounded-full bg-gradient-to-r from-transparent via-white/10 to-transparent blur-3xl" />
 
         {hasOffers ? (
           <>

@@ -65,6 +65,26 @@ export function ShopHero({
           }}
         />
       )}
+      <div className="pointer-events-none absolute inset-0">
+        <div
+          className="absolute -left-10 top-10 h-40 w-40 rounded-full blur-3xl"
+          style={{ background: `${themeStyles.accent}33` }}
+        />
+        <div
+          className="absolute right-6 top-0 h-24 w-24 rounded-full blur-2xl"
+          style={{ background: `${themeStyles.accentSoft}44` }}
+        />
+        <div
+          className="absolute -bottom-16 left-1/2 -translate-x-1/2 w-2/3 h-20"
+          style={{
+            background:
+              theme === "luminous"
+                ? "linear-gradient(120deg, rgba(15,23,42,0.05), rgba(15,23,42,0))"
+                : `linear-gradient(120deg, ${themeStyles.accent}22, transparent)`,
+            clipPath: "polygon(0 60%, 50% 100%, 100% 60%, 100% 0, 0 0)",
+          }}
+        />
+      </div>
       <div className="relative flex flex-col gap-8">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-start gap-5">

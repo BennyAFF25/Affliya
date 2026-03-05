@@ -731,7 +731,7 @@ export default function MyShopPage() {
                       </button>
                     )}
                   </div>
-                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <div className="mt-3 grid gap-3">
                     <label className="text-xs text-white/50 sm:col-span-2">
                       Short description
                       <textarea

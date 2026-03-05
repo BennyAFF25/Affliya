@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, Sparkles, ShoppingBag } from "lucide-react";
 import {
   resolveTheme,
   type ShopThemeKey,
@@ -26,15 +26,16 @@ export function ProductCard({
   imageUrl,
   ctaHref,
   theme = "midnight",
+  customPalette = null,
 }: ProductCardProps) {
   const themeStyles = resolveTheme(theme, customPalette);
   const ctaTextColor = theme === "luminous" ? "#111827" : "#000";
 
   return (
     <motion.div
-      className="group relative rounded-[32px] backdrop-blur-xl p-4 flex flex-col shadow-[0_25px_70px_rgba(0,0,0,0.45)]"
+      className="group relative rounded-[32px] overflow-hidden backdrop-blur-xl p-4 flex flex-col shadow-[0_25px_70px_rgba(0,0,0,0.55)]"
       style={{
-        background: themeStyles.cardBackground,
+        background: `linear-gradient(140deg, ${themeStyles.cardBackground}, ${themeStyles.accent}15)`,
         border: `1px solid ${themeStyles.cardBorder}`,
       }}
       whileHover={{ translateY: -8 }}
@@ -110,6 +111,12 @@ export function ProductCard({
         Explore offer
         <ArrowUpRight size={18} />
       </Link>
+      <div
+        className="pointer-events-none absolute inset-0 opacity-40"
+        style={{
+          background: `radial-gradient(circle at 20% 20%, ${themeStyles.accent}25, transparent 55%)`,
+        }}
+      />
     </motion.div>
   );
 }
