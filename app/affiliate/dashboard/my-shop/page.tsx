@@ -470,9 +470,7 @@ export default function MyShopPage() {
   };
 
   if (loading) {
-    return (
-      <div className="min-h-screen bg-surface text-white p-6">Loading…</div>
-    );
+    return <MyShopSkeleton />;
   }
 
   if (!shopEnabled) {
@@ -1009,6 +1007,57 @@ export default function MyShopPage() {
             </button>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function SkeletonLine({ className }: { className?: string }) {
+  return (
+    <div className={`animate-pulse rounded bg-white/10 ${className ?? ""}`} />
+  );
+}
+
+function MyShopSkeleton() {
+  return (
+    <div className="min-h-screen bg-surface text-white px-4 py-6">
+      <div className="max-w-5xl mx-auto space-y-6">
+        <div className="rounded-3xl border border-white/10 bg-gradient-to-r from-[#020a12] via-[#04121d] to-[#030a14] p-6 shadow-[0_25px_80px_rgba(0,0,0,0.5)] space-y-3">
+          <SkeletonLine className="h-3 w-32" />
+          <SkeletonLine className="h-8 w-48" />
+          <SkeletonLine className="h-4 w-3/4" />
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-3">
+          {[...Array(3)].map((_, idx) => (
+            <div
+              key={idx}
+              className="rounded-2xl border border-white/10 bg-gradient-to-br from-[#050d14] via-[#02070a] to-[#050d14] p-4"
+            >
+              <SkeletonLine className="h-3 w-1/2" />
+              <SkeletonLine className="mt-3 h-6 w-2/3" />
+            </div>
+          ))}
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-3">
+          {[...Array(3)].map((_, idx) => (
+            <div
+              key={idx}
+              className="rounded-3xl border border-white/10 bg-gradient-to-r from-[#030b10] via-[#040c14] to-[#030b10] p-4"
+            >
+              <SkeletonLine className="h-4 w-2/3" />
+              <SkeletonLine className="mt-2 h-4 w-full" />
+              <SkeletonLine className="mt-2 h-8 w-full" />
+            </div>
+          ))}
+        </div>
+
+        <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-[#050f18] via-[#03101a] to-[#050f18] p-5 space-y-4">
+          <SkeletonLine className="h-4 w-1/2" />
+          <SkeletonLine className="h-48 w-full" />
+          <SkeletonLine className="h-20 w-full" />
+        </div>
       </div>
     </div>
   );
