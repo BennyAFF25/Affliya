@@ -1,51 +1,50 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import Image from 'next/image';
-import { useUser } from '@supabase/auth-helpers-react';
-import { supabase } from 'utils/supabase/pages-client';
-import { LogOut } from 'lucide-react';
-import { usePathname, useRouter } from 'next/navigation';
-
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import Image from "next/image";
+import { useUser } from "@supabase/auth-helpers-react";
+import { supabase } from "utils/supabase/pages-client";
+import { LogOut } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
 
 type ProfileAvatarRow = {
   avatar_url: string | null;
 };
 
 const getPageTitle = (pathname: string | null): string => {
-  if (!pathname) return 'Dashboard';
+  if (!pathname) return "Dashboard";
 
   // Break into segments, e.g. "/affiliate/marketplace/123" -> ["affiliate","marketplace","123"]
-  const segments = pathname.split('/').filter(Boolean);
-  if (segments.length === 0) return 'Dashboard';
+  const segments = pathname.split("/").filter(Boolean);
+  if (segments.length === 0) return "Dashboard";
 
   // Remove obviously dynamic/ID-like last segment (e.g. UUIDs) from the route key
   const staticSegments = [...segments];
   const last = staticSegments[staticSegments.length - 1];
-  if (last && last.length > 12 && last.includes('-')) {
+  if (last && last.length > 12 && last.includes("-")) {
     staticSegments.pop();
   }
 
-  const routeKey = staticSegments.join('/'); // e.g. "affiliate/marketplace"
+  const routeKey = staticSegments.join("/"); // e.g. "affiliate/marketplace"
 
   // Map known routes to nice titles
   const titleMap: Record<string, string> = {
-    'affiliate/dashboard': 'Dashboard',
-    'affiliate/marketplace': 'Marketplace',
-    'affiliate/wallet': 'Wallet',
-    'affiliate/settings': 'Settings',
-    'affiliate/support': 'Support',
-    'affiliate/inbox': 'Inbox',
-    'affiliate/dashboard/promote': 'Promote Offer',
-    'affiliate/dashboard/manage-campaigns': 'Manage Campaigns',
+    "affiliate/dashboard": "Dashboard",
+    "affiliate/marketplace": "Marketplace",
+    "affiliate/wallet": "Wallet",
+    "affiliate/settings": "Settings",
+    "affiliate/support": "Support",
+    "affiliate/inbox": "Inbox",
+    "affiliate/dashboard/promote": "Promote Offer",
+    "affiliate/dashboard/manage-campaigns": "Manage Campaigns",
 
-    'business/dashboard': 'Dashboard',
-    'business/marketplace': 'Marketplace',
-    'business/my-business': 'My Business',
-    'business/settings': 'Settings',
-    'business/support': 'Support',
-    'business/inbox': 'Inbox',
+    "business/dashboard": "Dashboard",
+    "business/marketplace": "Marketplace",
+    "business/my-business": "My Business",
+    "business/settings": "Settings",
+    "business/support": "Support",
+    "business/inbox": "Inbox",
   };
 
   if (titleMap[routeKey]) {
@@ -53,9 +52,9 @@ const getPageTitle = (pathname: string | null): string => {
   }
 
   // Fallback: use the last static segment, prettified
-  const lastStatic = staticSegments[staticSegments.length - 1] || 'Dashboard';
+  const lastStatic = staticSegments[staticSegments.length - 1] || "Dashboard";
   const pretty = lastStatic
-    .replace(/-/g, ' ')
+    .replace(/-/g, " ")
     .replace(/\b\w/g, (c) => c.toUpperCase());
 
   return pretty;
@@ -68,7 +67,7 @@ export default function Topbar() {
 
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
-  const userInitials = user?.email?.charAt(0).toUpperCase() || 'F';
+  const userInitials = user?.email?.charAt(0).toUpperCase() || "F";
 
   const pageTitle = getPageTitle(pathname);
 
@@ -81,9 +80,9 @@ export default function Topbar() {
 
       try {
         const { data: affiliateProfileRaw } = await supabase
-          .from('affiliate_profiles')
-          .select('avatar_url')
-          .eq('email', user.email)
+          .from("affiliate_profiles")
+          .select("avatar_url")
+          .eq("email", user.email)
           .maybeSingle<ProfileAvatarRow>();
 
         if (affiliateProfileRaw?.avatar_url) {
@@ -92,9 +91,9 @@ export default function Topbar() {
         }
 
         const { data: businessProfileRaw } = await supabase
-          .from('business_profiles')
-          .select('avatar_url')
-          .eq('business_email', user.email)
+          .from("business_profiles")
+          .select("avatar_url")
+          .eq("business_email", user.email)
           .maybeSingle<ProfileAvatarRow>();
 
         if (businessProfileRaw?.avatar_url) {
@@ -102,7 +101,7 @@ export default function Topbar() {
           return;
         }
       } catch (err) {
-        console.error('[Topbar] Failed to load avatar', err);
+        console.error("[Topbar] Failed to load avatar", err);
       }
     };
 
@@ -112,13 +111,13 @@ export default function Topbar() {
   return (
     <header
       className="
-        w-full 
-        bg-surface-deep
+        w-full
+        bg-gradient-to-b from-[#121212] to-[#1a1a1a]
         h-[64px]
         flex items-center
         justify-between
         px-4 sm:px-6
-        border-b border-surface
+        border-b border-white/5
       "
     >
       {/* LEFT SIDE */}
@@ -156,7 +155,11 @@ export default function Topbar() {
             "
           >
             {avatarUrl ? (
-              <img src={avatarUrl} alt="Profile" className="w-full h-full object-cover" />
+              <img
+                src={avatarUrl}
+                alt="Profile"
+                className="w-full h-full object-cover"
+              />
             ) : (
               <span className="text-[#00C2CB] font-semibold text-sm">
                 {userInitials}
@@ -170,7 +173,7 @@ export default function Topbar() {
           <button
             onClick={async () => {
               await supabase.auth.signOut();
-              router.push('/');
+              router.push("/");
             }}
             className="
               flex items-center justify-center
