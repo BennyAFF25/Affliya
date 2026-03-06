@@ -61,6 +61,16 @@ async function getShopData(handle: string) {
   const affiliateEmail = profile.email;
   const affiliateId = profile.id;
 
+  const { data: shopApprovals } = await supabase
+    .from("affiliate_shop_requests")
+    .select("status")
+    .eq("affiliate_email", affiliateEmail);
+
+  const shopApproved = shopApprovals?.some((row) => row.status === "approved");
+  if (!shopApproved) {
+    return null;
+  }
+
   const { data: affiliateProfile } = await supabase
     .from("affiliate_profiles")
     .select("display_name, avatar_url, bio")

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useSessionContext } from "@supabase/auth-helpers-react";
 import { supabase } from "@/../utils/supabase/pages-client";
 import {
@@ -33,6 +34,7 @@ interface OfferRow {
   title: string;
   description: string | null;
   logo_url: string | null;
+  business_email: string | null;
 }
 
 interface ShopStats {
@@ -102,6 +104,10 @@ export default function MyShopPage() {
   const [initialPalette, setInitialPalette] = useState<ThemePaletteJson>(
     DEFAULT_CUSTOM_PALETTE,
   );
+  const [shopAccessStatus, setShopAccessStatus] = useState<
+    "none" | "pending" | "approved" | "rejected"
+  >("none");
+  const [requestingAccess, setRequestingAccess] = useState(false);
 
   const initialMetadataHandle =
     (session?.user?.user_metadata as any)?.username || "";
@@ -133,7 +139,7 @@ export default function MyShopPage() {
         } else {
           const { data: offerRows } = await supabase
             .from("offers")
-            .select("id, title, description, logo_url")
+            .select("id, title, description, logo_url, business_email")
             .in("id", offerIds);
 
           const { data: overrideRows } = await supabase
@@ -213,6 +219,21 @@ export default function MyShopPage() {
         }
         setHandle(resolvedHandle);
         setHandleSaved(!!resolvedHandle);
+
+        const { data: shopRequests } = await supabase
+          .from("affiliate_shop_requests")
+          .select("status")
+          .eq("affiliate_email", session.user.email);
+
+        if (shopRequests?.some((row) => row.status === "approved")) {
+          setShopAccessStatus("approved");
+        } else if (shopRequests?.some((row) => row.status === "pending")) {
+          setShopAccessStatus("pending");
+        } else if (shopRequests?.some((row) => row.status === "rejected")) {
+          setShopAccessStatus("rejected");
+        } else {
+          setShopAccessStatus("none");
+        }
       } catch (err: any) {
         console.error("[MyShop] load failed", err);
         setError("Failed to load shop data.");
@@ -255,6 +276,10 @@ export default function MyShopPage() {
       Icon: SparklesIcon,
     },
   ];
+
+  const hasApprovedOffers = offers.length > 0;
+  const shopEnabled = shopAccessStatus === "approved";
+  const pendingShopRequest = shopAccessStatus === "pending";
 
   const handleHandleSave = async () => {
     if (!handle.trim()) {
@@ -404,9 +429,146 @@ export default function MyShopPage() {
     }
   };
 
+  const handleRequestAccess = async () => {
+    if (!hasApprovedOffers) {
+      setError(
+        "You need at least one approved offer before requesting access.",
+      );
+      return;
+    }
+    const businessEmails = Array.from(
+      new Set(
+        offers
+          .map((offer) => offer.business_email)
+          .filter((email): email is string => !!email),
+      ),
+    );
+    if (businessEmails.length === 0) {
+      setError("Approved offers are missing business contacts.");
+      return;
+    }
+    setRequestingAccess(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const res = await fetch("/api/my-shop/request-access", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessEmails }),
+      });
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        throw new Error(payload?.error || "Request failed");
+      }
+      setShopAccessStatus("pending");
+      setMessage("Request sent to your approved brands.");
+    } catch (err: any) {
+      setError(err.message || "Request failed");
+    } finally {
+      setRequestingAccess(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-surface text-white p-6">Loading…</div>
+    );
+  }
+
+  if (!shopEnabled) {
+    return (
+      <div className="min-h-screen bg-surface text-white px-4 py-6">
+        <div className="max-w-3xl mx-auto space-y-6">
+          <header className="rounded-3xl border border-white/10 bg-gradient-to-r from-[#020a12] via-[#04121d] to-[#030a14] p-6 shadow-[0_25px_80px_rgba(0,0,0,0.5)]">
+            <p className="text-xs uppercase tracking-[0.3em] text-white/60">
+              NettmarkShop
+            </p>
+            <h1 className="text-3xl font-bold text-white mt-1">My Shop</h1>
+            <p className="text-sm text-white/70 mt-2">
+              Request storefront approval so you can share a single link for all
+              of your offers.
+            </p>
+          </header>
+
+          {error && (
+            <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm text-red-200">
+              {error}
+            </div>
+          )}
+          {message && (
+            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2 text-sm text-emerald-200">
+              {message}
+            </div>
+          )}
+
+          <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-[#030b15] via-[#041121] to-[#02060b] p-6 space-y-4 shadow-[0_30px_90px_rgba(0,0,0,0.55)]">
+            <div className="space-y-2">
+              <p className="text-xs uppercase tracking-[0.3em] text-white/60">
+                Request storefront access
+              </p>
+              <p className="text-sm text-white/70">
+                Your NettmarkShop link lets you showcase every approved offer in
+                one place for organic campaigns and bio links. Businesses you
+                already work with need to approve this before it goes live.
+              </p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white/70">
+              “This affiliate is requesting to have a shop link which will
+              display your offer and others they work with on a storefront used
+              for organic campaigns and social media links.”
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={handleRequestAccess}
+                disabled={
+                  !hasApprovedOffers || requestingAccess || pendingShopRequest
+                }
+                className="inline-flex items-center justify-center rounded-full bg-[#00C2CB] px-5 py-2 text-sm font-semibold text-black shadow-[0_12px_35px_rgba(0,194,203,0.35)] disabled:opacity-60"
+              >
+                {pendingShopRequest
+                  ? "Request sent"
+                  : requestingAccess
+                    ? "Sending request…"
+                    : "Send request"}
+              </button>
+              {!hasApprovedOffers && (
+                <span className="text-xs text-white/60">
+                  You need at least one approved offer first.
+                </span>
+              )}
+            </div>
+            {pendingShopRequest && (
+              <p className="text-xs text-white/60">
+                Your brands have been notified. We’ll unlock My Shop
+                automatically once one approves.
+              </p>
+            )}
+            {shopAccessStatus === "rejected" && (
+              <p className="text-xs text-red-300">
+                Your last request was declined. Update your offers and try
+                again.
+              </p>
+            )}
+          </div>
+
+          {!hasApprovedOffers && (
+            <div className="rounded-3xl border border-dashed border-white/15 bg-white/[0.02] p-6 text-center space-y-3">
+              <p className="text-white/70 text-sm">
+                You don’t have any approved offers yet. Browse the marketplace
+                and request to promote a product before applying for a
+                storefront.
+              </p>
+              <Link
+                href="/affiliate/marketplace"
+                className="inline-flex items-center justify-center rounded-full border border-white/20 px-5 py-2 text-sm text-white hover:bg-white/10"
+              >
+                Browse marketplace
+              </Link>
+            </div>
+          )}
+        </div>
+      </div>
     );
   }
 
