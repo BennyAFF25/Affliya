@@ -75,8 +75,9 @@ export default function AffiliateSidebar() {
 
   return (
     <div className="relative h-full w-64 p-6 text-white">
-      <div className="pointer-events-none absolute inset-0 rounded-r-3xl border-r border-white/10 bg-gradient-to-b from-[#121212]/95 via-[#141414]/90 to-[#1a1a1a]/95 shadow-[0_30px_90px_rgba(0,0,0,0.65)] backdrop-blur-xl" />
-      <div className="pointer-events-none absolute -left-0.5 top-14 h-32 w-[3px] rounded-full bg-gradient-to-b from-[#00C2CB] via-transparent to-transparent opacity-80" />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[#0c1014] via-[#0f151a] to-[#0b0f12]" />
+      <div className="pointer-events-none absolute -left-6 top-10 h-48 w-48 rounded-full blur-3xl bg-[#00C2CB]/20" />
+      <div className="pointer-events-none absolute inset-0 border-r border-white/10 shadow-[0_30px_90px_rgba(0,0,0,0.65)]" />
       <div className="relative">
         <div className="text-[#00C2CB] font-bold text-lg mb-6 text-center tracking-wide" />
 
