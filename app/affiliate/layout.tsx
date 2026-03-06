@@ -1,47 +1,97 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import AffiliateSidebar from './AffiliateSidebar';
-import Topbar from '@/components/Topbar';
-import { MobileNavSlider, MobileNavTab } from '@/components/navigation/MobileNavSlider';
-import { useSession } from '@supabase/auth-helpers-react';
-import { LayoutDashboard, Store, Inbox, Wallet, Settings, LifeBuoy } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import { Toast } from '@/components/Toast';
-import { useInboxNotifier } from '../../utils/hooks/useInboxNotifier';
+import { useState } from "react";
+import AffiliateSidebar from "./AffiliateSidebar";
+import Topbar from "@/components/Topbar";
+import {
+  MobileNavSlider,
+  MobileNavTab,
+} from "@/components/navigation/MobileNavSlider";
+import { useSession } from "@supabase/auth-helpers-react";
+import {
+  LayoutDashboard,
+  Store,
+  Inbox,
+  Wallet,
+  Settings,
+  LifeBuoy,
+} from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Toast } from "@/components/Toast";
+import { useInboxNotifier } from "../../utils/hooks/useInboxNotifier";
 
-export default function AffiliateLayout({ children }: { children: React.ReactNode }) {
+export default function AffiliateLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   return <AffiliateLayoutShell>{children}</AffiliateLayoutShell>;
 }
 
 function AffiliateLayoutShell({ children }: { children: React.ReactNode }) {
   const session = useSession();
-  const userEmail = session?.user?.email || '';
+  const userEmail = session?.user?.email || "";
   const router = useRouter();
   const { toast, setToast, unreadCount } = useInboxNotifier(userEmail);
-    const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const closeMobileNav = () => setMobileNavOpen(false);
 
   const mobileTabs: MobileNavTab[] = [
-    { id: 'dashboard', label: 'Dashboard', href: '/affiliate/dashboard', icon: <LayoutDashboard size={16} /> },
-    { id: 'marketplace', label: 'Marketplace', href: '/affiliate/marketplace', icon: <Store size={16} /> },
-    { id: 'my-shop', label: 'My Shop', href: '/affiliate/dashboard/my-shop', icon: <Store size={16} /> },
-    { id: 'inbox', label: 'Inbox', href: '/affiliate/inbox', icon: <Inbox size={16} />, badge: unreadCount },
-    { id: 'wallet', label: 'Wallet', href: '/affiliate/wallet', icon: <Wallet size={16} /> },
-    { id: 'support', label: 'Support', href: '/affiliate/support', icon: <LifeBuoy size={16} /> },
-    { id: 'settings', label: 'Settings', href: '/affiliate/settings', icon: <Settings size={16} /> },
+    {
+      id: "dashboard",
+      label: "Dashboard",
+      href: "/affiliate/dashboard",
+      icon: <LayoutDashboard size={16} />,
+    },
+    {
+      id: "marketplace",
+      label: "Marketplace",
+      href: "/affiliate/marketplace",
+      icon: <Store size={16} />,
+    },
+    {
+      id: "my-shop",
+      label: "My Shop",
+      href: "/affiliate/dashboard/my-shop",
+      icon: <Store size={16} />,
+    },
+    {
+      id: "inbox",
+      label: "Inbox",
+      href: "/affiliate/inbox",
+      icon: <Inbox size={16} />,
+      badge: unreadCount,
+    },
+    {
+      id: "wallet",
+      label: "Wallet",
+      href: "/affiliate/wallet",
+      icon: <Wallet size={16} />,
+    },
+    {
+      id: "support",
+      label: "Support",
+      href: "/affiliate/support",
+      icon: <LifeBuoy size={16} />,
+    },
+    {
+      id: "settings",
+      label: "Settings",
+      href: "/affiliate/settings",
+      icon: <Settings size={16} />,
+    },
   ];
 
   return (
     <div className="flex flex-col min-h-screen text-white bg-surface">
       {/* Fixed Topbar at the top */}
-      <div className="fixed top-0 left-0 right-0 z-30 bg-surface-deep">
+      <div className="fixed top-0 left-0 right-0 z-30 bg-gradient-to-b from-[#121212] to-[#1a1a1a] border-b border-white/5">
         <div className="flex items-center justify-between px-2">
           <Topbar {...({ unreadCount } as any)} />
           {/* Mobile hamburger */}
           <button
-            className="md:hidden flex flex-col items-center justify-center w-9 h-9 bg-surface-deep border border-white/10 rounded-md"
+            className="md:hidden flex flex-col items-center justify-center w-9 h-9 bg-black/30 border border-white/10 rounded-md"
             onClick={() => setMobileNavOpen((prev) => !prev)}
           >
             <span className="block w-5 h-[2px] bg-white mb-[3px] rounded" />
@@ -52,7 +102,7 @@ function AffiliateLayoutShell({ children }: { children: React.ReactNode }) {
 
         {/* Mobile pill slider */}
         {mobileNavOpen && (
-          <div className="md:hidden bg-surface-deep border-t border-black/40 py-3 px-4">
+          <div className="md:hidden bg-black/30 border-t border-white/10 py-3 px-4">
             <MobileNavSlider tabs={mobileTabs} onNavigate={closeMobileNav} />
           </div>
         )}
@@ -76,10 +126,10 @@ function AffiliateLayoutShell({ children }: { children: React.ReactNode }) {
       {/* Global Inbox Toast */}
       <Toast
         open={!!toast}
-        title={toast?.title || ''}
+        title={toast?.title || ""}
         body={toast?.body}
         actionLabel="Check inbox"
-        onAction={() => router.push('/affiliate/inbox')}
+        onAction={() => router.push("/affiliate/inbox")}
         onClose={() => setToast(null)}
       />
     </div>
