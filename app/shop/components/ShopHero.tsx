@@ -151,18 +151,6 @@ export function ShopHero({
                 <Share2 size={16} />
                 {copied ? "Link copied" : "Share with friends"}
               </button>
-              <a
-                href={shopUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold"
-                style={{
-                  backgroundColor: themeStyles.accent,
-                  color: theme === "luminous" ? "#111827" : "#000",
-                }}
-              >
-                <Link2 size={16} /> Visit shop
-              </a>
             </div>
           </div>
         </div>

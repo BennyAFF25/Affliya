@@ -108,7 +108,7 @@ export function ProductCard({
         style={{ backgroundColor: themeStyles.accent, color: ctaTextColor }}
         prefetch={false}
       >
-        Explore offer
+        Shop now
         <ArrowUpRight size={18} />
       </Link>
       <div
