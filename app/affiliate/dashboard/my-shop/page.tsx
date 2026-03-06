@@ -501,22 +501,38 @@ export default function MyShopPage() {
             </div>
           )}
 
-          <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-[#030b15] via-[#041121] to-[#02060b] p-6 space-y-4 shadow-[0_30px_90px_rgba(0,0,0,0.55)]">
+          <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-[#030b15] via-[#041121] to-[#02060b] p-6 space-y-5 shadow-[0_30px_90px_rgba(0,0,0,0.55)]">
             <div className="space-y-2">
               <p className="text-xs uppercase tracking-[0.3em] text-white/60">
                 Request storefront access
               </p>
               <p className="text-sm text-white/70">
                 Your NettmarkShop link lets you showcase every approved offer in
-                one place for organic campaigns and bio links. Businesses you
-                already work with need to approve this before it goes live.
+                one place for organic campaigns and bio links. When you send a
+                request, the brands you already work with see a note explaining
+                that you want to list their offer on your public shop link.
               </p>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-white/70">
-              “This affiliate is requesting to have a shop link which will
-              display your offer and others they work with on a storefront used
-              for organic campaigns and social media links.”
-            </div>
+            {hasApprovedOffers && (
+              <div className="rounded-2xl border border-white/10 bg-black/15 p-4 space-y-3">
+                <p className="text-xs uppercase tracking-[0.3em] text-white/50">
+                  Approved offers
+                </p>
+                <ul className="space-y-2 text-sm text-white/70">
+                  {offers.map((offer) => (
+                    <li
+                      key={offer.id}
+                      className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 flex items-center justify-between gap-3"
+                    >
+                      <span className="truncate">{offer.title}</span>
+                      <span className="text-white/40 text-xs">
+                        {offer.business_email || "—"}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             <div className="flex flex-wrap items-center gap-3">
               <button
                 type="button"
@@ -540,8 +556,10 @@ export default function MyShopPage() {
             </div>
             {pendingShopRequest && (
               <p className="text-xs text-white/60">
-                Your brands have been notified. We’ll unlock My Shop
-                automatically once one approves.
+                Brands are shown: “This affiliate is requesting to have a shop
+                link which will display your offer and any others they work with
+                on a storefront used for organic campaigns and social media
+                links.”
               </p>
             )}
             {shopAccessStatus === "rejected" && (
