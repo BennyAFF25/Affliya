@@ -66,8 +66,9 @@ async function getShopData(handle: string) {
     .select("status")
     .eq("affiliate_email", affiliateEmail);
 
+  const hasRequests = !!shopApprovals?.length;
   const shopApproved = shopApprovals?.some((row) => row.status === "approved");
-  if (!shopApproved) {
+  if (hasRequests && !shopApproved) {
     return null;
   }
 
