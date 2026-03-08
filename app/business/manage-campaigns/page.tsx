@@ -204,9 +204,12 @@ const ManageCampaignsBusiness = () => {
 
     const placements = affiliateEmails.map((email) => {
       const profile = profileMap.get(email);
+      const rawHandle = profile?.username?.trim() || "";
+      const handleSlug = rawHandle ? rawHandle.toLowerCase() : null;
       return {
         affiliate_email: email,
-        handle: profile?.username || email?.split("@")[0] || "Unknown",
+        handle: handleSlug,
+        displayHandle: rawHandle || email?.split("@")[0] || "Shop",
         avatar_url: profile?.avatar_url || null,
         offers: offerCount[email] || 0,
         views24h: metrics[email]?.views || 0,
@@ -612,20 +615,28 @@ const ManageCampaignsBusiness = () => {
                             </div>
                             <div className="flex-1">
                               <p className="text-sm font-semibold">
-                                {`@${placement.handle}`}
+                                {placement.handle
+                                  ? `@${placement.displayHandle}`
+                                  : placement.displayHandle}
                               </p>
                               <p className="text-xs text-white/60">
                                 {placement.affiliate_email}
                               </p>
                             </div>
-                            <a
-                              href={`https://www.nettmark.com/shop/${placement.handle}`}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="text-xs text-[#00C2CB] hover:text-white"
-                            >
-                              View
-                            </a>
+                            {placement.handle ? (
+                              <a
+                                href={`https://www.nettmark.com/shop/${placement.handle}`}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-xs text-[#00C2CB] hover:text-white"
+                              >
+                                View
+                              </a>
+                            ) : (
+                              <span className="text-[11px] text-white/40">
+                                Handle pending
+                              </span>
+                            )}
                           </div>
                           <div className="mt-3 grid grid-cols-3 gap-3 text-center text-xs text-white/70">
                             <div className="rounded-xl border border-white/10 bg-white/5 px-2 py-2">
