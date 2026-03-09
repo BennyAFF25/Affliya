@@ -501,9 +501,9 @@ const ManageCampaignsBusiness = () => {
   };
 
   return (
-    <div className="min-h-screen bg-surface p-6 text-white">
-      <div className="mx-auto w-full max-w-6xl space-y-8">
-        <section className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-[#061214] via-[#090d0e] to-black p-6 shadow-[0_30px_80px_rgba(0,0,0,0.55)]">
+    <div className="min-h-screen bg-surface text-white">
+      <div className="mx-auto w-full max-w-6xl space-y-8 px-4 pb-8 pt-4 sm:px-6 lg:px-0">
+        <section className="relative overflow-hidden border-t border-white/10 bg-gradient-to-br from-[#061214] via-[#090d0e] to-black px-4 py-6 shadow-[0_30px_80px_rgba(0,0,0,0.55)] sm:rounded-3xl sm:border">
           <div className="pointer-events-none absolute -top-12 right-0 h-52 w-52 rounded-full bg-[#00C2CB]/20 blur-3xl" />
           <div className="relative z-10 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
