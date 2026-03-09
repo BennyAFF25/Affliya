@@ -2,7 +2,15 @@
 
 import Link from "next/link";
 import { useSession } from "@supabase/auth-helpers-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
+import {
+  Sparkles,
+  Activity,
+  Archive,
+  Store,
+  Wallet,
+  Megaphone,
+} from "lucide-react";
 import { supabase } from "utils/supabase/pages-client";
 
 const ManageCampaignsBusiness = () => {
@@ -10,10 +18,8 @@ const ManageCampaignsBusiness = () => {
   const user = session?.user;
 
   const [campaigns, setCampaigns] = useState<any[]>([]);
-  const [showActive, setShowActive] = useState(true);
-  const [showArchived, setShowArchived] = useState(false);
+  const [showArchived, setShowArchived] = useState(true);
   const [shopPlacements, setShopPlacements] = useState<any[]>([]);
-  const [showShops, setShowShops] = useState(true);
 
   const [metaCurrency, setMetaCurrency] = useState<string>("AUD");
   const [syncingById, setSyncingById] = useState<Record<string, boolean>>({});
@@ -352,496 +358,385 @@ const ManageCampaignsBusiness = () => {
     return new Date(d).toLocaleDateString();
   };
 
-  return (
-    <div className="min-h-screen bg-surface text-white">
-      <div className="mx-auto max-w-6xl px-8 py-10">
-        {/* Page header */}
-        <header className="mb-8">
-          <p className="text-xs font-medium uppercase tracking-[0.2em] text-white/40">
-            Campaigns
-          </p>
-          <h1 className="mt-1 text-3xl font-semibold tracking-tight text-[#00C2CB]">
-            Manage campaigns
-          </h1>
-          <p className="mt-2 text-sm text-white/70">
-            See every campaign your affiliates are running for this brand, pause
-            or inspect performance, and jump into a detailed view.
-          </p>
-        </header>
+  const isActiveStatus = (status?: string) => {
+    const s = (status || "").toLowerCase();
+    return s === "live" || s === "active";
+  };
 
-        {/* Empty state for the whole page */}
-        {campaigns.length === 0 ? (
-          <div className="rounded-2xl border border-yellow-500/20 bg-yellow-500/10 px-6 py-5 text-center text-sm text-yellow-200">
-            No campaigns found yet. Once affiliates start running ads for your
-            offers, they&apos;ll appear here.
+  const activeCount = activeCampaigns.length;
+  const archivedCount = archivedCampaigns.length;
+  const totalMetaSpend = campaigns
+    .filter((c) => c._source === "meta")
+    .reduce((sum, c) => sum + Number(c.spend || 0), 0);
+  const organicCount = campaigns.filter((c) => c._source === "organic").length;
+  const shopCount = shopPlacements.length;
+
+  const metricCards = [
+    {
+      label: "Live campaigns",
+      value: formatNumber(activeCount),
+      tone: "cyan" as const,
+      icon: <Activity className="h-4 w-4" />,
+    },
+    {
+      label: "Shop placements",
+      value: formatNumber(shopCount),
+      tone: "cyan" as const,
+      icon: <Store className="h-4 w-4" />,
+    },
+    {
+      label: "Meta spend",
+      value: formatMoney(totalMetaSpend),
+      tone: "slate" as const,
+      icon: <Wallet className="h-4 w-4" />,
+    },
+    {
+      label: "Organic posts",
+      value: formatNumber(organicCount),
+      tone: "slate" as const,
+      icon: <Megaphone className="h-4 w-4" />,
+    },
+    {
+      label: "Archived",
+      value: formatNumber(archivedCount),
+      tone: "slate" as const,
+      icon: <Archive className="h-4 w-4" />,
+    },
+  ];
+
+  const statusVisual = (status?: string) => {
+    const key = (status || "pending").toLowerCase();
+    if (key === "paused")
+      return { label: "Paused", dot: "bg-amber-400", text: "text-amber-200" };
+    if (key === "stopped" || key === "stopped permanently")
+      return { label: "Stopped", dot: "bg-red-500", text: "text-red-200" };
+    return { label: "Active", dot: "bg-emerald-400", text: "text-emerald-200" };
+  };
+
+  const renderCampaignCard = (campaign: any) => {
+    const isMeta = campaign._source === "meta";
+    const status = statusVisual(campaign.status);
+    return (
+      <div
+        key={campaign.id}
+        className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.45)]"
+      >
+        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-base font-semibold text-white">
+              {campaign.caption || "Untitled campaign"}
+            </p>
+            <p className="text-sm text-white/60">
+              {campaign.affiliate_email || "Affiliate unknown"}
+            </p>
+          </div>
+          <span
+            className={`inline-flex items-center gap-2 rounded-full border border-white/15 px-3 py-1 text-xs font-semibold ${status.text}`}
+          >
+            <span className={`h-2 w-2 rounded-full ${status.dot}`}></span>
+            {status.label}
+          </span>
+        </div>
+
+        <div className="mt-4 grid gap-4 text-center text-sm text-white/80 sm:grid-cols-4">
+          <StatCell
+            label="Spend"
+            value={isMeta ? formatMoney(campaign.spend || 0) : "—"}
+          />
+          <StatCell label="Clicks" value={formatNumber(campaign.clicks)} />
+          <StatCell
+            label="Conversions"
+            value={formatNumber(campaign.conversions)}
+          />
+          <StatCell label="Started" value={formatDate(campaign.created_at)} />
+        </div>
+
+        <div className="mt-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <Link href={`/business/manage-campaigns/${campaign.id}`}>
+              <button className="w-full rounded-full bg-[#00C2CB] px-4 py-2 text-sm font-semibold text-black transition hover:bg-[#00b0b8]">
+                View campaign
+              </button>
+            </Link>
+            {isMeta ? (
+              <>
+                <button
+                  onClick={() => handleSyncSpend(campaign.id)}
+                  disabled={!!syncingById[campaign.id]}
+                  className="w-full rounded-full border border-white/15 px-4 py-2 text-sm font-semibold text-white/80 transition hover:bg-white/5 disabled:opacity-50"
+                >
+                  {syncingById[campaign.id] ? "Syncing..." : "Sync spend"}
+                </button>
+                <button
+                  onClick={() => handlePermanentStop(campaign.id)}
+                  className="w-full rounded-full border border-red-500/40 px-4 py-2 text-sm font-semibold text-red-400 transition hover:bg-red-500/10"
+                >
+                  Stop
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() =>
+                  handleToggleStatus(campaign.id, campaign.status || "")
+                }
+                className="w-full rounded-full border border-white/15 px-4 py-2 text-sm font-semibold text-white/80 transition hover:bg-white/5"
+              >
+                {isActiveStatus(campaign.status) ? "Pause" : "Activate"}
+              </button>
+            )}
+          </div>
+          {campaign.tracking_link ? (
+            <a
+              href={campaign.tracking_link}
+              target="_blank"
+              rel="noreferrer"
+              className="text-xs text-white/60 hover:text-white"
+            >
+              Tracking link
+            </a>
+          ) : null}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-surface p-6 text-white">
+      <div className="mx-auto w-full max-w-6xl space-y-8">
+        <section className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-br from-[#061214] via-[#090d0e] to-black p-6 shadow-[0_30px_80px_rgba(0,0,0,0.55)]">
+          <div className="pointer-events-none absolute -top-12 right-0 h-52 w-52 rounded-full bg-[#00C2CB]/20 blur-3xl" />
+          <div className="relative z-10 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="inline-flex items-center gap-2 rounded-full border border-[#00C2CB]/30 bg-[#00C2CB]/10 px-3 py-1 text-[11px] uppercase tracking-[0.3em] text-[#7ff5fb]">
+                <Sparkles className="h-3.5 w-3.5" /> Command center
+              </p>
+              <h1 className="mt-3 text-3xl font-semibold text-[#00C2CB]">
+                Manage campaigns
+              </h1>
+              <p className="mt-2 max-w-2xl text-sm text-white/70">
+                Monitor every affiliate placement, sync Meta spend, and jump
+                straight into campaign controls before performance drifts.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Link
+                href="/business/my-business/create-offer"
+                className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold text-white hover:bg-white/10"
+              >
+                New offer
+              </Link>
+              <Link
+                href="/business/dashboard"
+                className="inline-flex items-center gap-2 rounded-xl bg-[#00C2CB] px-4 py-2 text-sm font-semibold text-black hover:bg-[#00b0b8]"
+              >
+                Business dashboard
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          {metricCards.map((metric) => (
+            <MetricCard key={metric.label} {...metric} />
+          ))}
+        </section>
+
+        {campaigns.length === 0 && shopPlacements.length === 0 ? (
+          <div className="rounded-2xl border border-yellow-500/20 bg-yellow-500/10 p-5 text-center text-sm text-yellow-100">
+            No campaign or shop activity yet. Approve affiliate requests or
+            launch paid placements to see activity here.
           </div>
         ) : (
-          <div className="space-y-4">
-            {/* ACTIVE CAMPAIGNS SECTION */}
-            <section className="rounded-3xl border border-white/10 bg-white/[0.02] shadow-[0_0_60px_rgba(0,0,0,0.6)]">
-              <button
-                type="button"
-                onClick={() => setShowActive((prev) => !prev)}
-                className="flex w-full items-center justify-between gap-3 rounded-3xl px-6 py-4 text-left transition hover:bg-white/[0.03]"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#00C2CB]/10 text-[#00C2CB]">
-                    <svg
-                      className="h-4 w-4"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M5 13l4 4L19 7"
-                      />
-                    </svg>
+          <>
+            <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.45)]">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-semibold">Active campaigns</h2>
+                  <p className="text-sm text-white/60">
+                    Campaigns currently delivering or awaiting settlement.
+                  </p>
+                </div>
+                <span className="rounded-full bg-[#00C2CB]/10 px-3 py-1 text-sm font-semibold text-[#00C2CB]">
+                  {activeCount} live
+                </span>
+              </div>
+              <div className="mt-5 space-y-4">
+                {activeCount === 0 ? (
+                  <div className="rounded-xl border border-white/10 bg-black/30 p-4 text-sm text-white/70">
+                    No live campaigns right now. When affiliates push new
+                    placements they will appear here automatically.
                   </div>
-                  <div>
-                    <h2 className="text-sm font-semibold">Active campaigns</h2>
-                    <p className="text-xs text-white/60">
-                      Campaigns currently delivering traffic for your offers.
-                    </p>
-                  </div>
-                </div>
-                <div className="flex flex-col items-end gap-1 sm:flex-row sm:items-center sm:gap-3">
-                  <span className="flex items-center justify-center min-w-[70px] rounded-full bg-[#00C2CB]/20 px-3 py-1.5 text-xs font-semibold text-[#00C2CB] shadow-inner shadow-[#00C2CB]/30">
-                    {activeCampaigns.length} active
-                  </span>
-                  <span className="text-2xl leading-none text-[#00C2CB]">
-                    {showActive ? "−" : "+"}
-                  </span>
-                </div>
-              </button>
-
-              {showActive && (
-                <div className="border-t border-white/5 px-4 py-4 sm:px-6 sm:py-5">
-                  {activeCampaigns.length === 0 ? (
-                    <p className="rounded-2xl border border-white/5 bg-black/40 px-4 py-3 text-sm text-white/60">
-                      No active campaigns. When an affiliate launches a
-                      campaign, it will show here.
-                    </p>
-                  ) : (
-                    <div className="space-y-3">
-                      {activeCampaigns.map((campaign) => (
-                        <div
-                          key={campaign.id}
-                          className="flex flex-col gap-4 rounded-2xl border border-[#00C2CB]/20 bg-black/40 px-4 py-4 shadow-sm shadow-black/40 transition hover:border-[#00C2CB]/60 hover:shadow-[0_0_30px_rgba(0,194,203,0.35)] sm:flex-row sm:items-center sm:justify-between"
-                        >
-                          <div className="space-y-1">
-                            <p className="text-sm font-medium text-white">
-                              {campaign.caption || "Untitled campaign"}
-                            </p>
-                            <p className="text-xs text-white/60">
-                              Affiliate:{" "}
-                              <span className="text-white">
-                                {campaign.affiliate_email || "N/A"}
-                              </span>
-                            </p>
-                            <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-white/60">
-                              {campaign._source === "meta" ? (
-                                <>
-                                  <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
-                                    Meta Ads
-                                  </span>
-                                  {campaign.campaign_type && (
-                                    <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
-                                      {campaign.campaign_type}
-                                    </span>
-                                  )}
-                                  <span className="rounded-full border border-[#00C2CB]/30 bg-[#00C2CB]/10 px-2 py-0.5 text-[#7ff5fb]">
-                                    Spend{" "}
-                                    {formatMoney((campaign as any).spend || 0)}
-                                  </span>
-                                  <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
-                                    Conversions{" "}
-                                    {Number(
-                                      (campaign as any).conversions || 0,
-                                    ).toLocaleString()}
-                                  </span>
-                                </>
-                              ) : (
-                                <>
-                                  {campaign.platform && (
-                                    <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
-                                      {campaign.platform}
-                                    </span>
-                                  )}
-                                  {campaign.type && (
-                                    <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
-                                      {campaign.type}
-                                    </span>
-                                  )}
-                                </>
-                              )}
-                              {campaign.created_at && (
-                                <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
-                                  Started {formatDate(campaign.created_at)}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="flex flex-col items-end gap-2 sm:items-end sm:text-right">
-                            <span className="inline-flex items-center rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-300">
-                              {(campaign.status || "LIVE").toUpperCase()}
-                            </span>
-                            <div className="flex gap-2">
-                              <Link
-                                href={`/business/manage-campaigns/${campaign.id}`}
-                              >
-                                <button className="rounded-full bg-[#00C2CB] px-4 py-1.5 text-xs font-semibold text-black shadow hover:bg-[#00b0b8]">
-                                  View campaign
-                                </button>
-                              </Link>
-
-                              {campaign._source === "meta" ? (
-                                <>
-                                  <button
-                                    onClick={() => handleSyncSpend(campaign.id)}
-                                    disabled={!!syncingById[campaign.id]}
-                                    className={`rounded-full border border-white/20 bg-transparent px-4 py-1.5 text-xs font-semibold text-white/80 hover:bg-white/5 ${
-                                      syncingById[campaign.id]
-                                        ? "opacity-60 cursor-not-allowed"
-                                        : ""
-                                    }`}
-                                  >
-                                    {syncingById[campaign.id]
-                                      ? "Syncing…"
-                                      : "Sync spend"}
-                                  </button>
-                                  <button
-                                    onClick={() =>
-                                      handlePermanentStop(campaign.id)
-                                    }
-                                    className="rounded-full border border-red-500/70 bg-red-500/10 px-4 py-1.5 text-xs font-semibold text-red-300 hover:bg-red-500/20 hover:text-red-200"
-                                  >
-                                    Stop permanently
-                                  </button>
-                                </>
-                              ) : (
-                                // Organic campaigns keep the softer pause/activate toggle
-                                <button
-                                  onClick={() =>
-                                    handleToggleStatus(
-                                      campaign.id,
-                                      campaign.status,
-                                    )
-                                  }
-                                  className="rounded-full border border-[#00C2CB] bg-transparent px-4 py-1.5 text-xs font-semibold text-[#00C2CB] hover:bg-[#00C2CB]/10"
-                                >
-                                  {(campaign.status || "").toLowerCase() ===
-                                    "live" ||
-                                  (campaign.status || "").toLowerCase() ===
-                                    "active"
-                                    ? "Pause"
-                                    : "Activate"}
-                                </button>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
+                ) : (
+                  activeCampaigns.map((campaign) =>
+                    renderCampaignCard(campaign),
+                  )
+                )}
+              </div>
             </section>
 
-            {/* SHOP PLACEMENTS SECTION */}
-            <section className="rounded-3xl border border-white/10 bg-white/[0.02] shadow-[0_0_60px_rgba(0,0,0,0.6)]">
-              <button
-                type="button"
-                onClick={() => setShowShops((prev) => !prev)}
-                className="flex w-full items-center justify-between gap-3 rounded-3xl px-6 py-4 text-left transition hover:bg-white/[0.03]"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#00C2CB]/10 text-[#00C2CB]">
-                    <svg
-                      className="h-4 w-4"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M3 5h18M3 12h18M3 19h18"
-                      />
-                    </svg>
-                  </div>
-                  <div>
-                    <h2 className="text-sm font-semibold">
-                      Shopfront placements
-                    </h2>
-                    <p className="text-xs text-white/60">
-                      Affiliates who feature your offers on NettmarkShop.
-                    </p>
-                  </div>
+            <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.45)]">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-lg font-semibold">
+                    Shopfront placements
+                  </h2>
+                  <p className="text-sm text-white/60">
+                    Affiliates driving traffic via NettmarkShop.
+                  </p>
                 </div>
-                <div className="flex flex-col items-end gap-1 sm:flex-row sm:items-center sm:gap-3">
-                  <span className="flex items-center justify-center min-w-[70px] rounded-full bg-white/5 px-3 py-1.5 text-xs font-semibold text-white/70">
-                    {shopPlacements.length} shops
-                  </span>
-                  <span className="text-2xl leading-none text-white">
-                    {showShops ? "-" : "+"}
-                  </span>
-                </div>
-              </button>
+                <span className="rounded-full bg-white/5 px-3 py-1 text-sm font-semibold text-white/70">
+                  {shopCount} live
+                </span>
+              </div>
 
-              {showShops && (
-                <div className="border-t border-white/5 px-4 py-4 sm:px-6 sm:py-5">
-                  {shopPlacements.length === 0 ? (
-                    <p className="rounded-2xl border border-white/5 bg-black/40 px-4 py-3 text-sm text-white/60">
-                      No shops have been approved yet. Once affiliates request
-                      and receive access, they will appear here with their
-                      latest performance metrics.
-                    </p>
-                  ) : (
-                    <div className="grid gap-4 md:grid-cols-2">
-                      {shopPlacements.map((placement) => (
-                        <div
-                          key={placement.affiliate_email}
-                          className="rounded-2xl border border-white/10 bg-black/40 px-4 py-4 shadow-sm shadow-black/40"
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-sm font-semibold text-[#00C2CB]">
-                              {placement.handle?.charAt(0)?.toUpperCase() ||
-                                "A"}
-                            </div>
-                            <div className="flex-1">
-                              <p className="text-sm font-semibold">
-                                {placement.handle
-                                  ? `@${placement.displayHandle}`
-                                  : placement.displayHandle}
-                              </p>
-                              <p className="text-xs text-white/60">
-                                {placement.affiliate_email}
-                              </p>
-                            </div>
-                            {placement.handle ? (
-                              <a
-                                href={`https://www.nettmark.com/shop/${placement.handle}`}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="text-xs text-[#00C2CB] hover:text-white"
-                              >
-                                View
-                              </a>
-                            ) : (
-                              <span className="text-[11px] text-white/40">
-                                Handle pending
-                              </span>
-                            )}
-                          </div>
-                          <div className="mt-3 grid grid-cols-3 gap-3 text-center text-xs text-white/70">
-                            <div className="rounded-xl border border-white/10 bg-white/5 px-2 py-2">
-                              <p className="text-[10px] uppercase tracking-wide text-white/40">
-                                Views (24h)
-                              </p>
-                              <p className="text-base font-semibold text-white">
-                                {formatNumber(placement.views24h)}
-                              </p>
-                            </div>
-                            <div className="rounded-xl border border-white/10 bg-white/5 px-2 py-2">
-                              <p className="text-[10px] uppercase tracking-wide text-white/40">
-                                Clicks (24h)
-                              </p>
-                              <p className="text-base font-semibold text-white">
-                                {formatNumber(placement.clicks24h)}
-                              </p>
-                            </div>
-                            <div className="rounded-xl border border-white/10 bg-white/5 px-2 py-2">
-                              <p className="text-[10px] uppercase tracking-wide text-white/40">
-                                Approved offers
-                              </p>
-                              <p className="text-base font-semibold text-white">
-                                {formatNumber(placement.offers)}
-                              </p>
-                            </div>
-                          </div>
+              <div className="mt-5 space-y-4">
+                {shopCount === 0 ? (
+                  <div className="rounded-xl border border-white/10 bg-black/30 p-4 text-sm text-white/70">
+                    No approved storefronts yet. Once affiliates finish setup,
+                    their stats land here.
+                  </div>
+                ) : (
+                  shopPlacements.map((placement) => (
+                    <div
+                      key={placement.affiliate_email}
+                      className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-black/30 p-4 md:flex-row md:items-center md:justify-between"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-sm font-semibold text-[#00C2CB]">
+                          {(placement.displayHandle || "S")
+                            .charAt(0)
+                            .toUpperCase()}
                         </div>
-                      ))}
+                        <div>
+                          <p className="text-sm font-semibold">
+                            {placement.handle
+                              ? `@${placement.displayHandle}`
+                              : placement.displayHandle}
+                          </p>
+                          <p className="text-xs text-white/60">
+                            {placement.affiliate_email}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="grid flex-1 gap-4 text-center text-sm text-white md:grid-cols-3">
+                        <ShopStat
+                          label="Views (24h)"
+                          value={formatNumber(placement.views24h)}
+                        />
+                        <ShopStat
+                          label="Clicks (24h)"
+                          value={formatNumber(placement.clicks24h)}
+                        />
+                        <ShopStat
+                          label="Approved offers"
+                          value={formatNumber(placement.offers)}
+                        />
+                      </div>
+                      {placement.handle ? (
+                        <a
+                          href={`https://www.nettmark.com/shop/${placement.handle}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-xs font-semibold text-[#00C2CB] hover:text-white"
+                        >
+                          View shop
+                        </a>
+                      ) : (
+                        <span className="text-xs text-white/40">
+                          Handle pending
+                        </span>
+                      )}
                     </div>
-                  )}
-                </div>
-              )}
+                  ))
+                )}
+              </div>
             </section>
 
-            {/* ARCHIVED CAMPAIGNS SECTION */}
-            <section className="rounded-3xl border border-white/10 bg-white/[0.02] shadow-[0_0_60px_rgba(0,0,0,0.6)]">
-              <button
-                type="button"
-                onClick={() => setShowArchived((prev) => !prev)}
-                className="flex w-full items-center justify-between gap-3 rounded-3xl px-6 py-4 text-left transition hover:bg-white/[0.03]"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/5 text-[#7ff5fb]">
-                    <svg
-                      className="h-4 w-4"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M4 4h16v16H4z"
-                      />
-                    </svg>
-                  </div>
-                  <div>
-                    <h2 className="text-sm font-semibold">
-                      Archived campaigns
-                    </h2>
-                    <p className="text-xs text-white/60">
-                      Paused, completed, or deleted campaigns stay here for
-                      history.
-                    </p>
-                  </div>
+            <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.45)]">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-lg font-semibold">Archived campaigns</h2>
+                  <p className="text-sm text-white/60">
+                    Paused or completed placements stay here for historical
+                    reference.
+                  </p>
                 </div>
-                <div className="flex flex-col items-end gap-1 sm:flex-row sm:items-center sm:gap-3">
-                  <span className="inline-flex items-center justify-center gap-1 rounded-full bg-[#1a1a1a] px-3 py-1.5 text-xs font-semibold text-[#cfd2d3] shadow-inner shadow-black/50 ring-1 ring-white/10 backdrop-blur-sm whitespace-nowrap">
-                    <span>{archivedCampaigns.length}</span>
-                    <span>archived</span>
-                  </span>
-                  <span className="text-2xl leading-none text-[#00C2CB]">
-                    {showArchived ? "−" : "+"}
-                  </span>
-                </div>
-              </button>
-
+                <button
+                  type="button"
+                  onClick={() => setShowArchived((prev) => !prev)}
+                  className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 text-xl text-white"
+                  aria-label="Toggle archived campaigns"
+                >
+                  {showArchived ? "-" : "+"}
+                </button>
+              </div>
               {showArchived && (
-                <div className="border-t border-white/5 px-4 py-4 sm:px-6 sm:py-5">
-                  {archivedCampaigns.length === 0 ? (
-                    <p className="rounded-2xl border border-white/5 bg-black/40 px-4 py-3 text-sm text-white/60">
-                      No archived campaigns yet.
-                    </p>
-                  ) : (
-                    <div className="space-y-3">
-                      {archivedCampaigns.map((campaign) => (
-                        <div
-                          key={campaign.id}
-                          className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-black/40 px-4 py-4 shadow-sm shadow-black/40 transition hover:border-white/40 hover:shadow-[0_0_25px_rgba(0,0,0,0.65)] sm:flex-row sm:items-center sm:justify-between"
-                        >
-                          <div className="space-y-1">
-                            <p className="text-sm font-medium text-white">
-                              {campaign.caption || "Untitled campaign"}
-                            </p>
-                            <p className="text-xs text-white/60">
-                              Affiliate:{" "}
-                              <span className="text-white">
-                                {campaign.affiliate_email || "N/A"}
-                              </span>
-                            </p>
-                            <div className="mt-1 flex flex-wrap gap-2 text-[11px] text-white/60">
-                              {campaign._source === "meta" ? (
-                                <>
-                                  <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
-                                    Meta Ads
-                                  </span>
-                                  {campaign.campaign_type && (
-                                    <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
-                                      {campaign.campaign_type}
-                                    </span>
-                                  )}
-                                  <span className="rounded-full border border-[#00C2CB]/30 bg-[#00C2CB]/10 px-2 py-0.5 text-[#7ff5fb]">
-                                    Spend{" "}
-                                    {formatMoney((campaign as any).spend || 0)}
-                                  </span>
-                                  <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
-                                    Conversions{" "}
-                                    {Number(
-                                      (campaign as any).conversions || 0,
-                                    ).toLocaleString()}
-                                  </span>
-                                </>
-                              ) : (
-                                <>
-                                  {campaign.platform && (
-                                    <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
-                                      {campaign.platform}
-                                    </span>
-                                  )}
-                                  {campaign.type && (
-                                    <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
-                                      {campaign.type}
-                                    </span>
-                                  )}
-                                </>
-                              )}
-                              {campaign.created_at && (
-                                <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
-                                  Started {formatDate(campaign.created_at)}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="flex flex-col items-end gap-2 sm:items-end sm:text-right">
-                            <span
-                              className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${
-                                (campaign.status || "").toLowerCase() ===
-                                "paused"
-                                  ? "bg-amber-500/15 text-amber-300"
-                                  : (campaign.status || "").toLowerCase() ===
-                                      "deleted"
-                                    ? "bg-red-500/15 text-red-300"
-                                    : (campaign.status || "").toLowerCase() ===
-                                        "stopped"
-                                      ? "bg-red-500/20 text-red-300"
-                                      : "bg-slate-500/20 text-slate-200"
-                              }`}
-                            >
-                              {(campaign.status || "ARCHIVED").toUpperCase()}
-                            </span>
-                            <div className="flex gap-2">
-                              <Link
-                                href={`/business/manage-campaigns/${campaign.id}`}
-                              >
-                                <button className="rounded-full bg-[#00C2CB] px-4 py-1.5 text-xs font-semibold text-black shadow hover:bg-[#00b0b8]">
-                                  View campaign
-                                </button>
-                              </Link>
-
-                              {campaign._source === "meta" && (
-                                <button
-                                  onClick={() => handleSyncSpend(campaign.id)}
-                                  disabled={!!syncingById[campaign.id]}
-                                  className={`rounded-full border border-white/20 bg-transparent px-4 py-1.5 text-xs font-semibold text-white/80 hover:bg-white/5 ${
-                                    syncingById[campaign.id]
-                                      ? "opacity-60 cursor-not-allowed"
-                                      : ""
-                                  }`}
-                                >
-                                  {syncingById[campaign.id]
-                                    ? "Syncing…"
-                                    : "Sync spend"}
-                                </button>
-                              )}
-
-                              <button className="rounded-full border border-white/20 bg-transparent px-4 py-1.5 text-xs font-semibold text-white/80 hover:bg-white/5">
-                                Edit details
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
+                <div className="mt-5 space-y-4">
+                  {archivedCount === 0 ? (
+                    <div className="rounded-xl border border-white/10 bg-black/30 p-4 text-sm text-white/70">
+                      Nothing archived yet. Stopped campaigns roll in here
+                      automatically.
                     </div>
+                  ) : (
+                    archivedCampaigns.map((campaign) =>
+                      renderCampaignCard(campaign),
+                    )
                   )}
                 </div>
               )}
             </section>
-          </div>
+          </>
         )}
       </div>
     </div>
   );
 };
+
+function MetricCard({
+  label,
+  value,
+  tone,
+  icon,
+}: {
+  label: string;
+  value: string;
+  tone: "cyan" | "slate";
+  icon: ReactNode;
+}) {
+  const toneClass =
+    tone === "cyan"
+      ? "border-[#00C2CB]/30 bg-[#00C2CB]/10 text-[#7ff5fb]"
+      : "border-white/15 bg-white/5 text-white/80";
+
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+      <div className="flex items-center justify-between text-xs text-white/55">
+        <span>{label}</span>
+        <div className={`rounded-lg border px-2 py-1 ${toneClass}`}>{icon}</div>
+      </div>
+      <p className="mt-3 text-2xl font-bold text-white">{value}</p>
+    </div>
+  );
+}
+
+function StatCell({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-2xl font-semibold text-white">{value}</p>
+      <p className="text-xs uppercase tracking-wide text-white/45">{label}</p>
+    </div>
+  );
+}
+
+function ShopStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="text-xl font-semibold text-white">{value}</p>
+      <p className="text-[11px] uppercase tracking-[0.2em] text-white/45">
+        {label}
+      </p>
+    </div>
+  );
+}
 
 export default ManageCampaignsBusiness;
