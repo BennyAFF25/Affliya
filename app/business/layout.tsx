@@ -68,27 +68,29 @@ export default function BusinessLayout({
   return (
     <div className="flex flex-col min-h-screen text-white bg-surface">
       {/* Fixed Topbar */}
-      <header className="fixed top-0 inset-x-0 h-16 bg-surface-deep z-30 flex items-center justify-between px-2">
-        <Topbar />
+      <header className="fixed top-0 left-0 right-0 z-30 bg-gradient-to-b from-[#121212] to-[#1a1a1a] border-b border-white/5">
+        <div className="flex items-center justify-between px-2">
+          <Topbar />
 
-        {/* Mobile hamburger */}
-        <button
-          type="button"
-          onClick={() => setMobileNavOpen((prev) => !prev)}
-          className="md:hidden flex flex-col items-center justify-center w-9 h-9 bg-surface-deep rounded-md border border-white/15"
-        >
-          <span className="block w-5 h-[2px] bg-white mb-[3px]" />
-          <span className="block w-5 h-[2px] bg-white mb-[3px]" />
-          <span className="block w-5 h-[2px] bg-white" />
-        </button>
-      </header>
-
-      {/* Mobile pill slider */}
-      {mobileNavOpen && (
-        <div className="md:hidden fixed top-16 left-0 right-0 z-40 bg-surface-deep border-b border-white/10 py-3 px-4">
-          <MobileNavSlider tabs={mobileTabs} onNavigate={closeMobileNav} />
+          {/* Mobile hamburger */}
+          <button
+            type="button"
+            onClick={() => setMobileNavOpen((prev) => !prev)}
+            className="md:hidden flex flex-col items-center justify-center w-9 h-9 bg-black/30 border border-white/10 rounded-md"
+          >
+            <span className="block w-5 h-[2px] bg-white mb-[3px] rounded" />
+            <span className="block w-5 h-[2px] bg-white mb-[3px] rounded" />
+            <span className="block w-5 h-[2px] bg-white rounded" />
+          </button>
         </div>
-      )}
+
+        {/* Mobile pill slider */}
+        {mobileNavOpen && (
+          <div className="md:hidden bg-black/30 border-t border-white/10 py-3 px-4">
+            <MobileNavSlider tabs={mobileTabs} onNavigate={closeMobileNav} />
+          </div>
+        )}
+      </header>
 
       {/* Shell under topbar */}
       <div className="pt-16 flex flex-1 min-h-0">
