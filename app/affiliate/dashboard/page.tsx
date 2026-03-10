@@ -461,11 +461,6 @@ function AffiliateDashboardContent() {
 
   const user = session?.user;
   const [showQuickstart, setShowQuickstart] = useState(false);
-  const shopHandle =
-    profile?.username || session?.user?.email?.split("@")[0] || null;
-  const shopUrl = shopHandle
-    ? `https://www.nettmark.com/shop/${shopHandle}`
-    : null;
   const firstName = (user?.email || "Partner").split("@")[0];
   const trialDaysLeft =
     profile?.revenue_subscription_status === "trialing" &&
@@ -564,30 +559,19 @@ function AffiliateDashboardContent() {
             <div className="flex flex-wrap gap-3">
               <Link
                 href="/affiliate/marketplace"
-                className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/5 px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/10"
+                className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-[#111317] px-4 py-2.5 text-sm font-semibold text-white/80 transition hover:bg-[#15191c]"
               >
                 Browse Offers <ArrowRight className="h-4 w-4" />
               </Link>
               <Link
                 href="/affiliate/wallet"
-                className="inline-flex items-center gap-2 rounded-xl bg-[#00C2CB] px-4 py-2.5 text-sm font-semibold text-black hover:bg-[#00b0b8]"
+                className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-[#111317] px-4 py-2.5 text-sm font-semibold text-white/80 transition hover:bg-[#15191c]"
               >
                 Open Wallet
               </Link>
             </div>
           </div>
         </section>
-
-        {shopUrl && (
-          <div className="mb-7 rounded-2xl border border-white/10 bg-white/[0.05] px-4 py-3 text-sm text-white/80 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-            <span className="text-white/50 uppercase tracking-[0.25em] text-[10px]">
-              Your NettmarkShop link
-            </span>
-            <span className="font-semibold text-[#7ff5fb] break-all">
-              {shopUrl}
-            </span>
-          </div>
-        )}
 
         <section className="mb-7">
           <p className="mb-3 text-xs uppercase tracking-[0.2em] text-white/45">
@@ -598,7 +582,7 @@ function AffiliateDashboardContent() {
               <Link
                 key={action.href}
                 href={action.href}
-                className="shrink-0 rounded-full border border-white/15 bg-white/[0.04] px-4 py-2 text-sm font-medium text-white/85 transition hover:border-[#00C2CB]/50 hover:bg-[#00C2CB]/10 hover:text-white"
+                className="shrink-0 rounded-full border border-white/10 bg-[#111317] px-4 py-2 text-sm font-medium text-white/80 transition hover:bg-[#15191c]"
               >
                 {action.label}
               </Link>
@@ -615,7 +599,7 @@ function AffiliateDashboardContent() {
           {/* Stat Card: Active Campaigns */}
           <DashboardCard>
             <div className="flex items-center gap-4">
-              <div className="text-[#00C2CB] bg-[#00C2CB]/10 rounded-lg p-2.5">
+              <div className="text-white/80 bg-[#15191c] rounded-lg border border-white/10 p-2.5">
                 <TrendingUp className="h-6 w-6" />
               </div>
               <div>
@@ -630,7 +614,7 @@ function AffiliateDashboardContent() {
           {/* Stat Card: Total Spent */}
           <DashboardCard>
             <div className="flex items-center gap-4">
-              <div className="text-[#00C2CB] bg-[#00C2CB]/10 rounded-lg p-2.5">
+              <div className="text-white/80 bg-[#15191c] rounded-lg border border-white/10 p-2.5">
                 <DollarSign className="h-6 w-6" />
               </div>
               <div>
@@ -645,7 +629,7 @@ function AffiliateDashboardContent() {
           {/* Stat Card: Pending Payout */}
           <DashboardCard>
             <div className="flex items-center gap-4">
-              <div className="text-[#00C2CB] bg-[#00C2CB]/10 rounded-lg p-2.5">
+              <div className="text-white/80 bg-[#15191c] rounded-lg border border-white/10 p-2.5">
                 <Wallet className="h-6 w-6" />
               </div>
               <div>
@@ -660,7 +644,7 @@ function AffiliateDashboardContent() {
           {/* Stat Card: Approved Offers */}
           <DashboardCard>
             <div className="flex items-center gap-4">
-              <div className="text-[#00C2CB] bg-[#00C2CB]/10 rounded-lg p-2.5">
+              <div className="text-white/80 bg-[#15191c] rounded-lg border border-white/10 p-2.5">
                 <CheckCircle className="h-6 w-6" />
               </div>
               <div>
@@ -689,7 +673,7 @@ function AffiliateDashboardContent() {
             return (
               <div
                 key={chart.title}
-                className="relative overflow-hidden rounded-3xl border border-white/10 bg-[#050708]/90 p-6 shadow-[0_18px_45px_rgba(0,0,0,0.55)]"
+                className="relative overflow-hidden rounded-3xl border border-white/12 bg-[#111317]/95 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.55)]"
               >
                 <div
                   className="pointer-events-none absolute inset-0 rounded-3xl opacity-80"
@@ -767,13 +751,13 @@ function AffiliateDashboardContent() {
                             </p>
                           </div>
                           <div className="flex flex-col items-start gap-2 md:items-end">
-                            <div className="rounded-full border border-white/15 bg-black/40 px-1 py-0.5 text-[10px] text-white/60">
+                            <div className="rounded-full border border-white/10 bg-[#15191c] px-1 py-0.5 text-[10px] text-white/60">
                               Latest day
                             </div>
                             <p className="text-lg font-semibold text-white">
                               {formatValue(latestValue)}
                             </p>
-                            <div className="flex items-center gap-1 rounded-full border border-white/15 bg-black/30 px-1 py-0.5">
+                            <div className="flex items-center gap-1 rounded-full border border-white/10 bg-[#15191c] px-1 py-0.5">
                               {[
                                 { label: "7D", value: "7d" as const },
                                 { label: "30D", value: "30d" as const },
@@ -830,7 +814,7 @@ function AffiliateDashboardContent() {
                         )}
 
                         {trendData.length === 0 ? (
-                          <div className="mt-3 rounded-2xl border border-dashed border-white/15 bg-black/40 px-4 py-6">
+                          <div className="mt-3 rounded-2xl border border-dashed border-white/15 bg-[#15191c] px-4 py-6">
                             <h3 className="text-sm font-semibold text-[#00C2CB] mb-1">
                               {chart.title.includes("Ad Spend")
                                 ? "No ad spend recorded yet"
@@ -841,7 +825,7 @@ function AffiliateDashboardContent() {
                                 ? "Once you start running campaigns, your daily spend will appear here."
                                 : "As soon as tracking fires, daily conversions will show up here."}
                             </p>
-                            <div className="rounded-xl border border-white/10 bg-black/40 px-4 py-5">
+                            <div className="rounded-xl border border-white/12 bg-[#15191c] px-4 py-5">
                               <div className="relative h-16 w-full">
                                 <div
                                   className="absolute inset-0"
@@ -1010,7 +994,7 @@ function AffiliateDashboardContent() {
                 Active Campaigns
               </h2>
               {activeCampaigns.length === 0 ? (
-                <div className="rounded-xl border border-white/10 bg-black/30 p-6 text-center text-white/70">
+                <div className="rounded-xl border border-white/12 bg-[#15191c] p-6 text-center text-white/70">
                   <p className="font-medium text-white/85">
                     No active campaigns yet.
                   </p>
@@ -1020,7 +1004,7 @@ function AffiliateDashboardContent() {
                   </p>
                   <Link
                     href="/affiliate/marketplace"
-                    className="mt-4 inline-flex items-center gap-2 rounded-lg bg-[#00C2CB] px-3.5 py-2 text-sm font-semibold text-black hover:bg-[#00b0b8]"
+                    className="mt-4 inline-flex items-center gap-2 rounded-lg border border-white/10 bg-[#111317] px-3.5 py-2 text-sm font-semibold text-white/80 transition hover:bg-[#15191c]"
                   >
                     Start first campaign <ArrowRight className="h-4 w-4" />
                   </Link>
@@ -1030,7 +1014,7 @@ function AffiliateDashboardContent() {
                   {visibleCampaigns.map((offer) => (
                     <div
                       key={`${offer.id}-${offer.ideaId}`}
-                      className="flex items-center justify-between bg-[#121212] border border-white/10 rounded-xl px-4 py-3 hover:bg-[#171717] transition mb-3"
+                      className="flex items-center justify-between bg-[#15191c] border border-white/12 rounded-xl px-4 py-3 hover:bg-[#1b1f23] transition mb-3"
                     >
                       <div className="flex flex-col">
                         <p className="text-white font-semibold">
@@ -1045,7 +1029,7 @@ function AffiliateDashboardContent() {
                       </div>
                       <Link
                         href={`/affiliate/dashboard/manage-campaigns/${offer.ideaId}`}
-                        className="text-sm px-3 py-1 rounded-lg bg-[#00C2CB] text-black font-semibold hover:bg-[#00b0b8]"
+                        className="text-sm px-3 py-1 rounded-lg border border-white/10 bg-[#111317] text-white/80 transition hover:bg-[#15191c]"
                       >
                         View
                       </Link>
@@ -1073,7 +1057,7 @@ function AffiliateDashboardContent() {
                 Approved Offers
               </h2>
               {approvedOffers.length === 0 ? (
-                <div className="rounded-xl border border-white/10 bg-black/30 p-6 text-center text-white/70">
+                <div className="rounded-xl border border-white/12 bg-[#15191c] p-6 text-center text-white/70">
                   <p className="font-medium text-white/85">
                     No approved offers yet.
                   </p>
@@ -1083,7 +1067,7 @@ function AffiliateDashboardContent() {
                   </p>
                   <Link
                     href="/affiliate/marketplace"
-                    className="mt-4 inline-flex items-center gap-2 rounded-lg border border-white/20 bg-white/5 px-3.5 py-2 text-sm font-semibold text-white hover:bg-white/10"
+                    className="mt-4 inline-flex items-center gap-2 rounded-lg border border-white/10 bg-[#111317] px-3.5 py-2 text-sm font-semibold text-white/80 transition hover:bg-[#15191c]"
                   >
                     Browse marketplace <ArrowRight className="h-4 w-4" />
                   </Link>
@@ -1093,7 +1077,7 @@ function AffiliateDashboardContent() {
                   {visibleOffers.map((offer) => (
                     <div
                       key={`${offer.id}-${offer.title}`}
-                      className="flex items-center justify-between bg-[#121212] border border-white/10 rounded-xl px-4 py-3 hover:bg-[#171717] transition mb-3"
+                      className="flex items-center justify-between bg-[#15191c] border border-white/12 rounded-xl px-4 py-3 hover:bg-[#1b1f23] transition mb-3"
                     >
                       <div className="flex flex-col">
                         <p className="text-white font-semibold">
@@ -1109,7 +1093,7 @@ function AffiliateDashboardContent() {
                       </div>
                       <Link
                         href={`/affiliate/dashboard/promote/${offer.id}`}
-                        className="text-sm px-3 py-1 rounded-lg bg-[#00C2CB] text-black font-semibold hover:bg-[#00b0b8]"
+                        className="text-sm px-3 py-1 rounded-lg border border-white/10 bg-[#111317] text-white/80 transition hover:bg-[#15191c]"
                       >
                         Promote
                       </Link>
