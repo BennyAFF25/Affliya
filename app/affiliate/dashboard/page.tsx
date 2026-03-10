@@ -3,7 +3,7 @@
 import { useSessionContext } from "@supabase/auth-helpers-react";
 import { RocketLaunchIcon } from "@heroicons/react/24/outline";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { supabase } from "utils/supabase/pages-client";
 import Link from "next/link";
 import {
@@ -13,9 +13,11 @@ import {
   CheckCircle,
   Sparkles,
   ArrowRight,
+  CreditCard,
+  Store,
+  CheckCircle2,
 } from "lucide-react";
 import DashboardCard from "@/components/DashboardCard";
-import { AffiliateOnboardingQuickstart } from "./components/AffiliateOnboardingQuickstart";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -460,8 +462,14 @@ function AffiliateDashboardContent() {
   }, [session, approvedIds]);
 
   const user = session?.user;
-  const [showQuickstart, setShowQuickstart] = useState(false);
   const firstName = (user?.email || "Partner").split("@")[0];
+  const [checklistState, setChecklistState] = useState({
+    payouts: false,
+    marketplace: false,
+  });
+  const [checklistDismissed, setChecklistDismissed] = useState(false);
+  const [checklistCompletionSent, setChecklistCompletionSent] = useState(false);
+  const checklistStorageKey = user ? `affiliate-checklist-${user.id}` : null;
   const trialDaysLeft =
     profile?.revenue_subscription_status === "trialing" &&
     profile?.revenue_current_period_end
@@ -497,6 +505,78 @@ function AffiliateDashboardContent() {
       const val = Number(p.amount || 0);
       return sum + (isNaN(val) ? 0 : val);
     }, 0);
+
+  const checklistAllDone = checklistState.payouts && checklistState.marketplace;
+
+  useEffect(() => {
+    if (!checklistStorageKey || typeof window === "undefined") return;
+    try {
+      const stored = window.localStorage.getItem(checklistStorageKey);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (
+          typeof parsed?.payouts === "boolean" &&
+          typeof parsed?.marketplace === "boolean"
+        ) {
+          setChecklistState(parsed);
+        }
+      }
+    } catch (err) {
+      console.warn("[Checklist] Failed to read state", err);
+    }
+  }, [checklistStorageKey]);
+
+  useEffect(() => {
+    if (!checklistStorageKey || typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        checklistStorageKey,
+        JSON.stringify(checklistState),
+      );
+    } catch (err) {
+      console.warn("[Checklist] Failed to persist state", err);
+    }
+  }, [checklistStorageKey, checklistState]);
+
+  useEffect(() => {
+    if (profile?.onboarding_completed) {
+      setChecklistState({ payouts: true, marketplace: true });
+      setChecklistDismissed(true);
+    }
+  }, [profile?.onboarding_completed]);
+
+  const markChecklistComplete = useCallback(async () => {
+    try {
+      await fetch("/api/profile/onboarding-complete", { method: "POST" });
+    } catch (err) {
+      console.warn("[Checklist] onboarding-complete failed", err);
+    } finally {
+      setChecklistCompletionSent(true);
+      setChecklistDismissed(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (
+      !profile?.onboarding_completed &&
+      checklistAllDone &&
+      !checklistCompletionSent
+    ) {
+      void markChecklistComplete();
+    }
+  }, [
+    checklistAllDone,
+    checklistCompletionSent,
+    markChecklistComplete,
+    profile?.onboarding_completed,
+  ]);
+
+  type ChecklistKey = "payouts" | "marketplace";
+
+  const handleChecklistAction = (task: ChecklistKey, href: string) => {
+    router.push(href);
+    setChecklistState((prev) => ({ ...prev, [task]: true }));
+  };
 
   // State for toggling show all/less for campaigns and offers
   const [showAllCampaigns, setShowAllCampaigns] = useState(false);
@@ -534,6 +614,108 @@ function AffiliateDashboardContent() {
     { label: "Open wallet", href: "/affiliate/wallet" },
     { label: "Support", href: "/affiliate/support" },
   ];
+
+  const checklistTasks: {
+    key: ChecklistKey;
+    title: string;
+    description: string;
+    href: string;
+    cta: string;
+    icon: typeof CreditCard;
+  }[] = [
+    {
+      key: "payouts",
+      title: "Connect payouts (Stripe)",
+      description:
+        "Hook up Stripe Express so we can pay commissions automatically.",
+      href: "/affiliate/wallet?tab=payouts",
+      cta: "Connect payouts",
+      icon: CreditCard,
+    },
+    {
+      key: "marketplace",
+      title: "Browse the marketplace",
+      description:
+        "Pick an offer to promote so your dashboard data can populate.",
+      href: "/affiliate/marketplace",
+      cta: "Open marketplace",
+      icon: Store,
+    },
+  ];
+
+  const shouldShowChecklist =
+    !profile?.onboarding_completed && !checklistAllDone && !checklistDismissed;
+
+  if (shouldShowChecklist) {
+    return (
+      <div className="min-h-screen bg-surface text-white">
+        <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-10">
+          <div>
+            <p className="text-xs uppercase tracking-[0.3em] text-white/45">
+              Getting started
+            </p>
+            <h1 className="mt-2 text-3xl font-semibold text-white">
+              Complete these two steps
+            </h1>
+            <p className="mt-2 text-sm text-white/60">
+              Connect payouts and choose an offer to unlock your dashboard.
+            </p>
+          </div>
+          <div className="space-y-4">
+            {checklistTasks.map((task) => {
+              const Icon = task.icon;
+              const completed = checklistState[task.key];
+              return (
+                <div
+                  key={task.key}
+                  className={`flex flex-col gap-4 rounded-2xl border ${completed ? "border-emerald-400/30 bg-[#111b15]" : "border-white/12 bg-[#111317]"} p-5 transition`}
+                >
+                  <div className="flex items-start gap-4">
+                    <span className="rounded-2xl border border-white/10 bg-[#15191c] p-3">
+                      <Icon className="h-5 w-5 text-white" />
+                    </span>
+                    <div>
+                      <p className="text-base font-semibold text-white">
+                        {task.title}
+                      </p>
+                      <p className="text-sm text-white/60">
+                        {task.description}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    {completed ? (
+                      <div className="flex items-center gap-2 text-sm font-semibold text-emerald-400">
+                        <CheckCircle2 className="h-4 w-4" /> Done
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() =>
+                          handleChecklistAction(task.key, task.href)
+                        }
+                        className="rounded-full border border-white/10 bg-[#111317] px-4 py-2 text-sm font-semibold text-white/80 transition hover:bg-[#15191c]"
+                      >
+                        {task.cta}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-xs text-white/60">
+            <button
+              onClick={() => setChecklistDismissed(true)}
+              className="inline-flex items-center justify-center rounded-full border border-white/12 px-4 py-1 text-white/70 transition hover:bg-[#15191c]"
+            >
+              Skip for now
+            </button>
+            <p>If you change your mind, you can finish these steps anytime.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-surface text-white">
