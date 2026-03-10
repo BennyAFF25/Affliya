@@ -18,12 +18,14 @@ import DashboardCard from "@/components/DashboardCard";
 import { AffiliateOnboardingQuickstart } from "./components/AffiliateOnboardingQuickstart";
 import {
   ResponsiveContainer,
-  BarChart,
-  Bar,
+  AreaChart,
+  Area,
+  Line,
   XAxis,
   YAxis,
   Tooltip,
   CartesianGrid,
+  ReferenceLine,
 } from "recharts";
 
 // Currency formatter helper
@@ -707,6 +709,7 @@ function AffiliateDashboardContent() {
                       : 0;
                     const accent = chart.id === "spend" ? "#00C2CB" : "#7ff5fb";
                     const gradientId = `${chart.id}-gradient`;
+                    const avgGradientId = `${chart.id}-avg-gradient`;
                     const timeframeCopy =
                       tf === "7d"
                         ? "Last 7 days"
@@ -716,6 +719,39 @@ function AffiliateDashboardContent() {
                             ? "Last 12 months"
                             : "Custom range";
 
+                    const windowSize = Math.min(
+                      5,
+                      Math.max(3, Math.floor(chart.data.length / 6) || 3),
+                    );
+                    const trendData = chart.data.map((point, idx, arr) => {
+                      const numericVal = Number(point.value || 0);
+                      const startSlice = Math.max(0, idx - (windowSize - 1));
+                      const slice = arr.slice(startSlice, idx + 1);
+                      const avg =
+                        slice.reduce(
+                          (sum, item) => sum + Number(item.value || 0),
+                          0,
+                        ) / slice.length || 0;
+                      return {
+                        ...point,
+                        value: numericVal,
+                        average: avg,
+                      };
+                    });
+
+                    const cadenceStep = (() => {
+                      if (tf === "365d")
+                        return Math.max(1, Math.floor(trendData.length / 6));
+                      if (tf === "30d") return 7;
+                      if (tf === "7d") return 1;
+                      return Math.max(1, Math.floor(trendData.length / 4));
+                    })();
+
+                    const formatValue = (val: number) =>
+                      chart.id === "spend"
+                        ? formatCurrency(val)
+                        : val.toLocaleString();
+
                     return (
                       <>
                         <div className="mb-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -724,9 +760,7 @@ function AffiliateDashboardContent() {
                               {chart.title}
                             </p>
                             <p className="mt-2 text-3xl font-semibold text-white">
-                              {chart.id === "spend"
-                                ? formatCurrency(totalValue)
-                                : totalValue.toLocaleString()}
+                              {formatValue(totalValue)}
                             </p>
                             <p className="text-xs text-white/60">
                               {timeframeCopy}
@@ -737,9 +771,7 @@ function AffiliateDashboardContent() {
                               Latest day
                             </div>
                             <p className="text-lg font-semibold text-white">
-                              {chart.id === "spend"
-                                ? formatCurrency(latestValue)
-                                : latestValue.toLocaleString()}
+                              {formatValue(latestValue)}
                             </p>
                             <div className="flex items-center gap-1 rounded-full border border-white/15 bg-black/30 px-1 py-0.5">
                               {[
@@ -797,7 +829,7 @@ function AffiliateDashboardContent() {
                           </div>
                         )}
 
-                        {chart.data.length === 0 ? (
+                        {trendData.length === 0 ? (
                           <div className="mt-3 rounded-2xl border border-dashed border-white/15 bg-black/40 px-4 py-6">
                             <h3 className="text-sm font-semibold text-[#00C2CB] mb-1">
                               {chart.title.includes("Ad Spend")
@@ -809,23 +841,35 @@ function AffiliateDashboardContent() {
                                 ? "Once you start running campaigns, your daily spend will appear here."
                                 : "As soon as tracking fires, daily conversions will show up here."}
                             </p>
-                            <div className="rounded-xl border border-white/10 bg-black/50 px-4 py-5">
-                              <div className="flex items-end gap-2 h-12">
-                                {[25, 45, 70, 40, 85].map((height, idx) => (
-                                  <div
-                                    key={idx}
-                                    className={`w-2.5 rounded-full ${idx % 2 === 0 ? "bg-[#11232a]" : "bg-[#0f172a]"}`}
-                                    style={{ height: `${height}%` }}
+                            <div className="rounded-xl border border-white/10 bg-black/40 px-4 py-5">
+                              <div className="relative h-16 w-full">
+                                <div
+                                  className="absolute inset-0"
+                                  style={{
+                                    background:
+                                      "linear-gradient(135deg, rgba(0,194,203,0.15), transparent 60%)",
+                                  }}
+                                />
+                                <svg
+                                  viewBox="0 0 200 60"
+                                  className="relative z-10 h-full w-full opacity-40"
+                                >
+                                  <path
+                                    d="M0 50 Q40 40 70 45 T130 15 T200 5"
+                                    stroke="#00C2CB"
+                                    strokeWidth="3"
+                                    fill="none"
+                                    strokeLinecap="round"
                                   />
-                                ))}
+                                </svg>
                               </div>
                             </div>
                           </div>
                         ) : (
                           <ResponsiveContainer width="100%" height={230}>
-                            <BarChart
-                              data={chart.data}
-                              margin={{ left: 4, right: 8, top: 8, bottom: 0 }}
+                            <AreaChart
+                              data={trendData}
+                              margin={{ left: 4, right: 8, top: 0, bottom: 0 }}
                             >
                               <defs>
                                 <linearGradient
@@ -838,18 +882,36 @@ function AffiliateDashboardContent() {
                                   <stop
                                     offset="0%"
                                     stopColor={accent}
-                                    stopOpacity={0.95}
+                                    stopOpacity={0.4}
                                   />
                                   <stop
-                                    offset="75%"
+                                    offset="80%"
                                     stopColor={accent}
-                                    stopOpacity={0.25}
+                                    stopOpacity={0.05}
+                                  />
+                                </linearGradient>
+                                <linearGradient
+                                  id={avgGradientId}
+                                  x1="0"
+                                  y1="0"
+                                  x2="0"
+                                  y2="1"
+                                >
+                                  <stop
+                                    offset="0%"
+                                    stopColor="#9ca3af"
+                                    stopOpacity={0.35}
+                                  />
+                                  <stop
+                                    offset="100%"
+                                    stopColor="#9ca3af"
+                                    stopOpacity={0.05}
                                   />
                                 </linearGradient>
                               </defs>
                               <CartesianGrid
-                                stroke="rgba(148,163,184,0.14)"
-                                strokeDasharray="2 4"
+                                stroke="rgba(148,163,184,0.12)"
+                                strokeDasharray="2 6"
                                 vertical={false}
                               />
                               <XAxis
@@ -867,13 +929,26 @@ function AffiliateDashboardContent() {
                                 axisLine={false}
                                 tickLine={false}
                               />
+                              {[...trendData.entries()].map(([idx, point]) =>
+                                idx % cadenceStep === 0 ? (
+                                  <ReferenceLine
+                                    key={`${chart.id}-ref-${idx}`}
+                                    x={point.name}
+                                    stroke="rgba(255,255,255,0.08)"
+                                    strokeDasharray="3 3"
+                                  />
+                                ) : null,
+                              )}
                               <Tooltip
-                                cursor={{ fill: "rgba(148,163,184,0.12)" }}
+                                cursor={{
+                                  stroke: "rgba(148,163,184,0.2)",
+                                  strokeWidth: 1.5,
+                                }}
                                 contentStyle={{
                                   backgroundColor: "#020617",
                                   border: "1px solid rgba(148,163,184,0.35)",
                                   borderRadius: 10,
-                                  padding: "8px 10px",
+                                  padding: "10px 12px",
                                 }}
                                 labelStyle={{
                                   fontSize: 11,
@@ -885,20 +960,32 @@ function AffiliateDashboardContent() {
                                   color: "#e5e7eb",
                                   fontWeight: 600,
                                 }}
-                                formatter={(value: number) =>
-                                  chart.id === "spend"
-                                    ? formatCurrency(value)
-                                    : value.toLocaleString()
-                                }
+                                formatter={(value: number, name: string) => {
+                                  const label =
+                                    name === "average"
+                                      ? "Rolling avg"
+                                      : "Daily";
+                                  return [formatValue(value), label];
+                                }}
                               />
-                              <Bar
+                              <Area
+                                type="monotone"
                                 dataKey="value"
+                                stroke={accent}
+                                strokeWidth={2.5}
                                 fill={`url(#${gradientId})`}
-                                radius={[8, 8, 0, 0]}
-                                maxBarSize={28}
-                                background={{ fill: "rgba(15,23,42,0.4)" }}
+                                activeDot={{ r: 4, fill: "#fff" }}
+                                dot={{ r: 0 }}
                               />
-                            </BarChart>
+                              <Line
+                                type="monotone"
+                                dataKey="average"
+                                stroke="rgba(255,255,255,0.35)"
+                                strokeWidth={1.5}
+                                strokeDasharray="4 6"
+                                dot={false}
+                              />
+                            </AreaChart>
                           </ResponsiveContainer>
                         )}
                       </>
