@@ -628,7 +628,7 @@ function AffiliateDashboardContent() {
       title: "Connect payouts (Stripe)",
       description:
         "Hook up Stripe Express so we can pay commissions automatically.",
-      href: "/affiliate/wallet?tab=payouts",
+      href: "/affiliate/settings#withdrawals",
       cta: "Connect payouts",
       icon: CreditCard,
     },
