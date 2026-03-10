@@ -685,7 +685,7 @@ function AffiliateDashboardContent() {
                   </div>
                   <div className="flex items-center justify-between">
                     {completed ? (
-                      <div className="flex items-center gap-2 text-sm font-semibold text-emerald-400">
+                      <div className="flex items-center gap-2 text-sm font-semibold text-[#00C2CB]">
                         <CheckCircle2 className="h-4 w-4" /> Done
                       </div>
                     ) : (
@@ -693,7 +693,7 @@ function AffiliateDashboardContent() {
                         onClick={() =>
                           handleChecklistAction(task.key, task.href)
                         }
-                        className="rounded-full border border-white/10 bg-[#111317] px-4 py-2 text-sm font-semibold text-white/80 transition hover:bg-[#15191c]"
+                        className="rounded-full border border-[#00C2CB]/30 bg-[#00C2CB]/10 px-4 py-2 text-sm font-semibold text-[#00C2CB] hover:bg-[#00C2CB]/20"
                       >
                         {task.cta}
                       </button>
