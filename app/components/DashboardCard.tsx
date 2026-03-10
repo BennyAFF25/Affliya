@@ -8,7 +8,7 @@ interface DashboardCardProps {
 }
 
 const baseClasses =
-  "relative rounded-2xl border border-white/12 bg-[#111317]/95 shadow-[0_20px_60px_rgba(0,0,0,0.45)]";
+  "relative rounded-2xl bg-[#111317]/95 shadow-[0_20px_60px_rgba(0,0,0,0.45)]";
 
 const interactiveClasses =
   "transition-transform duration-300 ease-out hover:scale-[1.01]";
