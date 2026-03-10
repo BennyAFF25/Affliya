@@ -46,7 +46,7 @@ export default function AuthRedirect() {
 
   const startFade = (callback: () => void) => {
     setFade(true);
-    setTimeout(callback, 450);
+    setTimeout(callback, 1000);
   };
 
   return (
