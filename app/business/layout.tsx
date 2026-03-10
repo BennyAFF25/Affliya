@@ -1,24 +1,68 @@
-'use client';
+"use client";
 
-import { useState } from 'react';
-import Link from 'next/link';
-import BusinessSidebar from './BusinessSidebar';
-import Topbar from '@/components/Topbar';
-import { MobileNavSlider, MobileNavTab } from '@/components/navigation/MobileNavSlider';
-import { LayoutDashboard, Store, Building, Inbox, LifeBuoy, Settings as SettingsIcon } from 'lucide-react';
+import { useState } from "react";
+import Link from "next/link";
+import BusinessSidebar from "./BusinessSidebar";
+import Topbar from "@/components/Topbar";
+import {
+  MobileNavSlider,
+  MobileNavTab,
+} from "@/components/navigation/MobileNavSlider";
+import {
+  LayoutDashboard,
+  Store,
+  Building,
+  Inbox,
+  LifeBuoy,
+  Settings as SettingsIcon,
+} from "lucide-react";
 
-export default function BusinessLayout({ children }: { children: React.ReactNode }) {
+export default function BusinessLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   const closeMobileNav = () => setMobileNavOpen(false);
 
   const mobileTabs: MobileNavTab[] = [
-    { id: 'dashboard', label: 'Dashboard', href: '/business/dashboard', icon: <LayoutDashboard size={16} /> },
-    { id: 'my-business', label: 'My Business', href: '/business/my-business', icon: <Building size={16} /> },
-    { id: 'marketplace', label: 'Marketplace', href: '/business/marketplace', icon: <Store size={16} /> },
-    { id: 'inbox', label: 'Inbox', href: '/business/inbox', icon: <Inbox size={16} /> },
-    { id: 'support', label: 'Support', href: '/business/support', icon: <LifeBuoy size={16} /> },
-    { id: 'settings', label: 'Settings', href: '/business/settings', icon: <SettingsIcon size={16} /> },
+    {
+      id: "dashboard",
+      label: "Dashboard",
+      href: "/business/dashboard",
+      icon: <LayoutDashboard size={16} />,
+    },
+    {
+      id: "my-business",
+      label: "My Business",
+      href: "/business/my-business",
+      icon: <Building size={16} />,
+    },
+    {
+      id: "marketplace",
+      label: "Marketplace",
+      href: "/business/marketplace",
+      icon: <Store size={16} />,
+    },
+    {
+      id: "inbox",
+      label: "Inbox",
+      href: "/business/inbox",
+      icon: <Inbox size={16} />,
+    },
+    {
+      id: "support",
+      label: "Support",
+      href: "/business/support",
+      icon: <LifeBuoy size={16} />,
+    },
+    {
+      id: "settings",
+      label: "Settings",
+      href: "/business/settings",
+      icon: <SettingsIcon size={16} />,
+    },
   ];
 
   return (
@@ -49,7 +93,7 @@ export default function BusinessLayout({ children }: { children: React.ReactNode
       {/* Shell under topbar */}
       <div className="pt-16 flex flex-1 min-h-0">
         {/* Desktop sidebar */}
-        <aside className="hidden md:block w-64 fixed top-16 bottom-0 left-0 bg-[#050505]">
+        <aside className="hidden md:block w-64 fixed top-16 bottom-0 left-0">
           <BusinessSidebar />
         </aside>
 
