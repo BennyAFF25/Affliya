@@ -87,8 +87,11 @@ function AffiliateLayoutShell({ children }: { children: React.ReactNode }) {
     <div className="trial-theme flex flex-col min-h-screen bg-[var(--background)] text-[var(--foreground)]">
       {/* Fixed Topbar at the top */}
       <div
-        className="fixed top-0 left-0 right-0 z-30 border-b bg-gradient-to-b from-[var(--sidebar)] to-[#1f1f1f]"
-        style={{ borderColor: "var(--border)" }}
+        className="fixed top-0 left-0 right-0 z-30 border-b"
+        style={{
+          backgroundColor: "var(--sidebar)",
+          borderColor: "var(--sidebar-border)",
+        }}
       >
         <div className="flex items-center justify-between px-2">
           <Topbar {...({ unreadCount } as any)} />

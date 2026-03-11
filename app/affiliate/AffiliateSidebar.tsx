@@ -82,11 +82,7 @@ export default function AffiliateSidebar() {
         borderColor: "var(--sidebar-border)",
       }}
     >
-      <div className="text-center text-sm uppercase tracking-[0.4em] text-[var(--muted-foreground)]">
-        Nettmark
-      </div>
-
-      <ul className="mt-6 space-y-1">
+      <ul className="space-y-1">
         {links.map((link) => {
           const active = pathname === link.href;
           const Icon = link.icon;
