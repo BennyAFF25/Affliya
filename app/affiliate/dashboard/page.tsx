@@ -591,7 +591,7 @@ function AffiliateDashboardContent() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-surface text-white">
+      <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
         <div className="p-4">Loading...</div>
       </div>
     );
@@ -648,7 +648,7 @@ function AffiliateDashboardContent() {
 
   if (shouldShowChecklist) {
     return (
-      <div className="min-h-screen bg-surface text-white">
+      <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
         <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-10">
           <div>
             <p className="text-xs uppercase tracking-[0.3em] text-white/45">
@@ -718,7 +718,7 @@ function AffiliateDashboardContent() {
   }
 
   return (
-    <div className="min-h-screen bg-surface text-white">
+    <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
       <div className="max-w-8xl mx-auto px-4 sm:px-6 md:px-8 lg:px-10 py-6 md:py-8">
         <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0a1719] via-[#0b0f10] to-black p-6 md:p-8 mb-8 shadow-[0_24px_60px_rgba(0,0,0,0.45)]">
           <div className="pointer-events-none absolute -top-20 -right-16 h-56 w-56 rounded-full bg-[#00C2CB]/20 blur-3xl" />

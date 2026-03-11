@@ -37,7 +37,7 @@ export default function AffiliateSupportPage() {
   const [message, setMessage] = useState("");
 
   return (
-    <div className="min-h-screen bg-surface text-white px-4 py-8">
+    <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)] px-4 py-8">
       <div className="max-w-6xl mx-auto space-y-6">
         <header className={`${CARD_SHELL} p-6 sm:p-8 space-y-4`}>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
