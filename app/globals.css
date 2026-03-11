@@ -22,6 +22,7 @@
 @tailwind utilities;
 
 :root {
+  --dark-card-foreground: #f8fafc;
   --color-surface-base: #f5f7fb;
   --color-surface-deep: #e9eef9;
   --color-surface-card: #ffffff;
@@ -374,4 +375,45 @@ body {
 }
 .light .bg-white\/95 {
   background-color: rgba(var(--foreground-rgb), 0.47) !important;
+}
+
+.light
+  :is(
+    [class*="bg-\[\#111317\]"],
+    [class*="bg-\[\#0c1118\]"],
+    [class*="bg-\[\#050f18\]"],
+    [class*="bg-\[\#040d13\]"],
+    [class*="bg-\[\#050d14\]"],
+    [class*="bg-\[\#03101a\]"],
+    [class*="bg-\[\#04121e\]"],
+    [class*="bg-\[\#041827\]"],
+    [class*="bg-\[\#020b13\]"],
+    [class*="bg-\[\#01070d\]"],
+    [class*="bg-\[\#030b15\]"],
+    [class*="bg-\[\#040c14\]"],
+    [class*="bg-\[\#02070a\]"],
+    [class*="bg-\[\#02060b\]"]
+  ) {
+  color: var(--dark-card-foreground);
+}
+
+.light
+  :is(
+    [class*="bg-\[\#111317\]"],
+    [class*="bg-\[\#0c1118\]"],
+    [class*="bg-\[\#050f18\]"],
+    [class*="bg-\[\#040d13\]"],
+    [class*="bg-\[\#050d14\]"],
+    [class*="bg-\[\#03101a\]"],
+    [class*="bg-\[\#04121e\]"],
+    [class*="bg-\[\#041827\]"],
+    [class*="bg-\[\#020b13\]"],
+    [class*="bg-\[\#01070d\]"],
+    [class*="bg-\[\#030b15\]"],
+    [class*="bg-\[\#040c14\]"],
+    [class*="bg-\[\#02070a\]"],
+    [class*="bg-\[\#02060b\]"]
+  )
+  :is([class*="text-white"]) {
+  color: var(--dark-card-foreground) !important;
 }
