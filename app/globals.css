@@ -69,6 +69,7 @@
   --text-xl: 1.5rem;
   --text-lg: 1.25rem;
   --text-base: 1rem;
+  --foreground-rgb: 11, 17, 33;
 }
 
 @layer base {
@@ -145,6 +146,7 @@
   --sidebar-accent-foreground: #f8fafc;
   --sidebar-border: #2a2a2a;
   --sidebar-ring: #00c2cb;
+  --foreground-rgb: 248, 250, 252;
 }
 
 .bg-surface {
@@ -190,4 +192,186 @@ body {
   min-height: 100%;
   width: 100%;
   color: var(--foreground);
+}
+
+/* Light theme overrides for legacy white utility classes */
+.light .text-white {
+  color: rgb(var(--foreground-rgb)) !important;
+}
+.light .border-white {
+  border-color: rgb(var(--foreground-rgb)) !important;
+}
+.light .bg-white {
+  background-color: rgba(var(--foreground-rgb), 0.04) !important;
+}
+.light .text-white\/5 {
+  color: rgba(var(--foreground-rgb), 0.05) !important;
+}
+.light .text-white\/10 {
+  color: rgba(var(--foreground-rgb), 0.1) !important;
+}
+.light .text-white\/12 {
+  color: rgba(var(--foreground-rgb), 0.12) !important;
+}
+.light .text-white\/15 {
+  color: rgba(var(--foreground-rgb), 0.15) !important;
+}
+.light .text-white\/20 {
+  color: rgba(var(--foreground-rgb), 0.2) !important;
+}
+.light .text-white\/30 {
+  color: rgba(var(--foreground-rgb), 0.3) !important;
+}
+.light .text-white\/35 {
+  color: rgba(var(--foreground-rgb), 0.35) !important;
+}
+.light .text-white\/40 {
+  color: rgba(var(--foreground-rgb), 0.4) !important;
+}
+.light .text-white\/45 {
+  color: rgba(var(--foreground-rgb), 0.45) !important;
+}
+.light .text-white\/50 {
+  color: rgba(var(--foreground-rgb), 0.5) !important;
+}
+.light .text-white\/55 {
+  color: rgba(var(--foreground-rgb), 0.55) !important;
+}
+.light .text-white\/60 {
+  color: rgba(var(--foreground-rgb), 0.6) !important;
+}
+.light .text-white\/65 {
+  color: rgba(var(--foreground-rgb), 0.65) !important;
+}
+.light .text-white\/70 {
+  color: rgba(var(--foreground-rgb), 0.7) !important;
+}
+.light .text-white\/75 {
+  color: rgba(var(--foreground-rgb), 0.75) !important;
+}
+.light .text-white\/80 {
+  color: rgba(var(--foreground-rgb), 0.8) !important;
+}
+.light .text-white\/85 {
+  color: rgba(var(--foreground-rgb), 0.85) !important;
+}
+.light .text-white\/90 {
+  color: rgba(var(--foreground-rgb), 0.9) !important;
+}
+.light .text-white\/95 {
+  color: rgba(var(--foreground-rgb), 0.95) !important;
+}
+.light .border-white\/5 {
+  border-color: rgba(var(--foreground-rgb), 0.05) !important;
+}
+.light .border-white\/10 {
+  border-color: rgba(var(--foreground-rgb), 0.1) !important;
+}
+.light .border-white\/12 {
+  border-color: rgba(var(--foreground-rgb), 0.12) !important;
+}
+.light .border-white\/15 {
+  border-color: rgba(var(--foreground-rgb), 0.15) !important;
+}
+.light .border-white\/20 {
+  border-color: rgba(var(--foreground-rgb), 0.2) !important;
+}
+.light .border-white\/30 {
+  border-color: rgba(var(--foreground-rgb), 0.3) !important;
+}
+.light .border-white\/35 {
+  border-color: rgba(var(--foreground-rgb), 0.35) !important;
+}
+.light .border-white\/40 {
+  border-color: rgba(var(--foreground-rgb), 0.4) !important;
+}
+.light .border-white\/45 {
+  border-color: rgba(var(--foreground-rgb), 0.45) !important;
+}
+.light .border-white\/50 {
+  border-color: rgba(var(--foreground-rgb), 0.5) !important;
+}
+.light .border-white\/55 {
+  border-color: rgba(var(--foreground-rgb), 0.55) !important;
+}
+.light .border-white\/60 {
+  border-color: rgba(var(--foreground-rgb), 0.6) !important;
+}
+.light .border-white\/65 {
+  border-color: rgba(var(--foreground-rgb), 0.65) !important;
+}
+.light .border-white\/70 {
+  border-color: rgba(var(--foreground-rgb), 0.7) !important;
+}
+.light .border-white\/75 {
+  border-color: rgba(var(--foreground-rgb), 0.75) !important;
+}
+.light .border-white\/80 {
+  border-color: rgba(var(--foreground-rgb), 0.8) !important;
+}
+.light .border-white\/85 {
+  border-color: rgba(var(--foreground-rgb), 0.85) !important;
+}
+.light .border-white\/90 {
+  border-color: rgba(var(--foreground-rgb), 0.9) !important;
+}
+.light .border-white\/95 {
+  border-color: rgba(var(--foreground-rgb), 0.95) !important;
+}
+.light .bg-white\/5 {
+  background-color: rgba(var(--foreground-rgb), 0.03) !important;
+}
+.light .bg-white\/10 {
+  background-color: rgba(var(--foreground-rgb), 0.05) !important;
+}
+.light .bg-white\/12 {
+  background-color: rgba(var(--foreground-rgb), 0.06) !important;
+}
+.light .bg-white\/15 {
+  background-color: rgba(var(--foreground-rgb), 0.07) !important;
+}
+.light .bg-white\/20 {
+  background-color: rgba(var(--foreground-rgb), 0.1) !important;
+}
+.light .bg-white\/30 {
+  background-color: rgba(var(--foreground-rgb), 0.15) !important;
+}
+.light .bg-white\/35 {
+  background-color: rgba(var(--foreground-rgb), 0.17) !important;
+}
+.light .bg-white\/40 {
+  background-color: rgba(var(--foreground-rgb), 0.2) !important;
+}
+.light .bg-white\/45 {
+  background-color: rgba(var(--foreground-rgb), 0.23) !important;
+}
+.light .bg-white\/50 {
+  background-color: rgba(var(--foreground-rgb), 0.25) !important;
+}
+.light .bg-white\/55 {
+  background-color: rgba(var(--foreground-rgb), 0.28) !important;
+}
+.light .bg-white\/60 {
+  background-color: rgba(var(--foreground-rgb), 0.3) !important;
+}
+.light .bg-white\/65 {
+  background-color: rgba(var(--foreground-rgb), 0.33) !important;
+}
+.light .bg-white\/70 {
+  background-color: rgba(var(--foreground-rgb), 0.35) !important;
+}
+.light .bg-white\/75 {
+  background-color: rgba(var(--foreground-rgb), 0.38) !important;
+}
+.light .bg-white\/80 {
+  background-color: rgba(var(--foreground-rgb), 0.4) !important;
+}
+.light .bg-white\/85 {
+  background-color: rgba(var(--foreground-rgb), 0.42) !important;
+}
+.light .bg-white\/90 {
+  background-color: rgba(var(--foreground-rgb), 0.45) !important;
+}
+.light .bg-white\/95 {
+  background-color: rgba(var(--foreground-rgb), 0.47) !important;
 }
