@@ -69,6 +69,11 @@ const THEME_OPTIONS: Array<{
   },
 ];
 
+const CARD_SHELL =
+  "rounded-3xl border border-white/10 bg-[#0c1118]/95 shadow-[0_25px_70px_rgba(0,0,0,0.55)]";
+const PANEL_CARD =
+  "rounded-2xl border border-white/10 bg-[#111317]/90 shadow-[0_20px_55px_rgba(0,0,0,0.45)]";
+
 const DEFAULT_CUSTOM_PALETTE: ThemePaletteJson = {
   heroBackground: "linear-gradient(135deg, #f4f4f5 0%, #e2e8f0 100%)",
   heroOverlay:
@@ -477,7 +482,7 @@ export default function MyShopPage() {
     return (
       <div className="min-h-screen bg-surface text-white px-4 py-6">
         <div className="max-w-3xl mx-auto space-y-6">
-          <header className="rounded-3xl border border-white/10 bg-gradient-to-r from-[#020a12] via-[#04121d] to-[#030a14] p-6 shadow-[0_25px_80px_rgba(0,0,0,0.5)]">
+          <header className={`${CARD_SHELL} p-6`}>
             <p className="text-xs uppercase tracking-[0.3em] text-white/60">
               NettmarkShop
             </p>
@@ -499,7 +504,7 @@ export default function MyShopPage() {
             </div>
           )}
 
-          <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-[#030b15] via-[#041121] to-[#02060b] p-6 space-y-5 shadow-[0_30px_90px_rgba(0,0,0,0.55)]">
+          <div className={`${CARD_SHELL} p-6 space-y-5`}>
             <div className="space-y-2">
               <p className="text-xs uppercase tracking-[0.3em] text-white/60">
                 Request storefront access
@@ -569,7 +574,7 @@ export default function MyShopPage() {
           </div>
 
           {!hasApprovedOffers && (
-            <div className="rounded-3xl border border-dashed border-white/15 bg-white/[0.02] p-6 text-center space-y-3">
+            <div className="rounded-3xl border border-dashed border-white/20 bg-[#0d1218]/70 p-6 text-center space-y-3 shadow-[0_20px_60px_rgba(0,0,0,0.5)]">
               <p className="text-white/70 text-sm">
                 You don’t have any approved offers yet. Browse the marketplace
                 and request to promote a product before applying for a
@@ -591,7 +596,9 @@ export default function MyShopPage() {
   return (
     <div className="min-h-screen bg-surface text-white px-4 py-6">
       <div className="max-w-5xl mx-auto space-y-6">
-        <header className="rounded-3xl border border-white/10 bg-gradient-to-r from-[#020a12] via-[#04121d] to-[#030a14] p-6 shadow-[0_25px_80px_rgba(0,0,0,0.5)] flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <header
+          className={`${CARD_SHELL} p-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between`}
+        >
           <div>
             <p className="text-xs uppercase tracking-[0.3em] text-white/60">
               NettmarkShop
@@ -608,7 +615,7 @@ export default function MyShopPage() {
           </div>
         </header>
 
-        <div className="rounded-3xl border border-white/10 bg-gradient-to-r from-[#01070d] via-[#04121e] to-[#01070d] p-5 shadow-[0_30px_80px_rgba(0,0,0,0.55)] space-y-4">
+        <div className={`${CARD_SHELL} p-5 space-y-4`}>
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-xs uppercase tracking-[0.3em] text-white/60 flex items-center gap-3">
@@ -666,7 +673,9 @@ export default function MyShopPage() {
         </div>
 
         {handleSaved && shopLink ? (
-          <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+          <div
+            className={`${PANEL_CARD} px-4 py-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3`}
+          >
             <span className="text-xs text-white/60 break-all">{shopLink}</span>
             <button
               onClick={copyLink}
@@ -690,10 +699,7 @@ export default function MyShopPage() {
 
         <div className="grid gap-3 sm:grid-cols-3">
           {statCards.map(({ label, value, Icon }) => (
-            <div
-              key={label}
-              className="rounded-2xl border border-white/10 bg-gradient-to-br from-[#050d14] via-[#02070a] to-[#050d14] p-4 shadow-[0_20px_55px_rgba(0,0,0,0.5)]"
-            >
+            <div key={label} className={`${PANEL_CARD} p-4`}>
               <div className="text-xs text-white/60 uppercase tracking-wide flex items-center gap-2">
                 <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/10">
                   <Icon size={13} className="text-[#00C2CB]" />
@@ -705,7 +711,7 @@ export default function MyShopPage() {
           ))}
         </div>
 
-        <div className="rounded-3xl border border-white/10 bg-gradient-to-r from-[#03101a] via-[#041827] to-[#020b13] p-5 space-y-4 shadow-[0_30px_90px_rgba(0,0,0,0.6)]">
+        <div className={`${CARD_SHELL} p-5 space-y-4`}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs uppercase tracking-[0.3em] text-white/60 flex items-center gap-2">
@@ -747,7 +753,7 @@ export default function MyShopPage() {
         </div>
 
         {theme === "custom" && (
-          <div className="rounded-3xl border border-white/10 bg-gradient-to-r from-[#040d13] via-[#050f16] to-[#040d13] p-4 space-y-4 shadow-[0_30px_80px_rgba(0,0,0,0.45)]">
+          <div className={`${CARD_SHELL} p-4 space-y-4`}>
             <div className="flex flex-col gap-2">
               <span className="text-xs uppercase tracking-[0.3em] text-white/50">
                 Custom palette
@@ -818,7 +824,7 @@ export default function MyShopPage() {
           </div>
         )}
 
-        <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-[#050f18] via-[#03101a] to-[#050f18] p-5 space-y-4 shadow-[0_30px_90px_rgba(0,0,0,0.55)]">
+        <div className={`${CARD_SHELL} p-5 space-y-4`}>
           <div className="flex items-start justify-between">
             <div>
               <p className="text-xs uppercase tracking-[0.3em] text-white/60 flex items-center gap-2">
@@ -890,22 +896,19 @@ export default function MyShopPage() {
         </div>
 
         {!handleSaved ? (
-          <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-8 text-center text-white/70">
+          <div className={`${CARD_SHELL} p-8 text-center text-white/70`}>
             Set your shop handle above to unlock product customization and
             generate your NettmarkShop link.
           </div>
         ) : rows.length === 0 ? (
-          <div className="rounded-3xl border border-white/10 bg-white/[0.02] p-8 text-center text-white/70">
+          <div className={`${CARD_SHELL} p-8 text-center text-white/70`}>
             No approved offers yet. Once a business approves you, the offers
             will appear here.
           </div>
         ) : (
           <div className="space-y-4">
             {rows.map(({ offer, override }) => (
-              <div
-                key={offer.id}
-                className="rounded-3xl border border-white/10 bg-gradient-to-br from-[#040c14] via-[#050f18] to-[#02060b] p-5 shadow-[0_25px_80px_rgba(0,0,0,0.55)] space-y-4"
-              >
+              <div key={offer.id} className={`${CARD_SHELL} p-5 space-y-4`}>
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <div>
                     <p className="text-xs uppercase tracking-[0.3em] text-white/50 flex items-center gap-2">
@@ -1022,7 +1025,7 @@ function MyShopSkeleton() {
   return (
     <div className="min-h-screen bg-surface text-white px-4 py-6">
       <div className="max-w-5xl mx-auto space-y-6">
-        <div className="rounded-3xl border border-white/10 bg-gradient-to-r from-[#020a12] via-[#04121d] to-[#030a14] p-6 shadow-[0_25px_80px_rgba(0,0,0,0.5)] space-y-3">
+        <div className={`${CARD_SHELL} p-6 space-y-3`}>
           <SkeletonLine className="h-3 w-32" />
           <SkeletonLine className="h-8 w-48" />
           <SkeletonLine className="h-4 w-3/4" />
@@ -1030,10 +1033,7 @@ function MyShopSkeleton() {
 
         <div className="grid gap-3 sm:grid-cols-3">
           {[...Array(3)].map((_, idx) => (
-            <div
-              key={idx}
-              className="rounded-2xl border border-white/10 bg-gradient-to-br from-[#050d14] via-[#02070a] to-[#050d14] p-4"
-            >
+            <div key={idx} className={`${PANEL_CARD} p-4`}>
               <SkeletonLine className="h-3 w-1/2" />
               <SkeletonLine className="mt-3 h-6 w-2/3" />
             </div>
@@ -1042,10 +1042,7 @@ function MyShopSkeleton() {
 
         <div className="grid gap-4 sm:grid-cols-3">
           {[...Array(3)].map((_, idx) => (
-            <div
-              key={idx}
-              className="rounded-3xl border border-white/10 bg-gradient-to-r from-[#030b10] via-[#040c14] to-[#030b10] p-4"
-            >
+            <div key={idx} className={`${CARD_SHELL} p-4`}>
               <SkeletonLine className="h-4 w-2/3" />
               <SkeletonLine className="mt-2 h-4 w-full" />
               <SkeletonLine className="mt-2 h-8 w-full" />
@@ -1053,7 +1050,7 @@ function MyShopSkeleton() {
           ))}
         </div>
 
-        <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-[#050f18] via-[#03101a] to-[#050f18] p-5 space-y-4">
+        <div className={`${CARD_SHELL} p-5 space-y-4`}>
           <SkeletonLine className="h-4 w-1/2" />
           <SkeletonLine className="h-48 w-full" />
           <SkeletonLine className="h-20 w-full" />
