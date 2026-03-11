@@ -36,6 +36,11 @@ const currencySymbols: Record<string, string> = {
   AUD: 'A$',
 };
 
+const CARD_SHELL = 'rounded-3xl border border-[var(--border)] bg-[var(--card)] shadow-[0_25px_70px_rgba(0,0,0,0.08)]';
+const PANEL_CARD = 'rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[0_20px_55px_rgba(0,0,0,0.08)]';
+const INPUT_CLASS = 'w-full rounded-2xl border border-[var(--border)] bg-[var(--input-background)] text-[var(--foreground)] placeholder-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]';
+const BADGE_SOFT = 'inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--accent)]/40 px-3 py-1 text-xs font-semibold text-[var(--foreground)]/70';
+
 export default function AffiliateWalletPage() {
   const session = useSession();
   const user = session?.user;
@@ -409,10 +414,13 @@ export default function AffiliateWalletPage() {
   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   return (
-    <main className="min-h-screen w-full bg-[radial-gradient(ellipse_at_top,_#0b1f21_0,#050608_45%,#000_80%)] text-white overflow-x-hidden">
+    <main className="min-h-screen w-full bg-[var(--background)] text-[var(--foreground)] overflow-x-hidden">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
         {/* Wallet hero */}
-        <section className="relative overflow-hidden rounded-3xl border border-white/5 bg-gradient-to-r from-[#00C2CB] via-[#00b0b8] to-[#00B1E7] px-6 sm:px-8 py-6 sm:py-8 shadow-[0_0_60px_rgba(0,194,203,0.35)]">
+        <section
+          className={`${CARD_SHELL} relative overflow-hidden border-0 px-6 sm:px-8 py-6 sm:py-8 text-white shadow-[0_0_60px_rgba(0,194,203,0.35)]`}
+          style={{ background: 'linear-gradient(135deg, #00C2CB, #00b0b8 60%, #00B1E7)' }}
+        >
           {/* subtle glow */}
           <div className="pointer-events-none absolute inset-0 opacity-40 mix-blend-soft-light">
             <div className="absolute -left-10 -top-16 h-40 w-40 rounded-full bg-white/30 blur-3xl" />
@@ -474,19 +482,19 @@ export default function AffiliateWalletPage() {
 
         {/* Snapshot cards */}
         <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+          <div className={`${PANEL_CARD} p-4`}>
             <p className="text-xs text-white/60">Available balance</p>
             <p className="mt-1 text-2xl font-bold text-[#7ff5fb]">{currencySymbols[currency] ?? '$'}{totalNetAmount.toFixed(2)}</p>
           </div>
-          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+          <div className={`${PANEL_CARD} p-4`}>
             <p className="text-xs text-white/60">Total top-ups</p>
             <p className="mt-1 text-2xl font-bold">{currencySymbols[currency] ?? '$'}{totalTopups.toFixed(2)}</p>
           </div>
-          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+          <div className={`${PANEL_CARD} p-4`}>
             <p className="text-xs text-white/60">Ad spend deductions</p>
             <p className="mt-1 text-2xl font-bold text-amber-300">{currencySymbols[currency] ?? '$'}{totalDeductions.toFixed(2)}</p>
           </div>
-          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+          <div className={`${PANEL_CARD} p-4`}>
             <p className="text-xs text-white/60">Refundable balance</p>
             <p className="mt-1 text-2xl font-bold text-emerald-300">{currencySymbols[currency] ?? '$'}{refundableBalance.toFixed(2)}</p>
           </div>
@@ -497,7 +505,7 @@ export default function AffiliateWalletPage() {
           {/* Left column: refund + top up */}
           <div className="flex flex-col gap-6">
             {/* Refund card */}
-            <div className="w-full rounded-2xl border border-white/5 bg-[#05090a] px-5 py-5 shadow-[0_14px_40px_rgba(0,0,0,0.45)]">
+            <div className={`${PANEL_CARD} px-5 py-5`}>
               <div className="mb-3 flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
                   <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#00C2CB]/10 text-[#00C2CB]">
@@ -566,7 +574,7 @@ export default function AffiliateWalletPage() {
                 placeholder="Enter amount"
                 value={refundAmount}
                 onChange={(e) => setRefundAmount(e.target.value)}
-                className="mb-3 w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white/90 outline-none placeholder:text-white/40 focus:border-[#00C2CB] focus:ring-1 focus:ring-[#00C2CB]"
+                className={`${INPUT_CLASS} mb-3 px-3 py-2 text-sm`}
                 aria-label="Refund amount"
               />
 
@@ -594,7 +602,7 @@ export default function AffiliateWalletPage() {
             </div>
 
             {/* Top up card */}
-            <div className="w-full rounded-2xl border border-white/5 bg-[#05090a] px-5 py-5 shadow-[0_14px_40px_rgba(0,0,0,0.45)]">
+            <div className={`${PANEL_CARD} px-5 py-5`}>
               <div className="mb-3 flex items-center gap-2">
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#00C2CB]/10 text-[#00C2CB]">
                   <svg
@@ -627,7 +635,7 @@ export default function AffiliateWalletPage() {
                 placeholder="Amount (e.g. 10)"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                className="mb-2 w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white/90 outline-none placeholder:text-white/40 focus:border-[#00C2CB] focus:ring-1 focus:ring-[#00C2CB]"
+                className={`${INPUT_CLASS} mb-2 px-3 py-2 text-sm`}
               />
 
               <input
@@ -636,7 +644,7 @@ export default function AffiliateWalletPage() {
                 disabled
                 readOnly
                 aria-label="Currency"
-                className="mb-3 w-full cursor-not-allowed rounded-lg border border-white/5 bg-white/5 px-3 py-2 text-sm text-white/40"
+                className={`${INPUT_CLASS} mb-3 cursor-not-allowed px-3 py-2 text-sm opacity-70`}
               />
 
               <button
@@ -654,7 +662,7 @@ export default function AffiliateWalletPage() {
           </div>
 
           {/* Right column: activity */}
-          <div className="min-w-0 rounded-2xl border border-white/5 bg-[#05090a] p-5 shadow-[0_14px_40px_rgba(0,0,0,0.45)] space-y-4">
+          <div className={`${PANEL_CARD} min-w-0 p-5 space-y-4`}>
             <div className="flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-sm font-semibold tracking-wide text-white/90">Wallet timeline</h2>

@@ -417,3 +417,34 @@ body {
   :is([class*="text-white"]) {
   color: var(--dark-card-foreground) !important;
 }
+
+.light [class*="bg-white/\[0\.04\]"] {
+  background-color: var(--card) !important;
+}
+.light [class*="bg-white/5"] {
+  background-color: color-mix(
+    in srgb,
+    var(--foreground) 5%,
+    var(--card)
+  ) !important;
+}
+.light [class*="bg-black/40"],
+.light [class*="bg-black/30"],
+.light [class*="bg-black/20"] {
+  background-color: color-mix(
+    in srgb,
+    var(--foreground) 6%,
+    var(--card)
+  ) !important;
+}
+.light [class*="bg-\[#05090a\]"] {
+  background-color: var(--card) !important;
+}
+.light [class*="bg-\[#00C2CB\]/10"] {
+  background-color: color-mix(
+    in srgb,
+    var(--primary) 12%,
+    var(--card)
+  ) !important;
+  color: var(--foreground);
+}

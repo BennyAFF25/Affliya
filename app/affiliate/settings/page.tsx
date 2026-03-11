@@ -16,6 +16,13 @@ type CheckResp = {
   accountId?: string;
 };
 
+const CARD_SHELL =
+  "rounded-3xl border border-[var(--border)] bg-[var(--card)] shadow-[0_25px_70px_rgba(0,0,0,0.08)]";
+const PANEL_CARD =
+  "rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[0_20px_55px_rgba(0,0,0,0.06)]";
+const INPUT_CLASS =
+  "w-full rounded-2xl border border-[var(--border)] bg-[var(--input-background)] text-[var(--foreground)] placeholder-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]";
+
 export default function AffiliateSettingsPage() {
   const user = useUser();
 
@@ -305,6 +312,11 @@ export default function AffiliateSettingsPage() {
         .toUpperCase()
     : (user?.email?.[0] || "N").toUpperCase();
 
+  const CARD_SHELL =
+    "rounded-3xl border border-[var(--border)] bg-[var(--card)] shadow-[0_25px_70px_rgba(0,0,0,0.08)]";
+  const INPUT_CLASS =
+    "w-full rounded-2xl border border-[var(--border)] bg-[var(--input-background)] text-[var(--foreground)] placeholder-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]";
+
   const Badge = ({
     children,
     tone = "default",
@@ -328,34 +340,40 @@ export default function AffiliateSettingsPage() {
   };
 
   return (
-    <div className="min-h-screen w-full bg-surface">
-      <div className="relative max-w-4xl mx-auto px-6 py-10 space-y-10 text-white">
+    <div className="min-h-screen w-full bg-[var(--background)] text-[var(--foreground)]">
+      <div className="relative max-w-4xl mx-auto px-6 py-10 space-y-10">
         <div
           className="pointer-events-none absolute inset-x-0 -top-24 h-48 blur-3xl"
           style={{
             background:
-              "radial-gradient(40% 60% at 50% 20%, rgba(0,194,203,0.22), rgba(0,0,0,0) 60%)",
+              "radial-gradient(40% 60% at 50% 20%, rgba(0,194,203,0.18), rgba(0,0,0,0) 60%)",
           }}
         />
 
-        <header className="space-y-2">
-          <h1 className="text-3xl font-semibold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-[#7ff5fb] to-[#00C2CB]">
+        <header className={`${CARD_SHELL} px-6 py-6 space-y-2`}>
+          <h1 className="text-3xl font-semibold tracking-tight text-[var(--foreground)]">
             Affiliate settings
           </h1>
-          <p className="text-sm text-white/70">
+          <p className="text-sm text-[var(--muted-foreground)]">
             Manage your account, billing, and withdrawals.{" "}
-            <span className="text-white/50">(Powered by Stripe)</span>
+            <span className="text-[var(--muted-foreground)]/70">
+              (Powered by Stripe)
+            </span>
           </p>
         </header>
 
         {trialStatus === "trialing" && trialEndsAt && (
-          <div className="rounded-2xl border border-[#00C2CB40] bg-[#00C2CB]/10 p-4 text-sm text-white shadow-[0_0_30px_rgba(0,194,203,0.25)]">
+          <div
+            className={`${CARD_SHELL} border border-[var(--border)] bg-[var(--card)] px-5 py-4 text-sm`}
+          >
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
               <div>
-                <p className="font-medium text-[#7ff5fb]">Free trial active</p>
-                <p className="text-white/80">
+                <p className="font-medium text-[var(--primary)]">
+                  Free trial active
+                </p>
+                <p className="text-[var(--muted-foreground)]">
                   Your trial ends in{" "}
-                  <span className="font-semibold">
+                  <span className="font-semibold text-[var(--foreground)]">
                     {trialDaysRemaining !== null
                       ? `${trialDaysRemaining} days`
                       : "—"}
@@ -364,7 +382,7 @@ export default function AffiliateSettingsPage() {
               </div>
               <button
                 onClick={handleManageSubscription}
-                className="inline-flex items-center rounded-full bg-[#00C2CB] px-4 py-2 text-xs font-medium text-black hover:bg-[#00b0b8]"
+                className="inline-flex items-center rounded-full bg-[var(--primary)] px-4 py-2 text-xs font-medium text-[var(--primary-foreground)] hover:brightness-110"
               >
                 Manage subscription
               </button>
