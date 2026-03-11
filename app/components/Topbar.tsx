@@ -110,15 +110,12 @@ export default function Topbar() {
 
   return (
     <header
-      className="
-        w-full
-        bg-gradient-to-b from-[#121212] to-[#1a1a1a]
-        h-[64px]
-        flex items-center
-        justify-between
-        px-4 sm:px-6
-        border-b border-white/5
-      "
+      className="w-full h-[64px] flex items-center justify-between px-4 sm:px-6"
+      style={{
+        backgroundColor: "var(--sidebar)",
+        borderBottom: "1px solid var(--sidebar-border)",
+        color: "var(--sidebar-foreground)",
+      }}
     >
       {/* LEFT SIDE */}
       <div className="flex items-center gap-6">
@@ -135,7 +132,7 @@ export default function Topbar() {
         </div>
 
         {/* Page Title */}
-        <span className="text-[#D0D0D0] text-xs tracking-[0.15em] uppercase">
+        <span className="text-[var(--muted-foreground)] text-xs tracking-[0.15em] uppercase">
           {pageTitle}
         </span>
       </div>
@@ -149,8 +146,8 @@ export default function Topbar() {
               hidden sm:flex
               w-10 h-10
               rounded-full overflow-hidden
-              border border-white/10
-              bg-black/30
+              border border-[color:var(--border)]
+              bg-[var(--secondary)]/60
               items-center justify-center
             "
           >
@@ -177,8 +174,8 @@ export default function Topbar() {
             }}
             className="
               flex items-center justify-center
-              bg-[#00C2CB] hover:bg-[#00b0b8] 
-              text-white 
+              bg-[var(--primary)] hover:brightness-110 
+              text-[var(--primary-foreground)] 
               px-2 py-1.5
               rounded-md
               text-xs
