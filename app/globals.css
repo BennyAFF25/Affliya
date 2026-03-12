@@ -683,3 +683,63 @@ body {
   background-color: var(--primary) !important;
   color: var(--primary-foreground) !important;
 }
+
+/* Business create-offer: trial theme palette remap */
+.create-offer-theme [class*="bg-[#1a1a1a]"],
+.create-offer-theme [class*="bg-[#111111]"],
+.create-offer-theme [class*="bg-[#0f1313]"],
+.create-offer-theme [class*="bg-[#222]/60"] {
+  background-color: var(--card) !important;
+}
+
+.create-offer-theme [class*="bg-[#0e0e0e]"],
+.create-offer-theme [class*="bg-[#1f1f1f]"] {
+  background-color: var(--input-background) !important;
+}
+
+.create-offer-theme [class*="border-[#2a2a2a]"],
+.create-offer-theme [class*="border-[#262626]"],
+.create-offer-theme [class*="border-[#1f2a2a]"],
+.create-offer-theme [class*="border-white/"] {
+  border-color: var(--border) !important;
+}
+
+.create-offer-theme [class*="text-gray-"],
+.create-offer-theme [class*="text-white/"],
+.create-offer-theme [class*="text-white"] {
+  color: var(--muted-foreground);
+}
+
+.create-offer-theme h1,
+.create-offer-theme h2,
+.create-offer-theme h3,
+.create-offer-theme label,
+.create-offer-theme [class*="font-semibold"] {
+  color: var(--foreground);
+}
+
+.create-offer-theme [class*="text-[#00C2CB]"],
+.create-offer-theme [class*="text-[#7ff5fb]"] {
+  color: var(--primary) !important;
+}
+
+.create-offer-theme [class*="bg-[#00C2CB"],
+.create-offer-theme [class*="bg-[#00b0b8"] {
+  background-color: var(--primary) !important;
+  color: var(--primary-foreground) !important;
+}
+
+.create-offer-theme input,
+.create-offer-theme textarea,
+.create-offer-theme select {
+  background-color: var(--input-background) !important;
+  border-color: var(--border) !important;
+  color: var(--foreground) !important;
+}
+
+.create-offer-theme input:focus,
+.create-offer-theme textarea:focus,
+.create-offer-theme select:focus {
+  outline: none;
+  box-shadow: 0 0 0 1px var(--ring);
+}
