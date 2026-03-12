@@ -189,13 +189,15 @@ function SectionCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-3xl border border-white/10 bg-white/[0.04] shadow-[0_0_40px_rgba(0,0,0,0.6)] overflow-hidden">
-      <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-white/5">
+    <div className="overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--card)] shadow-[0_0_40px_rgba(0,0,0,0.12)]">
+      <div className="flex items-center justify-between gap-3 border-b border-[var(--border)] px-5 py-4">
         <div className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#00C2CB1a] text-[#7ff5fb]">
+          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--primary)]/15 text-[var(--primary)]">
             {icon}
           </div>
-          <h3 className="font-semibold text-sm text-white">{title}</h3>
+          <h3 className="text-sm font-semibold text-[var(--foreground)]">
+            {title}
+          </h3>
         </div>
       </div>
       <div className="p-5 pt-4">{children}</div>
@@ -218,8 +220,8 @@ function ActionButton({
   const base =
     "w-full inline-flex items-center justify-center rounded-full font-medium transition will-change-transform hover:-translate-y-[1px]";
   const styles = secondary
-    ? "bg-transparent border border-[#00C2CB]/30 text-white hover:bg-[#0f1415]"
-    : "bg-[#00C2CB] text-black hover:bg-[#00b0b8]";
+    ? "border border-[var(--primary)]/30 bg-transparent text-[var(--foreground)] hover:bg-[var(--card)]"
+    : "bg-[var(--primary)] text-[var(--primary-foreground)] hover:brightness-110";
   const sizeCls =
     size === "sm"
       ? "min-h-[40px] text-sm px-5 py-2 gap-2"
@@ -246,9 +248,9 @@ interface Offer {
 // ---- Pending Notification Dot ----
 const PendingDot = () => (
   <span
-    className="ml-2 inline-block h-2 w-2 rounded-full bg-[#00C2CB]"
+    className="ml-2 inline-block h-2 w-2 rounded-full bg-[var(--primary)]"
     style={{
-      boxShadow: "0 0 6px rgba(0,194,203,0.8)",
+      boxShadow: "0 0 6px color-mix(in oklab, var(--primary) 70%, transparent)",
     }}
   />
 );
@@ -646,7 +648,7 @@ export default function MyBusinessPage() {
         />
       )}
       {console.log("MyBusinessPage mounted")}
-      <div className="bg-[#0a0a0a] text-white px-6 py-10 min-h-screen">
+      <div className="my-business-theme min-h-screen bg-[var(--background)] px-6 py-10 text-[var(--foreground)]">
         {/* Header */}
         <div className="max-w-6xl mx-auto mb-10">
           <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-[#7ff5fb] to-[#00C2CB]">
