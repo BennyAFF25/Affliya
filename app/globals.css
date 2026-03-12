@@ -448,3 +448,48 @@ body {
   ) !important;
   color: var(--foreground);
 }
+
+/* Promote flow: trial theme color remap (palette-only, no layout changes) */
+.promote-theme [class*="bg-[#141414]"],
+.promote-theme [class*="bg-[#111111]"],
+.promote-theme [class*="bg-[#121212]"],
+.promote-theme [class*="bg-[#0f0f0f]"],
+.promote-theme [class*="bg-[#0b1415]"],
+.promote-theme [class*="bg-[#0a1112]"],
+.promote-theme [class*="bg-[#0f1f20]"],
+.promote-theme [class*="bg-[#101b1c]"],
+.promote-theme [class*="bg-[#151515]"],
+.promote-theme [class*="bg-[#1a1a1a]"] {
+  background-color: var(--card) !important;
+}
+
+.promote-theme [class*="border-[#232323]"],
+.promote-theme [class*="border-[#2a2a2a]"],
+.promote-theme [class*="border-[#1f1f1f]"],
+.promote-theme [class*="border-[#1f3b3d]"] {
+  border-color: var(--border) !important;
+}
+
+.promote-theme [class*="text-gray-500"],
+.promote-theme [class*="text-gray-400"],
+.promote-theme [class*="text-gray-300"],
+.promote-theme [class*="text-gray-200"] {
+  color: var(--muted-foreground) !important;
+}
+
+.promote-theme [class*="text-[#00C2CB]"],
+.promote-theme [class*="text-[#7ff5fb]"] {
+  color: var(--primary) !important;
+}
+
+.promote-theme [class*="bg-[#00C2CB]"],
+.promote-theme [class*="from-[#00C2CB]"],
+.promote-theme [class*="to-[#7ff5fb]"] {
+  background-color: var(--primary) !important;
+  color: var(--primary-foreground) !important;
+}
+
+.promote-theme [class*="hover:bg-[#00b0b8]"]:hover,
+.promote-theme [class*="hover:bg-[#151515]"]:hover {
+  filter: brightness(1.08);
+}

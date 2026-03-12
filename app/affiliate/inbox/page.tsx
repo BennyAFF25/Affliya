@@ -82,6 +82,11 @@ const accentMap: Record<EntryKind, DecoratedEntry['accent']> = {
 const archiveStorageKey = (email?: string | null) =>
   email ? `nettmark_affiliate_inbox_${email}` : null;
 
+const CARD_SHELL =
+  "rounded-3xl border border-[var(--border)] bg-[var(--card)] shadow-[0_25px_70px_rgba(0,0,0,0.08)]";
+const PANEL_CARD =
+  "rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[0_20px_55px_rgba(0,0,0,0.05)]";
+
 export default function AffiliateInbox() {
   const session = useSession();
   const user = session?.user;
@@ -321,10 +326,10 @@ export default function AffiliateInbox() {
   ].filter(Boolean) as { title: string; body: string; href: string; label: string }[];
 
   return (
-    <div className="min-h-screen bg-surface text-white px-4 sm:px-8 lg:px-12 py-10">
+    <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)] px-4 sm:px-8 lg:px-12 py-10">
       <div className="mx-auto w-full max-w-6xl space-y-10">
         <header className="space-y-3">
-          <p className="text-sm uppercase tracking-[0.2em] text-[#00C2CB]/70">Command Center</p>
+          <p className="text-sm uppercase tracking-[0.2em] text-[var(--muted-foreground)]">Command Center</p>
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
               <h1 className="text-4xl font-bold tracking-tight text-white sm:text-5xl">Inbox</h1>
@@ -359,7 +364,7 @@ export default function AffiliateInbox() {
           <div className="grid gap-6 lg:grid-cols-[360px,1fr]">
             <div className="space-y-3">
               {displayedEntries.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-white/10 bg-white/5 px-5 py-10 text-center text-sm text-white/60">
+                <div className="rounded-2xl border border-dashed border-white/10 bg-white/5 px-5 py-10 text-center text-sm text-[var(--muted-foreground)]">
                   Nothing in this view yet. Switch tabs or head to the marketplace to get moving.
                 </div>
               ) : (

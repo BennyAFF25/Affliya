@@ -1105,7 +1105,7 @@ export default function PromoteOfferPage() {
   }
 
   return (
-    <div className="min-h-screen py-10 px-6 bg-surface text-white pb-8">
+    <div className="promote-theme min-h-screen py-10 px-6 bg-[var(--background)] text-[var(--foreground)] pb-8">
       <div className="max-w-6xl mx-auto grid lg:grid-cols-[1fr_360px] gap-8">
         {/* Mode toggle (Ad vs Organic) */}
         <div className="lg:col-span-2 -mb-2 flex items-center justify-between">
