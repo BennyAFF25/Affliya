@@ -66,9 +66,9 @@ export default function BusinessLayout({
   ];
 
   return (
-    <div className="flex flex-col min-h-screen text-white bg-surface">
+    <div className="flex min-h-screen flex-col bg-[var(--background)] text-[var(--foreground)]">
       {/* Fixed Topbar */}
-      <header className="fixed top-0 left-0 right-0 z-30 bg-gradient-to-b from-[#121212] to-[#1a1a1a] border-b border-white/5">
+      <header className="fixed left-0 right-0 top-0 z-30 border-b border-[var(--sidebar-border)] bg-[var(--sidebar)]/95 backdrop-blur">
         <div className="flex items-center justify-between px-2">
           <Topbar />
 
@@ -76,31 +76,31 @@ export default function BusinessLayout({
           <button
             type="button"
             onClick={() => setMobileNavOpen((prev) => !prev)}
-            className="md:hidden flex flex-col items-center justify-center w-9 h-9 bg-black/30 border border-white/10 rounded-md"
+            className="md:hidden flex h-9 w-9 flex-col items-center justify-center rounded-md border border-[var(--border)] bg-[var(--card)]"
           >
-            <span className="block w-5 h-[2px] bg-white mb-[3px] rounded" />
-            <span className="block w-5 h-[2px] bg-white mb-[3px] rounded" />
-            <span className="block w-5 h-[2px] bg-white rounded" />
+            <span className="mb-[3px] block h-[2px] w-5 rounded bg-[var(--foreground)]" />
+            <span className="mb-[3px] block h-[2px] w-5 rounded bg-[var(--foreground)]" />
+            <span className="block h-[2px] w-5 rounded bg-[var(--foreground)]" />
           </button>
         </div>
 
         {/* Mobile pill slider */}
         {mobileNavOpen && (
-          <div className="md:hidden bg-black/30 border-t border-white/10 py-3 px-4">
+          <div className="md:hidden border-t border-[var(--border)] bg-[var(--card)]/95 px-4 py-3">
             <MobileNavSlider tabs={mobileTabs} onNavigate={closeMobileNav} />
           </div>
         )}
       </header>
 
       {/* Shell under topbar */}
-      <div className="pt-16 flex flex-1 min-h-0">
+      <div className="flex min-h-0 flex-1 pt-16">
         {/* Desktop sidebar */}
-        <aside className="hidden md:block w-64 fixed top-16 bottom-0 left-0">
+        <aside className="fixed bottom-0 left-0 top-16 hidden w-64 md:block">
           <BusinessSidebar />
         </aside>
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto md:ml-64 bg-surface">
+        <main className="flex-1 overflow-y-auto bg-[var(--background)] md:ml-64">
           {children}
         </main>
       </div>

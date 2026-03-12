@@ -168,7 +168,7 @@ export default function Topbar() {
                 className="w-full h-full object-cover"
               />
             ) : (
-              <span className="text-[#00C2CB] font-semibold text-sm">
+              <span className="text-[var(--primary)] font-semibold text-sm">
                 {userInitials}
               </span>
             )}
