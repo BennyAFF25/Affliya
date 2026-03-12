@@ -1,8 +1,8 @@
-'use client';
-import { useSession } from '@supabase/auth-helpers-react';
-import { useParams, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
-import { supabase } from '@/../utils/supabase/pages-client';
+"use client";
+import { useSession } from "@supabase/auth-helpers-react";
+import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+import { supabase } from "@/../utils/supabase/pages-client";
 
 interface Offer {
   id: string;
@@ -19,7 +19,9 @@ interface Offer {
 export default function EditOfferPage() {
   const params = useParams();
   const router = useRouter();
-  const offerId = Array.isArray(params.offerId) ? params.offerId[0] : params.offerId;
+  const offerId = Array.isArray(params.offerId)
+    ? params.offerId[0]
+    : params.offerId;
 
   const session = useSession();
   const user = session?.user;
@@ -27,13 +29,13 @@ export default function EditOfferPage() {
   const [offer, setOffer] = useState<Offer | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [businessName, setBusinessName] = useState('');
-  const [description, setDescription] = useState('');
-  const [commission, setCommission] = useState('');
-  const [type, setType] = useState('one-time');
-  const [price, setPrice] = useState('');
-  const [currency, setCurrency] = useState('USD');
-  const [commissionValue, setCommissionValue] = useState('');
+  const [businessName, setBusinessName] = useState("");
+  const [description, setDescription] = useState("");
+  const [commission, setCommission] = useState("");
+  const [type, setType] = useState("one-time");
+  const [price, setPrice] = useState("");
+  const [currency, setCurrency] = useState("USD");
+  const [commissionValue, setCommissionValue] = useState("");
 
   useEffect(() => {
     const fetchOffer = async () => {
@@ -43,30 +45,30 @@ export default function EditOfferPage() {
       setError(null);
 
       const { data, error } = await (supabase as any)
-        .from('offers')
+        .from("offers")
         .select(
-          'id,business_email,title,description,commission,type,price,currency,commission_value'
+          "id,business_email,title,description,commission,type,price,currency,commission_value",
         )
-        .eq('id', offerId as string)
-        .eq('business_email', user.email as string)
+        .eq("id", offerId as string)
+        .eq("business_email", user.email as string)
         .single();
 
       if (error || !data) {
-        console.error('[EditOffer] failed to load offer', error);
-        setError('Offer not found.');
+        console.error("[EditOffer] failed to load offer", error);
+        setError("Offer not found.");
         setLoading(false);
         return;
       }
 
       setOffer(data as Offer);
-      setBusinessName(data.title || '');
-      setDescription(data.description || '');
-      setCommission(data.commission?.toString() || '');
-      setPrice(data.price != null ? data.price.toString() : '');
-      setCurrency(data.currency || 'USD');
-      setType(data.type || 'one-time');
+      setBusinessName(data.title || "");
+      setDescription(data.description || "");
+      setCommission(data.commission?.toString() || "");
+      setPrice(data.price != null ? data.price.toString() : "");
+      setCurrency(data.currency || "USD");
+      setType(data.type || "one-time");
       setCommissionValue(
-        data.commission_value != null ? data.commission_value.toString() : ''
+        data.commission_value != null ? data.commission_value.toString() : "",
       );
       setLoading(false);
     };
@@ -79,7 +81,7 @@ export default function EditOfferPage() {
     if (!user?.email || !offerId) return;
 
     const { error } = await (supabase as any)
-      .from('offers')
+      .from("offers")
       .update({
         title: businessName,
         description,
@@ -89,81 +91,95 @@ export default function EditOfferPage() {
         currency,
         commission_value: commissionValue ? Number(commissionValue) : null,
       })
-      .eq('id', offerId as string)
-      .eq('business_email', user.email as string);
+      .eq("id", offerId as string)
+      .eq("business_email", user.email as string);
 
     if (error) {
-      console.error('[EditOffer] failed to save offer', error);
+      console.error("[EditOffer] failed to save offer", error);
       return;
     }
 
-    router.push('/business/my-business');
+    router.push("/business/my-business");
   };
 
   return (
-    <div className="p-8 max-w-4xl mx-auto">
-      <h1 className="text-3xl font-semibold mb-2 text-[#e2f8f8]">Edit Offer</h1>
-      <p className="text-slate-400 mb-8">Fine‑tune your offer details and keep everything up to date.</p>
-      <div className="rounded-2xl bg-[#020617]/90 border border-[#111827] shadow-[0_0_40px_rgba(0,0,0,0.45)] p-8">
+    <div className="mx-auto min-h-screen max-w-4xl bg-[var(--background)] p-8 text-[var(--foreground)]">
+      <h1 className="mb-2 text-3xl font-semibold text-[var(--foreground)]">
+        Edit Offer
+      </h1>
+      <p className="mb-8 text-[var(--muted-foreground)]">
+        Fine‑tune your offer details and keep everything up to date.
+      </p>
+      <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-8 shadow-[0_0_40px_rgba(0,0,0,0.12)]">
         {loading ? (
-          <p className="text-gray-500">Loading offer…</p>
+          <p className="text-[var(--muted-foreground)]">Loading offer…</p>
         ) : error ? (
-          <p className="text-red-500 text-sm">{error}</p>
+          <p className="text-sm text-red-500">{error}</p>
         ) : offer ? (
           <form onSubmit={handleSubmit} className="space-y-6 max-w-xl">
             {/* Business Name */}
             <div>
-              <label className="block text-xs font-medium mb-1 text-slate-300 tracking-wide">Business Name</label>
+              <label className="mb-1 block text-xs font-medium tracking-wide text-[var(--muted-foreground)]">
+                Business Name
+              </label>
               <input
                 type="text"
                 value={businessName}
                 onChange={(e) => setBusinessName(e.target.value)}
-                className="w-full rounded-lg bg-[#020617] border border-[#1f2937] text-slate-100 px-3 py-2 focus:border-[#00C2CB] focus:outline-none"
+                className="w-full rounded-lg border border-[var(--border)] bg-[var(--input-background)] px-3 py-2 text-[var(--foreground)] focus:border-[var(--ring)] focus:outline-none"
                 required
               />
             </div>
 
             {/* Description */}
             <div>
-              <label className="block text-xs font-medium mb-1 text-slate-300 tracking-wide">Description</label>
+              <label className="mb-1 block text-xs font-medium tracking-wide text-[var(--muted-foreground)]">
+                Description
+              </label>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="w-full rounded-lg bg-[#020617] border border-[#1f2937] text-slate-100 px-3 py-2 focus:border-[#00C2CB] focus:outline-none"
+                className="w-full rounded-lg border border-[var(--border)] bg-[var(--input-background)] px-3 py-2 text-[var(--foreground)] focus:border-[var(--ring)] focus:outline-none"
                 required
               />
             </div>
 
             {/* Commission (%) */}
             <div>
-              <label className="block text-xs font-medium mb-1 text-slate-300 tracking-wide">Commission (%)</label>
+              <label className="mb-1 block text-xs font-medium tracking-wide text-[var(--muted-foreground)]">
+                Commission (%)
+              </label>
               <input
                 type="number"
                 value={commission}
                 onChange={(e) => setCommission(e.target.value)}
-                className="w-full rounded-lg bg-[#020617] border border-[#1f2937] text-slate-100 px-3 py-2 focus:border-[#00C2CB] focus:outline-none"
+                className="w-full rounded-lg border border-[var(--border)] bg-[var(--input-background)] px-3 py-2 text-[var(--foreground)] focus:border-[var(--ring)] focus:outline-none"
                 required
               />
             </div>
 
             {/* Product Price */}
             <div>
-              <label className="block text-xs font-medium mb-1 text-slate-300 tracking-wide">Product Price (Optional)</label>
+              <label className="mb-1 block text-xs font-medium tracking-wide text-[var(--muted-foreground)]">
+                Product Price (Optional)
+              </label>
               <input
                 type="number"
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
-                className="w-full rounded-lg bg-[#020617] border border-[#1f2937] text-slate-100 px-3 py-2 focus:border-[#00C2CB] focus:outline-none"
+                className="w-full rounded-lg border border-[var(--border)] bg-[var(--input-background)] px-3 py-2 text-[var(--foreground)] focus:border-[var(--ring)] focus:outline-none"
               />
             </div>
 
             {/* Currency */}
             <div>
-              <label className="block text-xs font-medium mb-1 text-slate-300 tracking-wide">Currency</label>
+              <label className="mb-1 block text-xs font-medium tracking-wide text-[var(--muted-foreground)]">
+                Currency
+              </label>
               <select
                 value={currency}
                 onChange={(e) => setCurrency(e.target.value)}
-                className="w-full rounded-lg bg-[#020617] border border-[#1f2937] text-slate-100 px-3 py-2 focus:border-[#00C2CB] focus:outline-none"
+                className="w-full rounded-lg border border-[var(--border)] bg-[var(--input-background)] px-3 py-2 text-[var(--foreground)] focus:border-[var(--ring)] focus:outline-none"
               >
                 <option value="USD">USD</option>
                 <option value="AUD">AUD</option>
@@ -174,22 +190,26 @@ export default function EditOfferPage() {
 
             {/* Commission Value */}
             <div>
-              <label className="block text-xs font-medium mb-1 text-slate-300 tracking-wide">Commission Value (Optional)</label>
+              <label className="mb-1 block text-xs font-medium tracking-wide text-[var(--muted-foreground)]">
+                Commission Value (Optional)
+              </label>
               <input
                 type="number"
                 value={commissionValue}
                 onChange={(e) => setCommissionValue(e.target.value)}
-                className="w-full rounded-lg bg-[#020617] border border-[#1f2937] text-slate-100 px-3 py-2 focus:border-[#00C2CB] focus:outline-none"
+                className="w-full rounded-lg border border-[var(--border)] bg-[var(--input-background)] px-3 py-2 text-[var(--foreground)] focus:border-[var(--ring)] focus:outline-none"
               />
             </div>
 
             {/* Type */}
             <div>
-              <label className="block text-xs font-medium mb-1 text-slate-300 tracking-wide">Type</label>
+              <label className="mb-1 block text-xs font-medium tracking-wide text-[var(--muted-foreground)]">
+                Type
+              </label>
               <select
                 value={type}
                 onChange={(e) => setType(e.target.value)}
-                className="w-full rounded-lg bg-[#020617] border border-[#1f2937] text-slate-100 px-3 py-2 focus:border-[#00C2CB] focus:outline-none"
+                className="w-full rounded-lg border border-[var(--border)] bg-[var(--input-background)] px-3 py-2 text-[var(--foreground)] focus:border-[var(--ring)] focus:outline-none"
               >
                 <option value="one-time">One-Time</option>
                 <option value="recurring">Recurring</option>
@@ -198,13 +218,13 @@ export default function EditOfferPage() {
 
             <button
               type="submit"
-              className="bg-[#00C2CB] hover:bg-[#00b0b8] text-black font-semibold px-6 py-2 rounded-full shadow-[0_0_20px_rgba(0,194,203,0.45)] hover:shadow-[0_0_30px_rgba(0,194,203,0.6)] transition-all"
+              className="rounded-full bg-[var(--primary)] px-6 py-2 font-semibold text-[var(--primary-foreground)] shadow-[0_0_20px_rgba(0,194,203,0.25)] transition-all hover:brightness-110 hover:shadow-[0_0_30px_rgba(0,194,203,0.35)]"
             >
               Save Changes
             </button>
           </form>
         ) : (
-          <p className="text-gray-500">Offer not found.</p>
+          <p className="text-[var(--muted-foreground)]">Offer not found.</p>
         )}
       </div>
     </div>
