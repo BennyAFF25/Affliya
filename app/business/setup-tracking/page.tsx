@@ -1,13 +1,13 @@
-'use client';
+"use client";
 
-import { Suspense } from 'react';
-import SetupTrackingContent from './SetupTrackingContent';
+import { Suspense } from "react";
+import SetupTrackingContent from "./SetupTrackingContent";
 
 export default function SetupTrackingPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen w-full bg-surface flex items-center justify-center text-gray-300">
+        <div className="setup-tracking-theme min-h-screen w-full bg-[var(--background)] flex items-center justify-center text-[var(--muted-foreground)]">
           Loading…
         </div>
       }
