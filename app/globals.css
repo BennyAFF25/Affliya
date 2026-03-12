@@ -493,3 +493,37 @@ body {
 .promote-theme [class*="hover:bg-[#151515]"]:hover {
   filter: brightness(1.08);
 }
+
+/* My Shop: trial theme palette remap (color-only) */
+.myshop-theme [class*="bg-[#0c1118]"],
+.myshop-theme [class*="bg-[#111317]"],
+.myshop-theme [class*="bg-[#0d1218]"],
+.myshop-theme [class*="bg-black/30"],
+.myshop-theme [class*="bg-black/20"],
+.myshop-theme [class*="bg-black/15"] {
+  background-color: var(--card) !important;
+}
+
+.myshop-theme [class*="border-white/10"],
+.myshop-theme [class*="border-white/15"],
+.myshop-theme [class*="border-white/20"] {
+  border-color: var(--border) !important;
+}
+
+.myshop-theme [class*="text-white/60"],
+.myshop-theme [class*="text-white/50"],
+.myshop-theme [class*="text-white/70"],
+.myshop-theme [class*="text-white/40"] {
+  color: var(--muted-foreground) !important;
+}
+
+.myshop-theme [class*="text-[#00C2CB]"],
+.myshop-theme [class*="text-[#7ff5fb]"] {
+  color: var(--primary) !important;
+}
+
+.myshop-theme [class*="bg-[#00C2CB]"],
+.myshop-theme [class*="bg-[#00b0b8]"] {
+  background-color: var(--primary) !important;
+  color: var(--primary-foreground) !important;
+}

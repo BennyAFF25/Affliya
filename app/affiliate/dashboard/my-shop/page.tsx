@@ -480,7 +480,7 @@ export default function MyShopPage() {
 
   if (!shopEnabled) {
     return (
-      <div className="min-h-screen bg-surface text-white px-4 py-6">
+      <div className="myshop-theme min-h-screen bg-[var(--background)] text-[var(--foreground)] px-4 py-6">
         <div className="max-w-3xl mx-auto space-y-6">
           <header className={`${CARD_SHELL} p-6`}>
             <p className="text-xs uppercase tracking-[0.3em] text-white/60">
@@ -594,7 +594,7 @@ export default function MyShopPage() {
   }
 
   return (
-    <div className="min-h-screen bg-surface text-white px-4 py-6">
+    <div className="myshop-theme min-h-screen bg-[var(--background)] text-[var(--foreground)] px-4 py-6">
       <div className="max-w-5xl mx-auto space-y-6">
         <header
           className={`${CARD_SHELL} p-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between`}
@@ -1023,7 +1023,7 @@ function SkeletonLine({ className }: { className?: string }) {
 
 function MyShopSkeleton() {
   return (
-    <div className="min-h-screen bg-surface text-white px-4 py-6">
+    <div className="myshop-theme min-h-screen bg-[var(--background)] text-[var(--foreground)] px-4 py-6">
       <div className="max-w-5xl mx-auto space-y-6">
         <div className={`${CARD_SHELL} p-6 space-y-3`}>
           <SkeletonLine className="h-3 w-32" />
