@@ -643,3 +643,43 @@ body {
   background-color: var(--primary) !important;
   color: var(--primary-foreground) !important;
 }
+
+/* Business campaign detail: trial theme palette remap */
+.business-campaign-detail-theme [class*="bg-surface"],
+.business-campaign-detail-theme [class*="bg-white/[0.03]"],
+.business-campaign-detail-theme [class*="bg-white/[0.02]"],
+.business-campaign-detail-theme [class*="bg-white/5"],
+.business-campaign-detail-theme [class*="bg-black/40"],
+.business-campaign-detail-theme [class*="bg-black/30"],
+.business-campaign-detail-theme [class*="bg-black/80"],
+.business-campaign-detail-theme [class*="bg-black"] {
+  background-color: var(--card) !important;
+}
+
+.business-campaign-detail-theme [class*="border-white/"],
+.business-campaign-detail-theme [class*="border-[#00C2CB"],
+.business-campaign-detail-theme [class*="border-[#28303a]"],
+.business-campaign-detail-theme [class*="border-[#222B34]"] {
+  border-color: var(--border) !important;
+}
+
+.business-campaign-detail-theme [class*="text-white/70"],
+.business-campaign-detail-theme [class*="text-white/60"],
+.business-campaign-detail-theme [class*="text-white/55"],
+.business-campaign-detail-theme [class*="text-white/50"],
+.business-campaign-detail-theme [class*="text-white/45"],
+.business-campaign-detail-theme [class*="text-white/40"],
+.business-campaign-detail-theme [class*="text-white/35"] {
+  color: var(--muted-foreground) !important;
+}
+
+.business-campaign-detail-theme [class*="text-[#00C2CB]"],
+.business-campaign-detail-theme [class*="text-[#7ff5fb]"] {
+  color: var(--primary) !important;
+}
+
+.business-campaign-detail-theme [class*="bg-[#00C2CB"],
+.business-campaign-detail-theme [class*="bg-[#00b0b8"] {
+  background-color: var(--primary) !important;
+  color: var(--primary-foreground) !important;
+}
