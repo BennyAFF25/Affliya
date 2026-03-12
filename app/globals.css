@@ -527,3 +527,38 @@ body {
   background-color: var(--primary) !important;
   color: var(--primary-foreground) !important;
 }
+
+/* Business dashboard: trial theme palette remap */
+.business-dashboard-theme [class*="bg-[#121212]"],
+.business-dashboard-theme [class*="bg-black/90"],
+.business-dashboard-theme [class*="bg-black/70"],
+.business-dashboard-theme [class*="bg-black/40"],
+.business-dashboard-theme [class*="bg-[#111827]"],
+.business-dashboard-theme [class*="bg-surface"] {
+  background-color: var(--card) !important;
+}
+
+.business-dashboard-theme [class*="border-[#262626]"],
+.business-dashboard-theme [class*="border-white/10"],
+.business-dashboard-theme [class*="border-white/5"],
+.business-dashboard-theme [class*="border-slate-800"] {
+  border-color: var(--border) !important;
+}
+
+.business-dashboard-theme [class*="text-gray-500"],
+.business-dashboard-theme [class*="text-gray-400"],
+.business-dashboard-theme [class*="text-gray-300"],
+.business-dashboard-theme [class*="text-gray-200"] {
+  color: var(--muted-foreground) !important;
+}
+
+.business-dashboard-theme [class*="text-[#00C2CB]"],
+.business-dashboard-theme [class*="text-[#7ff5fb]"] {
+  color: var(--primary) !important;
+}
+
+.business-dashboard-theme [class*="bg-[#00C2CB]"],
+.business-dashboard-theme [class*="bg-[#00b0b8]"] {
+  background-color: var(--primary) !important;
+  color: var(--primary-foreground) !important;
+}
