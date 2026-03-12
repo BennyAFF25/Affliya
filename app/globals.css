@@ -603,3 +603,43 @@ body {
   background-color: var(--primary) !important;
   color: var(--primary-foreground) !important;
 }
+
+/* Business manage campaigns: trial theme palette remap */
+.business-manage-campaigns-theme [class*="bg-surface"],
+.business-manage-campaigns-theme [class*="bg-white/[0.03]"],
+.business-manage-campaigns-theme [class*="bg-white/[0.02]"],
+.business-manage-campaigns-theme [class*="bg-white/5"],
+.business-manage-campaigns-theme [class*="bg-black/30"],
+.business-manage-campaigns-theme [class*="bg-[#090d0e]"],
+.business-manage-campaigns-theme [class*="bg-[#061214]"],
+.business-manage-campaigns-theme [class*="to-black"] {
+  background-color: var(--card) !important;
+  background-image: none !important;
+}
+
+.business-manage-campaigns-theme [class*="border-white/10"],
+.business-manage-campaigns-theme [class*="border-white/15"],
+.business-manage-campaigns-theme [class*="border-[#00C2CB]/20"],
+.business-manage-campaigns-theme [class*="border-[#00C2CB]/30"] {
+  border-color: var(--border) !important;
+}
+
+.business-manage-campaigns-theme [class*="text-white/70"],
+.business-manage-campaigns-theme [class*="text-white/60"],
+.business-manage-campaigns-theme [class*="text-white/55"],
+.business-manage-campaigns-theme [class*="text-white/45"],
+.business-manage-campaigns-theme [class*="text-white/40"],
+.business-manage-campaigns-theme [class*="text-white/80"] {
+  color: var(--muted-foreground) !important;
+}
+
+.business-manage-campaigns-theme [class*="text-[#00C2CB]"],
+.business-manage-campaigns-theme [class*="text-[#7ff5fb]"] {
+  color: var(--primary) !important;
+}
+
+.business-manage-campaigns-theme [class*="bg-[#00C2CB]"],
+.business-manage-campaigns-theme [class*="bg-[#00b0b8]"] {
+  background-color: var(--primary) !important;
+  color: var(--primary-foreground) !important;
+}
