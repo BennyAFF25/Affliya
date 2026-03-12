@@ -3,11 +3,11 @@
 import { useState } from "react";
 
 const CARD_SHELL =
-  "rounded-3xl border border-white/10 bg-[#0c1118]/95 shadow-[0_25px_70px_rgba(0,0,0,0.55)]";
+  "rounded-3xl border border-[var(--border)] bg-[var(--card)] shadow-[0_25px_70px_rgba(0,0,0,0.08)]";
 const PANEL_CARD =
-  "rounded-2xl border border-white/10 bg-[#111317]/90 shadow-[0_20px_55px_rgba(0,0,0,0.45)]";
+  "rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[0_20px_55px_rgba(0,0,0,0.06)]";
 const ICON_BADGE =
-  "inline-flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-[#00C2CB]";
+  "inline-flex h-8 w-8 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--card)] text-[var(--primary)]";
 
 const faqs = [
   {
@@ -42,19 +42,21 @@ export default function AffiliateSupportPage() {
         <header className={`${CARD_SHELL} p-6 sm:p-8 space-y-4`}>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-xs uppercase tracking-[0.3em] text-white/60">
+              <p className="text-xs uppercase tracking-[0.3em] text-[var(--muted-foreground)]">
                 Need help?
               </p>
               <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight">
                 Affiliate Support
               </h1>
-              <p className="mt-2 text-white/65 max-w-2xl text-sm sm:text-base">
+              <p className="mt-2 text-[var(--muted-foreground)] max-w-2xl text-sm sm:text-base">
                 Clear answers, fast support, and zero guesswork. Browse the most
                 common questions or drop us a line directly in-app.
               </p>
             </div>
-            <div className="flex flex-col text-sm text-white/60">
-              <span className="font-semibold text-white">Typical response</span>
+            <div className="flex flex-col text-sm text-[var(--muted-foreground)]">
+              <span className="font-semibold text-[var(--foreground)]">
+                Typical response
+              </span>
               <span>Under 24 hours</span>
             </div>
           </div>
@@ -65,10 +67,10 @@ export default function AffiliateSupportPage() {
               { label: "Status", value: "status.nettmark.com" },
             ].map((item) => (
               <div key={item.label} className={`${PANEL_CARD} p-4`}>
-                <p className="text-[11px] uppercase tracking-[0.2em] text-white/50">
+                <p className="text-[11px] uppercase tracking-[0.2em] text-[var(--foreground)]/50">
                   {item.label}
                 </p>
-                <p className="mt-1 text-sm font-semibold text-white/80 break-all">
+                <p className="mt-1 text-sm font-semibold text-[var(--foreground)]/85 break-all">
                   {item.value}
                 </p>
               </div>
@@ -90,12 +92,12 @@ export default function AffiliateSupportPage() {
                       <span className={ICON_BADGE}>{open ? "–" : "+"}</span>
                       <p className="font-semibold text-base">{faq.question}</p>
                     </div>
-                    <span className="text-[#00C2CB] text-xl hidden sm:inline">
+                    <span className="text-[var(--primary)] text-xl hidden sm:inline">
                       {open ? "–" : "+"}
                     </span>
                   </button>
                   {open && (
-                    <div className="px-5 pb-5 text-sm text-white/70 leading-relaxed">
+                    <div className="px-5 pb-5 text-sm text-[var(--muted-foreground)] leading-relaxed">
                       {faq.answer}
                     </div>
                   )}
@@ -110,7 +112,7 @@ export default function AffiliateSupportPage() {
                 <span className={ICON_BADGE}>✉️</span>
                 Contact support
               </h2>
-              <p className="mt-2 text-sm text-white/65">
+              <p className="mt-2 text-sm text-[var(--muted-foreground)]">
                 If something’s unclear or broken, message us directly. This goes
                 straight to the Nettmark team.
               </p>
@@ -121,7 +123,7 @@ export default function AffiliateSupportPage() {
               onChange={(e) => setMessage(e.target.value)}
               placeholder="Describe your issue or question..."
               rows={6}
-              className="w-full rounded-2xl border border-white/10 bg-black/30 p-4 text-sm text-white placeholder-white/30 focus:border-[#00C2CB] focus:outline-none"
+              className="w-full rounded-2xl border border-[var(--border)] bg-[var(--input-background)] p-4 text-sm text-[var(--foreground)] placeholder-[var(--muted-foreground)] focus:border-[var(--ring)] focus:outline-none"
             />
 
             <button
@@ -129,13 +131,15 @@ export default function AffiliateSupportPage() {
                 alert("Message sent. Support will reach out shortly.");
                 setMessage("");
               }}
-              className="w-full rounded-full bg-[#00C2CB] py-3 font-semibold text-black shadow-[0_12px_35px_rgba(0,194,203,0.35)] hover:bg-[#00b0b8]"
+              className="w-full rounded-full bg-[var(--primary)] py-3 font-semibold text-[var(--primary-foreground)] shadow-[0_12px_35px_rgba(0,194,203,0.35)] hover:brightness-110"
             >
               Send message
             </button>
 
-            <div className="text-xs text-white/55 space-y-2">
-              <p className="font-semibold text-white/70">Need faster help?</p>
+            <div className="text-xs text-[var(--muted-foreground)] space-y-2">
+              <p className="font-semibold text-[var(--muted-foreground)]">
+                Need faster help?
+              </p>
               <ul className="list-disc list-inside space-y-1">
                 <li>
                   Use the in-app chat bubble (bottom-right) for live triage.
