@@ -470,6 +470,9 @@ function AffiliateDashboardContent() {
   const [checklistDismissed, setChecklistDismissed] = useState(false);
   const [checklistCompletionSent, setChecklistCompletionSent] = useState(false);
   const checklistStorageKey = user ? `affiliate-checklist-${user.id}` : null;
+  const checklistDismissedStorageKey = user
+    ? `affiliate-checklist-dismissed-${user.id}`
+    : null;
   const trialDaysLeft =
     profile?.revenue_subscription_status === "trialing" &&
     profile?.revenue_current_period_end
@@ -527,6 +530,18 @@ function AffiliateDashboardContent() {
   }, [checklistStorageKey]);
 
   useEffect(() => {
+    if (!checklistDismissedStorageKey || typeof window === "undefined") return;
+    try {
+      const stored = window.localStorage.getItem(checklistDismissedStorageKey);
+      if (stored === "1") {
+        setChecklistDismissed(true);
+      }
+    } catch (err) {
+      console.warn("[Checklist] Failed to read dismissed state", err);
+    }
+  }, [checklistDismissedStorageKey]);
+
+  useEffect(() => {
     if (!checklistStorageKey || typeof window === "undefined") return;
     try {
       window.localStorage.setItem(
@@ -539,6 +554,18 @@ function AffiliateDashboardContent() {
   }, [checklistStorageKey, checklistState]);
 
   useEffect(() => {
+    if (!checklistDismissedStorageKey || typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        checklistDismissedStorageKey,
+        checklistDismissed ? "1" : "0",
+      );
+    } catch (err) {
+      console.warn("[Checklist] Failed to persist dismissed state", err);
+    }
+  }, [checklistDismissedStorageKey, checklistDismissed]);
+
+  useEffect(() => {
     if (profile?.onboarding_completed) {
       setChecklistState({ payouts: true, marketplace: true });
       setChecklistDismissed(true);
@@ -547,7 +574,16 @@ function AffiliateDashboardContent() {
 
   const markChecklistComplete = useCallback(async () => {
     try {
-      await fetch("/api/profile/onboarding-complete", { method: "POST" });
+      const res = await fetch("/api/profile/onboarding-complete", {
+        method: "POST",
+      });
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        console.warn(
+          "[Checklist] onboarding-complete failed",
+          payload?.error || res.status,
+        );
+      }
     } catch (err) {
       console.warn("[Checklist] onboarding-complete failed", err);
     } finally {
