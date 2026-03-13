@@ -690,7 +690,7 @@ function AffiliateDashboardContent() {
             <p className="text-xs uppercase tracking-[0.3em] text-white/45">
               Getting started
             </p>
-            <h1 className="mt-2 text-3xl font-semibold text-white">
+            <h1 className="mt-2 text-3xl font-semibold text-[var(--foreground)]">
               Complete these two steps
             </h1>
             <p className="mt-2 text-sm text-white/60">
@@ -821,7 +821,9 @@ function AffiliateDashboardContent() {
                 <TrendingUp className="h-6 w-6" />
               </div>
               <div>
-                <p className="text-xs text-white/60">Active Campaigns</p>
+                <p className="text-xs text-[var(--muted-foreground)]">
+                  Active Campaigns
+                </p>
                 <h2 className="text-3xl font-bold text-white">
                   {activeCampaignCount}
                 </h2>
@@ -836,7 +838,9 @@ function AffiliateDashboardContent() {
                 <DollarSign className="h-6 w-6" />
               </div>
               <div>
-                <p className="text-xs text-white/60">Total Spent</p>
+                <p className="text-xs text-[var(--muted-foreground)]">
+                  Total Spent
+                </p>
                 <h2 className="text-3xl font-bold text-white">
                   {formatCurrency(totalSpent)}
                 </h2>
@@ -851,7 +855,9 @@ function AffiliateDashboardContent() {
                 <Wallet className="h-6 w-6" />
               </div>
               <div>
-                <p className="text-xs text-white/60">Pending Payout</p>
+                <p className="text-xs text-[var(--muted-foreground)]">
+                  Pending Payout
+                </p>
                 <h2 className="text-3xl font-bold text-white">
                   {formatCurrency(pendingPayoutTotal)}
                 </h2>
@@ -866,7 +872,9 @@ function AffiliateDashboardContent() {
                 <CheckCircle className="h-6 w-6" />
               </div>
               <div>
-                <p className="text-xs text-white/60">Approved Offers</p>
+                <p className="text-xs text-[var(--muted-foreground)]">
+                  Approved Offers
+                </p>
                 <h2 className="text-3xl font-bold text-white">
                   {approvedOffers.length}
                 </h2>
@@ -891,7 +899,7 @@ function AffiliateDashboardContent() {
             return (
               <div
                 key={chart.title}
-                className="relative overflow-hidden rounded-3xl bg-[#111317]/95 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.55)]"
+                className="affiliate-chart-panel relative overflow-hidden rounded-3xl bg-[var(--card)] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.18)]"
               >
                 <div
                   className="pointer-events-none absolute inset-0 rounded-3xl opacity-80"
@@ -958,24 +966,24 @@ function AffiliateDashboardContent() {
                       <>
                         <div className="mb-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                           <div>
-                            <p className="text-xs uppercase tracking-[0.25em] text-white/45">
+                            <p className="text-xs uppercase tracking-[0.25em] text-[var(--muted-foreground)]">
                               {chart.title}
                             </p>
-                            <p className="mt-2 text-3xl font-semibold text-white">
+                            <p className="mt-2 text-3xl font-semibold text-[var(--foreground)]">
                               {formatValue(totalValue)}
                             </p>
-                            <p className="text-xs text-white/60">
+                            <p className="text-xs text-[var(--muted-foreground)]">
                               {timeframeCopy}
                             </p>
                           </div>
                           <div className="flex flex-col items-start gap-2 md:items-end">
-                            <div className="rounded-full border border-white/10 bg-[#15191c] px-1 py-0.5 text-[10px] text-white/60">
+                            <div className="rounded-full border border-[var(--border)] bg-[var(--secondary)] px-1 py-0.5 text-[10px] text-[var(--muted-foreground)]">
                               Latest day
                             </div>
-                            <p className="text-lg font-semibold text-white">
+                            <p className="text-lg font-semibold text-[var(--foreground)]">
                               {formatValue(latestValue)}
                             </p>
-                            <div className="flex items-center gap-1 rounded-full border border-white/10 bg-[#15191c] px-1 py-0.5">
+                            <div className="flex items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--secondary)] px-1 py-0.5">
                               {[
                                 { label: "7D", value: "7d" as const },
                                 { label: "30D", value: "30d" as const },
@@ -987,8 +995,8 @@ function AffiliateDashboardContent() {
                                   onClick={() => setTf(option.value)}
                                   className={`px-2 py-0.5 text-[10px] rounded-full transition ${
                                     tf === option.value
-                                      ? "bg-[#00C2CB] text-black font-semibold"
-                                      : "text-white/60 hover:text-white"
+                                      ? "bg-[var(--primary)] text-[var(--primary-foreground)] font-semibold"
+                                      : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
                                   }`}
                                 >
                                   {option.label}
@@ -999,12 +1007,12 @@ function AffiliateDashboardContent() {
                         </div>
 
                         {tf === "custom" && (
-                          <div className="flex flex-wrap items-center gap-3 mb-4 text-[10px] text-white/65">
+                          <div className="mb-4 flex flex-wrap items-center gap-3 text-[10px] text-[var(--muted-foreground)]">
                             <label className="flex items-center gap-2">
                               <span>From</span>
                               <input
                                 type="date"
-                                className="rounded-md bg-[#050505] border border-white/10 px-2 py-1 text-white focus:outline-none focus:ring-1 focus:ring-[#00C2CB]"
+                                className="rounded-md border border-[var(--border)] bg-[var(--input-background)] px-2 py-1 text-[var(--foreground)] focus:outline-none focus:ring-1 focus:ring-[var(--ring)]"
                                 value={range.from}
                                 onChange={(e) =>
                                   setRange((prev) => ({
@@ -1018,7 +1026,7 @@ function AffiliateDashboardContent() {
                               <span>To</span>
                               <input
                                 type="date"
-                                className="rounded-md bg-[#050505] border border-white/10 px-2 py-1 text-white focus:outline-none focus:ring-1 focus:ring-[#00C2CB]"
+                                className="rounded-md border border-[var(--border)] bg-[var(--input-background)] px-2 py-1 text-[var(--foreground)] focus:outline-none focus:ring-1 focus:ring-[var(--ring)]"
                                 value={range.to}
                                 onChange={(e) =>
                                   setRange((prev) => ({
@@ -1032,18 +1040,18 @@ function AffiliateDashboardContent() {
                         )}
 
                         {trendData.length === 0 ? (
-                          <div className="mt-3 rounded-2xl border border-dashed border-white/15 bg-[#15191c] px-4 py-6">
-                            <h3 className="text-sm font-semibold text-[#00C2CB] mb-1">
+                          <div className="mt-3 rounded-2xl border border-dashed border-[var(--border)] bg-[var(--secondary)] px-4 py-6">
+                            <h3 className="mb-1 text-sm font-semibold text-[var(--primary)]">
                               {chart.title.includes("Ad Spend")
                                 ? "No ad spend recorded yet"
                                 : "No conversions recorded yet"}
                             </h3>
-                            <p className="text-xs text-white/60 mb-4">
+                            <p className="mb-4 text-xs text-[var(--muted-foreground)]">
                               {chart.title.includes("Ad Spend")
                                 ? "Once you start running campaigns, your daily spend will appear here."
                                 : "As soon as tracking fires, daily conversions will show up here."}
                             </p>
-                            <div className="rounded-xl border border-white/12 bg-[#15191c] px-4 py-5">
+                            <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] px-4 py-5">
                               <div className="relative h-16 w-full">
                                 <div
                                   className="absolute inset-0"
@@ -1136,7 +1144,7 @@ function AffiliateDashboardContent() {
                                   <ReferenceLine
                                     key={`${chart.id}-ref-${idx}`}
                                     x={point.name}
-                                    stroke="rgba(255,255,255,0.08)"
+                                    stroke="rgba(148,163,184,0.22)"
                                     strokeDasharray="3 3"
                                   />
                                 ) : null,
@@ -1147,19 +1155,19 @@ function AffiliateDashboardContent() {
                                   strokeWidth: 1.5,
                                 }}
                                 contentStyle={{
-                                  backgroundColor: "#020617",
-                                  border: "1px solid rgba(148,163,184,0.35)",
+                                  backgroundColor: "var(--card)",
+                                  border: "1px solid var(--border)",
                                   borderRadius: 10,
                                   padding: "10px 12px",
                                 }}
                                 labelStyle={{
                                   fontSize: 11,
-                                  color: "#e5e7eb",
+                                  color: "var(--foreground)",
                                   marginBottom: 4,
                                 }}
                                 itemStyle={{
                                   fontSize: 12,
-                                  color: "#e5e7eb",
+                                  color: "var(--foreground)",
                                   fontWeight: 600,
                                 }}
                                 formatter={(value: number, name: string) => {
@@ -1176,13 +1184,13 @@ function AffiliateDashboardContent() {
                                 stroke={accent}
                                 strokeWidth={2.5}
                                 fill={`url(#${gradientId})`}
-                                activeDot={{ r: 4, fill: "#fff" }}
+                                activeDot={{ r: 4, fill: accent }}
                                 dot={{ r: 0 }}
                               />
                               <Line
                                 type="monotone"
                                 dataKey="average"
-                                stroke="rgba(255,255,255,0.35)"
+                                stroke="rgba(148,163,184,0.6)"
                                 strokeWidth={1.5}
                                 strokeDasharray="4 6"
                                 dot={false}
