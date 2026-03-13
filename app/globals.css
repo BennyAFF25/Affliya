@@ -783,3 +783,46 @@ body {
   background-color: var(--secondary) !important;
   color: var(--foreground) !important;
 }
+
+/* Business post-ideas: trial theme palette remap */
+.post-ideas-theme [class*="bg-[#0a0a0a]"],
+.post-ideas-theme [class*="bg-[#1f1f1f]"],
+.post-ideas-theme [class*="bg-[#191919]"],
+.post-ideas-theme [class*="bg-[#141414]"],
+.post-ideas-theme [class*="bg-[#111111]"],
+.post-ideas-theme [class*="bg-[#05080a]"],
+.post-ideas-theme [class*="bg-black"] {
+  background-color: var(--card) !important;
+}
+
+.post-ideas-theme [class*="border-[#2c2c2c]"],
+.post-ideas-theme [class*="border-[#151b1f]"],
+.post-ideas-theme [class*="border-white/"],
+.post-ideas-theme [class*="border-gray-"],
+.post-ideas-theme [class*="border-[#00C2CB"] {
+  border-color: var(--border) !important;
+}
+
+.post-ideas-theme [class*="text-gray-"],
+.post-ideas-theme [class*="text-white/"] {
+  color: var(--muted-foreground) !important;
+}
+
+.post-ideas-theme [class*="text-[#00C2CB]"],
+.post-ideas-theme [class*="text-[#7ff5fb]"] {
+  color: var(--primary) !important;
+}
+
+.post-ideas-theme [class*="bg-[#00C2CB"],
+.post-ideas-theme [class*="bg-[#00b0b8"] {
+  background-color: var(--primary) !important;
+  color: var(--primary-foreground) !important;
+}
+
+.post-ideas-theme [class*="bg-[#2c2c2c]"],
+.post-ideas-theme [class*="bg-[#3a3a3a]"],
+.post-ideas-theme [class*="bg-white/5"],
+.post-ideas-theme [class*="bg-white/10"] {
+  background-color: var(--secondary) !important;
+  color: var(--foreground) !important;
+}
