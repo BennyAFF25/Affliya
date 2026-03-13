@@ -193,46 +193,52 @@ export default function AffiliateRequestsPage() {
   const shopPending = shopRequests.filter((r) => r.status === "pending");
 
   return (
-    <div className="w-full min-h-screen bg-[#0a0a0a] px-6 py-10">
-      <h1 className="text-3xl font-bold mb-6 text-[#00C2CB]">
+    <div className="w-full min-h-screen bg-[var(--background)] px-6 py-10">
+      <h1 className="text-3xl font-bold mb-6 text-[var(--primary)]">
         Affiliate Promotion Requests
       </h1>
 
       {pending.length === 0 ? (
-        <p className="text-gray-600">No pending promotion requests.</p>
+        <p className="text-[var(--muted-foreground)]">
+          No pending promotion requests.
+        </p>
       ) : (
         <ul className="space-y-6 mb-10">
           {pending.map((req) => (
             <li
               key={req.id}
-              className="rounded-xl bg-[#1F1F1F] text-white shadow-md border border-[#2c2c2c] px-6 py-5"
+              className="rounded-xl bg-[var(--card)] text-[var(--foreground)] shadow-md border border-[var(--border)] px-6 py-5"
             >
               <div className="flex justify-between items-start gap-6">
                 <div>
                   <h2 className="text-lg font-semibold">{req.offer?.title}</h2>
-                  <p className="text-sm text-gray-400">
+                  <p className="text-sm text-[var(--muted-foreground)]">
                     {req.offer?.description}
                   </p>
-                  <div className="mt-4 text-sm text-gray-400 space-y-1">
+                  <div className="mt-4 text-sm text-[var(--muted-foreground)] space-y-1">
                     <p>
-                      <span className="text-white font-medium">
+                      <span className="text-[var(--foreground)] font-medium">
                         Commission:
                       </span>{" "}
-                      <span className="text-[#00C2CB]">
+                      <span className="text-[var(--primary)]">
                         {req.offer?.commission}%
                       </span>{" "}
-                      <span className="ml-2 px-2 py-1 text-xs bg-[#00C2CB]/10 text-[#00C2CB] rounded">
+                      <span className="ml-2 px-2 py-1 text-xs bg-[#00C2CB]/10 text-[var(--primary)] rounded">
                         {req.offer?.type === "recurring"
                           ? "Recurring"
                           : "One-time"}
                       </span>
                     </p>
                     <p>
-                      <span className="text-white font-medium">Affiliate:</span>{" "}
+                      <span className="text-[var(--foreground)] font-medium">
+                        Affiliate:
+                      </span>{" "}
                       {req.affiliate_email}
                     </p>
                     {req.notes && (
-                      <p className="italic text-gray-500">“{req.notes}”</p>
+                      <p className="italic text-[var(--muted-foreground)]">
+                        “{req.notes}”
+                      </p>
                     )}
                     <p>
                       Requested: {new Date(req.created_at).toLocaleString()}
@@ -242,13 +248,13 @@ export default function AffiliateRequestsPage() {
                 <div className="flex flex-col items-end gap-2">
                   <button
                     onClick={() => handleUpdateStatus(req.id, "rejected")}
-                    className="bg-[#2c2c2c] hover:bg-[#3a3a3a] text-gray-300 px-4 py-2 rounded-lg text-sm"
+                    className="bg-[var(--secondary)] hover:brightness-110 text-[var(--muted-foreground)] px-4 py-2 rounded-lg text-sm"
                   >
                     Reject
                   </button>
                   <button
                     onClick={() => handleUpdateStatus(req.id, "approved")}
-                    className="bg-[#00C2CB] hover:bg-[#00b0b8] text-black px-4 py-2 rounded-lg text-sm font-semibold"
+                    className="bg-[var(--primary)] hover:brightness-110 text-[var(--primary-foreground)] px-4 py-2 rounded-lg text-sm font-semibold"
                   >
                     Approve
                   </button>
@@ -259,31 +265,33 @@ export default function AffiliateRequestsPage() {
         </ul>
       )}
 
-      <h2 className="text-2xl font-bold mb-4 text-white">
+      <h2 className="text-2xl font-bold mb-4 text-[var(--foreground)]">
         NettmarkShop Access Requests
       </h2>
       {shopPending.length === 0 ? (
-        <p className="text-gray-600">No pending storefront requests.</p>
+        <p className="text-[var(--muted-foreground)]">
+          No pending storefront requests.
+        </p>
       ) : (
         <ul className="space-y-6">
           {shopPending.map((req) => (
             <li
               key={req.id}
-              className="rounded-xl bg-[#1F1F1F] text-white shadow-md border border-[#2c2c2c] px-6 py-5"
+              className="rounded-xl bg-[var(--card)] text-[var(--foreground)] shadow-md border border-[var(--border)] px-6 py-5"
             >
               <div className="flex justify-between items-start gap-6">
                 <div className="space-y-2">
                   <h3 className="text-lg font-semibold">
                     Storefront access request
                   </h3>
-                  <p className="text-sm text-gray-300">
+                  <p className="text-sm text-[var(--muted-foreground)]">
                     Affiliate: {req.affiliate_email}
                   </p>
-                  <p className="text-sm text-gray-400">
+                  <p className="text-sm text-[var(--muted-foreground)]">
                     {req.message ||
                       "This affiliate is requesting to have a shop link which will display your offer and any others they work with on a storefront used for organic campaigns and social media links."}
                   </p>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-[var(--muted-foreground)]">
                     Requested: {new Date(req.created_at).toLocaleString()}
                   </p>
                 </div>
@@ -292,7 +300,7 @@ export default function AffiliateRequestsPage() {
                     onClick={() =>
                       handleShopRequestDecision(req.id, "rejected")
                     }
-                    className="bg-[#2c2c2c] hover:bg-[#3a3a3a] text-gray-300 px-4 py-2 rounded-lg text-sm"
+                    className="bg-[var(--secondary)] hover:brightness-110 text-[var(--muted-foreground)] px-4 py-2 rounded-lg text-sm"
                   >
                     Reject
                   </button>
@@ -300,7 +308,7 @@ export default function AffiliateRequestsPage() {
                     onClick={() =>
                       handleShopRequestDecision(req.id, "approved")
                     }
-                    className="bg-[#00C2CB] hover:bg-[#00b0b8] text-black px-4 py-2 rounded-lg text-sm font-semibold"
+                    className="bg-[var(--primary)] hover:brightness-110 text-[var(--primary-foreground)] px-4 py-2 rounded-lg text-sm font-semibold"
                   >
                     Approve storefront
                   </button>
@@ -320,13 +328,15 @@ export default function AffiliateRequestsPage() {
             {rejected.map((req) => (
               <li
                 key={req.id}
-                className="border border-red-200 bg-[#1F1F1F] rounded-lg shadow-md p-6"
+                className="rounded-lg border border-red-300/50 bg-[var(--card)] p-6 shadow-md"
               >
                 <h2 className="text-xl font-semibold text-red-600 mb-1">
                   {req.offer?.title}
                 </h2>
-                <p className="text-sm text-white">{req.offer?.description}</p>
-                <div className="text-sm mt-2 text-white/80">
+                <p className="text-sm text-[var(--foreground)]">
+                  {req.offer?.description}
+                </p>
+                <div className="text-sm mt-2 text-[var(--foreground)]/80">
                   <p>Commission: {req.offer?.commission}%</p>
                   <p>Type: {req.offer?.type}</p>
                   <p>Affiliate: {req.affiliate_email}</p>
