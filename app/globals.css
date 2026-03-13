@@ -743,3 +743,43 @@ body {
   outline: none;
   box-shadow: 0 0 0 1px var(--ring);
 }
+
+/* Business ad-ideas: trial theme palette remap */
+.ad-ideas-theme [class*="bg-[#0a0a0a]"],
+.ad-ideas-theme [class*="bg-[#1f1f1f]"],
+.ad-ideas-theme [class*="bg-[#191919]"],
+.ad-ideas-theme [class*="bg-[#111111]"],
+.ad-ideas-theme [class*="bg-[#181818]"],
+.ad-ideas-theme [class*="bg-[#141414]"] {
+  background-color: var(--card) !important;
+}
+
+.ad-ideas-theme [class*="border-[#2c2c2c]"],
+.ad-ideas-theme [class*="border-[#232323]"],
+.ad-ideas-theme [class*="border-gray-300"],
+.ad-ideas-theme [class*="border-white/"],
+.ad-ideas-theme [class*="border-[#00C2CB"] {
+  border-color: var(--border) !important;
+}
+
+.ad-ideas-theme [class*="text-gray-"],
+.ad-ideas-theme [class*="text-white/"] {
+  color: var(--muted-foreground);
+}
+
+.ad-ideas-theme [class*="text-[#00C2CB]"],
+.ad-ideas-theme [class*="text-[#7ff5fb]"] {
+  color: var(--primary) !important;
+}
+
+.ad-ideas-theme [class*="bg-[#00C2CB"],
+.ad-ideas-theme [class*="bg-[#00b0b8"] {
+  background-color: var(--primary) !important;
+  color: var(--primary-foreground) !important;
+}
+
+.ad-ideas-theme [class*="bg-[#2c2c2c]"],
+.ad-ideas-theme [class*="bg-[#3a3a3a]"] {
+  background-color: var(--secondary) !important;
+  color: var(--foreground) !important;
+}
