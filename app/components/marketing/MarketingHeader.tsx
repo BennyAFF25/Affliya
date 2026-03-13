@@ -6,7 +6,9 @@ import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import clsx from "clsx";
 import { AnimatePresence, motion } from "framer-motion";
+import { Moon, Sun } from "lucide-react";
 import { useSessionContext } from "@supabase/auth-helpers-react";
+import { useTheme } from "@/../context/ThemeContext";
 
 const navLinks = [
   {
@@ -43,6 +45,7 @@ export default function MarketingHeader() {
   const pathname = usePathname();
   const router = useRouter();
   const { session, supabaseClient } = useSessionContext();
+  const { theme, toggleTheme } = useTheme();
   const user = session?.user ?? null;
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -101,14 +104,18 @@ export default function MarketingHeader() {
                   href={link.href}
                   className={clsx(
                     "relative px-4 py-1.5 text-sm font-medium transition-colors",
-                    active ? "text-black" : "text-white/70 hover:text-white"
+                    active ? "text-black" : "text-white/70 hover:text-white",
                   )}
                 >
                   {active && (
                     <motion.span
                       layoutId="marketing-nav-highlight"
                       className="absolute inset-0 rounded-full bg-white text-black"
-                      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                      transition={{
+                        type: "spring",
+                        stiffness: 300,
+                        damping: 30,
+                      }}
                     />
                   )}
                   <span className="relative z-10 flex items-center gap-2">
@@ -125,6 +132,19 @@ export default function MarketingHeader() {
           </nav>
 
           <div className="flex items-center gap-3">
+            <button
+              onClick={toggleTheme}
+              className="hidden md:inline-flex h-10 items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 text-xs font-semibold uppercase tracking-[0.14em] text-white/80 transition hover:border-white/30 hover:bg-white/10"
+              aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+            >
+              {theme === "dark" ? (
+                <Sun className="h-3.5 w-3.5" />
+              ) : (
+                <Moon className="h-3.5 w-3.5" />
+              )}
+              {theme === "dark" ? "Light" : "Dark"}
+            </button>
+
             {user ? (
               <button
                 onClick={handleLogout}
@@ -145,14 +165,15 @@ export default function MarketingHeader() {
               onClick={() => setMenuOpen((prev) => !prev)}
               className={clsx(
                 "relative inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-white/10 text-white transition-all focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00C2CB] md:hidden",
-                menuOpen && "border-white/30 bg-white/10 shadow-[0_10px_40px_-12px_#00C2CB]"
+                menuOpen &&
+                  "border-white/30 bg-white/10 shadow-[0_10px_40px_-12px_#00C2CB]",
               )}
               aria-label={menuOpen ? "Close menu" : "Open menu"}
             >
               <span
                 className={clsx(
                   "absolute inset-0 rounded-2xl bg-gradient-to-br from-white/10 to-transparent opacity-0 transition-opacity",
-                  menuOpen && "opacity-60"
+                  menuOpen && "opacity-60",
                 )}
                 aria-hidden
               />
@@ -162,7 +183,7 @@ export default function MarketingHeader() {
                     key={line}
                     className={clsx(
                       "block h-0.5 w-5 rounded-full bg-current transition-all",
-                      menuOpen && line === 1 && "w-3 opacity-70"
+                      menuOpen && line === 1 && "w-3 opacity-70",
                     )}
                   />
                 ))}
@@ -172,7 +193,10 @@ export default function MarketingHeader() {
         </div>
       </header>
 
-      <div aria-hidden style={{ height: "calc(4rem + env(safe-area-inset-top))" }} />
+      <div
+        aria-hidden
+        style={{ height: "calc(4rem + env(safe-area-inset-top))" }}
+      />
 
       <AnimatePresence>
         {menuOpen && (
@@ -184,17 +208,29 @@ export default function MarketingHeader() {
             className="md:hidden fixed inset-x-0 top-[calc(4rem+env(safe-area-inset-top))] bottom-4 z-40 px-4"
           >
             <div className="relative h-full overflow-hidden rounded-3xl border border-white/12 bg-gradient-to-br from-black/92 via-black/90 to-[#040b0b]/95 backdrop-blur-2xl shadow-[0_30px_120px_-50px_#00C2CB]">
-              <div className="absolute inset-0 opacity-30" style={{ backgroundImage: "radial-gradient(circle at top, rgba(0,194,203,0.5), transparent 55%)" }} aria-hidden />
+              <div
+                className="absolute inset-0 opacity-30"
+                style={{
+                  backgroundImage:
+                    "radial-gradient(circle at top, rgba(0,194,203,0.5), transparent 55%)",
+                }}
+                aria-hidden
+              />
 
               <div className="relative h-full flex flex-col">
                 <div className="px-6 pt-6 pb-4">
-                  <p className="text-[11px] uppercase tracking-[0.24em] text-white/40"> Navigate </p>
+                  <p className="text-[11px] uppercase tracking-[0.24em] text-white/40">
+                    {" "}
+                    Navigate{" "}
+                  </p>
                 </div>
 
                 <div className="flex-1 overflow-y-auto px-6 pb-6 space-y-8">
                   {groupedNav.map((group) => (
                     <div key={group.title} className="space-y-3">
-                      <p className="text-[12px] uppercase tracking-[0.25em] text-white/35">{group.title}</p>
+                      <p className="text-[12px] uppercase tracking-[0.25em] text-white/35">
+                        {group.title}
+                      </p>
                       <div className="space-y-2">
                         {group.links.map((link) => (
                           <button
@@ -210,7 +246,9 @@ export default function MarketingHeader() {
                                 <span className="text-base font-medium text-white">
                                   {link.label}
                                 </span>
-                                <span className="block text-sm text-white/60">{link.description}</span>
+                                <span className="block text-sm text-white/60">
+                                  {link.description}
+                                </span>
                               </span>
                               {link.badge && (
                                 <span className="text-[10px] rounded-full border border-white/30 px-2 py-0.5 text-white/80">
@@ -225,7 +263,24 @@ export default function MarketingHeader() {
                   ))}
 
                   <div className="space-y-3 border-t border-white/10 pt-5">
-                    <p className="text-[11px] uppercase tracking-[0.25em] text-white/35">Account</p>
+                    <p className="text-[11px] uppercase tracking-[0.25em] text-white/35">
+                      Account
+                    </p>
+                    <button
+                      onClick={toggleTheme}
+                      className="flex w-full items-center justify-between rounded-2xl border border-white/15 px-4 py-3 text-left text-white hover:border-white/40"
+                    >
+                      <span>
+                        {theme === "dark"
+                          ? "Switch to light mode"
+                          : "Switch to dark mode"}
+                      </span>
+                      {theme === "dark" ? (
+                        <Sun className="h-4 w-4" />
+                      ) : (
+                        <Moon className="h-4 w-4" />
+                      )}
+                    </button>
                     {user ? (
                       <button
                         onClick={handleLogout}
@@ -237,7 +292,7 @@ export default function MarketingHeader() {
                       <button
                         onClick={() => {
                           setMenuOpen(false);
-                          router.push('/login');
+                          router.push("/login");
                         }}
                         className="w-full rounded-2xl border border-white/15 px-4 py-3 text-left text-white hover:border-white/40"
                       >

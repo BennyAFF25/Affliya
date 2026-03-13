@@ -931,3 +931,60 @@ body {
 .affiliate-dashboard-theme .text-black {
   color: var(--primary-foreground) !important;
 }
+
+/* Marketing home page: scoped light/dark theme remap */
+.marketing-home-theme [class*="from-[#0b1a1b]"],
+.marketing-home-theme [class*="via-[#0b0b0b]"],
+.marketing-home-theme [class*="to-black"],
+.marketing-home-theme [class*="bg-black"],
+.marketing-home-theme [class*="bg-[#050708]"],
+.marketing-home-theme [class*="bg-[#111317]"],
+.marketing-home-theme [class*="bg-white/[0.04]"],
+.marketing-home-theme [class*="bg-white/[0.03]"],
+.marketing-home-theme [class*="bg-white/5"] {
+  background-color: var(--card) !important;
+  background-image: none !important;
+}
+
+.marketing-home-theme [class*="border-white/"],
+.marketing-home-theme [class*="border-[#00C2CB"],
+.marketing-home-theme [class*="border-[#262626"] {
+  border-color: var(--border) !important;
+}
+
+.marketing-home-theme [class*="text-white/"],
+.marketing-home-theme [class*="text-white"] {
+  color: var(--muted-foreground) !important;
+}
+
+.marketing-home-theme h1,
+.marketing-home-theme h2,
+.marketing-home-theme h3,
+.marketing-home-theme h4,
+.marketing-home-theme [class*="font-bold"],
+.marketing-home-theme [class*="font-semibold"] {
+  color: var(--foreground) !important;
+}
+
+.marketing-home-theme [class*="text-[#00C2CB]"],
+.marketing-home-theme [class*="text-[#7ff5fb]"] {
+  color: var(--primary) !important;
+}
+
+.marketing-home-theme [class*="bg-[#00C2CB"],
+.marketing-home-theme [class*="bg-[#00b0b8"] {
+  background-color: var(--primary) !important;
+  color: var(--primary-foreground) !important;
+}
+
+.marketing-home-theme .text-black {
+  color: var(--primary-foreground) !important;
+}
+
+.light .marketing-home-theme {
+  background: linear-gradient(
+    180deg,
+    var(--background) 0%,
+    var(--sidebar) 100%
+  ) !important;
+}

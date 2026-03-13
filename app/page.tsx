@@ -1,12 +1,23 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useSessionContext } from '@supabase/auth-helpers-react';
-import Link from 'next/link';
-import Image from 'next/image';
-import MarketingHeader from '@/components/marketing/MarketingHeader';
-import { ShieldCheck, Link2, Wallet, Cpu, Briefcase, Users, ArrowRight, Facebook, Instagram, Mail } from 'lucide-react';
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useSessionContext } from "@supabase/auth-helpers-react";
+import Link from "next/link";
+import Image from "next/image";
+import MarketingHeader from "@/components/marketing/MarketingHeader";
+import {
+  ShieldCheck,
+  Link2,
+  Wallet,
+  Cpu,
+  Briefcase,
+  Users,
+  ArrowRight,
+  Facebook,
+  Instagram,
+  Mail,
+} from "lucide-react";
 
 export default function Home() {
   const { supabaseClient } = useSessionContext();
@@ -14,7 +25,9 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(true);
   const user = session?.user ?? null;
   const router = useRouter();
-  const [userType, setUserType] = useState<'business' | 'affiliate' | null>(null);
+  const [userType, setUserType] = useState<"business" | "affiliate" | null>(
+    null,
+  );
   const [showBizWhy, setShowBizWhy] = useState(false);
   const [showAffWhy, setShowAffWhy] = useState(false);
 
@@ -38,19 +51,18 @@ export default function Home() {
     };
   }, [supabaseClient]);
 
-  const handleLogin = (type: 'business' | 'affiliate') => {
+  const handleLogin = (type: "business" | "affiliate") => {
     setUserType(type);
     try {
-      localStorage.setItem('intent.role', type); // canonical
-      localStorage.setItem('userType', type);    // legacy (kept for backward-compat)
+      localStorage.setItem("intent.role", type); // canonical
+      localStorage.setItem("userType", type); // legacy (kept for backward-compat)
     } catch {}
     router.push(`/login?role=${type}`);
   };
 
   return (
-    <div className="min-h-screen flex flex-col overflow-x-hidden bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#0b1a1b] via-[#0b0b0b] to-black text-white">
+    <div className="marketing-home-theme min-h-screen flex flex-col overflow-x-hidden bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#0b1a1b] via-[#0b0b0b] to-black text-white">
       <MarketingHeader />
-
 
       <main className="flex-1">
         {/* HERO */}
@@ -65,11 +77,13 @@ export default function Home() {
               {/* Left: Text */}
               <div>
                 <h2 className="text-[2rem] leading-[1.15] sm:text-5xl md:text-6xl font-extrabold tracking-tight">
-                  Grow Faster with <span className="text-[#7ff5fb]">Performance-Based</span>
+                  Grow Faster with{" "}
+                  <span className="text-[#7ff5fb]">Performance-Based</span>
                   <br className="hidden md:block" /> Promotion
                 </h2>
                 <p className="mt-4 text-white/70 text-base sm:text-lg max-w-xl">
-                  Nettmark connects your brand to thousands of partners ready to drive revenue.
+                  Nettmark connects your brand to thousands of partners ready to
+                  drive revenue.
                 </p>
                 <div className="mt-8 flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
                   <Link
@@ -118,39 +132,53 @@ export default function Home() {
       </main>
 
       {/* WHAT IS NETTMARK */}
-      <section id="bridge" className="relative mx-auto max-w-7xl px-4 sm:px-6 mt-16 md:mt-24 mb-16 md:mb-24">
+      <section
+        id="bridge"
+        className="relative mx-auto max-w-7xl px-4 sm:px-6 mt-16 md:mt-24 mb-16 md:mb-24"
+      >
         <div className="text-center mb-12">
           <h3 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight">
             What is <span className="text-[#00C2CB]">Nettmark</span>?
           </h3>
           <p className="mt-3 text-white/70 max-w-3xl mx-auto">
-            Nettmark is a performance platform that connects brands with trusted promoters under a single shared system for
-            tracking, policy guardrails, and payouts. It makes growth predictable and safe—without the usual mess of
-            spreadsheets, ad-hoc links, or blind spend.
+            Nettmark is a performance platform that connects brands with trusted
+            promoters under a single shared system for tracking, policy
+            guardrails, and payouts. It makes growth predictable and
+            safe—without the usual mess of spreadsheets, ad-hoc links, or blind
+            spend.
           </p>
         </div>
 
         {/* Three pillars */}
         <div className="grid md:grid-cols-3 gap-6">
           <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-6 shadow-md">
-            <div className="text-xs uppercase tracking-widest text-white/50">Pillar 01</div>
+            <div className="text-xs uppercase tracking-widest text-white/50">
+              Pillar 01
+            </div>
             <h4 className="mt-1 font-semibold text-lg">Brand-Safe Growth</h4>
             <p className="mt-2 text-sm text-white/70">
-              Clear rules and built-in guardrails ensure promotions stay on-brand and within policy—whether paid or organic.
+              Clear rules and built-in guardrails ensure promotions stay
+              on-brand and within policy—whether paid or organic.
             </p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-6 shadow-md">
-            <div className="text-xs uppercase tracking-widest text-white/50">Pillar 02</div>
+            <div className="text-xs uppercase tracking-widest text-white/50">
+              Pillar 02
+            </div>
             <h4 className="mt-1 font-semibold text-lg">Unified Tracking</h4>
             <p className="mt-2 text-sm text-white/70">
-              One source of truth for clicks, carts, and conversions. Real-time visibility replaces random links and screenshots.
+              One source of truth for clicks, carts, and conversions. Real-time
+              visibility replaces random links and screenshots.
             </p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-6 shadow-md">
-            <div className="text-xs uppercase tracking-widest text-white/50">Pillar 03</div>
+            <div className="text-xs uppercase tracking-widest text-white/50">
+              Pillar 03
+            </div>
             <h4 className="mt-1 font-semibold text-lg">Performance Payouts</h4>
             <p className="mt-2 text-sm text-white/70">
-              Pay for outcomes, not promises. Nettmark automates earnings so incentives are aligned and transparent.
+              Pay for outcomes, not promises. Nettmark automates earnings so
+              incentives are aligned and transparent.
             </p>
           </div>
         </div>
@@ -191,12 +219,14 @@ export default function Home() {
                 Why Nettmark works
               </p>
               <h3 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight">
-                One bridge between <span className="text-[#7ff5fb]">brands</span> and{' '}
+                One bridge between{" "}
+                <span className="text-[#7ff5fb]">brands</span> and{" "}
                 <span className="text-[#7ff5fb]">partners</span>.
               </h3>
               <p className="mt-4 text-sm sm:text-base text-white/70 max-w-2xl">
-                We take care of tracking, routing, and payouts so both sides can focus on what they&apos;re good at:
-                brands building great products, and partners driving attention.
+                We take care of tracking, routing, and payouts so both sides can
+                focus on what they&apos;re good at: brands building great
+                products, and partners driving attention.
               </p>
 
               <div className="mt-6 grid gap-4 sm:grid-cols-2">
@@ -212,15 +242,24 @@ export default function Home() {
                   <ul className="space-y-2 text-sm text-white/75">
                     <li className="flex gap-2">
                       <ShieldCheck className="w-4 h-4 mt-[3px] text-[#7ff5fb]" />
-                      <span>Run performance campaigns without handing out ad account logins.</span>
+                      <span>
+                        Run performance campaigns without handing out ad account
+                        logins.
+                      </span>
                     </li>
                     <li className="flex gap-2">
                       <Link2 className="w-4 h-4 mt-[3px] text-[#7ff5fb]" />
-                      <span>Unified links and tracking across paid, organic, and UGC.</span>
+                      <span>
+                        Unified links and tracking across paid, organic, and
+                        UGC.
+                      </span>
                     </li>
                     <li className="flex gap-2">
                       <Wallet className="w-4 h-4 mt-[3px] text-[#7ff5fb]" />
-                      <span>Only pay on verified conversions via automated Stripe payouts.</span>
+                      <span>
+                        Only pay on verified conversions via automated Stripe
+                        payouts.
+                      </span>
                     </li>
                   </ul>
                 </div>
@@ -237,15 +276,24 @@ export default function Home() {
                   <ul className="space-y-2 text-sm text-white/75">
                     <li className="flex gap-2">
                       <Cpu className="w-4 h-4 mt-[3px] text-[#7ff5fb]" />
-                      <span>Ready-to-run offers with creatives, tracking links, and guardrails built in.</span>
+                      <span>
+                        Ready-to-run offers with creatives, tracking links, and
+                        guardrails built in.
+                      </span>
                     </li>
                     <li className="flex gap-2">
                       <Wallet className="w-4 h-4 mt-[3px] text-[#7ff5fb]" />
-                      <span>Wallet-funded ad spend and automated payouts on approved sales.</span>
+                      <span>
+                        Wallet-funded ad spend and automated payouts on approved
+                        sales.
+                      </span>
                     </li>
                     <li className="flex gap-2">
                       <ArrowRight className="w-4 h-4 mt-[3px] text-[#7ff5fb]" />
-                      <span>Focus on performance instead of chasing screenshots and invoices.</span>
+                      <span>
+                        Focus on performance instead of chasing screenshots and
+                        invoices.
+                      </span>
                     </li>
                   </ul>
                 </div>
@@ -261,25 +309,37 @@ export default function Home() {
                   <span className="mt-[2px] flex h-6 w-6 items-center justify-center rounded-full bg-[#00C2CB33] text-xs font-semibold text-[#00C2CB]">
                     1
                   </span>
-                  <span>Brands publish offers and set the rules once inside Nettmark.</span>
+                  <span>
+                    Brands publish offers and set the rules once inside
+                    Nettmark.
+                  </span>
                 </li>
                 <li className="flex gap-3">
                   <span className="mt-[2px] flex h-6 w-6 items-center justify-center rounded-full bg-[#00C2CB33] text-xs font-semibold text-[#00C2CB]">
                     2
                   </span>
-                  <span>Partners request access, submit creatives, and launch ads or organic posts.</span>
+                  <span>
+                    Partners request access, submit creatives, and launch ads or
+                    organic posts.
+                  </span>
                 </li>
                 <li className="flex gap-3">
                   <span className="mt-[2px] flex h-6 w-6 items-center justify-center rounded-full bg-[#00C2CB33] text-xs font-semibold text-[#00C2CB]">
                     3
                   </span>
-                  <span>Nettmark tracks every click, cart, and conversion through a single pipeline.</span>
+                  <span>
+                    Nettmark tracks every click, cart, and conversion through a
+                    single pipeline.
+                  </span>
                 </li>
                 <li className="flex gap-3">
                   <span className="mt-[2px] flex h-6 w-6 items-center justify-center rounded-full bg-[#00C2CB33] text-xs font-semibold text-[#00C2CB]">
                     4
                   </span>
-                  <span>Approved revenue auto-pays to partners and reconciles back to the brand.</span>
+                  <span>
+                    Approved revenue auto-pays to partners and reconciles back
+                    to the brand.
+                  </span>
                 </li>
               </ol>
               <div className="mt-5 flex flex-col gap-2">
@@ -291,7 +351,8 @@ export default function Home() {
                   <ArrowRight className="w-4 h-4" />
                 </Link>
                 <p className="text-[11px] text-white/50">
-                  No long-term lock-ins. Start with a single offer, add more as your performance pipeline scales.
+                  No long-term lock-ins. Start with a single offer, add more as
+                  your performance pipeline scales.
                 </p>
               </div>
             </div>
@@ -312,8 +373,9 @@ export default function Home() {
               </h4>
             </div>
             <p className="text-sm text-white/70">
-              Approvals, rules, and brand guidelines live alongside each offer. Partners know exactly what&apos;s allowed,
-              and brands see a clean audit trail.
+              Approvals, rules, and brand guidelines live alongside each offer.
+              Partners know exactly what&apos;s allowed, and brands see a clean
+              audit trail.
             </p>
           </div>
 
@@ -327,8 +389,8 @@ export default function Home() {
               </h4>
             </div>
             <p className="text-sm text-white/70">
-              Offers, creatives, tracking, wallets, and payouts all live in one UI — no more hopping between spreadsheets,
-              ad accounts, and DMs.
+              Offers, creatives, tracking, wallets, and payouts all live in one
+              UI — no more hopping between spreadsheets, ad accounts, and DMs.
             </p>
           </div>
 
@@ -342,8 +404,8 @@ export default function Home() {
               </h4>
             </div>
             <p className="text-sm text-white/70">
-              Wallet-funded spend, refunds, and performance payouts are handled by Nettmark + Stripe. Everyone sees exactly
-              what moved and why.
+              Wallet-funded spend, refunds, and performance payouts are handled
+              by Nettmark + Stripe. Everyone sees exactly what moved and why.
             </p>
           </div>
         </div>
@@ -360,8 +422,9 @@ export default function Home() {
               Start with one offer. Grow into a full partner-powered channel.
             </h3>
             <p className="mt-2 text-sm text-white/70 max-w-xl">
-              Whether you&apos;re a solo creator, an agency, or an in-house growth team, Nettmark is built so both sides
-              win on the same numbers.
+              Whether you&apos;re a solo creator, an agency, or an in-house
+              growth team, Nettmark is built so both sides win on the same
+              numbers.
             </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
@@ -387,7 +450,8 @@ export default function Home() {
           {/* Top row */}
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <p className="text-xs text-white/50">
-              © {new Date().getFullYear()} Nettmark. Built for performance teams and partners.
+              © {new Date().getFullYear()} Nettmark. Built for performance teams
+              and partners.
             </p>
 
             <div className="flex items-center gap-4 text-white/60">
@@ -423,16 +487,28 @@ export default function Home() {
 
           {/* Policy links */}
           <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs text-white/50">
-            <Link href="/legal/privacy" className="hover:text-[#00C2CB] transition-colors">
+            <Link
+              href="/legal/privacy"
+              className="hover:text-[#00C2CB] transition-colors"
+            >
               Privacy Policy
             </Link>
-            <Link href="/legal/privacy/terms-of-service" className="hover:text-[#00C2CB] transition-colors">
+            <Link
+              href="/legal/privacy/terms-of-service"
+              className="hover:text-[#00C2CB] transition-colors"
+            >
               Terms of Service
             </Link>
-            <Link href="/legal/privacy/cookies" className="hover:text-[#00C2CB] transition-colors">
+            <Link
+              href="/legal/privacy/cookies"
+              className="hover:text-[#00C2CB] transition-colors"
+            >
               Cookie Policy
             </Link>
-            <Link href="/legal/privacy/acceptable-use" className="hover:text-[#00C2CB] transition-colors">
+            <Link
+              href="/legal/privacy/acceptable-use"
+              className="hover:text-[#00C2CB] transition-colors"
+            >
               Acceptable Use
             </Link>
           </div>
