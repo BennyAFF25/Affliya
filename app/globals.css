@@ -884,3 +884,50 @@ body {
   background-color: var(--secondary) !important;
   color: var(--foreground) !important;
 }
+
+/* Affiliate dashboard: light/dark contrast hardening */
+.affiliate-dashboard-theme [class*="bg-[#111317]"],
+.affiliate-dashboard-theme [class*="bg-[#15191c]"],
+.affiliate-dashboard-theme [class*="bg-[#0a1719]"],
+.affiliate-dashboard-theme [class*="bg-[#0b0f10]"],
+.affiliate-dashboard-theme [class*="bg-[#050505]"],
+.affiliate-dashboard-theme [class*="to-black"],
+.affiliate-dashboard-theme [class*="bg-white/5"] {
+  background-color: var(--card) !important;
+  background-image: none !important;
+}
+
+.affiliate-dashboard-theme [class*="border-white/"],
+.affiliate-dashboard-theme [class*="border-[#00C2CB"],
+.affiliate-dashboard-theme [class*="border-[#262626"] {
+  border-color: var(--border) !important;
+}
+
+.affiliate-dashboard-theme [class*="text-white/"],
+.affiliate-dashboard-theme [class*="text-white"] {
+  color: var(--muted-foreground) !important;
+}
+
+.affiliate-dashboard-theme h1,
+.affiliate-dashboard-theme h2,
+.affiliate-dashboard-theme h3,
+.affiliate-dashboard-theme h4,
+.affiliate-dashboard-theme [class*="font-bold"],
+.affiliate-dashboard-theme [class*="font-semibold"] {
+  color: var(--foreground) !important;
+}
+
+.affiliate-dashboard-theme [class*="text-[#00C2CB]"],
+.affiliate-dashboard-theme [class*="text-[#7ff5fb]"] {
+  color: var(--primary) !important;
+}
+
+.affiliate-dashboard-theme [class*="bg-[#00C2CB"],
+.affiliate-dashboard-theme [class*="bg-[#00b0b8"] {
+  background-color: var(--primary) !important;
+  color: var(--primary-foreground) !important;
+}
+
+.affiliate-dashboard-theme .text-black {
+  color: var(--primary-foreground) !important;
+}
