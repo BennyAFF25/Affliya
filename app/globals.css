@@ -1115,3 +1115,77 @@ body {
     var(--sidebar) 100%
   ) !important;
 }
+
+/* Marketing for-partners page: trial theme + light/dark readiness */
+.marketing-partners-theme [class*="bg-[#0a0a0a]"],
+.marketing-partners-theme [class*="bg-[#082123]"],
+.marketing-partners-theme [class*="bg-[#0f1516]"],
+.marketing-partners-theme [class*="bg-[#0c1213]"],
+.marketing-partners-theme [class*="bg-[#0b1112]"],
+.marketing-partners-theme [class*="bg-[#0d1c1d]"],
+.marketing-partners-theme [class*="bg-black"],
+.marketing-partners-theme [class*="to-black"],
+.marketing-partners-theme [class*="from-black"],
+.marketing-partners-theme [class*="bg-white/[0.03]"],
+.marketing-partners-theme [class*="bg-white/[0.02]"],
+.marketing-partners-theme [class*="bg-white/5"] {
+  background-color: var(--card) !important;
+  background-image: none !important;
+}
+
+.marketing-partners-theme [class*="border-white/"],
+.marketing-partners-theme [class*="border-[#142526]"],
+.marketing-partners-theme [class*="border-[#1b3132]"],
+.marketing-partners-theme [class*="border-[#1e3a3b]"],
+.marketing-partners-theme [class*="border-[#24484a]"],
+.marketing-partners-theme [class*="border-[#26494b]"],
+.marketing-partners-theme [class*="border-[#00C2CB"] {
+  border-color: var(--border) !important;
+}
+
+.marketing-partners-theme [class*="text-white/"],
+.marketing-partners-theme [class*="text-gray-500"],
+.marketing-partners-theme [class*="text-gray-400"],
+.marketing-partners-theme [class*="text-gray-300"],
+.marketing-partners-theme [class*="text-gray-200"],
+.marketing-partners-theme [class*="text-gray-100"] {
+  color: var(--muted-foreground) !important;
+}
+
+.marketing-partners-theme h1,
+.marketing-partners-theme h2,
+.marketing-partners-theme h3,
+.marketing-partners-theme h4,
+.marketing-partners-theme [class*="font-bold"],
+.marketing-partners-theme [class*="font-semibold"] {
+  color: var(--foreground) !important;
+}
+
+.marketing-partners-theme [class*="text-[#00C2CB]"],
+.marketing-partners-theme [class*="text-[#7ff5fb]"] {
+  color: var(--primary) !important;
+}
+
+.marketing-partners-theme [class*="bg-[#00C2CB"],
+.marketing-partners-theme [class*="bg-[#00b0b8"] {
+  background-color: var(--primary) !important;
+  color: var(--primary-foreground) !important;
+}
+
+.marketing-partners-theme .text-black {
+  color: var(--primary-foreground) !important;
+}
+
+.marketing-partners-theme select {
+  background-color: var(--input-background) !important;
+  border-color: var(--border) !important;
+  color: var(--foreground) !important;
+}
+
+.light .marketing-partners-theme {
+  background: linear-gradient(
+    180deg,
+    var(--background) 0%,
+    var(--sidebar) 100%
+  ) !important;
+}
