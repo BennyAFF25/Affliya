@@ -104,13 +104,15 @@ export default function MarketingHeader() {
                   href={link.href}
                   className={clsx(
                     "relative px-4 py-1.5 text-sm font-medium transition-colors",
-                    active ? "text-black" : "text-white/70 hover:text-white",
+                    active
+                      ? "text-[var(--primary-foreground)]"
+                      : "text-white/70 hover:text-white",
                   )}
                 >
                   {active && (
                     <motion.span
                       layoutId="marketing-nav-highlight"
-                      className="absolute inset-0 rounded-full bg-white text-black"
+                      className="absolute inset-0 rounded-full bg-[var(--primary)] text-[var(--primary-foreground)]"
                       transition={{
                         type: "spring",
                         stiffness: 300,
