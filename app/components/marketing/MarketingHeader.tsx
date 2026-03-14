@@ -86,7 +86,11 @@ export default function MarketingHeader() {
         <div className="relative mx-auto max-w-7xl h-16 flex items-center justify-between gap-4">
           <Link href="/" className="flex items-center gap-2">
             <Image
-              src="/nettmark-logo.png"
+              src={
+                theme === "dark"
+                  ? "/nettmark-logo-dark.svg"
+                  : "/nettmark-logo-light.svg"
+              }
               alt="Nettmark"
               width={140}
               height={40}
