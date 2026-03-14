@@ -116,9 +116,9 @@ export default function Home() {
                 <div className="relative rounded-2xl border border-white/10 bg-gradient-to-b from-white/5 to-white/[0.02] overflow-hidden shadow-[0_25px_80px_-20px_rgba(0,0,0,0.6),0_0_60px_0_rgba(0,194,203,0.15)] ring-1 ring-white/5 transition-transform duration-300 group-hover:-translate-y-1 group-hover:rotate-1">
                   <div className="w-full h-[240px] sm:h-[300px] md:h-[420px] bg-black/60">
                     <img
-                      src="/marketplace-visual.png"
-                      alt="Product preview"
-                      className="w-full h-full object-contain"
+                      src="/home-hero-dashboard.jpg"
+                      alt="Nettmark dashboard preview"
+                      className="h-full w-full object-cover object-center"
                       loading="lazy"
                     />
                   </div>
