@@ -4,7 +4,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import MarketingHeader from '@/components/marketing/MarketingHeader';
+import MarketingHeader from "@/components/marketing/MarketingHeader";
 
 import { useRouter } from "next/navigation";
 import { useSessionContext } from "@supabase/auth-helpers-react";
@@ -97,7 +97,9 @@ export default function PricingPage() {
             <span className="text-[#00C2CB]">{meta.priceNow}</span>
           </div>
           <div className="text-xs text-gray-400 -mt-2">
-            <span className="line-through opacity-70">{displayPrice(plan)}</span>{" "}
+            <span className="line-through opacity-70">
+              {displayPrice(plan)}
+            </span>{" "}
             <span className="opacity-70">({meta.priceLater})</span>
           </div>
 
@@ -160,7 +162,7 @@ export default function PricingPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#0b1a1b] via-[#0b0b0b] to-black text-white">
+    <div className="marketing-pricing-theme min-h-screen flex flex-col bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#0b1a1b] via-[#0b0b0b] to-black text-white">
       <MarketingHeader />
 
       {/* Main */}
@@ -171,10 +173,14 @@ export default function PricingPage() {
           </h1>
 
           <p className="mt-3 text-gray-400 max-w-3xl mx-auto text-sm md:text-base">
-            The first <span className="text-white/90 font-semibold">150 users</span> get{" "}
-            <span className="text-[#00C2CB] font-semibold">free access for life</span>. This Early
-            Access window is mainly for early user feedback while we tighten onboarding and polish
-            the platform. Choose how you want to join — as a business or a partner.
+            The first{" "}
+            <span className="text-white/90 font-semibold">150 users</span> get{" "}
+            <span className="text-[#00C2CB] font-semibold">
+              free access for life
+            </span>
+            . This Early Access window is mainly for early user feedback while
+            we tighten onboarding and polish the platform. Choose how you want
+            to join — as a business or a partner.
           </p>
 
           <div className="mt-5 mx-auto max-w-3xl rounded-2xl border border-[#00C2CB]/25 bg-gradient-to-b from-[#001f20] via-[#0b0b0b] to-black p-5 text-left shadow-[0_0_25px_rgba(0,194,203,0.12)]">
@@ -185,9 +191,16 @@ export default function PricingPage() {
                   Free for life (first 150 users)
                 </div>
                 <div className="text-gray-400">
-                  No card required. After Early Access fills up, pricing returns to{" "}
-                  <span className="text-white/80 font-medium">$150/mo for Businesses</span> and{" "}
-                  <span className="text-white/80 font-medium">$50/mo for Partners</span>.
+                  No card required. After Early Access fills up, pricing returns
+                  to{" "}
+                  <span className="text-white/80 font-medium">
+                    $150/mo for Businesses
+                  </span>{" "}
+                  and{" "}
+                  <span className="text-white/80 font-medium">
+                    $50/mo for Partners
+                  </span>
+                  .
                 </div>
               </div>
             </div>
@@ -200,7 +213,8 @@ export default function PricingPage() {
         </div>
 
         <p className="mt-6 text-center text-xs text-gray-400">
-          You can operate as both a Business and a Partner using separate accounts.
+          You can operate as both a Business and a Partner using separate
+          accounts.
         </p>
 
         <section className="mx-auto mt-12 w-full max-w-5xl">
@@ -223,7 +237,10 @@ export default function PricingPage() {
         <section className="mx-auto mt-12 w-full max-w-5xl rounded-2xl border border-white/10 bg-white/[0.02] p-5 text-center">
           <p className="text-gray-300">
             Still comparing?{" "}
-            <Link className="text-[#00C2CB] hover:text-[#7ff5fb]" href="/contact">
+            <Link
+              className="text-[#00C2CB] hover:text-[#7ff5fb]"
+              href="/contact"
+            >
               Talk to us
             </Link>{" "}
             — we’ll help you choose.

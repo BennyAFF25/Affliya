@@ -988,3 +988,63 @@ body {
     var(--sidebar) 100%
   ) !important;
 }
+
+/* Marketing pricing page: trial theme + light/dark readiness */
+.marketing-pricing-theme [class*="from-[#0b1a1b]"],
+.marketing-pricing-theme [class*="via-[#0b0b0b]"],
+.marketing-pricing-theme [class*="to-black"],
+.marketing-pricing-theme [class*="bg-black"],
+.marketing-pricing-theme [class*="bg-[#050708]"],
+.marketing-pricing-theme [class*="bg-[#001f20]"],
+.marketing-pricing-theme [class*="bg-white/[0.04]"],
+.marketing-pricing-theme [class*="bg-white/[0.03]"],
+.marketing-pricing-theme [class*="bg-white/[0.02]"],
+.marketing-pricing-theme [class*="bg-white/5"] {
+  background-color: var(--card) !important;
+  background-image: none !important;
+}
+
+.marketing-pricing-theme [class*="border-white/"],
+.marketing-pricing-theme [class*="border-[#00C2CB"],
+.marketing-pricing-theme [class*="border-[#262626"] {
+  border-color: var(--border) !important;
+}
+
+.marketing-pricing-theme [class*="text-white/"],
+.marketing-pricing-theme [class*="text-gray-500"],
+.marketing-pricing-theme [class*="text-gray-400"],
+.marketing-pricing-theme [class*="text-gray-300"] {
+  color: var(--muted-foreground) !important;
+}
+
+.marketing-pricing-theme h1,
+.marketing-pricing-theme h2,
+.marketing-pricing-theme h3,
+.marketing-pricing-theme h4,
+.marketing-pricing-theme [class*="font-bold"],
+.marketing-pricing-theme [class*="font-semibold"] {
+  color: var(--foreground) !important;
+}
+
+.marketing-pricing-theme [class*="text-[#00C2CB]"],
+.marketing-pricing-theme [class*="text-[#7ff5fb]"] {
+  color: var(--primary) !important;
+}
+
+.marketing-pricing-theme [class*="bg-[#00C2CB"],
+.marketing-pricing-theme [class*="bg-[#00b0b8"] {
+  background-color: var(--primary) !important;
+  color: var(--primary-foreground) !important;
+}
+
+.marketing-pricing-theme .text-black {
+  color: var(--primary-foreground) !important;
+}
+
+.light .marketing-pricing-theme {
+  background: linear-gradient(
+    180deg,
+    var(--background) 0%,
+    var(--sidebar) 100%
+  ) !important;
+}
