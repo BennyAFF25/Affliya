@@ -1189,3 +1189,59 @@ body {
     var(--sidebar) 100%
   ) !important;
 }
+
+/* Marketing login page: trial theme + light/dark readiness */
+.marketing-login-theme [class*="from-[#00363a]"],
+.marketing-login-theme [class*="via-black"],
+.marketing-login-theme [class*="to-black"],
+.marketing-login-theme [class*="bg-black"],
+.marketing-login-theme [class*="bg-[#05070a]"],
+.marketing-login-theme [class*="bg-[#02090a]"],
+.marketing-login-theme [class*="bg-white/[0.03]"],
+.marketing-login-theme [class*="bg-white/5"] {
+  background-color: var(--card) !important;
+  background-image: none !important;
+}
+
+.marketing-login-theme [class*="border-white/"],
+.marketing-login-theme [class*="border-[#00C2CB"],
+.marketing-login-theme [class*="border-[#262626"] {
+  border-color: var(--border) !important;
+}
+
+.marketing-login-theme [class*="text-white/"],
+.marketing-login-theme [class*="text-gray-"] {
+  color: var(--muted-foreground) !important;
+}
+
+.marketing-login-theme h1,
+.marketing-login-theme h2,
+.marketing-login-theme h3,
+.marketing-login-theme h4,
+.marketing-login-theme [class*="font-bold"],
+.marketing-login-theme [class*="font-semibold"] {
+  color: var(--foreground) !important;
+}
+
+.marketing-login-theme [class*="text-[#00C2CB]"],
+.marketing-login-theme [class*="text-[#7ff5fb]"] {
+  color: var(--primary) !important;
+}
+
+.marketing-login-theme [class*="bg-[#00C2CB"],
+.marketing-login-theme [class*="bg-[#00b0b8"] {
+  background-color: var(--primary) !important;
+  color: var(--primary-foreground) !important;
+}
+
+.marketing-login-theme .text-black {
+  color: var(--primary-foreground) !important;
+}
+
+.light .marketing-login-theme {
+  background: linear-gradient(
+    180deg,
+    var(--background) 0%,
+    var(--sidebar) 100%
+  ) !important;
+}
