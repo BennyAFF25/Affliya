@@ -118,7 +118,7 @@ export default function Home() {
                     <img
                       src="/home-hero-dashboard.jpg"
                       alt="Nettmark dashboard preview"
-                      className="h-full w-full object-cover object-center"
+                      className="h-full w-full object-contain object-center"
                       loading="lazy"
                     />
                   </div>
