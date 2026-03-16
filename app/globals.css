@@ -1245,3 +1245,79 @@ body {
     var(--sidebar) 100%
   ) !important;
 }
+
+/* Marketing auth portals (affiliate/business login): trial theme + light/dark parity */
+.marketing-auth-theme [class*="from-[#0b1a1b]"],
+.marketing-auth-theme [class*="via-[#0b0b0b]"],
+.marketing-auth-theme [class*="to-black"],
+.marketing-auth-theme [class*="bg-black"],
+.marketing-auth-theme [class*="bg-[#05070a]"],
+.marketing-auth-theme [class*="bg-[#02090a]"],
+.marketing-auth-theme [class*="bg-white/[0.03]"],
+.marketing-auth-theme [class*="bg-white/5"] {
+  background-color: var(--card) !important;
+  background-image: none !important;
+}
+
+.marketing-auth-theme [class*="border-white/"],
+.marketing-auth-theme [class*="border-[#00C2CB"],
+.marketing-auth-theme [class*="border-[#262626"] {
+  border-color: var(--border) !important;
+}
+
+.marketing-auth-theme [class*="text-white/"],
+.marketing-auth-theme [class*="text-gray-"] {
+  color: var(--muted-foreground) !important;
+}
+
+.marketing-auth-theme h1,
+.marketing-auth-theme h2,
+.marketing-auth-theme h3,
+.marketing-auth-theme h4,
+.marketing-auth-theme [class*="font-bold"],
+.marketing-auth-theme [class*="font-semibold"] {
+  color: var(--foreground) !important;
+}
+
+.marketing-auth-theme [class*="text-[#00C2CB]"],
+.marketing-auth-theme [class*="text-[#7ff5fb]"] {
+  color: var(--primary) !important;
+}
+
+.marketing-auth-theme [class*="bg-[#00C2CB"],
+.marketing-auth-theme [class*="bg-[#00b0b8"] {
+  background-color: var(--primary) !important;
+  color: var(--primary-foreground) !important;
+}
+
+.marketing-auth-theme .text-black {
+  color: var(--primary-foreground) !important;
+}
+
+.marketing-auth-theme input,
+.marketing-auth-theme select,
+.marketing-auth-theme textarea {
+  background-color: var(--input-background) !important;
+  border-color: var(--border) !important;
+  color: var(--foreground) !important;
+}
+
+.marketing-auth-theme input::placeholder,
+.marketing-auth-theme textarea::placeholder {
+  color: var(--muted-foreground) !important;
+}
+
+.marketing-auth-theme input:focus,
+.marketing-auth-theme select:focus,
+.marketing-auth-theme textarea:focus {
+  outline: none;
+  box-shadow: 0 0 0 1px var(--ring) !important;
+}
+
+.light .marketing-auth-theme {
+  background: linear-gradient(
+    180deg,
+    var(--background) 0%,
+    var(--sidebar) 100%
+  ) !important;
+}
