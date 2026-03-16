@@ -498,10 +498,7 @@ export default function BusinessDashboard() {
     <div className="business-dashboard-theme min-h-screen w-full bg-[var(--background)] text-[var(--foreground)] px-4 py-4 sm:px-5 sm:py-6">
       {/* Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-6 mb-6 mt-2">
-        <div
-          className={`${CARD} ring-1 ring-[#00C2CB]/20 shadow-[0_0_30px_rgba(0,194,203,0.12)] relative overflow-hidden`}
-        >
-          <div className="absolute -right-6 -top-6 h-16 w-16 rounded-full bg-[#00C2CB]/10 blur-xl" />
+        <div className={`${CARD} relative overflow-hidden`}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-gray-400 flex items-center gap-1">
@@ -558,11 +555,10 @@ export default function BusinessDashboard() {
 
         <div
           onClick={() => router.push("/business/payouts")}
-          className={`${CARD} ring-1 ring-[#00C2CB]/25 cursor-pointer hover:ring-[#00C2CB]/60 hover:shadow-[0_0_40px_rgba(0,194,203,0.25)] relative overflow-hidden`}
+          className={`${CARD} cursor-pointer relative overflow-hidden`}
           role="button"
           aria-label="View pending payouts"
         >
-          <div className="absolute -left-10 -bottom-10 h-24 w-24 rounded-full bg-[#00C2CB]/10 blur-xl" />
           <p className="text-xs text-gray-400 flex items-center gap-1">
             <Wallet className="h-3 w-3 text-[#7ff5fb]" />
             Pending Payouts
