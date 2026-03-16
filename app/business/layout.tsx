@@ -69,7 +69,7 @@ export default function BusinessLayout({
     <div className="flex min-h-screen flex-col bg-[var(--background)] text-[var(--foreground)]">
       {/* Fixed Topbar */}
       <header className="fixed left-0 right-0 top-0 z-30 border-b border-[var(--sidebar-border)] bg-[var(--sidebar)] backdrop-blur">
-        <div className="flex items-center gap-2 px-2">
+        <div className="flex items-center justify-between px-2">
           <div className="min-w-0 flex-1">
             <Topbar />
           </div>
@@ -78,7 +78,7 @@ export default function BusinessLayout({
           <button
             type="button"
             onClick={() => setMobileNavOpen((prev) => !prev)}
-            className="md:hidden flex h-9 w-9 shrink-0 flex-col items-center justify-center rounded-md border border-[var(--border)] bg-[var(--card)]"
+            className="md:hidden flex h-9 w-9 shrink-0 flex-col items-center justify-center rounded-md border border-[var(--border)] bg-[var(--secondary)]/70"
           >
             <span className="mb-[3px] block h-[2px] w-5 rounded bg-[var(--foreground)]" />
             <span className="mb-[3px] block h-[2px] w-5 rounded bg-[var(--foreground)]" />
