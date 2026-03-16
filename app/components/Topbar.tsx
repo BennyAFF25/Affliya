@@ -110,11 +110,10 @@ export default function Topbar() {
   }, [user?.email]);
 
   return (
-    <header
-      className="w-full h-[64px] flex items-center justify-between px-4 sm:px-6"
+    <div
+      className="h-[64px] w-full flex items-center justify-between px-4 sm:px-6"
       style={{
         backgroundColor: "var(--sidebar)",
-        borderBottom: "1px solid var(--sidebar-border)",
         color: "var(--sidebar-foreground)",
       }}
     >
@@ -199,6 +198,6 @@ export default function Topbar() {
           </button>
         )}
       </div>
-    </header>
+    </div>
   );
 }
