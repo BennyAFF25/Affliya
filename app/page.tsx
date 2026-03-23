@@ -203,6 +203,19 @@ export default function Home() {
       <MarketingHeader />
 
       <main className="flex-1">
+        <div className="bg-[#0a1719] border-b border-white/10 text-center text-sm text-white/80 py-3 px-4">
+          Authentication is temporarily unavailable while our auth provider
+          resolves an outage. You can follow status in{" "}
+          <a
+            href="https://status.supabase.com"
+            target="_blank"
+            rel="noreferrer"
+            className="text-[#00C2CB] hover:underline"
+          >
+            Supabase status
+          </a>{" "}
+          — we’ll post updates in-app once it clears.
+        </div>
         <section className="relative overflow-hidden">
           <div className="absolute inset-0 pointer-events-none [mask-image:linear-gradient(to_bottom,black,transparent_90%)]">
             <div className="mx-auto max-w-7xl h-[420px] blur-3xl opacity-40 bg-gradient-to-r from-[#00C2CB] via-[#7ff5fb] to-transparent" />
