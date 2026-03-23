@@ -17,6 +17,11 @@ import {
   Facebook,
   Instagram,
   Mail,
+  Sparkles,
+  BarChart2,
+  MessageSquare,
+  ClipboardCheck,
+  LifeBuoy,
 } from "lucide-react";
 
 export default function Home() {
@@ -30,6 +35,139 @@ export default function Home() {
   );
   const [showBizWhy, setShowBizWhy] = useState(false);
   const [showAffWhy, setShowAffWhy] = useState(false);
+
+  const trustBadges = [
+    "DTC brands",
+    "Marketplaces",
+    "SaaS",
+    "Agencies",
+    "Creators",
+    "Apps",
+  ];
+
+  const brandFlow = [
+    {
+      title: "Publish an offer",
+      copy: "Define payouts, creatives, and guardrails once. Nettmark keeps every partner inside those rails.",
+    },
+    {
+      title: "Approve partners + budgets",
+      copy: "Review requests, wallet top-ups, and creative submissions before anything goes live.",
+    },
+    {
+      title: "Track & settle automatically",
+      copy: "Clicks, carts, and conversions flow into one ledger so payouts hit Stripe without spreadsheets.",
+    },
+  ];
+
+  const partnerFlow = [
+    {
+      title: "Pick ready-to-run offers",
+      copy: "Apply to vetted brands with creative packs, tracking links, and policy guardrails baked in.",
+    },
+    {
+      title: "Launch paid or organic",
+      copy: "Run campaigns from your own ad accounts or organic channels while Nettmark logs every event.",
+    },
+    {
+      title: "Get paid on proof",
+      copy: "Wallet-funded spend and automated payouts mean no more chasing screenshots or invoices.",
+    },
+  ];
+
+  const productSnapshots = [
+    {
+      title: "Wallet & payout timeline",
+      copy: "Instant view of top-ups, reserved ad spend, and cleared payouts so finance isn’t guessing.",
+      stat: "$42.4K in-clearing",
+      icon: Wallet,
+    },
+    {
+      title: "Policy-first approvals",
+      copy: "Inbox highlights what changed, who approved, and which rules each creative references.",
+      stat: "7 partners waiting",
+      icon: MessageSquare,
+    },
+    {
+      title: "Ad spend → business charges",
+      copy: "Meta spend sync plus automated chargebacks keep every dollar reconciled before payouts fire.",
+      stat: "$3.9K synced today",
+      icon: BarChart2,
+    },
+  ];
+
+  const plans = [
+    {
+      id: "business",
+      title: "For Brands",
+      priceNow: "$0/mo (Early Access)",
+      priceLater: "Then $150/mo",
+      bullets: [
+        "Publish offers, approvals, and guardrails",
+        "Wallet-funded partner spend + meta sync",
+        "Automated Stripe payouts + ledger",
+      ],
+      cta: "Start as a brand",
+      href: "/for-businesses",
+    },
+    {
+      id: "affiliate",
+      title: "For Partners",
+      priceNow: "$0/mo (Early Access)",
+      priceLater: "Then $50/mo",
+      bullets: [
+        "Access vetted offers + policy packs",
+        "Submit creatives, track clicks & carts",
+        "Wallet + automated payouts in one place",
+      ],
+      cta: "Start as a partner",
+      href: "/for-partners",
+    },
+  ];
+
+  const onboardingSteps = [
+    "Connect Stripe payouts",
+    "Add a billing method (wallet top-ups)",
+    "Launch your first offer",
+    "Invite partners or share application link",
+  ];
+
+  const featureBlocks = [
+    {
+      title: "Compliance & control",
+      copy: "Offer guardrails, approval queues, and audit trails keep brands protected while partners move fast.",
+      icon: ShieldCheck,
+    },
+    {
+      title: "Automation & reconciliation",
+      copy: "Wallet reservations, ad-spend syncing, refunds, and payouts are all ledgered before Stripe moves a dollar.",
+      icon: ClipboardCheck,
+    },
+    {
+      title: "Human support",
+      copy: "Founders + ops team are in the loop for onboarding, migrations, and escalations — not just a help center.",
+      icon: LifeBuoy,
+    },
+  ];
+
+  const faqs = [
+    {
+      q: "How do payouts get funded?",
+      a: "Brands top up their Nettmark wallet (via card or bank). Funds are reserved the moment a partner drives qualified spend and released to Stripe payouts once conversions clear.",
+    },
+    {
+      q: "Do partners need access to our ad accounts?",
+      a: "No. Partners can run from their own ad accounts or submit campaigns that run through Nettmark guarded flows. Everything is logged with offer rules attached.",
+    },
+    {
+      q: "What if Stripe onboarding isn’t finished?",
+      a: "We surface a guided checklist (connect payouts, billing, first offer). You can invite partners but money won’t move until payouts + billing are verified.",
+    },
+    {
+      q: "Is there a long-term contract?",
+      a: "No. Early access is free for life for the first 150 orgs. After that, monthly plans with cancel-anytime apply.",
+    },
+  ];
 
   useEffect(() => {
     const initSession = async () => {
@@ -65,68 +203,252 @@ export default function Home() {
       <MarketingHeader />
 
       <main className="flex-1">
-        {/* HERO */}
-        <section className="relative">
+        <section className="relative overflow-hidden">
           <div className="absolute inset-0 pointer-events-none [mask-image:linear-gradient(to_bottom,black,transparent_90%)]">
-            {/* subtle glow behind hero */}
-            <div className="mx-auto max-w-7xl h-[420px] blur-3xl opacity-30 bg-gradient-to-r from-[#00C2CB] via-[#7ff5fb] to-transparent" />
+            <div className="mx-auto max-w-7xl h-[420px] blur-3xl opacity-40 bg-gradient-to-r from-[#00C2CB] via-[#7ff5fb] to-transparent" />
           </div>
-
-          <div className="relative mx-auto max-w-7xl px-4 sm:px-6 pt-14 md:pt-16 pb-16 md:pb-20">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-10 items-center">
-              {/* Left: Text */}
-              <div>
-                <h2 className="text-[2rem] leading-[1.15] sm:text-5xl md:text-6xl font-extrabold tracking-tight">
-                  Grow Faster with{" "}
-                  <span className="text-[#7ff5fb]">Performance-Based</span>
-                  <br className="hidden md:block" /> Promotion
-                </h2>
-                <p className="mt-4 text-white/70 text-base sm:text-lg max-w-xl">
-                  Nettmark connects your brand to thousands of partners ready to
-                  drive revenue.
+          <div className="relative mx-auto max-w-7xl px-4 sm:px-6 pt-16 pb-16 lg:pt-20 lg:pb-24">
+            <div className="grid grid-cols-1 gap-12 lg:grid-cols-[1.15fr,0.85fr] items-center">
+              <div className="space-y-6">
+                <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.3em] text-white/60">
+                  <Sparkles className="h-3.5 w-3.5 text-[#00C2CB]" />
+                  Early access is live
+                </div>
+                <h1 className="text-[2.25rem] leading-tight sm:text-5xl lg:text-6xl font-extrabold">
+                  Performance partners on tap.
+                  <br className="hidden sm:block" /> Pay only when you win.
+                </h1>
+                <p className="text-base sm:text-lg text-white/70 max-w-2xl">
+                  Wallet-funded ad spend, automated payouts, and a single ledger
+                  for brands and affiliates. Nettmark replaces the patchwork of
+                  spreadsheets, DMs, and screenshots.
                 </p>
-                <div className="mt-8 flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                <div className="flex flex-col sm:flex-row gap-3">
                   <Link
                     href="/for-businesses"
-                    className="flex-1 px-6 py-3 rounded-lg bg-[#00C2CB] text-black font-semibold shadow-[0_0_28px_#00C2CB55] border border-[#00C2CB]/40 hover:bg-[#00b0b8] hover:shadow-[0_0_36px_#00C2CB66] transition-colors text-center"
+                    className="inline-flex items-center justify-center rounded-full bg-[#00C2CB] px-6 py-3 text-sm font-semibold text-black shadow-[0_0_30px_rgba(0,194,203,0.35)] transition hover:bg-[#00b0b8]"
                   >
-                    For Businesses
+                    Start as a brand
                   </Link>
                   <Link
                     href="/for-partners"
-                    className="flex-1 px-6 py-3 rounded-lg bg-[#00C2CB] text-black font-semibold shadow-[0_0_28px_#00C2CB55] border border-[#00C2CB]/40 hover:bg-[#00b0b8] hover:shadow-[0_0_36px_#00C2CB66] transition-colors text-center"
+                    className="inline-flex items-center justify-center rounded-full border border-white/15 px-6 py-3 text-sm font-semibold text-white hover:bg-white/5"
                   >
-                    For Partners
+                    Start as a partner
                   </Link>
                   <Link
                     href="/pricing"
-                    className="flex-1 px-6 py-3 rounded-lg bg-[#00C2CB] text-black font-semibold shadow-[0_0_28px_#00C2CB55] border border-[#00C2CB]/40 hover:bg-[#00b0b8] hover:shadow-[0_0_36px_#00C2CB66] transition-colors text-center"
+                    className="inline-flex items-center justify-center rounded-full border border-white/10 px-6 py-3 text-sm font-semibold text-white/80 hover:text-white"
                   >
-                    View Pricing
+                    View pricing →
                   </Link>
                 </div>
               </div>
-
-              {/* Right: Visual placeholder */}
-              <div className="relative group max-w-full">
-                {/* teal glow behind card */}
-                <div className="absolute -inset-6 rounded-3xl bg-[radial-gradient(60%_60%_at_60%_40%,#00C2CB33,transparent_60%)] blur-2xl opacity-70 group-hover:opacity-100 transition-opacity" />
-
-                {/* framed card */}
-                <div className="relative rounded-2xl border border-white/10 bg-gradient-to-b from-white/5 to-white/[0.02] overflow-hidden shadow-[0_25px_80px_-20px_rgba(0,0,0,0.6),0_0_60px_0_rgba(0,194,203,0.15)] ring-1 ring-white/5 transition-transform duration-300 group-hover:-translate-y-1 group-hover:rotate-1">
-                  <div className="w-full h-[240px] sm:h-[300px] md:h-[420px] bg-black/60">
+              <div className="relative">
+                <div className="absolute -inset-6 rounded-3xl bg-[radial-gradient(60%_60%_at_60%_40%,#00C2CB33,transparent_60%)] blur-2xl opacity-70" />
+                <div className="relative rounded-3xl border border-white/10 bg-gradient-to-b from-white/5 to-white/[0.02] shadow-[0_25px_80px_-20px_rgba(0,0,0,0.6),0_0_60px_0_rgba(0,194,203,0.12)] overflow-hidden">
+                  <div className="w-full h-[260px] sm:h-[320px] lg:h-[420px] bg-black/60">
                     <img
                       src="/home-hero-dashboard.jpg"
                       alt="Nettmark dashboard preview"
-                      className="h-full w-full object-contain object-center"
+                      className="h-full w-full object-cover"
                       loading="lazy"
                     />
                   </div>
-                  {/* top glass/shine */}
-                  <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.065),transparent_30%)]" />
+                  <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.08),transparent_35%)]" />
                 </div>
               </div>
             </div>
+          </div>
+        </section>
+
+        <section className="mx-auto max-w-7xl px-4 sm:px-6 mb-16">
+          <div className="rounded-3xl border border-white/10 bg-black/40 px-6 py-5">
+            <p className="text-xs uppercase tracking-[0.35em] text-white/45 mb-4 text-center">
+              Trusted by teams across
+            </p>
+            <div className="flex flex-wrap items-center justify-center gap-4 text-sm text-white/70">
+              {trustBadges.map((badge) => (
+                <span
+                  key={badge}
+                  className="inline-flex items-center rounded-full border border-white/15 bg-white/5 px-4 py-1.5"
+                >
+                  {badge}
+                </span>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section className="mx-auto max-w-7xl px-4 sm:px-6 mb-20">
+          <div className="text-center mb-10">
+            <p className="text-xs uppercase tracking-[0.4em] text-white/40">
+              Guided flow
+            </p>
+            <h2 className="mt-2 text-3xl font-bold">
+              Built for both sides of the table
+            </h2>
+          </div>
+          <div className="grid gap-6 lg:grid-cols-2">
+            <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+              <div className="flex items-center gap-3 mb-5">
+                <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-[#00C2CB1a] text-[#00C2CB]">
+                  <Briefcase className="h-4 w-4" />
+                </span>
+                <div>
+                  <p className="text-xs uppercase tracking-[0.3em] text-white/40">
+                    For brands
+                  </p>
+                  <h3 className="text-xl font-semibold">
+                    Spin up a partner channel in days
+                  </h3>
+                </div>
+              </div>
+              <ul className="space-y-4 text-sm text-white/75">
+                {brandFlow.map((step) => (
+                  <li key={step.title} className="flex gap-3">
+                    <span className="mt-1 h-2 w-2 rounded-full bg-[#00C2CB]" />
+                    <div>
+                      <p className="font-semibold text-white">{step.title}</p>
+                      <p className="text-white/70">{step.copy}</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+              <div className="flex items-center gap-3 mb-5">
+                <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-[#7ff5fb1a] text-[#7ff5fb]">
+                  <Users className="h-4 w-4" />
+                </span>
+                <div>
+                  <p className="text-xs uppercase tracking-[0.3em] text-white/40">
+                    For partners
+                  </p>
+                  <h3 className="text-xl font-semibold">
+                    Promote products without chaos
+                  </h3>
+                </div>
+              </div>
+              <ul className="space-y-4 text-sm text-white/75">
+                {partnerFlow.map((step) => (
+                  <li key={step.title} className="flex gap-3">
+                    <span className="mt-1 h-2 w-2 rounded-full bg-[#7ff5fb]" />
+                    <div>
+                      <p className="font-semibold text-white">{step.title}</p>
+                      <p className="text-white/70">{step.copy}</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <section className="mx-auto max-w-7xl px-4 sm:px-6 mb-20">
+          <div className="text-center mb-10">
+            <p className="text-xs uppercase tracking-[0.4em] text-white/40">
+              Live snapshot
+            </p>
+            <h2 className="mt-2 text-3xl font-bold">
+              Everything that moves money shows up here
+            </h2>
+          </div>
+          <div className="grid gap-6 md:grid-cols-3">
+            {productSnapshots.map((snap) => {
+              const Icon = snap.icon;
+              return (
+                <div
+                  key={snap.title}
+                  className="rounded-3xl border border-white/10 bg-white/[0.02] p-6 shadow-[0_15px_45px_rgba(0,0,0,0.4)]"
+                >
+                  <div className="flex items-center gap-3 mb-4">
+                    <span className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-[#00C2CB1a] text-[#00C2CB]">
+                      <Icon className="h-5 w-5" />
+                    </span>
+                    <p className="text-xs uppercase tracking-[0.3em] text-white/35">
+                      {snap.stat}
+                    </p>
+                  </div>
+                  <h3 className="text-lg font-semibold mb-2">{snap.title}</h3>
+                  <p className="text-sm text-white/70">{snap.copy}</p>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="mx-auto max-w-7xl px-4 sm:px-6 mb-20">
+          <div className="grid gap-8 lg:grid-cols-[1.2fr,0.8fr]">
+            <div className="grid gap-4 sm:grid-cols-2">
+              {plans.map((plan) => (
+                <PlanCard key={plan.id} plan={plan} />
+              ))}
+            </div>
+            <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
+              <p className="text-xs uppercase tracking-[0.3em] text-white/35">
+                Onboarding checklist
+              </p>
+              <h3 className="mt-2 text-2xl font-semibold">
+                4 steps to go live — no agencies required
+              </h3>
+              <p className="mt-3 text-sm text-white/70">
+                We keep payouts blocked until the essentials are connected, so
+                finance and compliance can relax.
+              </p>
+              <ol className="mt-5 space-y-3 text-sm text-white/80">
+                {onboardingSteps.map((step, idx) => (
+                  <li key={step} className="flex gap-3">
+                    <span className="mt-[2px] flex h-6 w-6 items-center justify-center rounded-full bg-[#00C2CB1a] text-xs font-semibold text-[#00C2CB]">
+                      {idx + 1}
+                    </span>
+                    <span>{step}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          </div>
+        </section>
+
+        <section className="mx-auto max-w-7xl px-4 sm:px-6 mb-20">
+          <div className="text-center mb-10">
+            <p className="text-xs uppercase tracking-[0.4em] text-white/40">
+              Proof over promises
+            </p>
+            <h2 className="mt-2 text-3xl font-bold">
+              Built-in guardrails, automation, and humans
+            </h2>
+          </div>
+          <div className="grid gap-6 md:grid-cols-3">
+            {featureBlocks.map((block) => {
+              const Icon = block.icon;
+              return (
+                <div
+                  key={block.title}
+                  className="rounded-3xl border border-white/10 bg-white/[0.02] p-6 text-sm text-white/75"
+                >
+                  <Icon className="h-6 w-6 text-[#00C2CB] mb-4" />
+                  <h3 className="text-lg font-semibold text-white mb-2">
+                    {block.title}
+                  </h3>
+                  <p>{block.copy}</p>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="mx-auto max-w-7xl px-4 sm:px-6 mb-24">
+          <div className="text-center mb-10">
+            <p className="text-xs uppercase tracking-[0.4em] text-white/40">
+              Questions
+            </p>
+            <h2 className="mt-2 text-3xl font-bold">FAQ</h2>
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            {faqs.map((item) => (
+              <FAQItem key={item.q} faq={item} />
+            ))}
           </div>
         </section>
       </main>
@@ -515,5 +837,62 @@ export default function Home() {
         </div>
       </footer>
     </div>
+  );
+}
+
+type Plan = {
+  id: string;
+  title: string;
+  priceNow: string;
+  priceLater: string;
+  bullets: string[];
+  cta: string;
+  href: string;
+};
+
+function PlanCard({ plan }: { plan: Plan }) {
+  return (
+    <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 flex flex-col justify-between">
+      <div>
+        <p className="text-xs uppercase tracking-[0.3em] text-white/35">
+          {plan.title}
+        </p>
+        <h3 className="mt-2 text-2xl font-semibold">{plan.priceNow}</h3>
+        <p className="text-sm text-white/60">{plan.priceLater}</p>
+        <ul className="mt-4 space-y-2 text-sm text-white/75">
+          {plan.bullets.map((bullet) => (
+            <li key={bullet} className="flex gap-2">
+              <span className="mt-1 h-2 w-2 rounded-full bg-[#00C2CB]" />
+              <span>{bullet}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <Link
+        href={plan.href}
+        className="mt-6 inline-flex items-center justify-center rounded-full bg-[#00C2CB] px-5 py-2 text-sm font-semibold text-black shadow-[0_0_20px_rgba(0,194,203,0.35)] transition hover:bg-[#00b0b8]"
+      >
+        {plan.cta}
+      </Link>
+    </div>
+  );
+}
+
+type FAQ = {
+  q: string;
+  a: string;
+};
+
+function FAQItem({ faq }: { faq: FAQ }) {
+  return (
+    <details className="group rounded-2xl border border-white/10 bg-white/[0.02] p-5">
+      <summary className="flex cursor-pointer items-center justify-between gap-4 text-left text-base font-semibold text-white">
+        {faq.q}
+        <span className="text-sm text-white/60 transition-transform group-open:rotate-45">
+          +
+        </span>
+      </summary>
+      <p className="mt-3 text-sm text-white/70">{faq.a}</p>
+    </details>
   );
 }
