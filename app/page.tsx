@@ -247,11 +247,11 @@ export default function Home() {
               <div className="relative">
                 <div className="absolute -inset-6 rounded-3xl bg-[radial-gradient(60%_60%_at_60%_40%,#00C2CB33,transparent_60%)] blur-2xl opacity-70" />
                 <div className="relative rounded-3xl border border-white/10 bg-gradient-to-b from-white/5 to-white/[0.02] shadow-[0_25px_80px_-20px_rgba(0,0,0,0.6),0_0_60px_0_rgba(0,194,203,0.12)] overflow-hidden">
-                  <div className="w-full h-[260px] sm:h-[320px] lg:h-[420px] bg-black/60">
+                  <div className="flex h-[260px] sm:h-[320px] lg:h-[420px] items-center justify-center bg-black/70">
                     <img
                       src="/home-hero-dashboard.jpg"
                       alt="Nettmark dashboard preview"
-                      className="h-full w-full object-cover"
+                      className="max-h-full w-full object-contain"
                       loading="lazy"
                     />
                   </div>
