@@ -156,8 +156,8 @@ export default function Home() {
       a: "Brands top up their Nettmark wallet (via card or bank). Funds are reserved the moment a partner drives qualified spend and released to Stripe payouts once conversions clear.",
     },
     {
-      q: "Do partners need access to our ad accounts?",
-      a: "No. Partners can run from their own ad accounts or submit campaigns that run through Nettmark guarded flows. Everything is logged with offer rules attached.",
+      q: "How long does onboarding take?",
+      a: "Early access teams typically connect Stripe payouts, add billing, and publish their first offer in under 15 minutes with the guided checklist.",
     },
     {
       q: "What if Stripe onboarding isn’t finished?",
@@ -300,7 +300,7 @@ export default function Home() {
                     For brands
                   </p>
                   <h3 className="text-xl font-semibold">
-                    Spin up a partner channel in days
+                    Spin up a partner channel in minutes
                   </h3>
                 </div>
               </div>
