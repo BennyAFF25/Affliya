@@ -833,6 +833,12 @@ export default function Home() {
             >
               Acceptable Use
             </Link>
+            <Link
+              href="/commission-ads"
+              className="hover:text-[#00C2CB] transition-colors"
+            >
+              Commission Ads
+            </Link>
           </div>
         </div>
       </footer>
