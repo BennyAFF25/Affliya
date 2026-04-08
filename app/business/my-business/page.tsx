@@ -380,12 +380,29 @@ export default function MyBusinessPage() {
         return;
       }
       if (data?.stripe_customer_id) {
-        setBusinessCustomerId(data.stripe_customer_id as string);
+        const customerId = data.stripe_customer_id as string;
+        setBusinessCustomerId(customerId);
+
         try {
-          const key = `nm_has_card_${data?.stripe_customer_id}`;
+          const key = `nm_has_card_${customerId}`;
           const cached = key ? localStorage.getItem(key) : null;
-          if (cached === "true") setHasCard(true);
-        } catch (_e) {}
+          if (cached === "true") {
+            setHasCard(true);
+          } else {
+            const cardRes = await fetch("/api/stripe/check-customer-card", {
+              method: "POST",
+            });
+            const cardJson = await parseJsonSafe(cardRes);
+            if (cardRes.ok && cardJson?.hasCard) {
+              setHasCard(true);
+              localStorage.setItem(key, "true");
+            } else {
+              setHasCard(false);
+            }
+          }
+        } catch (e) {
+          console.warn("[billing status check failed]", e);
+        }
       }
       if (data?.stripe_account_id)
         setBusinessAccountId(data.stripe_account_id as string);
