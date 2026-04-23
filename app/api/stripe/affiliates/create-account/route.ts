@@ -8,7 +8,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
 );
 
 export async function POST(req: Request) {
@@ -20,12 +20,11 @@ export async function POST(req: Request) {
     if (!user_id || !email) {
       return NextResponse.json(
         { error: "Missing user_id or email" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    const origin =
-      req.headers.get("origin") || "https://www.nettmark.com";
+    const origin = req.headers.get("origin") || "https://www.nettmark.com";
 
     // 1) Load existing profile row
     const { data: profile, error: profileErr } = await supabase
@@ -37,7 +36,7 @@ export async function POST(req: Request) {
     if (profileErr) {
       return NextResponse.json(
         { error: "Failed reading affiliate_profiles", details: profileErr },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -51,13 +50,20 @@ export async function POST(req: Request) {
         country: "AU",
         email,
         business_type: "individual",
+        metadata: {
+          role: "affiliate",
+          source: "nettmark",
+        },
         capabilities: {
           transfers: { requested: true },
         },
         business_profile: {
-          url: "https://www.nettmark.com",
+          // Stripe still labels this section as "business details" for individual accounts.
+          // We prefill as much as possible so affiliates only complete identity + payout details.
+          url: `${origin}/affiliate/wallet`,
           product_description:
-            "Affiliate earnings payouts via the Nettmark platform.",
+            "Affiliate creator payouts via Nettmark performance campaigns.",
+          mcc: "7311",
         },
       });
 
@@ -73,13 +79,13 @@ export async function POST(req: Request) {
             stripe_account_id: accountId,
             stripe_onboarding_complete: false,
           },
-          { onConflict: "user_id" }
+          { onConflict: "user_id" },
         );
 
       if (upsertErr) {
         return NextResponse.json(
           { error: "Failed updating affiliate_profiles", details: upsertErr },
-          { status: 500 }
+          { status: 500 },
         );
       }
     }
@@ -105,7 +111,7 @@ export async function POST(req: Request) {
   } catch (err: any) {
     return NextResponse.json(
       { error: err?.message || "Unknown error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
