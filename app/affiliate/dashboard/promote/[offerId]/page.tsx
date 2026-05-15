@@ -28,6 +28,7 @@ import { useRouter, useParams } from "next/navigation";
 import { useSession } from "@supabase/auth-helpers-react";
 import { supabase } from "@/../utils/supabase/pages-client";
 import { fetchReachEstimate } from "@/../utils/meta/fetchReachEstimate";
+import { calculateWalletBalance } from "@/../utils/wallet/balance";
 
 import { AdFormState, GenderOpt, PlacementKey } from "../types";
 
@@ -86,19 +87,26 @@ export default function PromoteOfferPage() {
       const { data, error } = await (supabase as any)
         .from("wallet_topups")
         .select("amount_net, amount_refunded, status")
-        .eq("affiliate_email", userEmail)
-        .eq("status", "succeeded");
+        .eq("affiliate_email", userEmail);
 
       if (error) {
         console.error("[wallet load error]", error);
         setWalletBalance(0);
       } else {
-        const total = (data || []).reduce((sum: number, row: any) => {
-          const net = Number(row.amount_net || 0);
-          const refunded = Number(row.amount_refunded || 0);
-          return sum + Math.max(0, net - refunded);
-        }, 0);
-        setWalletBalance(total);
+        const { data: deductions, error: deductionErr } = await (supabase as any)
+          .from("wallet_deductions")
+          .select("amount")
+          .eq("affiliate_email", userEmail);
+
+        if (deductionErr) {
+          console.error("[wallet deductions load error]", deductionErr);
+        }
+
+        const snapshot = calculateWalletBalance({
+          topups: data || [],
+          deductions: deductions || [],
+        });
+        setWalletBalance(snapshot.availableBalance);
       }
       setWalletLoading(false);
     };
@@ -782,18 +790,25 @@ export default function PromoteOfferPage() {
       const { data: walletRows, error: walletErr } = await (supabase as any)
         .from("wallet_topups")
         .select("amount_net, amount_refunded, status")
-        .eq("affiliate_email", userEmail)
-        .eq("status", "succeeded");
+        .eq("affiliate_email", userEmail);
 
       if (walletErr) {
         console.error("[wallet_topups check error]", walletErr);
       }
 
-      const walletTotal = (walletRows || []).reduce((sum: number, row: any) => {
-        const net = Number(row.amount_net || 0);
-        const refunded = Number(row.amount_refunded || 0);
-        return sum + Math.max(0, net - refunded);
-      }, 0);
+      const { data: deductionRows, error: deductionErr } = await (supabase as any)
+        .from("wallet_deductions")
+        .select("amount")
+        .eq("affiliate_email", userEmail);
+
+      if (deductionErr) {
+        console.error("[wallet_deductions check error]", deductionErr);
+      }
+
+      const walletTotal = calculateWalletBalance({
+        topups: walletRows || [],
+        deductions: deductionRows || [],
+      }).availableBalance;
 
       if (walletTotal < budgetDollars) {
         nmToast.error(

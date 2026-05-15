@@ -1,6 +1,7 @@
 // app/go/[ref]/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { buildTrackingUrl } from "@/../utils/tracking/buildTrackingUrl";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -50,18 +51,20 @@ export async function GET(request: NextRequest, context: any) {
   let offerId: string | null = null;
   let status: string | null = null;
   let sourceTable: SourceTable = null;
+  let canonicalCampaignId: string | null = null;
 
   // 2.1 – Organic / live_campaigns
   try {
     const { data, error } = await supabaseAdmin
       .from("live_campaigns")
-      .select("offer_id,status")
+      .select("id,offer_id,status")
       .eq("id", campaignId)
       .maybeSingle();
 
     if (data?.offer_id) {
       offerId = data.offer_id as string;
       status = (data as any).status ?? null;
+      canonicalCampaignId = data.id as string;
       sourceTable = "live_campaigns";
       console.log("[go/ref] Matched live_campaigns:", { offerId, status });
     } else if (error) {
@@ -76,13 +79,14 @@ export async function GET(request: NextRequest, context: any) {
     try {
       const { data, error } = await supabaseAdmin
         .from("ad_ideas")
-        .select("offer_id,status")
-        .or(`id.eq.${campaignId},offer_id.eq.${campaignId}`)
+        .select("id,offer_id,status,affiliate_email")
+        .eq("id", campaignId)
         .maybeSingle();
 
       if (data?.offer_id) {
         offerId = data.offer_id as string;
         status = (data as any).status ?? null;
+        canonicalCampaignId = data.id as string;
         sourceTable = "ad_ideas";
         console.log("[go/ref] Matched ad_ideas:", { offerId, status });
       } else if (error) {
@@ -98,13 +102,14 @@ export async function GET(request: NextRequest, context: any) {
     try {
       const { data, error } = await supabaseAdmin
         .from("live_ads")
-        .select("offer_id,status")
-        .or(`id.eq.${campaignId},offer_id.eq.${campaignId}`)
+        .select("id,offer_id,status,affiliate_email,created_at")
+        .eq("id", campaignId)
         .maybeSingle();
 
       if (data?.offer_id) {
         offerId = data.offer_id as string;
         status = (data as any).status ?? null;
+        canonicalCampaignId = data.id as string;
         sourceTable = "live_ads";
         console.log("[go/ref] Matched live_ads:", { offerId, status });
       } else if (error) {
@@ -112,6 +117,42 @@ export async function GET(request: NextRequest, context: any) {
       }
     } catch (e) {
       console.log("[go/ref] live_ads lookup exception:", e);
+    }
+  }
+
+  // 2.3b – Legacy paid ref: offer_id + affiliate_email -> most recent live_ad
+  if (!offerId && affiliateId) {
+    try {
+      const { data, error } = await supabaseAdmin
+        .from("live_ads")
+        .select("id,offer_id,status,affiliate_email,created_at")
+        .eq("offer_id", campaignId)
+        .eq("affiliate_email", affiliateId)
+        .order("created_at", { ascending: false })
+        .limit(10);
+
+      const rows = (data || []) as Array<{ id: string; offer_id: string; status?: string | null }>;
+      const chosen =
+        rows.find((row) => {
+          const s = String(row.status || '').toLowerCase();
+          return s === 'active' || s === 'live';
+        }) || rows[0];
+
+      if (chosen?.offer_id) {
+        offerId = chosen.offer_id as string;
+        status = chosen.status ?? null;
+        canonicalCampaignId = chosen.id as string;
+        sourceTable = "live_ads";
+        console.log("[go/ref] Legacy live_ads offer ref canonicalized:", {
+          offerId,
+          canonicalCampaignId,
+          status,
+        });
+      } else if (error) {
+        console.log("[go/ref] legacy live_ads offer ref lookup error:", error.message);
+      }
+    } catch (e) {
+      console.log("[go/ref] legacy live_ads offer ref lookup exception:", e);
     }
   }
 
@@ -127,6 +168,7 @@ export async function GET(request: NextRequest, context: any) {
       if (data?.id) {
         offerId = data.id as string;
         status = "ACTIVE";
+        canonicalCampaignId = null;
         sourceTable = "offers";
         console.log("[go/ref] Legacy direct offers match:", { offerId });
       } else if (error) {
@@ -225,7 +267,7 @@ export async function GET(request: NextRequest, context: any) {
       ip_address: ipAddress,
       campaign_type: campaignType,
       platform_violation: false,
-      campaign_id: campaignId,
+      campaign_id: canonicalCampaignId || campaignId,
     },
   ]);
 
@@ -254,7 +296,7 @@ export async function GET(request: NextRequest, context: any) {
     urlObj.searchParams.set("nm_aff", affiliateId);
   }
   if (!urlObj.searchParams.has("nm_camp")) {
-    urlObj.searchParams.set("nm_camp", campaignId);
+    urlObj.searchParams.set("nm_camp", canonicalCampaignId || campaignId);
   }
   if (!urlObj.searchParams.has("nm_src")) {
     urlObj.searchParams.set("nm_src", "nettmark");
@@ -262,6 +304,22 @@ export async function GET(request: NextRequest, context: any) {
 
   const finalUrl = urlObj.toString();
   console.log("[go/ref] Redirecting to:", finalUrl);
+
+  if (sourceTable === "live_ads" && canonicalCampaignId) {
+    try {
+      await supabaseAdmin
+        .from("live_ads")
+        .update({
+          tracking_link: buildTrackingUrl({
+            campaignId: canonicalCampaignId,
+            affiliateId,
+          }),
+        })
+        .eq("id", canonicalCampaignId);
+    } catch (e) {
+      console.warn("[go/ref] live_ads tracking_link backfill failed", e);
+    }
+  }
 
   const cookieName = "nettmark_affiliate_id";
   const cookieValue = encodeURIComponent(affiliateId);

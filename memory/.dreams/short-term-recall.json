@@ -1,0 +1,1497 @@
+{
+  "version": 1,
+  "updatedAt": "2026-05-15T02:16:07.610Z",
+  "entries": {
+    "memory:memory/2026-04-29.md:1:21": {
+      "key": "memory:memory/2026-04-29.md:1:21",
+      "path": "memory/2026-04-29.md",
+      "startLine": 1,
+      "endLine": 21,
+      "source": "memory",
+      "snippet": "# 2026-04-29 ## Durable session memory (payment audit + sandbox setup) - User shifted strategy from \"full A–G in one pass\" to **checkpointed execution** for reliability and visibility. - **Checkpoint 1** was completed as a repo/db inspection only (no live tests/no writes): mapped Stripe/payment routes, env vars, frontend callers, Supabase read/write tables, Stripe object usage, and domain classification. - Confirmed active Supabase test project switched to: - `gpaccxkfvcxzzpilsjww` (`https://gpaccxkfvcxzzpilsjww.supabase.co`) - Confirmed service-role access works on this project and required payment-related tables are present. - User explicitly requested strict operating rules for later",
+      "recallCount": 7,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 6.888126846351069,
+      "maxScore": 1,
+      "firstRecalledAt": "2026-05-11T02:55:39.983Z",
+      "lastRecalledAt": "2026-05-13T11:28:55.810Z",
+      "queryHashes": [
+        "758cdae79c33",
+        "bf76f0ffa575",
+        "4b2d142aaac7",
+        "e02008883de4",
+        "a2557dc3c623",
+        "bdd8ef87c166",
+        "2b158dd68844"
+      ],
+      "recallDays": [
+        "2026-05-11",
+        "2026-05-12",
+        "2026-05-13"
+      ],
+      "conceptTags": [
+        "repo/db",
+        "tests/no",
+        "stripe/payment",
+        "read/write",
+        "gpaccxkfvcxzzpilsjww.supabase.co",
+        "service-role",
+        "payment-related",
+        "durable"
+      ]
+    },
+    "memory:memory/2026-02-13.md:1:8": {
+      "key": "memory:memory/2026-02-13.md:1:8",
+      "path": "memory/2026-02-13.md",
+      "startLine": 1,
+      "endLine": 8,
+      "source": "memory",
+      "snippet": "# 2026-02-13 - User: Ben Brown confirmed. - Reinforced Nettmark patch protocol: always draft PLAN, require explicit `APPROVE <ticket>` before changes, use ops/patches queue. - Completed TICKET-001 plan + implementation (shared DashboardCard component, normalized affiliate dashboard cards). Patch stored in ops/patches/queue. - User wants UI consistency improvements first; backend integrity roadmap prepared for future work. - Reminder: cannot access Vercel runtime logs directly; need user-provided output or automation bridge.",
+      "recallCount": 8,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 7.9158633240738165,
+      "maxScore": 1,
+      "firstRecalledAt": "2026-05-11T02:55:39.983Z",
+      "lastRecalledAt": "2026-05-15T00:35:09.824Z",
+      "queryHashes": [
+        "758cdae79c33",
+        "bf76f0ffa575",
+        "aa87e8870ab8",
+        "e02008883de4",
+        "f7ae54654f2d",
+        "8a3ad5ded01e",
+        "2b158dd68844",
+        "a28b76347f4d"
+      ],
+      "recallDays": [
+        "2026-05-11",
+        "2026-05-12",
+        "2026-05-13",
+        "2026-05-15"
+      ],
+      "conceptTags": [
+        "ops/patches",
+        "ticket-001",
+        "ops/patches/queue",
+        "user-provided",
+        "ben",
+        "brown",
+        "confirmed",
+        "reinforced"
+      ]
+    },
+    "memory:memory/2026-03-23.md:1:5": {
+      "key": "memory:memory/2026-03-23.md:1:5",
+      "path": "memory/2026-03-23.md",
+      "startLine": 1,
+      "endLine": 5,
+      "source": "memory",
+      "snippet": "## Home + onboarding work - Completed TICKET-022 (affiliate/business login topbars + light/dark parity) and pushed commits through TICKET-023C (business mobile header gap fixes and mobile pill slider restyle). - Planned and executed TICKET-025 redesign for home page: new hero, trust blocks, persona flows, product snapshots, pricing/ onboarding checklist, features, FAQ (ready to push). - Reviewed business onboarding + Stripe architecture: flagged security gaps (billing endpoints trust client IDs), redundant onboarding flag, and recommended unified ledger + single Connect account flow.",
+      "recallCount": 8,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 7.633078048481268,
+      "maxScore": 1,
+      "firstRecalledAt": "2026-05-11T03:04:51.394Z",
+      "lastRecalledAt": "2026-05-15T00:35:09.824Z",
+      "queryHashes": [
+        "bf76f0ffa575",
+        "4b2d142aaac7",
+        "f7ae54654f2d",
+        "8a3ad5ded01e",
+        "bdd8ef87c166",
+        "2b158dd68844",
+        "a2e5a4f698f6",
+        "a28b76347f4d"
+      ],
+      "recallDays": [
+        "2026-05-11",
+        "2026-05-12",
+        "2026-05-13",
+        "2026-05-15"
+      ],
+      "conceptTags": [
+        "ticket-022",
+        "affiliate/business",
+        "light/dark",
+        "ticket-023c",
+        "ticket-025",
+        "home",
+        "onboarding",
+        "completed"
+      ]
+    },
+    "memory:memory/2026-04-29.md:16:24": {
+      "key": "memory:memory/2026-04-29.md:16:24",
+      "path": "memory/2026-04-29.md",
+      "startLine": 16,
+      "endLine": 24,
+      "source": "memory",
+      "snippet": "- `wallet_refunds` table exists but current refund route behavior may center on `wallet_topups` updates, - business connect has both `create-account` and a disabled-style `create-business-account-link` path. - User asked about repeated \"API out of credits\" message; likely root cause explained as model/provider quota/billing rather than Stripe/Supabase token issues. ## User preference/process memory - User wants short, visible progress updates while long tasks run; lack of visible \"typing\" caused frustration. - User prefers concrete, staged checkpoint approvals before moving to next phase.",
+      "recallCount": 6,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 5.435710591913003,
+      "maxScore": 1,
+      "firstRecalledAt": "2026-05-11T03:04:51.394Z",
+      "lastRecalledAt": "2026-05-12T06:27:00.572Z",
+      "queryHashes": [
+        "bf76f0ffa575",
+        "4b2d142aaac7",
+        "aa87e8870ab8",
+        "e02008883de4",
+        "f7ae54654f2d",
+        "bdd8ef87c166"
+      ],
+      "recallDays": [
+        "2026-05-11",
+        "2026-05-12"
+      ],
+      "conceptTags": [
+        "wallet-refunds",
+        "wallet-topups",
+        "create-account",
+        "disabled-style",
+        "create-business-account-link",
+        "model/provider",
+        "quota/billing",
+        "stripe/supabase"
+      ]
+    },
+    "memory:memory/2026-02-19.md:1:8": {
+      "key": "memory:memory/2026-02-19.md:1:8",
+      "path": "memory/2026-02-19.md",
+      "startLine": 1,
+      "endLine": 8,
+      "source": "memory",
+      "snippet": "# 2026-02-19 - Completed wallet UI visualization refresh (snapshot cards, timeline feed, collapsible ledger) plus follow-up removing Stripe connect CTA and aligning refundable balance with wallet balance. - Modernized affiliate dashboard with hero + quick actions, then Stage A polish (quick action chips, section labels, actionable empty states). - Shipped Manage Campaigns hero + KPI strip modernization and retained campaign list structure. - Confirmed repos: pushing to Affliya main affects affliya.com, not nettmark.com unless separate deployment target promoted. - Removed UGC estimator preset from ad submission wizard to avoid confusion; only DTC + Lead presets remain.",
+      "recallCount": 7,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 5.897232841456184,
+      "maxScore": 1,
+      "firstRecalledAt": "2026-05-11T03:04:51.394Z",
+      "lastRecalledAt": "2026-05-13T11:28:55.810Z",
+      "queryHashes": [
+        "bf76f0ffa575",
+        "4b2d142aaac7",
+        "aa87e8870ab8",
+        "aa7d01bb520d",
+        "e3d54b6b432f",
+        "03d2b917f5ca",
+        "2b158dd68844"
+      ],
+      "recallDays": [
+        "2026-05-11",
+        "2026-05-12",
+        "2026-05-13"
+      ],
+      "conceptTags": [
+        "follow-up",
+        "affliya.com",
+        "nettmark.com",
+        "completed",
+        "wallet",
+        "visualization",
+        "refresh",
+        "snapshot"
+      ]
+    },
+    "memory:memory/2026-05-11.md:1:10": {
+      "key": "memory:memory/2026-05-11.md:1:10",
+      "path": "memory/2026-05-11.md",
+      "startLine": 1,
+      "endLine": 10,
+      "source": "memory",
+      "snippet": "# 2026-05-11 - Launch-readiness hardening advanced through LR-006 in `~/repos/Affliya`. - LR-004 was applied live to Supabase via `supabase db query --linked -f supabase/migrations/20260511_ad_spend_settlement_atomic.sql` because `supabase db push` hit older duplicate migration version history (`20260304`). - Live LR-004 smoke testing found a real schema mismatch: the atomic settlement function referenced `wallet_deductions.reason`, but the live table did not have that column. The DB function was fixed live and the repo migration/report were updated to match. - LR-004 verified live: `settle_live_ad_spend` exists, settlement is atomic/idempotent, repeat settlement did not double-charge, and",
+      "recallCount": 8,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 7.9963754416343855,
+      "maxScore": 1,
+      "firstRecalledAt": "2026-05-11T08:03:18.291Z",
+      "lastRecalledAt": "2026-05-15T01:02:36.196Z",
+      "queryHashes": [
+        "aa7d01bb520d",
+        "b0aba5151265",
+        "f7ae54654f2d",
+        "8a3ad5ded01e",
+        "a2557dc3c623",
+        "e3d54b6b432f",
+        "4542b1f9c132",
+        "ca73d48c878a"
+      ],
+      "recallDays": [
+        "2026-05-11",
+        "2026-05-12",
+        "2026-05-15"
+      ],
+      "conceptTags": [
+        "launch-readiness",
+        "lr-006",
+        "repos/affliya",
+        "lr-004",
+        "wallet-deductions.reason",
+        "migration/report",
+        "settle-live-ad-spend",
+        "atomic/idempotent"
+      ]
+    },
+    "memory:memory/2026-05-11.md:10:13": {
+      "key": "memory:memory/2026-05-11.md:10:13",
+      "path": "memory/2026-05-11.md",
+      "startLine": 10,
+      "endLine": 13,
+      "source": "memory",
+      "snippet": "- LR-006 made `app/api/process-conversion/route.ts` the single canonical payout creator, removed direct payout/payment side effects from `app/api/track-event/route.ts` and `app/api/track.gif/route.ts`, and added DB idempotency via `create_wallet_payouts_for_conversion(...)` plus unique index `wallet_payouts_source_event_cycle_unique`. - `process-conversion` was updated to resolve both `live_campaigns.id` and `live_ads.id` so paid Meta conversion flows keep working during the canonical payout cutover. - Current next patch after compaction: LR-007 hard approval enforcement at money boundaries.",
+      "recallCount": 4,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 3.6332803718491142,
+      "maxScore": 1,
+      "firstRecalledAt": "2026-05-12T00:14:17.379Z",
+      "lastRecalledAt": "2026-05-15T01:02:39.752Z",
+      "queryHashes": [
+        "e02008883de4",
+        "f7ae54654f2d",
+        "a2e5a4f698f6",
+        "d15a07328ee0"
+      ],
+      "recallDays": [
+        "2026-05-12",
+        "2026-05-13",
+        "2026-05-15"
+      ],
+      "conceptTags": [
+        "lr-006",
+        "payout/payment",
+        "app/api/track-event/route.ts",
+        "app/api/track.gif/route.ts",
+        "process-conversion",
+        "live-campaigns.id",
+        "live-ads.id",
+        "lr-007"
+      ]
+    },
+    "memory:memory/2026-05-12.md:1:13": {
+      "key": "memory:memory/2026-05-12.md:1:13",
+      "path": "memory/2026-05-12.md",
+      "startLine": 1,
+      "endLine": 13,
+      "source": "memory",
+      "snippet": "# 2026-05-12 - LR-010 was completed in `~/repos/Affliya`. - `app/affiliate/wallet/page.tsx` now shows truthful wallet UX: available balance, refundable-now, refund-locked amount, active Meta ad count, unsettled ad spend, and payout receipt visibility. - Wallet ledger UX now includes top-ups, refunds, ad spend settlements/deductions, and affiliate payout receipts/scheduled payouts. - Refund lock messaging is now explicit on the wallet page so users can see whether refunds are blocked by active Meta ads or unsettled spend. - LR-010 verification passed targeted eslint for the wallet page; repo-wide TypeScript still has unrelated pre-existing failures outside the wallet page. - LR-011 was compl",
+      "recallCount": 6,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 6,
+      "maxScore": 1,
+      "firstRecalledAt": "2026-05-12T01:08:55.297Z",
+      "lastRecalledAt": "2026-05-15T01:02:36.196Z",
+      "queryHashes": [
+        "8a3ad5ded01e",
+        "a2557dc3c623",
+        "e3d54b6b432f",
+        "03d2b917f5ca",
+        "5aa62dcf7382",
+        "ca73d48c878a"
+      ],
+      "recallDays": [
+        "2026-05-12",
+        "2026-05-13",
+        "2026-05-15"
+      ],
+      "conceptTags": [
+        "lr-010",
+        "repos/affliya",
+        "app/affiliate/wallet/page.tsx",
+        "refundable-now",
+        "refund-locked",
+        "top-ups",
+        "settlements/deductions",
+        "receipts/scheduled"
+      ]
+    },
+    "memory:memory/2026-05-12.md:18:25": {
+      "key": "memory:memory/2026-05-12.md:18:25",
+      "path": "memory/2026-05-12.md",
+      "startLine": 18,
+      "endLine": 25,
+      "source": "memory",
+      "snippet": "- Added launch-safe stable identity refs across money-critical tables: `business_id` plus `affiliate_user_id` (the latter used because `campaign_tracking_events.affiliate_id` already exists as a legacy text snapshot field). - Added DB-side auto-resolution/backfill triggers so existing email-based writers now populate stable IDs on insert/update without requiring a risky full route rewrite. - Updated payout + ad-spend settlement runtime lookups to prefer stable IDs when present and fall back to email snapshots for compatibility. - Verified LR-013 in the linked Supabase test project by inserting fresh top-up / payout / deduction / campaign / tracking rows and confirming stable IDs were auto-po",
+      "recallCount": 3,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 3,
+      "maxScore": 1,
+      "firstRecalledAt": "2026-05-12T01:47:57.296Z",
+      "lastRecalledAt": "2026-05-15T01:02:39.752Z",
+      "queryHashes": [
+        "a2557dc3c623",
+        "4542b1f9c132",
+        "d15a07328ee0"
+      ],
+      "recallDays": [
+        "2026-05-12",
+        "2026-05-15"
+      ],
+      "conceptTags": [
+        "launch-safe",
+        "money-critical",
+        "business-id",
+        "affiliate-user-id",
+        "db-side",
+        "auto-resolution/backfill",
+        "email-based",
+        "insert/update"
+      ]
+    },
+    "memory:memory/2026-05-12.md:11:20": {
+      "key": "memory:memory/2026-05-12.md:11:20",
+      "path": "memory/2026-05-12.md",
+      "startLine": 11,
+      "endLine": 20,
+      "source": "memory",
+      "snippet": "- Verified LR-011 end-to-end against Stripe test mode + linked Supabase test project with a synthetic payout: first run completed, second run returned `alreadyCompleted`, and a synthetic broken completed payout returned repairable HTTP 409. - LR-012 was completed in `~/repos/Affliya`. - Added shared commercial Stripe helpers in `utils/stripe.ts` so the wallet/refund/payout/settlement route set now shares one Stripe API version and one metadata builder. - Standardized Stripe metadata around `nettmark_platform` + `nettmark_action` across wallet top-ups, refunds, payouts, and ad-spend settlements. - Clarified ownership: `/api/stripe/webhook` is the sole wallet-topup crediting path; `/api/stripe",
+      "recallCount": 1,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 1,
+      "maxScore": 1,
+      "firstRecalledAt": "2026-05-12T01:47:57.296Z",
+      "lastRecalledAt": "2026-05-12T01:47:57.296Z",
+      "queryHashes": [
+        "a2557dc3c623"
+      ],
+      "recallDays": [
+        "2026-05-12"
+      ],
+      "conceptTags": [
+        "lr-011",
+        "end-to-end",
+        "lr-012",
+        "repos/affliya",
+        "utils/stripe.ts",
+        "wallet/refund/payout/settlement",
+        "nettmark-platform",
+        "nettmark-action"
+      ]
+    },
+    "memory:memory/2026-05-12.md:62:70": {
+      "key": "memory:memory/2026-05-12.md:62:70",
+      "path": "memory/2026-05-12.md",
+      "startLine": 62,
+      "endLine": 70,
+      "source": "memory",
+      "snippet": "- A real canonical conversion test inserted `campaign_tracking_events` row `a7c0355b-776e-43d5-a7df-febca20d102e`; `POST /api/process-conversion` created affiliate payout `37.5` at 25% commission and produced payout row `bbcc7d08-13a3-4478-9a51-ed70a78506c6`. - The main staging blocker is Stripe mode mismatch during `POST /api/run-payout`: the business record used live-mode customer id `cus_TonZpzJX379sLA` while the route executed with Stripe test-mode keys, so payout execution failed before charging the business. - Current affiliate wallet \"withdrawal\" is not a standalone withdrawal system; it is `POST /api/stripe/refund` against refundable top-ups and is intentionally locked while active M",
+      "recallCount": 3,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 3,
+      "maxScore": 1,
+      "firstRecalledAt": "2026-05-12T06:27:00.572Z",
+      "lastRecalledAt": "2026-05-13T01:40:43.485Z",
+      "queryHashes": [
+        "bdd8ef87c166",
+        "e3d54b6b432f",
+        "5aa62dcf7382"
+      ],
+      "recallDays": [
+        "2026-05-12",
+        "2026-05-13"
+      ],
+      "conceptTags": [
+        "campaign-tracking-events",
+        "api/process-conversion",
+        "37.5",
+        "api/run-payout",
+        "live-mode",
+        "cus-tonzpzjx379sla",
+        "test-mode",
+        "api/stripe/refund"
+      ]
+    },
+    "memory:memory/2026-05-12.md:132:138": {
+      "key": "memory:memory/2026-05-12.md:132:138",
+      "path": "memory/2026-05-12.md",
+      "startLine": 132,
+      "endLine": 138,
+      "source": "memory",
+      "snippet": "- Refund-lock inspection showed the tested affiliate currently had `ACTIVE_META_AD_LOCK` with 4 active ads and 18.91 unsettled spend, so refund/withdrawal was correctly blocked. - There is a payout-failure bookkeeping gap: after the Stripe customer mismatch, payout `bbcc7d08-13a3-4478-9a51-ed70a78506c6` remained pending even though audit logged `wallet_payout_execution_failed`, indicating the unhandled failure path is not reliably marking the payout row failed. - A fresh Stripe Checkout session for wallet top-up was created successfully, but final payment submission/webhook crediting was not completed in that run. - Hydration mismatches during affiliate Stripe onboarding traced to theme-depe",
+      "recallCount": 2,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 2,
+      "maxScore": 1,
+      "firstRecalledAt": "2026-05-12T06:27:00.572Z",
+      "lastRecalledAt": "2026-05-12T07:19:07.398Z",
+      "queryHashes": [
+        "bdd8ef87c166",
+        "e3d54b6b432f"
+      ],
+      "recallDays": [
+        "2026-05-12"
+      ],
+      "conceptTags": [
+        "refund-lock",
+        "active-meta-ad-lock",
+        "18.91",
+        "refund/withdrawal",
+        "payout-failure",
+        "wallet-payout-execution-failed",
+        "top-up",
+        "submission/webhook"
+      ]
+    },
+    "memory:memory/2026-05-12.md:95:105": {
+      "key": "memory:memory/2026-05-12.md:95:105",
+      "path": "memory/2026-05-12.md",
+      "startLine": 95,
+      "endLine": 105,
+      "source": "memory",
+      "snippet": "- Reduced `app/api/track.gif/route.ts` to a thin legacy GIF shim that proxies to `/api/track-event` and always returns a 1×1 GIF for compatibility. - `track.gif` no longer owns campaign resolution, event insertion, quarantine handling, or `/api/process-conversion` handoff directly, so legacy callers cannot originate money movement outside the canonical `/api/track-event` → `/api/process-conversion` path. - Verified the legacy route still returns a valid 1×1 GIF and still ingests a page-view event through the canonical path, and that an invalid legacy conversion request now quarantines via `app/api/track-event/route.ts` instead of legacy-route logic. # 2026-05-12 - LR-010 was completed in `~",
+      "recallCount": 5,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 4.981174234478248,
+      "maxScore": 1,
+      "firstRecalledAt": "2026-05-12T07:19:07.398Z",
+      "lastRecalledAt": "2026-05-15T01:02:39.752Z",
+      "queryHashes": [
+        "e3d54b6b432f",
+        "03d2b917f5ca",
+        "a2e5a4f698f6",
+        "ca73d48c878a",
+        "d15a07328ee0"
+      ],
+      "recallDays": [
+        "2026-05-12",
+        "2026-05-13",
+        "2026-05-15"
+      ],
+      "conceptTags": [
+        "app/api/track.gif/route.ts",
+        "api/track-event",
+        "track.gif",
+        "api/process-conversion",
+        "page-view",
+        "app/api/track-event/route.ts",
+        "legacy-route",
+        "lr-010"
+      ]
+    },
+    "memory:memory/2026-05-12.md:29:39": {
+      "key": "memory:memory/2026-05-12.md:29:39",
+      "path": "memory/2026-05-12.md",
+      "startLine": 29,
+      "endLine": 39,
+      "source": "memory",
+      "snippet": "- `track.gif` no longer owns campaign resolution, event insertion, quarantine handling, or `/api/process-conversion` handoff directly, so legacy callers cannot originate money movement outside the canonical `/api/track-event` → `/api/process-conversion` path. - Verified the legacy route still returns a valid 1×1 GIF and still ingests a page-view event through the canonical path, and that an invalid legacy conversion request now quarantines via `app/api/track-event/route.ts` instead of legacy-route logic. # 2026-05-12 - LR-010 was completed in `~/repos/Affliya`. - `app/affiliate/wallet/page.tsx` now shows truthful wallet UX: available balance, refundable-now, refund-locked amount, active Met",
+      "recallCount": 4,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 3.977959201201962,
+      "maxScore": 1,
+      "firstRecalledAt": "2026-05-12T07:19:07.398Z",
+      "lastRecalledAt": "2026-05-15T01:02:39.752Z",
+      "queryHashes": [
+        "e3d54b6b432f",
+        "a2e5a4f698f6",
+        "ca73d48c878a",
+        "d15a07328ee0"
+      ],
+      "recallDays": [
+        "2026-05-12",
+        "2026-05-13",
+        "2026-05-15"
+      ],
+      "conceptTags": [
+        "track.gif",
+        "api/process-conversion",
+        "api/track-event",
+        "page-view",
+        "app/api/track-event/route.ts",
+        "legacy-route",
+        "lr-010",
+        "repos/affliya"
+      ]
+    },
+    "memory:memory/2026-05-12.md:103:112": {
+      "key": "memory:memory/2026-05-12.md:103:112",
+      "path": "memory/2026-05-12.md",
+      "startLine": 103,
+      "endLine": 112,
+      "source": "memory",
+      "snippet": "- Refund lock messaging is now explicit on the wallet page so users can see whether refunds are blocked by active Meta ads or unsettled spend. - LR-010 verification passed targeted eslint for the wallet page; repo-wide TypeScript still has unrelated pre-existing failures outside the wallet page. - LR-011 was completed in `~/repos/Affliya`. - `app/api/run-payout/route.ts` now uses Stripe idempotency keys derived from payout ids, persists payment-intent / charge / transfer refs, and returns a repairable conflict if a payout is marked completed without Stripe refs. - Business payout UI consumers were updated to treat `completed` as the canonical successful payout state while remaining compatibl",
+      "recallCount": 1,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 1,
+      "maxScore": 1,
+      "firstRecalledAt": "2026-05-12T07:19:07.398Z",
+      "lastRecalledAt": "2026-05-12T07:19:07.398Z",
+      "queryHashes": [
+        "e3d54b6b432f"
+      ],
+      "recallDays": [
+        "2026-05-12"
+      ],
+      "conceptTags": [
+        "lr-010",
+        "repo-wide",
+        "pre-existing",
+        "lr-011",
+        "repos/affliya",
+        "app/api/run-payout/route.ts",
+        "payment-intent",
+        "refund"
+      ]
+    },
+    "memory:memory/2026-05-12.md:66:77": {
+      "key": "memory:memory/2026-05-12.md:66:77",
+      "path": "memory/2026-05-12.md",
+      "startLine": 66,
+      "endLine": 77,
+      "source": "memory",
+      "snippet": "- There is a payout-failure bookkeeping gap: after the Stripe customer mismatch, payout `bbcc7d08-13a3-4478-9a51-ed70a78506c6` remained pending even though audit logged `wallet_payout_execution_failed`, indicating the unhandled failure path is not reliably marking the payout row failed. - A fresh Stripe Checkout session for wallet top-up was created successfully, but final payment submission/webhook crediting was not completed in that run. # 2026-05-12 - LR-010 was completed in `~/repos/Affliya`. - `app/affiliate/wallet/page.tsx` now shows truthful wallet UX: available balance, refundable-now, refund-locked amount, active Meta ad count, unsettled ad spend, and payout receipt visibility. - W",
+      "recallCount": 3,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 3,
+      "maxScore": 1,
+      "firstRecalledAt": "2026-05-12T07:19:07.398Z",
+      "lastRecalledAt": "2026-05-15T01:02:36.196Z",
+      "queryHashes": [
+        "e3d54b6b432f",
+        "5aa62dcf7382",
+        "ca73d48c878a"
+      ],
+      "recallDays": [
+        "2026-05-12",
+        "2026-05-13",
+        "2026-05-15"
+      ],
+      "conceptTags": [
+        "payout-failure",
+        "wallet-payout-execution-failed",
+        "top-up",
+        "submission/webhook",
+        "lr-010",
+        "repos/affliya",
+        "app/affiliate/wallet/page.tsx",
+        "refundable-now"
+      ]
+    },
+    "memory:memory/2026-05-12.md:128:133": {
+      "key": "memory:memory/2026-05-12.md:128:133",
+      "path": "memory/2026-05-12.md",
+      "startLine": 128,
+      "endLine": 133,
+      "source": "memory",
+      "snippet": "- Full staging money-flow probing found that `POST /api/ad-spend/settle` succeeded on live ad `89783681-a2a5-4389-a150-10fe47826651`, creating wallet deduction `acc7b211-108d-42e1-b271-0b20b0030807` and Stripe transfer `tr_1TW5krADLjZ5ptV0F2jJxeuJ` for charged spend `17.34`. - A real canonical conversion test inserted `campaign_tracking_events` row `a7c0355b-776e-43d5-a7df-febca20d102e`; `POST /api/process-conversion` created affiliate payout `37.5` at 25% commission and produced payout row `bbcc7d08-13a3-4478-9a51-ed70a78506c6`. - The main staging blocker is Stripe mode mismatch during `POST /api/run-payout`: the business record used live-mode customer id `cus_TonZpzJX379sLA` while the rout",
+      "recallCount": 2,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 2,
+      "maxScore": 1,
+      "firstRecalledAt": "2026-05-12T07:19:07.398Z",
+      "lastRecalledAt": "2026-05-15T02:16:07.610Z",
+      "queryHashes": [
+        "e3d54b6b432f",
+        "bcf1377856e5"
+      ],
+      "recallDays": [
+        "2026-05-12",
+        "2026-05-15"
+      ],
+      "conceptTags": [
+        "money-flow",
+        "api/ad-spend/settle",
+        "tr-1tw5kradljz5ptv0f2jjxeuj",
+        "17.34",
+        "campaign-tracking-events",
+        "api/process-conversion",
+        "37.5",
+        "api/run-payout"
+      ]
+    },
+    "memory:memory/2026-05-12.md:136:140": {
+      "key": "memory:memory/2026-05-12.md:136:140",
+      "path": "memory/2026-05-12.md",
+      "startLine": 136,
+      "endLine": 140,
+      "source": "memory",
+      "snippet": "- Console noise during affiliate wallet testing surfaced two actionable issues: `wallet_deductions.reason` was queried from `app/affiliate/wallet/page.tsx` even though that column does not exist, and `POST /api/stripe/affiliates/create-account` was returning 500 during payout onboarding. - Affiliate Stripe onboarding route hardening work included avoiding localhost as Stripe `business_profile.url`, keeping local refresh/return URLs separate, and improving error detail propagation for the create-account path so future failures are easier to diagnose. - Fixed business signup trigger/RLS failure by changing `public.ensure_business_profile()` to `SECURITY DEFINER` and applying `supabase/migratio",
+      "recallCount": 4,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 4,
+      "maxScore": 1,
+      "firstRecalledAt": "2026-05-12T08:10:44.479Z",
+      "lastRecalledAt": "2026-05-15T01:02:36.196Z",
+      "queryHashes": [
+        "3241e7405369",
+        "2b158dd68844",
+        "a28b76347f4d",
+        "ca73d48c878a"
+      ],
+      "recallDays": [
+        "2026-05-12",
+        "2026-05-13",
+        "2026-05-15"
+      ],
+      "conceptTags": [
+        "wallet-deductions.reason",
+        "app/affiliate/wallet/page.tsx",
+        "business-profile.url",
+        "refresh/return",
+        "create-account",
+        "trigger/rls",
+        "public.ensure-business-profile",
+        "supabase/migratio"
+      ]
+    },
+    "memory:memory/2026-05-12.md:252:256": {
+      "key": "memory:memory/2026-05-12.md:252:256",
+      "path": "memory/2026-05-12.md",
+      "startLine": 252,
+      "endLine": 256,
+      "source": "memory",
+      "snippet": "- Affiliate Stripe onboarding route hardening work included avoiding localhost as Stripe `business_profile.url`, keeping local refresh/return URLs separate, and improving error detail propagation for the create-account path so future failures are easier to diagnose. - Fixed business signup trigger/RLS failure by changing `public.ensure_business_profile()` to `SECURITY DEFINER` and applying `supabase/migrations/20260512163000_business_profile_trigger_security_definer.sql` to the linked DB. - Full test-pair money-flow probing used `biz@testuser.com` and `affiliate@testuser.com` with both Stripe onboardings complete; synthetic signed webhook testing proved `app/api/stripe/webhook/route.ts` was",
+      "recallCount": 4,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 3.987773301892719,
+      "maxScore": 1,
+      "firstRecalledAt": "2026-05-12T08:10:44.479Z",
+      "lastRecalledAt": "2026-05-15T01:21:29.008Z",
+      "queryHashes": [
+        "3241e7405369",
+        "2b158dd68844",
+        "a28b76347f4d",
+        "c5ef6b0359c3"
+      ],
+      "recallDays": [
+        "2026-05-12",
+        "2026-05-13",
+        "2026-05-15"
+      ],
+      "conceptTags": [
+        "business-profile.url",
+        "refresh/return",
+        "create-account",
+        "trigger/rls",
+        "public.ensure-business-profile",
+        "test-pair",
+        "money-flow",
+        "testuser.com"
+      ]
+    },
+    "memory:memory/2026-05-12.md:139:142": {
+      "key": "memory:memory/2026-05-12.md:139:142",
+      "path": "memory/2026-05-12.md",
+      "startLine": 139,
+      "endLine": 142,
+      "source": "memory",
+      "snippet": "- Full test-pair money-flow probing used `biz@testuser.com` and `affiliate@testuser.com` with both Stripe onboardings complete; synthetic signed webhook testing proved `app/api/stripe/webhook/route.ts` was dropping valid top-ups when `latest_charge.balance_transaction` was not ready on the first fetch. - Hardened `app/api/stripe/webhook/route.ts` with retry + fallback resolution of the top-up charge/balance-transaction path; verified a 25 AUD synthetic top-up now records `wallet_topups` row `81cb80f6-f09f-410e-99d5-e60f33128cc7` and updates affiliate wallet balance to 23.82. - Confirmed canonical refund path bug: wallet top-ups store `stripe_id` as Checkout Session ids (`cs_...`) but `app/ap",
+      "recallCount": 2,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 1.9869405436657024,
+      "maxScore": 1,
+      "firstRecalledAt": "2026-05-12T08:10:44.479Z",
+      "lastRecalledAt": "2026-05-15T01:21:29.008Z",
+      "queryHashes": [
+        "3241e7405369",
+        "c5ef6b0359c3"
+      ],
+      "recallDays": [
+        "2026-05-12",
+        "2026-05-15"
+      ],
+      "conceptTags": [
+        "test-pair",
+        "money-flow",
+        "testuser.com",
+        "app/api/stripe/webhook/route.ts",
+        "top-ups",
+        "top-up",
+        "charge/balance-transaction",
+        "wallet-topups"
+      ]
+    },
+    "memory:memory/2026-05-12.md:244:249": {
+      "key": "memory:memory/2026-05-12.md:244:249",
+      "path": "memory/2026-05-12.md",
+      "startLine": 244,
+      "endLine": 249,
+      "source": "memory",
+      "snippet": "- A real canonical conversion test inserted `campaign_tracking_events` row `a7c0355b-776e-43d5-a7df-febca20d102e`; `POST /api/process-conversion` created affiliate payout `37.5` at 25% commission and produced payout row `bbcc7d08-13a3-4478-9a51-ed70a78506c6`. - The main staging blocker is Stripe mode mismatch during `POST /api/run-payout`: the business record used live-mode customer id `cus_TonZpzJX379sLA` while the route executed with Stripe test-mode keys, so payout execution failed before charging the business. - Current affiliate wallet \"withdrawal\" is not a standalone withdrawal system; it is `POST /api/stripe/refund` against refundable top-ups and is intentionally locked while active M",
+      "recallCount": 3,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 2.9180288901291878,
+      "maxScore": 1,
+      "firstRecalledAt": "2026-05-12T08:10:44.479Z",
+      "lastRecalledAt": "2026-05-15T01:21:29.008Z",
+      "queryHashes": [
+        "3241e7405369",
+        "5aa62dcf7382",
+        "c5ef6b0359c3"
+      ],
+      "recallDays": [
+        "2026-05-12",
+        "2026-05-13",
+        "2026-05-15"
+      ],
+      "conceptTags": [
+        "campaign-tracking-events",
+        "api/process-conversion",
+        "37.5",
+        "api/run-payout",
+        "live-mode",
+        "cus-tonzpzjx379sla",
+        "test-mode",
+        "api/stripe/refund"
+      ]
+    },
+    "memory:memory/2026-05-12.md:255:258": {
+      "key": "memory:memory/2026-05-12.md:255:258",
+      "path": "memory/2026-05-12.md",
+      "startLine": 255,
+      "endLine": 258,
+      "source": "memory",
+      "snippet": "- Hardened `app/api/stripe/webhook/route.ts` with retry + fallback resolution of the top-up charge/balance-transaction path; verified a 25 AUD synthetic top-up now records `wallet_topups` row `81cb80f6-f09f-410e-99d5-e60f33128cc7` and updates affiliate wallet balance to 23.82. - Confirmed canonical refund path bug: wallet top-ups store `stripe_id` as Checkout Session ids (`cs_...`) but `app/api/stripe/refund/route.ts` only accepted `ch_...` / `pi_...`; patched route to resolve `cs_...` -> Checkout Session -> PaymentIntent -> Charge before refund creation. - Confirmed payout execution bookkeeping gap for transfer failures on the test pair: `POST /api/run-payout` successfully charged the busin",
+      "recallCount": 2,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 1.9855838077930024,
+      "maxScore": 1,
+      "firstRecalledAt": "2026-05-12T08:10:44.479Z",
+      "lastRecalledAt": "2026-05-15T01:21:29.008Z",
+      "queryHashes": [
+        "3241e7405369",
+        "c5ef6b0359c3"
+      ],
+      "recallDays": [
+        "2026-05-12",
+        "2026-05-15"
+      ],
+      "conceptTags": [
+        "app/api/stripe/webhook/route.ts",
+        "top-up",
+        "charge/balance-transaction",
+        "wallet-topups",
+        "23.82",
+        "top-ups",
+        "stripe-id",
+        "app/api/stripe/refund/route.ts"
+      ]
+    },
+    "memory:memory/2026-05-12.md:173:183": {
+      "key": "memory:memory/2026-05-12.md:173:183",
+      "path": "memory/2026-05-12.md",
+      "startLine": 173,
+      "endLine": 183,
+      "source": "memory",
+      "snippet": "- Reduced `app/api/track.gif/route.ts` to a thin legacy GIF shim that proxies to `/api/track-event` and always returns a 1×1 GIF for compatibility. - `track.gif` no longer owns campaign resolution, event insertion, quarantine handling, or `/api/process-conversion` handoff directly, so legacy callers cannot originate money movement outside the canonical `/api/track-event` → `/api/process-conversion` path. - Verified the legacy route still returns a valid 1×1 GIF and still ingests a page-view event through the canonical path, and that an invalid legacy conversion request now quarantines via `app/api/track-event/route.ts` instead of legacy-route logic. # 2026-05-12 - LR-010 was completed in `~",
+      "recallCount": 4,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 3.9811742344782477,
+      "maxScore": 1,
+      "firstRecalledAt": "2026-05-13T00:47:12.040Z",
+      "lastRecalledAt": "2026-05-15T01:02:39.752Z",
+      "queryHashes": [
+        "03d2b917f5ca",
+        "a2e5a4f698f6",
+        "ca73d48c878a",
+        "d15a07328ee0"
+      ],
+      "recallDays": [
+        "2026-05-13",
+        "2026-05-15"
+      ],
+      "conceptTags": [
+        "app/api/track.gif/route.ts",
+        "api/track-event",
+        "track.gif",
+        "api/process-conversion",
+        "page-view",
+        "app/api/track-event/route.ts",
+        "legacy-route",
+        "lr-010"
+      ]
+    },
+    "memory:memory/2026-05-12.md:111:119": {
+      "key": "memory:memory/2026-05-12.md:111:119",
+      "path": "memory/2026-05-12.md",
+      "startLine": 111,
+      "endLine": 119,
+      "source": "memory",
+      "snippet": "- Standardized Stripe metadata around `nettmark_platform` + `nettmark_action` across wallet top-ups, refunds, payouts, and ad-spend settlements. - Clarified ownership: `/api/stripe/webhook` is the sole wallet-topup crediting path; `/api/stripe-session` GET remains session lookup only and POST is now an explicit deprecated no-op. - Verified LR-012 in Stripe test mode by creating a real top-up checkout session and retrieving its metadata, then executing a fresh synthetic payout and confirming normalized metadata on both the payment intent and transfer. - LR-013 was completed in `~/repos/Affliya`. - Added launch-safe stable identity refs across money-critical tables: `business_id` plus `affilia",
+      "recallCount": 3,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 2.9801127263634024,
+      "maxScore": 1,
+      "firstRecalledAt": "2026-05-13T00:47:12.040Z",
+      "lastRecalledAt": "2026-05-15T01:02:30.870Z",
+      "queryHashes": [
+        "03d2b917f5ca",
+        "a2e5a4f698f6",
+        "4542b1f9c132"
+      ],
+      "recallDays": [
+        "2026-05-13",
+        "2026-05-15"
+      ],
+      "conceptTags": [
+        "nettmark-platform",
+        "nettmark-action",
+        "top-ups",
+        "ad-spend",
+        "api/stripe/webhook",
+        "wallet-topup",
+        "api/stripe-session",
+        "no-op"
+      ]
+    },
+    "memory:memory/2026-05-12.md:210:221": {
+      "key": "memory:memory/2026-05-12.md:210:221",
+      "path": "memory/2026-05-12.md",
+      "startLine": 210,
+      "endLine": 221,
+      "source": "memory",
+      "snippet": "- Refund-lock inspection showed the tested affiliate currently had `ACTIVE_META_AD_LOCK` with 4 active ads and 18.91 unsettled spend, so refund/withdrawal was correctly blocked. - There is a payout-failure bookkeeping gap: after the Stripe customer mismatch, payout `bbcc7d08-13a3-4478-9a51-ed70a78506c6` remained pending even though audit logged `wallet_payout_execution_failed`, indicating the unhandled failure path is not reliably marking the payout row failed. - A fresh Stripe Checkout session for wallet top-up was created successfully, but final payment submission/webhook crediting was not completed in that run. # 2026-05-12 - LR-010 was completed in `~/repos/Affliya`. - `app/affiliate/wa",
+      "recallCount": 2,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 2,
+      "maxScore": 1,
+      "firstRecalledAt": "2026-05-13T01:40:43.485Z",
+      "lastRecalledAt": "2026-05-15T01:02:36.196Z",
+      "queryHashes": [
+        "5aa62dcf7382",
+        "ca73d48c878a"
+      ],
+      "recallDays": [
+        "2026-05-13",
+        "2026-05-15"
+      ],
+      "conceptTags": [
+        "refund-lock",
+        "active-meta-ad-lock",
+        "18.91",
+        "refund/withdrawal",
+        "payout-failure",
+        "wallet-payout-execution-failed",
+        "top-up",
+        "submission/webhook"
+      ]
+    },
+    "memory:memory/2026-05-13.md:1:13": {
+      "key": "memory:memory/2026-05-13.md:1:13",
+      "path": "memory/2026-05-13.md",
+      "startLine": 1,
+      "endLine": 13,
+      "source": "memory",
+      "snippet": "# 2026-05-13 - Fixed organic social campaign UX issues in `~/repos/Affliya`: - `app/business/my-business/post-ideas/page.tsx` now creates affiliate inbox notifications when organic posts are approved/rejected. - `app/affiliate/inbox/page.tsx` now also derives approved/rejected `organic_posts` directly so inbox alerts still appear even if notification inserts are flaky, while avoiding duplicates when notifications exist. - `app/affiliate/dashboard/manage-campaigns/page.tsx` “Open post” now routes to `/affiliate/dashboard/manage-campaigns/${item.id}` instead of opening the wrong destination. - Simplified the business onboarding tracking-install UI in `app/business/setup-tracking/SetupTr",
+      "recallCount": 1,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 1,
+      "maxScore": 1,
+      "firstRecalledAt": "2026-05-13T11:28:55.810Z",
+      "lastRecalledAt": "2026-05-13T11:28:55.810Z",
+      "queryHashes": [
+        "2b158dd68844"
+      ],
+      "recallDays": [
+        "2026-05-13"
+      ],
+      "conceptTags": [
+        "repos/affliya",
+        "approved/rejected",
+        "app/affiliate/inbox/page.tsx",
+        "organic-posts",
+        "item.id",
+        "tracking-install",
+        "fixed",
+        "organic"
+      ]
+    },
+    "memory:memory/2026-05-12.md:132:137": {
+      "key": "memory:memory/2026-05-12.md:132:137",
+      "path": "memory/2026-05-12.md",
+      "startLine": 132,
+      "endLine": 137,
+      "source": "memory",
+      "snippet": "- Refund-lock inspection showed the tested affiliate currently had `ACTIVE_META_AD_LOCK` with 4 active ads and 18.91 unsettled spend, so refund/withdrawal was correctly blocked. - There is a payout-failure bookkeeping gap: after the Stripe customer mismatch, payout `bbcc7d08-13a3-4478-9a51-ed70a78506c6` remained pending even though audit logged `wallet_payout_execution_failed`, indicating the unhandled failure path is not reliably marking the payout row failed. - A fresh Stripe Checkout session for wallet top-up was created successfully, but final payment submission/webhook crediting was not completed in that run. - Hydration mismatches during affiliate Stripe onboarding traced to theme-depe",
+      "recallCount": 3,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 3,
+      "maxScore": 1,
+      "firstRecalledAt": "2026-05-13T11:28:55.810Z",
+      "lastRecalledAt": "2026-05-15T01:02:36.196Z",
+      "queryHashes": [
+        "2b158dd68844",
+        "a28b76347f4d",
+        "ca73d48c878a"
+      ],
+      "recallDays": [
+        "2026-05-13",
+        "2026-05-15"
+      ],
+      "conceptTags": [
+        "refund-lock",
+        "active-meta-ad-lock",
+        "18.91",
+        "refund/withdrawal",
+        "payout-failure",
+        "wallet-payout-execution-failed",
+        "top-up",
+        "submission/webhook"
+      ]
+    },
+    "memory:memory/2026-05-12.md:248:253": {
+      "key": "memory:memory/2026-05-12.md:248:253",
+      "path": "memory/2026-05-12.md",
+      "startLine": 248,
+      "endLine": 253,
+      "source": "memory",
+      "snippet": "- There is a payout-failure bookkeeping gap: after the Stripe customer mismatch, payout `bbcc7d08-13a3-4478-9a51-ed70a78506c6` remained pending even though audit logged `wallet_payout_execution_failed`, indicating the unhandled failure path is not reliably marking the payout row failed. - A fresh Stripe Checkout session for wallet top-up was created successfully, but final payment submission/webhook crediting was not completed in that run. - Hydration mismatches during affiliate Stripe onboarding traced to theme-dependent SSR/client differences in `context/ThemeContext.tsx`, `app/components/marketing/MarketingHeader.tsx`, and `app/components/Topbar.tsx`; fixes made first render deterministic",
+      "recallCount": 1,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 1,
+      "maxScore": 1,
+      "firstRecalledAt": "2026-05-13T11:28:55.810Z",
+      "lastRecalledAt": "2026-05-13T11:28:55.810Z",
+      "queryHashes": [
+        "2b158dd68844"
+      ],
+      "recallDays": [
+        "2026-05-13"
+      ],
+      "conceptTags": [
+        "payout-failure",
+        "wallet-payout-execution-failed",
+        "top-up",
+        "submission/webhook",
+        "theme-dependent",
+        "ssr/client",
+        "context/themecontext.tsx",
+        "app/components/topbar.tsx"
+      ]
+    },
+    "memory:memory/2026-05-13.md:21:24": {
+      "key": "memory:memory/2026-05-13.md:21:24",
+      "path": "memory/2026-05-13.md",
+      "startLine": 21,
+      "endLine": 24,
+      "source": "memory",
+      "snippet": "- User paused further code changes and shifted to Framer help; they want step-by-step guidance and prefer to mark click targets/order themselves before animation polish. - Agreed workflow for Framer: user uploads/organizes numbered screenshots first, then adds rough rectangles for click targets, then I handle the animation/polish pass. - In the Telegram/OpenClaw browser-assisted Framer session, the first batch of 10 numbered screenshots was sent for import into Framer so the user can continue the rectangle-marking pass afterward.",
+      "recallCount": 1,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 1,
+      "maxScore": 1,
+      "firstRecalledAt": "2026-05-13T11:28:55.810Z",
+      "lastRecalledAt": "2026-05-13T11:28:55.810Z",
+      "queryHashes": [
+        "2b158dd68844"
+      ],
+      "recallDays": [
+        "2026-05-13"
+      ],
+      "conceptTags": [
+        "step-by-step",
+        "targets/order",
+        "uploads/organizes",
+        "animation/polish",
+        "telegram/openclaw",
+        "browser-assisted",
+        "rectangle-marking",
+        "paused"
+      ]
+    },
+    "memory:memory/2026-05-12.md:258:262": {
+      "key": "memory:memory/2026-05-12.md:258:262",
+      "path": "memory/2026-05-12.md",
+      "startLine": 258,
+      "endLine": 262,
+      "source": "memory",
+      "snippet": "- Verified direct conversion sequencing for the test pair: seeded approved affiliate request, inserted conversion event `a7b014c1-4381-43ea-bc6f-450ab640f24e`, and `POST /api/process-conversion` created exactly one pending payout `d7ba2a74-5230-462e-bc16-a01e035775e5` for 22 AUD at 22% commission; repeat call returned `already_processed` with payout count still 1. - Verified direct ad-spend settlement sequencing for the test pair: settling live ad `d7b76986-bf98-40aa-a34e-4fd3a9c711c6` created deduction `71629177-ac7f-4b5f-b030-3f4dd160af99`, advanced `spend_transferred` from 0 to 5, and canonical wallet math dropped available balance from 23.82 to 18.82; repeat settlement was idempotent and",
+      "recallCount": 4,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 3.8996113455417003,
+      "maxScore": 1,
+      "firstRecalledAt": "2026-05-13T11:33:20.612Z",
+      "lastRecalledAt": "2026-05-15T02:16:07.610Z",
+      "queryHashes": [
+        "a2e5a4f698f6",
+        "4542b1f9c132",
+        "c5ef6b0359c3",
+        "bcf1377856e5"
+      ],
+      "recallDays": [
+        "2026-05-13",
+        "2026-05-15"
+      ],
+      "conceptTags": [
+        "api/process-conversion",
+        "already-processed",
+        "ad-spend",
+        "spend-transferred",
+        "23.82",
+        "18.82",
+        "verified",
+        "direct"
+      ]
+    },
+    "memory:memory/2026-05-12.md:76:84": {
+      "key": "memory:memory/2026-05-12.md:76:84",
+      "path": "memory/2026-05-12.md",
+      "startLine": 76,
+      "endLine": 84,
+      "source": "memory",
+      "snippet": "- `app/api/run-payout/route.ts` now uses Stripe idempotency keys derived from payout ids, persists payment-intent / charge / transfer refs, and returns a repairable conflict if a payout is marked completed without Stripe refs. - Business payout UI consumers were updated to treat `completed` as the canonical successful payout state while remaining compatible with older `paid` rows. - Verified LR-011 end-to-end against Stripe test mode + linked Supabase test project with a synthetic payout: first run completed, second run returned `alreadyCompleted`, and a synthetic broken completed payout returned repairable HTTP 409. - LR-012 was completed in `~/repos/Affliya`. - Added shared commercial Stri",
+      "recallCount": 1,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 0.9811145828437933,
+      "maxScore": 0.9811145828437933,
+      "firstRecalledAt": "2026-05-13T11:33:20.612Z",
+      "lastRecalledAt": "2026-05-13T11:33:20.612Z",
+      "queryHashes": [
+        "a2e5a4f698f6"
+      ],
+      "recallDays": [
+        "2026-05-13"
+      ],
+      "conceptTags": [
+        "app/api/run-payout/route.ts",
+        "payment-intent",
+        "lr-011",
+        "end-to-end",
+        "lr-012",
+        "repos/affliya",
+        "app",
+        "api"
+      ]
+    },
+    "memory:memory/2026-05-12.md:189:197": {
+      "key": "memory:memory/2026-05-12.md:189:197",
+      "path": "memory/2026-05-12.md",
+      "startLine": 189,
+      "endLine": 197,
+      "source": "memory",
+      "snippet": "- Standardized Stripe metadata around `nettmark_platform` + `nettmark_action` across wallet top-ups, refunds, payouts, and ad-spend settlements. - Clarified ownership: `/api/stripe/webhook` is the sole wallet-topup crediting path; `/api/stripe-session` GET remains session lookup only and POST is now an explicit deprecated no-op. - Verified LR-012 in Stripe test mode by creating a real top-up checkout session and retrieving its metadata, then executing a fresh synthetic payout and confirming normalized metadata on both the payment intent and transfer. - LR-013 was completed in `~/repos/Affliya`. - Added launch-safe stable identity refs across money-critical tables: `business_id` plus `affilia",
+      "recallCount": 2,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 1.9801127263634026,
+      "maxScore": 1,
+      "firstRecalledAt": "2026-05-13T11:33:20.612Z",
+      "lastRecalledAt": "2026-05-15T01:02:30.870Z",
+      "queryHashes": [
+        "a2e5a4f698f6",
+        "4542b1f9c132"
+      ],
+      "recallDays": [
+        "2026-05-13",
+        "2026-05-15"
+      ],
+      "conceptTags": [
+        "nettmark-platform",
+        "nettmark-action",
+        "top-ups",
+        "ad-spend",
+        "api/stripe/webhook",
+        "wallet-topup",
+        "api/stripe-session",
+        "no-op"
+      ]
+    },
+    "memory:memory/2026-05-12.md:261:265": {
+      "key": "memory:memory/2026-05-12.md:261:265",
+      "path": "memory/2026-05-12.md",
+      "startLine": 261,
+      "endLine": 265,
+      "source": "memory",
+      "snippet": "- Open blocker for full launch confidence: successful outbound Stripe transfers (affiliate payouts and business ad-spend transfers) still require sufficient Stripe test-mode available balance to exercise the success path end-to-end. - Open hardening target: run one real Checkout-backed top-up and one real refund against that top-up to fully verify the patched `cs_...` refund path against live Stripe objects rather than synthetic webhook data. - Built a local/internal money-flow harness at `app/internal/money-flow/page.tsx` backed by `app/api/internal/money-flow-harness/route.ts`; it is disabled in production by default unless `ENABLE_MONEY_FLOW_HARNESS=true` and supports harness state, Strip",
+      "recallCount": 3,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 2.9761739970878827,
+      "maxScore": 1,
+      "firstRecalledAt": "2026-05-13T11:33:20.612Z",
+      "lastRecalledAt": "2026-05-15T02:16:07.610Z",
+      "queryHashes": [
+        "a2e5a4f698f6",
+        "4542b1f9c132",
+        "bcf1377856e5"
+      ],
+      "recallDays": [
+        "2026-05-13",
+        "2026-05-15"
+      ],
+      "conceptTags": [
+        "ad-spend",
+        "test-mode",
+        "end-to-end",
+        "checkout-backed",
+        "top-up",
+        "local/internal",
+        "money-flow",
+        "app/internal/money-flow/page.tsx"
+      ]
+    },
+    "memory:memory/2026-05-12.md:45:53": {
+      "key": "memory:memory/2026-05-12.md:45:53",
+      "path": "memory/2026-05-12.md",
+      "startLine": 45,
+      "endLine": 53,
+      "source": "memory",
+      "snippet": "- Clarified ownership: `/api/stripe/webhook` is the sole wallet-topup crediting path; `/api/stripe-session` GET remains session lookup only and POST is now an explicit deprecated no-op. - Verified LR-012 in Stripe test mode by creating a real top-up checkout session and retrieving its metadata, then executing a fresh synthetic payout and confirming normalized metadata on both the payment intent and transfer. - LR-013 was completed in `~/repos/Affliya`. - Added launch-safe stable identity refs across money-critical tables: `business_id` plus `affiliate_user_id` (the latter used because `campaign_tracking_events.affiliate_id` already exists as a legacy text snapshot field). - Added DB-side aut",
+      "recallCount": 1,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 1,
+      "maxScore": 1,
+      "firstRecalledAt": "2026-05-15T01:02:30.870Z",
+      "lastRecalledAt": "2026-05-15T01:02:30.870Z",
+      "queryHashes": [
+        "4542b1f9c132"
+      ],
+      "recallDays": [
+        "2026-05-15"
+      ],
+      "conceptTags": [
+        "api/stripe/webhook",
+        "wallet-topup",
+        "api/stripe-session",
+        "no-op",
+        "lr-012",
+        "top-up",
+        "lr-013",
+        "repos/affliya"
+      ]
+    },
+    "memory:memory/2026-05-12.md:82:90": {
+      "key": "memory:memory/2026-05-12.md:82:90",
+      "path": "memory/2026-05-12.md",
+      "startLine": 82,
+      "endLine": 90,
+      "source": "memory",
+      "snippet": "- Clarified ownership: `/api/stripe/webhook` is the sole wallet-topup crediting path; `/api/stripe-session` GET remains session lookup only and POST is now an explicit deprecated no-op. - Verified LR-012 in Stripe test mode by creating a real top-up checkout session and retrieving its metadata, then executing a fresh synthetic payout and confirming normalized metadata on both the payment intent and transfer. - LR-013 was completed in `~/repos/Affliya`. - Added launch-safe stable identity refs across money-critical tables: `business_id` plus `affiliate_user_id` (the latter used because `campaign_tracking_events.affiliate_id` already exists as a legacy text snapshot field). - Added DB-side aut",
+      "recallCount": 1,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 1,
+      "maxScore": 1,
+      "firstRecalledAt": "2026-05-15T01:02:30.870Z",
+      "lastRecalledAt": "2026-05-15T01:02:30.870Z",
+      "queryHashes": [
+        "4542b1f9c132"
+      ],
+      "recallDays": [
+        "2026-05-15"
+      ],
+      "conceptTags": [
+        "api/stripe/webhook",
+        "wallet-topup",
+        "api/stripe-session",
+        "no-op",
+        "lr-012",
+        "top-up",
+        "lr-013",
+        "repos/affliya"
+      ]
+    },
+    "memory:memory/2026-05-12.md:160:168": {
+      "key": "memory:memory/2026-05-12.md:160:168",
+      "path": "memory/2026-05-12.md",
+      "startLine": 160,
+      "endLine": 168,
+      "source": "memory",
+      "snippet": "- Clarified ownership: `/api/stripe/webhook` is the sole wallet-topup crediting path; `/api/stripe-session` GET remains session lookup only and POST is now an explicit deprecated no-op. - Verified LR-012 in Stripe test mode by creating a real top-up checkout session and retrieving its metadata, then executing a fresh synthetic payout and confirming normalized metadata on both the payment intent and transfer. - LR-013 was completed in `~/repos/Affliya`. - Added launch-safe stable identity refs across money-critical tables: `business_id` plus `affiliate_user_id` (the latter used because `campaign_tracking_events.affiliate_id` already exists as a legacy text snapshot field). - Added DB-side aut",
+      "recallCount": 1,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 1,
+      "maxScore": 1,
+      "firstRecalledAt": "2026-05-15T01:02:30.870Z",
+      "lastRecalledAt": "2026-05-15T01:02:30.870Z",
+      "queryHashes": [
+        "4542b1f9c132"
+      ],
+      "recallDays": [
+        "2026-05-15"
+      ],
+      "conceptTags": [
+        "api/stripe/webhook",
+        "wallet-topup",
+        "api/stripe-session",
+        "no-op",
+        "lr-012",
+        "top-up",
+        "lr-013",
+        "repos/affliya"
+      ]
+    },
+    "memory:memory/2026-05-12.md:227:235": {
+      "key": "memory:memory/2026-05-12.md:227:235",
+      "path": "memory/2026-05-12.md",
+      "startLine": 227,
+      "endLine": 235,
+      "source": "memory",
+      "snippet": "- Clarified ownership: `/api/stripe/webhook` is the sole wallet-topup crediting path; `/api/stripe-session` GET remains session lookup only and POST is now an explicit deprecated no-op. - Verified LR-012 in Stripe test mode by creating a real top-up checkout session and retrieving its metadata, then executing a fresh synthetic payout and confirming normalized metadata on both the payment intent and transfer. - LR-013 was completed in `~/repos/Affliya`. - Added launch-safe stable identity refs across money-critical tables: `business_id` plus `affiliate_user_id` (the latter used because `campaign_tracking_events.affiliate_id` already exists as a legacy text snapshot field). - Added DB-side aut",
+      "recallCount": 1,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 1,
+      "maxScore": 1,
+      "firstRecalledAt": "2026-05-15T01:02:30.870Z",
+      "lastRecalledAt": "2026-05-15T01:02:30.870Z",
+      "queryHashes": [
+        "4542b1f9c132"
+      ],
+      "recallDays": [
+        "2026-05-15"
+      ],
+      "conceptTags": [
+        "api/stripe/webhook",
+        "wallet-topup",
+        "api/stripe-session",
+        "no-op",
+        "lr-012",
+        "top-up",
+        "lr-013",
+        "repos/affliya"
+      ]
+    },
+    "memory:memory/2026-05-12.md:144:154": {
+      "key": "memory:memory/2026-05-12.md:144:154",
+      "path": "memory/2026-05-12.md",
+      "startLine": 144,
+      "endLine": 154,
+      "source": "memory",
+      "snippet": "- Verified direct ad-spend settlement sequencing for the test pair: settling live ad `d7b76986-bf98-40aa-a34e-4fd3a9c711c6` created deduction `71629177-ac7f-4b5f-b030-3f4dd160af99`, advanced `spend_transferred` from 0 to 5, and canonical wallet math dropped available balance from 23.82 to 18.82; repeat settlement was idempotent and created no extra deductions. - Important nuance from the test-pair audit: `wallets.balance` remained 23.82 after the ad-spend deduction, so any UI or logic that trusts the cached wallet row instead of canonical ledger snapshot will drift. # 2026-05-12 - LR-010 was completed in `~/repos/Affliya`. - `app/affiliate/wallet/page.tsx` now shows truthful wallet UX: avai",
+      "recallCount": 2,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 2,
+      "maxScore": 1,
+      "firstRecalledAt": "2026-05-15T01:02:36.196Z",
+      "lastRecalledAt": "2026-05-15T02:16:07.610Z",
+      "queryHashes": [
+        "ca73d48c878a",
+        "bcf1377856e5"
+      ],
+      "recallDays": [
+        "2026-05-15"
+      ],
+      "conceptTags": [
+        "ad-spend",
+        "spend-transferred",
+        "23.82",
+        "18.82",
+        "test-pair",
+        "wallets.balance",
+        "lr-010",
+        "repos/affliya"
+      ]
+    },
+    "memory:memory/2026-05-12.md:117:125": {
+      "key": "memory:memory/2026-05-12.md:117:125",
+      "path": "memory/2026-05-12.md",
+      "startLine": 117,
+      "endLine": 125,
+      "source": "memory",
+      "snippet": "- Updated payout + ad-spend settlement runtime lookups to prefer stable IDs when present and fall back to email snapshots for compatibility. - Verified LR-013 in the linked Supabase test project by inserting fresh top-up / payout / deduction / campaign / tracking rows and confirming stable IDs were auto-populated, then executed a real Stripe test-mode payout against a stable-ID-backed payout row. - LR-015 was completed in `~/repos/Affliya`. - Added a durable `money_flow_audit_log` table plus `utils/moneyFlowAudit.ts` so critical money decisions now leave queryable structured breadcrumbs instead of relying on scattered console output. - Wired audit breadcrumbs into conversion quarantine, conv",
+      "recallCount": 1,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 1,
+      "maxScore": 1,
+      "firstRecalledAt": "2026-05-15T01:02:39.752Z",
+      "lastRecalledAt": "2026-05-15T01:02:39.752Z",
+      "queryHashes": [
+        "d15a07328ee0"
+      ],
+      "recallDays": [
+        "2026-05-15"
+      ],
+      "conceptTags": [
+        "ad-spend",
+        "lr-013",
+        "top-up",
+        "auto-populated",
+        "test-mode",
+        "stable-id-backed",
+        "lr-015",
+        "repos/affliya"
+      ]
+    },
+    "memory:memory/2026-05-12.md:195:203": {
+      "key": "memory:memory/2026-05-12.md:195:203",
+      "path": "memory/2026-05-12.md",
+      "startLine": 195,
+      "endLine": 203,
+      "source": "memory",
+      "snippet": "- Updated payout + ad-spend settlement runtime lookups to prefer stable IDs when present and fall back to email snapshots for compatibility. - Verified LR-013 in the linked Supabase test project by inserting fresh top-up / payout / deduction / campaign / tracking rows and confirming stable IDs were auto-populated, then executed a real Stripe test-mode payout against a stable-ID-backed payout row. - LR-015 was completed in `~/repos/Affliya`. - Added a durable `money_flow_audit_log` table plus `utils/moneyFlowAudit.ts` so critical money decisions now leave queryable structured breadcrumbs instead of relying on scattered console output. - Wired audit breadcrumbs into conversion quarantine, conv",
+      "recallCount": 1,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 1,
+      "maxScore": 1,
+      "firstRecalledAt": "2026-05-15T01:02:39.752Z",
+      "lastRecalledAt": "2026-05-15T01:02:39.752Z",
+      "queryHashes": [
+        "d15a07328ee0"
+      ],
+      "recallDays": [
+        "2026-05-15"
+      ],
+      "conceptTags": [
+        "ad-spend",
+        "lr-013",
+        "top-up",
+        "auto-populated",
+        "test-mode",
+        "stable-id-backed",
+        "lr-015",
+        "repos/affliya"
+      ]
+    },
+    "memory:memory/2026-05-12.md:51:59": {
+      "key": "memory:memory/2026-05-12.md:51:59",
+      "path": "memory/2026-05-12.md",
+      "startLine": 51,
+      "endLine": 59,
+      "source": "memory",
+      "snippet": "- Verified LR-013 in the linked Supabase test project by inserting fresh top-up / payout / deduction / campaign / tracking rows and confirming stable IDs were auto-populated, then executed a real Stripe test-mode payout against a stable-ID-backed payout row. - LR-015 was completed in `~/repos/Affliya`. - Added a durable `money_flow_audit_log` table plus `utils/moneyFlowAudit.ts` so critical money decisions now leave queryable structured breadcrumbs instead of relying on scattered console output. - Wired audit breadcrumbs into conversion quarantine, conversion payout creation, payout execution, ad-spend settlement, refund blocks/refunds, and Meta low-wallet auto-pause. - Applied `supabase/mig",
+      "recallCount": 1,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 1,
+      "maxScore": 1,
+      "firstRecalledAt": "2026-05-15T01:02:39.752Z",
+      "lastRecalledAt": "2026-05-15T01:02:39.752Z",
+      "queryHashes": [
+        "d15a07328ee0"
+      ],
+      "recallDays": [
+        "2026-05-15"
+      ],
+      "conceptTags": [
+        "lr-013",
+        "top-up",
+        "auto-populated",
+        "test-mode",
+        "stable-id-backed",
+        "lr-015",
+        "repos/affliya",
+        "money-flow-audit-log"
+      ]
+    },
+    "memory:memory/2026-05-12.md:88:96": {
+      "key": "memory:memory/2026-05-12.md:88:96",
+      "path": "memory/2026-05-12.md",
+      "startLine": 88,
+      "endLine": 96,
+      "source": "memory",
+      "snippet": "- Verified LR-013 in the linked Supabase test project by inserting fresh top-up / payout / deduction / campaign / tracking rows and confirming stable IDs were auto-populated, then executed a real Stripe test-mode payout against a stable-ID-backed payout row. - LR-015 was completed in `~/repos/Affliya`. - Added a durable `money_flow_audit_log` table plus `utils/moneyFlowAudit.ts` so critical money decisions now leave queryable structured breadcrumbs instead of relying on scattered console output. - Wired audit breadcrumbs into conversion quarantine, conversion payout creation, payout execution, ad-spend settlement, refund blocks/refunds, and Meta low-wallet auto-pause. - Applied `supabase/mig",
+      "recallCount": 1,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 1,
+      "maxScore": 1,
+      "firstRecalledAt": "2026-05-15T01:02:39.752Z",
+      "lastRecalledAt": "2026-05-15T01:02:39.752Z",
+      "queryHashes": [
+        "d15a07328ee0"
+      ],
+      "recallDays": [
+        "2026-05-15"
+      ],
+      "conceptTags": [
+        "lr-013",
+        "top-up",
+        "auto-populated",
+        "test-mode",
+        "stable-id-backed",
+        "lr-015",
+        "repos/affliya",
+        "money-flow-audit-log"
+      ]
+    },
+    "memory:memory/2026-05-12.md:166:174": {
+      "key": "memory:memory/2026-05-12.md:166:174",
+      "path": "memory/2026-05-12.md",
+      "startLine": 166,
+      "endLine": 174,
+      "source": "memory",
+      "snippet": "- Verified LR-013 in the linked Supabase test project by inserting fresh top-up / payout / deduction / campaign / tracking rows and confirming stable IDs were auto-populated, then executed a real Stripe test-mode payout against a stable-ID-backed payout row. - LR-015 was completed in `~/repos/Affliya`. - Added a durable `money_flow_audit_log` table plus `utils/moneyFlowAudit.ts` so critical money decisions now leave queryable structured breadcrumbs instead of relying on scattered console output. - Wired audit breadcrumbs into conversion quarantine, conversion payout creation, payout execution, ad-spend settlement, refund blocks/refunds, and Meta low-wallet auto-pause. - Applied `supabase/mig",
+      "recallCount": 1,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 1,
+      "maxScore": 1,
+      "firstRecalledAt": "2026-05-15T01:02:39.752Z",
+      "lastRecalledAt": "2026-05-15T01:02:39.752Z",
+      "queryHashes": [
+        "d15a07328ee0"
+      ],
+      "recallDays": [
+        "2026-05-15"
+      ],
+      "conceptTags": [
+        "lr-013",
+        "top-up",
+        "auto-populated",
+        "test-mode",
+        "stable-id-backed",
+        "lr-015",
+        "repos/affliya",
+        "money-flow-audit-log"
+      ]
+    },
+    "memory:memory/2026-05-12.md:206:211": {
+      "key": "memory:memory/2026-05-12.md:206:211",
+      "path": "memory/2026-05-12.md",
+      "startLine": 206,
+      "endLine": 211,
+      "source": "memory",
+      "snippet": "- Full staging money-flow probing found that `POST /api/ad-spend/settle` succeeded on live ad `89783681-a2a5-4389-a150-10fe47826651`, creating wallet deduction `acc7b211-108d-42e1-b271-0b20b0030807` and Stripe transfer `tr_1TW5krADLjZ5ptV0F2jJxeuJ` for charged spend `17.34`. - A real canonical conversion test inserted `campaign_tracking_events` row `a7c0355b-776e-43d5-a7df-febca20d102e`; `POST /api/process-conversion` created affiliate payout `37.5` at 25% commission and produced payout row `bbcc7d08-13a3-4478-9a51-ed70a78506c6`. - The main staging blocker is Stripe mode mismatch during `POST /api/run-payout`: the business record used live-mode customer id `cus_TonZpzJX379sLA` while the rout",
+      "recallCount": 1,
+      "dailyCount": 0,
+      "groundedCount": 0,
+      "totalScore": 1,
+      "maxScore": 1,
+      "firstRecalledAt": "2026-05-15T02:16:07.610Z",
+      "lastRecalledAt": "2026-05-15T02:16:07.610Z",
+      "queryHashes": [
+        "bcf1377856e5"
+      ],
+      "recallDays": [
+        "2026-05-15"
+      ],
+      "conceptTags": [
+        "money-flow",
+        "api/ad-spend/settle",
+        "tr-1tw5kradljz5ptv0f2jjxeuj",
+        "17.34",
+        "campaign-tracking-events",
+        "api/process-conversion",
+        "37.5",
+        "api/run-payout"
+      ]
+    }
+  }
+}

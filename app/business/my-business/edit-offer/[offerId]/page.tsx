@@ -1,4 +1,5 @@
 "use client";
+import React from "react";
 import { useSession } from "@supabase/auth-helpers-react";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -14,6 +15,9 @@ interface Offer {
   price?: number | null;
   currency?: string | null;
   commission_value?: number | null;
+  conversion_scope?: "store_wide" | "specific_products" | null;
+  eligible_product_ids?: string[] | null;
+  eligible_variant_ids?: string[] | null;
 }
 
 export default function EditOfferPage() {
@@ -36,6 +40,17 @@ export default function EditOfferPage() {
   const [price, setPrice] = useState("");
   const [currency, setCurrency] = useState("USD");
   const [commissionValue, setCommissionValue] = useState("");
+  const [conversionScope, setConversionScope] = useState<
+    "store_wide" | "specific_products"
+  >("store_wide");
+  const [eligibleProductIdsText, setEligibleProductIdsText] = useState("");
+  const [eligibleVariantIdsText, setEligibleVariantIdsText] = useState("");
+
+  const parseIdList = (value: string) =>
+    value
+      .split(/[\n,]/)
+      .map((entry) => entry.trim())
+      .filter(Boolean);
 
   useEffect(() => {
     const fetchOffer = async () => {
@@ -47,7 +62,7 @@ export default function EditOfferPage() {
       const { data, error } = await (supabase as any)
         .from("offers")
         .select(
-          "id,business_email,title,description,commission,type,price,currency,commission_value",
+          "id,business_email,title,description,commission,type,price,currency,commission_value,conversion_scope,eligible_product_ids,eligible_variant_ids",
         )
         .eq("id", offerId as string)
         .eq("business_email", user.email as string)
@@ -70,6 +85,9 @@ export default function EditOfferPage() {
       setCommissionValue(
         data.commission_value != null ? data.commission_value.toString() : "",
       );
+      setConversionScope(data.conversion_scope || "store_wide");
+      setEligibleProductIdsText((data.eligible_product_ids || []).join("\n"));
+      setEligibleVariantIdsText((data.eligible_variant_ids || []).join("\n"));
       setLoading(false);
     };
 
@@ -79,6 +97,20 @@ export default function EditOfferPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user?.email || !offerId) return;
+
+    const parsedEligibleProductIds = parseIdList(eligibleProductIdsText);
+    const parsedEligibleVariantIds = parseIdList(eligibleVariantIdsText);
+
+    if (
+      conversionScope === "specific_products" &&
+      parsedEligibleProductIds.length === 0 &&
+      parsedEligibleVariantIds.length === 0
+    ) {
+      setError(
+        "Add at least one eligible product ID or variant ID for a product-scoped offer.",
+      );
+      return;
+    }
 
     const { error } = await (supabase as any)
       .from("offers")
@@ -90,6 +122,9 @@ export default function EditOfferPage() {
         price: price ? Number(price) : null,
         currency,
         commission_value: commissionValue ? Number(commissionValue) : null,
+        conversion_scope: conversionScope,
+        eligible_product_ids: parsedEligibleProductIds,
+        eligible_variant_ids: parsedEligibleVariantIds,
       })
       .eq("id", offerId as string)
       .eq("business_email", user.email as string);
@@ -214,6 +249,69 @@ export default function EditOfferPage() {
                 <option value="one-time">One-Time</option>
                 <option value="recurring">Recurring</option>
               </select>
+            </div>
+
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--input-background)]/40 p-4 space-y-4">
+              <div>
+                <label className="mb-1 block text-xs font-medium tracking-wide text-[var(--muted-foreground)]">
+                  Commission scope
+                </label>
+                <select
+                  value={conversionScope}
+                  onChange={(e) =>
+                    setConversionScope(
+                      e.target.value as "store_wide" | "specific_products",
+                    )
+                  }
+                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--input-background)] px-3 py-2 text-[var(--foreground)] focus:border-[var(--ring)] focus:outline-none"
+                >
+                  <option value="store_wide">Entire store / any product purchased</option>
+                  <option value="specific_products">Only specific products or variants</option>
+                </select>
+                <p className="mt-2 text-xs text-[var(--muted-foreground)]">
+                  <strong className="text-[var(--foreground)]">Entire store</strong> pays on the eligible order value no matter what product was bought. <strong className="text-[var(--foreground)]">Specific products</strong> only pays when tracked order data includes matching product or variant IDs.
+                </p>
+              </div>
+
+              {conversionScope === "specific_products" && (
+                <>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium tracking-wide text-[var(--muted-foreground)]">
+                      Eligible product IDs
+                    </label>
+                    <textarea
+                      value={eligibleProductIdsText}
+                      onChange={(e) => setEligibleProductIdsText(e.target.value)}
+                      placeholder="Example: 1234567890 or gid://shopify/Product/1234567890"
+                      className="w-full rounded-lg border border-[var(--border)] bg-[var(--input-background)] px-3 py-2 text-[var(--foreground)] focus:border-[var(--ring)] focus:outline-none"
+                      rows={4}
+                    />
+                    <p className="mt-2 text-xs text-[var(--muted-foreground)]">
+                      One per line or comma-separated. Shopify numeric IDs and full <code>gid://</code> IDs both work.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-xs font-medium tracking-wide text-[var(--muted-foreground)]">
+                      Eligible variant IDs / SKUs (optional)
+                    </label>
+                    <textarea
+                      value={eligibleVariantIdsText}
+                      onChange={(e) => setEligibleVariantIdsText(e.target.value)}
+                      placeholder="Example: 987654321 or gid://shopify/ProductVariant/987654321 or SKU-RED-L"
+                      className="w-full rounded-lg border border-[var(--border)] bg-[var(--input-background)] px-3 py-2 text-[var(--foreground)] focus:border-[var(--ring)] focus:outline-none"
+                      rows={3}
+                    />
+                    <p className="mt-2 text-xs text-[var(--muted-foreground)]">
+                      Add variant IDs if only certain variants should pay. SKUs can work too when your checkout payload includes them.
+                    </p>
+                  </div>
+
+                  <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-100">
+                    If a shopper buys something outside these IDs, Nettmark still records the conversion, but payout is skipped for that order instead of overpaying the affiliate.
+                  </div>
+                </>
+              )}
             </div>
 
             <button

@@ -258,6 +258,7 @@ const PendingDot = () => (
 export default function MyBusinessPage() {
   const [offers, setOffers] = useState<Offer[]>([]);
   const [offersLoading, setOffersLoading] = useState<boolean>(true);
+  const [loadingPaymentForm, setLoadingPaymentForm] = useState(false);
   const [loadingDeleteId, setLoadingDeleteId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [businessCustomerId, setBusinessCustomerId] = useState<string | null>(
@@ -582,6 +583,12 @@ export default function MyBusinessPage() {
   async function handleAddPaymentMethod() {
     try {
       if (!businessCustomerId) throw new Error("No Stripe customer connected");
+      if (loadingPaymentForm) return;
+
+      setLoadingPaymentForm(true);
+      setShowPaymentForm(false);
+      setSetupClientSecret("");
+
       const res = await fetch("/api/stripe/create-setup-intent", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -596,6 +603,8 @@ export default function MyBusinessPage() {
     } catch (e: any) {
       console.error("[Add payment method error]", e);
       toast.error(e.message || "Stripe error");
+    } finally {
+      setLoadingPaymentForm(false);
     }
   }
 
@@ -643,7 +652,12 @@ export default function MyBusinessPage() {
         className="bg-[#111] border border-[#00C2CB]/20 rounded-xl p-4 mt-4"
       >
         <div className="mb-4">
-          <PaymentElement />
+          <PaymentElement
+            onLoaderror={(event) => {
+              console.error("[Stripe PaymentElement loaderror]", event);
+              toast.error("Stripe card form failed to load. Please retry.");
+            }}
+          />
         </div>
         <button
           type="submit"
@@ -779,9 +793,10 @@ export default function MyBusinessPage() {
                   {businessCustomerId && !hasCard && (
                     <button
                       onClick={handleAddPaymentMethod}
-                      className="px-3 py-2 rounded-md border border-[#00C2CB]/40 text-white text-sm hover:bg-[#0f1415]"
+                      disabled={loadingPaymentForm}
+                      className="px-3 py-2 rounded-md border border-[#00C2CB]/40 text-white text-sm hover:bg-[#0f1415] disabled:opacity-60"
                     >
-                      Add card
+                      {loadingPaymentForm ? "Loading…" : "Add card"}
                     </button>
                   )}
                   {billingReady && (
@@ -793,6 +808,7 @@ export default function MyBusinessPage() {
               {businessCustomerId && showPaymentForm && setupClientSecret && (
                 <div className="mt-4">
                   <Elements
+                    key={setupClientSecret}
                     stripe={stripePromise}
                     options={{ clientSecret: setupClientSecret }}
                   >

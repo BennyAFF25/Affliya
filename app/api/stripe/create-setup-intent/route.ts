@@ -1,7 +1,6 @@
 
-
 import { NextResponse } from 'next/server';
-import Stripe from 'stripe';
+import { createStripeClient } from '@/../utils/stripe';
 
 // POST /api/stripe/create-setup-intent
 // Body: { customerId: string }
@@ -16,7 +15,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Missing or invalid "customerId"' }, { status: 400 });
     }
 
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { apiVersion: '2024-06-20' });
+    const stripe = createStripeClient();
 
     const setupIntent = await stripe.setupIntents.create({
       customer: customerId,
@@ -25,8 +24,8 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json({ clientSecret: setupIntent.client_secret }, { status: 200 });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('[Stripe create-setup-intent error]', err);
-    return NextResponse.json({ error: err?.message || 'Stripe error' }, { status: 500 });
+    return NextResponse.json({ error: err instanceof Error ? err.message : 'Stripe error' }, { status: 500 });
   }
 }

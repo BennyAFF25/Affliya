@@ -1,0 +1,32 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "dev",
+      "type": "shell",
+      "command": "yarn dev",
+      "options": {
+        "cwd": "/Users/nettmark/repos/Affliya"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "build",
+      "type": "shell",
+      "command": "yarn build",
+      "options": {
+        "cwd": "/Users/nettmark/repos/Affliya"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "lint:fix",
+      "type": "shell",
+      "command": "yarn lint --fix",
+      "options": {
+        "cwd": "/Users/nettmark/repos/Affliya"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

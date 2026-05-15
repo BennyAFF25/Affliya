@@ -209,6 +209,8 @@ export default function PostIdeasPage() {
 
       if (updateError) throw updateError;
 
+      let notificationLink = "/affiliate/inbox";
+
       if (newStatus === "approved") {
         // Determine media_url: use video_url if it exists, otherwise fallback to image_url
         const media_url = post.video_url || post.image_url;
@@ -217,7 +219,7 @@ export default function PostIdeasPage() {
         // This guarantees correct association between the campaign and the offer
         const correctOfferId = post.offer_id;
 
-        const { error: insertError } = await (supabase as any)
+        const { data: insertedCampaign, error: insertError } = await (supabase as any)
           .from("live_campaigns")
           .insert([
             {
@@ -231,9 +233,42 @@ export default function PostIdeasPage() {
               created_from: "post-ideas",
               status: "live",
             },
-          ] as any[]);
+          ] as any[])
+          .select("id")
+          .single();
 
         if (insertError) throw insertError;
+
+        if (insertedCampaign?.id) {
+          notificationLink = `/affiliate/dashboard/manage-campaigns/${insertedCampaign.id}`;
+        }
+      } else if (post.offer_id) {
+        notificationLink = `/affiliate/dashboard/promote/${post.offer_id}`;
+      }
+
+      const offerTitle = offersMap[post.offer_id] || "your offer";
+      const notificationTitle =
+        newStatus === "approved"
+          ? `Organic post approved: ${offerTitle}`
+          : `Organic post needs changes: ${offerTitle}`;
+      const notificationBody =
+        newStatus === "approved"
+          ? "Your post is now live. Open the campaign to see the tracked link, campaign stats, and the code attached to this placement."
+          : "This post was not approved yet. Open it to review the feedback and update your draft.";
+
+      const { error: notificationError } = await (supabase as any)
+        .from("notifications")
+        .insert([
+          {
+            user_email: post.affiliate_email,
+            title: notificationTitle,
+            body: notificationBody,
+            link_url: notificationLink,
+          },
+        ] as any[]);
+
+      if (notificationError) {
+        console.warn("[organic post] notification insert failed", notificationError);
       }
 
       window.location.reload();

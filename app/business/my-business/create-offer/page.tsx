@@ -74,6 +74,17 @@ function CreateOfferPageInner() {
   const [price, setPrice] = useState("");
   const [commissionValue, setCommissionValue] = useState(0);
   const [currency, setCurrency] = useState("USD");
+  const [conversionScope, setConversionScope] = useState<
+    "store_wide" | "specific_products"
+  >("store_wide");
+  const [eligibleProductIdsText, setEligibleProductIdsText] = useState("");
+  const [eligibleVariantIdsText, setEligibleVariantIdsText] = useState("");
+
+  const parseIdList = (value: string) =>
+    value
+      .split(/[\n,]/)
+      .map((entry) => entry.trim())
+      .filter(Boolean);
 
   // offer profile fields
   const [profileHeadline, setProfileHeadline] = useState("");
@@ -311,8 +322,23 @@ function CreateOfferPageInner() {
     e?.preventDefault?.();
 
     if (!userEmail) return;
+    const parsedEligibleProductIds = parseIdList(eligibleProductIdsText);
+    const parsedEligibleVariantIds = parseIdList(eligibleVariantIdsText);
+
     if (!siteHost) {
       alert("Please select a Website Platform/Host.");
+      return;
+    }
+
+    if (
+      conversionScope === "specific_products" &&
+      parsedEligibleProductIds.length === 0 &&
+      parsedEligibleVariantIds.length === 0
+    ) {
+      alert(
+        "Add at least one eligible product ID or variant ID for a product-scoped offer.",
+      );
+      setStep(2);
       return;
     }
 
@@ -417,6 +443,9 @@ function CreateOfferPageInner() {
       price: Number(price),
       commission_value: commissionValue,
       currency,
+      conversion_scope: conversionScope,
+      eligible_product_ids: parsedEligibleProductIds,
+      eligible_variant_ids: parsedEligibleVariantIds,
       type,
       logo_url: uploadedLogoUrl,
       site_host: siteHost,
@@ -480,6 +509,9 @@ function CreateOfferPageInner() {
     setCommission("");
     setPrice("");
     setCurrency("USD");
+    setConversionScope("store_wide");
+    setEligibleProductIdsText("");
+    setEligibleVariantIdsText("");
     setType("one-time");
     setLogoFile(null);
     setLogoUrl(null);
@@ -778,6 +810,81 @@ function CreateOfferPageInner() {
                   <option value="one-time">One-Time</option>
                   <option value="recurring">Recurring</option>
                 </select>
+              </div>
+
+              <div className="mt-4 space-y-4 border border-[#262626] rounded-lg p-4 bg-[#111111]">
+                <h3 className="text-sm font-semibold text-[#7ff5fb] uppercase tracking-wide">
+                  Commission scope
+                </h3>
+
+                <div>
+                  <label className="block font-semibold text-white mb-1">
+                    What should count for commission?
+                  </label>
+                  <select
+                    value={conversionScope}
+                    onChange={(e) =>
+                      setConversionScope(
+                        e.target.value as "store_wide" | "specific_products",
+                      )
+                    }
+                    className="w-full p-3 border border-[#2a2a2a] bg-[#0e0e0e] text-white rounded-lg"
+                  >
+                    <option value="store_wide">
+                      Entire store / any product purchased
+                    </option>
+                    <option value="specific_products">
+                      Only specific products or variants
+                    </option>
+                  </select>
+                  <p className="mt-2 text-xs text-gray-400">
+                    <strong className="text-white">Entire store</strong> pays on the eligible order value no matter which product is bought. <strong className="text-white">Specific products</strong> only pays when Nettmark sees matching product or variant IDs in the tracked order.
+                  </p>
+                </div>
+
+                {conversionScope === "specific_products" && (
+                  <>
+                    <div>
+                      <label className="block font-semibold text-white mb-1">
+                        Eligible product IDs
+                      </label>
+                      <textarea
+                        value={eligibleProductIdsText}
+                        onChange={(e) => setEligibleProductIdsText(e.target.value)}
+                        placeholder="Example: 1234567890 or gid://shopify/Product/1234567890"
+                        className="w-full p-3 border border-[#2a2a2a] bg-[#0e0e0e] text-white rounded-lg"
+                        rows={4}
+                      />
+                      <p className="mt-2 text-xs text-gray-400">
+                        Use the store's real product IDs. One per line or comma-separated is fine. Shopify numeric IDs and full <code>gid://</code> IDs both work.
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block font-semibold text-white mb-1">
+                        Eligible variant IDs / SKUs (optional)
+                      </label>
+                      <textarea
+                        value={eligibleVariantIdsText}
+                        onChange={(e) => setEligibleVariantIdsText(e.target.value)}
+                        placeholder="Example: 987654321 or gid://shopify/ProductVariant/987654321 or SKU-RED-L"
+                        className="w-full p-3 border border-[#2a2a2a] bg-[#0e0e0e] text-white rounded-lg"
+                        rows={3}
+                      />
+                      <p className="mt-2 text-xs text-gray-400">
+                        Add variant IDs if only certain variants should pay. SKUs can work too when your tracking payload includes them.
+                      </p>
+                    </div>
+
+                    <div className="rounded-lg border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-100">
+                      If a shopper buys something outside these IDs, Nettmark will still record the conversion for attribution, but it will <strong>skip payout</strong> for that order instead of overpaying the affiliate.
+                    </div>
+
+                    <p className="text-xs text-gray-400">
+                      For product-scoped offers, make sure your checkout tracking sends line items, product IDs, or variant IDs with the conversion event. That's what lets payout stay truthful.
+                    </p>
+                  </>
+                )}
               </div>
 
               {type === "recurring" && (

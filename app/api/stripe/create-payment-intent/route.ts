@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import Stripe from 'stripe';
+import { buildNettmarkStripeMetadata, createStripeClient } from '@/../utils/stripe';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
-  apiVersion: '2025-05-28.basil'
-});
+const stripe = createStripeClient(process.env.STRIPE_SECRET_KEY as string);
 
 export async function POST(req: NextRequest) {
   let amount;
@@ -21,19 +19,22 @@ export async function POST(req: NextRequest) {
       amount,
       currency: 'usd',
       receipt_email: email,
-      metadata: {
+      metadata: buildNettmarkStripeMetadata('wallet_topup', {
         purpose: 'wallet_topup',
-        email: email
-      },
+        affiliate_email: email,
+      }),
     });
 
     return NextResponse.json({ client_secret: paymentIntent.client_secret });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[❌ Create Payment Intent Error]', error);
     console.error('Payload received:', {
       amount: typeof amount !== 'undefined' ? amount : 'undefined',
       email: typeof email !== 'undefined' ? email : 'undefined'
     });
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : 'Stripe error' },
+      { status: 500 },
+    );
   }
 }

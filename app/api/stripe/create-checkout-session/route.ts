@@ -1,11 +1,9 @@
 import { NextResponse } from 'next/server';
-import Stripe from 'stripe';
 import { cookies } from 'next/headers';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { buildNettmarkStripeMetadata, createStripeClient } from '@/../utils/stripe';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-06-20',
-});
+const stripe = createStripeClient();
 
 const allowedCurrencies = ['usd', 'aud', 'eur', 'gbp', 'cad', 'nzd'];
 
@@ -51,21 +49,24 @@ export async function POST(req: Request) {
       mode: 'payment',
       success_url: `${baseUrl}/affiliate/wallet?topup=success`,
       cancel_url: `${baseUrl}/affiliate/wallet?topup=cancelled`,
-      metadata: {
-        email: user.email,
+      metadata: buildNettmarkStripeMetadata('wallet_topup', {
+        affiliate_email: user.email,
         type: 'wallet_topup',
-      },
+      }),
       payment_intent_data: {
-        metadata: {
-          email: user.email,
+        metadata: buildNettmarkStripeMetadata('wallet_topup', {
+          affiliate_email: user.email,
           type: 'wallet_topup',
-        },
+        }),
       },
     });
 
     return NextResponse.json({ url: session.url });
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('[❌ Stripe Error]', err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : 'Stripe error' },
+      { status: 500 },
+    );
   }
 }

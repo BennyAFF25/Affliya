@@ -2,14 +2,12 @@
 // File: app/api/stripe/create-account/route.ts
 
 import { NextResponse } from "next/server";
-import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
+import { buildStripeMetadata, createStripeClient } from "@/../utils/stripe";
 
 export const runtime = "nodejs";
 
-const stripe = new Stripe((process.env.STRIPE_SECRET_KEY || "").trim(), {
-  apiVersion: "2024-06-20" as Stripe.LatestApiVersion,
-});
+const stripe = createStripeClient((process.env.STRIPE_SECRET_KEY || "").trim());
 
 function getBaseUrl() {
   // Explicit base (recommended)
@@ -101,14 +99,14 @@ export async function POST(req: Request) {
           capabilities: {
             transfers: { requested: true },
           },
-          metadata: {
+          metadata: buildStripeMetadata({
             email,
             role: "business",
-            platform: "nettmark",
-          },
+            nettmark_platform: "nettmark",
+          }),
         });
 
-    const accountId = (account as any)?.id;
+    const accountId = account.id;
     if (!accountId) {
       return NextResponse.json(
         { error: "Unable to resolve Stripe account ID" },
@@ -200,14 +198,17 @@ export async function POST(req: Request) {
       },
       { status: 200 }
     );
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Create account failed";
+    const stack = err instanceof Error ? err.stack : undefined;
+
     console.error("[❌ business/create-account]", {
-      message: err?.message,
-      stack: err?.stack,
+      message,
+      stack,
     });
 
     return NextResponse.json(
-      { error: err?.message || "Create account failed" },
+      { error: message },
       { status: 500 }
     );
   }

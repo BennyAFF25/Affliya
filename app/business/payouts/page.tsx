@@ -1,9 +1,8 @@
 // Updated implementation with brand styling, skeletons, filtering, and a sleeker table
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/../utils/supabase/pages-client";
-import { useRouter } from "next/navigation";
 
 // Types
 type WPayout = {
@@ -13,18 +12,31 @@ type WPayout = {
   offer_id: string | null;
   amount: number;
   stripe_transfer_id: string | null;
-  status: "pending" | "paid" | "failed" | string;
+  status: "pending" | "paid" | "completed" | "failed" | string;
   created_at: string;
   available_at?: string | null;
   cycle_number?: number | null;
   is_recurring?: boolean | null;
 };
 
+function isSettledStatus(status: string) {
+  return status === "paid" || status === "completed";
+}
+
+function normalizePayoutStatus(status: string) {
+  return isSettledStatus(status) ? "completed" : status;
+}
+
 type OfferRow = { id: string; title: string | null };
 
-export default function BusinessPayoutsPage() {
-  const router = useRouter();
+type AdSpendSettlementSummary = {
+  transferred: number;
+  pending: number;
+  blocked: number;
+  failed: number;
+};
 
+export default function BusinessPayoutsPage() {
   const [email, setEmail] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [payouts, setPayouts] = useState<WPayout[]>([]);
@@ -34,8 +46,14 @@ export default function BusinessPayoutsPage() {
   const [running, setRunning] = useState(false);
   const [banner, setBanner] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [adSpendSummary, setAdSpendSummary] = useState<AdSpendSettlementSummary>({
+    transferred: 0,
+    pending: 0,
+    blocked: 0,
+    failed: 0,
+  });
   const [statusFilter, setStatusFilter] = useState<
-    "all" | "pending" | "paid" | "failed"
+    "all" | "pending" | "completed" | "failed"
   >("all");
 
   // --- Helpers
@@ -79,6 +97,30 @@ export default function BusinessPayoutsPage() {
 
       const rows = (data || []) as unknown as WPayout[];
       setPayouts(rows);
+
+      const { data: settlements, error: settlementsErr } = await supabase
+        .from("ad_spend_settlements")
+        .select("amount, status")
+        .eq("business_email", userEmail);
+
+      if (!settlementsErr && settlements) {
+        const summary = (settlements as { amount: number | string | null; status: string | null }[]).reduce<AdSpendSettlementSummary>(
+          (acc, row) => {
+            const amount = Number(row.amount || 0) || 0;
+            const status = String(row.status || "");
+
+            if (status === "transfer_succeeded") acc.transferred += amount;
+            else if (status === "transfer_blocked") acc.blocked += amount;
+            else if (status === "transfer_failed") acc.failed += amount;
+            else acc.pending += amount;
+
+            return acc;
+          },
+          { transferred: 0, pending: 0, blocked: 0, failed: 0 },
+        );
+
+        setAdSpendSummary(summary);
+      }
 
       const offerIds = Array.from(
         new Set(rows.map((r) => r.offer_id).filter(Boolean)),
@@ -131,7 +173,7 @@ export default function BusinessPayoutsPage() {
     const byStatus =
       statusFilter === "all"
         ? list
-        : list.filter((r) => r.status === statusFilter);
+        : list.filter((r) => normalizePayoutStatus(r.status) === statusFilter);
     if (!q) return byStatus;
     return byStatus.filter((r) => {
       const offerTitle = r.offer_id ? offersById[r.offer_id] || r.offer_id : "";
@@ -159,7 +201,7 @@ export default function BusinessPayoutsPage() {
           body: JSON.stringify({ payout_id: id }),
         });
         if (!res.ok) {
-          const j = await res.json().catch(() => ({}) as any);
+          const j = await res.json().catch(() => ({} as Record<string, unknown>));
           console.error("[run-payout] failed", id, j);
           setBanner("Some payouts failed — check history for details.");
         }
@@ -169,7 +211,7 @@ export default function BusinessPayoutsPage() {
         .select("*")
         .eq("business_email", email!)
         .order("created_at", { ascending: false });
-      setPayouts((data || []) as any);
+      setPayouts((data || []) as WPayout[]);
       setSelected({});
       if (!banner) setBanner("Payouts processed.");
     } catch (e) {
@@ -223,6 +265,13 @@ export default function BusinessPayoutsPage() {
             </div>
           </div>
 
+          <div className="relative z-10 mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <SettlementCard label="Ad spend transferred" value={currencyFmt.format(adSpendSummary.transferred)} tone="good" />
+            <SettlementCard label="Pending ad spend transfer" value={currencyFmt.format(adSpendSummary.pending)} tone="neutral" />
+            <SettlementCard label="Blocked transfer" value={currencyFmt.format(adSpendSummary.blocked)} tone="warn" />
+            <SettlementCard label="Failed transfer attempts" value={currencyFmt.format(adSpendSummary.failed)} tone="danger" />
+          </div>
+
           {/* Toolbar */}
           <div className="relative z-10 mt-6 flex flex-wrap items-center gap-3">
             <div className="inline-flex rounded-lg bg-[var(--secondary)] p-1 ring-1 ring-[var(--border)]">
@@ -249,12 +298,12 @@ export default function BusinessPayoutsPage() {
               />
               <select
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value as any)}
+                onChange={(e) => setStatusFilter(e.target.value as "all" | "pending" | "completed" | "failed")}
                 className="rounded-md border border-[var(--border)] bg-[var(--input-background)] px-3 py-2 text-sm text-[var(--foreground)] outline-none focus:border-[var(--ring)]"
               >
                 <option value="all">All statuses</option>
                 <option value="pending">Pending</option>
-                <option value="paid">Paid</option>
+                <option value="completed">Completed</option>
                 <option value="failed">Failed</option>
               </select>
             </div>
@@ -287,13 +336,41 @@ export default function BusinessPayoutsPage() {
   );
 }
 
+function SettlementCard({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone: "neutral" | "good" | "warn" | "danger";
+}) {
+  const toneClass =
+    tone === "good"
+      ? "border-emerald-500/20 bg-emerald-500/10"
+      : tone === "warn"
+        ? "border-amber-500/20 bg-amber-500/10"
+        : tone === "danger"
+          ? "border-rose-500/20 bg-rose-500/10"
+          : "border-[var(--border)] bg-[var(--secondary)]/60";
+
+  return (
+    <div className={`rounded-xl border p-4 ${toneClass}`}>
+      <div className="text-xs uppercase tracking-[0.16em] text-[var(--muted-foreground)]">
+        {label}
+      </div>
+      <div className="mt-2 text-xl font-semibold text-[var(--foreground)]">{value}</div>
+    </div>
+  );
+}
+
 function TabButton({
   active,
   children,
   onClick,
 }: {
   active: boolean;
-  children: any;
+  children: React.ReactNode;
   onClick: () => void;
 }) {
   return (
@@ -461,7 +538,8 @@ function StatusPill({
       }
     }
     className = "bg-yellow-500/10 text-yellow-300";
-  } else if (status === "paid") {
+  } else if (isSettledStatus(status)) {
+    label = "completed";
     className = "bg-emerald-500/10 text-emerald-300";
   } else {
     className = "bg-rose-500/10 text-rose-300";

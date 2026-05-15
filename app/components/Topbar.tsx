@@ -67,6 +67,13 @@ export default function Topbar() {
   const { theme, toggleTheme } = useTheme();
 
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const resolvedTheme = mounted ? theme : "dark";
 
   const userInitials = user?.email?.charAt(0).toUpperCase() || "F";
 
@@ -142,10 +149,10 @@ export default function Topbar() {
         <button
           type="button"
           onClick={toggleTheme}
-          aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+          aria-label={`Switch to ${resolvedTheme === "dark" ? "light" : "dark"} mode`}
           className="flex h-9 w-9 items-center justify-center rounded-full border border-[color:var(--border)] bg-[var(--card)] text-[var(--foreground)] transition hover:bg-[var(--secondary)]"
         >
-          {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+          {resolvedTheme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
         </button>
 
         {/* Avatar – hidden on mobile */}

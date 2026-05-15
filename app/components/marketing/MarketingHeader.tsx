@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
@@ -48,6 +48,13 @@ export default function MarketingHeader() {
   const { theme, toggleTheme } = useTheme();
   const user = session?.user ?? null;
   const [menuOpen, setMenuOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const resolvedTheme = mounted ? theme : "dark";
 
   const groupedNav = useMemo(() => {
     const groups: Record<string, NavLink[]> = {};
@@ -87,7 +94,7 @@ export default function MarketingHeader() {
           <Link href="/" className="flex items-center gap-2">
             <Image
               src={
-                theme === "dark"
+                resolvedTheme === "dark"
                   ? "/nettmark-logo-dark.svg"
                   : "/nettmark-logo-light.svg"
               }
@@ -141,14 +148,14 @@ export default function MarketingHeader() {
             <button
               onClick={toggleTheme}
               className="hidden md:inline-flex h-10 items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 text-xs font-semibold uppercase tracking-[0.14em] text-white/80 transition hover:border-white/30 hover:bg-white/10"
-              aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+              aria-label={`Switch to ${resolvedTheme === "dark" ? "light" : "dark"} mode`}
             >
-              {theme === "dark" ? (
+              {resolvedTheme === "dark" ? (
                 <Sun className="h-3.5 w-3.5" />
               ) : (
                 <Moon className="h-3.5 w-3.5" />
               )}
-              {theme === "dark" ? "Light" : "Dark"}
+              {resolvedTheme === "dark" ? "Light" : "Dark"}
             </button>
 
             {user ? (
@@ -277,11 +284,11 @@ export default function MarketingHeader() {
                       className="flex w-full items-center justify-between rounded-2xl border border-white/15 px-4 py-3 text-left text-white hover:border-white/40"
                     >
                       <span>
-                        {theme === "dark"
+                        {resolvedTheme === "dark"
                           ? "Switch to light mode"
                           : "Switch to dark mode"}
                       </span>
-                      {theme === "dark" ? (
+                      {resolvedTheme === "dark" ? (
                         <Sun className="h-4 w-4" />
                       ) : (
                         <Moon className="h-4 w-4" />

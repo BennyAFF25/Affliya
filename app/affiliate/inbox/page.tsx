@@ -32,6 +32,13 @@ interface AdIdea {
   rejection_reason?: string;
 }
 
+interface OrganicPost {
+  id: string;
+  offer_id: string;
+  status: string;
+  created_at: string;
+}
+
 interface Notification {
   id: string;
   title: string;
@@ -96,6 +103,12 @@ export default function AffiliateInbox() {
   );
   const [approvedAds, setApprovedAds] = useState<AdIdea[]>([]);
   const [rejectedAds, setRejectedAds] = useState<AdIdea[]>([]);
+  const [approvedOrganicPosts, setApprovedOrganicPosts] = useState<OrganicPost[]>(
+    [],
+  );
+  const [rejectedOrganicPosts, setRejectedOrganicPosts] = useState<OrganicPost[]>(
+    [],
+  );
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [offers, setOffers] = useState<Offer[]>([]);
   const [archivedData, setArchivedData] = useState<EntryData[]>([]);
@@ -138,6 +151,18 @@ export default function AffiliateInbox() {
         .eq("affiliate_email", user.email)
         .eq("status", "rejected");
 
+      const { data: approvedOrganic } = await supabase
+        .from("organic_posts")
+        .select("id, offer_id, status, created_at")
+        .eq("affiliate_email", user.email)
+        .eq("status", "approved");
+
+      const { data: rejectedOrganic } = await supabase
+        .from("organic_posts")
+        .select("id, offer_id, status, created_at")
+        .eq("affiliate_email", user.email)
+        .eq("status", "rejected");
+
       const { data: notifs } = await supabase
         .from("notifications")
         .select("*")
@@ -147,6 +172,8 @@ export default function AffiliateInbox() {
       setApprovedRequests(requests || []);
       setApprovedAds(ads || []);
       setRejectedAds(rejected || []);
+      setApprovedOrganicPosts(approvedOrganic || []);
+      setRejectedOrganicPosts(rejectedOrganic || []);
       setNotifications(notifs || []);
     };
 
@@ -179,6 +206,10 @@ export default function AffiliateInbox() {
 
   const entryData = useMemo<EntryData[]>(() => {
     const entries: EntryData[] = [];
+    const findOrganicNotificationLink = (prefix: string) =>
+      notifications.find((notif) =>
+        String(notif.title || "").toLowerCase().startsWith(prefix.toLowerCase()),
+      )?.link_url || null;
 
     approvedRequests.forEach((req) => {
       entries.push({
@@ -229,7 +260,56 @@ export default function AffiliateInbox() {
       });
     });
 
+    approvedOrganicPosts.forEach((post) => {
+      const title = `Organic post approved: ${offerName(post.offer_id)}`;
+      const notificationLink = findOrganicNotificationLink(
+        `Organic post approved: ${offerName(post.offer_id)}`,
+      );
+
+      entries.push({
+        id: `organic-approved-${post.id}`,
+        kind: "creative",
+        title,
+        subtitle: "Your post is now live",
+        body: "Open your campaign to see the live tracked page, campaign activity, and the post placement details tied to this approval.",
+        statusLabel: "Live",
+        timestamp: new Date(post.created_at).toLocaleString(),
+        link: {
+          href: notificationLink || "/affiliate/dashboard/manage-campaigns",
+          label: "Open campaign",
+        },
+      });
+    });
+
+    rejectedOrganicPosts.forEach((post) => {
+      const notificationLink = findOrganicNotificationLink(
+        `Organic post needs changes: ${offerName(post.offer_id)}`,
+      );
+
+      entries.push({
+        id: `organic-rejected-${post.id}`,
+        kind: "rejection",
+        title: `Organic post rejected: ${offerName(post.offer_id)}`,
+        subtitle: "Changes needed",
+        body: "This post was not approved yet. Update your draft and submit it again when it's ready.",
+        statusLabel: "Action needed",
+        timestamp: new Date(post.created_at).toLocaleString(),
+        link: {
+          href: notificationLink || `/affiliate/dashboard/promote/${post.offer_id}`,
+          label: "Update post",
+        },
+      });
+    });
+
     notifications.forEach((notif) => {
+      const lowerTitle = String(notif.title || "").toLowerCase();
+      if (
+        lowerTitle.startsWith("organic post approved:") ||
+        lowerTitle.startsWith("organic post needs changes:")
+      ) {
+        return;
+      }
+
       entries.push({
         id: `alert-${notif.id}`,
         kind: "alert",
@@ -247,7 +327,7 @@ export default function AffiliateInbox() {
       (a, b) =>
         new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
     );
-  }, [approvedRequests, approvedAds, rejectedAds, notifications, offers]);
+  }, [approvedRequests, approvedAds, rejectedAds, approvedOrganicPosts, rejectedOrganicPosts, notifications, offers]);
 
   const archivedIds = new Set(archivedData.map((entry) => entry.id));
   const activeData = entryData.filter((entry) => !archivedIds.has(entry.id));

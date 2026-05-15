@@ -35,6 +35,9 @@ export default function Home() {
   );
   const [showBizWhy, setShowBizWhy] = useState(false);
   const [showAffWhy, setShowAffWhy] = useState(false);
+  const [walkthroughAudience, setWalkthroughAudience] = useState<
+    "business" | "affiliate"
+  >("business");
 
   const trustBadges = [
     "DTC brands",
@@ -208,7 +211,7 @@ export default function Home() {
             <div className="mx-auto max-w-7xl h-[420px] blur-3xl opacity-40 bg-gradient-to-r from-[#00C2CB] via-[#7ff5fb] to-transparent" />
           </div>
           <div className="relative mx-auto max-w-7xl px-4 sm:px-6 pt-16 pb-16 lg:pt-20 lg:pb-24">
-            <div className="grid grid-cols-1 gap-12 lg:grid-cols-[1.15fr,0.85fr] items-center">
+            <div className="grid grid-cols-1 gap-12 lg:grid-cols-[0.98fr,1.02fr] items-center">
               <div className="space-y-6">
                 <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.3em] text-white/60">
                   <Sparkles className="h-3.5 w-3.5 text-[#00C2CB]" />
@@ -244,16 +247,21 @@ export default function Home() {
                   </Link>
                 </div>
               </div>
-              <div className="relative">
+              <div className="relative lg:scale-[1.12] lg:origin-center">
                 <div className="absolute -inset-6 rounded-3xl bg-[radial-gradient(60%_60%_at_60%_40%,#00C2CB33,transparent_60%)] blur-2xl opacity-70" />
-                <div className="relative rounded-3xl border border-white/10 bg-gradient-to-b from-white/5 to-white/[0.02] shadow-[0_25px_80px_-20px_rgba(0,0,0,0.6),0_0_60px_0_rgba(0,194,203,0.12)] overflow-hidden">
-                  <div className="flex h-[260px] sm:h-[320px] lg:h-[420px] items-center justify-center bg-black/70">
-                    <img
-                      src="/home-hero-dashboard.jpg"
-                      alt="Nettmark dashboard preview"
-                      className="max-h-full w-full object-contain"
-                      loading="lazy"
-                    />
+                <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-b from-white/5 to-white/[0.02] shadow-[0_25px_80px_-20px_rgba(0,0,0,0.6),0_0_60px_0_rgba(0,194,203,0.12)] animate-hero-float">
+                  <div
+                    className="relative w-full bg-black/70"
+                    style={{ aspectRatio: "1280 / 671" }}
+                  >
+                    <div className="absolute inset-0 flex items-center justify-center px-1 py-1 sm:px-2 sm:py-2">
+                      <img
+                        src="/home-hero-dashboard.jpg"
+                        alt="Nettmark dashboard preview"
+                        className="h-auto w-full object-contain object-center drop-shadow-[0_20px_60px_rgba(0,0,0,0.45)]"
+                        loading="lazy"
+                      />
+                    </div>
                   </div>
                   <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.08),transparent_35%)]" />
                 </div>
@@ -341,6 +349,149 @@ export default function Home() {
                   </li>
                 ))}
               </ul>
+            </div>
+          </div>
+        </section>
+
+        <section className="mx-auto max-w-7xl px-4 sm:px-6 mb-20">
+          <div className="rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.05),rgba(255,255,255,0.02))] p-5 sm:p-8 lg:p-10 shadow-[0_25px_80px_-20px_rgba(0,0,0,0.6)]">
+            <div className="mb-8 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+              <div className="max-w-3xl">
+                <p className="text-xs uppercase tracking-[0.4em] text-white/40">
+                  How it works
+                </p>
+                <h2 className="mt-3 text-3xl font-bold sm:text-4xl">
+                  See the Nettmark flow before you even sign in
+                </h2>
+                <p className="mt-4 text-sm sm:text-base text-white/70">
+                  The demo should do the heavy lifting here, so I’ve moved the
+                  copy and controls above it and given the walkthrough the full
+                  card width.
+                </p>
+              </div>
+
+              <div className="flex flex-col gap-3 lg:items-end">
+                <div className="inline-flex w-fit rounded-full border border-white/10 bg-white/[0.04] p-1 text-sm">
+                  <button
+                    type="button"
+                    onClick={() => setWalkthroughAudience("business")}
+                    className={`rounded-full px-4 py-2 font-medium transition ${
+                      walkthroughAudience === "business"
+                        ? "bg-[#00C2CB] text-[#04131d]"
+                        : "text-white/75 hover:text-white"
+                    }`}
+                  >
+                    Business
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setWalkthroughAudience("affiliate")}
+                    className={`rounded-full px-4 py-2 font-medium transition ${
+                      walkthroughAudience === "affiliate"
+                        ? "bg-white text-[#04131d]"
+                        : "text-white/55 hover:text-white/75"
+                    }`}
+                  >
+                    Partner
+                    <span className="ml-2 text-[10px] uppercase tracking-[0.18em] opacity-70">
+                      Soon
+                    </span>
+                  </button>
+                </div>
+
+                <div className="flex flex-wrap gap-3 text-sm">
+                  <a
+                    href="https://app.storylane.io/demo/k1fm9bbbumcv?embed=inline"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center rounded-full border border-white/15 px-5 py-2.5 font-semibold text-white hover:bg-white/5"
+                  >
+                    Open demo
+                  </a>
+                </div>
+              </div>
+            </div>
+
+            <div className="mx-auto w-full max-w-[1200px]">
+              <div className="rounded-[1.8rem] border border-white/10 bg-[#05070b] p-3 sm:p-4 shadow-[0_30px_90px_rgba(0,0,0,0.45)] ring-1 ring-white/10">
+                <div className="mb-3 flex items-center justify-between px-2 text-[11px] uppercase tracking-[0.28em] text-white/35">
+                  <span>Nettmark demo</span>
+                  <span>
+                    {walkthroughAudience === "business"
+                      ? "Business flow"
+                      : "Partner flow"}
+                  </span>
+                </div>
+                <div
+                  className="relative overflow-hidden rounded-[1.2rem] border border-white/10 bg-black"
+                  style={{ paddingTop: "56.25%" }}
+                >
+                  {walkthroughAudience === "business" ? (
+                    <iframe
+                      title="Nettmark business walkthrough"
+                      src="https://app.storylane.io/demo/k1fm9bbbumcv?embed=inline"
+                      className="absolute inset-0 h-full w-full"
+                      allow="fullscreen"
+                      allowFullScreen
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center bg-[radial-gradient(circle_at_top,rgba(0,194,203,0.18),transparent_55%),linear-gradient(180deg,#0a0d14_0%,#05070b_100%)] p-8 text-center">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.35em] text-[#7ff5fb]/70">
+                          Partner demo
+                        </p>
+                        <h3 className="mt-3 text-2xl font-semibold text-white">
+                          Coming soon
+                        </h3>
+                        <p className="mt-3 max-w-md text-sm text-white/65">
+                          We’ll drop the partner Storylane here once that
+                          walkthrough is ready.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 grid gap-3 text-sm text-white/75 md:grid-cols-3">
+              {walkthroughAudience === "business" ? (
+                <>
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+                    <div className="mb-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#00C2CB1a] text-xs font-semibold text-[#00C2CB]">
+                      1
+                    </div>
+                    <p>
+                      Watch the business setup journey in order, exactly how a
+                      new brand would experience it.
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+                    <div className="mb-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#00C2CB1a] text-xs font-semibold text-[#00C2CB]">
+                      2
+                    </div>
+                    <p>
+                      Show the core path clearly: create offer, install
+                      tracking, and get ready for partner traffic.
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+                    <div className="mb-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#00C2CB1a] text-xs font-semibold text-[#00C2CB]">
+                      3
+                    </div>
+                    <p>
+                      We can swap or refine the Storylane later without
+                      rebuilding the homepage section.
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <div className="md:col-span-3 rounded-2xl border border-dashed border-white/15 bg-white/[0.03] px-4 py-4 text-white/70">
+                  The partner walkthrough slot is ready — we just need the
+                  second Storylane demo when you’re ready to add it.
+                </div>
+              )}
             </div>
           </div>
         </section>

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import Stripe from "stripe";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
+import { createStripeClient } from "@/../utils/stripe";
 
 export async function POST() {
   try {
@@ -27,9 +27,7 @@ export async function POST() {
       );
     }
 
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-      apiVersion: "2024-06-20",
-    });
+    const stripe = createStripeClient();
 
     const customerId = biz.stripe_customer_id as string;
 
@@ -56,10 +54,10 @@ export async function POST() {
       { hasCard: (paymentMethods.data?.length || 0) > 0 },
       { status: 200 },
     );
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("[check-customer-card error]", err);
     return NextResponse.json(
-      { error: err?.message || "Stripe error" },
+      { error: err instanceof Error ? err.message : "Stripe error" },
       { status: 500 },
     );
   }

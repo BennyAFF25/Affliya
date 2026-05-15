@@ -9,6 +9,8 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "crypto";
 import { Resend } from "resend";
+import { assertAdIdeaLaunchApproved } from "@/../utils/approvals/enforcement";
+import { buildTrackingUrl } from "@/../utils/tracking/buildTrackingUrl";
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -80,6 +82,36 @@ export async function POST(req: Request) {
 
     const fallback_image_url = rest.thumbnail_url;
     const image_hash = null;
+
+    const affiliateEmail =
+      (body as any)?.affiliate_email ?? (adIdea as any)?.affiliate_email ?? null;
+
+    if (!adIdeaId || !offerId || !affiliateEmail) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Missing required approval context for Meta launch",
+        },
+        { status: 400 },
+      );
+    }
+
+    const launchApproval = await assertAdIdeaLaunchApproved(supabase as any, {
+      adIdeaId,
+      offerId,
+      affiliateEmail,
+    });
+
+    if (!launchApproval.ok) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: launchApproval.error,
+          message: launchApproval.message,
+        },
+        { status: launchApproval.status },
+      );
+    }
 
     // 1. Fetch the offer from Supabase (offer is source of truth for Meta IDs)
     const { data: offer, error: offerError } = await supabase
@@ -691,10 +723,7 @@ export async function POST(req: Request) {
             meta_ad_id: adRes.id,
             ad_set_id: adSetRes.id,
             creative_id: creativeRes.id,
-            affiliate_email:
-              (payload as any)?.affiliate_email ??
-              (adIdea as any)?.affiliate_email ??
-              null,
+            affiliate_email: affiliateEmail,
             business_email: businessEmail,
             status: "active",
             spend: 0,
@@ -720,9 +749,17 @@ export async function POST(req: Request) {
           } else if (insertedLiveAdRow?.id) {
             console.log("[live_ads] insert success", insertedLiveAdRow);
 
+            const canonicalTrackingLink = buildTrackingUrl({
+              campaignId: insertedLiveAdRow.id,
+              affiliateId: affiliateEmail,
+            });
+
             const { error: updateErr } = await supabase
               .from("live_ads")
-              .update({ campaign_id: insertedLiveAdRow.id })
+              .update({
+                campaign_id: insertedLiveAdRow.id,
+                tracking_link: canonicalTrackingLink,
+              })
               .eq("id", insertedLiveAdRow.id);
 
             if (updateErr) {
@@ -737,11 +774,6 @@ export async function POST(req: Request) {
             liveAdRow = insertedLiveAdRow;
 
             const offerTitle = (offer as any)?.title || "your offer";
-            const affiliateEmail =
-              (liveAdsPayload as any)?.affiliate_email ||
-              (adIdea as any)?.affiliate_email ||
-              null;
-
             if (affiliateEmail) {
               await sendEmailSafe({
                 to: affiliateEmail,

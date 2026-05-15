@@ -1,6 +1,8 @@
 // app/api/meta/ad-insights/route.ts
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { tryWriteMoneyFlowAudit } from '@/../utils/moneyFlowAudit';
+import { getWalletBalanceSnapshot } from '@/../utils/wallet/balance';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -81,6 +83,15 @@ export async function POST(req: Request) {
         const meta_ad_id = (ad as any).meta_ad_id as string | null;
         const business_email = (ad as any).business_email as string | null;
         const affiliate_email = (ad as any).affiliate_email as string | null;
+        const auditBase = {
+          eventType: 'ad_auto_pause',
+          sourceRoute: 'app/api/meta/ad-insights/route.ts',
+          entityType: 'live_ad',
+          entityId: liveAdId,
+          liveAdId,
+          businessEmail: business_email,
+          affiliateEmail: affiliate_email,
+        };
 
         const statusLocal = String((ad as any).status || '').toLowerCase();
         const spendTransferredInitial = toNum((ad as any).spend_transferred);
@@ -229,60 +240,34 @@ export async function POST(req: Request) {
 
         const unpaid = Math.max(0, toNum(spend) - spendTransferredNow);
 
-        // Calculate wallet available: sum(topups net - refunded) - sum(deductions)
+        // Calculate wallet available from the canonical LR-001 wallet snapshot
         let walletAvailable = 0;
 
         if (affiliate_email && !alreadyPausedLike && unpaid > 0) {
-          // Topups (amount_net - amount_refunded)
-          const { data: topups, error: topupErr } = await supabase
-            .from('wallet_topups')
-            .select('amount_net, amount_refunded, status')
-            .eq('affiliate_email', affiliate_email)
-            .eq('status', 'succeeded');
+          try {
+            const walletSnapshot = await getWalletBalanceSnapshot(supabase, affiliate_email);
+            walletAvailable = walletSnapshot.availableBalance;
 
-          if (topupErr) {
-            console.error('[❌ ad-insights] wallet_topups lookup failed', {
+            console.log('[👛 Auto-pause check]', {
               liveAdId,
               affiliate_email,
-              topupErr,
+              spend,
+              spendTransferredNow,
+              unpaid,
+              walletAvailable,
+              totalTopups: walletSnapshot.totalTopupsNetAvailable,
+              totalDeductions: walletSnapshot.totalDeductions,
+              totalRefundLedger: walletSnapshot.totalRefundLedger,
+              totalTopupRefunded: walletSnapshot.totalTopupRefunded,
+              localStatusNow,
             });
-          }
-
-          const totalTopups = (topups || []).reduce((sum: number, t: any) => {
-            const net = toNum(t?.amount_net);
-            const refunded = toNum(t?.amount_refunded);
-            return sum + Math.max(0, net - refunded);
-          }, 0);
-
-          const { data: deductions, error: dedErr } = await supabase
-            .from('wallet_deductions')
-            .select('amount')
-            .eq('affiliate_email', affiliate_email);
-
-          if (dedErr) {
-            console.error('[❌ ad-insights] wallet_deductions lookup failed', {
+          } catch (walletErr) {
+            console.error('[❌ ad-insights] canonical wallet snapshot failed', {
               liveAdId,
               affiliate_email,
-              dedErr,
+              walletErr,
             });
           }
-
-          const totalDeductions = (deductions || []).reduce(
-            (sum: number, d: any) => sum + toNum(d?.amount),
-            0
-          );
-
-          walletAvailable = totalTopups - totalDeductions;
-
-          console.log('[👛 Auto-pause check]', {
-            liveAdId,
-            affiliate_email,
-            spend,
-            spendTransferredNow,
-            unpaid,
-            walletAvailable,
-            localStatusNow,
-          });
 
           // Trigger: wallet cannot cover unpaid OR wallet is basically empty
           if (walletAvailable <= 0 || walletAvailable < unpaid) {
@@ -309,6 +294,21 @@ export async function POST(req: Request) {
             autoPauseMetaResult = await pauseRes.json().catch(() => ({}));
 
             if (!pauseRes.ok || (autoPauseMetaResult as any)?.error) {
+              await tryWriteMoneyFlowAudit(supabase as never, {
+                ...auditBase,
+                severity: 'warning',
+                reasonCode: 'AUTO_PAUSE_META_FAILED',
+                message: 'Meta auto-pause was attempted but the Meta API did not accept the pause request.',
+                metadata: {
+                  meta_ad_id,
+                  status: pauseRes.status,
+                  spend,
+                  spendTransferredNow,
+                  unpaid,
+                  walletAvailable,
+                  autoPauseMetaResult,
+                },
+              });
               console.error('[❌ Auto-pause Meta failed]', {
                 liveAdId,
                 meta_ad_id,
@@ -355,6 +355,24 @@ export async function POST(req: Request) {
               } else {
                 autoPauseDbUpdated = true;
               }
+
+              await tryWriteMoneyFlowAudit(supabase as never, {
+                ...auditBase,
+                severity: 'info',
+                reasonCode: autoPauseDbUpdated
+                  ? 'AUTO_PAUSE_APPLIED'
+                  : 'AUTO_PAUSE_META_ONLY',
+                message: 'Meta ad was auto-paused because wallet coverage could not cover unpaid spend.',
+                metadata: {
+                  meta_ad_id,
+                  spend,
+                  spendTransferredNow,
+                  unpaid,
+                  walletAvailable,
+                  autoPauseDbUpdated,
+                  autoPauseMetaResult,
+                },
+              });
             }
           }
         }

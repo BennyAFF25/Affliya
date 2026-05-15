@@ -125,9 +125,9 @@ export default function AffiliateRequestsPage() {
 
       const decisionEndpoint =
         newStatus === "approved"
-          ? "/api/emails/affiliate-request-approved"
+          ? "/api/emails/affiliate-request-decision"
           : newStatus === "rejected"
-            ? "/api/emails/affiliate-request-rejected"
+            ? "/api/emails/affiliate-request-decision"
             : null;
 
       if (decisionEndpoint && currentAffiliateEmail && currentBusinessEmail) {
@@ -141,6 +141,7 @@ export default function AffiliateRequestsPage() {
             offerId: currentOfferId,
             offerTitle: currentOfferTitle,
             requestId,
+            decision: newStatus,
           }),
         })
           .then(async (res) => {

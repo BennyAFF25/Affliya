@@ -779,23 +779,12 @@ function CampaignRow({
             </>
           ) : (
             <>
-              {item.mediaUrl ? (
-                <button
-                  onClick={() =>
-                    window.open(item.mediaUrl!, "_blank", "noopener,noreferrer")
-                  }
-                  className="rounded-full bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-[var(--primary-foreground)] hover:opacity-90"
-                >
-                  Open post
-                </button>
-              ) : (
-                <button
-                  disabled
-                  className="rounded-full bg-[var(--card)]/60 px-4 py-2 text-sm font-semibold text-[var(--muted-foreground)] opacity-60"
-                >
-                  No media
-                </button>
-              )}
+              <Link
+                href={`/affiliate/dashboard/manage-campaigns/${item.id}`}
+                className="rounded-full bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-[var(--primary-foreground)] hover:opacity-90"
+              >
+                Open post
+              </Link>
             </>
           )}
         </div>

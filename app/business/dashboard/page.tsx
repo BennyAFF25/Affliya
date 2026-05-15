@@ -1072,7 +1072,7 @@ export default function BusinessDashboard() {
                 }
 
                 const statusBadgeClass =
-                  p.status === "paid"
+                  p.status === "paid" || p.status === "completed"
                     ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
                     : p.status === "failed"
                       ? "border-rose-500/40 bg-rose-500/10 text-rose-300"
@@ -1174,7 +1174,7 @@ export default function BusinessDashboard() {
                   }
 
                   const statusBadgeClass =
-                    p.status === "paid"
+                    p.status === "paid" || p.status === "completed"
                       ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
                       : p.status === "failed"
                         ? "border-rose-500/40 bg-rose-500/10 text-rose-300"

@@ -1,11 +1,9 @@
 import { NextResponse } from "next/server";
-import Stripe from "stripe";
+import { buildNettmarkStripeMetadata, createStripeClient } from "@/../utils/stripe";
 
 export const runtime = "nodejs";
 
-const stripe = new Stripe((process.env.STRIPE_SECRET_KEY || "").trim(), {
-  apiVersion: "2024-06-20" as Stripe.LatestApiVersion,
-});
+const stripe = createStripeClient((process.env.STRIPE_SECRET_KEY || "").trim());
 
 /**
  * Build a clean absolute base URL for Stripe redirect URLs.
@@ -98,21 +96,26 @@ export async function POST(req: Request) {
       success_url: successUrl,
       cancel_url: cancelUrl,
       // If you rely on metadata in webhooks:
-      metadata: {
-        email,
+      metadata: buildNettmarkStripeMetadata("wallet_topup", {
+        affiliate_email: email,
         purpose: "wallet_topup",
-      },
+        currency,
+        topup_amount: amountNumber,
+      }),
     });
 
-    return NextResponse.json({ url: session.url }, { status: 200 });
-  } catch (err: any) {
+    return NextResponse.json({ url: session.url, sessionId: session.id }, { status: 200 });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Create topup session failed";
+    const stack = err instanceof Error ? err.stack : undefined;
+
     console.error("[❌ create-topup-session]", {
-      message: err?.message,
-      stack: err?.stack,
+      message,
+      stack,
     });
 
     return NextResponse.json(
-      { error: err?.message || "Create topup session failed" },
+      { error: message },
       { status: 500 }
     );
   }
