@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import AffiliateSidebar from "./AffiliateSidebar";
 import Topbar from "@/components/Topbar";
 import {
@@ -94,7 +94,7 @@ function AffiliateLayoutShell({ children }: { children: React.ReactNode }) {
         }}
       >
         <div className="flex items-center justify-between px-2">
-          <Topbar {...({ unreadCount } as any)} />
+          <Topbar />
           {/* Mobile hamburger */}
           <button
             className="md:hidden flex flex-col items-center justify-center w-9 h-9 rounded-md border border-[color:var(--border)] bg-[var(--secondary)]/70"
@@ -132,7 +132,7 @@ function AffiliateLayoutShell({ children }: { children: React.ReactNode }) {
               borderColor: "var(--sidebar-border)",
             }}
           >
-            <AffiliateSidebar {...({ unreadCount } as any)} />
+            <AffiliateSidebar />
           </div>
         </div>
 
