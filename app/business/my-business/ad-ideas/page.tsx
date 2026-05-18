@@ -293,6 +293,8 @@ export default function AdIdeasPage() {
         offerId: adIdea.offer_id,
         adIdeaId,
         videoUrl: adIdea.file_url,
+        file_url: adIdea.file_url,
+        media_type: adIdea.media_type,
         caption: adIdea.caption,
         audience: adIdea.audience,
         location: adIdea.location,
