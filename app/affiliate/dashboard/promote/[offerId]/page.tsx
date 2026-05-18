@@ -360,7 +360,7 @@ export default function PromoteOfferPage() {
     if (placements.facebook_reels) {
       if (!publisher_platforms.includes("facebook"))
         publisher_platforms.push("facebook");
-      facebook_positions.push("facebook_reels");
+      facebook_positions.push("reels");
     }
 
     if (placements.instagram_feed) {
@@ -545,8 +545,38 @@ export default function PromoteOfferPage() {
       console.warn("[Reach Estimate Error]", e);
       setReachDaily(null);
       setReachMonthly(null);
+      const rawMessage = String(e?.message || "");
+      const msg = rawMessage.toLowerCase();
+
+      if (
+        msg.includes("access token") ||
+        msg.includes("ad_account_id") ||
+        msg.includes("could not resolve offer/business") ||
+        msg.includes("could not resolve meta connection") ||
+        msg.includes("missing token")
+      ) {
+        setReachStatus("unavailable");
+        setReachMessage(
+          "Estimated reach is unavailable until this offer has a valid Meta connection.",
+        );
+        return;
+      }
+
+      if (
+        msg.includes("targeting") ||
+        msg.includes("placement") ||
+        msg.includes("publisher_platforms") ||
+        msg.includes("facebook_positions") ||
+        msg.includes("instagram_positions")
+      ) {
+        setReachStatus("unavailable");
+        setReachMessage(
+          "Estimated reach is unavailable for the current placement mix. Try adjusting placements.",
+        );
+        return;
+      }
+
       setReachStatus("error");
-      const msg = e?.message?.toLowerCase?.() || "";
       if (msg.includes("access token")) {
         setReachMessage(
           "Meta token expired or invalid. Reconnect Meta to restore estimates.",
