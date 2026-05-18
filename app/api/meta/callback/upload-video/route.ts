@@ -301,6 +301,15 @@ export async function POST(req: Request) {
       adIdea?.thumbnail_url,
       null,
     );
+    const mediaType = String(
+      prefer(
+        (body as any).media_type,
+        (adIdea as any)?.media_type,
+        (adIdea as any)?.type,
+        "VIDEO",
+      ) || "VIDEO",
+    ).toUpperCase();
+    const isImageCreative = mediaType === "IMAGE";
 
     console.log("[Dynamic fields]", {
       campaignName,
@@ -316,6 +325,7 @@ export async function POST(req: Request) {
       displayLink,
       destinationLink,
       videoUrl,
+      mediaType,
     });
 
     console.log("[meta-upload] final payload", payload);
@@ -617,37 +627,89 @@ export async function POST(req: Request) {
     } else {
       console.log("[✅ Ad Set Created]", adSetRes);
 
-      // --- Upload Video to Meta ---
-      const videoUploadRes = await fetch(
-        `https://graph.facebook.com/v19.0/${cleanAdAccountId}/advideos`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${access_token}`,
-          },
-          body: new URLSearchParams({
-            file_url: videoUrl,
-            name: adName || "Affliya Video",
-            description: caption || "",
-          }),
-        },
-      ).then((res) => safeParse(res));
-      console.log("[HTTP] video", videoUploadRes?.id ? 200 : 400);
+      let creativeBody: any;
 
-      if (!videoUploadRes?.id) {
-        console.error("[❌ Video Upload to Meta Failed]", videoUploadRes);
-        return NextResponse.json(
+      if (isImageCreative) {
+        creativeBody = {
+          name: adName || `Creative – ${campaignData.id}`,
+          object_story_spec: {
+            page_id: selectedPageId,
+            link_data: {
+              link: destinationLink,
+              message: caption || "",
+              name: headline || undefined,
+              description: description || undefined,
+              call_to_action: {
+                type: ctaType || "LEARN_MORE",
+                value: {
+                  link: destinationLink,
+                },
+              },
+              ...(videoUrl
+                ? { picture: videoUrl }
+                : fallback_image_url || thumbnailUrl
+                  ? { picture: fallback_image_url || thumbnailUrl }
+                  : {}),
+            },
+          },
+        };
+      } else {
+        // --- Upload Video to Meta ---
+        const videoUploadRes = await fetch(
+          `https://graph.facebook.com/v19.0/${cleanAdAccountId}/advideos`,
           {
-            success: false,
-            error: "Video upload failed",
-            meta: videoUploadRes,
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${access_token}`,
+            },
+            body: new URLSearchParams({
+              file_url: videoUrl,
+              name: adName || "Affliya Video",
+              description: caption || "",
+            }),
           },
-          { status: 400 },
-        );
-      }
+        ).then((res) => safeParse(res));
+        console.log("[HTTP] video", videoUploadRes?.id ? 200 : 400);
 
-      const video_id = videoUploadRes.id;
-      console.log("[✅ Video Uploaded to Meta]", video_id);
+        if (!videoUploadRes?.id) {
+          console.error("[❌ Video Upload to Meta Failed]", videoUploadRes);
+          return NextResponse.json(
+            {
+              success: false,
+              error: "Video upload failed",
+              meta: videoUploadRes,
+            },
+            { status: 400 },
+          );
+        }
+
+        const video_id = videoUploadRes.id;
+        console.log("[✅ Video Uploaded to Meta]", video_id);
+
+        creativeBody = {
+          name: adName || `Creative – ${campaignData.id}`,
+          object_story_spec: {
+            page_id: selectedPageId,
+            video_data: {
+              video_id,
+              title: headline || undefined,
+              message: caption || "",
+              link_description: description || undefined,
+              call_to_action: {
+                type: ctaType || "LEARN_MORE",
+                value: {
+                  link: destinationLink,
+                },
+              },
+              ...(image_hash
+                ? { image_hash }
+                : fallback_image_url || thumbnailUrl
+                  ? { image_url: fallback_image_url || thumbnailUrl }
+                  : {}),
+            },
+          },
+        };
+      }
 
       // --- Create Ad Creative ---
       const creativeRes = await fetch(
@@ -658,29 +720,7 @@ export async function POST(req: Request) {
             Authorization: `Bearer ${access_token}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            name: adName || `Creative – ${campaignData.id}`,
-            object_story_spec: {
-              page_id: selectedPageId,
-              video_data: {
-                video_id,
-                title: headline || undefined,
-                message: caption || "",
-                link_description: description || undefined,
-                call_to_action: {
-                  type: ctaType || "LEARN_MORE",
-                  value: {
-                    link: destinationLink,
-                  },
-                },
-                ...(image_hash
-                  ? { image_hash }
-                  : fallback_image_url || thumbnailUrl
-                    ? { image_url: fallback_image_url || thumbnailUrl }
-                    : {}),
-              },
-            },
-          }),
+          body: JSON.stringify(creativeBody),
         },
       ).then((res) => safeParse(res));
       console.log("[HTTP] creative", creativeRes?.id ? 200 : 400);

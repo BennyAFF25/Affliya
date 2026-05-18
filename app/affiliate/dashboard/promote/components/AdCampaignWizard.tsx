@@ -35,6 +35,7 @@ interface AdCampaignWizardProps {
   interestsIgnored: boolean;
   videoFile: File | null;
   setVideoFile: (file: File | null) => void;
+  creativeKind: "video" | "image" | null;
   thumbnailFile: File | null;
   setThumbnailFile: (file: File | null) => void;
   thumbnailError: string | null;
@@ -65,6 +66,7 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
     interestsIgnored,
     videoFile,
     setVideoFile,
+    creativeKind,
     thumbnailFile,
     setThumbnailFile,
     thumbnailError,
@@ -102,7 +104,8 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
     }
 
     if (step === 3) {
-      return !!videoFile && !!thumbnailFile;
+      if (!videoFile) return false;
+      return creativeKind === "video" ? !!thumbnailFile : true;
     }
 
     return true;
@@ -722,11 +725,11 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
             <div className="grid sm:grid-cols-2 gap-4">
               <label className="block">
                 <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">
-                  Upload Video
+                  Upload Creative
                 </span>
                 <input
                   type="file"
-                  accept="video/*"
+                  accept="video/*,image/png,image/jpeg,image/webp"
                   className={`${INPUT} w-full text-base`}
                   onChange={(e) => {
                     const file = e.target.files?.[0] || null;
@@ -734,53 +737,74 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
                     if (file) {
                       const url = URL.createObjectURL(file);
                       setVideoPreviewUrl(url);
-                      setThumbPreviewUrl(null);
+                      if (file.type.startsWith("image/")) {
+                        setThumbnailFile(null);
+                        setThumbPreviewUrl(url);
+                        setThumbnailError(null);
+                      } else {
+                        setThumbPreviewUrl(null);
+                      }
                     } else {
                       setVideoPreviewUrl(null);
+                      setThumbPreviewUrl(null);
                     }
                   }}
                 />
+                <p className="mt-2 text-xs text-gray-400">
+                  Upload an MP4/WebM/MOV video, or a PNG/JPG/WebP image.
+                </p>
               </label>
 
-              <label className="block">
-                <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">
-                  Optional Thumbnail
-                </span>
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp"
-                  className={`${INPUT} w-full text-base`}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0] || null;
-                    if (!file) {
-                      setThumbnailFile(null);
-                      setThumbPreviewUrl(null);
+              {creativeKind === "video" ? (
+                <label className="block">
+                  <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">
+                    Video Thumbnail
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    className={`${INPUT} w-full text-base`}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] || null;
+                      if (!file) {
+                        setThumbnailFile(null);
+                        setThumbPreviewUrl(null);
+                        setThumbnailError(null);
+                        return;
+                      }
+                      const err = validateThumbnailFile(file);
+                      if (err) {
+                        e.currentTarget.value = "";
+                        setThumbnailFile(null);
+                        setThumbPreviewUrl(null);
+                        setThumbnailError(err);
+                        nmToast.error(err);
+                        return;
+                      }
                       setThumbnailError(null);
-                      return;
-                    }
-                    const err = validateThumbnailFile(file);
-                    if (err) {
-                      e.currentTarget.value = "";
-                      setThumbnailFile(null);
-                      setThumbPreviewUrl(null);
-                      setThumbnailError(err);
-                      nmToast.error(err);
-                      return;
-                    }
-                    setThumbnailError(null);
-                    setThumbnailFile(file);
-                    const url = URL.createObjectURL(file);
-                    setThumbPreviewUrl(url);
-                  }}
-                />
-              </label>
+                      setThumbnailFile(file);
+                      const url = URL.createObjectURL(file);
+                      setThumbPreviewUrl(url);
+                    }}
+                  />
+                  <p className="mt-2 text-xs text-gray-400">
+                    Required for video ads. Image ads use the uploaded creative directly.
+                  </p>
+                </label>
+              ) : (
+                <div className="rounded-xl border border-[#2a2a2a] bg-[#101010] px-4 py-3 text-sm text-gray-300">
+                  {creativeKind === "image"
+                    ? "Image selected — no extra thumbnail needed."
+                    : "Choose a video or image to continue."}
+                </div>
+              )}
             </div>
 
-            {thumbnailError || !thumbnailFile ? (
+            {creativeKind === "video" && (thumbnailError || !thumbnailFile) ? (
               <div className="mt-3 px-3 py-2 border border-[#00C2CB]/50 text-[#00C2CB] text-sm rounded-md bg-[#001F20]/30">
                 {thumbnailError
                   ? thumbnailError
-                  : "Please upload a PNG/JPG/WebP thumbnail before submitting."}
+                  : "Please upload a PNG/JPG/WebP thumbnail before submitting your video ad."}
               </div>
             ) : null}
 

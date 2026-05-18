@@ -16,6 +16,7 @@ interface PreviewSidebarProps {
   brandLogoUrl: string | null;
   videoPreviewUrl: string | null;
   thumbPreviewUrl: string | null;
+  creativeKind: "video" | "image" | null;
   form: AdFormState;
   ogMethod: "social" | "email" | "forum" | "other";
   ogFile: File | null;
@@ -46,6 +47,7 @@ export function PreviewSidebar(props: PreviewSidebarProps) {
     brandLogoUrl,
     videoPreviewUrl,
     thumbPreviewUrl,
+    creativeKind,
     form,
     ogMethod,
     ogFile,
@@ -123,8 +125,10 @@ export function PreviewSidebar(props: PreviewSidebarProps) {
           </div>
 
           <div className="aspect-[4/5] w-full rounded-lg bg-[#0f0f0f] border border-[#232323] overflow-hidden">
-            {videoPreviewUrl ? (
+            {creativeKind === "video" && videoPreviewUrl ? (
               <video src={videoPreviewUrl} className="h-full w-full object-cover" controls playsInline muted />
+            ) : creativeKind === "image" && (videoPreviewUrl || thumbPreviewUrl) ? (
+              <img src={videoPreviewUrl || thumbPreviewUrl || ""} alt="Ad image preview" className="h-full w-full object-cover" />
             ) : thumbPreviewUrl ? (
               <img src={thumbPreviewUrl} alt="Thumbnail preview" className="h-full w-full object-cover" />
             ) : (
