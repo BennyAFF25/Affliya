@@ -96,16 +96,43 @@ export async function POST(req: NextRequest) {
       Object.assign(targeting, placementSpec);
     }
 
-    // Note: `currency` is not a valid param for delivery_estimate; omit to avoid (#100)
-    const params = new URLSearchParams({
-      access_token: token,
-      optimization_goal,
-      targeting_spec: JSON.stringify(targeting),
-    });
+    async function requestEstimate(targetingSpec: Record<string, any>) {
+      const params = new URLSearchParams({
+        access_token: token,
+        optimization_goal,
+        targeting_spec: JSON.stringify(targetingSpec),
+      });
 
-    const url = `https://graph.facebook.com/v19.0/act_${numeric}/delivery_estimate?${params.toString()}`;
-    const r = await fetch(url, { method: 'GET' }); // <-- GET, not POST
-    const json = await r.json();
+      const url = `https://graph.facebook.com/v19.0/act_${numeric}/delivery_estimate?${params.toString()}`;
+      const response = await fetch(url, { method: 'GET' });
+      const json = await response.json();
+      return { response, json };
+    }
+
+    let { response: r, json } = await requestEstimate(targeting);
+
+    if (!r.ok) {
+      const apiMessage = String(json?.error?.message || json?.error || '').toLowerCase();
+      const looksLikePlacementIssue =
+        apiMessage.includes('publisher_platforms') ||
+        apiMessage.includes('facebook_positions') ||
+        apiMessage.includes('instagram_positions') ||
+        apiMessage.includes('placement') ||
+        apiMessage.includes('targeting spec');
+
+      if (looksLikePlacementIssue && placementSpec) {
+        console.warn('[estimate-reach] retrying without placement spec', json);
+        const targetingWithoutPlacements = { ...targeting };
+        delete targetingWithoutPlacements.publisher_platforms;
+        delete targetingWithoutPlacements.facebook_positions;
+        delete targetingWithoutPlacements.instagram_positions;
+        delete targetingWithoutPlacements.device_platforms;
+
+        const retried = await requestEstimate(targetingWithoutPlacements);
+        r = retried.response;
+        json = retried.json;
+      }
+    }
 
     if (!r.ok) {
       console.error('[Meta API Error]', json);
