@@ -1,14 +1,11 @@
 // app/pricing/page.tsx
 "use client";
 
-import { useState } from "react";
+import React from "react";
 import Link from "next/link";
-import Image from "next/image";
 import MarketingHeader from "@/components/marketing/MarketingHeader";
 
 import { useRouter } from "next/navigation";
-import { useSessionContext } from "@supabase/auth-helpers-react";
-import { supabase } from "@/../utils/supabase/pages-client";
 
 type Plan = "business" | "affiliate";
 
@@ -21,9 +18,6 @@ type Meta = {
 };
 
 export default function PricingPage() {
-  const { session } = useSessionContext();
-  const user = session?.user ?? null;
-
   const router = useRouter();
 
   const handleLogin = (type: "business" | "affiliate") => {
@@ -34,7 +28,9 @@ export default function PricingPage() {
     try {
       localStorage.setItem("intent.role", type);
       localStorage.setItem("intent.flow", "signup");
-    } catch {}
+    } catch (error) {
+      console.warn("[pricing] failed to persist signup intent", error);
+    }
     router.push(`/create-account?role=${type}`);
   };
 

@@ -1,10 +1,9 @@
 // app/for-partners/page.tsx
 // app/for-partners/page.tsx
 "use client";
+import React from "react";
 import Link from "next/link";
-import Image from "next/image";
 import Script from "next/script";
-import { useState } from "react";
 import MarketingHeader from "@/components/marketing/MarketingHeader";
 
 export default function ForPartnersPage() {

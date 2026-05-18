@@ -1,20 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React from "react";
 import Link from "next/link";
-import Image from "next/image";
-import { useRouter } from "next/navigation";
-import { useSessionContext } from "@supabase/auth-helpers-react";
-import { supabase } from "@/../utils/supabase/pages-client";
-import {
-  ShieldCheck,
-  Link2,
-  Wallet,
-  Sparkles,
-  Megaphone,
-  Rocket,
-  CheckCircle2,
-} from "lucide-react";
+import { ShieldCheck, Link2, Wallet } from "lucide-react";
 import MarketingHeader from "@/components/marketing/MarketingHeader";
 
 /**
@@ -27,22 +15,6 @@ import MarketingHeader from "@/components/marketing/MarketingHeader";
  * - CTA footer
  */
 export default function ForBusinessesPage() {
-  const { session, isLoading } = useSessionContext();
-  const user = session?.user ?? null;
-  const router = useRouter();
-
-  useEffect(() => {
-    if (isLoading) return;
-  }, [isLoading]);
-
-  const handleLogin = (type: "business" | "affiliate") => {
-    router.push(`/login?role=${type}`);
-  };
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-  };
-
   return (
     <div className="marketing-businesses-theme min-h-screen flex flex-col overflow-x-hidden bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#0b1a1b] via-[#0b0b0b] to-black text-white">
       <MarketingHeader />
@@ -203,15 +175,6 @@ export default function ForBusinessesPage() {
 }
 
 /* ---------- subcomponents ---------- */
-
-function QuickFact({ title, desc }: { title: string; desc: string }) {
-  return (
-    <div className="rounded-xl border border-[#1a3b3d] bg-[#101a1b] px-4 py-3">
-      <div className="text-[#7ff5fb] font-semibold">{title}</div>
-      <div className="text-gray-300 text-sm mt-1">{desc}</div>
-    </div>
-  );
-}
 
 function FAQ({ q, a }: { q: string; a: string }) {
   return (
