@@ -1,29 +1,22 @@
 // app/pricing/page.tsx
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import MarketingHeader from "@/components/marketing/MarketingHeader";
 
 import { useRouter } from "next/navigation";
-import { useSessionContext } from "@supabase/auth-helpers-react";
-import { supabase } from "@/../utils/supabase/pages-client";
 
 type Plan = "business" | "affiliate";
 
 type Meta = {
   title: string;
   priceNow: string;
-  priceLater: string;
+  priceDetail: string;
   blurb: string;
   cta: string;
 };
 
 export default function PricingPage() {
-  const { session } = useSessionContext();
-  const user = session?.user ?? null;
-
   const router = useRouter();
 
   const handleLogin = (type: "business" | "affiliate") => {
@@ -34,21 +27,20 @@ export default function PricingPage() {
     try {
       localStorage.setItem("intent.role", type);
       localStorage.setItem("intent.flow", "signup");
-    } catch {}
+    } catch {
+      // ignore localStorage write failures
+    }
     router.push(`/create-account?role=${type}`);
-  };
-
-  const displayPrice = (plan: Plan) => {
-    const base = plan === "business" ? 150 : 50;
-    return `$${base}/mo`;
   };
 
   const getMeta = (plan: Plan): Meta => {
     const isBusiness = plan === "business";
     return {
       title: isBusiness ? "For Businesses" : "For Partners",
-      priceNow: "$0/mo (Early Access)",
-      priceLater: `Then ${displayPrice(plan)}`,
+      priceNow: "$0 platform access",
+      priceDetail: isBusiness
+        ? "2.2% fee on wallet top-ups and payout charges"
+        : "2.2% fee when funds are added to your wallet",
       blurb: isBusiness
         ? "Publish offers, approve affiliates, and manage payouts."
         : "Access offers, run ads, and track commissions.",
@@ -59,11 +51,11 @@ export default function PricingPage() {
   const faqs = [
     {
       q: "Is it really free right now?",
-      a: "Yes. The first 150 users get Nettmark free for life. This Early Access window is mainly for feedback while we polish onboarding, support, and overall UX.",
+      a: "Yes. The first 150 users get free platform access for life while we keep polishing onboarding, support, and the overall UX.",
     },
     {
-      q: "What will pricing be after Early Access?",
-      a: "Once Early Access is full, pricing returns to $150/month for Businesses and $50/month for Partners.",
+      q: "How does Nettmark pricing work?",
+      a: "Nettmark uses a fee-based model instead of subscriptions. Platform access is free, and a 2.2% Nettmark fee is applied when money moves through wallet top-ups and business payout charges.",
     },
     {
       q: "Does Business pay for ads?",
@@ -71,7 +63,7 @@ export default function PricingPage() {
     },
     {
       q: "How do payouts work?",
-      a: "Confirmed partner-driven sales trigger automatic, compliant Stripe payouts according to your offer.",
+      a: "Confirmed partner-driven sales trigger automated Stripe payouts according to your offer. Nettmark shows the principal, Nettmark fee, and Stripe fee separately when money moves.",
     },
   ] as const;
 
@@ -93,15 +85,9 @@ export default function PricingPage() {
           <p className="text-gray-400 max-w-md">{meta.blurb}</p>
 
           <div className="mt-1 text-2xl font-semibold tracking-tight text-gray-200">
-            Platform access ·{" "}
             <span className="text-[#00C2CB]">{meta.priceNow}</span>
           </div>
-          <div className="text-xs text-gray-400 -mt-2">
-            <span className="line-through opacity-70">
-              {displayPrice(plan)}
-            </span>{" "}
-            <span className="opacity-70">({meta.priceLater})</span>
-          </div>
+          <div className="text-xs text-gray-400 -mt-2">{meta.priceDetail}</div>
 
           <button
             onClick={() => handleCreateAccount(role)}
@@ -115,7 +101,7 @@ export default function PricingPage() {
               First 150 free for life
             </div>
             <div className="rounded-md border border-white/10 bg-white/[0.03] px-3 py-2">
-              Early user feedback
+              Fee-based pricing
             </div>
             <div className="rounded-md border border-white/10 bg-white/[0.03] px-3 py-2">
               No card required
@@ -130,14 +116,16 @@ export default function PricingPage() {
               {(plan === "business"
                 ? [
                     "Always-on exposure inside the Nettmark offer marketplace.",
-                    "Low-risk, pay-on-results acquisition instead of fixed retainers.",
+                    "Low-risk, pay-on-results acquisition instead of subscription overhead.",
                     "Infrastructure for approvals, tracking, and automated Stripe payouts.",
+                    "Clear fee breakdowns when you top up wallets or settle partner payouts.",
                     "Shared ad infrastructure so partners can run Meta ads from your account without sharing logins.",
                   ]
                 : [
                     "Access to vetted offers you can promote as a partner.",
                     "Use Nettmark’s tracking, wallets, and payout rails instead of building your own.",
                     "Centralised dashboard for campaigns, conversions, and wallet balance.",
+                    "Only pay transaction fees when you add funds to your wallet.",
                     "Support for both paid traffic and organic / UGC promotion flows.",
                   ]
               ).map((item) => (
@@ -176,11 +164,11 @@ export default function PricingPage() {
             The first{" "}
             <span className="text-white/90 font-semibold">150 users</span> get{" "}
             <span className="text-[#00C2CB] font-semibold">
-              free access for life
+              free platform access for life
             </span>
-            . This Early Access window is mainly for early user feedback while
-            we tighten onboarding and polish the platform. Choose how you want
-            to join — as a business or a partner.
+            . Nettmark now uses a fee-based model instead of subscriptions, so
+            you only pay when money moves through the platform. Join as a
+            business or a partner.
           </p>
 
           <div className="mt-5 mx-auto max-w-3xl rounded-2xl border border-[#00C2CB]/25 bg-gradient-to-b from-[#001f20] via-[#0b0b0b] to-black p-5 text-left shadow-[0_0_25px_rgba(0,194,203,0.12)]">
@@ -188,19 +176,13 @@ export default function PricingPage() {
               <span className="mt-1 inline-block h-2 w-2 rounded-full bg-[#00C2CB]" />
               <div className="text-sm text-gray-200">
                 <div className="font-semibold text-[#00C2CB]">
-                  Free for life (first 150 users)
+                  Free platform access (first 150 users)
                 </div>
                 <div className="text-gray-400">
-                  No card required. After Early Access fills up, pricing returns
-                  to{" "}
-                  <span className="text-white/80 font-medium">
-                    $150/mo for Businesses
-                  </span>{" "}
-                  and{" "}
-                  <span className="text-white/80 font-medium">
-                    $50/mo for Partners
-                  </span>
-                  .
+                  No card required to create an account. Nettmark charges a
+                  <span className="text-white/80 font-medium"> 2.2% platform fee</span>{" "}
+                  on wallet top-ups and business payout charges, with Stripe
+                  fees shown separately where applicable.
                 </div>
               </div>
             </div>

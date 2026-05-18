@@ -4,6 +4,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
+import { recordPlatformFeeLedger } from "@/../utils/feeAccounting";
 import { createStripeClient } from "@/../utils/stripe";
 import { syncAffiliateWalletCache } from "@/../utils/wallet/syncAffiliateWalletCache";
 
@@ -57,7 +58,8 @@ if (!stripeSecretKey || !endpointSecret) {
     checkoutSessionId: string;
     grossAmount: number;
     fees: number;
-    netAmount: number;
+    creditedAmount: number;
+    nettmarkFeeAmount: number;
     platformAcctId: string;
   }) {
     const {
@@ -65,7 +67,8 @@ if (!stripeSecretKey || !endpointSecret) {
       checkoutSessionId,
       grossAmount,
       fees,
-      netAmount,
+      creditedAmount,
+      nettmarkFeeAmount,
       platformAcctId,
     } = params;
 
@@ -76,11 +79,31 @@ if (!stripeSecretKey || !endpointSecret) {
       p_checkout_session_id: checkoutSessionId,
       p_amount_gross: grossAmount,
       p_stripe_fees: fees,
-      p_amount_net: netAmount,
+      p_amount_net: creditedAmount,
       p_platform_acct_id: platformAcctId,
+      p_nettmark_fee_amount: nettmarkFeeAmount,
+      p_credited_amount: creditedAmount,
     });
 
     if (!rpc.error) {
+      if (rpc.data?.credited ?? true) {
+        await recordPlatformFeeLedger(supabase as never, {
+          sourceType: "wallet_topup",
+          sourceId: checkoutSessionId,
+          feeCategory: "nettmark_transaction_fee",
+          amount: nettmarkFeeAmount,
+          currency: "aud",
+          principalAmount: creditedAmount,
+          grossAmount,
+          stripeFeeAmount: fees,
+          stripeObjectId: checkoutSessionId,
+          metadata: {
+            affiliate_email: email,
+            platform_acct_id: platformAcctId,
+          },
+        });
+      }
+
       try {
         await syncAffiliateWalletCache(supabase as never, email);
       } catch (syncError: unknown) {
@@ -116,7 +139,9 @@ if (!stripeSecretKey || !endpointSecret) {
       affiliate_email: email,
       amount_gross: grossAmount,
       stripe_fees: fees,
-      amount_net: netAmount,
+      amount_net: creditedAmount,
+      credited_amount: creditedAmount,
+      nettmark_fee_amount: nettmarkFeeAmount,
       stripe_id: checkoutSessionId,
       status: "succeeded",
       platform_acct_id: platformAcctId,
@@ -130,12 +155,12 @@ if (!stripeSecretKey || !endpointSecret) {
       {
         email,
         role: "affiliate",
-        balance: Number(netAmount || 0),
+        balance: Number(creditedAmount || 0),
         last_transaction_id: checkoutSessionId,
         last_transaction_status: "succeeded",
         last_topup_amount: grossAmount,
-        last_fee_amount: fees,
-        last_net_amount: netAmount,
+        last_fee_amount: nettmarkFeeAmount,
+        last_net_amount: creditedAmount,
       },
       { onConflict: "email" },
     );
@@ -143,6 +168,22 @@ if (!stripeSecretKey || !endpointSecret) {
     if (upsertError) {
       throw new Error(`wallet upsert failed: ${upsertError.message}`);
     }
+
+    await recordPlatformFeeLedger(supabase as never, {
+      sourceType: "wallet_topup",
+      sourceId: checkoutSessionId,
+      feeCategory: "nettmark_transaction_fee",
+      amount: nettmarkFeeAmount,
+      currency: "aud",
+      principalAmount: creditedAmount,
+      grossAmount,
+      stripeFeeAmount: fees,
+      stripeObjectId: checkoutSessionId,
+      metadata: {
+        affiliate_email: email,
+        platform_acct_id: platformAcctId,
+      },
+    });
 
     try {
       const snapshot = await syncAffiliateWalletCache(supabase as never, email);
@@ -158,7 +199,8 @@ if (!stripeSecretKey || !endpointSecret) {
     console.log("[✅ Wallet credited via fallback path]", {
       email,
       checkoutSessionId,
-      netAmount,
+      creditedAmount,
+      nettmarkFeeAmount,
     });
 
     return { credited: true, mode: "fallback" };
@@ -333,7 +375,9 @@ if (!stripeSecretKey || !endpointSecret) {
 
           const grossAmount = +(balanceTx.amount / 100).toFixed(2);
           const fees = +(balanceTx.fee / 100).toFixed(2);
-          const netAmount = +(balanceTx.net / 100).toFixed(2);
+          const stripeNetAmount = +(balanceTx.net / 100).toFixed(2);
+          const creditedAmount = Number(session.metadata?.topup_amount || 0) || grossAmount;
+          const nettmarkFeeAmount = Number(session.metadata?.nettmark_fee_amount || 0);
 
           console.log("[✅ Stripe Top-up Details (session source of truth)]", {
             email,
@@ -341,7 +385,9 @@ if (!stripeSecretKey || !endpointSecret) {
             paymentIntentId,
             grossAmount,
             fees,
-            netAmount,
+            stripeNetAmount,
+            creditedAmount,
+            nettmarkFeeAmount,
             platformAcctId,
           });
 
@@ -350,7 +396,8 @@ if (!stripeSecretKey || !endpointSecret) {
             checkoutSessionId: session.id,
             grossAmount,
             fees,
-            netAmount,
+            creditedAmount,
+            nettmarkFeeAmount,
             platformAcctId,
           });
 

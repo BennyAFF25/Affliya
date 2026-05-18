@@ -11,9 +11,17 @@ const stripe = createStripeClient();
 type WalletTopupRow = {
   id: string;
   amount_net: number | string | null;
+  credited_amount?: number | string | null;
   amount_refunded: number | string | null;
   stripe_id: string;
 };
+
+function getCreditedTopupAmount(topup: WalletTopupRow) {
+  const credited = Number(topup.credited_amount || 0);
+  if (Number.isFinite(credited) && credited > 0) return credited;
+  const legacy = Number(topup.amount_net || 0);
+  return Number.isFinite(legacy) ? legacy : 0;
+}
 
 function isRpcMissing(error: unknown) {
   if (!error || typeof error !== 'object') return false;
@@ -163,7 +171,7 @@ async function recordWalletRefund(params: {
       amount_refunded: refundedAfter,
       refunded_at: new Date().toISOString(),
       status:
-        refundedAfter >= Number(params.topup.amount_net || 0)
+        refundedAfter >= getCreditedTopupAmount(params.topup)
           ? 'refunded'
           : 'succeeded',
     })
@@ -241,7 +249,7 @@ export async function POST(req: Request) {
 
   let topupQuery = supabase
     .from('wallet_topups')
-    .select('id, amount_net, amount_refunded, stripe_id')
+    .select('id, amount_net, credited_amount, amount_refunded, stripe_id')
     .eq('affiliate_email', email)
     .order('created_at', { ascending: false });
 
@@ -256,7 +264,7 @@ export async function POST(req: Request) {
   }
 
   const topup = (topups as WalletTopupRow[]).find(
-    (t) => Number(t.amount_refunded || 0) < Number(t.amount_net || 0),
+    (t) => Number(t.amount_refunded || 0) < getCreditedTopupAmount(t),
   );
 
   if (!topup) {
@@ -286,7 +294,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const remaining = Number(topup.amount_net || 0) - Number(topup.amount_refunded || 0);
+  const remaining = getCreditedTopupAmount(topup) - Number(topup.amount_refunded || 0);
 
   let walletSnapshot;
   try {

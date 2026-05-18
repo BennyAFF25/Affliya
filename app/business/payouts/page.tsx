@@ -11,6 +11,9 @@ type WPayout = {
   affiliate_email: string;
   offer_id: string | null;
   amount: number;
+  gross_charge_amount?: number | null;
+  nettmark_fee_amount?: number | null;
+  stripe_fee_amount?: number | null;
   stripe_transfer_id: string | null;
   status: "pending" | "paid" | "completed" | "failed" | string;
   created_at: string;
@@ -25,6 +28,12 @@ function isSettledStatus(status: string) {
 
 function normalizePayoutStatus(status: string) {
   return isSettledStatus(status) ? "completed" : status;
+}
+
+function toMoney(value: number | string | null | undefined) {
+  const n = Number(value ?? 0);
+  if (!Number.isFinite(n)) return 0;
+  return Math.round(n * 100) / 100;
 }
 
 type OfferRow = { id: string; title: string | null };
@@ -247,6 +256,9 @@ export default function BusinessPayoutsPage() {
                 Review pending affiliate payouts, settle with Stripe, and view
                 your payment history.
               </p>
+              <p className="mt-2 text-xs text-[var(--muted-foreground)]">
+                Businesses are charged payout principal plus the Nettmark payout fee. The affiliate still receives principal only.
+              </p>
             </div>
             <div className="flex items-center gap-3">
               <div className="rounded-md bg-[var(--secondary)] px-4 py-2 text-sm text-[var(--muted-foreground)] shadow-inner">
@@ -273,6 +285,11 @@ export default function BusinessPayoutsPage() {
           </div>
 
           {/* Toolbar */}
+          <div className="relative z-10 mt-4 rounded-xl border border-[var(--border)] bg-[var(--secondary)]/60 px-4 py-3 text-xs text-[var(--muted-foreground)]">
+            <span className="font-semibold text-[var(--foreground)]">Fee disclosure:</span>{" "}
+            payout principal = affiliate amount, Nettmark fee = platform fee charged on top, and Stripe fee is shown separately when available.
+          </div>
+
           <div className="relative z-10 mt-6 flex flex-wrap items-center gap-3">
             <div className="inline-flex rounded-lg bg-[var(--secondary)] p-1 ring-1 ring-[var(--border)]">
               <TabButton
@@ -394,7 +411,7 @@ function SkeletonTable() {
         <div></div>
         <div>Affiliate</div>
         <div>Offer</div>
-        <div>Amount</div>
+        <div>Payout / charge</div>
         <div>Status</div>
         <div>Created</div>
         <div>Stripe</div>
@@ -446,7 +463,7 @@ function Table({
         </th>
         <th className="px-4 py-3">Affiliate</th>
         <th className="px-4 py-3">Offer</th>
-        <th className="px-4 py-3">Amount</th>
+        <th className="px-4 py-3">Payout / charge</th>
         <th className="px-4 py-3">Status</th>
         <th className="px-4 py-3">Created</th>
         <th className="px-4 py-3">Stripe</th>
@@ -493,8 +510,28 @@ function Table({
               <td className="px-4 py-3">
                 {r.offer_id ? offersById[r.offer_id] || r.offer_id : "—"}
               </td>
-              <td className="px-4 py-3 font-semibold text-[var(--foreground)]">
-                {currencyFmt.format(Number(r.amount || 0))}
+              <td className="px-4 py-3 text-[var(--foreground)]">
+                <div className="font-semibold">
+                  {currencyFmt.format(Number(r.amount || 0))}
+                </div>
+                <div className="mt-1 text-xs text-[var(--muted-foreground)]">
+                  Principal to affiliate
+                </div>
+                {toMoney(r.nettmark_fee_amount) > 0 || toMoney(r.gross_charge_amount) > 0 ? (
+                  <div className="mt-2 space-y-1 text-xs text-[var(--muted-foreground)]">
+                    {toMoney(r.nettmark_fee_amount) > 0 ? (
+                      <div>Nettmark fee: {currencyFmt.format(toMoney(r.nettmark_fee_amount))}</div>
+                    ) : null}
+                    {toMoney(r.gross_charge_amount) > 0 ? (
+                      <div className="text-[var(--foreground)]/85">
+                        Business charged: {currencyFmt.format(toMoney(r.gross_charge_amount))}
+                      </div>
+                    ) : null}
+                    {toMoney(r.stripe_fee_amount) > 0 ? (
+                      <div>Stripe fee: {currencyFmt.format(toMoney(r.stripe_fee_amount))}</div>
+                    ) : null}
+                  </div>
+                ) : null}
               </td>
               <td className="px-4 py-3">
                 <StatusPill status={r.status} availableAt={r.available_at} />

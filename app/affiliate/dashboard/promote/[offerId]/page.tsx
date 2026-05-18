@@ -86,7 +86,7 @@ export default function PromoteOfferPage() {
       setWalletLoading(true);
       const { data, error } = await (supabase as any)
         .from("wallet_topups")
-        .select("amount_net, amount_refunded, status")
+        .select("amount_net, credited_amount, amount_refunded, status")
         .eq("affiliate_email", userEmail);
 
       if (error) {
@@ -789,7 +789,7 @@ export default function PromoteOfferPage() {
 
       const { data: walletRows, error: walletErr } = await (supabase as any)
         .from("wallet_topups")
-        .select("amount_net, amount_refunded, status")
+        .select("amount_net, credited_amount, amount_refunded, status")
         .eq("affiliate_email", userEmail);
 
       if (walletErr) {

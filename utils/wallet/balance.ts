@@ -2,6 +2,7 @@ type NumericLike = number | string | null | undefined;
 
 type WalletTopupLike = {
   amount_net?: NumericLike;
+  credited_amount?: NumericLike;
   amount_refunded?: NumericLike;
   status?: string | null;
 };
@@ -37,9 +38,15 @@ function isCountableTopup(row: WalletTopupLike) {
   return status === 'succeeded' || status === 'refunded';
 }
 
+function getCreditedTopupAmount(row: WalletTopupLike) {
+  const credited = toMoney(row.credited_amount);
+  if (credited > 0) return credited;
+  return toMoney(row.amount_net);
+}
+
 function sumTopupsCredited(topups: WalletTopupLike[]) {
   return topups.reduce(
-    (sum, row) => sum + (isCountableTopup(row) ? Math.max(0, toMoney(row.amount_net)) : 0),
+    (sum, row) => sum + (isCountableTopup(row) ? Math.max(0, getCreditedTopupAmount(row)) : 0),
     0,
   );
 }
@@ -47,7 +54,7 @@ function sumTopupsCredited(topups: WalletTopupLike[]) {
 function sumTopupNetAvailable(topups: WalletTopupLike[]) {
   return topups.reduce((sum, row) => {
     if (!isCountableTopup(row)) return sum;
-    const net = toMoney(row.amount_net);
+    const net = getCreditedTopupAmount(row);
     const refunded = toMoney(row.amount_refunded);
     return sum + Math.max(0, net - refunded);
   }, 0);
@@ -100,39 +107,33 @@ export function calculateWalletBalance(params: {
   };
 }
 
-type WalletQueryResponse = {
+type WalletQueryResult = {
   data: Record<string, unknown>[] | null;
   error: { message?: string | null } | null;
 };
 
-type WalletQueryBuilder = PromiseLike<WalletQueryResponse> & {
-  select: (columns: string) => WalletQueryBuilder;
-  eq: (column: string, value: string) => WalletQueryBuilder;
-};
-
-type WalletQueryClient = {
-  from: (table: string) => WalletQueryBuilder;
-};
-
 export async function getWalletBalanceSnapshot(
-  supabase: WalletQueryClient,
+  supabase: { from: (table: string) => unknown },
   email: string,
 ): Promise<WalletBalanceSnapshot> {
-  const [{ data: topups, error: topupError }, { data: deductions, error: deductionError }, { data: refunds, error: refundError }] = await Promise.all([
-    supabase
-      .from("wallet_topups")
-      .select("amount_net, amount_refunded, status")
+  const [{ data: topups, error: topupError }, { data: deductions, error: deductionError }, { data: refunds, error: refundError }] = (await Promise.all([
+    (supabase.from("wallet_topups") as {
+      select: (columns: string) => { eq: (column: string, value: string) => Promise<WalletQueryResult> };
+    })
+      .select("amount_net, credited_amount, amount_refunded, status")
       .eq("affiliate_email", email),
-    supabase
-      .from("wallet_deductions")
+    (supabase.from("wallet_deductions") as {
+      select: (columns: string) => { eq: (column: string, value: string) => Promise<WalletQueryResult> };
+    })
       .select("amount")
       .eq("affiliate_email", email),
-    supabase
-      .from("wallet_refunds")
+    (supabase.from("wallet_refunds") as {
+      select: (columns: string) => { eq: (column: string, value: string) => { eq: (column: string, value: string) => Promise<WalletQueryResult> } };
+    })
       .select("amount")
       .eq("affiliate_email", email)
       .eq("status", "succeeded"),
-  ]);
+  ])) as [WalletQueryResult, WalletQueryResult, WalletQueryResult];
 
   if (topupError) {
     throw new Error(`Failed to fetch wallet topups: ${topupError.message || topupError}`);

@@ -90,28 +90,20 @@ export function calculateRefundLockState(liveAds: LiveAdLike[] | null | undefine
   };
 }
 
-type RefundLockQueryResponse = {
+type RefundLockQueryResult = {
   data: Record<string, unknown>[] | null;
   error: { message?: string | null } | null;
 };
 
-type RefundLockQueryBuilder = PromiseLike<RefundLockQueryResponse> & {
-  select: (columns: string) => RefundLockQueryBuilder;
-  eq: (column: string, value: string) => RefundLockQueryBuilder;
-};
-
-type RefundLockQueryClient = {
-  from: (table: string) => RefundLockQueryBuilder;
-};
-
 export async function getRefundLockState(
-  supabase: RefundLockQueryClient,
+  supabase: { from: (table: string) => unknown },
   affiliateEmail: string,
 ): Promise<RefundLockState> {
-  const { data, error } = await supabase
-    .from('live_ads')
+  const { data, error } = (await (supabase.from('live_ads') as {
+    select: (columns: string) => { eq: (column: string, value: string) => Promise<RefundLockQueryResult> };
+  })
     .select('id, status, billing_state, spend, spend_transferred')
-    .eq('affiliate_email', affiliateEmail);
+    .eq('affiliate_email', affiliateEmail)) as RefundLockQueryResult;
 
   if (error) {
     throw new Error(`Failed to fetch live ads for refund lock: ${error.message || error}`);

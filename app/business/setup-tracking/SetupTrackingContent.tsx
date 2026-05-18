@@ -8,8 +8,6 @@ import {
   PaperAirplaneIcon,
 } from "@heroicons/react/24/outline";
 import { useRouter } from "next/navigation";
-import InteractiveTour from "../../../components/onboarding/InteractiveTour";
-import { businessSetupTourSteps } from "../../../data/businessSetupTour";
 
 type OfferRow = {
   id: string;
@@ -359,27 +357,23 @@ analytics.subscribe('checkout_completed', async (event) => {
         </section>
 
         <section className="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-sm sm:p-6">
-          <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-            <div>
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div className="max-w-2xl">
               <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--primary)]">
-                New guided walkthrough
+                Reserved space
               </p>
               <h2 className="mt-2 text-2xl font-semibold text-[var(--foreground)]">
-                Show the setup like a product tour
+                Future guided setup demo
               </h2>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted-foreground)]">
-                This Framer Motion walkthrough is ready for your downloaded slides. Drop them into
-                <code className="mx-1 rounded bg-[var(--input-background)] px-1.5 py-0.5 text-xs">public/tours/business-setup/</code>
-                as <span className="font-medium text-[var(--foreground)]">step-1.png</span>, <span className="font-medium text-[var(--foreground)]">step-2.png</span> and so on.
+              <p className="mt-2 text-sm leading-6 text-[var(--muted-foreground)]">
+                The old demo block has been cleared out so this page stays focused on installing and testing tracking. If you want a future <span className="font-medium text-[var(--foreground)]">gomarketme.co</span> walkthrough here, this section is ready for it.
               </p>
             </div>
-          </div>
 
-          <InteractiveTour
-            title="Business tracking setup tour"
-            subtitle="A clean autoplay walkthrough with a motion hotspot that mimics each click."
-            steps={businessSetupTourSteps}
-          />
+            <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--background)] px-4 py-3 text-sm text-[var(--muted-foreground)] md:max-w-xs">
+              Keep this area lightweight for now — no interactive demo, just room for a future tour drop-in.
+            </div>
+          </div>
         </section>
 
         <div className="grid gap-3 sm:grid-cols-3">

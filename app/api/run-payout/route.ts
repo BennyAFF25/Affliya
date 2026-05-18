@@ -3,6 +3,11 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
 import {
+  calculateChargeOnTopFee,
+  recordPlatformFeeLedger,
+  toStripeAmount,
+} from "@/../utils/feeAccounting";
+import {
   buildNettmarkStripeMetadata,
   createStripeClient,
 } from "@/../utils/stripe";
@@ -30,12 +35,80 @@ function buildTransferIdempotencyKey(payoutId: string) {
   return `wallet_payout:${payoutId}:transfer`;
 }
 
+async function resolvePaymentIntentStripeFee(paymentIntent: Stripe.PaymentIntent) {
+  const latestChargeId = getChargeId(paymentIntent);
+  if (!latestChargeId) {
+    return { chargeId: null, stripeFeeAmount: null };
+  }
+
+  const charge = await stripe.charges.retrieve(latestChargeId, {
+    expand: ["balance_transaction"],
+  });
+
+  const balanceTransaction = charge.balance_transaction;
+  let stripeFeeAmount: number | null = null;
+  if (balanceTransaction && typeof balanceTransaction !== "string") {
+    stripeFeeAmount = Math.round((balanceTransaction.fee / 100) * 100) / 100;
+  }
+
+  return {
+    chargeId: charge.id,
+    stripeFeeAmount,
+  };
+}
+
 async function updatePayoutBookkeeping(
   payoutId: string,
   values: Record<string, unknown>,
 ) {
   const { error } = await supabase.from("wallet_payouts").update(values).eq("id", payoutId);
   return error;
+}
+
+async function persistPayoutFeeLedger(params: {
+  payout: Record<string, unknown>;
+  chargeId: string | null;
+  paymentIntentId: string;
+  transferId?: string | null;
+  payoutPrincipalAmount: number;
+  grossChargeAmount: number;
+  nettmarkFeeAmount: number;
+  stripeFeeAmount: number | null;
+  payoutState: "payment_succeeded_transfer_pending" | "transfer_failed" | "completed";
+  errorMessage?: string | null;
+}) {
+  const {
+    payout,
+    chargeId,
+    paymentIntentId,
+    transferId,
+    payoutPrincipalAmount,
+    grossChargeAmount,
+    nettmarkFeeAmount,
+    stripeFeeAmount,
+    payoutState,
+    errorMessage,
+  } = params;
+
+  await recordPlatformFeeLedger(supabase as never, {
+    sourceType: "wallet_payout",
+    sourceId: String(payout.id),
+    feeCategory: "nettmark_transaction_fee",
+    amount: nettmarkFeeAmount,
+    currency: "aud",
+    principalAmount: payoutPrincipalAmount,
+    grossAmount: grossChargeAmount,
+    stripeFeeAmount,
+    stripeObjectId: paymentIntentId,
+    metadata: {
+      business_email: payout.business_email,
+      affiliate_email: payout.affiliate_email,
+      stripe_charge_id: chargeId,
+      stripe_transfer_id: transferId || null,
+      payout_state: payoutState,
+      payout_error_message: errorMessage || null,
+    },
+  });
 }
 
 async function markPayoutFailure(opts: {
@@ -176,8 +249,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "invalid_amount" }, { status: 400 });
     }
 
-    const amountInCents = Math.round(amount * 100);
-    if (amountInCents < 50) {
+    const feeBreakdown = calculateChargeOnTopFee(amount);
+    const payoutAmountInCents = toStripeAmount(amount);
+    const grossChargeAmountInCents = toStripeAmount(feeBreakdown.grossAmount);
+    if (payoutAmountInCents < 50) {
       return NextResponse.json(
         {
           error: "amount_below_minimum",
@@ -287,7 +362,7 @@ export async function POST(req: Request) {
     } else {
       paymentIntent = await stripe.paymentIntents.create(
         {
-          amount: amountInCents,
+          amount: grossChargeAmountInCents,
           currency: "aud",
           customer: customerId,
           payment_method: paymentMethodId,
@@ -300,6 +375,9 @@ export async function POST(req: Request) {
             business_email: payout.business_email,
             affiliate_email: payout.affiliate_email,
             offer_id: payout.offer_id,
+            payout_principal_amount: amount,
+            gross_charge_amount: feeBreakdown.grossAmount,
+            nettmark_fee_amount: feeBreakdown.feeAmount,
             stripe_role: "nettmark_business_charge",
           }),
         },
@@ -332,11 +410,15 @@ export async function POST(req: Request) {
       );
     }
 
-    const chargeId = getChargeId(paymentIntent);
+    const paymentIntentChargeDetails = await resolvePaymentIntentStripeFee(paymentIntent);
+    const chargeId = paymentIntentChargeDetails.chargeId;
 
     const paymentBookkeepingError = await updatePayoutBookkeeping(payout.id, {
       stripe_payment_intent_id: paymentIntent.id,
       stripe_charge_id: chargeId,
+      gross_charge_amount: feeBreakdown.grossAmount,
+      nettmark_fee_amount: feeBreakdown.feeAmount,
+      stripe_fee_amount: paymentIntentChargeDetails.stripeFeeAmount,
       payout_error_code: null,
       payout_error_message: null,
     });
@@ -348,6 +430,22 @@ export async function POST(req: Request) {
       );
     }
 
+    try {
+      await persistPayoutFeeLedger({
+        payout,
+        chargeId,
+        paymentIntentId: paymentIntent.id,
+        transferId: payout.stripe_transfer_id || null,
+        payoutPrincipalAmount: amount,
+        grossChargeAmount: feeBreakdown.grossAmount,
+        nettmarkFeeAmount: feeBreakdown.feeAmount,
+        stripeFeeAmount: paymentIntentChargeDetails.stripeFeeAmount,
+        payoutState: "payment_succeeded_transfer_pending",
+      });
+    } catch (feeLedgerError: unknown) {
+      console.error("[RUN_PAYOUT] Failed to persist payout fee ledger after payment success", feeLedgerError);
+    }
+
     let transfer: Stripe.Transfer;
     try {
       if (payout.stripe_transfer_id) {
@@ -355,7 +453,7 @@ export async function POST(req: Request) {
       } else {
         transfer = await stripe.transfers.create(
           {
-            amount: amountInCents,
+            amount: payoutAmountInCents,
             currency: "aud",
             destination: affiliateAccountId,
             metadata: buildNettmarkStripeMetadata("wallet_payout", {
@@ -365,6 +463,9 @@ export async function POST(req: Request) {
               business_email: payout.business_email,
               affiliate_email: payout.affiliate_email,
               offer_id: payout.offer_id,
+              payout_principal_amount: amount,
+              gross_charge_amount: feeBreakdown.grossAmount,
+              nettmark_fee_amount: feeBreakdown.feeAmount,
               stripe_role: "nettmark_affiliate_payout",
             }),
             transfer_group: `wallet_payout:${payout.id}`,
@@ -375,17 +476,36 @@ export async function POST(req: Request) {
         );
       }
     } catch (err: unknown) {
+      const transferErrorMessage = getErrorMessage(err);
+
+      try {
+        await persistPayoutFeeLedger({
+          payout,
+          chargeId,
+          paymentIntentId: paymentIntent.id,
+          transferId: null,
+          payoutPrincipalAmount: amount,
+          grossChargeAmount: feeBreakdown.grossAmount,
+          nettmarkFeeAmount: feeBreakdown.feeAmount,
+          stripeFeeAmount: paymentIntentChargeDetails.stripeFeeAmount,
+          payoutState: "transfer_failed",
+          errorMessage: transferErrorMessage,
+        });
+      } catch (feeLedgerError: unknown) {
+        console.error("[RUN_PAYOUT] Failed to persist payout fee ledger after transfer failure", feeLedgerError);
+      }
+
       await markPayoutFailure({
         payoutId: payout.id,
         errorCode: "transfer_failed",
-        errorMessage: getErrorMessage(err),
+        errorMessage: transferErrorMessage,
         payout,
       });
 
       return NextResponse.json(
         {
           error: "transfer_failed",
-          message: getErrorMessage(err),
+          message: transferErrorMessage,
           payout_id,
           stripe_payment_intent_id: paymentIntent.id,
           stripe_charge_id: chargeId,
@@ -406,6 +526,9 @@ export async function POST(req: Request) {
         stripe_payment_intent_id: paymentIntent.id,
         stripe_charge_id: chargeId,
         stripe_transfer_id: transfer.id,
+        gross_charge_amount: feeBreakdown.grossAmount,
+        nettmark_fee_amount: feeBreakdown.feeAmount,
+        stripe_fee_amount: paymentIntentChargeDetails.stripeFeeAmount,
         payout_completed_at: completedAt,
         payout_error_code: null,
         payout_error_message: null,
@@ -443,7 +566,9 @@ export async function POST(req: Request) {
           error: "bookkeeping_repair_required",
           repairable: true,
           payout_id,
-          charged: amount,
+          charged: feeBreakdown.grossAmount,
+          payout_principal: amount,
+          nettmark_fee_amount: feeBreakdown.feeAmount,
           stripe_payment_intent_id: paymentIntent.id,
           stripe_charge_id: chargeId,
           stripe_transfer_id: transfer.id,
@@ -452,6 +577,22 @@ export async function POST(req: Request) {
         },
         { status: 202 },
       );
+    }
+
+    try {
+      await persistPayoutFeeLedger({
+        payout,
+        chargeId,
+        paymentIntentId: paymentIntent.id,
+        transferId: transfer.id,
+        payoutPrincipalAmount: amount,
+        grossChargeAmount: feeBreakdown.grossAmount,
+        nettmarkFeeAmount: feeBreakdown.feeAmount,
+        stripeFeeAmount: paymentIntentChargeDetails.stripeFeeAmount,
+        payoutState: "completed",
+      });
+    } catch (feeLedgerError: unknown) {
+      console.error("[RUN_PAYOUT] Failed to persist payout fee ledger after completion", feeLedgerError);
     }
 
     await tryWriteMoneyFlowAudit(supabase as never, {
@@ -470,6 +611,9 @@ export async function POST(req: Request) {
       message: "Wallet payout executed successfully through Stripe.",
       metadata: {
         amount,
+        gross_charge_amount: feeBreakdown.grossAmount,
+        nettmark_fee_amount: feeBreakdown.feeAmount,
+        stripe_fee_amount: paymentIntentChargeDetails.stripeFeeAmount,
         stripe_payment_intent_id: paymentIntent.id,
         stripe_charge_id: chargeId,
         stripe_transfer_id: transfer.id,
@@ -481,7 +625,9 @@ export async function POST(req: Request) {
     return NextResponse.json({
       ok: true,
       payout_id,
-      charged: amount,
+      charged: feeBreakdown.grossAmount,
+      payout_principal: amount,
+      nettmark_fee_amount: feeBreakdown.feeAmount,
       stripe_payment_intent_id: paymentIntent.id,
       stripe_charge_id: chargeId,
       stripe_transfer_id: transfer.id,

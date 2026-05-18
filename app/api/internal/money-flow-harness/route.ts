@@ -2,6 +2,7 @@ import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
+import { calculateChargeOnTopFee, recordPlatformFeeLedger, toStripeAmount } from "@/../utils/feeAccounting";
 import { createStripeClient, getPlatformBalanceSnapshot } from "@/../utils/stripe";
 import { getWalletBalanceSnapshot } from "@/../utils/wallet/balance";
 import { getRefundLockState } from "@/../utils/wallet/refundLock";
@@ -156,7 +157,7 @@ async function fetchHarnessState() {
     getDefaultOffer(),
   ]);
 
-  const [walletSnapshot, refundLock, walletRow, topups, payouts, deductions, liveAds, settlements, audit, approvals, stripeBalance] = await Promise.all([
+  const [walletSnapshot, refundLock, walletRow, topups, payouts, deductions, liveAds, settlements, audit, approvals, stripeBalance, platformFees] = await Promise.all([
     getWalletBalanceSnapshot(supabase as never, AFFILIATE_EMAIL),
     getRefundLockState(supabase as never, AFFILIATE_EMAIL),
     supabase
@@ -166,13 +167,13 @@ async function fetchHarnessState() {
       .maybeSingle(),
     supabase
       .from("wallet_topups")
-      .select("id, stripe_id, amount_gross, stripe_fees, amount_net, amount_refunded, status, created_at")
+      .select("id, stripe_id, amount_gross, stripe_fees, amount_net, credited_amount, nettmark_fee_amount, amount_refunded, status, created_at")
       .eq("affiliate_email", AFFILIATE_EMAIL)
       .order("created_at", { ascending: false })
       .limit(10),
     supabase
       .from("wallet_payouts")
-      .select("id, amount, status, offer_id, source_event_id, stripe_payment_intent_id, stripe_charge_id, stripe_transfer_id, payout_error_code, payout_error_message, created_at")
+      .select("id, amount, gross_charge_amount, nettmark_fee_amount, stripe_fee_amount, status, offer_id, source_event_id, stripe_payment_intent_id, stripe_charge_id, stripe_transfer_id, payout_error_code, payout_error_message, created_at")
       .or(`business_email.eq.${BUSINESS_EMAIL},affiliate_email.eq.${AFFILIATE_EMAIL}`)
       .order("created_at", { ascending: false })
       .limit(10),
@@ -208,6 +209,11 @@ async function fetchHarnessState() {
       .order("created_at", { ascending: false })
       .limit(5),
     getPlatformBalanceSnapshot(stripe, "aud"),
+    supabase
+      .from("platform_fee_ledger")
+      .select("id, source_type, source_id, fee_category, amount, principal_amount, gross_amount, stripe_fee_amount, stripe_object_id, status, metadata, accrued_at, updated_at")
+      .order("updated_at", { ascending: false })
+      .limit(20),
   ]);
 
   const settlementRows = settlements.data || [];
@@ -237,6 +243,7 @@ async function fetchHarnessState() {
     settlements: settlementRows,
     settlementSummary,
     stripeBalance,
+    platformFees: platformFees.data || [],
     audit: audit.data || [],
     approvals: approvals.data || [],
   };
@@ -288,7 +295,8 @@ async function resolveBalanceTransaction(paymentIntentId: string) {
 }
 
 async function simulateTopup(amount: number, opts: { paymentMethod?: string; label?: string } = {}) {
-  const amountCents = Math.round(amount * 100);
+  const feeBreakdown = calculateChargeOnTopFee(amount);
+  const amountCents = toStripeAmount(feeBreakdown.grossAmount);
   if (amountCents < 50) {
     throw new Error("Top-up amount must be at least 0.50 AUD");
   }
@@ -319,7 +327,7 @@ async function simulateTopup(amount: number, opts: { paymentMethod?: string; lab
   const balanceTx = await resolveBalanceTransaction(paymentIntent.id);
   const grossAmount = +(balanceTx.amount / 100).toFixed(2);
   const fees = +(balanceTx.fee / 100).toFixed(2);
-  const netAmount = +(balanceTx.net / 100).toFixed(2);
+  const stripeNetAmount = +(balanceTx.net / 100).toFixed(2);
   const platformAccount = await stripe.accounts.retrieve();
 
   const { data, error } = await supabase.rpc("credit_wallet_topup", {
@@ -327,13 +335,31 @@ async function simulateTopup(amount: number, opts: { paymentMethod?: string; lab
     p_checkout_session_id: paymentIntent.id,
     p_amount_gross: grossAmount,
     p_stripe_fees: fees,
-    p_amount_net: netAmount,
+    p_amount_net: feeBreakdown.principalAmount,
     p_platform_acct_id: platformAccount.id,
+    p_nettmark_fee_amount: feeBreakdown.feeAmount,
+    p_credited_amount: feeBreakdown.principalAmount,
   });
 
   if (error) {
     throw new Error(`credit_wallet_topup failed: ${error.message}`);
   }
+
+  await recordPlatformFeeLedger(supabase as never, {
+    sourceType: "wallet_topup",
+    sourceId: paymentIntent.id,
+    feeCategory: "nettmark_transaction_fee",
+    amount: feeBreakdown.feeAmount,
+    currency: "aud",
+    principalAmount: feeBreakdown.principalAmount,
+    grossAmount,
+    stripeFeeAmount: fees,
+    stripeObjectId: paymentIntent.id,
+    metadata: {
+      harness: true,
+      stripeNetAmount,
+    },
+  });
 
   try {
     await syncAffiliateWalletCache(supabase as never, AFFILIATE_EMAIL);
@@ -347,7 +373,9 @@ async function simulateTopup(amount: number, opts: { paymentMethod?: string; lab
     paymentMethod,
     grossAmount,
     fees,
-    netAmount,
+    stripeNetAmount,
+    creditedAmount: feeBreakdown.principalAmount,
+    nettmarkFeeAmount: feeBreakdown.feeAmount,
     creditResult: data,
   };
 }

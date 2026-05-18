@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { calculateChargeOnTopFee, toStripeAmount } from '@/../utils/feeAccounting';
 import { buildNettmarkStripeMetadata, createStripeClient } from '@/../utils/stripe';
 
 const stripe = createStripeClient();
@@ -17,6 +18,9 @@ export async function POST(req: Request) {
   const selectedCurrency = (typeof currency === 'string' && allowedCurrencies.includes(currency.toLowerCase()))
     ? currency.toLowerCase()
     : 'usd';
+
+  const feeBreakdown = calculateChargeOnTopFee(Number(amount || 0) / 100);
+  const grossAmountCents = toStripeAmount(feeBreakdown.grossAmount);
 
   console.log('[💰 Checkout Amount]', amount);
   console.log('[💱 Currency]', selectedCurrency);
@@ -41,7 +45,7 @@ export async function POST(req: Request) {
             product_data: {
               name: 'Affliya Wallet Top-Up',
             },
-            unit_amount: amount, // already in cents
+            unit_amount: grossAmountCents,
           },
           quantity: 1,
         },
@@ -52,11 +56,19 @@ export async function POST(req: Request) {
       metadata: buildNettmarkStripeMetadata('wallet_topup', {
         affiliate_email: user.email,
         type: 'wallet_topup',
+        topup_amount: feeBreakdown.principalAmount,
+        gross_charge_amount: feeBreakdown.grossAmount,
+        nettmark_fee_amount: feeBreakdown.feeAmount,
+        fee_bps: feeBreakdown.feeBps,
       }),
       payment_intent_data: {
         metadata: buildNettmarkStripeMetadata('wallet_topup', {
           affiliate_email: user.email,
           type: 'wallet_topup',
+          topup_amount: feeBreakdown.principalAmount,
+          gross_charge_amount: feeBreakdown.grossAmount,
+          nettmark_fee_amount: feeBreakdown.feeAmount,
+          fee_bps: feeBreakdown.feeBps,
         }),
       },
     });

@@ -10,7 +10,9 @@ import { calculateRefundLockState, type RefundLockState } from '@/../utils/walle
 type WalletTopup = {
   amount_gross?: number | null;
   amount_net?: number | null;
+  credited_amount?: number | null;
   stripe_fees?: number | null;
+  nettmark_fee_amount?: number | null;
   stripe_id: string;
   status?: string | null;
   created_at: string;
@@ -66,6 +68,7 @@ const CARD_SHELL = 'rounded-3xl border border-[var(--border)] bg-[var(--card)] s
 const PANEL_CARD = 'rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[0_20px_55px_rgba(0,0,0,0.08)]';
 const INPUT_CLASS = 'w-full rounded-2xl border border-[var(--border)] bg-[var(--input-background)] text-[var(--foreground)] placeholder-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]';
 const BADGE_SOFT = 'inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--accent)]/40 px-3 py-1 text-xs font-semibold text-[var(--foreground)]/70';
+const NETTMARK_TRANSACTION_FEE_BPS = 220;
 
 function toMoney(value: number | string | null | undefined) {
   const n = Number(value ?? 0);
@@ -77,14 +80,30 @@ function formatMoney(amount: number, currency: string) {
   return `${currencySymbols[currency] ?? '$'}${toMoney(amount).toFixed(2)}`;
 }
 
+function calculateChargeOnTopPreview(principalAmount: number) {
+  const safePrincipal = toMoney(Math.max(0, principalAmount));
+  const feeAmount = toMoney((safePrincipal * NETTMARK_TRANSACTION_FEE_BPS) / 10000);
+  return {
+    principalAmount: safePrincipal,
+    feeAmount,
+    grossAmount: toMoney(safePrincipal + feeAmount),
+  };
+}
+
 function pluralize(count: number, singular: string, plural = `${singular}s`) {
   return `${count} ${count === 1 ? singular : plural}`;
+}
+
+function getCreditedTopupAmount(topup: WalletTopup) {
+  const credited = toMoney(topup.credited_amount);
+  if (credited > 0) return credited;
+  return toMoney(topup.amount_net);
 }
 
 function isRefundableTopup(topup: WalletTopup) {
   const status = String(topup.status || '').toLowerCase();
   const countable = !status || status === 'succeeded' || status === 'refunded';
-  return countable && toMoney(topup.amount_refunded) < toMoney(topup.amount_net);
+  return countable && toMoney(topup.amount_refunded) < getCreditedTopupAmount(topup);
 }
 
 function getRefundBlockReason(lockState: RefundLockState, currency: string) {
@@ -186,7 +205,7 @@ export default function AffiliateWalletPage() {
         .eq('affiliate_email', user.email),
       supabase
         .from('wallet_topups')
-        .select('amount_gross, amount_net, stripe_fees, stripe_id, status, created_at, amount_refunded')
+        .select('amount_gross, amount_net, credited_amount, stripe_fees, nettmark_fee_amount, stripe_id, status, created_at, amount_refunded')
         .eq('affiliate_email', user.email)
         .order('created_at', { ascending: false }),
       supabase
@@ -287,6 +306,7 @@ export default function AffiliateWalletPage() {
     deductions: walletDeductions,
     refunds,
   });
+  const topupPreview = calculateChargeOnTopPreview(parseFloat(amount || '0'));
   const availableBalance = walletSnapshot.availableBalance;
   const refundableBalance = walletSnapshot.refundableBalance;
   const lockedRefundBalance = refundLockState.locked ? refundableBalance : 0;
@@ -303,11 +323,15 @@ export default function AffiliateWalletPage() {
       id: `topup-${item.stripe_id}`,
       date: item.created_at,
       type: 'Top-up',
-      amount: toMoney(item.amount_net),
+      amount: getCreditedTopupAmount(item),
       positive: true,
       status: item.status || 'succeeded',
       ref: item.stripe_id,
-      note: item.stripe_fees ? `Stripe fees: ${formatMoney(toMoney(item.stripe_fees), currency)}` : undefined,
+      note: item.nettmark_fee_amount
+        ? `Nettmark fee: ${formatMoney(toMoney(item.nettmark_fee_amount), currency)}${item.stripe_fees ? ` · Stripe fee: ${formatMoney(toMoney(item.stripe_fees), currency)}` : ''}`
+        : item.stripe_fees
+          ? `Stripe fee: ${formatMoney(toMoney(item.stripe_fees), currency)}`
+          : undefined,
     }));
 
     const refundItems = refunds.map((item) => ({
@@ -585,7 +609,7 @@ export default function AffiliateWalletPage() {
                   className="mb-2 w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-xs text-white/80 outline-none focus:border-[#00C2CB] focus:ring-1 focus:ring-[#00C2CB] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {refundableTopups.map((topup) => {
-                    const remaining = toMoney(topup.amount_net) - toMoney(topup.amount_refunded);
+                    const remaining = getCreditedTopupAmount(topup) - toMoney(topup.amount_refunded);
                     return (
                       <option key={topup.stripe_id} value={topup.stripe_id}>
                         {formatMoney(remaining, currency)} available from {new Date(topup.created_at).toLocaleDateString()}
@@ -639,7 +663,7 @@ export default function AffiliateWalletPage() {
               <div className="mb-3 flex items-center justify-between gap-3">
                 <div>
                   <h2 className="text-sm font-semibold tracking-wide text-white/90">Top up wallet</h2>
-                  <p className="text-xs text-white/50">Stripe checkout adds funds for campaign spend.</p>
+                  <p className="text-xs text-white/50">Stripe checkout adds funds for campaign spend. Your wallet is credited with principal only.</p>
                 </div>
                 <span className={BADGE_SOFT}>{currency}</span>
               </div>
@@ -660,6 +684,18 @@ export default function AffiliateWalletPage() {
                 aria-label="Currency"
                 className={`${INPUT_CLASS} mb-3 cursor-not-allowed px-3 py-2 text-sm opacity-70`}
               />
+
+              <div className="mb-3 rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-3 py-3 text-xs text-cyan-50">
+                <p className="font-semibold text-cyan-100">Fee disclosure</p>
+                <p className="mt-1 text-cyan-50/80">
+                  Nettmark charges {(NETTMARK_TRANSACTION_FEE_BPS / 100).toFixed(1)}% on wallet top-ups. Refund eligibility is based on the credited principal, not the fee.
+                </p>
+                {topupPreview.principalAmount > 0 ? (
+                  <p className="mt-2 text-cyan-50/90">
+                    Entered {formatMoney(topupPreview.principalAmount, currency)} → fee {formatMoney(topupPreview.feeAmount, currency)} → Stripe charge {formatMoney(topupPreview.grossAmount, currency)}
+                  </p>
+                ) : null}
+              </div>
 
               <button
                 onClick={handleTopUp}

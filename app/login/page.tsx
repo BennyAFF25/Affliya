@@ -46,7 +46,7 @@ export default function LoginPage() {
             <h1 className="text-2xl font-semibold text-white mb-1">Login</h1>
             <p className="text-xs text-white/65 mb-6">
               Select whether you&apos;re logging in as a business or affiliate
-              partner.
+              partner. No subscription setup needed.
             </p>
 
             <div className="flex flex-col space-y-3 w-full">
@@ -89,13 +89,29 @@ export default function LoginPage() {
               </Link>
             </div>
 
-            <div className="pt-4 text-[11px] text-white/50 text-center">
-              Don&apos;t have an account?{" "}
+            <div className="pt-4 space-y-3 text-center">
+              <p className="text-[11px] text-white/50">
+                Don&apos;t have an account yet?
+              </p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Link
+                  href="/create-account?role=affiliate"
+                  className="rounded-xl border border-white/15 bg-white/[0.03] px-3 py-2 text-xs text-white/80 hover:border-[#00C2CB80] hover:text-white transition"
+                >
+                  Create affiliate account
+                </Link>
+                <Link
+                  href="/create-account?role=business"
+                  className="rounded-xl border border-white/15 bg-white/[0.03] px-3 py-2 text-xs text-white/80 hover:border-[#00C2CB80] hover:text-white transition"
+                >
+                  Create business account
+                </Link>
+              </div>
               <Link
                 href="/pricing"
-                className="text-[#00C2CB] hover:text-[#7ff5fb] hover:underline"
+                className="inline-block text-[11px] text-[#00C2CB] hover:text-[#7ff5fb] hover:underline"
               >
-                View pricing to get started
+                See fee-based pricing
               </Link>
             </div>
 

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { calculateChargeOnTopFee, toStripeAmount } from '@/../utils/feeAccounting';
 import { buildNettmarkStripeMetadata, createStripeClient } from '@/../utils/stripe';
 
 const stripe = createStripeClient(process.env.STRIPE_SECRET_KEY as string);
@@ -9,11 +10,14 @@ export async function POST(req: NextRequest) {
 
   try {
     ({ amount, email } = await req.json());
-    amount = Math.round(Number(amount)); // Ensure it's an integer in smallest currency unit (e.g., cents)
+    const principalAmount = Number(amount);
 
-    if (!amount || !email) {
+    if (!principalAmount || !email) {
       return NextResponse.json({ error: 'Missing amount or email' }, { status: 400 });
     }
+
+    const feeBreakdown = calculateChargeOnTopFee(principalAmount);
+    amount = toStripeAmount(feeBreakdown.grossAmount);
 
     const paymentIntent = await stripe.paymentIntents.create({
       amount,
@@ -22,6 +26,10 @@ export async function POST(req: NextRequest) {
       metadata: buildNettmarkStripeMetadata('wallet_topup', {
         purpose: 'wallet_topup',
         affiliate_email: email,
+        topup_amount: feeBreakdown.principalAmount,
+        gross_charge_amount: feeBreakdown.grossAmount,
+        nettmark_fee_amount: feeBreakdown.feeAmount,
+        fee_bps: feeBreakdown.feeBps,
       }),
     });
 

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { calculateChargeOnTopFee, toStripeAmount } from "@/../utils/feeAccounting";
 import { buildNettmarkStripeMetadata, createStripeClient } from "@/../utils/stripe";
 
 export const runtime = "nodejs";
@@ -62,8 +63,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid amount" }, { status: 400 });
     }
 
+    const feeBreakdown = calculateChargeOnTopFee(amountNumber);
+
     // Stripe expects "unit_amount" in the smallest currency unit (cents)
-    const unitAmount = Math.round(amountNumber * 100);
+    const unitAmount = toStripeAmount(feeBreakdown.grossAmount);
 
     // ✅ These are the lines that were breaking for you before
     const successUrl = absUrl(`/affiliate/wallet?topup=success`);
@@ -76,6 +79,10 @@ export async function POST(req: Request) {
       cancelUrl,
       email,
       currency,
+      principalAmount: feeBreakdown.principalAmount,
+      nettmarkFeeAmount: feeBreakdown.feeAmount,
+      grossChargeAmount: feeBreakdown.grossAmount,
+      feeBps: feeBreakdown.feeBps,
       unitAmount,
       mode: process.env.STRIPE_SECRET_KEY.startsWith("sk_live_") ? "live" : "test",
     });
@@ -100,11 +107,35 @@ export async function POST(req: Request) {
         affiliate_email: email,
         purpose: "wallet_topup",
         currency,
-        topup_amount: amountNumber,
+        topup_amount: feeBreakdown.principalAmount,
+        gross_charge_amount: feeBreakdown.grossAmount,
+        nettmark_fee_amount: feeBreakdown.feeAmount,
+        fee_bps: feeBreakdown.feeBps,
       }),
+      payment_intent_data: {
+        metadata: buildNettmarkStripeMetadata("wallet_topup", {
+          affiliate_email: email,
+          purpose: "wallet_topup",
+          currency,
+          topup_amount: feeBreakdown.principalAmount,
+          gross_charge_amount: feeBreakdown.grossAmount,
+          nettmark_fee_amount: feeBreakdown.feeAmount,
+          fee_bps: feeBreakdown.feeBps,
+        }),
+      },
     });
 
-    return NextResponse.json({ url: session.url, sessionId: session.id }, { status: 200 });
+    return NextResponse.json(
+      {
+        url: session.url,
+        sessionId: session.id,
+        principalAmount: feeBreakdown.principalAmount,
+        nettmarkFeeAmount: feeBreakdown.feeAmount,
+        grossChargeAmount: feeBreakdown.grossAmount,
+        feeBps: feeBreakdown.feeBps,
+      },
+      { status: 200 },
+    );
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Create topup session failed";
     const stack = err instanceof Error ? err.stack : undefined;
