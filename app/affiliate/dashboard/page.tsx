@@ -756,12 +756,18 @@ function AffiliateDashboardContent() {
   return (
     <div className="affiliate-dashboard-theme min-h-screen bg-[var(--background)] text-[var(--foreground)]">
       <div className="max-w-8xl mx-auto px-4 sm:px-6 md:px-8 lg:px-10 py-6 md:py-8">
-        <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0a1719] via-[#0b0f10] to-black p-6 md:p-8 mb-8 shadow-[0_24px_60px_rgba(0,0,0,0.45)]">
+        <section
+          className="relative mb-8 overflow-hidden rounded-3xl border border-[var(--border)] p-6 shadow-[0_24px_60px_rgba(0,0,0,0.16)] md:p-8"
+          style={{
+            background:
+              "radial-gradient(circle at top right, rgba(0,194,203,0.16), transparent 34%), linear-gradient(135deg, var(--card) 0%, color-mix(in srgb, var(--card) 82%, var(--primary) 18%) 100%)",
+          }}
+        >
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent opacity-40 dark:via-white/20" />
           <div className="pointer-events-none absolute -top-16 right-0 h-44 w-44 rounded-full bg-[#00C2CB]/12 blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-24 -left-24 h-40 w-40 rounded-full bg-[#00C2CB]/4 blur-3xl" />
-          <div className="pointer-events-none absolute inset-y-0 left-0 w-[48%] bg-gradient-to-r from-black/28 via-black/8 to-transparent" />
+          <div className="pointer-events-none absolute -bottom-24 -left-24 h-40 w-40 rounded-full bg-[#00C2CB]/6 blur-3xl" />
 
-          <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
+          <div className="relative z-10 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <p className="inline-flex items-center gap-2 rounded-full border border-[#00C2CB]/30 bg-[#00C2CB]/10 px-3 py-1 text-[11px] uppercase tracking-widest text-[#7ff5fb]">
                 <Sparkles className="h-3.5 w-3.5" /> Affiliate HQ
