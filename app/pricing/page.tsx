@@ -1,6 +1,7 @@
 // app/pricing/page.tsx
 "use client";
 
+import React from "react";
 import Link from "next/link";
 import MarketingHeader from "@/components/marketing/MarketingHeader";
 
@@ -27,6 +28,7 @@ export default function PricingPage() {
     try {
       localStorage.setItem("intent.role", type);
       localStorage.setItem("intent.flow", "signup");
+<<<<<<< HEAD
     } catch {
       // ignore localStorage write failures
     }
