@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useSession } from "@supabase/auth-helpers-react";
 import Link from "next/link";
 import { supabase } from "utils/supabase/pages-client";
@@ -89,10 +89,7 @@ const accentMap: Record<EntryKind, DecoratedEntry["accent"]> = {
 const archiveStorageKey = (email?: string | null) =>
   email ? `nettmark_affiliate_inbox_${email}` : null;
 
-const CARD_SHELL =
-  "rounded-3xl border border-[var(--border)] bg-[var(--card)] shadow-[0_25px_70px_rgba(0,0,0,0.08)]";
-const PANEL_CARD =
-  "rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[0_20px_55px_rgba(0,0,0,0.05)]";
+const MANAGE_CAMPAIGNS_HREF = "/affiliate/dashboard/manage-campaigns";
 
 export default function AffiliateInbox() {
   const session = useSession();
@@ -237,7 +234,7 @@ export default function AffiliateInbox() {
         statusLabel: "Ready",
         timestamp: new Date(ad.created_at).toLocaleString(),
         link: {
-          href: `/affiliate/dashboard/manage-campaigns/${ad.offer_id}`,
+          href: MANAGE_CAMPAIGNS_HREF,
           label: "Launch creative",
         },
       });
@@ -254,7 +251,7 @@ export default function AffiliateInbox() {
         timestamp: new Date(ad.created_at).toLocaleString(),
         rejectionReason: ad.rejection_reason,
         link: {
-          href: `/affiliate/dashboard/manage-campaigns/${ad.offer_id}`,
+          href: `/affiliate/dashboard/promote/${ad.offer_id}`,
           label: "Revise creative",
         },
       });
@@ -275,7 +272,7 @@ export default function AffiliateInbox() {
         statusLabel: "Live",
         timestamp: new Date(post.created_at).toLocaleString(),
         link: {
-          href: notificationLink || "/affiliate/dashboard/manage-campaigns",
+          href: notificationLink || MANAGE_CAMPAIGNS_HREF,
           label: "Open campaign",
         },
       });
@@ -363,7 +360,6 @@ export default function AffiliateInbox() {
 
   const displayedEntries = decorateEntries(displayedData);
   const archivedEntries = decorateEntries(archivedData);
-  const activeEntries = decorateEntries(activeData);
   const liveEntries = decorateEntries(entryData);
   const allEntriesMap = new Map<string, DecoratedEntry>();
   liveEntries.forEach((entry) => allEntriesMap.set(entry.id, entry));
@@ -532,9 +528,11 @@ export default function AffiliateInbox() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          isArchived
-                            ? handleRestore(entry.id)
-                            : handleArchive(entry.id);
+                          if (isArchived) {
+                            handleRestore(entry.id);
+                          } else {
+                            handleArchive(entry.id);
+                          }
                         }}
                         className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
                           isArchived
@@ -551,9 +549,11 @@ export default function AffiliateInbox() {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        isArchived
-                          ? handleRestore(entry.id)
-                          : handleArchive(entry.id);
+                        if (isArchived) {
+                          handleRestore(entry.id);
+                        } else {
+                          handleArchive(entry.id);
+                        }
                       }}
                       className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
                         isArchived
