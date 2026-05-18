@@ -22,11 +22,14 @@ function getInitialTheme(): Theme {
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>("dark");
+  const [theme, setThemeState] = useState<Theme>(() => {
+    if (typeof document !== "undefined") {
+      if (document.documentElement.classList.contains("light")) return "light";
+      if (document.documentElement.classList.contains("dark")) return "dark";
+    }
 
-  useEffect(() => {
-    setThemeState(getInitialTheme());
-  }, []);
+    return getInitialTheme();
+  });
 
   useEffect(() => {
     window.localStorage.setItem("nettmark.theme", theme);

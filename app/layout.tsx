@@ -5,6 +5,32 @@ import { Toaster } from 'react-hot-toast';
 import Script from 'next/script';
 import { Analytics } from "@vercel/analytics/next"
 
+const themeInitScript = `
+(function () {
+  try {
+    var storedTheme = window.localStorage.getItem('nettmark.theme');
+    var theme =
+      storedTheme === 'light' || storedTheme === 'dark'
+        ? storedTheme
+        : window.matchMedia('(prefers-color-scheme: dark)').matches
+          ? 'dark'
+          : 'light';
+    var root = document.documentElement;
+    var body = document.body;
+
+    root.classList.remove('light', 'dark');
+    root.classList.add(theme);
+    root.style.colorScheme = theme;
+
+    if (body) {
+      body.classList.remove('light', 'dark');
+      body.classList.add(theme);
+      body.style.colorScheme = theme;
+    }
+  } catch (error) {}
+})();
+`;
+
 export const metadata = {
   title: 'Nettmark',
   description: 'Nettmark – The Fastest Growing Affiliate Platform on the Planet',
@@ -28,8 +54,9 @@ export const metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="bg-[#0b0b0b] text-white">
+    <html lang="en" className="bg-[#0b0b0b] text-white" suppressHydrationWarning>
       <body className="min-h-screen bg-gradient-to-b from-[#0b0b0b] to-[#0e0e0e] antialiased">
+        <script id="theme-init" dangerouslySetInnerHTML={{ __html: themeInitScript }} />
         <Providers>
           <ThemeWrapper>
             {children}
