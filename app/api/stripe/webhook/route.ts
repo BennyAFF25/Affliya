@@ -1,10 +1,12 @@
-export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-// app/api/stripe/webhook/route.ts
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
+import { recordPlatformFeeLedger } from "@/../utils/feeAccounting";
+import { createStripeClient } from "@/../utils/stripe";
+import { syncAffiliateWalletCache } from "@/../utils/wallet/syncAffiliateWalletCache";
 
 export const config = {
   api: {
@@ -19,37 +21,256 @@ if (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_WEBHOOK_SECRET) {
 const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 const endpointSecret = process.env.STRIPE_WEBHOOK_SECRET;
 
-let POST: any;
+let POST: (req: Request) => Promise<Response>;
 if (!stripeSecretKey || !endpointSecret) {
   POST = async function POST() {
     return NextResponse.json(
       { error: "Missing Stripe environment keys" },
-      { status: 500 }
+      { status: 500 },
     );
   };
 } else {
-  const stripe = new Stripe(stripeSecretKey, {
-    apiVersion: "2025-08-27.basil",
-  });
+  const stripe = createStripeClient(stripeSecretKey);
 
-  // Debug log to confirm which Stripe account is active with try/catch
   (async () => {
     try {
       const acct = await stripe.accounts.retrieve();
       console.log(
         "[Stripe Webhook Account]",
         acct.id,
-        acct.email ? acct.email : "(email not available)"
+        acct.email ? acct.email : "(email not available)",
       );
-    } catch (err: any) {
-      console.error("[❌ Stripe account retrieve error]", err.message);
+    } catch (err: unknown) {
+      console.error(
+        "[❌ Stripe account retrieve error]",
+        err instanceof Error ? err.message : err,
+      );
     }
   })();
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
   );
+
+  async function creditWalletTopup(params: {
+    email: string;
+    checkoutSessionId: string;
+    grossAmount: number;
+    fees: number;
+    creditedAmount: number;
+    nettmarkFeeAmount: number;
+    platformAcctId: string;
+  }) {
+    const {
+      email,
+      checkoutSessionId,
+      grossAmount,
+      fees,
+      creditedAmount,
+      nettmarkFeeAmount,
+      platformAcctId,
+    } = params;
+
+    // Prefer DB-side atomic RPC when present. Fallback keeps patch compatible
+    // before the migration is applied.
+    const rpc = await supabase.rpc("credit_wallet_topup", {
+      p_affiliate_email: email,
+      p_checkout_session_id: checkoutSessionId,
+      p_amount_gross: grossAmount,
+      p_stripe_fees: fees,
+      p_amount_net: creditedAmount,
+      p_platform_acct_id: platformAcctId,
+      p_nettmark_fee_amount: nettmarkFeeAmount,
+      p_credited_amount: creditedAmount,
+    });
+
+    if (!rpc.error) {
+      if (rpc.data?.credited ?? true) {
+        await recordPlatformFeeLedger(supabase as never, {
+          sourceType: "wallet_topup",
+          sourceId: checkoutSessionId,
+          feeCategory: "nettmark_transaction_fee",
+          amount: nettmarkFeeAmount,
+          currency: "aud",
+          principalAmount: creditedAmount,
+          grossAmount,
+          stripeFeeAmount: fees,
+          stripeObjectId: checkoutSessionId,
+          metadata: {
+            affiliate_email: email,
+            platform_acct_id: platformAcctId,
+          },
+        });
+      }
+
+      try {
+        await syncAffiliateWalletCache(supabase as never, email);
+      } catch (syncError: unknown) {
+        console.error("[❌ wallet cache sync error after top-up RPC]", syncError);
+      }
+
+      console.log("[✅ credit_wallet_topup RPC applied]", rpc.data);
+      return { credited: Boolean(rpc.data?.credited ?? true), mode: "rpc" };
+    }
+
+    if (rpc.error.code !== "PGRST202") {
+      throw new Error(`credit_wallet_topup RPC failed: ${rpc.error.message}`);
+    }
+
+    console.warn("[⚠️ credit_wallet_topup RPC missing; using fallback path]");
+
+    const { data: existingTopup, error: existingTopupError } = await supabase
+      .from("wallet_topups")
+      .select("id, stripe_id")
+      .eq("stripe_id", checkoutSessionId)
+      .maybeSingle();
+
+    if (existingTopupError) {
+      throw new Error(`topup idempotency check failed: ${existingTopupError.message}`);
+    }
+
+    if (existingTopup) {
+      console.log("[ℹ️ Duplicate checkout session ignored]", checkoutSessionId);
+      return { credited: false, mode: "fallback-duplicate" };
+    }
+
+    const { error: insertError } = await supabase.from("wallet_topups").insert({
+      affiliate_email: email,
+      amount_gross: grossAmount,
+      stripe_fees: fees,
+      amount_net: creditedAmount,
+      credited_amount: creditedAmount,
+      nettmark_fee_amount: nettmarkFeeAmount,
+      stripe_id: checkoutSessionId,
+      status: "succeeded",
+      platform_acct_id: platformAcctId,
+    });
+
+    if (insertError) {
+      throw new Error(`wallet_topups insert failed: ${insertError.message}`);
+    }
+
+    const { error: upsertError } = await supabase.from("wallets").upsert(
+      {
+        email,
+        role: "affiliate",
+        balance: Number(creditedAmount || 0),
+        last_transaction_id: checkoutSessionId,
+        last_transaction_status: "succeeded",
+        last_topup_amount: grossAmount,
+        last_fee_amount: nettmarkFeeAmount,
+        last_net_amount: creditedAmount,
+      },
+      { onConflict: "email" },
+    );
+
+    if (upsertError) {
+      throw new Error(`wallet upsert failed: ${upsertError.message}`);
+    }
+
+    await recordPlatformFeeLedger(supabase as never, {
+      sourceType: "wallet_topup",
+      sourceId: checkoutSessionId,
+      feeCategory: "nettmark_transaction_fee",
+      amount: nettmarkFeeAmount,
+      currency: "aud",
+      principalAmount: creditedAmount,
+      grossAmount,
+      stripeFeeAmount: fees,
+      stripeObjectId: checkoutSessionId,
+      metadata: {
+        affiliate_email: email,
+        platform_acct_id: platformAcctId,
+      },
+    });
+
+    try {
+      const snapshot = await syncAffiliateWalletCache(supabase as never, email);
+      console.log("[✅ Wallet cache synced via fallback path]", {
+        email,
+        checkoutSessionId,
+        availableBalance: snapshot.availableBalance,
+      });
+    } catch (syncError: unknown) {
+      console.error("[❌ wallet cache sync error after top-up fallback]", syncError);
+    }
+
+    console.log("[✅ Wallet credited via fallback path]", {
+      email,
+      checkoutSessionId,
+      creditedAmount,
+      nettmarkFeeAmount,
+    });
+
+    return { credited: true, mode: "fallback" };
+  }
+
+  function sleep(ms: number) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  async function resolveBalanceTransactionDetails(paymentIntentId: string) {
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      const pi = (await stripe.paymentIntents.retrieve(paymentIntentId, {
+        expand: ["latest_charge.balance_transaction"],
+      })) as Stripe.PaymentIntent;
+
+      let latestCharge: Stripe.Charge | null = null;
+
+      if (pi.latest_charge) {
+        latestCharge =
+          typeof pi.latest_charge === "string"
+            ? await stripe.charges.retrieve(pi.latest_charge, {
+                expand: ["balance_transaction"],
+              })
+            : (pi.latest_charge as Stripe.Charge);
+      }
+
+      if (!latestCharge) {
+        const charges = await stripe.charges.list({
+          payment_intent: paymentIntentId,
+          limit: 1,
+        });
+        const fallbackChargeId = charges.data[0]?.id;
+        if (fallbackChargeId) {
+          latestCharge = await stripe.charges.retrieve(fallbackChargeId, {
+            expand: ["balance_transaction"],
+          });
+        }
+      }
+
+      const balanceTransaction = latestCharge?.balance_transaction;
+      if (latestCharge && balanceTransaction) {
+        const balanceTxId =
+          typeof balanceTransaction === "string"
+            ? balanceTransaction
+            : balanceTransaction.id;
+        const balanceTx =
+          typeof balanceTransaction === "string"
+            ? await stripe.balanceTransactions.retrieve(balanceTxId)
+            : balanceTransaction;
+
+        return {
+          paymentIntent: pi,
+          latestCharge,
+          balanceTx,
+          attempt,
+        };
+      }
+
+      console.warn(
+        `[⚠️ Top-up balance transaction not ready] attempt=${attempt}`,
+        paymentIntentId,
+      );
+
+      if (attempt < 3) {
+        await sleep(750 * attempt);
+      }
+    }
+
+    return null;
+  }
 
   POST = async function POST(req: Request) {
     const buf = await req.arrayBuffer();
@@ -59,11 +280,12 @@ if (!stripeSecretKey || !endpointSecret) {
     let event: Stripe.Event;
     try {
       event = stripe.webhooks.constructEvent(rawBody, sig, endpointSecret);
-    } catch (err: any) {
-      console.error("[❌ Webhook signature error]", err.message);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Webhook signature error";
+      console.error("[❌ Webhook signature error]", message);
       return NextResponse.json(
-        { error: `Webhook Error: ${err.message}` },
-        { status: 400 }
+        { error: `Webhook Error: ${message}` },
+        { status: 400 },
       );
     }
 
@@ -72,8 +294,11 @@ if (!stripeSecretKey || !endpointSecret) {
     try {
       const platformAccount = await stripe.accounts.retrieve();
       platformAcctId = platformAccount.id;
-    } catch (err: any) {
-      console.error("[❌ Stripe platform account retrieve error]", err.message);
+    } catch (err: unknown) {
+      console.error(
+        "[❌ Stripe platform account retrieve error]",
+        err instanceof Error ? err.message : err,
+      );
     }
 
     try {
@@ -109,191 +334,80 @@ if (!stripeSecretKey || !endpointSecret) {
 
           break;
         }
+
         case "checkout.session.completed": {
-          console.log(
-            `[✅ Handling checkout.session.completed] platformAcctId: ${platformAcctId}`
-          );
           const session = event.data.object as Stripe.Checkout.Session;
+
+          const sessionAction = session.metadata?.nettmark_action || session.metadata?.purpose;
+
+          if (sessionAction !== "wallet_topup") {
+            console.log("[ℹ️ checkout.session.completed ignored: non-topup session]", session.id);
+            break;
+          }
+
           const paymentIntentId = session.payment_intent as string | null;
-
           if (!paymentIntentId) {
+            console.warn("[⚠️ checkout.session.completed missing payment_intent]", session.id);
+            break;
+          }
+
+          const email =
+            session.customer_email ||
+            (session.metadata?.email as string | undefined) ||
+            "";
+
+          if (!email) {
+            console.warn("[⚠️ checkout.session.completed missing email]", session.id);
+            break;
+          }
+
+          const paymentDetails = await resolveBalanceTransactionDetails(paymentIntentId);
+
+          if (!paymentDetails) {
             console.warn(
-              "[⚠️ checkout.session.completed: No payment_intent on session]",
-              session.id
+              "[⚠️ checkout.session.completed missing latest_charge/balance_transaction after retries]",
+              session.id,
             );
             break;
           }
 
-          const pi = (await stripe.paymentIntents.retrieve(paymentIntentId as string, {
-            expand: ["charges"],
-          })) as Stripe.Response<Stripe.PaymentIntent>;
-          const charge = pi.charges?.data?.[0] as Stripe.Charge | undefined;
+          const { balanceTx } = paymentDetails;
 
-          if (!charge || !charge.balance_transaction) {
-            console.warn(
-              "[⚠️ checkout.session.completed: No charge/balance_transaction yet]",
-              paymentIntentId
-            );
-            break;
-          }
-
-          const balanceTx = await stripe.balanceTransactions.retrieve(
-            charge.balance_transaction as string
-          );
-
-          const gross_amount = +(balanceTx.amount / 100).toFixed(2);
+          const grossAmount = +(balanceTx.amount / 100).toFixed(2);
           const fees = +(balanceTx.fee / 100).toFixed(2);
-          const net_amount = +(balanceTx.net / 100).toFixed(2);
-          const email = charge.billing_details?.email ?? "unknown@example.com";
+          const stripeNetAmount = +(balanceTx.net / 100).toFixed(2);
+          const creditedAmount = Number(session.metadata?.topup_amount || 0) || grossAmount;
+          const nettmarkFeeAmount = Number(session.metadata?.nettmark_fee_amount || 0);
 
-          console.log(
-            "[✅ Stripe Top-up Details (from session)]",
-            { email, gross_amount, fees, net_amount },
-            `platformAcctId: ${platformAcctId}`
-          );
-
-          const { error } = await supabase.from("wallet_topups").insert({
-            affiliate_email: email,
-            amount_gross: gross_amount,
-            stripe_fees: fees,
-            amount_net: net_amount,
-            stripe_id: paymentIntentId,
-            status: "succeeded",
-            platform_acct_id: platformAcctId,
+          console.log("[✅ Stripe Top-up Details (session source of truth)]", {
+            email,
+            checkoutSessionId: session.id,
+            paymentIntentId,
+            grossAmount,
+            fees,
+            stripeNetAmount,
+            creditedAmount,
+            nettmarkFeeAmount,
+            platformAcctId,
           });
 
-          if (error) {
-            console.error("[❌ Supabase Insert Error]", error);
-          } else {
-            console.log("[✅ Wallet Top-up Recorded (from session)]");
-            // Upsert wallet balance
-            const { error: upsertError } = await supabase
-              .from("wallets")
-              .upsert(
-                {
-                  email: email,
-                  role: "affiliate",
-                  last_transaction_id: paymentIntentId,
-                  last_transaction_status: "succeeded",
-                  last_topup_amount: gross_amount,
-                  last_fee_amount: fees,
-                  last_net_amount: net_amount,
-                },
-                { onConflict: "email, role" }
-              )
-              .select();
-
-            if (upsertError) {
-              console.error("[❌ Wallet balance upsert error]", upsertError);
-            } else {
-              // Increment balance separately to add net_amount
-              const { error: updateError } = await supabase
-                .from("wallets")
-                .update({
-                  balance: supabase.rpc("increment_balance", { email_arg: email, role_arg: "affiliate", amount_arg: net_amount }),
-                })
-                .eq("email", email)
-                .eq("role", "affiliate");
-
-              // If no RPC function, fallback to increment using raw SQL or read-modify-write. 
-              // However, here we assume supabase.rpc exists or use a direct increment.
-
-              if (updateError) {
-                console.error("[❌ Wallet balance increment error]", updateError);
-              } else {
-                console.log("[✅ Wallet balance upserted]");
-              }
-            }
-          }
+          await creditWalletTopup({
+            email,
+            checkoutSessionId: session.id,
+            grossAmount,
+            fees,
+            creditedAmount,
+            nettmarkFeeAmount,
+            platformAcctId,
+          });
 
           break;
         }
+
         case "charge.succeeded":
-        case "charge.updated": {
-          console.log(
-            `[✅ Handling ${event.type} event] platformAcctId: ${platformAcctId}`
-          );
-
-          const charge = event.data.object as Stripe.Charge;
-          const balanceTxId = charge.balance_transaction as string | undefined;
-
-          if (!balanceTxId) {
-            console.warn(
-              `[⚠️ ${event.type}: No balance_transaction yet]`,
-              charge.id
-            );
-            break;
-          }
-
-          const balanceTx = await stripe.balanceTransactions.retrieve(balanceTxId);
-
-          const gross_amount = +(balanceTx.amount / 100).toFixed(2);
-          const fees = +(balanceTx.fee / 100).toFixed(2);
-          const net_amount = +(balanceTx.net / 100).toFixed(2);
-          const email = charge.billing_details?.email ?? "unknown@example.com";
-
-          console.log(
-            "[✅ Stripe Top-up Details]",
-            {
-              email,
-              gross_amount,
-              fees,
-              net_amount,
-            },
-            `platformAcctId: ${platformAcctId}`
-          );
-
-          const { error } = await supabase.from("wallet_topups").insert({
-            affiliate_email: email,
-            amount_gross: gross_amount,
-            stripe_fees: fees,
-            amount_net: net_amount,
-            stripe_id: charge.payment_intent,
-            status: "succeeded",
-            platform_acct_id: platformAcctId, // track origin account id
-          });
-
-          if (error) {
-            console.error("[❌ Supabase Insert Error]", error);
-          } else {
-            console.log("[✅ Wallet Top-up Recorded]");
-            // Upsert wallet balance
-            const { error: upsertError } = await supabase
-              .from("wallets")
-              .upsert(
-                {
-                  email: email,
-                  role: "affiliate",
-                  last_transaction_id: charge.id,
-                  last_transaction_status: "succeeded",
-                  last_topup_amount: gross_amount,
-                  last_fee_amount: fees,
-                  last_net_amount: net_amount,
-                },
-                { onConflict: "email, role" }
-              )
-              .select();
-
-            if (upsertError) {
-              console.error("[❌ Wallet balance upsert error]", upsertError);
-            } else {
-              // Increment balance separately to add net_amount
-              const { error: updateError } = await supabase
-                .from("wallets")
-                .update({
-                  balance: supabase.rpc("increment_balance", { email_arg: email, role_arg: "affiliate", amount_arg: net_amount }),
-                })
-                .eq("email", email)
-                .eq("role", "affiliate");
-
-              if (updateError) {
-                console.error("[❌ Wallet balance increment error]", updateError);
-              } else {
-                console.log("[✅ Wallet balance upserted]");
-              }
-            }
-          }
-
+        case "charge.updated":
+        case "payment_intent.succeeded": {
+          console.log(`[ℹ️ ${event.type} received; no wallet mutation allowed for top-ups]`);
           break;
         }
 
@@ -301,8 +415,11 @@ if (!stripeSecretKey || !endpointSecret) {
           console.log(`[ℹ️ Unhandled event type]: ${event.type}`);
           console.log("[platform acct]", platformAcctId);
       }
-    } catch (err: any) {
-      console.error("[❌ Webhook handler error]", err.message);
+    } catch (err: unknown) {
+      console.error(
+        "[❌ Webhook handler error]",
+        err instanceof Error ? err.message : err,
+      );
     }
 
     return new Response(JSON.stringify({ received: true }), { status: 200 });

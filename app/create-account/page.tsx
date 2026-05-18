@@ -245,7 +245,7 @@ function CreateAccountInner() {
               </div>
               <h1 className="mt-3 text-2xl font-bold tracking-tight">Create your account</h1>
               <p className="mt-1 text-sm text-white/60">
-                Get instant access after a quick signup. You can switch roles later in settings.
+                Get instant access after a quick signup. No subscription or card setup is required to create your account.
               </p>
             </div>
 
@@ -325,6 +325,7 @@ function CreateAccountInner() {
 
           <p className="mt-6 text-xs text-white/50">
             By continuing, you agree to our Terms and Privacy Policy.
+            <span className="block mt-2">Fee-based charges only apply later when money moves through wallets or payouts.</span>
           </p>
         </div>
       </div>

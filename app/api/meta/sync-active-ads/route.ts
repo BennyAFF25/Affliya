@@ -1,6 +1,8 @@
 // app/api/meta/sync-active-ads/route.ts
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { getWalletBalanceSnapshot } from '@/../utils/wallet/balance';
+import { getAdSpendSettlementConfig } from '@/../utils/adSpend/settlements';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,6 +32,18 @@ type AdInsightsResult = {
   error?: any;
 };
 
+type SettlementResult = {
+  attempted: boolean;
+  success: boolean;
+  status?: number;
+  chargedAmount?: number;
+  transferredAfter?: number;
+  unpaidAfter?: number;
+  message?: string;
+  error?: any;
+  raw?: any;
+};
+
 type PerAdResult = {
   liveAdId: string;
   ok: boolean;
@@ -42,6 +56,10 @@ type PerAdResult = {
   // wallet guardrail
   walletAvailable?: number;
   unpaid?: number;
+
+  // settlement
+  wouldSettle?: boolean;
+  settlement?: SettlementResult;
 
   // pause outcome
   wouldPause?: boolean; // dryRun only
@@ -235,10 +253,14 @@ async function run(req: Request) {
   // 2) Call /api/meta/ad-insights for each live ad (small batches)
   const origin = new URL(req.url).origin;
   const insightsEndpoint = `${origin}/api/meta/ad-insights`;
+  const settleEndpoint = `${origin}/api/ad-spend/settle`;
+  const transferBatchEndpoint = `${origin}/api/ad-spend/process-transfer-batches`;
   const cronSecret = process.env.CRON_SECRET!;
+  const settlementConfig = getAdSpendSettlementConfig();
 
   const perAd: PerAdResult[] = [];
   let autoPausedCount = 0;
+  let shouldKickTransferProcessor = false;
 
   // Keep batch small to reduce Meta/API spikes
   const batches = chunk(ads, 5);
@@ -309,52 +331,33 @@ async function run(req: Request) {
         const transferred = num(ad.spend_transferred);
         const unpaid = Math.max(0, spend - transferred);
 
-        // 2c) Compute wallet available (topups - deductions)
+        // 2c) Compute wallet available from the canonical LR-001 wallet snapshot
         const affiliateEmail = ad.affiliate_email;
 
-        const { data: topups, error: topErr } = await supabase
-          .from('wallet_topups')
-          .select('amount_net')
-          .eq('affiliate_email', affiliateEmail)
-          .eq('status', 'succeeded');
+        let walletAvailable: number;
 
-        if (topErr) {
+        try {
+          const walletSnapshot = await getWalletBalanceSnapshot(supabase, affiliateEmail);
+          walletAvailable = walletSnapshot.availableBalance;
+        } catch (walletErr) {
           return {
             liveAdId,
             ok: false,
             spend,
             clicks,
             adInsightsStatus,
-            error: { code: 'WALLET_TOPUPS_READ_FAILED', details: topErr },
+            error: {
+              code: 'CANONICAL_WALLET_SNAPSHOT_FAILED',
+              details: walletErr instanceof Error ? walletErr.message : walletErr,
+            },
           };
         }
 
-        const totalTopups =
-          (topups || []).reduce((sum, r: any) => sum + num(r.amount_net), 0) || 0;
-
-        const { data: deductions, error: dedErr } = await supabase
-          .from('wallet_deductions')
-          .select('amount')
-          .eq('affiliate_email', affiliateEmail);
-
-        if (dedErr) {
-          return {
-            liveAdId,
-            ok: false,
-            spend,
-            clicks,
-            adInsightsStatus,
-            error: { code: 'WALLET_DEDUCTIONS_READ_FAILED', details: dedErr },
-          };
-        }
-
-        const totalDeductions =
-          (deductions || []).reduce((sum, r: any) => sum + num(r.amount), 0) || 0;
-
-        const walletAvailable = totalTopups - totalDeductions;
-
-        // 2d) Guardrail: if wallet can’t cover unpaid spend, pause the ad
-        const shouldPause = walletAvailable < unpaid;
+        // 2d) Automated settlement + pause decision
+        const meetsChunkThreshold = unpaid >= settlementConfig.thresholdAmount;
+        const nearWalletEdge = walletAvailable > 0 && walletAvailable - unpaid <= settlementConfig.walletBuffer;
+        const shouldSettle = unpaid > 0 && walletAvailable >= unpaid && (meetsChunkThreshold || nearWalletEdge);
+        const shouldPause = unpaid > 0 && walletAvailable < unpaid + settlementConfig.walletBuffer;
 
         if (dryRun) {
           return {
@@ -364,21 +367,86 @@ async function run(req: Request) {
             clicks,
             walletAvailable,
             unpaid,
+            wouldSettle: shouldSettle,
             wouldPause: shouldPause,
+            settlement: {
+              attempted: false,
+              success: false,
+              message: `threshold=${settlementConfig.thresholdAmount} buffer=${settlementConfig.walletBuffer}`,
+            },
           };
         }
 
-        if (!shouldPause) {
+        let settlement: SettlementResult = {
+          attempted: false,
+          success: false,
+        };
+
+        if (shouldSettle) {
+          try {
+            const settleRes = await fetch(settleEndpoint, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'x-cron-secret': cronSecret,
+                Authorization: `Bearer ${cronSecret}`,
+              },
+              body: JSON.stringify({ liveAdId }),
+            });
+
+            const settleJson = await settleRes.json().catch(() => null);
+            const settleOk = !!settleRes.ok && !!settleJson?.success;
+
+            settlement = {
+              attempted: true,
+              success: settleOk,
+              status: settleRes.status,
+              chargedAmount:
+                typeof settleJson?.chargedAmount === 'number'
+                  ? settleJson.chargedAmount
+                  : undefined,
+              transferredAfter:
+                typeof settleJson?.transferredAfter === 'number'
+                  ? settleJson.transferredAfter
+                  : undefined,
+              unpaidAfter:
+                typeof settleJson?.unpaidAfter === 'number'
+                  ? settleJson.unpaidAfter
+                  : undefined,
+              message: settleJson?.message || settleJson?.error,
+              error: settleOk ? null : settleJson?.error || 'SETTLEMENT_FAILED',
+              raw: settleJson,
+            };
+
+            shouldKickTransferProcessor = shouldKickTransferProcessor || settleOk;
+          } catch (settleErr) {
+            settlement = {
+              attempted: true,
+              success: false,
+              error: settleErr instanceof Error ? settleErr.message : settleErr,
+            };
+          }
+        }
+
+        const effectiveUnpaid =
+          settlement.attempted && settlement.success && typeof settlement.unpaidAfter === 'number'
+            ? settlement.unpaidAfter
+            : unpaid;
+        const shouldPauseAfterSettlement = effectiveUnpaid > 0 && walletAvailable < effectiveUnpaid + settlementConfig.walletBuffer;
+
+        if (!shouldPauseAfterSettlement) {
           return {
             liveAdId,
-            ok: true,
+            ok: settlement.attempted ? settlement.success : true,
             spend,
             clicks,
             adInsightsStatus,
             walletAvailable,
             unpaid,
+            settlement,
             autoPaused: false,
             pauseError: null,
+            error: settlement.attempted && !settlement.success ? settlement.error : undefined,
           };
         }
 
@@ -398,6 +466,7 @@ async function run(req: Request) {
             adInsightsStatus,
             walletAvailable,
             unpaid,
+            settlement,
             autoPaused: false,
             pauseError: pauseRes.error,
           };
@@ -413,6 +482,7 @@ async function run(req: Request) {
           adInsightsStatus,
           walletAvailable,
           unpaid,
+          settlement,
           autoPaused: true,
           pauseError: null,
         };
@@ -422,8 +492,28 @@ async function run(req: Request) {
     perAd.push(...batchResults);
   }
 
+  if (!dryRun && shouldKickTransferProcessor) {
+    try {
+      await fetch(transferBatchEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-cron-secret': cronSecret,
+          Authorization: `Bearer ${cronSecret}`,
+        },
+        body: JSON.stringify({ limitBusinesses: 10 }),
+      });
+    } catch (batchErr) {
+      console.error('[sync-active-ads] transfer batch trigger failed', batchErr);
+    }
+  }
+
   const okCount = perAd.filter((r) => r.ok).length;
   const failedCount = perAd.length - okCount;
+  const settledCount = perAd.filter((r) => r.settlement?.success).length;
+  const settlementFailedCount = perAd.filter(
+    (r) => r.settlement?.attempted && !r.settlement?.success,
+  ).length;
 
   return NextResponse.json({
     success: true,
@@ -431,6 +521,8 @@ async function run(req: Request) {
     total: perAd.length,
     ok: okCount,
     failed: failedCount,
+    settled: dryRun ? 0 : settledCount,
+    settlementFailed: dryRun ? 0 : settlementFailedCount,
     autoPaused: dryRun ? 0 : autoPausedCount,
     results: perAd,
     took_ms: Date.now() - startedAt,

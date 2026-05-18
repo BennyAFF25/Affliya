@@ -1,11 +1,11 @@
 
 
 import { NextResponse } from 'next/server';
-import Stripe from 'stripe';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
+import { createStripeClient } from '@/../utils/stripe';
 
-export async function POST(req: Request) {
+export async function POST() {
   try {
     const supabase = createRouteHandlerClient({ cookies });
     const {
@@ -31,9 +31,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'No Stripe account linked' }, { status: 400 });
     }
 
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-      apiVersion: '2024-06-20',
-    });
+    const stripe = createStripeClient();
 
     const account = await stripe.accounts.retrieve(biz.stripe_account_id);
 
@@ -60,8 +58,8 @@ export async function POST(req: Request) {
       },
       { status: 200 }
     );
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('[check-account error]', err);
-    return NextResponse.json({ error: err?.message || 'Stripe error' }, { status: 500 });
+    return NextResponse.json({ error: err instanceof Error ? err.message : 'Stripe error' }, { status: 500 });
   }
 }

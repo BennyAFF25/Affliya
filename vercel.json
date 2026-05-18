@@ -3,6 +3,10 @@
     {
       "path": "/api/meta/sync-active-ads",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/ad-spend/process-transfer-batches",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

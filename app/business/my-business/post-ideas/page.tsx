@@ -1,3 +1,11 @@
+"use client";
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+import React, { useEffect, useState } from "react";
+import { useSession } from "@supabase/auth-helpers-react";
+import { supabase } from "@/../utils/supabase/pages-client";
+
 interface OfferRow {
   id: string;
   title: string;
@@ -8,17 +16,11 @@ interface ProfileRow {
   email: string;
   avatar_url: string | null;
 }
-'use client';
-
-import { useEffect, useState, Fragment } from 'react';
-import { useSession } from '@supabase/auth-helpers-react';
-import { supabase } from '@/../utils/supabase/pages-client';
-import { Listbox, Transition, Dialog } from '@headlessui/react';
-import { CheckIcon, ChevronUpDownIcon } from '@heroicons/react/20/solid';
 
 interface PostIdea {
   id: string;
   affiliate_email: string;
+  business_email?: string;
   caption: string;
   platform: string;
   image_url: string;
@@ -29,75 +31,116 @@ interface PostIdea {
   link?: string;
 }
 
-interface Offer {
-  id: string;
-  businessName: string;
-  businessEmail: string;
-}
+type PostKind = "social" | "email" | "forum";
 
-type PostKind = 'social' | 'email' | 'forum';
+type PostStatus = "approved" | "rejected" | "pending";
 
 function inferPostKind(p: { platform?: string; caption?: string }): PostKind {
-  const plat = (p.platform || '').toLowerCase();
-  const cap = (p.caption || '').trim();
-  if (plat === 'email' || cap.startsWith('[EMAIL]')) return 'email';
-  if (plat === 'forum' || cap.startsWith('[FORUM]')) return 'forum';
-  return 'social';
+  const plat = (p.platform || "").toLowerCase();
+  const cap = (p.caption || "").trim();
+  if (plat === "email" || cap.startsWith("[EMAIL]")) return "email";
+  if (plat === "forum" || cap.startsWith("[FORUM]")) return "forum";
+  return "social";
 }
 
-function parseEmailFromCaption(caption?: string): { subject: string; body: string } {
-  const cap = caption || '';
-  if (cap.startsWith('[EMAIL]')) {
+function parseEmailFromCaption(caption?: string): {
+  subject: string;
+  body: string;
+} {
+  const cap = caption || "";
+  if (cap.startsWith("[EMAIL]")) {
     const subjMatch = cap.match(/Subject:\s*(.*)/i);
     const bodyMatch = cap.split(/Body:\s*/i)[1];
-    const subject = (subjMatch?.[1] || '').trim() || '(no subject)';
-    const body = (bodyMatch || '').trim() || '(no body)';
+    const subject = (subjMatch?.[1] || "").trim() || "(no subject)";
+    const body = (bodyMatch || "").trim() || "(no body)";
     return { subject, body };
   }
-  // Fallback: first line as subject, rest as body
-  const [first, ...rest] = cap.split('\n');
-  return { subject: (first || '(no subject)').trim(), body: rest.join('\n').trim() || '(no body)' };
+
+  const [first, ...rest] = cap.split("\n");
+  return {
+    subject: (first || "(no subject)").trim(),
+    body: rest.join("\n").trim() || "(no body)",
+  };
 }
 
-function parseForumFromCaption(caption?: string): { titleOrUrl: string; body: string } {
-  const cap = caption || '';
-  if (cap.startsWith('[FORUM]')) {
+function parseForumFromCaption(caption?: string): {
+  titleOrUrl: string;
+  body: string;
+} {
+  const cap = caption || "";
+  if (cap.startsWith("[FORUM]")) {
     const titleMatch = cap.match(/URL\/Title:\s*(.*)/i);
     const bodyMatch = cap.split(/Post:\s*/i)[1];
-    const titleOrUrl = (titleMatch?.[1] || '').trim() || '(no url/title)';
-    const body = (bodyMatch || '').trim() || '(no content)';
+    const titleOrUrl = (titleMatch?.[1] || "").trim() || "(no url/title)";
+    const body = (bodyMatch || "").trim() || "(no content)";
     return { titleOrUrl, body };
   }
-  // Fallback: first line as title/url, rest as body
-  const [first, ...rest] = cap.split('\n');
-  return { titleOrUrl: (first || '(no url/title)').trim(), body: rest.join('\n').trim() || '(no content)' };
+
+  const [first, ...rest] = cap.split("\n");
+  return {
+    titleOrUrl: (first || "(no url/title)").trim(),
+    body: rest.join("\n").trim() || "(no content)",
+  };
+}
+
+function formatIdeaDate(value?: string) {
+  if (!value) return "Unknown time";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Unknown time";
+  return date.toLocaleString("en-AU", {
+    day: "2-digit",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function statusPillClass(status: string) {
+  switch (status) {
+    case "approved":
+      return "bg-emerald-500/15 text-emerald-300 border border-emerald-400/20";
+    case "rejected":
+      return "bg-red-500/15 text-red-300 border border-red-400/20";
+    default:
+      return "bg-amber-500/15 text-amber-200 border border-amber-300/20";
+  }
+}
+
+function kindLabel(kind: PostKind, platform?: string) {
+  if (kind === "email") return "Email draft";
+  if (kind === "forum") return "Forum post";
+  return platform || "Social post";
+}
+
+function captionSnippet(caption?: string) {
+  const raw = (caption || "").replace(/^\[(EMAIL|FORUM)\]\s*/i, "").trim();
+  if (!raw) return "No caption supplied";
+  return raw.length > 180 ? `${raw.slice(0, 177)}...` : raw;
 }
 
 export default function PostIdeasPage() {
   const [posts, setPosts] = useState<PostIdea[]>([]);
   const [offersMap, setOffersMap] = useState<Record<string, string>>({});
   const [avatarMap, setAvatarMap] = useState<Record<string, string | null>>({});
+  const [selectedPost, setSelectedPost] = useState<PostIdea | null>(null);
+  const [showRecent, setShowRecent] = useState(false);
+  const [showContextDetails, setShowContextDetails] = useState(false);
   const session = useSession();
   const user = session?.user;
- 
-  const [selectedPost, setSelectedPost] = useState<PostIdea | null>(null);
-  const [isOpen, setIsOpen] = useState(false);
-  const [selectedPostInDropdown, setSelectedPostInDropdown] = useState<PostIdea | null>(null);
-  const [showRecent, setShowRecent] = useState(false);
 
   useEffect(() => {
     const fetchOffers = async () => {
       if (!user?.email) return;
 
       const { data, error } = await supabase
-        .from('offers')
-        .select('id, title, business_email')
-        .eq('business_email', user.email);
+        .from("offers")
+        .select("id, title, business_email")
+        .eq("business_email", user.email);
 
       const offers = data as OfferRow[];
 
       if (error) {
-        console.error('[❌ Error fetching offers]', error.message);
+        console.error("[❌ Error fetching offers]", error.message);
         return;
       }
 
@@ -108,7 +151,7 @@ export default function PostIdeasPage() {
       setOffersMap(map);
     };
 
-    fetchOffers();
+    void fetchOffers();
   }, [user?.email]);
 
   useEffect(() => {
@@ -127,60 +170,49 @@ export default function PostIdeasPage() {
 
         if (error) {
           console.error("[❌ Error fetching organic posts]", error);
-        } else {
-          const typedData = (data || []) as PostIdea[];
-          setPosts(typedData);
-          if (typedData.length > 0) {
-            setSelectedPostInDropdown(typedData[0]);
-          }
-
-          // 🔹 Load avatar URLs for all unique affiliate emails
-          if (typedData.length > 0) {
-            const uniqueEmails = Array.from(
-              new Set(
-                typedData
-                  .map((p) => p.affiliate_email)
-                  .filter((email): email is string => !!email)
-              )
-            );
-
-            if (uniqueEmails.length > 0) {
-              const { data: profileRows, error: profileError } = await (supabase as any)
-                .from('affiliate_profiles')
-                .select('email, avatar_url')
-                .in('email', uniqueEmails);
-
-              if (profileError) {
-                console.error('[❌ Error fetching profile avatars]', profileError);
-              } else if (profileRows) {
-                const map: Record<string, string | null> = {};
-                (profileRows as ProfileRow[]).forEach((p) => {
-                  map[p.email] = p.avatar_url;
-                });
-                setAvatarMap(map);
-              }
-            }
-          }
+          return;
         }
+
+        const typedData = (data || []) as PostIdea[];
+        setPosts(typedData);
+
+        const uniqueEmails = Array.from(
+          new Set(
+            typedData
+              .map((p) => p.affiliate_email)
+              .filter((email): email is string => !!email),
+          ),
+        );
+
+        if (uniqueEmails.length === 0) return;
+
+        const { data: profileRows, error: profileError } = await (supabase as any)
+          .from("affiliate_profiles")
+          .select("email, avatar_url")
+          .in("email", uniqueEmails);
+
+        if (profileError) {
+          console.error("[❌ Error fetching profile avatars]", profileError);
+          return;
+        }
+
+        const map: Record<string, string | null> = {};
+        (profileRows as ProfileRow[] | null)?.forEach((profile) => {
+          map[profile.email] = profile.avatar_url;
+        });
+        setAvatarMap(map);
       } catch (err) {
         console.error("[❌ Unexpected error fetching posts]", err);
       }
     };
 
-    fetchOrganicPosts();
+    void fetchOrganicPosts();
   }, [session]);
 
-  const statusColors = {
-    approved: 'bg-green-600 text-green-100',
-    rejected: 'bg-red-600 text-red-100',
-    pending: 'bg-yellow-600 text-yellow-100',
-  };
-
-  // Handles status change for post approval/rejection and updates/inserts accordingly
   const handleStatusChange = async (
     postId: string,
-    newStatus: "approved" | "rejected",
-    post: any
+    newStatus: Extract<PostStatus, "approved" | "rejected">,
+    post: PostIdea,
   ) => {
     try {
       const { error: updateError } = await (supabase as any)
@@ -190,15 +222,13 @@ export default function PostIdeasPage() {
 
       if (updateError) throw updateError;
 
-      if (newStatus === "approved") {
-        // Determine media_url: use video_url if it exists, otherwise fallback to image_url
-        const media_url = post.video_url || post.image_url;
+      let notificationLink = "/affiliate/inbox";
 
-        // FIX: Ensure offer_id from the organic_posts row is always used when upserting to live_campaigns
-        // This guarantees correct association between the campaign and the offer
+      if (newStatus === "approved") {
+        const media_url = post.video_url || post.image_url;
         const correctOfferId = post.offer_id;
 
-        const { error: insertError } = await (supabase as any)
+        const { data: insertedCampaign, error: insertError } = await (supabase as any)
           .from("live_campaigns")
           .insert([
             {
@@ -212,237 +242,321 @@ export default function PostIdeasPage() {
               created_from: "post-ideas",
               status: "live",
             },
-          ] as any[]);
+          ] as any[])
+          .select("id")
+          .single();
 
         if (insertError) throw insertError;
+
+        if (insertedCampaign?.id) {
+          notificationLink = `/affiliate/dashboard/manage-campaigns/${insertedCampaign.id}`;
+        }
+      } else if (post.offer_id) {
+        notificationLink = `/affiliate/dashboard/promote/${post.offer_id}`;
       }
 
-      window.location.reload();
+      const offerTitle = offersMap[post.offer_id] || "your offer";
+      const notificationTitle =
+        newStatus === "approved"
+          ? `Organic post approved: ${offerTitle}`
+          : `Organic post needs changes: ${offerTitle}`;
+      const notificationBody =
+        newStatus === "approved"
+          ? "Your post is now live. Open the campaign to see the tracked link, campaign stats, and the code attached to this placement."
+          : "This post was not approved yet. Open it to review the feedback and update your draft.";
+
+      const { error: notificationError } = await (supabase as any)
+        .from("notifications")
+        .insert([
+          {
+            user_email: post.affiliate_email,
+            title: notificationTitle,
+            body: notificationBody,
+            link_url: notificationLink,
+          },
+        ] as any[]);
+
+      if (notificationError) {
+        console.warn("[organic post] notification insert failed", notificationError);
+      }
+
+      setPosts((prev) =>
+        prev.map((item) =>
+          item.id === postId ? { ...item, status: newStatus } : item,
+        ),
+      );
+      setSelectedPost((prev) =>
+        prev && prev.id === postId ? { ...prev, status: newStatus } : prev,
+      );
     } catch (err) {
       console.error("❌ handleStatusChange error:", err);
     }
   };
 
-  // Arrays for pending and reviewed posts
-  const pendingPosts = posts.filter((p) => p.status === 'pending');
-  const reviewedPosts = posts.filter((p) => p.status !== 'pending');
+  const pendingPosts = posts.filter((p) => p.status === "pending");
+  const reviewedPosts = posts.filter((p) => p.status !== "pending");
+  const approvedCount = posts.filter((p) => p.status === "approved").length;
+  const selectedKind = selectedPost ? inferPostKind(selectedPost) : null;
+  const selectedHandle = selectedPost?.affiliate_email.split("@")[0] || "";
+  const selectedAvatarUrl = selectedPost
+    ? avatarMap[selectedPost.affiliate_email] || null
+    : null;
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] px-4 py-8 sm:px-8 lg:px-10 text-white">
-      <h1 className="text-3xl font-bold text-[#00C2CB] mb-6">Post Requests</h1>
-
-      {posts.length === 0 ? (
-        <p className="text-gray-600">New post ideas will appear here once affiliates submit them.</p>
-      ) : (
-        <>
-          <h2 className="text-xl font-semibold text-white mb-4">
-            {pendingPosts.length > 0 ? 'New posts to review' : 'No new posts to review'}
-          </h2>
-          <div className="space-y-6">
-            {pendingPosts.map((post) => (
-              <div
-                key={post.id}
-                className="bg-[#1f1f1f] border border-[#2c2c2c] rounded-xl px-4 py-4 sm:px-6 sm:py-5 shadow-md flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 hover:shadow-[0_0_8px_#00C2CB] transition-all"
-              >
-                <div className="flex items-center gap-3 sm:gap-4">
-                  <div className="w-8 h-8 flex items-center justify-center bg-[#00C2CB]/20 rounded-full">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-[#00C2CB]" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M5 3a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V8.828a2 2 0 00-.586-1.414l-5.828-5.828A2 2 0 0013.172 1H5zm7 0v6h6l-6-6z" />
-                    </svg>
-                  </div>
-                  <div className="flex flex-col">
-                    <h2 className="text-xl font-semibold text-white">{offersMap[post.offer_id] || 'Unknown Offer'}</h2>
-                    <p className="text-sm text-gray-400">{post.platform}</p>
-                    <div className="flex items-center gap-3 mt-2">
-                      <p className="text-sm text-gray-400">
-                        <span className="font-semibold text-white">Affiliate:</span> {post.affiliate_email}
-                      </p>
-                      <button
-                        onClick={() => setSelectedPost(post)}
-                        className="text-sm text-[#00C2CB] hover:underline"
-                      >
-                        View Detail
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex flex-col sm:items-end gap-2 w-full sm:w-auto">
-                  <span
-                    className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      post.status === 'approved'
-                        ? 'bg-green-500/20 text-green-300'
-                        : post.status === 'rejected'
-                        ? 'bg-red-500/20 text-red-400'
-                        : 'bg-yellow-400/20 text-yellow-300'
-                    }`}
-                  >
-                    {post.status}
-                  </span>
-                  <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
-                    <button
-                      onClick={() => handleStatusChange(post.id, 'approved', post)}
-                      className="w-full sm:w-auto bg-[#00C2CB] text-black hover:bg-[#00b0b8] px-4 py-2 rounded-lg text-sm font-semibold text-center"
-                    >
-                      Approve
-                    </button>
-                    <button
-                      onClick={() => handleStatusChange(post.id, 'rejected', post)}
-                      className="w-full sm:w-auto bg-[#2c2c2c] text-gray-300 hover:bg-[#3a3a3a] px-4 py-2 rounded-lg text-sm text-center"
-                    >
-                      Reject
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="mt-8">
-            <div
-              onClick={() => setShowRecent((prev) => !prev)}
-              className="cursor-pointer mt-8 bg-[#1f1f1f] hover:bg-[#2a2a2a] text-[#00C2CB] font-semibold px-4 py-3 rounded-lg text-center shadow transition-all w-full max-w-md mx-auto"
-            >
-              {showRecent ? 'Hide Recent Posts' : 'Show Recent Posts'}
+    <div className="post-ideas-theme min-h-screen bg-[var(--background)] px-4 py-8 text-[var(--foreground)] sm:px-8 lg:px-10">
+      <div className="mx-auto max-w-6xl">
+        <div className="mb-8 rounded-[28px] border border-white/10 bg-[radial-gradient(circle_at_top_right,rgba(0,194,203,0.18),transparent_32%),linear-gradient(135deg,#11181a_0%,#0c1011_52%,#070808_100%)] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.32)] md:p-8">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="inline-flex items-center rounded-full border border-[#00C2CB]/20 bg-[#00C2CB]/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#7ff5fb]">
+                Organic review queue
+              </p>
+              <h1 className="mt-4 text-3xl font-bold tracking-tight text-white md:text-4xl">
+                Post Requests
+              </h1>
+              <p className="mt-3 max-w-2xl text-sm text-white/65 md:text-base">
+                Review submitted posts, inspect how the affiliate plans to publish them, and approve the strongest placements without the clunky old modal flow.
+              </p>
             </div>
-            {showRecent && (
-              <div className="space-y-6 mt-4">
-                {reviewedPosts.map((post) => (
-                  <div
-                    key={post.id}
-                    className="bg-[#1f1f1f] border border-[#2c2c2c] rounded-xl px-4 py-4 sm:px-6 sm:py-5 shadow-md flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4"
-                  >
-                    <div className="flex items-center gap-3 sm:gap-4">
-                      <div className="w-8 h-8 flex items-center justify-center bg-[#00C2CB]/20 rounded-full">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-[#00C2CB]" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M5 3a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V8.828a2 2 0 00-.586-1.414l-5.828-5.828A2 2 0 0013.172 1H5zm7 0v6h6l-6-6z" />
-                        </svg>
-                      </div>
-                      <div className="flex flex-col">
-                        <h2 className="text-xl font-semibold text-white">{offersMap[post.offer_id] || 'Unknown Offer'}</h2>
-                        <p className="text-sm text-gray-400">{post.platform}</p>
-                        <div className="flex items-center gap-3 mt-2">
-                          <p className="text-sm text-gray-400">
-                            <span className="font-semibold text-white">Affiliate:</span> {post.affiliate_email}
-                          </p>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                <div className="text-[11px] uppercase tracking-[0.18em] text-white/45">Pending</div>
+                <div className="mt-1 text-2xl font-bold text-white">{pendingPosts.length}</div>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                <div className="text-[11px] uppercase tracking-[0.18em] text-white/45">Approved</div>
+                <div className="mt-1 text-2xl font-bold text-white">{approvedCount}</div>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 col-span-2 sm:col-span-1">
+                <div className="text-[11px] uppercase tracking-[0.18em] text-white/45">Recently reviewed</div>
+                <div className="mt-1 text-2xl font-bold text-white">{reviewedPosts.length}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {posts.length === 0 ? (
+          <div className="rounded-3xl border border-white/10 bg-[#111517] px-6 py-12 text-center shadow-[0_18px_50px_rgba(0,0,0,0.22)]">
+            <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl border border-[#00C2CB]/25 bg-[#00C2CB]/10 text-[#00C2CB]">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M5 3a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V8.828a2 2 0 00-.586-1.414l-5.828-5.828A2 2 0 0013.172 1H5zm7 0v6h6" />
+              </svg>
+            </div>
+            <h2 className="mt-5 text-xl font-semibold text-white">No post ideas submitted yet</h2>
+            <p className="mt-2 text-sm text-white/60">New organic post ideas will appear here once affiliates submit them.</p>
+          </div>
+        ) : (
+          <>
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-xl font-semibold text-white">Pending review</h2>
+                <p className="text-sm text-white/55">Preview the post cleanly, then expand execution context if you need more detail.</p>
+              </div>
+              <button
+                onClick={() => setShowRecent((prev) => !prev)}
+                className="rounded-full border border-white/10 bg-[#111517] px-4 py-2 text-sm font-medium text-[#00C2CB] transition hover:bg-[#161b1d]"
+              >
+                {showRecent ? "Hide recent reviews" : `Show recent reviews (${reviewedPosts.length})`}
+              </button>
+            </div>
+
+            {pendingPosts.length === 0 ? (
+              <div className="rounded-3xl border border-white/10 bg-[#111517] px-6 py-10 text-center text-white/65 shadow-[0_18px_50px_rgba(0,0,0,0.18)]">
+                <p className="text-lg font-semibold text-white">No new posts to review</p>
+                <p className="mt-2 text-sm">You’re caught up. Reviewed requests stay available below.</p>
+              </div>
+            ) : (
+              <div className="space-y-5">
+                {pendingPosts.map((post) => {
+                  const kind = inferPostKind(post);
+                  return (
+                    <div
+                      key={post.id}
+                      className="rounded-3xl border border-white/10 bg-[#111517] p-5 shadow-[0_18px_50px_rgba(0,0,0,0.18)] transition hover:border-[#00C2CB]/30 hover:shadow-[0_0_0_1px_rgba(0,194,203,0.18),0_18px_50px_rgba(0,0,0,0.22)] md:p-6"
+                    >
+                      <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                        <div className="flex items-start gap-4">
+                          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[#00C2CB]/20 bg-[#00C2CB]/10 text-[#00C2CB]">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M5 3a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2V8.828a2 2 0 00-.586-1.414l-5.828-5.828A2 2 0 0013.172 1H5zm7 0v6h6" />
+                            </svg>
+                          </div>
+                          <div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h3 className="text-xl font-semibold text-white">
+                                {offersMap[post.offer_id] || "Unknown Offer"}
+                              </h3>
+                              <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${statusPillClass(post.status)}`}>
+                                {post.status}
+                              </span>
+                            </div>
+                            <p className="mt-2 text-sm text-white/60">
+                              Submitted by <span className="font-medium text-white/80">{post.affiliate_email}</span> · {formatIdeaDate(post.created_at)}
+                            </p>
+                            <div className="mt-3 flex flex-wrap gap-2 text-xs text-white/70">
+                              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">{kindLabel(kind, post.platform)}</span>
+                              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">{post.platform || "Platform not set"}</span>
+                              {post.link && (
+                                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">Tracked link attached</span>
+                              )}
+                            </div>
+                            <p className="mt-4 max-w-3xl text-sm leading-6 text-white/72">
+                              {captionSnippet(post.caption)}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex w-full flex-col gap-3 lg:w-auto lg:min-w-[250px]">
                           <button
-                            onClick={() => setSelectedPost(post)}
-                            className="text-sm text-[#00C2CB] hover:underline"
+                            onClick={() => {
+                              setSelectedPost(post);
+                              setShowContextDetails(false);
+                            }}
+                            className="rounded-xl border border-white/10 bg-[#151a1c] px-4 py-2.5 text-sm font-medium text-white/80 transition hover:bg-[#1a2022]"
                           >
-                            View Detail
+                            Open preview
                           </button>
+                          <div className="flex gap-3">
+                            <button
+                              onClick={() => void handleStatusChange(post.id, "approved", post)}
+                              className="flex-1 rounded-xl bg-[#00C2CB] px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-[#00b0b8]"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              onClick={() => void handleStatusChange(post.id, "rejected", post)}
+                              className="flex-1 rounded-xl border border-white/10 bg-[#1a1a1a] px-4 py-2.5 text-sm text-white/72 transition hover:bg-[#242424]"
+                            >
+                              Reject
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
-                    <div className="flex flex-col sm:items-end gap-2 w-full sm:w-auto">
-                      <span
-                        className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          post.status === 'approved'
-                            ? 'bg-green-500/20 text-green-300'
-                            : 'bg-red-500/20 text-red-400'
-                        }`}
-                      >
-                        {post.status}
-                      </span>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
-          </div>
-        </>
-      )}
-      <section className="mt-12 text-center text-gray-500">
-        {posts.length === 0 && (
-          <p>No post ideas have been submitted yet. Once affiliates submit posts, they will appear here for review.</p>
+
+            {showRecent && (
+              <div className="mt-8 space-y-4">
+                {reviewedPosts.length === 0 ? (
+                  <div className="rounded-3xl border border-white/10 bg-[#111517] px-6 py-8 text-center text-sm text-white/60">
+                    No reviewed requests yet.
+                  </div>
+                ) : (
+                  reviewedPosts.map((post) => {
+                    const kind = inferPostKind(post);
+                    return (
+                      <div
+                        key={post.id}
+                        className="rounded-3xl border border-white/10 bg-[#111517] p-5 shadow-[0_18px_50px_rgba(0,0,0,0.16)] md:p-6"
+                      >
+                        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                          <div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h3 className="text-lg font-semibold text-white">
+                                {offersMap[post.offer_id] || "Unknown Offer"}
+                              </h3>
+                              <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${statusPillClass(post.status)}`}>
+                                {post.status}
+                              </span>
+                            </div>
+                            <p className="mt-2 text-sm text-white/60">
+                              {post.affiliate_email} · {formatIdeaDate(post.created_at)}
+                            </p>
+                            <p className="mt-2 text-sm text-white/55">{kindLabel(kind, post.platform)}</p>
+                          </div>
+                          <button
+                            onClick={() => {
+                              setSelectedPost(post);
+                              setShowContextDetails(false);
+                            }}
+                            className="rounded-xl border border-white/10 bg-[#151a1c] px-4 py-2.5 text-sm font-medium text-[#00C2CB] transition hover:bg-[#1a2022]"
+                          >
+                            View detail
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            )}
+          </>
         )}
-      </section>
 
-      {selectedPost && (() => {
-        const kind = inferPostKind(selectedPost);
-        const handle = selectedPost.affiliate_email.split("@")[0];
-        const affiliateEmail = selectedPost.affiliate_email;
-        const avatarUrl = avatarMap[affiliateEmail] || null;
-        const submittedDate = new Date(selectedPost.created_at).toLocaleDateString();
-
-        return (
+        {selectedPost && selectedKind && (
           <div className="fixed inset-0 z-50 flex items-center justify-center px-3 sm:px-4">
-            {/* Backdrop */}
             <div
               className="fixed inset-0 bg-black/60 backdrop-blur-sm"
               aria-hidden="true"
               onClick={() => setSelectedPost(null)}
             />
 
-            {/* Card */}
-            <div className="relative z-50 w-full max-w-sm rounded-3xl bg-[#05080a] border border-[#151b1f] shadow-[0_20px_60px_rgba(0,0,0,0.75)] overflow-hidden">
-              {/* Top bar / header */}
-              <div className="flex items-center justify-between px-4 py-3 border-b border-[#151b1f] bg-gradient-to-r from-[#050b0d] via-[#05080a] to-[#050b0d]">
-                <div className="flex items-center gap-3">
-                  <div className="h-9 w-9 rounded-full bg-gradient-to-br from-[#00C2CB] via-[#7ff5fb] to-[#00C2CB] p-[2px]">
-                    <div className="h-full w-full rounded-full bg-[#05080a] flex items-center justify-center overflow-hidden">
-                      {avatarUrl ? (
-                        <img
-                          src={avatarUrl}
-                          alt={handle}
-                          className="h-full w-full object-cover"
-                          referrerPolicy="no-referrer"
-                          onError={(e) => {
-                            (e.currentTarget as HTMLImageElement).style.display = "none";
-                          }}
-                        />
-                      ) : (
-                        <span className="text-xs font-semibold text-[#7ff5fb]">
-                          {handle.charAt(0).toUpperCase()}
-                        </span>
-                      )}
+            <div className="relative z-50 max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-[28px] border border-[#151b1f] bg-[#05080a] shadow-[0_20px_60px_rgba(0,0,0,0.75)]">
+              <div className="h-1 w-full bg-gradient-to-r from-[#00C2CB] via-[#7ff5fb] to-[#00C2CB]" />
+
+              <div className="border-b border-[#151b1f] bg-gradient-to-r from-[#050b0d] via-[#05080a] to-[#050b0d] px-5 py-4">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="h-11 w-11 rounded-2xl bg-gradient-to-br from-[#00C2CB] via-[#7ff5fb] to-[#00C2CB] p-[2px]">
+                      <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-2xl bg-[#05080a]">
+                        {selectedAvatarUrl ? (
+                          <img
+                            src={selectedAvatarUrl}
+                            alt={selectedHandle}
+                            className="h-full w-full object-cover"
+                            referrerPolicy="no-referrer"
+                            onError={(e) => {
+                              e.currentTarget.style.display = "none";
+                            }}
+                          />
+                        ) : (
+                          <span className="text-xs font-semibold text-[#7ff5fb]">
+                            {selectedHandle.charAt(0).toUpperCase()}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-sm font-semibold text-white">@{selectedHandle}</div>
+                      <div className="mt-1 text-[11px] text-white/60">
+                        {offersMap[selectedPost.offer_id] || "Unknown Offer"} · {formatIdeaDate(selectedPost.created_at)}
+                      </div>
                     </div>
                   </div>
-                  <div className="flex flex-col">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-sm font-semibold">@{handle}</span>
-                      <span className="h-1 w-1 rounded-full bg-white/30" />
-                      <span className="text-[11px] text-white/60">
-                        {kind === "email"
-                          ? "Email draft"
-                          : kind === "forum"
-                          ? "Forum post"
-                          : `${selectedPost.platform || "Social"}`}
-                      </span>
-                    </div>
-                    <span className="text-[11px] text-white/40">
-                      Submitted on {submittedDate}
+                  <div className="flex items-center gap-2 text-white/50">
+                    <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${statusPillClass(selectedPost.status)}`}>
+                      {selectedPost.status}
+                    </span>
+                    <span className="rounded-full border border-white/10 px-2.5 py-1 text-[10px] uppercase tracking-[0.15em]">
+                      {kindLabel(selectedKind, selectedPost.platform)}
                     </span>
                   </div>
                 </div>
-
-                <button
-                  onClick={() => setSelectedPost(null)}
-                  className="flex h-7 w-7 items-center justify-center rounded-full bg-white/5 hover:bg-white/10 text-white/70 hover:text-white text-xs transition"
-                  aria-label="Close"
-                >
-                  ✕
-                </button>
               </div>
 
-              {/* Media / body */}
-              {kind === "social" && (
+              {selectedKind === "social" && (
                 <>
-                  {/* media */}
                   <div className="bg-black max-h-[460px]">
                     {selectedPost.video_url ? (
                       <video
                         src={selectedPost.video_url}
                         controls
-                        className="w-full h-full max-h-[460px] object-contain bg-black"
+                        className="h-full max-h-[460px] w-full bg-black object-contain"
                       />
                     ) : (
                       <img
                         src={selectedPost.image_url}
                         alt="Post media"
-                        className="w-full h-full max-h-[460px] object-contain bg-black"
+                        className="h-full max-h-[460px] w-full bg-black object-contain"
                         referrerPolicy="no-referrer"
                         loading="lazy"
                         onError={(e) => {
-                          const target = e.currentTarget as HTMLImageElement & { dataset: any };
+                          const target = e.currentTarget as HTMLImageElement & {
+                            dataset: DOMStringMap;
+                          };
                           if (!target.dataset.fallbackUsed) {
                             target.src = "/fallback-organic-post.png";
                             target.dataset.fallbackUsed = "true";
@@ -452,113 +566,146 @@ export default function PostIdeasPage() {
                     )}
                   </div>
 
-                  {/* fake actions row */}
-                  <div className="flex items-center gap-5 px-4 pt-3 pb-1 text-white/70 text-[18px]">
+                  <div className="flex items-center gap-5 px-5 pb-1 pt-3 text-[18px] text-white/70">
                     <span>♡</span>
                     <span>💬</span>
                     <span>↗︎</span>
                   </div>
 
-                  {/* caption */}
                   {selectedPost.caption && (
-                    <div className="px-4 pb-3 text-sm text-gray-200 whitespace-pre-wrap">
-                      <span className="font-semibold mr-1">@{handle}</span>
+                    <div className="px-5 pb-4 text-sm whitespace-pre-wrap text-gray-200">
+                      <span className="mr-1 font-semibold">@{selectedHandle}</span>
                       {selectedPost.caption}
                     </div>
                   )}
                 </>
               )}
 
-              {kind === "email" && (() => {
+              {selectedKind === "email" && (() => {
                 const { subject, body } = parseEmailFromCaption(selectedPost.caption);
                 return (
                   <div className="border-t border-[#151b1f] bg-[#05080a]">
-                    <div className="px-4 pt-3 pb-2">
-                      <div className="text-[11px] text-white/50 mb-1">Email draft</div>
-                      <div className="text-sm font-semibold text-white mb-1">
-                        {subject}
-                      </div>
+                    <div className="px-5 pb-2 pt-4">
+                      <div className="mb-1 text-[11px] text-white/50">Email draft</div>
+                      <div className="mb-1 text-sm font-semibold text-white">{subject}</div>
                       <div className="text-[11px] text-white/50">
-                        From: {selectedPost.affiliate_email} • To: (audience segment)
+                        From: {selectedPost.affiliate_email} • To: audience segment
                       </div>
                     </div>
-                    <div className="px-4 pb-3 text-sm text-gray-200 whitespace-pre-wrap border-t border-[#151b1f]">
+                    <div className="border-t border-[#151b1f] px-5 pb-4 pt-3 text-sm whitespace-pre-wrap text-gray-200">
                       {body}
                     </div>
                   </div>
                 );
               })()}
 
-              {kind === "forum" && (() => {
+              {selectedKind === "forum" && (() => {
                 const { titleOrUrl, body } = parseForumFromCaption(selectedPost.caption);
                 return (
                   <div className="border-t border-[#151b1f] bg-[#05080a]">
-                    <div className="px-4 pt-3 pb-2">
-                      <div className="text-[11px] text-white/50 mb-1">Forum post preview</div>
-                      <div className="text-sm font-semibold text-white break-all mb-1">
-                        {titleOrUrl}
-                      </div>
+                    <div className="px-5 pb-2 pt-4">
+                      <div className="mb-1 text-[11px] text-white/50">Forum post preview</div>
+                      <div className="mb-1 break-all text-sm font-semibold text-white">{titleOrUrl}</div>
                       <div className="text-[11px] text-white/50">
-                        Posted by @{handle} • Platform: {selectedPost.platform}
+                        Posted by @{selectedHandle} • Platform: {selectedPost.platform}
                       </div>
                     </div>
-                    <div className="px-4 pb-3 text-sm text-gray-200 whitespace-pre-wrap border-t border-[#151b1f]">
+                    <div className="border-t border-[#151b1f] px-5 pb-4 pt-3 text-sm whitespace-pre-wrap text-gray-200">
                       {body}
                     </div>
                   </div>
                 );
               })()}
 
-              {/* Meta + status */}
-              <div className="px-4 py-3 border-t border-[#151b1f] bg-[#05080a] text-xs text-gray-300 space-y-1.5">
-                {selectedPost.link && (
-                  <div className="flex items-center gap-2">
-                    <span className="uppercase tracking-wide text-[10px] text-white/40">
-                      Link
-                    </span>
-                    <span className="truncate text-[11px] text-[#7ff5fb]">
-                      {selectedPost.link}
-                    </span>
+              <div className="space-y-4 px-5 py-5">
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                    <div className="text-[11px] uppercase tracking-[0.18em] text-white/45">Format</div>
+                    <div className="mt-2 text-sm font-medium text-white">{kindLabel(selectedKind, selectedPost.platform)}</div>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                    <div className="text-[11px] uppercase tracking-[0.18em] text-white/45">Platform</div>
+                    <div className="mt-2 text-sm font-medium text-white">{selectedPost.platform || "Not set"}</div>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
+                    <div className="text-[11px] uppercase tracking-[0.18em] text-white/45">Tracking link</div>
+                    <div className="mt-2 truncate text-sm font-medium text-white">
+                      {selectedPost.link ? "Attached" : "Not supplied"}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/5">
+                  <button
+                    onClick={() => setShowContextDetails((prev) => !prev)}
+                    className="flex w-full items-center justify-between px-4 py-3 text-left transition hover:bg-white/5"
+                  >
+                    <div>
+                      <div className="text-sm font-semibold text-white">Execution context</div>
+                      <div className="mt-1 text-xs text-white/55">Expand to inspect the placement context the affiliate supplied.</div>
+                    </div>
+                    <span className="text-sm text-[#00C2CB]">{showContextDetails ? "Hide" : "Show"}</span>
+                  </button>
+
+                  {showContextDetails && (
+                    <div className="grid gap-3 border-t border-white/10 px-4 py-4 sm:grid-cols-2">
+                      <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+                        <div className="text-[11px] uppercase tracking-[0.16em] text-white/45">Affiliate</div>
+                        <div className="mt-2 text-sm text-white/80">{selectedPost.affiliate_email}</div>
+                      </div>
+                      <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+                        <div className="text-[11px] uppercase tracking-[0.16em] text-white/45">Offer</div>
+                        <div className="mt-2 text-sm text-white/80">{offersMap[selectedPost.offer_id] || "Unknown Offer"}</div>
+                      </div>
+                      <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+                        <div className="text-[11px] uppercase tracking-[0.16em] text-white/45">Publishing format</div>
+                        <div className="mt-2 text-sm text-white/80">{kindLabel(selectedKind, selectedPost.platform)}</div>
+                      </div>
+                      <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+                        <div className="text-[11px] uppercase tracking-[0.16em] text-white/45">Destination link</div>
+                        <div className="mt-2 break-all text-sm text-white/80">{selectedPost.link || "No tracked link supplied"}</div>
+                      </div>
+                      <div className="rounded-xl border border-white/10 bg-black/20 p-3 sm:col-span-2">
+                        <div className="text-[11px] uppercase tracking-[0.16em] text-white/45">Context supplied</div>
+                        <div className="mt-2 whitespace-pre-wrap text-sm leading-6 text-white/80">{selectedPost.caption || "No execution notes supplied"}</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="border-t border-[#151b1f] px-5 pb-5 pt-2">
+                {selectedPost.status === "pending" && (
+                  <div className="mb-3 flex gap-2">
+                    <button
+                      onClick={() => void handleStatusChange(selectedPost.id, "approved", selectedPost)}
+                      className="w-full rounded-xl bg-[#00C2CB] py-2.5 text-sm font-semibold text-black shadow-[0_0_20px_rgba(0,194,203,0.35)] transition hover:bg-[#00b0b8]"
+                    >
+                      Approve &amp; publish
+                    </button>
+                    <button
+                      onClick={() => void handleStatusChange(selectedPost.id, "rejected", selectedPost)}
+                      className="w-full rounded-xl border border-red-500/40 bg-[#2b1515] py-2.5 text-sm font-semibold text-red-300 transition hover:bg-[#3a1a1a]"
+                    >
+                      Reject
+                    </button>
                   </div>
                 )}
 
-                <div className="flex items-center justify-between">
-                  <span className="uppercase tracking-wide text-[10px] text-white/40">
-                    Status
-                  </span>
-                  <span
-                    className={`
-                      inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium
-                      ${
-                        selectedPost.status === "approved"
-                          ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/40"
-                          : selectedPost.status === "rejected"
-                          ? "bg-red-500/15 text-red-300 border border-red-500/40"
-                          : "bg-amber-400/10 text-amber-200 border border-amber-400/40"
-                      }
-                    `}
-                  >
-                    <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                    {selectedPost.status}
-                  </span>
-                </div>
-
-                <p className="text-[11px] text-white/40">
-                  Submitted on {submittedDate}
-                </p>
+                <button
+                  className="w-full rounded-xl bg-[#00C2CB]/10 py-2.5 text-sm font-medium text-[#00C2CB] transition hover:bg-[#00C2CB]/20"
+                  onClick={() => {
+                    setShowContextDetails(false);
+                    setSelectedPost(null);
+                  }}
+                >
+                  Close Preview
+                </button>
               </div>
-
-              {/* Close CTA */}
-              <button
-                className="w-full py-2.5 text-sm font-semibold bg-[#00C2CB] hover:bg-[#00b0b8] text-black transition-colors"
-                onClick={() => setSelectedPost(null)}
-              >
-                Close
-              </button>
             </div>
           </div>
-        );
-      })()}
+        )}
+      </div>
     </div>
   );
 }

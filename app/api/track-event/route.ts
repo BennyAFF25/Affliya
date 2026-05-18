@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { isUuid, resolveRuntimeCampaign } from '@/../utils/tracking/campaignIdentity';
+import { quarantineBillableEvent } from '@/../utils/tracking/quarantine';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -79,6 +81,68 @@ function hostnameFrom(event_data: any, fallbackRef?: string | null): string | nu
   }
 }
 
+function firstText(...values: unknown[]): string | null {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  return null;
+}
+
+function queryParamFromUrl(rawUrl: unknown, key: string): string | null {
+  if (typeof rawUrl !== 'string' || !rawUrl.trim()) return null;
+
+  try {
+    const parsed = new URL(rawUrl);
+    const value = parsed.searchParams.get(key);
+    return value && value.trim() ? value.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
+function nestedRecord(value: unknown): Record<string, any> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, any>)
+    : null;
+}
+
+function resolveAffiliateAndCampaign(body: Record<string, any>, eventData: Record<string, any>) {
+  const context = nestedRecord(eventData.context);
+  const contextDocument = nestedRecord(context?.document);
+  const page = nestedRecord(eventData.page);
+
+  const candidateUrls = [
+    body.url,
+    body.page_url,
+    body.location,
+    eventData.url,
+    eventData.page_url,
+    eventData.location,
+    page?.url,
+    contextDocument?.location?.href,
+    contextDocument?.referrer,
+    body.referrer,
+  ];
+
+  const affiliateId = firstText(
+    body.affiliate_id,
+    eventData.affiliate_id,
+    eventData.affiliateId,
+    eventData.nm_aff,
+    ...candidateUrls.map((url) => queryParamFromUrl(url, 'nm_aff')),
+  );
+
+  const campaignId = firstText(
+    body.campaign_id,
+    eventData.campaign_id,
+    eventData.campaignId,
+    eventData.nm_camp,
+    ...candidateUrls.map((url) => queryParamFromUrl(url, 'nm_camp')),
+  );
+
+  return { affiliateId, campaignId };
+}
+
 export async function POST(req: NextRequest) {
   try {
     // Support both JSON and text/plain from sendBeacon/fetch
@@ -96,22 +160,10 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const event_type = body.event_type;
-    if (!event_type) {
+    const rawEventType = body.event_type;
+    if (!rawEventType) {
       return NextResponse.json({ error: 'event_type required' }, { status: 400 });
     }
-
-    const affiliate_id = body.affiliate_id ?? null;
-    let campaign_id = body.campaign_id ?? null;
-    let offer_id = body.offer_id ?? body?.event_data?.offer_id ?? null;
-
-    console.log('[track-event] incoming event', {
-      event_type,
-      affiliate_id,
-      campaign_id,
-      offer_id_raw: body.offer_id ?? null,
-      campaign_id_raw: body.campaign_id ?? null,
-    });
 
     const raw_event_data = body.event_data;
     const event_data =
@@ -119,8 +171,73 @@ export async function POST(req: NextRequest) {
         ? raw_event_data
         : {};
 
+    const resolvedAttribution = resolveAffiliateAndCampaign(body, event_data);
+    const affiliate_id = resolvedAttribution.affiliateId;
+    let campaign_id = resolvedAttribution.campaignId;
+    let offer_id = body.offer_id ?? body?.event_data?.offer_id ?? null;
+    const { amount, currency } = extractAmountAndCurrency(event_data);
+    const event_type =
+      rawEventType === 'checkout_completed' && affiliate_id && campaign_id && amount != null
+        ? 'conversion'
+        : rawEventType;
+    const isBillableEvent = event_type === 'conversion';
+
+    console.log('[track-event] incoming event', {
+      raw_event_type: rawEventType,
+      event_type,
+      affiliate_id,
+      campaign_id,
+      offer_id_raw: body.offer_id ?? null,
+      campaign_id_raw: body.campaign_id ?? null,
+    });
+
+    if (rawEventType !== event_type && !event_data.original_event_type) {
+      event_data.original_event_type = rawEventType;
+    }
+
+    const strictRuntimeCampaign = campaign_id
+      ? await resolveRuntimeCampaign(supabase as any, {
+          campaignId: campaign_id,
+          affiliateEmail: affiliate_id,
+        })
+      : null;
+
+    if (isBillableEvent) {
+      if (!strictRuntimeCampaign) {
+        await quarantineBillableEvent(supabase as any, {
+          sourceRoute: 'app/api/track-event/route.ts',
+          reasonCode: 'INVALID_BILLABLE_CAMPAIGN_IDENTITY',
+          message:
+            'Billable conversion event could not be resolved to an exact runtime campaign identity.',
+          eventType: event_type,
+          rawCampaignId: campaign_id,
+          affiliateId: affiliate_id,
+          rawPayload: {
+            event_type,
+            affiliate_id,
+            campaign_id,
+            offer_id,
+            event_data,
+          },
+        });
+
+        return NextResponse.json(
+          {
+            ok: false,
+            error: 'INVALID_BILLABLE_CAMPAIGN_IDENTITY',
+            message:
+              'Billable conversion events must resolve to an exact runtime campaign identity. Hostname and offer fallbacks are not allowed.',
+          },
+          { status: 400 },
+        );
+      }
+
+      campaign_id = strictRuntimeCampaign.campaignId;
+      offer_id = strictRuntimeCampaign.offerId;
+    }
+
     // --- Offer ID Fallback Logic ---
-    if (!offer_id && campaign_id) {
+    if (!isBillableEvent && !offer_id && campaign_id) {
       // 0) PRIMARY: resolve via live_campaigns (authoritative mapping from runtime campaign → offer)
       const { data: liveCamp, error: liveCampErr } = await supabase
         .from('live_campaigns')
@@ -210,7 +327,7 @@ export async function POST(req: NextRequest) {
 
     // 🔹 FINAL safety net:
     // If offer_id is still missing but campaign_id actually *is* an offers.id, treat it as such.
-    if (!offer_id && campaign_id) {
+    if (!isBillableEvent && !offer_id && campaign_id) {
       try {
         const { data: offerFromCampaign, error: offerFromCampaignErr } = await supabase
           .from('offers')
@@ -236,7 +353,7 @@ export async function POST(req: NextRequest) {
     }
 
     // --- Paid Meta stats: if campaign_id still matches offer_id, remap to live_ads.id ---
-    if (offer_id && affiliate_id && campaign_id && campaign_id === offer_id) {
+    if (!isBillableEvent && offer_id && affiliate_id && campaign_id && campaign_id === offer_id) {
       try {
         const { data: paidLiveAd, error: paidLiveAdErr } = await supabase
           .from('live_ads')
@@ -274,14 +391,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const { amount, currency } = extractAmountAndCurrency(event_data);
-
     // 🧩 Ensure campaign_id is a valid UUID before insert (remap if Meta numeric ID)
-    const isUuid = (v: any) =>
-      typeof v === 'string' &&
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
+    if (!isBillableEvent && strictRuntimeCampaign) {
+      campaign_id = strictRuntimeCampaign.campaignId;
+      offer_id = offer_id || strictRuntimeCampaign.offerId;
+    }
 
-    if (campaign_id && !isUuid(campaign_id)) {
+    if (!isBillableEvent && campaign_id && !isUuid(campaign_id)) {
       console.warn('[track-event] non-UUID campaign_id detected; attempting to remap from live_ads.meta_campaign_id →', campaign_id);
       try {
         const { data: matchAd, error: matchErr } = await supabase
@@ -332,90 +448,32 @@ export async function POST(req: NextRequest) {
 
     const inserted = insertedRows[0];
 
-    // --- Auto-create wallet payout if it's a conversion ---
-    if (
-      inserted.event_type === 'conversion' &&
-      inserted.amount &&
-      inserted.offer_id &&
-      inserted.affiliate_id
-    ) {
-      const { data: offer, error: offerErr } = await supabase
-        .from('offers')
-        .select('business_email, commission_value, commission, type, payout_mode, payout_interval, payout_cycles')
-        .eq('id', inserted.offer_id)
-        .maybeSingle();
+    if (inserted.event_type === 'conversion') {
+      try {
+        const processUrl = new URL('/api/process-conversion', req.url);
+        const processRes = await fetch(processUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ event_id: inserted.id }),
+        });
 
-      if (!offerErr && offer?.business_email) {
-        // Use `commission` (percentage) for payout math. `commission_value` is just a display dollar hint.
-        const pctRaw = offer.commission ?? 0;
-        const pct = Number(pctRaw);
-        const base = Number(inserted.amount ?? 0);
-        // Guard
-        if (!Number.isFinite(pct) || !Number.isFinite(base)) {
-          console.warn('[track-event] invalid pct/base for payout', { pctRaw, pct, base });
+        if (!processRes.ok) {
+          const text = await processRes.text();
+          console.warn('[track-event] process-conversion handoff failed', {
+            event_id: inserted.id,
+            status: processRes.status,
+            body: text,
+          });
         }
-        // Percent of sale, rounded to 2 decimals
-        const affiliatePayoutRaw = (base * pct) / 100;
-        const affiliatePayoutFixed = Math.round(affiliatePayoutRaw * 100) / 100; // 2dp
-
-        // Check if we already created a payout for this event
-        const { data: existingPayout, error: existingErr } = await supabase
-          .from('wallet_payouts')
-          .select('id')
-          .eq('source_event_id', inserted.id)
-          .maybeSingle();
-
-        if (existingErr) {
-          console.error('[track-event] existing payout lookup error', existingErr);
-        }
-
-        if (!existingPayout) {
-          const isRecurringOffer =
-            offer.type === 'recurring' ||
-            offer.payout_mode === 'spread' ||
-            (offer.payout_cycles && offer.payout_cycles > 1);
-
-          const nowIso = new Date().toISOString();
-
-          const payload: any = {
-            business_email: offer.business_email,
-            affiliate_email: inserted.affiliate_id,
-            offer_id: inserted.offer_id,
-            amount: affiliatePayoutFixed,
-            status: 'pending',
-            source_event_id: inserted.id,
-          };
-
-          if (isRecurringOffer) {
-            payload.is_recurring = true;
-            payload.cycle_number = 1;
-            payload.available_at = nowIso;
-          }
-
-          const { error: payoutErr } = await supabase
-            .from('wallet_payouts')
-            .insert(payload);
-
-          if (payoutErr) {
-            console.error('[track-event] wallet_payouts insert error', payoutErr);
-          } else {
-            console.log('[track-event] wallet_payouts insert OK', {
-              event_id: inserted.id,
-              amount: affiliatePayoutFixed,
-              business_email: offer.business_email,
-              affiliate_email: inserted.affiliate_id,
-              offer_id: inserted.offer_id,
-            });
-          }
-        } else {
-          console.log('[track-event] wallet_payouts exists, skipping insert', { event_id: inserted.id, payout_id: existingPayout.id });
-        }
-      } else {
-        console.warn('[track-event] offer lookup failed; skipping payout insert', { offerErr, offer_id: inserted.offer_id });
+      } catch (handoffErr) {
+        console.warn('[track-event] process-conversion handoff threw', {
+          event_id: inserted.id,
+          handoffErr,
+        });
       }
     }
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, event_id: inserted.id });
   } catch (e) {
     console.error('[track-event] unhandled error', e);
     return NextResponse.json(

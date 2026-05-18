@@ -1,64 +1,13 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import Image from 'next/image';
-import { User, Briefcase } from 'lucide-react';
+import Link from "next/link";
+import { User, Briefcase } from "lucide-react";
+import MarketingHeader from "@/components/marketing/MarketingHeader";
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen w-full flex flex-col bg-gradient-to-br from-[#00363a] via-black to-black">
-      <header className="fixed top-0 inset-x-0 z-50 bg-black bg-opacity-90 backdrop-blur-sm border-b border-white/10">
-        <nav className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" aria-label="Top">
-          <div className="w-full h-16 flex items-center justify-between">
-            {/* Left: logo */}
-            <div className="flex items-center">
-              <Link href="/" className="flex items-center -ml-2">
-                <Image
-                  src="/nettmark-logo.png"
-                  alt="Affliya"
-                  width={140}
-                  height={40}
-                  priority
-                  className="rounded-sm"
-                />
-              </Link>
-            </div>
-
-            {/* Center nav: only on large screens */}
-            <div className="hidden lg:flex items-center space-x-10">
-              <Link
-                href="/for-businesses"
-                className="text-[#00C2CB] hover:text-[#7ff5fb] font-medium"
-              >
-                For Businesses
-              </Link>
-              <Link
-                href="/for-partners"
-                className="text-[#00C2CB] hover:text-[#7ff5fb] font-medium"
-              >
-                For Partners
-              </Link>
-              <Link
-                href="/pricing"
-                className="text-[#00C2CB] hover:text-[#7ff5fb] font-medium"
-              >
-                Pricing
-              </Link>
-            </div>
-
-            {/* Right: Home button */}
-            <div className="flex-shrink-0">
-              <Link
-                href="/"
-                className="inline-flex items-center rounded-md border border-transparent bg-[#00C2CB] py-2 px-4 text-sm font-medium text-black hover:bg-[#00b0b8]"
-              >
-                Home
-              </Link>
-            </div>
-          </div>
-        </nav>
-      </header>
-      <div aria-hidden="true" className="h-20" />
+    <div className="marketing-login-theme min-h-screen w-full flex flex-col bg-gradient-to-br from-[#00363a] via-black to-black">
+      <MarketingHeader />
       <div className="flex-grow flex items-center justify-center px-4 pb-8">
         <div className="relative w-full max-w-md">
           {/* Soft glow behind card */}
@@ -66,7 +15,7 @@ export default function LoginPage() {
             className="pointer-events-none absolute -inset-x-10 -top-16 h-56 blur-3xl opacity-60"
             style={{
               background:
-                'radial-gradient(60% 80% at 50% 10%, rgba(0,194,203,0.32), transparent 65%)',
+                "radial-gradient(60% 80% at 50% 10%, rgba(0,194,203,0.32), transparent 65%)",
             }}
           />
 
@@ -94,11 +43,10 @@ export default function LoginPage() {
               </span>
             </div>
 
-            <h1 className="text-2xl font-semibold text-white mb-1">
-              Login
-            </h1>
+            <h1 className="text-2xl font-semibold text-white mb-1">Login</h1>
             <p className="text-xs text-white/65 mb-6">
-              Select whether you&apos;re logging in as a business or affiliate partner.
+              Select whether you&apos;re logging in as a business or affiliate
+              partner. No subscription setup needed.
             </p>
 
             <div className="flex flex-col space-y-3 w-full">
@@ -111,8 +59,12 @@ export default function LoginPage() {
                     <User size={16} />
                   </div>
                   <div className="flex flex-col">
-                    <span className="text-sm font-medium">Affiliate portal</span>
-                    <span className="text-[11px] text-white/50">Run campaigns, track clicks & payouts.</span>
+                    <span className="text-sm font-medium">
+                      Affiliate portal
+                    </span>
+                    <span className="text-[11px] text-white/50">
+                      Run campaigns, track clicks & payouts.
+                    </span>
                   </div>
                 </div>
                 <span className="text-[11px] text-[#7ff5fb]">Login →</span>
@@ -128,17 +80,38 @@ export default function LoginPage() {
                   </div>
                   <div className="flex flex-col">
                     <span className="text-sm font-medium">Business portal</span>
-                    <span className="text-[11px] text-white/50">Manage offers, tracking & affiliate payouts.</span>
+                    <span className="text-[11px] text-white/50">
+                      Manage offers, tracking & affiliate payouts.
+                    </span>
                   </div>
                 </div>
                 <span className="text-[11px] text-[#7ff5fb]">Login →</span>
               </Link>
             </div>
 
-            <div className="pt-4 text-[11px] text-white/50 text-center">
-              Don&apos;t have an account?{' '}
-              <Link href="/pricing" className="text-[#00C2CB] hover:text-[#7ff5fb] hover:underline">
-                View pricing to get started
+            <div className="pt-4 space-y-3 text-center">
+              <p className="text-[11px] text-white/50">
+                Don&apos;t have an account yet?
+              </p>
+              <div className="grid gap-2 sm:grid-cols-2">
+                <Link
+                  href="/create-account?role=affiliate"
+                  className="rounded-xl border border-white/15 bg-white/[0.03] px-3 py-2 text-xs text-white/80 hover:border-[#00C2CB80] hover:text-white transition"
+                >
+                  Create affiliate account
+                </Link>
+                <Link
+                  href="/create-account?role=business"
+                  className="rounded-xl border border-white/15 bg-white/[0.03] px-3 py-2 text-xs text-white/80 hover:border-[#00C2CB80] hover:text-white transition"
+                >
+                  Create business account
+                </Link>
+              </div>
+              <Link
+                href="/pricing"
+                className="inline-block text-[11px] text-[#00C2CB] hover:text-[#7ff5fb] hover:underline"
+              >
+                See fee-based pricing
               </Link>
             </div>
 

@@ -1,51 +1,50 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import Link from 'next/link';
-import Image from 'next/image';
-import { useUser } from '@supabase/auth-helpers-react';
-import { supabase } from 'utils/supabase/pages-client';
-import { LogOut } from 'lucide-react';
-import { usePathname, useRouter } from 'next/navigation';
-
+import React, { useEffect, useState } from "react";
+import Image from "next/image";
+import { useUser } from "@supabase/auth-helpers-react";
+import { supabase } from "utils/supabase/pages-client";
+import { LogOut, Moon, Sun } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { useTheme } from "@/../context/ThemeContext";
 
 type ProfileAvatarRow = {
   avatar_url: string | null;
 };
 
 const getPageTitle = (pathname: string | null): string => {
-  if (!pathname) return 'Dashboard';
+  if (!pathname) return "Dashboard";
 
   // Break into segments, e.g. "/affiliate/marketplace/123" -> ["affiliate","marketplace","123"]
-  const segments = pathname.split('/').filter(Boolean);
-  if (segments.length === 0) return 'Dashboard';
+  const segments = pathname.split("/").filter(Boolean);
+  if (segments.length === 0) return "Dashboard";
 
   // Remove obviously dynamic/ID-like last segment (e.g. UUIDs) from the route key
   const staticSegments = [...segments];
   const last = staticSegments[staticSegments.length - 1];
-  if (last && last.length > 12 && last.includes('-')) {
+  if (last && last.length > 12 && last.includes("-")) {
     staticSegments.pop();
   }
 
-  const routeKey = staticSegments.join('/'); // e.g. "affiliate/marketplace"
+  const routeKey = staticSegments.join("/"); // e.g. "affiliate/marketplace"
 
   // Map known routes to nice titles
   const titleMap: Record<string, string> = {
-    'affiliate/dashboard': 'Dashboard',
-    'affiliate/marketplace': 'Marketplace',
-    'affiliate/wallet': 'Wallet',
-    'affiliate/settings': 'Settings',
-    'affiliate/support': 'Support',
-    'affiliate/inbox': 'Inbox',
-    'affiliate/dashboard/promote': 'Promote Offer',
-    'affiliate/dashboard/manage-campaigns': 'Manage Campaigns',
+    "affiliate/dashboard": "Dashboard",
+    "affiliate/marketplace": "Marketplace",
+    "affiliate/wallet": "Wallet",
+    "affiliate/settings": "Settings",
+    "affiliate/support": "Support",
+    "affiliate/inbox": "Inbox",
+    "affiliate/dashboard/promote": "Promote Offer",
+    "affiliate/dashboard/manage-campaigns": "Manage Campaigns",
 
-    'business/dashboard': 'Dashboard',
-    'business/marketplace': 'Marketplace',
-    'business/my-business': 'My Business',
-    'business/settings': 'Settings',
-    'business/support': 'Support',
-    'business/inbox': 'Inbox',
+    "business/dashboard": "Dashboard",
+    "business/marketplace": "Marketplace",
+    "business/my-business": "My Business",
+    "business/settings": "Settings",
+    "business/support": "Support",
+    "business/inbox": "Inbox",
   };
 
   if (titleMap[routeKey]) {
@@ -53,9 +52,9 @@ const getPageTitle = (pathname: string | null): string => {
   }
 
   // Fallback: use the last static segment, prettified
-  const lastStatic = staticSegments[staticSegments.length - 1] || 'Dashboard';
+  const lastStatic = staticSegments[staticSegments.length - 1] || "Dashboard";
   const pretty = lastStatic
-    .replace(/-/g, ' ')
+    .replace(/-/g, " ")
     .replace(/\b\w/g, (c) => c.toUpperCase());
 
   return pretty;
@@ -65,10 +64,18 @@ export default function Topbar() {
   const user = useUser();
   const router = useRouter();
   const pathname = usePathname();
+  const { theme, toggleTheme } = useTheme();
 
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
 
-  const userInitials = user?.email?.charAt(0).toUpperCase() || 'F';
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const resolvedTheme = mounted ? theme : "dark";
+
+  const userInitials = user?.email?.charAt(0).toUpperCase() || "F";
 
   const pageTitle = getPageTitle(pathname);
 
@@ -81,9 +88,9 @@ export default function Topbar() {
 
       try {
         const { data: affiliateProfileRaw } = await supabase
-          .from('affiliate_profiles')
-          .select('avatar_url')
-          .eq('email', user.email)
+          .from("affiliate_profiles")
+          .select("avatar_url")
+          .eq("email", user.email)
           .maybeSingle<ProfileAvatarRow>();
 
         if (affiliateProfileRaw?.avatar_url) {
@@ -92,9 +99,9 @@ export default function Topbar() {
         }
 
         const { data: businessProfileRaw } = await supabase
-          .from('business_profiles')
-          .select('avatar_url')
-          .eq('business_email', user.email)
+          .from("business_profiles")
+          .select("avatar_url")
+          .eq("business_email", user.email)
           .maybeSingle<ProfileAvatarRow>();
 
         if (businessProfileRaw?.avatar_url) {
@@ -102,7 +109,7 @@ export default function Topbar() {
           return;
         }
       } catch (err) {
-        console.error('[Topbar] Failed to load avatar', err);
+        console.error("[Topbar] Failed to load avatar", err);
       }
     };
 
@@ -110,16 +117,12 @@ export default function Topbar() {
   }, [user?.email]);
 
   return (
-    <header
-      className="
-        w-full 
-        bg-surface-deep
-        h-[64px]
-        flex items-center
-        justify-between
-        px-4 sm:px-6
-        border-b border-surface
-      "
+    <div
+      className="h-[64px] w-full flex items-center justify-between px-4 sm:px-6"
+      style={{
+        backgroundColor: "var(--sidebar)",
+        color: "var(--sidebar-foreground)",
+      }}
     >
       {/* LEFT SIDE */}
       <div className="flex items-center gap-6">
@@ -136,13 +139,22 @@ export default function Topbar() {
         </div>
 
         {/* Page Title */}
-        <span className="text-[#D0D0D0] text-xs tracking-[0.15em] uppercase">
+        <span className="text-[var(--muted-foreground)] text-xs tracking-[0.15em] uppercase">
           {pageTitle}
         </span>
       </div>
 
       {/* RIGHT SIDE */}
       <div className="flex items-center gap-4 sm:gap-6">
+        <button
+          type="button"
+          onClick={toggleTheme}
+          aria-label={`Switch to ${resolvedTheme === "dark" ? "light" : "dark"} mode`}
+          className="flex h-9 w-9 items-center justify-center rounded-full border border-[color:var(--border)] bg-[var(--card)] text-[var(--foreground)] transition hover:bg-[var(--secondary)]"
+        >
+          {resolvedTheme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+        </button>
+
         {/* Avatar – hidden on mobile */}
         {user && (
           <div
@@ -150,43 +162,49 @@ export default function Topbar() {
               hidden sm:flex
               w-10 h-10
               rounded-full overflow-hidden
-              border border-white/10
-              bg-black/30
+              border border-[color:var(--border)]
+              bg-[var(--secondary)]/60
               items-center justify-center
             "
           >
             {avatarUrl ? (
-              <img src={avatarUrl} alt="Profile" className="w-full h-full object-cover" />
+              <img
+                src={avatarUrl}
+                alt="Profile"
+                className="w-full h-full object-cover"
+              />
             ) : (
-              <span className="text-[#00C2CB] font-semibold text-sm">
+              <span className="text-[var(--primary)] font-semibold text-sm">
                 {userInitials}
               </span>
             )}
           </div>
         )}
 
-        {/* Sign Out – shrinks on mobile */}
-        <button
-          onClick={async () => {
-            await supabase.auth.signOut();
-            router.push('/');
-          }}
-          className="
-            flex items-center justify-center
-            bg-[#00C2CB] hover:bg-[#00b0b8] 
-            text-white 
-            px-2 py-1.5
-            rounded-md
-            text-xs
-            sm:px-3 sm:py-2 sm:rounded-lg sm:text-sm
-            whitespace-nowrap
-            transition
-          "
-        >
-          <LogOut size={18} className="sm:size-[16px]" />
-          <span className="hidden sm:inline">Sign Out</span>
-        </button>
+        {/* Sign Out – only when authenticated */}
+        {user && (
+          <button
+            onClick={async () => {
+              await supabase.auth.signOut();
+              router.push("/");
+            }}
+            className="
+              flex items-center justify-center
+              bg-[var(--primary)] hover:brightness-110 
+              text-[var(--primary-foreground)] 
+              px-2 py-1.5
+              rounded-md
+              text-xs
+              sm:px-3 sm:py-2 sm:rounded-lg sm:text-sm
+              whitespace-nowrap
+              transition
+            "
+          >
+            <LogOut size={18} className="sm:size-[16px]" />
+            <span className="hidden sm:inline">Sign Out</span>
+          </button>
+        )}
       </div>
-    </header>
+    </div>
   );
 }

@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useSession } from '@supabase/auth-helpers-react';
-import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useSession } from "@supabase/auth-helpers-react";
+import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
   AreaChart,
   Area,
@@ -15,7 +15,7 @@ import {
   CartesianGrid,
   Legend,
   ReferenceLine,
-} from 'recharts';
+} from "recharts";
 import {
   ArrowUpRight,
   Users,
@@ -26,8 +26,8 @@ import {
   Receipt,
   ChevronRight,
   X,
-} from 'lucide-react';
-import { supabase } from 'utils/supabase/pages-client';
+} from "lucide-react";
+import { supabase } from "utils/supabase/pages-client";
 
 interface Profile {
   id: string;
@@ -37,37 +37,37 @@ interface Profile {
   revenue_current_period_end?: string | null;
 }
 
-type Timeframe = '7d' | '30d' | '1y' | 'all';
+type Timeframe = "7d" | "30d" | "1y" | "all";
 
 const CARD =
-  'rounded-xl border border-[#262626] bg-[#121212] hover:ring-1 hover:ring-white/5 transition-shadow p-4 sm:p-6';
+  "rounded-xl border border-[var(--border)] bg-[var(--card)] hover:ring-1 hover:ring-[var(--border)]/50 transition-shadow p-4 sm:p-6";
 
 const formatShortDate = (iso: string) => {
-  if (!iso) return '';
+  if (!iso) return "";
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString('en-AU', {
-    day: '2-digit',
-    month: 'short',
+  return d.toLocaleDateString("en-AU", {
+    day: "2-digit",
+    month: "short",
   });
 };
 
 const formatCurrency = (val: number) => {
-  if (!val || Number.isNaN(val)) return '$0.00';
-  return '$' + val.toFixed(2);
+  if (!val || Number.isNaN(val)) return "$0.00";
+  return "$" + val.toFixed(2);
 };
 
 const filterSeriesByRange = (series: any[], range: Timeframe) => {
-  if (!series || series.length === 0 || range === 'all') return series;
+  if (!series || series.length === 0 || range === "all") return series;
 
   const now = new Date();
   const from = new Date(now);
 
-  if (range === '7d') {
+  if (range === "7d") {
     from.setDate(now.getDate() - 7);
-  } else if (range === '30d') {
+  } else if (range === "30d") {
     from.setDate(now.getDate() - 30);
-  } else if (range === '1y') {
+  } else if (range === "1y") {
     from.setFullYear(now.getFullYear() - 1);
   }
 
@@ -82,12 +82,14 @@ const filterSeriesByRange = (series: any[], range: Timeframe) => {
 // Tooltip for Affiliate Growth
 function AffiliateTooltip({ active, payload, label }: any) {
   if (!active || !payload || !payload.length) return null;
-  const req = payload.find((p: any) => p.dataKey === 'requested');
-  const app = payload.find((p: any) => p.dataKey === 'approved');
+  const req = payload.find((p: any) => p.dataKey === "requested");
+  const app = payload.find((p: any) => p.dataKey === "approved");
 
   return (
     <div className="rounded-lg border border-[#262626] bg-black/90 px-3 py-2 text-xs text-gray-100 shadow-lg">
-      <div className="mb-1 font-medium text-[#7ff5fb]">{formatShortDate(label)}</div>
+      <div className="mb-1 font-medium text-[#7ff5fb]">
+        {formatShortDate(label)}
+      </div>
       <div>Requests: {req?.value ?? 0}</div>
       <div>Approved: {app?.value ?? 0}</div>
     </div>
@@ -101,7 +103,9 @@ function SalesTooltip({ active, payload, label }: any) {
 
   return (
     <div className="rounded-lg border border-[#262626] bg-black/90 px-3 py-2 text-xs text-gray-100 shadow-lg">
-      <div className="mb-1 font-medium text-[#7ff5fb]">{formatShortDate(label)}</div>
+      <div className="mb-1 font-medium text-[#7ff5fb]">
+        {formatShortDate(label)}
+      </div>
       <div>Net revenue: {formatCurrency(Number(point.value || 0))}</div>
     </div>
   );
@@ -122,10 +126,13 @@ export default function BusinessDashboard() {
   const [salesSeriesRaw, setSalesSeriesRaw] = useState<any[]>([]);
   const [totalRevenue, setTotalRevenue] = useState<number>(0);
 
-  const [affiliateRange, setAffiliateRange] = useState<Timeframe>('30d');
-  const [salesRange, setSalesRange] = useState<Timeframe>('30d');
+  const [affiliateRange, setAffiliateRange] = useState<Timeframe>("30d");
+  const [salesRange, setSalesRange] = useState<Timeframe>("30d");
 
-  const affiliateSeries = filterSeriesByRange(affiliateSeriesRaw, affiliateRange);
+  const affiliateSeries = filterSeriesByRange(
+    affiliateSeriesRaw,
+    affiliateRange,
+  );
   const salesSeries = filterSeriesByRange(salesSeriesRaw, salesRange);
   const [liveOffersCount, setLiveOffersCount] = useState<number>(0);
   const [pendingRequests, setPendingRequests] = useState<any[]>([]);
@@ -145,8 +152,8 @@ export default function BusinessDashboard() {
   const [completedPayouts, setCompletedPayouts] = useState<any[]>([]);
   const [showTransactionsModal, setShowTransactionsModal] = useState(false);
   const [showAllCampaigns, setShowAllCampaigns] = useState(false);
-  const [showAllAffiliateActivity, setShowAllAffiliateActivity] = useState(false);
-
+  const [showAllAffiliateActivity, setShowAllAffiliateActivity] =
+    useState(false);
 
   // simple dynamic goal line for sales
   const salesGoal =
@@ -157,39 +164,39 @@ export default function BusinessDashboard() {
   // Fetch pending payouts (shared by initial load + realtime updates)
   const fetchPendingPayouts = async (bizEmail: string) => {
     const { data: payoutsData, error: payoutsError } = await supabase
-      .from('wallet_payouts')
-      .select('amount')
-      .eq('business_email', bizEmail)
-      .eq('status', 'pending');
+      .from("wallet_payouts")
+      .select("amount")
+      .eq("business_email", bizEmail)
+      .eq("status", "pending");
 
     if (!payoutsError && payoutsData) {
       setPendingPayoutCount(payoutsData.length);
       const total = payoutsData.reduce(
         (sum: number, row: any) => sum + Number(row.amount || 0),
-        0
+        0,
       );
       setPendingPayoutTotal(total);
     } else {
-      console.error('[❌ Failed to fetch pending payouts]', payoutsError);
+      console.error("[❌ Failed to fetch pending payouts]", payoutsError);
     }
   };
 
   // Fetch last few completed payouts for transaction history
   const fetchCompletedPayouts = async (bizEmail: string) => {
     const { data, error } = await supabase
-      .from('wallet_payouts')
+      .from("wallet_payouts")
       .select(
-        'id, affiliate_email, amount, status, created_at, stripe_transfer_id, offer_id, is_recurring, cycle_number'
+        "id, affiliate_email, amount, status, created_at, stripe_transfer_id, offer_id, is_recurring, cycle_number",
       )
-      .eq('business_email', bizEmail)
-      .neq('status', 'pending')
-      .order('created_at', { ascending: false })
+      .eq("business_email", bizEmail)
+      .neq("status", "pending")
+      .order("created_at", { ascending: false })
       .limit(20);
 
     if (!error && data) {
       setCompletedPayouts(data);
     } else {
-      console.error('[❌ Failed to fetch completed payouts]', error);
+      console.error("[❌ Failed to fetch completed payouts]", error);
     }
   };
 
@@ -202,33 +209,35 @@ export default function BusinessDashboard() {
     }
 
     const fetchProfileAndData = async () => {
-
       const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('id, role, email, revenue_subscription_status, revenue_current_period_end')
-        .eq('id', user.id)
+        .from("profiles")
+        .select(
+          "id, role, email, revenue_subscription_status, revenue_current_period_end",
+        )
+        .eq("id", user.id)
         .single();
 
       if (profileError || !profileData) {
-        router.push('/create-account?role=business');
+        router.push("/create-account?role=business");
         return;
       }
 
-      if ((profileData as Profile).role !== 'business') {
-        router.push('/affiliate/dashboard');
+      if ((profileData as Profile).role !== "business") {
+        router.push("/affiliate/dashboard");
         return;
       }
 
       setProfile(profileData as Profile);
 
-
-      const businessEmail = user?.email || '';
+      const businessEmail = user?.email || "";
 
       // Fetch offers
       const { data: offers, error: offersError } = await supabase
-        .from('offers')
-        .select('id, title, commission, payout_mode, payout_interval, payout_cycles')
-        .eq('business_email', businessEmail);
+        .from("offers")
+        .select(
+          "id, title, commission, payout_mode, payout_interval, payout_cycles",
+        )
+        .eq("business_email", businessEmail);
 
       if (!offersError && offers) {
         setLiveOffersCount(offers.length);
@@ -247,13 +256,15 @@ export default function BusinessDashboard() {
             payout_mode: o.payout_mode ?? null,
             payout_interval: o.payout_interval ?? null,
             payout_cycles:
-              typeof o.payout_cycles === 'number' ? o.payout_cycles : o.payout_cycles ?? null,
+              typeof o.payout_cycles === "number"
+                ? o.payout_cycles
+                : (o.payout_cycles ?? null),
           };
         });
         setOfferLookup(lookup);
         setOfferPayoutMeta(payoutMeta);
       } else {
-        console.error('[❌ Failed to fetch offers for dashboard]', offersError);
+        console.error("[❌ Failed to fetch offers for dashboard]", offersError);
       }
 
       const offerIds = (offers || []).map((o: any) => o.id);
@@ -263,17 +274,20 @@ export default function BusinessDashboard() {
       });
 
       // Fetch affiliate requests for this business
-      const { data: affiliateReqData, error: affiliateReqError } = await supabase
-        .from('affiliate_requests')
-        .select('id, created_at, status, business_email, affiliate_email, offer_id')
-        .eq('business_email', businessEmail);
+      const { data: affiliateReqData, error: affiliateReqError } =
+        await supabase
+          .from("affiliate_requests")
+          .select(
+            "id, created_at, status, business_email, affiliate_email, offer_id",
+          )
+          .eq("business_email", businessEmail);
 
       if (!affiliateReqError && affiliateReqData) {
         const approvedForBiz = affiliateReqData.filter(
-          (r: any) => r.status === 'approved'
+          (r: any) => r.status === "approved",
         );
         const pendingForBiz = affiliateReqData.filter(
-          (r: any) => r.status === 'pending'
+          (r: any) => r.status === "pending",
         );
         setApprovedAffiliates(approvedForBiz);
         setPendingRequests(pendingForBiz);
@@ -292,7 +306,7 @@ export default function BusinessDashboard() {
             countsByDate[key] = { requested: 0, approved: 0 };
           }
           countsByDate[key].requested += 1;
-          if (r.status === 'approved') {
+          if (r.status === "approved") {
             countsByDate[key].approved += 1;
           }
         });
@@ -311,20 +325,26 @@ export default function BusinessDashboard() {
         // Recent affiliate events list
         const recent = affiliateReqData
           .slice()
-          .sort((a: any, b: any) =>
-            new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+          .sort(
+            (a: any, b: any) =>
+              new Date(b.created_at).getTime() -
+              new Date(a.created_at).getTime(),
           )
           .slice(0, 6);
         setRecentAffiliateEvents(recent);
       } else {
-        console.error('[❌ Failed to fetch affiliate requests for dashboard]', affiliateReqError);
+        console.error(
+          "[❌ Failed to fetch affiliate requests for dashboard]",
+          affiliateReqError,
+        );
       }
 
       // Fetch active campaigns from both paid ads (live_ads) and organic (live_campaigns) with offers join
       const [liveAdsResult, liveCampaignsResult] = await Promise.all([
         supabase
-          .from('live_ads')
-          .select(`
+          .from("live_ads")
+          .select(
+            `
             id,
             offer_id,
             affiliate_email,
@@ -337,11 +357,13 @@ export default function BusinessDashboard() {
               id,
               title
             )
-          `)
-          .eq('business_email', businessEmail),
+          `,
+          )
+          .eq("business_email", businessEmail),
         supabase
-          .from('live_campaigns')
-          .select(`
+          .from("live_campaigns")
+          .select(
+            `
             id,
             offer_id,
             affiliate_email,
@@ -354,45 +376,52 @@ export default function BusinessDashboard() {
               id,
               title
             )
-          `)
-          .eq('business_email', businessEmail),
+          `,
+          )
+          .eq("business_email", businessEmail),
       ]);
 
-      const liveAds = !liveAdsResult.error && liveAdsResult.data ? liveAdsResult.data : [];
+      const liveAds =
+        !liveAdsResult.error && liveAdsResult.data ? liveAdsResult.data : [];
       const liveOrganic =
         !liveCampaignsResult.error && liveCampaignsResult.data
           ? liveCampaignsResult.data
           : [];
 
       if (liveAdsResult.error) {
-        console.error('[❌ Failed to fetch active campaigns from live_ads]', liveAdsResult.error);
+        console.error(
+          "[❌ Failed to fetch active campaigns from live_ads]",
+          liveAdsResult.error,
+        );
       }
       if (liveCampaignsResult.error) {
         console.error(
-          '[❌ Failed to fetch active campaigns from live_campaigns]',
-          liveCampaignsResult.error
+          "[❌ Failed to fetch active campaigns from live_campaigns]",
+          liveCampaignsResult.error,
         );
       }
 
-      console.log('[📊 live_ads rows]', liveAds);
-      console.log('[📊 live_campaigns rows]', liveOrganic);
+      console.log("[📊 live_ads rows]", liveAds);
+      console.log("[📊 live_campaigns rows]", liveOrganic);
 
       // Normalize both paid and organic campaigns into a consistent shape
-      const normalizedCampaigns = [...liveAds, ...liveOrganic].map((c: any) => ({
-        ...c,
-        __source: c.campaign_type ? 'paid' : 'organic',
-        resolved_offer_title: c.offers?.title ?? null,
-      }));
+      const normalizedCampaigns = [...liveAds, ...liveOrganic].map(
+        (c: any) => ({
+          ...c,
+          __source: c.campaign_type ? "paid" : "organic",
+          resolved_offer_title: c.offers?.title ?? null,
+        }),
+      );
 
       setActiveCampaigns(normalizedCampaigns);
 
       // Fetch conversion events and build sales series and total revenue
       if (offerIds.length > 0) {
         const { data: convData, error: convError } = await supabase
-          .from('campaign_tracking_events')
-          .select('created_at, amount, offer_id')
-          .eq('event_type', 'conversion')
-          .in('offer_id', offerIds);
+          .from("campaign_tracking_events")
+          .select("created_at, amount, offer_id")
+          .eq("event_type", "conversion")
+          .in("offer_id", offerIds);
 
         if (!convError && convData) {
           const revenueByDate: Record<string, number> = {};
@@ -420,8 +449,8 @@ export default function BusinessDashboard() {
           setTotalRevenue(Number(totalNet.toFixed(2)));
         } else {
           console.error(
-            '[❌ Failed to fetch conversion events for dashboard]',
-            convError
+            "[❌ Failed to fetch conversion events for dashboard]",
+            convError,
           );
         }
       } else {
@@ -443,17 +472,17 @@ export default function BusinessDashboard() {
       const channel = supabase
         .channel(`payouts-feed-${user.email}`)
         .on(
-          'postgres_changes',
+          "postgres_changes",
           {
-            event: '*',
-            schema: 'public',
-            table: 'wallet_payouts',
+            event: "*",
+            schema: "public",
+            table: "wallet_payouts",
             filter: `business_email=eq.${user.email}`,
           },
           () => {
             fetchPendingPayouts(user.email!);
             fetchCompletedPayouts(user.email!);
-          }
+          },
         )
         .subscribe();
 
@@ -466,12 +495,10 @@ export default function BusinessDashboard() {
   }, [session, router, user]);
 
   return (
-    <div className="min-h-screen w-full bg-surface text-white px-4 py-4 sm:px-5 sm:py-6">
+    <div className="business-dashboard-theme min-h-screen w-full bg-[var(--background)] text-[var(--foreground)] px-4 py-4 sm:px-5 sm:py-6">
       {/* Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-6 mb-6 mt-2">
-        <div className={`${CARD} ring-1 ring-[#00C2CB]/20 shadow-[0_0_30px_rgba(0,194,203,0.12)] relative overflow-hidden`}
-        >
-          <div className="absolute -right-6 -top-6 h-16 w-16 rounded-full bg-[#00C2CB]/10 blur-xl" />
+        <div className={`${CARD} relative overflow-hidden`}>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs text-gray-400 flex items-center gap-1">
@@ -479,7 +506,9 @@ export default function BusinessDashboard() {
                 Active Affiliates
               </p>
               <div className="mt-1 flex items-baseline gap-2">
-                <h2 className="text-2xl font-semibold text-white">{approved.length}</h2>
+                <h2 className="text-2xl font-semibold text-white">
+                  {approved.length}
+                </h2>
                 <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#00C2CB]/15 text-[#7ff5fb] border border-[#00C2CB]/25">
                   Live
                 </span>
@@ -488,21 +517,27 @@ export default function BusinessDashboard() {
           </div>
         </div>
 
-        <div className={`${CARD} ring-1 ring-[#fbbf24]/25 relative overflow-hidden`}>
+        <div
+          className={`${CARD} ring-1 ring-[#fbbf24]/25 relative overflow-hidden`}
+        >
           <div className="absolute -right-4 -top-8 h-16 w-16 rounded-full bg-[#facc15]/10 blur-xl" />
           <p className="text-xs text-gray-400 flex items-center gap-1">
             <Sparkles className="h-3 w-3 text-[#fde68a]" />
             Pending Requests
           </p>
           <div className="mt-1 flex items-baseline gap-2">
-            <h2 className="text-2xl font-semibold text-white">{pendingRequests.length}</h2>
+            <h2 className="text-2xl font-semibold text-white">
+              {pendingRequests.length}
+            </h2>
             <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#fbbf24]/15 text-[#fde68a] border border-[#fbbf24]/25">
               Queue
             </span>
           </div>
         </div>
 
-        <div className={`${CARD} ring-1 ring-[#10b981]/20 relative overflow-hidden`}>
+        <div
+          className={`${CARD} ring-1 ring-[#10b981]/20 relative overflow-hidden`}
+        >
           <div className="absolute -right-6 -bottom-8 h-16 w-16 rounded-full bg-[#10b981]/15 blur-xl" />
           <p className="text-xs text-gray-400 flex items-center gap-1">
             <LineChartIcon className="h-3 w-3 text-[#bbf7d0]" />
@@ -519,12 +554,11 @@ export default function BusinessDashboard() {
         </div>
 
         <div
-          onClick={() => router.push('/business/payouts')}
-          className={`${CARD} ring-1 ring-[#00C2CB]/25 cursor-pointer hover:ring-[#00C2CB]/60 hover:shadow-[0_0_40px_rgba(0,194,203,0.25)] relative overflow-hidden`}
+          onClick={() => router.push("/business/payouts")}
+          className={`${CARD} cursor-pointer relative overflow-hidden`}
           role="button"
           aria-label="View pending payouts"
         >
-          <div className="absolute -left-10 -bottom-10 h-24 w-24 rounded-full bg-[#00C2CB]/10 blur-xl" />
           <p className="text-xs text-gray-400 flex items-center gap-1">
             <Wallet className="h-3 w-3 text-[#7ff5fb]" />
             Pending Payouts
@@ -542,14 +576,18 @@ export default function BusinessDashboard() {
           </div>
         </div>
 
-        <div className={`${CARD} ring-1 ring-[#a78bfa]/20 relative overflow-hidden`}>
+        <div
+          className={`${CARD} ring-1 ring-[#a78bfa]/20 relative overflow-hidden`}
+        >
           <div className="absolute -right-6 -top-6 h-16 w-16 rounded-full bg-[#a78bfa]/15 blur-xl" />
           <p className="text-xs text-gray-400 flex items-center gap-1">
             <PlayCircle className="h-3 w-3 text-[#e9d5ff]" />
             Live Offers
           </p>
           <div className="mt-1 flex items-baseline gap-2">
-            <h2 className="text-2xl font-semibold text-white">{liveOffersCount}</h2>
+            <h2 className="text-2xl font-semibold text-white">
+              {liveOffersCount}
+            </h2>
             <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#a78bfa]/15 text-[#e9d5ff] border border-[#a78bfa]/25">
               Now
             </span>
@@ -566,18 +604,24 @@ export default function BusinessDashboard() {
               Affiliate Growth
             </h2>
             <div className="flex items-center gap-1 rounded-full bg-black/40 px-1 py-0.5">
-              {(['7d', '30d', '1y', 'all'] as Timeframe[]).map((tf) => (
+              {(["7d", "30d", "1y", "all"] as Timeframe[]).map((tf) => (
                 <button
                   key={tf}
                   type="button"
                   onClick={() => setAffiliateRange(tf)}
                   className={`px-2 py-0.5 text-[11px] rounded-full transition-colors ${
                     affiliateRange === tf
-                      ? 'bg-[#00C2CB]/20 text-[#7ff5fb]'
-                      : 'text-gray-400 hover:text-gray-100'
+                      ? "bg-[#00C2CB]/20 text-[#7ff5fb]"
+                      : "text-gray-400 hover:text-gray-100"
                   }`}
                 >
-                  {tf === '7d' ? '7D' : tf === '30d' ? '30D' : tf === '1y' ? '1Y' : 'All'}
+                  {tf === "7d"
+                    ? "7D"
+                    : tf === "30d"
+                      ? "30D"
+                      : tf === "1y"
+                        ? "1Y"
+                        : "All"}
                 </button>
               ))}
             </div>
@@ -590,8 +634,8 @@ export default function BusinessDashboard() {
                     No affiliate activity yet
                   </div>
                   <p className="text-[11px] text-gray-400">
-                    Once affiliates start requesting and you approve them, this chart will
-                    show daily requests vs approvals.
+                    Once affiliates start requesting and you approve them, this
+                    chart will show daily requests vs approvals.
                   </p>
                   <div className="mt-3 h-16 w-full rounded-md bg-black/70 flex items-end gap-2 px-2 pb-1">
                     {/* Requests (teal) */}
@@ -625,11 +669,11 @@ export default function BusinessDashboard() {
                   <XAxis
                     dataKey="name"
                     tickFormatter={formatShortDate}
-                    tick={{ fontSize: 10, fill: '#9ca3af' }}
+                    tick={{ fontSize: 10, fill: "#9ca3af" }}
                   />
                   <YAxis
                     allowDecimals={false}
-                    tick={{ fontSize: 10, fill: '#9ca3af' }}
+                    tick={{ fontSize: 10, fill: "#9ca3af" }}
                     width={30}
                   />
                   <Tooltip content={<AffiliateTooltip />} />
@@ -637,7 +681,7 @@ export default function BusinessDashboard() {
                     verticalAlign="top"
                     align="right"
                     iconSize={8}
-                    wrapperStyle={{ fontSize: 10, color: '#9ca3af' }}
+                    wrapperStyle={{ fontSize: 10, color: "#9ca3af" }}
                   />
                   <Bar
                     dataKey="requested"
@@ -666,18 +710,24 @@ export default function BusinessDashboard() {
               Sales Performance
             </h2>
             <div className="flex items-center gap-1 rounded-full bg-black/40 px-1 py-0.5">
-              {(['7d', '30d', '1y', 'all'] as Timeframe[]).map((tf) => (
+              {(["7d", "30d", "1y", "all"] as Timeframe[]).map((tf) => (
                 <button
                   key={tf}
                   type="button"
                   onClick={() => setSalesRange(tf)}
                   className={`px-2 py-0.5 text-[11px] rounded-full transition-colors ${
                     salesRange === tf
-                      ? 'bg-[#00C2CB]/20 text-[#7ff5fb]'
-                      : 'text-gray-400 hover:text-gray-100'
+                      ? "bg-[#00C2CB]/20 text-[#7ff5fb]"
+                      : "text-gray-400 hover:text-gray-100"
                   }`}
                 >
-                  {tf === '7d' ? '7D' : tf === '30d' ? '30D' : tf === '1y' ? '1Y' : 'All'}
+                  {tf === "7d"
+                    ? "7D"
+                    : tf === "30d"
+                      ? "30D"
+                      : tf === "1y"
+                        ? "1Y"
+                        : "All"}
                 </button>
               ))}
             </div>
@@ -690,8 +740,8 @@ export default function BusinessDashboard() {
                     No sales recorded yet
                   </div>
                   <p className="text-[11px] text-gray-400">
-                    As soon as your first conversion comes through, this area will light up
-                    with daily revenue and trend lines.
+                    As soon as your first conversion comes through, this area
+                    will light up with daily revenue and trend lines.
                   </p>
                   <div className="mt-3 h-16 w-full rounded-md bg-black/70 flex items-end gap-1 px-2 pb-1">
                     <div className="h-3 w-1.5 rounded-full bg-slate-700/70" />
@@ -710,9 +760,19 @@ export default function BusinessDashboard() {
                   margin={{ top: 12, right: 16, left: -4, bottom: 0 }}
                 >
                   <defs>
-                    <linearGradient id="salesGradient" x1="0" y1="0" x2="0" y2="1">
+                    <linearGradient
+                      id="salesGradient"
+                      x1="0"
+                      y1="0"
+                      x2="0"
+                      y2="1"
+                    >
                       <stop offset="0%" stopColor="#22d3ee" stopOpacity={0.9} />
-                      <stop offset="100%" stopColor="#22d3ee" stopOpacity={0.05} />
+                      <stop
+                        offset="100%"
+                        stopColor="#22d3ee"
+                        stopOpacity={0.05}
+                      />
                     </linearGradient>
                   </defs>
                   <CartesianGrid
@@ -722,11 +782,11 @@ export default function BusinessDashboard() {
                   <XAxis
                     dataKey="name"
                     tickFormatter={formatShortDate}
-                    tick={{ fontSize: 10, fill: '#9ca3af' }}
+                    tick={{ fontSize: 10, fill: "#9ca3af" }}
                   />
                   <YAxis
-                    tickFormatter={(v) => '$' + v}
-                    tick={{ fontSize: 10, fill: '#9ca3af' }}
+                    tickFormatter={(v) => "$" + v}
+                    tick={{ fontSize: 10, fill: "#9ca3af" }}
                     width={40}
                   />
                   <Tooltip content={<SalesTooltip />} />
@@ -771,7 +831,8 @@ export default function BusinessDashboard() {
               </h2>
               {activeCampaigns.length > 0 && (
                 <p className="text-[11px] text-gray-500">
-                  Showing {showAllCampaigns ? 'all campaigns' : 'most recent campaign'}
+                  Showing{" "}
+                  {showAllCampaigns ? "all campaigns" : "most recent campaign"}
                 </p>
               )}
             </div>
@@ -785,7 +846,7 @@ export default function BusinessDashboard() {
             {activeCampaigns.length > 0 && (
               <ChevronRight
                 className={`w-3.5 h-3.5 text-gray-400 transition-transform ${
-                  showAllCampaigns ? 'rotate-90' : 'rotate-0'
+                  showAllCampaigns ? "rotate-90" : "rotate-0"
                 }`}
               />
             )}
@@ -796,30 +857,30 @@ export default function BusinessDashboard() {
           <p className="text-sm text-gray-400">No active campaigns yet.</p>
         ) : (
           <div className="mt-1 space-y-2 text-sm text-gray-200">
-            {(
-              showAllCampaigns
-                ? activeCampaigns
-                : activeCampaigns
-                    .slice()
-                    .sort(
-                      (a: any, b: any) =>
-                        new Date(b.created_at).getTime() -
-                        new Date(a.created_at).getTime()
-                    )
-                    .slice(0, 1)
+            {(showAllCampaigns
+              ? activeCampaigns
+              : activeCampaigns
+                  .slice()
+                  .sort(
+                    (a: any, b: any) =>
+                      new Date(b.created_at).getTime() -
+                      new Date(a.created_at).getTime(),
+                  )
+                  .slice(0, 1)
             ).map((c: any) => {
               const title = c.resolved_offer_title ?? undefined;
-              const status = (c.status || 'scheduled') as string;
-              const typeLabel = c.campaign_type || c.type || c.platform || 'Campaign';
+              const status = (c.status || "scheduled") as string;
+              const typeLabel =
+                c.campaign_type || c.type || c.platform || "Campaign";
 
               const statusColor =
-                status === 'active' || status === 'live'
-                  ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30'
-                  : status === 'paused'
-                  ? 'text-amber-300 bg-amber-500/10 border-amber-500/30'
-                  : 'text-sky-300 bg-sky-500/10 border-sky-500/30';
+                status === "active" || status === "live"
+                  ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/30"
+                  : status === "paused"
+                    ? "text-amber-300 bg-amber-500/10 border-amber-500/30"
+                    : "text-sky-300 bg-sky-500/10 border-sky-500/30";
 
-              const spend = typeof c.spend === 'number' ? Number(c.spend) : 0;
+              const spend = typeof c.spend === "number" ? Number(c.spend) : 0;
               const spendRatio = Math.max(0.12, Math.min(spend / 100, 1));
 
               return (
@@ -831,11 +892,11 @@ export default function BusinessDashboard() {
                     <div className="flex items-center gap-2">
                       <div className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.8)]" />
                       <div className="font-medium text-white truncate">
-                        {title || '⚠️ Offer not resolved'}
+                        {title || "⚠️ Offer not resolved"}
                       </div>
                     </div>
                     <div className="mt-1 text-[11px] text-gray-400 flex flex-wrap items-center gap-2 pl-4">
-                      <span>{c.affiliate_email || 'Affiliate'}</span>
+                      <span>{c.affiliate_email || "Affiliate"}</span>
                       <span className="h-1 w-1 rounded-full bg-gray-500" />
                       <span>Started {formatShortDate(c.created_at)}</span>
                       <span className="h-1 w-1 rounded-full bg-gray-500" />
@@ -872,7 +933,7 @@ export default function BusinessDashboard() {
               <div className="mt-3 flex justify-end">
                 <button
                   type="button"
-                  onClick={() => router.push('/business/manage-campaigns')}
+                  onClick={() => router.push("/business/manage-campaigns")}
                   className="inline-flex items-center gap-1 text-[11px] text-gray-300 hover:text-[#7ff5fb] px-2 py-1 rounded-full bg-white/5 border border-white/5"
                 >
                   Manage campaigns
@@ -909,21 +970,24 @@ export default function BusinessDashboard() {
             </div>
             {recentAffiliateEvents.length > 0 && (
               <div className="flex items-center gap-2">
-                {recentAffiliateEvents.length > 1 && !showAllAffiliateActivity && (
-                  <span className="text-[11px] text-gray-400">
-                    + {recentAffiliateEvents.length - 1} more
-                  </span>
-                )}
+                {recentAffiliateEvents.length > 1 &&
+                  !showAllAffiliateActivity && (
+                    <span className="text-[11px] text-gray-400">
+                      + {recentAffiliateEvents.length - 1} more
+                    </span>
+                  )}
                 <ChevronRight
                   className={`w-3.5 h-3.5 text-gray-400 transition-transform ${
-                    showAllAffiliateActivity ? 'rotate-90' : 'rotate-0'
+                    showAllAffiliateActivity ? "rotate-90" : "rotate-0"
                   }`}
                 />
               </div>
             )}
           </button>
           {recentAffiliateEvents.length === 0 ? (
-            <p className="text-sm text-gray-400">No recent affiliate activity.</p>
+            <p className="text-sm text-gray-400">
+              No recent affiliate activity.
+            </p>
           ) : (
             <div className="mt-1 text-sm">
               <div className="relative border-l border-[#262626] pl-5 space-y-3">
@@ -933,11 +997,11 @@ export default function BusinessDashboard() {
                 ).map((ev: any) => {
                   const title = ev.offer_id ? offerLookup[ev.offer_id] : null;
                   const statusColor =
-                    ev.status === 'approved'
-                      ? 'text-emerald-400'
-                      : ev.status === 'rejected'
-                      ? 'text-rose-400'
-                      : 'text-amber-300';
+                    ev.status === "approved"
+                      ? "text-emerald-400"
+                      : ev.status === "rejected"
+                        ? "text-rose-400"
+                        : "text-amber-300";
                   return (
                     <div key={ev.id} className="relative pl-3">
                       <div className="absolute -left-3 top-4 h-3 w-3 rounded-full border border-[#00C2CB] bg-[#050608]" />
@@ -945,12 +1009,16 @@ export default function BusinessDashboard() {
                         {formatShortDate(ev.created_at)}
                       </div>
                       <div className="font-medium text-white">
-                        {ev.affiliate_email || 'Affiliate'}
+                        {ev.affiliate_email || "Affiliate"}
                       </div>
                       {title && (
-                        <div className="text-xs text-gray-400">Offer: {title}</div>
+                        <div className="text-xs text-gray-400">
+                          Offer: {title}
+                        </div>
                       )}
-                      <div className={`text-[11px] mt-0.5 ${statusColor}`}>{ev.status}</div>
+                      <div className={`text-[11px] mt-0.5 ${statusColor}`}>
+                        {ev.status}
+                      </div>
                     </div>
                   );
                 })}
@@ -981,20 +1049,22 @@ export default function BusinessDashboard() {
             <div className="mt-2 space-y-2 text-sm">
               {completedPayouts.slice(0, 5).map((p: any) => {
                 const title = p.offer_id ? offerLookup[p.offer_id] : null;
-                const meta = p.offer_id ? offerPayoutMeta[p.offer_id] : undefined;
+                const meta = p.offer_id
+                  ? offerPayoutMeta[p.offer_id]
+                  : undefined;
                 const isRecurring = !!p.is_recurring;
                 const cyclesTotal =
-                  meta && typeof meta.payout_cycles === 'number'
+                  meta && typeof meta.payout_cycles === "number"
                     ? meta.payout_cycles
                     : null;
 
-                let detailLine = '';
+                let detailLine = "";
                 if (title) {
                   if (isRecurring && p.cycle_number != null && cyclesTotal) {
                     detailLine = `${title} · Cycle ${p.cycle_number}/${cyclesTotal}${
-                      meta?.payout_interval ? ` · ${meta.payout_interval}` : ''
+                      meta?.payout_interval ? ` · ${meta.payout_interval}` : ""
                     }`;
-                  } else if (meta?.payout_mode === 'spread') {
+                  } else if (meta?.payout_mode === "spread") {
                     detailLine = `${title} · Spread payout`;
                   } else {
                     detailLine = `${title} · One-off payout`;
@@ -1002,11 +1072,11 @@ export default function BusinessDashboard() {
                 }
 
                 const statusBadgeClass =
-                  p.status === 'paid'
-                    ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
-                    : p.status === 'failed'
-                    ? 'border-rose-500/40 bg-rose-500/10 text-rose-300'
-                    : 'border-slate-500/40 bg-slate-500/10 text-slate-300';
+                  p.status === "paid" || p.status === "completed"
+                    ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+                    : p.status === "failed"
+                      ? "border-rose-500/40 bg-rose-500/10 text-rose-300"
+                      : "border-slate-500/40 bg-slate-500/10 text-slate-300";
 
                 return (
                   <div
@@ -1025,7 +1095,7 @@ export default function BusinessDashboard() {
                           {formatCurrency(Number(p.amount || 0))}
                         </div>
                         <div className="text-xs text-gray-400">
-                          To {p.affiliate_email || 'affiliate'}
+                          To {p.affiliate_email || "affiliate"}
                         </div>
                         {detailLine && (
                           <div className="text-[11px] text-gray-500 mt-0.5">
@@ -1039,7 +1109,9 @@ export default function BusinessDashboard() {
                         className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] border ${statusBadgeClass}`}
                       >
                         <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                        <span className="uppercase tracking-wide">{p.status}</span>
+                        <span className="uppercase tracking-wide">
+                          {p.status}
+                        </span>
                       </div>
                       {p.stripe_transfer_id && (
                         <div className="text-[10px] text-gray-500">
@@ -1077,20 +1149,24 @@ export default function BusinessDashboard() {
               <div className="max-h-80 overflow-y-auto space-y-2 text-sm">
                 {completedPayouts.map((p: any) => {
                   const title = p.offer_id ? offerLookup[p.offer_id] : null;
-                  const meta = p.offer_id ? offerPayoutMeta[p.offer_id] : undefined;
+                  const meta = p.offer_id
+                    ? offerPayoutMeta[p.offer_id]
+                    : undefined;
                   const isRecurring = !!p.is_recurring;
                   const cyclesTotal =
-                    meta && typeof meta.payout_cycles === 'number'
+                    meta && typeof meta.payout_cycles === "number"
                       ? meta.payout_cycles
                       : null;
 
-                  let detailLine = '';
+                  let detailLine = "";
                   if (title) {
                     if (isRecurring && p.cycle_number != null && cyclesTotal) {
                       detailLine = `${title} · Cycle ${p.cycle_number}/${cyclesTotal}${
-                        meta?.payout_interval ? ` · ${meta.payout_interval}` : ''
+                        meta?.payout_interval
+                          ? ` · ${meta.payout_interval}`
+                          : ""
                       }`;
-                    } else if (meta?.payout_mode === 'spread') {
+                    } else if (meta?.payout_mode === "spread") {
                       detailLine = `${title} · Spread payout`;
                     } else {
                       detailLine = `${title} · One-off payout`;
@@ -1098,11 +1174,11 @@ export default function BusinessDashboard() {
                   }
 
                   const statusBadgeClass =
-                    p.status === 'paid'
-                      ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
-                      : p.status === 'failed'
-                      ? 'border-rose-500/40 bg-rose-500/10 text-rose-300'
-                      : 'border-slate-500/40 bg-slate-500/10 text-slate-300';
+                    p.status === "paid" || p.status === "completed"
+                      ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+                      : p.status === "failed"
+                        ? "border-rose-500/40 bg-rose-500/10 text-rose-300"
+                        : "border-slate-500/40 bg-slate-500/10 text-slate-300";
 
                   return (
                     <div
@@ -1121,7 +1197,7 @@ export default function BusinessDashboard() {
                             {formatCurrency(Number(p.amount || 0))}
                           </div>
                           <div className="text-xs text-gray-400">
-                            To {p.affiliate_email || 'affiliate'}
+                            To {p.affiliate_email || "affiliate"}
                           </div>
                           {detailLine && (
                             <div className="text-[11px] text-gray-500 mt-0.5">
@@ -1135,7 +1211,9 @@ export default function BusinessDashboard() {
                           className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] border ${statusBadgeClass}`}
                         >
                           <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                          <span className="uppercase tracking-wide">{p.status}</span>
+                          <span className="uppercase tracking-wide">
+                            {p.status}
+                          </span>
                         </div>
                         {p.stripe_transfer_id && (
                           <div className="text-[10px] text-gray-500">

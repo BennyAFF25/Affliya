@@ -1,26 +1,38 @@
-'use client';
+"use client";
 
-import { useSessionContext } from '@supabase/auth-helpers-react';
-import { RocketLaunchIcon } from '@heroicons/react/24/outline';
-import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
-import { supabase } from 'utils/supabase/pages-client';
-import Link from 'next/link';
-import { TrendingUp, DollarSign, Wallet, CheckCircle } from 'lucide-react';
-import DashboardCard from '@/components/DashboardCard';
+import { useSessionContext } from "@supabase/auth-helpers-react";
+import { RocketLaunchIcon } from "@heroicons/react/24/outline";
+import { useRouter } from "next/navigation";
+import { useEffect, useState, useCallback } from "react";
+import { supabase } from "utils/supabase/pages-client";
+import Link from "next/link";
+import {
+  TrendingUp,
+  DollarSign,
+  Wallet,
+  CheckCircle,
+  Sparkles,
+  ArrowRight,
+  CreditCard,
+  Store,
+  CheckCircle2,
+} from "lucide-react";
+import DashboardCard from "@/components/DashboardCard";
 import {
   ResponsiveContainer,
-  BarChart,
-  Bar,
+  AreaChart,
+  Area,
+  Line,
   XAxis,
   YAxis,
   Tooltip,
   CartesianGrid,
-} from 'recharts';
+  ReferenceLine,
+} from "recharts";
 
 // Currency formatter helper
 const formatCurrency = (value: number) => {
-  return `$${value.toLocaleString('en-US', {
+  return `$${value.toLocaleString("en-US", {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   })}`;
@@ -32,6 +44,7 @@ interface Profile {
   onboarding_completed: boolean | null;
   revenue_subscription_status?: string | null;
   revenue_current_period_end?: string | null;
+  username?: string | null;
 }
 
 interface ApprovedRequest {
@@ -68,12 +81,16 @@ const renderMedia = (idea: any) => {
     return <div className="text-gray-500 italic">No media file</div>;
   }
 
-  const isVideo = file.toLowerCase().endsWith('.mp4') || file.toLowerCase().includes('.mp4');
+  const isVideo =
+    file.toLowerCase().endsWith(".mp4") || file.toLowerCase().includes(".mp4");
   const isImage = /\.(jpg|jpeg|png|gif|webp)$/i.test(file);
 
   if (isVideo) {
     return (
-      <video controls className="rounded-lg border border-gray-300 max-h-48 w-full object-cover">
+      <video
+        controls
+        className="rounded-lg border border-gray-300 max-h-48 w-full object-cover"
+      >
         <source src={file} type="video/mp4" />
         Your browser does not support the video tag.
       </video>
@@ -87,7 +104,7 @@ const renderMedia = (idea: any) => {
         alt="Ad Preview"
         className="rounded-lg border border-gray-300 max-h-48 w-full object-cover"
         onError={(e) => {
-          e.currentTarget.src = '/placeholder.png'; // fallback if image fails to load
+          e.currentTarget.src = "/placeholder.png"; // fallback if image fails to load
         }}
       />
     );
@@ -109,33 +126,40 @@ function AffiliateDashboardContent() {
   const [loading, setLoading] = useState(true);
   const [profile, setProfile] = useState<Profile | null>(null);
 
-
   // live ads + payouts
   const [liveAds, setLiveAds] = useState<any[]>([]);
   const [walletPayouts, setWalletPayouts] = useState<any[]>([]);
 
   // chart series
-  const [spendSeries, setSpendSeries] = useState<{ name: string; value: number }[]>([]);
-  const [conversionSeries, setConversionSeries] = useState<{ name: string; value: number }[]>([]);
+  const [spendSeries, setSpendSeries] = useState<
+    { name: string; value: number }[]
+  >([]);
+  const [conversionSeries, setConversionSeries] = useState<
+    { name: string; value: number }[]
+  >([]);
 
   // timeframe selection for Ad Spend chart
-  const [spendTimeframe, setSpendTimeframe] = useState<'7d' | '30d' | '365d' | 'custom'>('30d');
+  const [spendTimeframe, setSpendTimeframe] = useState<
+    "7d" | "30d" | "365d" | "custom"
+  >("30d");
   const [spendRange, setSpendRange] = useState<{ from: string; to: string }>({
-    from: '',
-    to: '',
+    from: "",
+    to: "",
   });
 
   // timeframe selection for Conversions chart
-  const [convTimeframe, setConvTimeframe] = useState<'7d' | '30d' | '365d' | 'custom'>('30d');
+  const [convTimeframe, setConvTimeframe] = useState<
+    "7d" | "30d" | "365d" | "custom"
+  >("30d");
   const [convRange, setConvRange] = useState<{ from: string; to: string }>({
-    from: '',
-    to: '',
+    from: "",
+    to: "",
   });
 
   useEffect(() => {
     if (isLoading) return; // wait for session resolution
     if (session === null) {
-      const next = encodeURIComponent('/affiliate/dashboard');
+      const next = encodeURIComponent("/affiliate/dashboard");
       router.replace(`/login?role=affiliate&next=${next}`);
       return;
     }
@@ -149,9 +173,11 @@ function AffiliateDashboardContent() {
         return;
       }
       const { data, error } = await supabase
-        .from('profiles')
-        .select('id, role, onboarding_completed, terms_accepted, revenue_subscription_status, revenue_current_period_end')
-        .eq('id', session.user.id)
+        .from("profiles")
+        .select(
+          "id, role, onboarding_completed, terms_accepted, revenue_subscription_status, revenue_current_period_end, username",
+        )
+        .eq("id", session.user.id)
         .maybeSingle<any>();
 
       // Redirect logic commented out for now:
@@ -193,19 +219,19 @@ function AffiliateDashboardContent() {
       let spendFromIso: string | null = null;
       let spendToIso: string | null = now.toISOString();
 
-      if (spendTimeframe === '7d') {
+      if (spendTimeframe === "7d") {
         const d = new Date();
         d.setDate(d.getDate() - 7);
         spendFromIso = d.toISOString();
-      } else if (spendTimeframe === '30d') {
+      } else if (spendTimeframe === "30d") {
         const d = new Date();
         d.setDate(d.getDate() - 30);
         spendFromIso = d.toISOString();
-      } else if (spendTimeframe === '365d') {
+      } else if (spendTimeframe === "365d") {
         const d = new Date();
         d.setDate(d.getDate() - 365);
         spendFromIso = d.toISOString();
-      } else if (spendTimeframe === 'custom') {
+      } else if (spendTimeframe === "custom") {
         if (spendRange.from && spendRange.to) {
           const from = new Date(spendRange.from);
           const to = new Date(spendRange.to);
@@ -221,19 +247,19 @@ function AffiliateDashboardContent() {
       let convFromIso: string | null = null;
       let convToIso: string | null = now.toISOString();
 
-      if (convTimeframe === '7d') {
+      if (convTimeframe === "7d") {
         const d = new Date();
         d.setDate(d.getDate() - 7);
         convFromIso = d.toISOString();
-      } else if (convTimeframe === '30d') {
+      } else if (convTimeframe === "30d") {
         const d = new Date();
         d.setDate(d.getDate() - 30);
         convFromIso = d.toISOString();
-      } else if (convTimeframe === '365d') {
+      } else if (convTimeframe === "365d") {
         const d = new Date();
         d.setDate(d.getDate() - 365);
         convFromIso = d.toISOString();
-      } else if (convTimeframe === 'custom') {
+      } else if (convTimeframe === "custom") {
         if (convRange.from && convRange.to) {
           const from = new Date(convRange.from);
           const to = new Date(convRange.to);
@@ -246,10 +272,12 @@ function AffiliateDashboardContent() {
       }
 
       // Fetch offers
-      const { data: liveOffers, error: offerError } = await supabase.from('offers').select('*');
+      const { data: liveOffers, error: offerError } = await supabase
+        .from("offers")
+        .select("*");
 
       if (offerError) {
-        console.error('[❌ Failed to fetch offers]', offerError);
+        console.error("[❌ Failed to fetch offers]", offerError);
         setOffers([]);
       } else {
         setOffers(liveOffers || []);
@@ -257,35 +285,42 @@ function AffiliateDashboardContent() {
 
       // Approved requests for this affiliate
       const { data: approved, error: approvedError } = (await supabase
-        .from('affiliate_requests')
-        .select('offer_id')
-        .eq('affiliate_email', session.user?.email || '')
-        .eq('status', 'approved')) as { data: ApprovedRequest[] | null; error: any };
+        .from("affiliate_requests")
+        .select("offer_id")
+        .eq("affiliate_email", session.user?.email || "")
+        .eq("status", "approved")) as {
+        data: ApprovedRequest[] | null;
+        error: any;
+      };
 
       if (approvedError) {
-        console.error('[❌ Failed to fetch approved requests]', approvedError);
+        console.error("[❌ Failed to fetch approved requests]", approvedError);
       } else {
-        const ids = Array.from(new Set((approved || []).map((r: ApprovedRequest) => r.offer_id)));
+        const ids = Array.from(
+          new Set((approved || []).map((r: ApprovedRequest) => r.offer_id)),
+        );
         setApprovedIds(ids);
-        console.log('[✅ Approved IDs]', ids);
+        console.log("[✅ Approved IDs]", ids);
       }
 
       // Approved ad ideas for this affiliate
       const { data: ideas, error: ideasError } = await supabase
-        .from('ad_ideas')
-        .select(`
+        .from("ad_ideas")
+        .select(
+          `
           id,
           offer_id,
           affiliate_email,
           file_url,
           status,
           caption
-        `)
-        .eq('affiliate_email', session.user?.email || '')
-        .eq('status', 'approved');
+        `,
+        )
+        .eq("affiliate_email", session.user?.email || "")
+        .eq("status", "approved");
 
       if (ideasError) {
-        console.error('[❌ Failed to fetch ad ideas]', ideasError);
+        console.error("[❌ Failed to fetch ad ideas]", ideasError);
         setAdIdeas([]);
       } else {
         setAdIdeas(ideas || []);
@@ -293,12 +328,14 @@ function AffiliateDashboardContent() {
 
       // Live organic campaigns for this affiliate
       const { data: live, error: liveErr } = await supabase
-        .from('live_campaigns')
-        .select('id, offer_id, media_url, caption, platform, status, created_at')
-        .eq('affiliate_email', session.user?.email || '');
+        .from("live_campaigns")
+        .select(
+          "id, offer_id, media_url, caption, platform, status, created_at",
+        )
+        .eq("affiliate_email", session.user?.email || "");
 
       if (liveErr) {
-        console.error('[❌ Failed to fetch live_campaigns]', liveErr);
+        console.error("[❌ Failed to fetch live_campaigns]", liveErr);
         setLiveCampaigns([]);
       } else {
         setLiveCampaigns(live || []);
@@ -306,21 +343,21 @@ function AffiliateDashboardContent() {
 
       // Live ads (Meta paid) for this affiliate within Ad Spend window
       let adsQuery = supabase
-        .from('live_ads')
-        .select('id, spend, status, created_at')
-        .eq('affiliate_email', session.user?.email || '');
+        .from("live_ads")
+        .select("id, spend, status, created_at")
+        .eq("affiliate_email", session.user?.email || "");
 
       if (spendFromIso) {
-        adsQuery = adsQuery.gte('created_at', spendFromIso);
+        adsQuery = adsQuery.gte("created_at", spendFromIso);
       }
       if (spendToIso) {
-        adsQuery = adsQuery.lte('created_at', spendToIso);
+        adsQuery = adsQuery.lte("created_at", spendToIso);
       }
 
       const { data: ads, error: adsErr } = await adsQuery;
 
       if (adsErr) {
-        console.error('[❌ Failed to fetch live_ads]', adsErr);
+        console.error("[❌ Failed to fetch live_ads]", adsErr);
         setLiveAds([]);
       } else {
         const adsSafe = (ads || []) as LiveAdRow[];
@@ -339,7 +376,10 @@ function AffiliateDashboardContent() {
         const sortedSpend = Object.entries(spendByDate)
           .sort(([a], [b]) => a.localeCompare(b))
           .map(([date, value]) => ({
-            name: new Date(date).toLocaleDateString('en-US', { month: 'short', day: '2-digit' }),
+            name: new Date(date).toLocaleDateString("en-US", {
+              month: "short",
+              day: "2-digit",
+            }),
             value,
           }));
 
@@ -348,24 +388,27 @@ function AffiliateDashboardContent() {
 
       // Conversions from tracking events – treat every event as a conversion for now, within Conversions window
       let convQuery = supabase
-        .from('campaign_tracking_events')
-        .select('id, created_at');
+        .from("campaign_tracking_events")
+        .select("id, created_at");
 
       if (convFromIso) {
-        convQuery = convQuery.gte('created_at', convFromIso);
+        convQuery = convQuery.gte("created_at", convFromIso);
       }
       if (convToIso) {
-        convQuery = convQuery.lte('created_at', convToIso);
+        convQuery = convQuery.lte("created_at", convToIso);
       }
 
       const { data: conversions, error: convErr } = await convQuery;
 
       if (convErr) {
-        console.error('[❌ Failed to fetch campaign_tracking_events]', convErr);
+        console.error("[❌ Failed to fetch campaign_tracking_events]", convErr);
         setConversionSeries([]);
       } else {
         const convSafe = (conversions || []) as TrackingEventRow[];
-        console.log('[✅ Conversions loaded for affiliate conversions chart]', convSafe.length);
+        console.log(
+          "[✅ Conversions loaded for affiliate conversions chart]",
+          convSafe.length,
+        );
 
         const convByDate: Record<string, number> = {};
         for (const ev of convSafe) {
@@ -377,7 +420,10 @@ function AffiliateDashboardContent() {
         const sortedConv = Object.entries(convByDate)
           .sort(([a], [b]) => a.localeCompare(b))
           .map(([date, value]) => ({
-            name: new Date(date).toLocaleDateString('en-US', { month: 'short', day: '2-digit' }),
+            name: new Date(date).toLocaleDateString("en-US", {
+              month: "short",
+              day: "2-digit",
+            }),
             value,
           }));
 
@@ -386,12 +432,12 @@ function AffiliateDashboardContent() {
 
       // Wallet payouts for this affiliate
       const { data: payouts, error: payoutsErr } = await supabase
-        .from('wallet_payouts')
-        .select('id, amount, status')
-        .eq('affiliate_email', session.user?.email || '');
+        .from("wallet_payouts")
+        .select("id, amount, status")
+        .eq("affiliate_email", session.user?.email || "");
 
       if (payoutsErr) {
-        console.error('[❌ Failed to fetch wallet_payouts]', payoutsErr);
+        console.error("[❌ Failed to fetch wallet_payouts]", payoutsErr);
         setWalletPayouts([]);
       } else {
         setWalletPayouts(payouts || []);
@@ -411,21 +457,35 @@ function AffiliateDashboardContent() {
 
   useEffect(() => {
     if (session?.user && approvedIds.length === 0) {
-      console.warn('[⚠️ No approved offers — user still stays on dashboard]');
+      console.warn("[⚠️ No approved offers — user still stays on dashboard]");
     }
   }, [session, approvedIds]);
 
   const user = session?.user;
+  const firstName = (user?.email || "Partner").split("@")[0];
+  const [checklistState, setChecklistState] = useState({
+    payouts: false,
+    marketplace: false,
+  });
+  const [checklistDismissed, setChecklistDismissed] = useState(false);
+  const [checklistCompletionSent, setChecklistCompletionSent] = useState(false);
+  const checklistStorageKey = user ? `affiliate-checklist-${user.id}` : null;
+  const checklistDismissedStorageKey = user
+    ? `affiliate-checklist-dismissed-${user.id}`
+    : null;
   const trialDaysLeft =
-    profile?.revenue_subscription_status === 'trialing' &&
+    profile?.revenue_subscription_status === "trialing" &&
     profile?.revenue_current_period_end
       ? Math.ceil(
-          (new Date(profile.revenue_current_period_end).getTime() - Date.now()) /
-            (1000 * 60 * 60 * 24)
+          (new Date(profile.revenue_current_period_end).getTime() -
+            Date.now()) /
+            (1000 * 60 * 60 * 24),
         )
       : null;
 
-  const approvedOffers = offers.filter((offer) => approvedIds.includes(offer.id));
+  const approvedOffers = offers.filter((offer) =>
+    approvedIds.includes(offer.id),
+  );
   const activeCampaigns = (liveCampaigns || [])
     .map((camp: any) => {
       const matchedOffer = offers.find((offer) => offer.id === camp.offer_id);
@@ -434,7 +494,8 @@ function AffiliateDashboardContent() {
     .filter(Boolean) as Offer[];
 
   // Derived metrics for stat cards
-  const activeCampaignCount = (activeCampaigns?.length || 0) + (liveAds?.length || 0);
+  const activeCampaignCount =
+    (activeCampaigns?.length || 0) + (liveAds?.length || 0);
 
   const totalSpent = (liveAds || []).reduce((sum: number, ad: any) => {
     const val = Number(ad.spend || 0);
@@ -442,49 +503,337 @@ function AffiliateDashboardContent() {
   }, 0);
 
   const pendingPayoutTotal = (walletPayouts || [])
-    .filter((p: any) => p.status === 'pending')
+    .filter((p: any) => p.status === "pending")
     .reduce((sum: number, p: any) => {
       const val = Number(p.amount || 0);
       return sum + (isNaN(val) ? 0 : val);
     }, 0);
 
+  const checklistAllDone = checklistState.payouts && checklistState.marketplace;
+
+  useEffect(() => {
+    if (!checklistStorageKey || typeof window === "undefined") return;
+    try {
+      const stored = window.localStorage.getItem(checklistStorageKey);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (
+          typeof parsed?.payouts === "boolean" &&
+          typeof parsed?.marketplace === "boolean"
+        ) {
+          setChecklistState(parsed);
+        }
+      }
+    } catch (err) {
+      console.warn("[Checklist] Failed to read state", err);
+    }
+  }, [checklistStorageKey]);
+
+  useEffect(() => {
+    if (!checklistDismissedStorageKey || typeof window === "undefined") return;
+    try {
+      const stored = window.localStorage.getItem(checklistDismissedStorageKey);
+      if (stored === "1") {
+        setChecklistDismissed(true);
+      }
+    } catch (err) {
+      console.warn("[Checklist] Failed to read dismissed state", err);
+    }
+  }, [checklistDismissedStorageKey]);
+
+  useEffect(() => {
+    if (!checklistStorageKey || typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        checklistStorageKey,
+        JSON.stringify(checklistState),
+      );
+    } catch (err) {
+      console.warn("[Checklist] Failed to persist state", err);
+    }
+  }, [checklistStorageKey, checklistState]);
+
+  useEffect(() => {
+    if (!checklistDismissedStorageKey || typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        checklistDismissedStorageKey,
+        checklistDismissed ? "1" : "0",
+      );
+    } catch (err) {
+      console.warn("[Checklist] Failed to persist dismissed state", err);
+    }
+  }, [checklistDismissedStorageKey, checklistDismissed]);
+
+  useEffect(() => {
+    if (profile?.onboarding_completed) {
+      setChecklistState({ payouts: true, marketplace: true });
+      setChecklistDismissed(true);
+    }
+  }, [profile?.onboarding_completed]);
+
+  const markChecklistComplete = useCallback(async () => {
+    try {
+      const res = await fetch("/api/profile/onboarding-complete", {
+        method: "POST",
+      });
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        console.warn(
+          "[Checklist] onboarding-complete failed",
+          payload?.error || res.status,
+        );
+      }
+    } catch (err) {
+      console.warn("[Checklist] onboarding-complete failed", err);
+    } finally {
+      setChecklistCompletionSent(true);
+      setChecklistDismissed(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (
+      !profile?.onboarding_completed &&
+      checklistAllDone &&
+      !checklistCompletionSent
+    ) {
+      void markChecklistComplete();
+    }
+  }, [
+    checklistAllDone,
+    checklistCompletionSent,
+    markChecklistComplete,
+    profile?.onboarding_completed,
+  ]);
+
+  type ChecklistKey = "payouts" | "marketplace";
+
+  const handleChecklistAction = (task: ChecklistKey, href: string) => {
+    router.push(href);
+    setChecklistState((prev) => ({ ...prev, [task]: true }));
+  };
+
   // State for toggling show all/less for campaigns and offers
   const [showAllCampaigns, setShowAllCampaigns] = useState(false);
   const [showAllOffers, setShowAllOffers] = useState(false);
 
-  const visibleCampaigns = showAllCampaigns ? activeCampaigns : activeCampaigns.slice(0, 1);
-  const visibleOffers = showAllOffers ? approvedOffers : approvedOffers.slice(0, 1);
+  const visibleCampaigns = showAllCampaigns
+    ? activeCampaigns
+    : activeCampaigns.slice(0, 1);
+  const visibleOffers = showAllOffers
+    ? approvedOffers
+    : approvedOffers.slice(0, 1);
 
-if (loading) {
-  return (
-    <div className="min-h-screen bg-surface text-white">
-      <div className="p-4">Loading...</div>
-    </div>
-  );
-}
+  if (loading) {
+    return (
+      <div className="affiliate-dashboard-theme min-h-screen bg-[var(--background)] text-[var(--foreground)]">
+        <div className="p-4">Loading...</div>
+      </div>
+    );
+  }
   if (!user) {
     return null; // redirect handled above
   }
 
   const chartConfigs = [
-    { id: 'spend', title: 'Ad Spend', data: spendSeries },
-    { id: 'conv', title: 'Conversions', data: conversionSeries },
+    { id: "spend", title: "Ad Spend", data: spendSeries },
+    { id: "conv", title: "Conversions", data: conversionSeries },
   ];
 
+  const quickActions = [
+    { label: "Promote offer", href: "/affiliate/marketplace" },
+    {
+      label: "Manage campaigns",
+      href: "/affiliate/dashboard/manage-campaigns",
+    },
+    { label: "Open wallet", href: "/affiliate/wallet" },
+    { label: "Support", href: "/affiliate/support" },
+  ];
+
+  const checklistTasks: {
+    key: ChecklistKey;
+    title: string;
+    description: string;
+    href: string;
+    cta: string;
+    icon: typeof CreditCard;
+  }[] = [
+    {
+      key: "payouts",
+      title: "Connect payouts (Stripe)",
+      description:
+        "Hook up Stripe Express so we can pay commissions automatically.",
+      href: "/affiliate/settings#withdrawals",
+      cta: "Connect payouts",
+      icon: CreditCard,
+    },
+    {
+      key: "marketplace",
+      title: "Browse the marketplace",
+      description:
+        "Pick an offer to promote so your dashboard data can populate.",
+      href: "/affiliate/marketplace",
+      cta: "Open marketplace",
+      icon: Store,
+    },
+  ];
+
+  const shouldShowChecklist =
+    !profile?.onboarding_completed && !checklistAllDone && !checklistDismissed;
+
+  if (shouldShowChecklist) {
+    return (
+      <div className="affiliate-dashboard-theme min-h-screen bg-[var(--background)] text-[var(--foreground)]">
+        <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-10">
+          <div>
+            <p className="text-xs uppercase tracking-[0.3em] text-white/45">
+              Getting started
+            </p>
+            <h1 className="mt-2 text-3xl font-semibold text-[var(--foreground)]">
+              Complete these two steps
+            </h1>
+            <p className="mt-2 text-sm text-white/60">
+              Connect payouts and choose an offer to unlock your dashboard.
+            </p>
+          </div>
+          <div className="space-y-4">
+            {checklistTasks.map((task) => {
+              const Icon = task.icon;
+              const completed = checklistState[task.key];
+              return (
+                <div
+                  key={task.key}
+                  className={`flex flex-col gap-4 rounded-2xl border ${completed ? "border-emerald-400/30 bg-[#111b15]" : "border-white/12 bg-[#111317]"} p-5 transition`}
+                >
+                  <div className="flex items-start gap-4">
+                    <span className="rounded-2xl border border-white/10 bg-[#15191c] p-3">
+                      <Icon className="h-5 w-5 text-white" />
+                    </span>
+                    <div>
+                      <p className="text-base font-semibold text-white">
+                        {task.title}
+                      </p>
+                      <p className="text-sm text-white/60">
+                        {task.description}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    {completed ? (
+                      <div className="flex items-center gap-2 text-sm font-semibold text-[#00C2CB]">
+                        <CheckCircle2 className="h-4 w-4" /> Done
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() =>
+                          handleChecklistAction(task.key, task.href)
+                        }
+                        className="rounded-full border border-[#00C2CB]/30 bg-[#00C2CB]/10 px-4 py-2 text-sm font-semibold text-[#00C2CB] hover:bg-[#00C2CB]/20"
+                      >
+                        {task.cta}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-xs text-white/60">
+            <button
+              onClick={() => setChecklistDismissed(true)}
+              className="inline-flex items-center justify-center rounded-full border border-white/12 px-4 py-1 text-white/70 transition hover:bg-[#15191c]"
+            >
+              Skip for now
+            </button>
+            <p>If you change your mind, you can finish these steps anytime.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-surface text-white">
-      
+    <div className="affiliate-dashboard-theme min-h-screen bg-[var(--background)] text-[var(--foreground)]">
       <div className="max-w-8xl mx-auto px-4 sm:px-6 md:px-8 lg:px-10 py-6 md:py-8">
+        <section
+          className="relative mb-8 overflow-hidden rounded-3xl border border-[var(--border)] p-6 shadow-[0_24px_60px_rgba(0,0,0,0.16)] md:p-8"
+          style={{
+            background:
+              "radial-gradient(circle at top right, rgba(0,194,203,0.16), transparent 34%), linear-gradient(135deg, var(--card) 0%, color-mix(in srgb, var(--card) 82%, var(--primary) 18%) 100%)",
+          }}
+        >
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent opacity-40 dark:via-white/20" />
+          <div className="pointer-events-none absolute -top-16 right-0 h-44 w-44 rounded-full bg-[#00C2CB]/12 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-24 -left-24 h-40 w-40 rounded-full bg-[#00C2CB]/6 blur-3xl" />
+
+          <div className="relative z-10 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="inline-flex items-center gap-2 rounded-full border border-[#00C2CB]/30 bg-[#00C2CB]/10 px-3 py-1 text-[11px] uppercase tracking-widest text-[#7ff5fb]">
+                <Sparkles className="h-3.5 w-3.5" /> Affiliate HQ
+              </p>
+              <h1 className="mt-3 text-2xl md:text-3xl font-bold tracking-tight text-white">
+                Welcome back, {firstName}
+              </h1>
+              <p className="mt-2 max-w-2xl text-sm text-white/82">
+                Track campaign performance, monitor spend, and launch approved
+                offers faster.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              <Link
+                href="/affiliate/marketplace"
+                className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-[#111317] px-4 py-2.5 text-sm font-semibold text-white/80 transition hover:bg-[#15191c]"
+              >
+                Browse Offers <ArrowRight className="h-4 w-4" />
+              </Link>
+              <Link
+                href="/affiliate/wallet"
+                className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-[#111317] px-4 py-2.5 text-sm font-semibold text-white/80 transition hover:bg-[#15191c]"
+              >
+                Open Wallet
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        <section className="mb-7">
+          <p className="mb-3 text-xs uppercase tracking-[0.2em] text-white/45">
+            Quick actions
+          </p>
+          <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {quickActions.map((action) => (
+              <Link
+                key={action.href}
+                href={action.href}
+                className="shrink-0 rounded-full border border-white/10 bg-[#111317] px-4 py-2 text-sm font-medium text-white/80 transition hover:bg-[#15191c]"
+              >
+                {action.label}
+              </Link>
+            ))}
+          </div>
+        </section>
+
+        <section className="mb-4">
+          <p className="text-xs uppercase tracking-[0.2em] text-white/45">
+            Snapshot
+          </p>
+        </section>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-10">
           {/* Stat Card: Active Campaigns */}
           <DashboardCard>
             <div className="flex items-center gap-4">
-              <div className="text-[#00C2CB] bg-[#00C2CB]/10 rounded-lg p-2.5">
+              <div className="text-white/80 bg-[#15191c] rounded-lg border border-white/10 p-2.5">
                 <TrendingUp className="h-6 w-6" />
               </div>
               <div>
-                <p className="text-xs text-white/60">Active Campaigns</p>
-                <h2 className="text-3xl font-bold text-white">{activeCampaignCount}</h2>
+                <p className="text-xs text-[var(--muted-foreground)]">
+                  Active Campaigns
+                </p>
+                <h2 className="text-3xl font-bold text-white">
+                  {activeCampaignCount}
+                </h2>
               </div>
             </div>
           </DashboardCard>
@@ -492,12 +841,16 @@ if (loading) {
           {/* Stat Card: Total Spent */}
           <DashboardCard>
             <div className="flex items-center gap-4">
-              <div className="text-[#00C2CB] bg-[#00C2CB]/10 rounded-lg p-2.5">
+              <div className="text-white/80 bg-[#15191c] rounded-lg border border-white/10 p-2.5">
                 <DollarSign className="h-6 w-6" />
               </div>
               <div>
-                <p className="text-xs text-white/60">Total Spent</p>
-                <h2 className="text-3xl font-bold text-white">{formatCurrency(totalSpent)}</h2>
+                <p className="text-xs text-[var(--muted-foreground)]">
+                  Total Spent
+                </p>
+                <h2 className="text-3xl font-bold text-white">
+                  {formatCurrency(totalSpent)}
+                </h2>
               </div>
             </div>
           </DashboardCard>
@@ -505,12 +858,16 @@ if (loading) {
           {/* Stat Card: Pending Payout */}
           <DashboardCard>
             <div className="flex items-center gap-4">
-              <div className="text-[#00C2CB] bg-[#00C2CB]/10 rounded-lg p-2.5">
+              <div className="text-white/80 bg-[#15191c] rounded-lg border border-white/10 p-2.5">
                 <Wallet className="h-6 w-6" />
               </div>
               <div>
-                <p className="text-xs text-white/60">Pending Payout</p>
-                <h2 className="text-3xl font-bold text-white">{formatCurrency(pendingPayoutTotal)}</h2>
+                <p className="text-xs text-[var(--muted-foreground)]">
+                  Pending Payout
+                </p>
+                <h2 className="text-3xl font-bold text-white">
+                  {formatCurrency(pendingPayoutTotal)}
+                </h2>
               </div>
             </div>
           </DashboardCard>
@@ -518,22 +875,29 @@ if (loading) {
           {/* Stat Card: Approved Offers */}
           <DashboardCard>
             <div className="flex items-center gap-4">
-              <div className="text-[#00C2CB] bg-[#00C2CB]/10 rounded-lg p-2.5">
+              <div className="text-white/80 bg-[#15191c] rounded-lg border border-white/10 p-2.5">
                 <CheckCircle className="h-6 w-6" />
               </div>
               <div>
-                <p className="text-xs text-white/60">Approved Offers</p>
-                <h2 className="text-3xl font-bold text-white">{approvedOffers.length}</h2>
+                <p className="text-xs text-[var(--muted-foreground)]">
+                  Approved Offers
+                </p>
+                <h2 className="text-3xl font-bold text-white">
+                  {approvedOffers.length}
+                </h2>
               </div>
             </div>
           </DashboardCard>
         </div>
 
-
-        {/* Area Charts */}
+        <section className="mb-4">
+          <p className="text-xs uppercase tracking-[0.2em] text-white/45">
+            Performance
+          </p>
+        </section>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
           {chartConfigs.map((chart, i) => {
-            const isSpendChart = chart.id === 'spend';
+            const isSpendChart = chart.id === "spend";
             const tf = isSpendChart ? spendTimeframe : convTimeframe;
             const setTf = isSpendChart ? setSpendTimeframe : setConvTimeframe;
             const range = isSpendChart ? spendRange : convRange;
@@ -542,155 +906,353 @@ if (loading) {
             return (
               <div
                 key={chart.title}
-                className="relative rounded-2xl border border-white/5 bg-[#0d0d0d]/60 backdrop-blur-md p-6 shadow-[0_8px_24px_rgba(0,0,0,0.45)]"
+                className="affiliate-chart-panel relative overflow-hidden rounded-3xl bg-[var(--card)] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.18)]"
               >
-                <div className="absolute inset-0 pointer-events-none rounded-2xl" />
+                <div
+                  className="pointer-events-none absolute inset-0 rounded-3xl opacity-80"
+                  style={{
+                    background:
+                      "radial-gradient(circle at top left, rgba(0,194,203,0.12), transparent 55%)",
+                  }}
+                />
                 <div className="relative z-10">
-                  <div className="flex items-center justify-between mb-2">
-                    <h2 className="text-sm font-semibold text-white/70">{chart.title}</h2>
-                    <div className="flex items-center gap-1 rounded-full bg-black/40 border border-white/10 px-1 py-0.5">
-                      {[
-                        { label: '7D', value: '7d' as const },
-                        { label: '30D', value: '30d' as const },
-                        { label: '1Y', value: '365d' as const },
-                        { label: 'Custom', value: 'custom' as const },
-                      ].map((option) => (
-                        <button
-                          key={option.value}
-                          onClick={() => setTf(option.value)}
-                          className={`px-2 py-0.5 text-[10px] rounded-full transition ${
-                            tf === option.value
-                              ? 'bg-[#00C2CB] text-black font-semibold'
-                              : 'text-white/60 hover:text-white'
-                          }`}
-                        >
-                          {option.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                  {(() => {
+                    const totalValue = chart.data.reduce(
+                      (sum, point) => sum + Number(point.value || 0),
+                      0,
+                    );
+                    const latestValue = chart.data.length
+                      ? Number(chart.data[chart.data.length - 1].value || 0)
+                      : 0;
+                    const accent = chart.id === "spend" ? "#00C2CB" : "#7ff5fb";
+                    const gradientId = `${chart.id}-gradient`;
+                    const avgGradientId = `${chart.id}-avg-gradient`;
+                    const timeframeCopy =
+                      tf === "7d"
+                        ? "Last 7 days"
+                        : tf === "30d"
+                          ? "Last 30 days"
+                          : tf === "365d"
+                            ? "Last 12 months"
+                            : "Custom range";
 
-                  {tf === 'custom' && (
-                    <div className="flex flex-wrap items-center gap-3 mb-2">
-                      <div className="flex items-center gap-2 text-[10px] text-white/60">
-                        <span>From</span>
-                        <input
-                          type="date"
-                          className="rounded-md bg-[#050505] border border-white/10 px-2 py-1 text-[10px] text-white focus:outline-none focus:ring-1 focus:ring-[#00C2CB]"
-                          value={range.from}
-                          onChange={(e) =>
-                            setRange((prev) => ({ ...prev, from: e.target.value }))
-                          }
-                        />
-                      </div>
-                      <div className="flex items-center gap-2 text-[10px] text-white/60">
-                        <span>To</span>
-                        <input
-                          type="date"
-                          className="rounded-md bg-[#050505] border border-white/10 px-2 py-1 text-[10px] text-white focus:outline-none focus:ring-1 focus:ring-[#00C2CB]"
-                          value={range.to}
-                          onChange={(e) =>
-                            setRange((prev) => ({ ...prev, to: e.target.value }))
-                          }
-                        />
-                      </div>
-                    </div>
-                  )}
+                    const windowSize = Math.min(
+                      5,
+                      Math.max(3, Math.floor(chart.data.length / 6) || 3),
+                    );
+                    const trendData = chart.data.map((point, idx, arr) => {
+                      const numericVal = Number(point.value || 0);
+                      const startSlice = Math.max(0, idx - (windowSize - 1));
+                      const slice = arr.slice(startSlice, idx + 1);
+                      const avg =
+                        slice.reduce(
+                          (sum, item) => sum + Number(item.value || 0),
+                          0,
+                        ) / slice.length || 0;
+                      return {
+                        ...point,
+                        value: numericVal,
+                        average: avg,
+                      };
+                    });
 
-                  {chart.data.length === 0 ? (
-                  <div className="mt-3 rounded-xl border border-dashed border-white/15 bg-[#050505]/80 px-4 py-5">
-                    <h3 className="text-sm font-semibold text-[#00C2CB] mb-1">
-                      {chart.title.includes('Ad Spend')
-                        ? 'No ad spend recorded yet'
-                        : 'No conversions recorded yet'}
-                    </h3>
-                    <p className="text-xs text-white/60 mb-4">
-                      {chart.title.includes('Ad Spend')
-                        ? 'Once you start running campaigns, your daily spend will appear here.'
-                        : 'As soon as your tracking fires, daily conversions will show up here.'}
-                    </p>
+                    const cadenceStep = (() => {
+                      if (tf === "365d")
+                        return Math.max(1, Math.floor(trendData.length / 6));
+                      if (tf === "30d") return 7;
+                      if (tf === "7d") return 1;
+                      return Math.max(1, Math.floor(trendData.length / 4));
+                    })();
 
-                    <div className="rounded-lg bg-black/60 px-3 py-3">
-                      <div className="flex items-end gap-2 h-10">
-                        <div className="w-2.5 rounded-full bg-[#1f2933]" style={{ height: '25%' }} />
-                        <div className="w-2.5 rounded-full bg-[#1f2933]" style={{ height: '45%' }} />
-                        <div className="w-2.5 rounded-full bg-[#00C2CB]" style={{ height: '70%' }} />
-                        <div className="w-2.5 rounded-full bg-[#1f2933]" style={{ height: '40%' }} />
-                        <div className="w-2.5 rounded-full bg-[#00C2CB]" style={{ height: '85%' }} />
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <ResponsiveContainer width="100%" height={230}>
-                    <BarChart
-                      data={chart.data}
-                      margin={{ left: 4, right: 8, top: 8, bottom: 0 }}
-                    >
-                      <CartesianGrid
-                        stroke="rgba(148,163,184,0.14)"
-                        strokeDasharray="2 4"
-                        vertical={false}
-                      />
-                      <XAxis
-                        dataKey="name"
-                        padding={{ left: 10, right: 10 }}
-                        tick={{ fill: '#9ca3af', fontSize: 11 }}
-                        tickMargin={8}
-                        axisLine={false}
-                        tickLine={false}
-                      />
-                      <YAxis
-                        domain={[0, 'auto']}
-                        tick={{ fill: '#9ca3af', fontSize: 11 }}
-                        tickMargin={8}
-                        axisLine={false}
-                        tickLine={false}
-                      />
-                      <Tooltip
-                        cursor={{ fill: 'rgba(148,163,184,0.12)' }}
-                        contentStyle={{
-                          backgroundColor: '#020617',
-                          border: '1px solid rgba(148,163,184,0.35)',
-                          borderRadius: 10,
-                          padding: '8px 10px',
-                        }}
-                        labelStyle={{ fontSize: 11, color: '#e5e7eb', marginBottom: 4 }}
-                        itemStyle={{ fontSize: 12, color: '#e5e7eb', fontWeight: 600 }}
-                      />
-                      <Bar
-                        dataKey="value"
-                        fill="#00C2CB"
-                        radius={[7, 7, 0, 0]}
-                        maxBarSize={28}
-                        background={{ fill: 'rgba(15,23,42,0.9)' }}
-                      />
-                    </BarChart>
-                  </ResponsiveContainer>
-                )}
+                    const formatValue = (val: number) =>
+                      chart.id === "spend"
+                        ? formatCurrency(val)
+                        : val.toLocaleString();
+
+                    return (
+                      <>
+                        <div className="mb-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                          <div>
+                            <p className="text-xs uppercase tracking-[0.25em] text-[var(--muted-foreground)]">
+                              {chart.title}
+                            </p>
+                            <p className="mt-2 text-3xl font-semibold text-[var(--foreground)]">
+                              {formatValue(totalValue)}
+                            </p>
+                            <p className="text-xs text-[var(--muted-foreground)]">
+                              {timeframeCopy}
+                            </p>
+                          </div>
+                          <div className="flex flex-col items-start gap-2 md:items-end">
+                            <div className="rounded-full border border-[var(--border)] bg-[var(--secondary)] px-1 py-0.5 text-[10px] text-[var(--muted-foreground)]">
+                              Latest day
+                            </div>
+                            <p className="text-lg font-semibold text-[var(--foreground)]">
+                              {formatValue(latestValue)}
+                            </p>
+                            <div className="flex items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--secondary)] px-1 py-0.5">
+                              {[
+                                { label: "7D", value: "7d" as const },
+                                { label: "30D", value: "30d" as const },
+                                { label: "1Y", value: "365d" as const },
+                                { label: "Custom", value: "custom" as const },
+                              ].map((option) => (
+                                <button
+                                  key={option.value}
+                                  onClick={() => setTf(option.value)}
+                                  className={`px-2 py-0.5 text-[10px] rounded-full transition ${
+                                    tf === option.value
+                                      ? "bg-[var(--primary)] text-[var(--primary-foreground)] font-semibold"
+                                      : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                                  }`}
+                                >
+                                  {option.label}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+
+                        {tf === "custom" && (
+                          <div className="mb-4 flex flex-wrap items-center gap-3 text-[10px] text-[var(--muted-foreground)]">
+                            <label className="flex items-center gap-2">
+                              <span>From</span>
+                              <input
+                                type="date"
+                                className="rounded-md border border-[var(--border)] bg-[var(--input-background)] px-2 py-1 text-[var(--foreground)] focus:outline-none focus:ring-1 focus:ring-[var(--ring)]"
+                                value={range.from}
+                                onChange={(e) =>
+                                  setRange((prev) => ({
+                                    ...prev,
+                                    from: e.target.value,
+                                  }))
+                                }
+                              />
+                            </label>
+                            <label className="flex items-center gap-2">
+                              <span>To</span>
+                              <input
+                                type="date"
+                                className="rounded-md border border-[var(--border)] bg-[var(--input-background)] px-2 py-1 text-[var(--foreground)] focus:outline-none focus:ring-1 focus:ring-[var(--ring)]"
+                                value={range.to}
+                                onChange={(e) =>
+                                  setRange((prev) => ({
+                                    ...prev,
+                                    to: e.target.value,
+                                  }))
+                                }
+                              />
+                            </label>
+                          </div>
+                        )}
+
+                        {trendData.length === 0 ? (
+                          <div className="mt-3 rounded-2xl border border-dashed border-[var(--border)] bg-[var(--secondary)] px-4 py-6">
+                            <h3 className="mb-1 text-sm font-semibold text-[var(--primary)]">
+                              {chart.title.includes("Ad Spend")
+                                ? "No ad spend recorded yet"
+                                : "No conversions recorded yet"}
+                            </h3>
+                            <p className="mb-4 text-xs text-[var(--muted-foreground)]">
+                              {chart.title.includes("Ad Spend")
+                                ? "Once you start running campaigns, your daily spend will appear here."
+                                : "As soon as tracking fires, daily conversions will show up here."}
+                            </p>
+                            <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] px-4 py-5">
+                              <div className="relative h-16 w-full">
+                                <div
+                                  className="absolute inset-0"
+                                  style={{
+                                    background:
+                                      "linear-gradient(135deg, rgba(0,194,203,0.15), transparent 60%)",
+                                  }}
+                                />
+                                <svg
+                                  viewBox="0 0 200 60"
+                                  className="relative z-10 h-full w-full opacity-40"
+                                >
+                                  <path
+                                    d="M0 50 Q40 40 70 45 T130 15 T200 5"
+                                    stroke="#00C2CB"
+                                    strokeWidth="3"
+                                    fill="none"
+                                    strokeLinecap="round"
+                                  />
+                                </svg>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <ResponsiveContainer width="100%" height={230}>
+                            <AreaChart
+                              data={trendData}
+                              margin={{ left: 4, right: 8, top: 0, bottom: 0 }}
+                            >
+                              <defs>
+                                <linearGradient
+                                  id={gradientId}
+                                  x1="0"
+                                  y1="0"
+                                  x2="0"
+                                  y2="1"
+                                >
+                                  <stop
+                                    offset="0%"
+                                    stopColor={accent}
+                                    stopOpacity={0.4}
+                                  />
+                                  <stop
+                                    offset="80%"
+                                    stopColor={accent}
+                                    stopOpacity={0.05}
+                                  />
+                                </linearGradient>
+                                <linearGradient
+                                  id={avgGradientId}
+                                  x1="0"
+                                  y1="0"
+                                  x2="0"
+                                  y2="1"
+                                >
+                                  <stop
+                                    offset="0%"
+                                    stopColor="#9ca3af"
+                                    stopOpacity={0.35}
+                                  />
+                                  <stop
+                                    offset="100%"
+                                    stopColor="#9ca3af"
+                                    stopOpacity={0.05}
+                                  />
+                                </linearGradient>
+                              </defs>
+                              <CartesianGrid
+                                stroke="rgba(148,163,184,0.12)"
+                                strokeDasharray="2 6"
+                                vertical={false}
+                              />
+                              <XAxis
+                                dataKey="name"
+                                padding={{ left: 10, right: 10 }}
+                                tick={{ fill: "#9ca3af", fontSize: 11 }}
+                                tickMargin={8}
+                                axisLine={false}
+                                tickLine={false}
+                              />
+                              <YAxis
+                                domain={[0, "auto"]}
+                                tick={{ fill: "#9ca3af", fontSize: 11 }}
+                                tickMargin={8}
+                                axisLine={false}
+                                tickLine={false}
+                              />
+                              {[...trendData.entries()].map(([idx, point]) =>
+                                idx % cadenceStep === 0 ? (
+                                  <ReferenceLine
+                                    key={`${chart.id}-ref-${idx}`}
+                                    x={point.name}
+                                    stroke="rgba(148,163,184,0.22)"
+                                    strokeDasharray="3 3"
+                                  />
+                                ) : null,
+                              )}
+                              <Tooltip
+                                cursor={{
+                                  stroke: "rgba(148,163,184,0.2)",
+                                  strokeWidth: 1.5,
+                                }}
+                                contentStyle={{
+                                  backgroundColor: "var(--card)",
+                                  border: "1px solid var(--border)",
+                                  borderRadius: 10,
+                                  padding: "10px 12px",
+                                }}
+                                labelStyle={{
+                                  fontSize: 11,
+                                  color: "var(--foreground)",
+                                  marginBottom: 4,
+                                }}
+                                itemStyle={{
+                                  fontSize: 12,
+                                  color: "var(--foreground)",
+                                  fontWeight: 600,
+                                }}
+                                formatter={(value: number, name: string) => {
+                                  const label =
+                                    name === "average"
+                                      ? "Rolling avg"
+                                      : "Daily";
+                                  return [formatValue(value), label];
+                                }}
+                              />
+                              <Area
+                                type="monotone"
+                                dataKey="value"
+                                stroke={accent}
+                                strokeWidth={2.5}
+                                fill={`url(#${gradientId})`}
+                                activeDot={{ r: 4, fill: accent }}
+                                dot={{ r: 0 }}
+                              />
+                              <Line
+                                type="monotone"
+                                dataKey="average"
+                                stroke="rgba(148,163,184,0.6)"
+                                strokeWidth={1.5}
+                                strokeDasharray="4 6"
+                                dot={false}
+                              />
+                            </AreaChart>
+                          </ResponsiveContainer>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
               </div>
-            </div>
-          );
+            );
           })}
         </div>
 
-        <div className="flex flex-col md:flex-row justify-between gap-6 mt-8">
+        <section className="mb-4">
+          <p className="text-xs uppercase tracking-[0.2em] text-white/45">
+            Action queue
+          </p>
+        </section>
+        <div className="flex flex-col md:flex-row justify-between gap-6 mt-2">
           {/* Active Campaigns */}
           <div className="w-full md:w-1/2">
             <DashboardCard interactive={false} className="h-full">
-              <h2 className="text-lg font-semibold text-[#00C2CB] mb-4">Active Campaigns</h2>
+              <h2 className="text-lg font-semibold text-[#00C2CB] mb-4">
+                Active Campaigns
+              </h2>
               {activeCampaigns.length === 0 ? (
-                <div className="rounded-xl border border-white/10 bg-black/30 p-6 text-center text-white/70">
-                  No active campaigns yet.
+                <div className="rounded-xl border border-white/12 bg-[#15191c] p-6 text-center text-white/70">
+                  <p className="font-medium text-white/85">
+                    No active campaigns yet.
+                  </p>
+                  <p className="mt-1 text-sm text-white/60">
+                    Start by promoting an approved offer and launch your first
+                    campaign.
+                  </p>
+                  <Link
+                    href="/affiliate/marketplace"
+                    className="mt-4 inline-flex items-center gap-2 rounded-lg border border-white/10 bg-[#111317] px-3.5 py-2 text-sm font-semibold text-white/80 transition hover:bg-[#15191c]"
+                  >
+                    Start first campaign <ArrowRight className="h-4 w-4" />
+                  </Link>
                 </div>
               ) : (
                 <>
                   {visibleCampaigns.map((offer) => (
                     <div
                       key={`${offer.id}-${offer.ideaId}`}
-                      className="flex items-center justify-between bg-[#121212] border border-white/10 rounded-xl px-4 py-3 hover:bg-[#171717] transition mb-3"
+                      className="flex items-center justify-between bg-[#15191c] border border-white/12 rounded-xl px-4 py-3 hover:bg-[#1b1f23] transition mb-3"
                     >
                       <div className="flex flex-col">
-                        <p className="text-white font-semibold">{offer.title}</p>
+                        <p className="text-white font-semibold">
+                          {offer.title}
+                        </p>
                         <div className="flex items-center">
                           <RocketLaunchIcon className="w-5 h-5 text-[#00C2CB] mr-2" />
                           <span className="truncate text-sm text-white/70">
@@ -700,7 +1262,7 @@ if (loading) {
                       </div>
                       <Link
                         href={`/affiliate/dashboard/manage-campaigns/${offer.ideaId}`}
-                        className="text-sm px-3 py-1 rounded-lg bg-[#00C2CB] text-black font-semibold hover:bg-[#00b0b8]"
+                        className="text-sm px-3 py-1 rounded-lg border border-white/10 bg-[#111317] text-white/80 transition hover:bg-[#15191c]"
                       >
                         View
                       </Link>
@@ -711,7 +1273,9 @@ if (loading) {
                       onClick={() => setShowAllCampaigns((prev) => !prev)}
                       className="w-full text-center text-sm text-[#00C2CB] hover:text-[#00b0b8] mt-2"
                     >
-                      {showAllCampaigns ? 'Show Less' : `View All (${activeCampaigns.length})`}
+                      {showAllCampaigns
+                        ? "Show Less"
+                        : `View All (${activeCampaigns.length})`}
                     </button>
                   )}
                 </>
@@ -722,36 +1286,47 @@ if (loading) {
           {/* Approved Offers */}
           <div className="w-full md:w-1/2">
             <DashboardCard interactive={false} className="h-full">
-              <h2 className="text-lg font-semibold text-[#00C2CB] mb-4">Approved Offers</h2>
+              <h2 className="text-lg font-semibold text-[#00C2CB] mb-4">
+                Approved Offers
+              </h2>
               {approvedOffers.length === 0 ? (
-                <div className="rounded-xl border border-white/10 bg-black/30 p-6 text-center text-white/70">
-                  You haven't been approved to promote any offers yet.
-                  <br />
-                  Head over to the{' '}
-                  <Link href="/affiliate/marketplace" className="underline">
-                    Marketplace
-                  </Link>{' '}
-                  to request one!
+                <div className="rounded-xl border border-white/12 bg-[#15191c] p-6 text-center text-white/70">
+                  <p className="font-medium text-white/85">
+                    No approved offers yet.
+                  </p>
+                  <p className="mt-1 text-sm text-white/60">
+                    Browse the marketplace and request offers to unlock your
+                    promotion queue.
+                  </p>
+                  <Link
+                    href="/affiliate/marketplace"
+                    className="mt-4 inline-flex items-center gap-2 rounded-lg border border-white/10 bg-[#111317] px-3.5 py-2 text-sm font-semibold text-white/80 transition hover:bg-[#15191c]"
+                  >
+                    Browse marketplace <ArrowRight className="h-4 w-4" />
+                  </Link>
                 </div>
               ) : (
                 <>
                   {visibleOffers.map((offer) => (
                     <div
                       key={`${offer.id}-${offer.title}`}
-                      className="flex items-center justify-between bg-[#121212] border border-white/10 rounded-xl px-4 py-3 hover:bg-[#171717] transition mb-3"
+                      className="flex items-center justify-between bg-[#15191c] border border-white/12 rounded-xl px-4 py-3 hover:bg-[#1b1f23] transition mb-3"
                     >
                       <div className="flex flex-col">
-                        <p className="text-white font-semibold">{offer.title}</p>
+                        <p className="text-white font-semibold">
+                          {offer.title}
+                        </p>
                         <div className="flex items-center">
                           <RocketLaunchIcon className="w-5 h-5 text-[#00C2CB] mr-2" />
                           <span className="truncate text-sm text-white/70">
-                            Commission: {offer.commission}% | Type: {offer.payoutType}
+                            Commission: {offer.commission}% | Type:{" "}
+                            {offer.payoutType}
                           </span>
                         </div>
                       </div>
                       <Link
                         href={`/affiliate/dashboard/promote/${offer.id}`}
-                        className="text-sm px-3 py-1 rounded-lg bg-[#00C2CB] text-black font-semibold hover:bg-[#00b0b8]"
+                        className="text-sm px-3 py-1 rounded-lg border border-white/10 bg-[#111317] text-white/80 transition hover:bg-[#15191c]"
                       >
                         Promote
                       </Link>
@@ -762,7 +1337,9 @@ if (loading) {
                       onClick={() => setShowAllOffers((prev) => !prev)}
                       className="w-full text-center text-sm text-[#00C2CB] hover:text-[#00b0b8] mt-2"
                     >
-                      {showAllOffers ? 'Show Less' : `View All (${approvedOffers.length})`}
+                      {showAllOffers
+                        ? "Show Less"
+                        : `View All (${approvedOffers.length})`}
                     </button>
                   )}
                 </>

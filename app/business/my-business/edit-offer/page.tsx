@@ -1,8 +1,8 @@
-'use client';
-import { useSession } from '@supabase/auth-helpers-react';
+"use client";
+import { useSession } from "@supabase/auth-helpers-react";
 
-import { useParams, useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useParams, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 export default function EditOfferPage() {
   const router = useRouter();
@@ -12,14 +12,14 @@ export default function EditOfferPage() {
   const user = session?.user;
 
   const [offerData, setOfferData] = useState({
-    businessName: '',
-    description: '',
-    commission: '',
-    type: 'one-time',
+    businessName: "",
+    description: "",
+    commission: "",
+    type: "one-time",
   });
 
   useEffect(() => {
-    const savedOffers = JSON.parse(localStorage.getItem('my-offers') || '[]');
+    const savedOffers = JSON.parse(localStorage.getItem("my-offers") || "[]");
     const foundOffer = savedOffers.find((o: any) => o.id === id);
 
     if (foundOffer) {
@@ -27,7 +27,11 @@ export default function EditOfferPage() {
     }
   }, [id]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  const handleChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >,
+  ) => {
     setOfferData({ ...offerData, [e.target.name]: e.target.value });
   };
 
@@ -35,20 +39,22 @@ export default function EditOfferPage() {
     e.preventDefault();
     if (!user?.email) return;
 
-    const updatedOffers = JSON.parse(localStorage.getItem('my-offers') || '[]').map((o: any) =>
-      o.id === id ? offerData : o
-    );
+    const updatedOffers = JSON.parse(
+      localStorage.getItem("my-offers") || "[]",
+    ).map((o: any) => (o.id === id ? offerData : o));
 
-    localStorage.setItem('my-offers', JSON.stringify(updatedOffers));
-    localStorage.setItem('marketplace-offers', JSON.stringify(updatedOffers));
+    localStorage.setItem("my-offers", JSON.stringify(updatedOffers));
+    localStorage.setItem("marketplace-offers", JSON.stringify(updatedOffers));
 
-    alert('Offer updated!');
-    router.push('/business/my-business');
+    alert("Offer updated!");
+    router.push("/business/my-business");
   };
 
   return (
-    <div className="p-10">
-      <h1 className="text-3xl font-bold text-[#00C2CB] mb-6">Edit Offer</h1>
+    <div className="min-h-screen bg-[var(--background)] p-10 text-[var(--foreground)]">
+      <h1 className="mb-6 text-3xl font-bold text-[var(--primary)]">
+        Edit Offer
+      </h1>
       <form onSubmit={handleSubmit} className="space-y-6 max-w-lg">
         <div>
           <label className="block font-semibold mb-1">Business Name</label>
@@ -57,7 +63,7 @@ export default function EditOfferPage() {
             name="businessName"
             value={offerData.businessName}
             onChange={handleChange}
-            className="w-full p-3 border border-gray-300 rounded-lg"
+            className="w-full rounded-lg border border-[var(--border)] bg-[var(--input-background)] p-3 text-[var(--foreground)] focus:outline-none focus:ring-1 focus:ring-[var(--ring)]"
           />
         </div>
         <div>
@@ -67,7 +73,7 @@ export default function EditOfferPage() {
             name="description"
             value={offerData.description}
             onChange={handleChange}
-            className="w-full p-3 border border-gray-300 rounded-lg"
+            className="w-full rounded-lg border border-[var(--border)] bg-[var(--input-background)] p-3 text-[var(--foreground)] focus:outline-none focus:ring-1 focus:ring-[var(--ring)]"
           />
         </div>
         <div>
@@ -78,7 +84,7 @@ export default function EditOfferPage() {
             type="number"
             value={offerData.commission}
             onChange={handleChange}
-            className="w-full p-3 border border-gray-300 rounded-lg"
+            className="w-full rounded-lg border border-[var(--border)] bg-[var(--input-background)] p-3 text-[var(--foreground)] focus:outline-none focus:ring-1 focus:ring-[var(--ring)]"
           />
         </div>
         <div>
@@ -87,7 +93,7 @@ export default function EditOfferPage() {
             name="type"
             value={offerData.type}
             onChange={handleChange}
-            className="w-full p-3 border border-gray-300 rounded-lg"
+            className="w-full rounded-lg border border-[var(--border)] bg-[var(--input-background)] p-3 text-[var(--foreground)] focus:outline-none focus:ring-1 focus:ring-[var(--ring)]"
           >
             <option value="one-time">One-Time</option>
             <option value="recurring">Recurring</option>
@@ -96,7 +102,7 @@ export default function EditOfferPage() {
 
         <button
           type="submit"
-          className="bg-[#00C2CB] hover:bg-[#00b0b8] text-white font-semibold py-3 px-6 rounded-lg"
+          className="rounded-lg bg-[var(--primary)] px-6 py-3 font-semibold text-[var(--primary-foreground)] hover:brightness-110"
         >
           Save Changes
         </button>

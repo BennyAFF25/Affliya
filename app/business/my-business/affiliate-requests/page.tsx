@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useSession } from '@supabase/auth-helpers-react';
-import { supabase } from '@/../utils/supabase/pages-client';
+import { useEffect, useState } from "react";
+import { useSession } from "@supabase/auth-helpers-react";
+import { supabase } from "@/../utils/supabase/pages-client";
 
 interface AffiliateRequest {
   id: string;
@@ -20,9 +20,54 @@ interface AffiliateRequest {
   };
 }
 
+interface ShopRequest {
+  id: string;
+  affiliate_email: string;
+  business_email: string;
+  status: string;
+  message?: string | null;
+  created_at: string;
+}
+
+function formatWhen(value: string) {
+  return new Date(value).toLocaleString();
+}
+
+function statusBadge(status: string) {
+  const key = status.toLowerCase();
+  if (key === "approved") {
+    return "border-emerald-500/20 bg-emerald-500/10 text-emerald-300";
+  }
+  if (key === "rejected") {
+    return "border-rose-500/20 bg-rose-500/10 text-rose-300";
+  }
+  return "border-amber-500/20 bg-amber-500/10 text-amber-300";
+}
+
+function EmptyState({
+  title,
+  body,
+}: {
+  title: string;
+  body: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--card)]/70 px-6 py-10 text-center shadow-[0_0_0_1px_rgba(0,0,0,0.18)]">
+      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[var(--primary)]/10 text-lg text-[var(--primary)]">
+        ✦
+      </div>
+      <h3 className="mt-4 text-lg font-semibold text-[var(--foreground)]">
+        {title}
+      </h3>
+      <p className="mt-2 text-sm text-[var(--muted-foreground)]">{body}</p>
+    </div>
+  );
+}
+
 export default function AffiliateRequestsPage() {
   const session = useSession();
   const [requests, setRequests] = useState<AffiliateRequest[]>([]);
+  const [shopRequests, setShopRequests] = useState<ShopRequest[]>([]);
 
   useEffect(() => {
     if (!session) return;
@@ -32,7 +77,7 @@ export default function AffiliateRequestsPage() {
       if (!userEmail) return;
 
       const { data, error } = await supabase
-        .from('affiliate_requests')
+        .from("affiliate_requests")
         .select(
           `
           id,
@@ -48,47 +93,65 @@ export default function AffiliateRequestsPage() {
             type,
             logo_url
           )
-        `
+        `,
         )
-        .eq('business_email', userEmail)
-        .order('created_at', { ascending: false });
+        .eq("business_email", userEmail)
+        .order("created_at", { ascending: false });
 
       if (error) {
-        console.error('[affiliate-requests] Error fetching requests:', error.message);
-        return;
+        console.error(
+          "[affiliate-requests] Error fetching requests:",
+          error.message,
+        );
+      } else {
+        setRequests(data as AffiliateRequest[]);
       }
 
-      setRequests(data as AffiliateRequest[]);
+      const { data: shopData, error: shopError } = await supabase
+        .from("affiliate_shop_requests")
+        .select(
+          "id, affiliate_email, business_email, status, message, created_at",
+        )
+        .eq("business_email", userEmail)
+        .order("created_at", { ascending: false });
+
+      if (shopError) {
+        console.error(
+          "[affiliate-requests] Error fetching shop requests:",
+          shopError.message,
+        );
+      } else {
+        setShopRequests((shopData || []) as ShopRequest[]);
+      }
     };
 
     fetchRequests();
   }, [session]);
 
   const handleUpdateStatus = async (requestId: string, newStatus: string) => {
-    // Gather current data before update for notifications
     const current = requests.find((r) => r.id === requestId);
     const currentAffiliateEmail = current?.affiliate_email;
     const currentOfferId = (current as any)?.offer?.id;
-    const currentOfferTitle = (current as any)?.offer?.title || 'Your offer';
+    const currentOfferTitle = (current as any)?.offer?.title || "Your offer";
     const currentBusinessEmail = session?.user?.email;
 
     const { error } = await supabase
-      .from('affiliate_requests')
-      .update({ status: newStatus })
-      .eq('id', requestId);
+      .from("affiliate_requests")
+      .update({ status: newStatus } as never)
+      .eq("id", requestId);
 
     if (error) {
-      console.error('[affiliate-requests] Error updating status:', error.message);
+      console.error(
+        "[affiliate-requests] Error updating status:",
+        error.message,
+      );
       return;
     }
 
     setRequests((prev) =>
-      prev.map((r) =>
-        r.id === requestId ? { ...r, status: newStatus } : r
-      )
+      prev.map((r) => (r.id === requestId ? { ...r, status: newStatus } : r)),
     );
 
-    // Email notifications (non-blocking)
     try {
       const baseUrl =
         process.env.NEXT_PUBLIC_SITE_URL ||
@@ -96,17 +159,16 @@ export default function AffiliateRequestsPage() {
         window.location.origin;
 
       const decisionEndpoint =
-        newStatus === 'approved'
-          ? '/api/emails/affiliate-request-approved'
-          : newStatus === 'rejected'
-          ? '/api/emails/affiliate-request-rejected'
-          : null;
+        newStatus === "approved"
+          ? "/api/emails/affiliate-request-decision"
+          : newStatus === "rejected"
+            ? "/api/emails/affiliate-request-decision"
+            : null;
 
-      // Notify the affiliate about the decision
       if (decisionEndpoint && currentAffiliateEmail && currentBusinessEmail) {
         fetch(`${baseUrl}${decisionEndpoint}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             to: currentAffiliateEmail,
             affiliateEmail: currentAffiliateEmail,
@@ -114,95 +176,198 @@ export default function AffiliateRequestsPage() {
             offerId: currentOfferId,
             offerTitle: currentOfferTitle,
             requestId,
+            decision: newStatus,
           }),
         })
           .then(async (res) => {
             if (!res.ok) {
-              const txt = await res.text().catch(() => '');
-              console.error('[affiliate-requests] decision email failed', res.status, txt);
+              const txt = await res.text().catch(() => "");
+              console.error(
+                "[affiliate-requests] decision email failed",
+                res.status,
+                txt,
+              );
             }
           })
           .catch((err) => {
-            console.error('[affiliate-requests] decision email error', err);
+            console.error("[affiliate-requests] decision email error", err);
           });
       }
     } catch (e) {
-      console.error('[affiliate-requests] Email notify failed', e);
+      console.error("[affiliate-requests] Email notify failed", e);
     }
   };
 
-  const pending = requests.filter((r) => r.status === 'pending');
-  const rejected = requests.filter((r) => r.status === 'rejected');
+  const handleShopRequestDecision = async (
+    requestId: string,
+    newStatus: "approved" | "rejected",
+  ) => {
+    const businessEmail = session?.user?.email;
+    if (!businessEmail) return;
+
+    const { error } = await supabase
+      .from("affiliate_shop_requests")
+      .update({ status: newStatus } as never)
+      .eq("id", requestId)
+      .eq("business_email", businessEmail);
+
+    if (error) {
+      console.error(
+        "[affiliate-requests] Error updating shop request:",
+        error.message,
+      );
+      return;
+    }
+
+    setShopRequests((prev) =>
+      prev.map((r) => (r.id === requestId ? { ...r, status: newStatus } : r)),
+    );
+  };
+
+  const pending = requests.filter((r) => r.status === "pending");
+  const rejected = requests.filter((r) => r.status === "rejected");
+  const shopPending = shopRequests.filter((r) => r.status === "pending");
 
   return (
-    <div className="w-full min-h-screen bg-[#0a0a0a] px-6 py-10">
-      <h1 className="text-3xl font-bold mb-6 text-[#00C2CB]">
-        Affiliate Promotion Requests
-      </h1>
+    <div className="min-h-screen w-full bg-[var(--background)] px-5 py-6 text-[var(--foreground)]">
+      <div className="mx-auto max-w-6xl">
+        <div className="relative mb-8 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-[0_0_0_1px_rgba(0,0,0,0.35),0_8px_30px_rgba(0,0,0,0.28)]">
+          <div className="pointer-events-none absolute inset-0">
+            <div className="absolute -right-16 -top-20 h-56 w-56 rounded-full bg-[var(--primary)]/10 blur-3xl" />
+            <div className="absolute -bottom-24 -left-10 h-48 w-48 rounded-full bg-[var(--primary)]/10 blur-3xl" />
+          </div>
+          <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted-foreground)]">
+                Business inbox
+              </p>
+              <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[var(--primary)]">
+                Pending requests
+              </h1>
+              <p className="mt-2 max-w-2xl text-sm text-[var(--muted-foreground)]">
+                Review affiliates who want to promote your offer and decide who gets storefront access. Everything waiting on you is grouped here.
+              </p>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="rounded-xl border border-[var(--border)] bg-[var(--secondary)]/60 px-4 py-3">
+                <div className="text-xs uppercase tracking-[0.16em] text-[var(--muted-foreground)]">
+                  Offer requests
+                </div>
+                <div className="mt-2 text-2xl font-semibold">{pending.length}</div>
+              </div>
+              <div className="rounded-xl border border-[var(--border)] bg-[var(--secondary)]/60 px-4 py-3">
+                <div className="text-xs uppercase tracking-[0.16em] text-[var(--muted-foreground)]">
+                  Storefront requests
+                </div>
+                <div className="mt-2 text-2xl font-semibold">{shopPending.length}</div>
+              </div>
+              <div className="rounded-xl border border-[var(--border)] bg-[var(--secondary)]/60 px-4 py-3">
+                <div className="text-xs uppercase tracking-[0.16em] text-[var(--muted-foreground)]">
+                  Rejected logged
+                </div>
+                <div className="mt-2 text-2xl font-semibold">{rejected.length}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <section className="mb-10">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-semibold text-[var(--foreground)]">
+                Promotion requests
+              </h2>
+              <p className="text-sm text-[var(--muted-foreground)]">
+                Affiliates waiting for approval to promote one of your offers.
+              </p>
+            </div>
+            <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-300">
+              {pending.length} pending
+            </span>
+          </div>
 
       {pending.length === 0 ? (
-        <p className="text-gray-600">No pending promotion requests.</p>
+        <EmptyState
+          title="No promotion requests waiting"
+          body="When affiliates apply to promote your offers, they’ll show up here with offer details, notes, and quick approve/reject actions."
+        />
       ) : (
-        <ul className="space-y-6">
+        <ul className="space-y-4">
           {pending.map((req) => (
             <li
               key={req.id}
-              className="rounded-xl bg-[#1F1F1F] text-white shadow-md border border-[#2c2c2c] px-6 py-5"
+              className="rounded-2xl border border-[var(--border)] bg-[var(--card)] px-6 py-5 text-[var(--foreground)] shadow-[0_0_0_1px_rgba(0,0,0,0.18),0_10px_28px_rgba(0,0,0,0.18)]"
             >
-              <div className="flex justify-between items-start">
-                <div className="flex items-start">
-                  <div className="w-10 h-10 mr-4 flex items-center justify-center rounded-full bg-[#00C2CB]/20">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="w-5 h-5 text-[#00C2CB]"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M13 10V3L4 14h7v7l9-11h-7z"
-                      />
-                    </svg>
+              <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                <div className="min-w-0 flex-1">
+                  <div className="mb-3 flex flex-wrap items-center gap-2">
+                    <span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${statusBadge(req.status)}`}>
+                      {req.status}
+                    </span>
+                    <span className="rounded-full border border-[var(--border)] bg-[var(--secondary)]/60 px-2.5 py-1 text-xs text-[var(--muted-foreground)]">
+                      {req.offer?.type === "recurring" ? "Recurring" : "One-time"}
+                    </span>
+                    <span className="rounded-full border border-[var(--border)] bg-[var(--secondary)]/60 px-2.5 py-1 text-xs text-[var(--muted-foreground)]">
+                      {req.offer?.commission}% commission
+                    </span>
                   </div>
-                  <div className="flex flex-col">
-                    <h2 className="text-lg font-semibold">{req.offer?.title}</h2>
-                    <p className="text-sm text-gray-400">{req.offer?.description}</p>
 
-                    <div className="mt-4 text-sm text-gray-400">
-                      <p>
-                        <span className="text-white font-medium">Commission:</span>{' '}
-                        <span className="text-[#00C2CB]">{req.offer?.commission}%</span>{' '}
-                        <span className="ml-2 px-2 py-1 text-xs bg-[#00C2CB]/10 text-[#00C2CB] rounded">
-                          {req.offer?.type === 'recurring' ? 'Recurring' : 'One-time'}
-                        </span>
-                      </p>
-                      <p className="mt-2">
-                        <span className="text-white font-medium">Affiliate:</span>{' '}
+                  <h3 className="text-xl font-semibold text-[var(--foreground)]">
+                    {req.offer?.title}
+                  </h3>
+                  <p className="mt-1 text-sm text-[var(--muted-foreground)]">
+                    {req.offer?.description}
+                  </p>
+
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    <div className="rounded-xl border border-[var(--border)] bg-[var(--secondary)]/60 px-4 py-3">
+                      <div className="text-xs uppercase tracking-[0.16em] text-[var(--muted-foreground)]">
+                        Affiliate
+                      </div>
+                      <div className="mt-2 break-all text-sm font-medium text-[var(--foreground)]">
                         {req.affiliate_email}
-                      </p>
-                      {req.notes && (
-                        <p className="italic text-gray-500 mt-2">“{req.notes}”</p>
-                      )}
-                      <p className="mt-2">
-                        Requested: {new Date(req.created_at).toLocaleString()}
-                      </p>
+                      </div>
                     </div>
+                    <div className="rounded-xl border border-[var(--border)] bg-[var(--secondary)]/60 px-4 py-3">
+                      <div className="text-xs uppercase tracking-[0.16em] text-[var(--muted-foreground)]">
+                        Requested
+                      </div>
+                      <div className="mt-2 text-sm font-medium text-[var(--foreground)]">
+                        {formatWhen(req.created_at)}
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-[var(--border)] bg-[var(--secondary)]/60 px-4 py-3 sm:col-span-2 xl:col-span-1">
+                      <div className="text-xs uppercase tracking-[0.16em] text-[var(--muted-foreground)]">
+                        Review status
+                      </div>
+                      <div className="mt-2 text-sm font-medium text-[var(--foreground)]">
+                        Waiting on your decision
+                      </div>
+                    </div>
+                    {req.notes && (
+                      <div className="rounded-xl border border-[var(--border)] bg-[var(--secondary)]/60 px-4 py-3 sm:col-span-2 xl:col-span-3">
+                        <div className="text-xs uppercase tracking-[0.16em] text-[var(--muted-foreground)]">
+                          Affiliate note
+                        </div>
+                        <p className="mt-2 text-sm italic text-[var(--muted-foreground)]">
+                          “{req.notes}”
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                <div className="flex flex-col items-end gap-2">
+                <div className="flex w-full flex-col gap-2 lg:w-auto lg:min-w-[180px]">
                   <button
-                    onClick={() => handleUpdateStatus(req.id, 'rejected')}
-                    className="bg-[#2c2c2c] hover:bg-[#3a3a3a] text-gray-300 px-4 py-2 rounded-lg text-sm"
+                    onClick={() => handleUpdateStatus(req.id, "rejected")}
+                    className="rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-4 py-2.5 text-sm text-[var(--muted-foreground)] transition hover:brightness-110"
                   >
                     Reject
                   </button>
                   <button
-                    onClick={() => handleUpdateStatus(req.id, 'approved')}
-                    className="bg-[#00C2CB] hover:bg-[#00b0b8] text-black px-4 py-2 rounded-lg text-sm font-semibold"
+                    onClick={() => handleUpdateStatus(req.id, "approved")}
+                    className="rounded-xl bg-[var(--primary)] px-4 py-2.5 text-sm font-semibold text-[var(--primary-foreground)] transition hover:brightness-110"
                   >
                     Approve
                   </button>
@@ -213,36 +378,142 @@ export default function AffiliateRequestsPage() {
         </ul>
       )}
 
+        </section>
+
+        <section>
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-semibold text-[var(--foreground)]">
+                NettmarkShop access requests
+              </h2>
+              <p className="text-sm text-[var(--muted-foreground)]">
+                Affiliates requesting storefront access for organic campaigns and link-in-bio style promotion.
+              </p>
+            </div>
+            <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-300">
+              {shopPending.length} pending
+            </span>
+          </div>
+
+      {shopPending.length === 0 ? (
+        <EmptyState
+          title="No storefront requests waiting"
+          body="Storefront access requests will appear here when an affiliate wants to feature your offer inside their NettmarkShop page."
+        />
+      ) : (
+        <ul className="space-y-4">
+          {shopPending.map((req) => (
+            <li
+              key={req.id}
+              className="rounded-2xl border border-[var(--border)] bg-[var(--card)] px-6 py-5 text-[var(--foreground)] shadow-[0_0_0_1px_rgba(0,0,0,0.18),0_10px_28px_rgba(0,0,0,0.18)]"
+            >
+              <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                <div className="min-w-0 flex-1 space-y-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${statusBadge(req.status)}`}>
+                      {req.status}
+                    </span>
+                    <span className="rounded-full border border-[var(--border)] bg-[var(--secondary)]/60 px-2.5 py-1 text-xs text-[var(--muted-foreground)]">
+                      Storefront access
+                    </span>
+                  </div>
+
+                  <h3 className="text-xl font-semibold text-[var(--foreground)]">
+                    Storefront access request
+                  </h3>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-xl border border-[var(--border)] bg-[var(--secondary)]/60 px-4 py-3">
+                      <div className="text-xs uppercase tracking-[0.16em] text-[var(--muted-foreground)]">
+                        Affiliate
+                      </div>
+                      <div className="mt-2 break-all text-sm font-medium text-[var(--foreground)]">
+                        {req.affiliate_email}
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-[var(--border)] bg-[var(--secondary)]/60 px-4 py-3">
+                      <div className="text-xs uppercase tracking-[0.16em] text-[var(--muted-foreground)]">
+                        Requested
+                      </div>
+                      <div className="mt-2 text-sm font-medium text-[var(--foreground)]">
+                        {formatWhen(req.created_at)}
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-[var(--border)] bg-[var(--secondary)]/60 px-4 py-3 sm:col-span-2">
+                      <div className="text-xs uppercase tracking-[0.16em] text-[var(--muted-foreground)]">
+                        Request note
+                      </div>
+                      <p className="mt-2 text-sm text-[var(--muted-foreground)]">
+                        {req.message ||
+                          "This affiliate is requesting a shop link that can display your offer alongside other partner offers on a storefront used for organic campaigns and social media links."}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex w-full flex-col gap-2 lg:w-auto lg:min-w-[200px]">
+                  <button
+                    onClick={() =>
+                      handleShopRequestDecision(req.id, "rejected")
+                    }
+                    className="rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-4 py-2.5 text-sm text-[var(--muted-foreground)] transition hover:brightness-110"
+                  >
+                    Reject
+                  </button>
+                  <button
+                    onClick={() =>
+                      handleShopRequestDecision(req.id, "approved")
+                    }
+                    className="rounded-xl bg-[var(--primary)] px-4 py-2.5 text-sm font-semibold text-[var(--primary-foreground)] transition hover:brightness-110"
+                  >
+                    Approve storefront
+                  </button>
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+        </section>
+
       {rejected.length > 0 && (
-        <>
-          <h2 className="text-2xl font-bold mt-12 mb-4 text-red-500">
+        <section className="mt-12">
+          <h2 className="mb-4 text-xl font-semibold text-rose-400">
             Rejected Requests
           </h2>
-          <ul className="space-y-6">
+          <ul className="space-y-4">
             {rejected.map((req) => (
               <li
                 key={req.id}
-                className="border border-red-200 bg-[#1F1F1F] rounded-lg shadow-md p-6"
+                className="rounded-2xl border border-rose-500/20 bg-[var(--card)] p-6 shadow-[0_0_0_1px_rgba(0,0,0,0.18)]"
               >
-                <h2 className="text-xl font-semibold text-red-600 mb-1">
+                <div className="mb-3 flex flex-wrap items-center gap-2">
+                  <span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${statusBadge(req.status)}`}>
+                    {req.status}
+                  </span>
+                  <span className="rounded-full border border-[var(--border)] bg-[var(--secondary)]/60 px-2.5 py-1 text-xs text-[var(--muted-foreground)]">
+                    {req.offer?.commission}% commission
+                  </span>
+                </div>
+                <h3 className="mb-1 text-lg font-semibold text-rose-300">
                   {req.offer?.title}
-                </h2>
-                <p className="text-sm text-white">{req.offer?.description}</p>
-                <div className="text-sm mt-2 text-white/80">
-                  <p>Commission: {req.offer?.commission}%</p>
+                </h3>
+                <p className="text-sm text-[var(--foreground)]">
+                  {req.offer?.description}
+                </p>
+                <div className="mt-3 grid gap-3 text-sm text-[var(--foreground)]/80 sm:grid-cols-3">
                   <p>Type: {req.offer?.type}</p>
                   <p>Affiliate: {req.affiliate_email}</p>
+                  <p>Requested: {formatWhen(req.created_at)}</p>
                   {req.notes && <p className="italic">“{req.notes}”</p>}
-                  <p>
-                    Status:{' '}
-                    <span className="font-semibold text-red-500">{req.status}</span>
-                  </p>
                 </div>
               </li>
             ))}
           </ul>
-        </>
+        </section>
       )}
+      </div>
     </div>
   );
 }

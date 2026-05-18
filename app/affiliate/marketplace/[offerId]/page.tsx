@@ -173,11 +173,9 @@ export default function AffiliateOfferProfilePage() {
         payload.business_name = offer.business_name;
       }
 
-      const { data: inserted, error } = await (supabase as any)
+      const { error } = await (supabase as any)
         .from('affiliate_requests')
-        .insert(payload)
-        .select('id')
-        .single();
+        .insert(payload);
 
       if (error) {
         console.error('[Error inserting affiliate request]', error);
@@ -185,10 +183,34 @@ export default function AffiliateOfferProfilePage() {
         return;
       }
 
-      const requestId = (inserted as any)?.id as string | undefined;
-
       setRequested(true);
       setRequestSuccess('Request sent to the business for approval.');
+
+      let requestId: string | undefined;
+
+      try {
+        const { data: insertedRow, error: insertedLookupErr } = await (supabase as any)
+          .from('affiliate_requests')
+          .select('id, notes, created_at')
+          .eq('offer_id', offerId)
+          .eq('affiliate_email', userEmail)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (insertedLookupErr && insertedLookupErr.code !== 'PGRST116') {
+          console.warn('[affiliate request post-insert lookup warn]', insertedLookupErr);
+        }
+
+        if (insertedRow?.id) {
+          requestId = insertedRow.id as string;
+          if ((insertedRow as any).notes) {
+            setRequestNotes((insertedRow as any).notes as string);
+          }
+        }
+      } catch (lookupErr) {
+        console.warn('[affiliate request post-insert lookup threw]', lookupErr);
+      }
 
       // Optional: email notify the business (non-blocking)
       try {

@@ -1,0 +1,39 @@
+{
+  "email": "checkpoint2a+1778129759569@example.com",
+  "checkoutSessionId": "cs_test_a1eimoT3xZpYBfdF2arnGT6H4NYf2WUSrSweMECpzlWFA9z2icZrdkbCLu",
+  "checkoutUrl": "https://checkout.stripe.com/c/pay/cs_test_a1eimoT3xZpYBfdF2arnGT6H4NYf2WUSrSweMECpzlWFA9z2icZrdkbCLu#fidnandhYHdWcXxpYCc%2FJ2FgY2RwaXEnKSdicGRmZGhqaWBTZHdsZGtxJz8nZmprcXdqaScpJ2R1bE5gfCc%2FJ3VuWnFgdnFaMDRXfD1nT0RBSW9fMHVxUzVqfHNMaDU3bVRUMG5rYnV8fTFmYUNnST00SHZXc3E3YWNNQ05fYkxhc1J2dE1wYF1uckh8T1c2YDYzcjU3N0p2NWtgR3dsaEk1NX9WZjYxVFx0JyknY3dqaFZgd3Ngdyc%2FcXdwYCknZ2RmbmJ3anBrYUZqaWp3Jz8nJjExMTExMScpJ2lkfGpwcVF8dWAnPyd2bGtiaWBabHFgaCcpJ2BrZGdpYFVpZGZgbWppYWB3dic%2FcXdwYHgl",
+  "paymentIntentId": "pi_3TUK45ADLjZ5ptV01Fd0DoCV",
+  "chargeId": "ch_3TUK45ADLjZ5ptV01SDy5eAo",
+  "stripeSessionWebhookStatus": {
+    "status": 200,
+    "body": "ok",
+    "eventId": "evt_local_1778130115417"
+  },
+  "webhook1": {
+    "status": 200,
+    "body": "{\"received\":true}",
+    "eventId": "evt_local_1778130140576"
+  },
+  "webhook1_after_fix": {
+    "status": 200,
+    "body": "{\"received\":true}",
+    "eventId": "evt_local_1778130277742"
+  },
+  "noop_events": [
+    {
+      "type": "charge.succeeded",
+      "status": 200,
+      "body": "{\"received\":true}"
+    },
+    {
+      "type": "charge.updated",
+      "status": 200,
+      "body": "{\"received\":true}"
+    },
+    {
+      "type": "payment_intent.succeeded",
+      "status": 200,
+      "body": "{\"received\":true}"
+    }
+  ]
+}

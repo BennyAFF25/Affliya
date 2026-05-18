@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
-import Stripe from "stripe";
+import { calculateChargeOnTopFee, toStripeAmount } from "@/../utils/feeAccounting";
+import { buildNettmarkStripeMetadata, createStripeClient } from "@/../utils/stripe";
 
 export const runtime = "nodejs";
 
-const stripe = new Stripe((process.env.STRIPE_SECRET_KEY || "").trim(), {
-  apiVersion: "2024-06-20" as Stripe.LatestApiVersion,
-});
+const stripe = createStripeClient((process.env.STRIPE_SECRET_KEY || "").trim());
 
 /**
  * Build a clean absolute base URL for Stripe redirect URLs.
@@ -64,8 +63,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid amount" }, { status: 400 });
     }
 
+    const feeBreakdown = calculateChargeOnTopFee(amountNumber);
+
     // Stripe expects "unit_amount" in the smallest currency unit (cents)
-    const unitAmount = Math.round(amountNumber * 100);
+    const unitAmount = toStripeAmount(feeBreakdown.grossAmount);
 
     // ✅ These are the lines that were breaking for you before
     const successUrl = absUrl(`/affiliate/wallet?topup=success`);
@@ -78,6 +79,10 @@ export async function POST(req: Request) {
       cancelUrl,
       email,
       currency,
+      principalAmount: feeBreakdown.principalAmount,
+      nettmarkFeeAmount: feeBreakdown.feeAmount,
+      grossChargeAmount: feeBreakdown.grossAmount,
+      feeBps: feeBreakdown.feeBps,
       unitAmount,
       mode: process.env.STRIPE_SECRET_KEY.startsWith("sk_live_") ? "live" : "test",
     });
@@ -98,21 +103,50 @@ export async function POST(req: Request) {
       success_url: successUrl,
       cancel_url: cancelUrl,
       // If you rely on metadata in webhooks:
-      metadata: {
-        email,
+      metadata: buildNettmarkStripeMetadata("wallet_topup", {
+        affiliate_email: email,
         purpose: "wallet_topup",
+        currency,
+        topup_amount: feeBreakdown.principalAmount,
+        gross_charge_amount: feeBreakdown.grossAmount,
+        nettmark_fee_amount: feeBreakdown.feeAmount,
+        fee_bps: feeBreakdown.feeBps,
+      }),
+      payment_intent_data: {
+        metadata: buildNettmarkStripeMetadata("wallet_topup", {
+          affiliate_email: email,
+          purpose: "wallet_topup",
+          currency,
+          topup_amount: feeBreakdown.principalAmount,
+          gross_charge_amount: feeBreakdown.grossAmount,
+          nettmark_fee_amount: feeBreakdown.feeAmount,
+          fee_bps: feeBreakdown.feeBps,
+        }),
       },
     });
 
-    return NextResponse.json({ url: session.url }, { status: 200 });
-  } catch (err: any) {
+    return NextResponse.json(
+      {
+        url: session.url,
+        sessionId: session.id,
+        principalAmount: feeBreakdown.principalAmount,
+        nettmarkFeeAmount: feeBreakdown.feeAmount,
+        grossChargeAmount: feeBreakdown.grossAmount,
+        feeBps: feeBreakdown.feeBps,
+      },
+      { status: 200 },
+    );
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Create topup session failed";
+    const stack = err instanceof Error ? err.stack : undefined;
+
     console.error("[❌ create-topup-session]", {
-      message: err?.message,
-      stack: err?.stack,
+      message,
+      stack,
     });
 
     return NextResponse.json(
-      { error: err?.message || "Create topup session failed" },
+      { error: message },
       { status: 500 }
     );
   }

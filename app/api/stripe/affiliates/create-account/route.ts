@@ -1,14 +1,36 @@
 import { NextResponse } from "next/server";
-import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
+import Stripe from "stripe";
+import { buildStripeMetadata, createStripeClient } from "@/../utils/stripe";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2025-08-27.basil",
-});
+export const runtime = "nodejs";
+
+const stripe = createStripeClient((process.env.STRIPE_SECRET_KEY || "").trim());
+
+function getBaseUrl() {
+  const explicit = (process.env.NEXT_PUBLIC_BASE_URL || "").trim();
+  const vercel = (process.env.VERCEL_URL || "").trim();
+  const fromVercel = vercel ? `https://${vercel}` : "";
+  const fallbackLocal = "http://localhost:3000";
+  const base = explicit || fromVercel || fallbackLocal;
+
+  try {
+    return new URL(base).origin;
+  } catch {
+    throw new Error(
+      `Invalid BASE URL. Got "${base}". Fix NEXT_PUBLIC_BASE_URL / VERCEL_URL.`
+    );
+  }
+}
+
+function getPublicSiteUrl() {
+  return (process.env.NEXT_PUBLIC_SITE_URL || "https://www.nettmark.com").trim().replace(/\/+$/, "");
+}
 
 const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
+  (process.env.NEXT_PUBLIC_SUPABASE_URL || "").trim(),
+  (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim(),
+  { auth: { persistSession: false } },
 );
 
 export async function POST(req: Request) {
@@ -20,12 +42,12 @@ export async function POST(req: Request) {
     if (!user_id || !email) {
       return NextResponse.json(
         { error: "Missing user_id or email" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    const origin =
-      req.headers.get("origin") || "https://www.nettmark.com";
+    const origin = getBaseUrl();
+    const publicSiteUrl = getPublicSiteUrl();
 
     // 1) Load existing profile row
     const { data: profile, error: profileErr } = await supabase
@@ -37,13 +59,13 @@ export async function POST(req: Request) {
     if (profileErr) {
       return NextResponse.json(
         { error: "Failed reading affiliate_profiles", details: profileErr },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
     // 2) Reuse account if it exists, else create a new Express individual
     let accountId = profile?.stripe_account_id || null;
-    let reusedExisting = !!accountId;
+    const reusedExisting = !!accountId;
 
     if (!accountId) {
       const account = await stripe.accounts.create({
@@ -51,13 +73,20 @@ export async function POST(req: Request) {
         country: "AU",
         email,
         business_type: "individual",
+        metadata: buildStripeMetadata({
+          role: "affiliate",
+          source: "nettmark",
+        }),
         capabilities: {
           transfers: { requested: true },
         },
         business_profile: {
-          url: "https://www.nettmark.com",
+          // Stripe still labels this section as "business details" for individual accounts.
+          // Use a public site URL here; localhost often gets rejected by Stripe validation.
+          url: `${publicSiteUrl}/affiliate/wallet`,
           product_description:
-            "Affiliate earnings payouts via the Nettmark platform.",
+            "Affiliate creator payouts via Nettmark performance campaigns.",
+          mcc: "7311",
         },
       });
 
@@ -73,13 +102,13 @@ export async function POST(req: Request) {
             stripe_account_id: accountId,
             stripe_onboarding_complete: false,
           },
-          { onConflict: "user_id" }
+          { onConflict: "user_id" },
         );
 
       if (upsertErr) {
         return NextResponse.json(
           { error: "Failed updating affiliate_profiles", details: upsertErr },
-          { status: 500 }
+          { status: 500 },
         );
       }
     }
@@ -102,10 +131,27 @@ export async function POST(req: Request) {
       refreshUrl,
       returnUrl,
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Unknown error";
+    const stripeErr = err as Stripe.errors.StripeError | undefined;
+
+    console.error("[❌ affiliate/create-account]", {
+      message,
+      type: stripeErr?.type,
+      code: stripeErr?.code,
+      param: stripeErr?.param,
+      decline_code: stripeErr?.decline_code,
+      raw: stripeErr?.raw,
+    });
+
     return NextResponse.json(
-      { error: err?.message || "Unknown error" },
-      { status: 500 }
+      {
+        error: message,
+        type: stripeErr?.type || null,
+        code: stripeErr?.code || null,
+        param: stripeErr?.param || null,
+      },
+      { status: 500 },
     );
   }
 }

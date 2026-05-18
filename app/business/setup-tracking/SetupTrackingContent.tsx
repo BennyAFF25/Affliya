@@ -1,73 +1,234 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useSession, useSupabaseClient } from '@supabase/auth-helpers-react';
-import { ClipboardDocumentIcon, PaperAirplaneIcon } from '@heroicons/react/24/outline';
-import { useRouter } from 'next/navigation';
+import React, { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useSession, useSupabaseClient } from "@supabase/auth-helpers-react";
+import {
+  CheckCircleIcon,
+  ClipboardDocumentIcon,
+  PaperAirplaneIcon,
+} from "@heroicons/react/24/outline";
+import { useRouter } from "next/navigation";
+
+type OfferRow = {
+  id: string;
+  website?: string | null;
+  site_host?: string | null;
+};
 
 export default function SetupTrackingContent() {
   const session = useSession();
   const user = session?.user;
   const supabase = useSupabaseClient();
   const router = useRouter();
+
   const [copied, setCopied] = useState(false);
-  const [devEmail, setDevEmail] = useState('');
-  const [emailSent, setEmailSent] = useState(false);
-  const [offers, setOffers] = useState<any[]>([]);
-  const [selectedOffer, setSelectedOffer] = useState<any>(null);
-  const [trackingCode, setTrackingCode] = useState('');
-  const [isReady, setIsReady] = useState(false);
-
-  // Collapsible sections for Shopify pixels
-  const [showViewPixel, setShowViewPixel] = useState(false);
-  const [showCartPixel, setShowCartPixel] = useState(false);
-  const [showCheckoutPixel, setShowCheckoutPixel] = useState(false);
-  const [copiedView, setCopiedView] = useState(false);
-  const [copiedCart, setCopiedCart] = useState(false);
-  const [copiedCheckout, setCopiedCheckout] = useState(false);
-
-  // New state for live campaign
-  const [liveCampaign, setLiveCampaign] = useState<any>(null);
-  const [loadingLiveCampaign, setLoadingLiveCampaign] = useState(false);
-
-  // New state for universal pixel collapsible and copied state
-  const [showUniversalPixel, setShowUniversalPixel] = useState(false);
   const [copiedUniversal, setCopiedUniversal] = useState(false);
+  const [devEmail, setDevEmail] = useState("");
+  const [emailSent, setEmailSent] = useState(false);
+  const [offers, setOffers] = useState<OfferRow[]>([]);
+  const [selectedOffer, setSelectedOffer] = useState<OfferRow | null>(null);
+  const [trackingCode, setTrackingCode] = useState("");
+  const [isReady, setIsReady] = useState(false);
+  const [trackingInstalled, setTrackingInstalled] = useState(false);
 
-  // Tracking Test state
   const [testing, setTesting] = useState(false);
-  const [testStatus, setTestStatus] = useState<'idle' | 'ok' | 'fail'>('idle');
-  const [testMsg, setTestMsg] = useState<string>('');
-  const [trackingMarkedInstalled, setTrackingMarkedInstalled] = useState(false);
-  const [showInstallPanel, setShowInstallPanel] = useState(true);
+  const [testStatus, setTestStatus] = useState<"idle" | "ok" | "fail">("idle");
+  const [testMsg, setTestMsg] = useState<string>("");
 
-  // Meta Pixel verification state
   const [verifyingPixel, setVerifyingPixel] = useState(false);
-  const [pixelStatus, setPixelStatus] = useState<'idle' | 'ok' | 'fail'>('idle');
-  const [pixelMsg, setPixelMsg] = useState('');
-  // Combined test: creates a test tracking event in Nettmark for this offer
+  const [pixelStatus, setPixelStatus] = useState<"idle" | "ok" | "fail">(
+    "idle",
+  );
+  const [pixelMsg, setPixelMsg] = useState("");
+
+  useEffect(() => {
+    if (user) setIsReady(true);
+  }, [user]);
+
+  useEffect(() => {
+    if (!isReady || !user?.email) return;
+
+    const fetchOffers = async () => {
+      const { data, error } = await supabase
+        .from("offers")
+        .select("id, website, site_host")
+        .eq("business_email", user.email);
+
+      if (error || !data) return;
+      setOffers(data as OfferRow[]);
+      if (data.length > 0) setSelectedOffer((data as OfferRow[])[0]);
+    };
+
+    fetchOffers();
+  }, [isReady, supabase, user?.email]);
+
+  useEffect(() => {
+    if (!selectedOffer?.website) {
+      setTrackingCode("");
+      return;
+    }
+
+    if (selectedOffer.site_host === "Shopify") {
+      setTrackingCode("");
+      return;
+    }
+
+    try {
+      const domain = new URL(selectedOffer.website).hostname.replace(/^www\./, "");
+      const baseUrl =
+        process.env.NODE_ENV === "development"
+          ? "http://localhost:3000"
+          : "https://www.nettmark.com";
+
+      setTrackingCode(
+        `<script src="${baseUrl}/tracker.js" data-business="${domain}" data-offer="${selectedOffer.id}"></script>`,
+      );
+    } catch {
+      setTrackingCode("");
+    }
+  }, [selectedOffer]);
+
+  const shopifyUniversalPixel = useMemo(() => {
+    const apiUrl = "https://www.nettmark.com/api/track-event";
+    return `const NETTMARK_API_URL = '${apiUrl}';
+const ATTR_KEYS = {
+  affiliate: 'nettmark_nm_aff',
+  campaign: 'nettmark_nm_camp',
+};
+
+function safeUrl(event) {
+  return event?.context?.document?.location?.href || null;
+}
+
+function safeReferrer(event) {
+  return event?.context?.document?.referrer || null;
+}
+
+function queryParam(rawUrl, key) {
+  if (!rawUrl) return null;
+  try {
+    return new URL(rawUrl).searchParams.get(key);
+  } catch (e) {
+    return null;
+  }
+}
+
+async function rememberAttr(key, value) {
+  if (!value) return;
+  try { await browser.localStorage.setItem(key, value); } catch (e) {}
+  try { await browser.cookie.set(key, value); } catch (e) {}
+}
+
+async function readAttr(key) {
+  try {
+    const local = await browser.localStorage.getItem(key);
+    if (local) return local;
+  } catch (e) {}
+
+  try {
+    const cookie = await browser.cookie.get(key);
+    if (cookie) return cookie;
+  } catch (e) {}
+
+  return null;
+}
+
+function normalizeLineItems(event) {
+  const checkout = event?.data?.checkout;
+  const lineItems = checkout?.lineItems;
+  if (Array.isArray(lineItems)) return lineItems;
+  if (Array.isArray(lineItems?.edges)) {
+    return lineItems.edges.map((edge) => edge?.node || edge).filter(Boolean);
+  }
+  if (Array.isArray(lineItems?.nodes)) return lineItems.nodes;
+  return event?.data?.line_items || event?.data?.lineItems || [];
+}
+
+async function sendEvent(eventName, event) {
+  const pageUrl = safeUrl(event);
+  const referrer = safeReferrer(event);
+
+  const urlAffiliate = queryParam(pageUrl, 'nm_aff');
+  const urlCampaign = queryParam(pageUrl, 'nm_camp');
+
+  if (urlAffiliate) await rememberAttr(ATTR_KEYS.affiliate, urlAffiliate);
+  if (urlCampaign) await rememberAttr(ATTR_KEYS.campaign, urlCampaign);
+
+  const affiliateId = urlAffiliate || await readAttr(ATTR_KEYS.affiliate);
+  const campaignId = urlCampaign || await readAttr(ATTR_KEYS.campaign);
+  const payoutEligible = !!(affiliateId && campaignId);
+  const outgoingEventType =
+    (eventName === 'checkout_completed' && payoutEligible) ? 'conversion' : eventName;
+
+  await fetch(NETTMARK_API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      event_type: outgoingEventType,
+      affiliate_id: affiliateId,
+      campaign_id: campaignId,
+      event_data: {
+        ...event?.data,
+        original_event_name: eventName,
+        url: pageUrl,
+        page_url: pageUrl,
+        referrer,
+        nm_aff: affiliateId,
+        nm_camp: campaignId,
+        line_items: normalizeLineItems(event),
+      }
+    })
+  });
+}
+
+analytics.subscribe('page_viewed', async (event) => {
+  await sendEvent('page_viewed', event);
+});
+
+analytics.subscribe('cart_updated', async (event) => {
+  await sendEvent('cart_updated', event);
+});
+
+analytics.subscribe('checkout_completed', async (event) => {
+  await sendEvent('checkout_completed', event);
+});`.trim();
+  }, []);
+
+  const isShopify = selectedOffer?.site_host === "Shopify";
+
+  const copyText = async (value: string, kind: "main" | "shopify") => {
+    await navigator.clipboard.writeText(value);
+    if (kind === "main") {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } else {
+      setCopiedUniversal(true);
+      setTimeout(() => setCopiedUniversal(false), 2000);
+    }
+  };
+
   async function startCombinedTest() {
     try {
-      setTestStatus('idle');
-      setTestMsg('');
+      setTestStatus("idle");
+      setTestMsg("");
 
       if (!selectedOffer) {
-        setTestStatus('fail');
-        setTestMsg('Select an offer first.');
+        setTestStatus("fail");
+        setTestMsg("Select an offer first.");
         return;
       }
 
       if (!user?.email) {
-        setTestStatus('fail');
-        setTestMsg('You need to be signed in as the business owner to run this test.');
+        setTestStatus("fail");
+        setTestMsg("You need to be signed in as the business owner to run this test.");
         return;
       }
 
       setTesting(true);
 
-      const res = await fetch('/api/test-tracking', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/test-tracking", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           offer_id: selectedOffer.id,
           business_email: user.email,
@@ -75,24 +236,25 @@ export default function SetupTrackingContent() {
       });
 
       if (!res.ok) {
-        let errText = 'Failed to record test event.';
+        let errText = "Failed to record test event.";
         try {
           const json = await res.json();
-          if (json?.error) {
-            errText = json.error;
-          }
-        } catch (_) {}
+          if (json?.error) errText = json.error;
+        } catch {
+          void 0;
+        }
 
-        setTestStatus('fail');
+        setTestStatus("fail");
         setTestMsg(errText);
         return;
       }
 
-      setTestStatus('ok');
-      setTestMsg('Test event recorded. Nettmark is receiving tracking for this offer.');
-    } catch (e: any) {
-      setTestStatus('fail');
-      setTestMsg(e?.message || 'Unexpected error while testing.');
+      setTestStatus("ok");
+      setTestMsg("Test event recorded. Nettmark is receiving tracking for this offer.");
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Unexpected error while testing.";
+      setTestStatus("fail");
+      setTestMsg(message);
     } finally {
       setTesting(false);
     }
@@ -101,480 +263,413 @@ export default function SetupTrackingContent() {
   async function verifyMetaPixel() {
     try {
       setVerifyingPixel(true);
-      setPixelStatus('idle');
-      setPixelMsg('');
+      setPixelStatus("idle");
+      setPixelMsg("");
 
-      const res = await fetch('/api/meta/verify-pixel', {
-        method: 'POST',
-        credentials: 'include',
+      const res = await fetch("/api/meta/verify-pixel", {
+        method: "POST",
+        credentials: "include",
       });
 
       const json = await res.json();
 
       if (!res.ok) {
-        setPixelStatus('fail');
-        setPixelMsg(json?.error || 'Pixel not detected yet.');
+        setPixelStatus("fail");
+        setPixelMsg(json?.error || "Pixel not detected yet.");
         return;
       }
 
-      setPixelStatus('ok');
-      setPixelMsg('Meta pixel detected successfully.');
-    } catch (e: any) {
-      setPixelStatus('fail');
-      setPixelMsg(e?.message || 'Verification failed.');
+      setPixelStatus("ok");
+      setPixelMsg("Meta pixel detected successfully.");
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Verification failed.";
+      setPixelStatus("fail");
+      setPixelMsg(message);
     } finally {
       setVerifyingPixel(false);
     }
   }
 
-  useEffect(() => {
-    if (user) setIsReady(true);
-  }, [user]);
-
-  useEffect(() => {
-    if (!isReady) return;
-
-    const fetchOffers = async () => {
-      if (!user?.email) return;
-      const { data, error } = await supabase
-        .from('offers')
-        .select('id, website, site_host')
-        .eq('business_email', user.email);
-      if (data && !error) {
-        setOffers(data);
-        if (data.length > 0) {
-          setSelectedOffer(data[0]);
-        }
-      }
-    };
-
-    fetchOffers();
-  }, [isReady]);
-
-  // Fetch live campaign when selectedOffer changes
-  useEffect(() => {
-    if (!selectedOffer) {
-      setLiveCampaign(null);
-      return;
-    }
-    const fetchLiveCampaign = async () => {
-      setLoadingLiveCampaign(true);
-      const { data, error } = await supabase
-        .from('live_campaigns')
-        .select('id')
-        .eq('offer_id', selectedOffer.id)
-        .limit(1)
-        .single();
-      if (data && !error) {
-        setLiveCampaign(data);
-      } else {
-        setLiveCampaign(null);
-      }
-      setLoadingLiveCampaign(false);
-    };
-    fetchLiveCampaign();
-  }, [selectedOffer]);
-
-  useEffect(() => {
-    if (selectedOffer) {
-      if (selectedOffer.site_host === 'Shopify') {
-        // For Shopify, don't set trackingCode (handled in render), but set to empty string for copying fallback
-        setTrackingCode('');
-      } else {
-        const domain = new URL(selectedOffer.website).hostname.replace(/^www\./, '');
-        const baseUrl = process.env.NODE_ENV === 'development'
-          ? 'http://localhost:3000'
-          : 'https://www.nettmark.com';
-        setTrackingCode(
-          `<script src="${baseUrl}/tracker.js" data-business="${domain}" data-offer="${selectedOffer.id}"></script>`
-        );
-      }
-    }
-  }, [selectedOffer, user]);
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(trackingCode).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  };
-
   const handleSendEmail = async () => {
     if (!devEmail) return;
-    await fetch('/api/send-tracking-code', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+    await fetch("/api/send-tracking-code", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         to: devEmail,
-        script: trackingCode,
+        script: isShopify ? shopifyUniversalPixel : trackingCode,
         from: user?.email,
       }),
     });
     setEmailSent(true);
   };
 
+  const StepCard = ({
+    number,
+    title,
+    description,
+    children,
+  }: {
+    number: string;
+    title: string;
+    description: string;
+    children: ReactNode;
+  }) => (
+    <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-sm sm:p-6">
+      <div className="mb-4 flex items-start gap-4">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--primary)]/12 text-sm font-bold text-[var(--primary)]">
+          {number}
+        </div>
+        <div>
+          <h2 className="text-lg font-semibold text-[var(--foreground)]">{title}</h2>
+          <p className="mt-1 text-sm text-[var(--muted-foreground)]">{description}</p>
+        </div>
+      </div>
+      {children}
+    </section>
+  );
 
   return (
-    <div className="min-h-screen bg-surface py-10 px-4">
-      <div className="max-w-3xl mx-auto mt-12 p-8 bg-[#1a1a1a] text-white rounded-xl shadow-lg border border-gray-700 ring-2 ring-[#00C2CB]/10">
-        <h1 className="text-4xl font-extrabold mb-6 text-[#00C2CB] tracking-tight text-center">
-          Install Your Nettmark Tracking Code
-        </h1>
-        <p className="mb-6 text-gray-300 leading-relaxed text-center">
-          <span className="font-semibold text-white">To track affiliate sales and automate payouts,</span> please install this code on your website’s <code className="bg-[#1f1f1f] px-1 py-0.5 rounded text-sm font-mono text-[#00C2CB]">&lt;head&gt;</code> tag:
-        </p>
-
-
-        {offers.length > 0 && (
-          <div className="mb-4">
-            <label className="block font-semibold text-sm text-gray-400 mb-1">Select Offer:</label>
-            <select
-              value={selectedOffer?.id || ''}
-              onChange={(e) => {
-                const offer = offers.find((o) => o.id === e.target.value);
-                setSelectedOffer(offer);
-              }}
-              className="border rounded px-3 py-2 w-full border-[#00C2CB]/20 bg-[#1a1a1a] text-white ring-2 ring-[#00C2CB]/10 focus:ring-[#00C2CB]/30 focus:outline-none transition"
+    <div className="setup-tracking-theme min-h-screen bg-[var(--background)] px-4 py-8 sm:py-10">
+      <div className="mx-auto max-w-4xl space-y-6">
+        <section className="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-lg sm:p-8">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="inline-flex rounded-full border border-[var(--primary)]/20 bg-[var(--primary)]/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-[var(--primary)]">
+                Offer created
+              </p>
+              <h1 className="mt-3 text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
+                Now let’s connect your tracking
+              </h1>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--muted-foreground)] sm:text-base">
+                This page only needs to do two things: get the Nettmark tracking installed,
+                then confirm it’s working. I’ve stripped the rest back so it’s easier to follow.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => router.push("/business/my-business")}
+              className="rounded-full border border-[var(--border)] px-4 py-2 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--input-background)]"
             >
-              {offers.map((offer) => (
-                <option key={offer.id} value={offer.id}>
-                  {offer.website}
-                </option>
-              ))}
-            </select>
+              Back to dashboard
+            </button>
           </div>
-        )}
+        </section>
 
-        {selectedOffer?.site_host === 'Shopify' ? (
-          <>
-            {!loadingLiveCampaign && !liveCampaign && (
-              <div className="mb-4 p-2 rounded bg-[#333333] text-[#00C2CB] font-semibold text-center text-sm">
-                No affiliates are promoting this offer yet. Your tracking is ready!
+        <section className="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-sm sm:p-6">
+          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+            <div className="max-w-2xl">
+              <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--primary)]">
+                Reserved space
+              </p>
+              <h2 className="mt-2 text-2xl font-semibold text-[var(--foreground)]">
+                Future guided setup demo
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-[var(--muted-foreground)]">
+                The old demo block has been cleared out so this page stays focused on installing and testing tracking. If you want a future <span className="font-medium text-[var(--foreground)]">gomarketme.co</span> walkthrough here, this section is ready for it.
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--background)] px-4 py-3 text-sm text-[var(--muted-foreground)] md:max-w-xs">
+              Keep this area lightweight for now — no interactive demo, just room for a future tour drop-in.
+            </div>
+          </div>
+        </section>
+
+        <div className="grid gap-3 sm:grid-cols-3">
+          {[
+            ["1", "Choose offer"],
+            ["2", "Install code"],
+            ["3", "Verify tracking"],
+          ].map(([n, label]) => (
+            <div
+              key={n}
+              className="rounded-2xl border border-[var(--border)] bg-[var(--card)] px-4 py-3 text-sm text-[var(--muted-foreground)]"
+            >
+              <span className="mr-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-[var(--primary)]/12 text-xs font-bold text-[var(--primary)]">
+                {n}
+              </span>
+              <span className="font-medium text-[var(--foreground)]">{label}</span>
+            </div>
+          ))}
+        </div>
+
+        <StepCard
+          number="1"
+          title="Choose the offer you’re setting up"
+          description="If you just created one, it should already be selected below."
+        >
+          {offers.length > 0 ? (
+            <div className="space-y-3">
+              <label className="block text-sm font-medium text-[var(--foreground)]">
+                Offer
+              </label>
+              <select
+                value={selectedOffer?.id || ""}
+                onChange={(e) => {
+                  const offer = offers.find((o) => o.id === e.target.value) || null;
+                  setSelectedOffer(offer);
+                  setEmailSent(false);
+                  setTrackingInstalled(false);
+                  setTestStatus("idle");
+                  setTestMsg("");
+                }}
+                className="w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-4 py-3 text-[var(--foreground)] outline-none ring-2 ring-[var(--primary)]/5 transition focus:ring-[var(--ring)]"
+              >
+                {offers.map((offer) => (
+                  <option key={offer.id} value={offer.id}>
+                    {offer.website || offer.id}
+                  </option>
+                ))}
+              </select>
+
+              {selectedOffer && (
+                <div className="rounded-xl border border-[var(--border)] bg-[var(--background)] px-4 py-3 text-sm text-[var(--muted-foreground)]">
+                  Platform detected: <span className="font-semibold text-[var(--foreground)]">{selectedOffer.site_host || "Custom site"}</span>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="rounded-xl border border-dashed border-[var(--border)] bg-[var(--background)] px-4 py-5 text-sm text-[var(--muted-foreground)]">
+              No offers found yet. Create an offer first, then come back here.
+            </div>
+          )}
+        </StepCard>
+
+        <StepCard
+          number="2"
+          title={isShopify ? "Install the Shopify pixel" : "Install the Nettmark script"}
+          description={
+            isShopify
+              ? "Paste this once in Shopify Customer Events. That’s the main setup done."
+              : "Add this once to your site’s global head so Nettmark can see visits and conversions."
+          }
+        >
+          {selectedOffer ? (
+            <div className="space-y-5">
+              <div className="rounded-2xl border border-[var(--border)] bg-[var(--background)] p-4">
+                <pre className="overflow-x-auto whitespace-pre-wrap text-xs leading-6 text-[var(--foreground)] sm:text-sm">
+                  {isShopify ? shopifyUniversalPixel : trackingCode}
+                </pre>
               </div>
-            )}
-            {(() => {
-              const apiUrl = 'https://www.nettmark.com/api/track-event';
-              let shopifyUniversalPixel = `
-<!-- Nettmark Shopify Universal Pixel -->
-<script>
-  analytics.subscribe('page_viewed', async (event) => {
-    await fetch('${apiUrl}', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        event_type: 'page_viewed',
-        event_data: event?.data
-      })
-    });
-  });
-  analytics.subscribe('cart_updated', async (event) => {
-    await fetch('${apiUrl}', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        event_type: 'cart_updated',
-        event_data: event?.data
-      })
-    });
-  });
-  analytics.subscribe('checkout_completed', async (event) => {
-    await fetch('${apiUrl}', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        event_type: 'checkout_completed',
-        event_data: event?.data
-      })
-    });
-  });
-</script>
-`.trim();
 
-              return (
-                <div className="rounded-lg bg-[#121212] border border-[#00C2CB]/20">
-                  <button
-                    className="w-full flex items-center justify-between px-4 py-3 text-left text-[#00C2CB] font-semibold hover:bg-[#1a1a1a] focus:outline-none"
-                    onClick={() => setShowUniversalPixel(v => !v)}
-                  >
-                    Nettmark Shopify Universal Pixel (Install in Customer Events)
-                    <span>{showUniversalPixel ? '▲' : '▼'}</span>
-                  </button>
-                  {showUniversalPixel && (
-                    <div className="px-4 pb-4">
-                      <pre className="bg-[#181818] p-3 rounded mb-2 overflow-x-auto text-xs border border-[#00C2CB]/10 whitespace-pre-wrap">{shopifyUniversalPixel}</pre>
-                      <button
-                        onClick={() => {
-                          navigator.clipboard.writeText(shopifyUniversalPixel);
-                          setCopiedUniversal(true);
-                          setTimeout(() => setCopiedUniversal(false), 2000);
-                        }}
-                        className="bg-[#00C2CB] hover:bg-[#00b0b8] text-black px-4 py-1 rounded text-xs font-semibold"
-                      >
-                        {copiedUniversal ? "Copied!" : "Copy Pixel"}
-                      </button>
-                    </div>
+              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+                <button
+                  onClick={() =>
+                    copyText(isShopify ? shopifyUniversalPixel : trackingCode, isShopify ? "shopify" : "main")
+                  }
+                  className="inline-flex items-center justify-center gap-2 rounded-full bg-[var(--primary)] px-5 py-3 text-sm font-semibold text-[var(--primary-foreground)] transition hover:brightness-110"
+                >
+                  <ClipboardDocumentIcon className="h-5 w-5" />
+                  {isShopify
+                    ? copiedUniversal
+                      ? "Pixel copied"
+                      : "Copy pixel"
+                    : copied
+                      ? "Code copied"
+                      : "Copy code"}
+                </button>
+              </div>
+
+              <div className="grid gap-4 lg:grid-cols-2">
+                <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)]/60 p-4">
+                  <h3 className="text-sm font-semibold text-[var(--foreground)]">What to do</h3>
+                  {isShopify ? (
+                    <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-[var(--muted-foreground)]">
+                      <li>In Shopify, open <span className="font-medium text-[var(--foreground)]">Settings → Customer events</span>.</li>
+                      <li>Create a <span className="font-medium text-[var(--foreground)]">custom pixel</span> called Nettmark.</li>
+                      <li>Paste the code above, connect it, then save.</li>
+                    </ol>
+                  ) : (
+                    <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-[var(--muted-foreground)]">
+                      <li>Paste the script into your site’s global <code className="rounded bg-[var(--input-background)] px-1 py-0.5 text-xs">&lt;head&gt;</code>.</li>
+                      <li>Make sure it loads across your site, especially product and thank-you pages.</li>
+                      <li>Publish the change, then come back here to test.</li>
+                    </ol>
                   )}
                 </div>
-              );
-            })()}
-          </>
-        ) : (
-          <>
-            <pre className="bg-[#121212] text-[#00C2CB] p-4 rounded-lg border border-dashed border-[#00C2CB]/20 text-sm overflow-x-auto mb-6 transition-all duration-300 shadow-inner whitespace-pre-wrap">{trackingCode}</pre>
-            <button
-              onClick={handleCopy}
-              className="bg-[#00C2CB] hover:bg-[#00b0b8] text-black px-5 py-2 rounded-lg font-semibold shadow-md transition duration-200 mr-2 flex items-center gap-2"
-            >
-              <ClipboardDocumentIcon className="h-5 w-5" /> {copied ? 'Copied!' : 'Copy Code'}
-            </button>
-          </>
-        )}
 
-        {/* -------- Meta Pixel (Sales campaigns) -------- */}
-        <div className="mt-8 rounded-xl bg-[#121212] border border-[#00C2CB]/20">
-          <div className="px-5 py-4 border-b border-[#00C2CB]/10">
-            <h2 className="text-lg font-semibold text-[#00C2CB]">Meta Pixel (Required for Sales)</h2>
-            <p className="text-sm text-gray-400 mt-1">
-              Required to run conversion‑optimised (Sales) campaigns on Meta.
+                <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)]/60 p-4">
+                  <h3 className="text-sm font-semibold text-[var(--foreground)]">Send this to your developer</h3>
+                  <p className="mt-2 text-sm text-[var(--muted-foreground)]">
+                    If someone else is handling the website, email them the exact code from here.
+                  </p>
+                  <input
+                    type="email"
+                    placeholder="developer@example.com"
+                    value={devEmail}
+                    onChange={(e) => {
+                      setDevEmail(e.target.value);
+                      setEmailSent(false);
+                    }}
+                    className="mt-3 w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-4 py-3 text-sm text-[var(--foreground)] outline-none ring-2 ring-[var(--primary)]/5 focus:ring-[var(--ring)]"
+                  />
+                  <button
+                    onClick={handleSendEmail}
+                    className="mt-3 inline-flex items-center gap-2 rounded-full border border-[var(--border)] px-4 py-2 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--input-background)]"
+                  >
+                    <PaperAirplaneIcon className="h-5 w-5" />
+                    {emailSent ? "Sent" : "Send to developer"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-xl border border-dashed border-[var(--border)] bg-[var(--background)] px-4 py-5 text-sm text-[var(--muted-foreground)]">
+              Pick an offer first so I can show the right install code.
+            </div>
+          )}
+        </StepCard>
+
+        <StepCard
+          number="3"
+          title="Verify that Nettmark is receiving tracking"
+          description="Once you’ve installed the code, run a quick check from here."
+        >
+          <div className="space-y-4">
+            <div className="rounded-2xl border border-[var(--border)] bg-[var(--background)] p-4 text-sm text-[var(--muted-foreground)]">
+              {isShopify ? (
+                <ol className="list-decimal space-y-2 pl-5">
+                  <li>Save the pixel in Shopify.</li>
+                  <li>Open your storefront once so the pixel can fire.</li>
+                  <li>Come back here and run the tracking test.</li>
+                </ol>
+              ) : (
+                <ol className="list-decimal space-y-2 pl-5">
+                  <li>Publish your site change.</li>
+                  <li>Visit your site once after the script is live.</li>
+                  <li>Come back here and run the tracking test.</li>
+                </ol>
+              )}
+            </div>
+
+            {!trackingInstalled ? (
+              <button
+                type="button"
+                onClick={() => setTrackingInstalled(true)}
+                className="inline-flex items-center gap-2 rounded-full bg-[var(--primary)] px-5 py-3 text-sm font-semibold text-[var(--primary-foreground)] transition hover:brightness-110"
+              >
+                <CheckCircleIcon className="h-5 w-5" />
+                I’ve installed it
+              </button>
+            ) : (
+              <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/10 p-4 text-sm text-emerald-200">
+                Nice — tracking is marked as installed. Run the test below, or head back to your dashboard.
+              </div>
+            )}
+
+            {trackingInstalled && (
+              <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)]/60 p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold text-[var(--foreground)]">Run test tracking</h3>
+                    <p className="mt-1 text-sm text-[var(--muted-foreground)]">
+                      This creates a test event in Nettmark for the selected offer.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={startCombinedTest}
+                    disabled={testing || !selectedOffer}
+                    className="rounded-full bg-[var(--primary)] px-5 py-3 text-sm font-semibold text-[var(--primary-foreground)] transition hover:brightness-110 disabled:opacity-50"
+                  >
+                    {testing ? "Testing…" : "Test tracking"}
+                  </button>
+                </div>
+
+                {(testStatus !== "idle" || testMsg) && (
+                  <div className="mt-4 rounded-xl border border-[var(--border)] bg-[var(--background)] p-4 text-sm">
+                    <p
+                      className={
+                        testStatus === "ok"
+                          ? "font-semibold text-emerald-300"
+                          : testStatus === "fail"
+                            ? "font-semibold text-red-300"
+                            : "font-semibold text-[var(--foreground)]"
+                      }
+                    >
+                      {testStatus === "ok"
+                        ? "Tracking connected"
+                        : testStatus === "fail"
+                          ? "Tracking not confirmed yet"
+                          : "Waiting to test"}
+                    </p>
+                    {testMsg && (
+                      <p className="mt-1 text-[var(--muted-foreground)]">{testMsg}</p>
+                    )}
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => router.push("/business/my-business")}
+                  className="mt-4 rounded-full border border-[var(--border)] px-4 py-2 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--input-background)]"
+                >
+                  Return to dashboard
+                </button>
+              </div>
+            )}
+          </div>
+        </StepCard>
+
+        <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-sm sm:p-6">
+          <div className="mb-4">
+            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--primary)]">
+              Optional next step
+            </p>
+            <h2 className="mt-2 text-xl font-semibold text-[var(--foreground)]">
+              Connect Meta Pixel for sales campaigns
+            </h2>
+            <p className="mt-2 text-sm text-[var(--muted-foreground)]">
+              You only need this if you want conversion-optimised Meta sales campaigns.
             </p>
           </div>
 
-          <div className="p-5 space-y-4 text-sm text-gray-300">
-            <ol className="list-decimal list-inside space-y-2">
-              <li>Install the Meta Pixel on your website (Shopify or custom).</li>
-              <li>Open your website in a new tab and browse a page.</li>
-              <li>Return here and click <span className="text-white font-medium">Verify Pixel</span>.</li>
-            </ol>
+          <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
+            <div className="rounded-2xl border border-[var(--border)] bg-[var(--background)] p-4 text-sm text-[var(--muted-foreground)]">
+              <ol className="list-decimal space-y-2 pl-5">
+                <li>Install the Meta Pixel on your website.</li>
+                <li>Open your website and browse at least one page.</li>
+                <li>Come back here and verify it.</li>
+              </ol>
+            </div>
 
-            <div className="flex items-center gap-3 flex-wrap">
+            <div className="rounded-2xl border border-[var(--border)] bg-[var(--background)] p-4">
               <button
                 type="button"
                 onClick={verifyMetaPixel}
                 disabled={verifyingPixel}
-                className="px-4 py-2 rounded-md bg-[#00C2CB] hover:bg-[#00b0b8] text-black text-sm font-semibold disabled:opacity-50"
+                className="w-full rounded-full bg-[var(--primary)] px-5 py-3 text-sm font-semibold text-[var(--primary-foreground)] transition hover:brightness-110 disabled:opacity-50"
               >
-                {verifyingPixel ? 'Verifying…' : 'Verify Pixel'}
+                {verifyingPixel ? "Verifying…" : "Verify Meta Pixel"}
               </button>
 
-              {pixelStatus === 'ok' && (
-                <span className="text-xs px-2 py-1 rounded-full bg-[#10b981]/15 text-[#bbf7d0] border border-[#10b981]/25">
-                  Connected
-                </span>
-              )}
-
-              {pixelStatus === 'fail' && (
-                <span className="text-xs px-2 py-1 rounded-full bg-[#ef4444]/15 text-[#fecaca] border border-[#ef4444]/25">
-                  Not detected
-                </span>
-              )}
-            </div>
-
-            {pixelMsg && <p className="text-xs text-gray-400">{pixelMsg}</p>}
-
-            <div className="text-[11px] text-gray-500">
-              Sales campaigns are only enabled once the Meta Pixel is detected.
-            </div>
-          </div>
-        </div>
-
-        {/* -------- Implementation Instructions -------- */}
-        <div className="mt-8 rounded-xl bg-[#121212] border border-[#00C2CB]/20">
-          <button
-            type="button"
-            onClick={() => setShowInstallPanel(!showInstallPanel)}
-            className="w-full flex items-center justify-between px-5 py-3 text-sm font-semibold text-[#7ff5fb] hover:bg-[#181818] rounded-t-xl"
-          >
-            <span>How to install &amp; test tracking</span>
-            <span className="text-xs text-gray-400">{showInstallPanel ? 'Hide' : 'Show'}</span>
-          </button>
-
-          {showInstallPanel && (
-            <div className="border-t border-[#00C2CB]/10 p-5 rounded-b-xl">
-              <h2 className="text-lg font-semibold text-[#7ff5fb] mb-3">How to install tracking</h2>
-
-              {selectedOffer?.site_host === 'Shopify' ? (
-                <div className="space-y-3 text-sm text-gray-300">
-                  <ol className="list-decimal list-inside space-y-2">
-                    <li>
-                      In your Shopify admin go to <span className="text-white font-medium">Settings → Customer events</span>.
-                    </li>
-                    <li>
-                      Click <span className="text-white font-medium">Add custom pixel</span>, name it <span className="text-white font-medium">Nettmark</span>, then paste the pixel shown above.
-                    </li>
-                    <li>
-                      Click <span className="text-white font-medium">Connect</span> (to allow the pixel to run) and then <span className="text-white font-medium">Save</span>.
-                    </li>
-                  </ol>
-
-                  <div className="mt-2 rounded-lg bg-[#1a1a1a] border border-[#00C2CB]/15 p-3">
-                    <p className="text-[#7ff5fb] font-medium mb-1">Privacy settings in Shopify</p>
-                    <ul className="list-disc list-inside space-y-1">
-                      <li>
-                        Under <span className="text-white font-medium">Permission</span>, choose <span className="text-white font-medium">Required</span> with <span className="text-white font-medium">Marketing</span> and <span className="text-white font-medium">Analytics</span> checked.
-                      </li>
-                      <li>
-                        Under <span className="text-white font-medium">Data sale</span>, choose <span className="text-white font-medium">Data collected qualifies as data sale</span> (or the closest available option for your region).
-                      </li>
-                    </ul>
-                  </div>
-
-                  <div className="mt-3 rounded-lg bg-[#1a1a1a] border border-[#00C2CB]/15 p-3">
-                    <p className="text-[#7ff5fb] font-medium mb-1">Quick verify (optional)</p>
-                    <ul className="list-disc list-inside space-y-1">
-                      <li>
-                        After saving your pixel, click <span className="text-white font-medium">Click finish once your tracking code is installed</span> on this page.
-                      </li>
-                      <li>
-                        Then use the <span className="text-white font-medium">Test Tracking</span> button below. If everything is set up, Nettmark will record a test event for this offer.
-                      </li>
-                      <li>
-                        Once an affiliate campaign is live and sending traffic, tracking will also be confirmed automatically from real clicks and sales.
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-3 text-sm text-gray-300">
-                  <p className="mb-1">
-                    Add the script below to the <code className="bg-[#181818] px-1 py-0.5 rounded text-xs text-[#00C2CB]">&lt;head&gt;</code> of your site templates:
-                  </p>
-                  <ul className="list-disc list-inside space-y-1">
-                    <li>Home / global layout (loads on all pages)</li>
-                    <li>Product &amp; cart templates</li>
-                    <li>Checkout / thank‑you page template</li>
-                  </ul>
-                  <div className="rounded-lg bg-[#1a1a1a] border border-[#00C2CB]/15 p-3">
-                    <p className="text-[#7ff5fb] font-medium mb-1">Alternative (GTM)</p>
-                    <ol className="list-decimal list-inside space-y-1">
-                      <li>Create a new <span className="text-white font-medium">Custom HTML</span> tag with the script.</li>
-                      <li>Trigger on <span className="text-white font-medium">All Pages</span> and your purchase/thank‑you events.</li>
-                      <li>Publish the container.</li>
-                    </ol>
-                  </div>
-                  <div className="mt-2 rounded-lg bg-[#1a1a1a] border border-[#00C2CB]/15 p-3">
-                    <p className="text-[#7ff5fb] font-medium mb-1">Quick verify (optional)</p>
-                    <ul className="list-disc list-inside space-y-1">
-                      <li>
-                        Visit your site with <code className="bg-[#181818] px-1 py-0.5 rounded text-xs">?nm_aff=you@example.com&amp;nm_camp=YOUR_CAMPAIGN_ID</code>.
-                      </li>
-                      <li>Perform a test purchase or completion flow; confirm events appear in Nettmark.</li>
-                    </ul>
-                  </div>
-                </div>
-              )}
-
-              {/* Mark tracking installed */}
-              <div className="mt-8 flex flex-col items-center gap-4">
-                {!trackingMarkedInstalled ? (
-                  <button
-                    type="button"
-                    onClick={() => setTrackingMarkedInstalled(true)}
-                    className="px-6 py-3 rounded-full bg-[#00C2CB] hover:bg-[#00b0b8] text-black text-sm font-semibold shadow-lg transition"
+              {(pixelStatus !== "idle" || pixelMsg) && (
+                <div className="mt-4 rounded-xl border border-[var(--border)] bg-[var(--card)]/60 p-4 text-sm">
+                  <p
+                    className={
+                      pixelStatus === "ok"
+                        ? "font-semibold text-emerald-300"
+                        : pixelStatus === "fail"
+                          ? "font-semibold text-red-300"
+                          : "font-semibold text-[var(--foreground)]"
+                    }
                   >
-                    Finish installation
-                  </button>
-                ) : (
-                  <>
-                    <p className="text-sm text-[#7ff5fb] text-center">
-                      Tracking marked as installed. You can test it now or return to your dashboard.
-                    </p>
-
-                    <button
-                      type="button"
-                      onClick={() => router.push('/business/my-business')}
-                      className="px-6 py-3 rounded-full bg-[#00C2CB] hover:bg-[#00b0b8] text-black text-sm font-semibold shadow-lg transition"
-                    >
-                      Return to dashboard
-                    </button>
-                  </>
-                )}
-              </div>
-
-              {/* --- Quick Tracking Test (shown after marking installed) --------------- */}
-              {trackingMarkedInstalled && (
-                <div className="mt-4 rounded-xl border border-[#262626] bg-[#121212] p-5">
-                  <div className="flex items-center justify-between mb-3">
-                    <h2 className="text-sm font-semibold tracking-wide text-[#7ff5fb]">Test Your Pixel</h2>
-                  </div>
-
-                  {offers.length === 0 ? (
-                    <div className="text-sm text-gray-400">
-                      Create your first Offer to test tracking. Once an offer exists, we’ll record a test event for that offer.
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <label className="text-xs text-gray-400 md:col-span-1">Offer</label>
-                        <select
-                          className="md:col-span-2 bg-[#0f0f0f] border border-[#262626] rounded-md px-3 py-2 text-sm text-white outline-none focus:ring-1 focus:ring-[#00C2CB]/40"
-                          value={selectedOffer?.id || ''}
-                          onChange={(e) => {
-                            const offer = offers.find((o) => o.id === e.target.value);
-                            setSelectedOffer(offer || null);
-                          }}
-                        >
-                          {offers.map((o) => (
-                            <option key={o.id} value={o.id}>
-                              {o.website || o.id}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div className="flex items-center gap-3 flex-wrap">
-                        <button
-                          type="button"
-                          onClick={startCombinedTest}
-                          disabled={testing || !selectedOffer}
-                          className="px-4 py-2 rounded-md bg-[#00C2CB] hover:bg-[#00b0b8] text-black text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {testing ? 'Testing…' : 'Test Tracking'}
-                        </button>
-
-                        {testStatus === 'ok' && (
-                          <span className="text-xs px-2 py-1 rounded-full bg-[#10b981]/15 text-[#bbf7d0] border border-[#10b981]/25">
-                            Connected
-                          </span>
-                        )}
-                        {testStatus === 'fail' && (
-                          <span className="text-xs px-2 py-1 rounded-full bg-[#ef4444]/15 text-[#fecaca] border border-[#ef4444]/25">
-                            No event
-                          </span>
-                        )}
-
-                      </div>
-
-                      {testMsg && <p className="text-xs text-gray-400">{testMsg}</p>}
-
-                      <div className="text-[11px] text-gray-500 pt-1">
-                        Creates a test tracking event in Nettmark for this offer so you can confirm tracking is connected.
-                      </div>
-                    </div>
+                    {pixelStatus === "ok"
+                      ? "Meta Pixel connected"
+                      : pixelStatus === "fail"
+                        ? "Meta Pixel not detected yet"
+                        : "Waiting to verify"}
+                  </p>
+                  {pixelMsg && (
+                    <p className="mt-1 text-[var(--muted-foreground)]">{pixelMsg}</p>
                   )}
                 </div>
               )}
             </div>
-          )}
-        </div>
-
-        <div className="mt-6">
-          <h2 className="font-medium mb-2">Or send to your developer:</h2>
-          <input
-            type="email"
-            placeholder="developer@example.com"
-            value={devEmail}
-            onChange={(e) => setDevEmail(e.target.value)}
-            className="border rounded-lg px-4 py-2 w-full mb-3 shadow-sm border-[#00C2CB]/20 bg-[#1a1a1a] text-white ring-2 ring-[#00C2CB]/10 focus:ring-[#00C2CB]/30 focus:outline-none transition"
-          />
-          <button
-            onClick={handleSendEmail}
-            className="bg-[#1a1a1a] hover:bg-[#00C2CB]/10 border border-[#00C2CB]/30 text-[#00C2CB] px-5 py-2 rounded-lg font-semibold transition flex items-center gap-2 ring-2 ring-[#00C2CB]/10"
-          >
-            <PaperAirplaneIcon className="h-5 w-5" /> {emailSent ? 'Sent' : 'Send Code'}
-          </button>
-        </div>
+          </div>
+        </section>
       </div>
     </div>
   );
 }
-

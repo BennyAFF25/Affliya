@@ -1,16 +1,18 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { loadStripe } from '@stripe/stripe-js';
+import React, { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/../utils/supabase/pages-client';
 import { useSession } from '@supabase/auth-helpers-react';
 import { useUserSettings } from '@/../utils/hooks/useUserSettings';
-
+import { calculateWalletBalance } from '@/../utils/wallet/balance';
+import { calculateRefundLockState, type RefundLockState } from '@/../utils/wallet/refundLock';
 
 type WalletTopup = {
   amount_gross?: number | null;
   amount_net?: number | null;
+  credited_amount?: number | null;
   stripe_fees?: number | null;
+  nettmark_fee_amount?: number | null;
   stripe_id: string;
   status?: string | null;
   created_at: string;
@@ -22,13 +24,39 @@ type WalletRefund = {
   status?: string | null;
   stripe_refund_id: string;
   created_at: string;
+  source_topup_id?: string | null;
 };
 
 type WalletDeduction = {
   amount?: number | null;
+  created_at?: string;
+  description?: string | null;
+  ad_id?: string | null;
+  settlement_before?: number | null;
+  settlement_after?: number | null;
+  settlement_key?: string | null;
 };
 
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '');
+type WalletPayout = {
+  id: string;
+  amount?: number | null;
+  status?: string | null;
+  created_at?: string | null;
+  available_at?: string | null;
+  source_event_id?: string | null;
+  stripe_transfer_id?: string | null;
+};
+
+type LedgerItem = {
+  id: string;
+  date: string;
+  type: string;
+  amount: number;
+  positive: boolean;
+  status: string;
+  ref: string;
+  note?: string;
+};
 
 const currencySymbols: Record<string, string> = {
   USD: '$',
@@ -36,85 +64,205 @@ const currencySymbols: Record<string, string> = {
   AUD: 'A$',
 };
 
+const CARD_SHELL = 'rounded-3xl border border-[var(--border)] bg-[var(--card)] shadow-[0_25px_70px_rgba(0,0,0,0.08)]';
+const PANEL_CARD = 'rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[0_20px_55px_rgba(0,0,0,0.08)]';
+const INPUT_CLASS = 'w-full rounded-2xl border border-[var(--border)] bg-[var(--input-background)] text-[var(--foreground)] placeholder-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]';
+const BADGE_SOFT = 'inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--accent)]/40 px-3 py-1 text-xs font-semibold text-[var(--foreground)]/70';
+const NETTMARK_TRANSACTION_FEE_BPS = 220;
+
+function toMoney(value: number | string | null | undefined) {
+  const n = Number(value ?? 0);
+  if (!Number.isFinite(n)) return 0;
+  return Math.round(n * 100) / 100;
+}
+
+function formatMoney(amount: number, currency: string) {
+  return `${currencySymbols[currency] ?? '$'}${toMoney(amount).toFixed(2)}`;
+}
+
+function calculateChargeOnTopPreview(principalAmount: number) {
+  const safePrincipal = toMoney(Math.max(0, principalAmount));
+  const feeAmount = toMoney((safePrincipal * NETTMARK_TRANSACTION_FEE_BPS) / 10000);
+  return {
+    principalAmount: safePrincipal,
+    feeAmount,
+    grossAmount: toMoney(safePrincipal + feeAmount),
+  };
+}
+
+function pluralize(count: number, singular: string, plural = `${singular}s`) {
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+
+function getCreditedTopupAmount(topup: WalletTopup) {
+  const credited = toMoney(topup.credited_amount);
+  if (credited > 0) return credited;
+  return toMoney(topup.amount_net);
+}
+
+function isRefundableTopup(topup: WalletTopup) {
+  const status = String(topup.status || '').toLowerCase();
+  const countable = !status || status === 'succeeded' || status === 'refunded';
+  return countable && toMoney(topup.amount_refunded) < getCreditedTopupAmount(topup);
+}
+
+function getRefundBlockReason(lockState: RefundLockState, currency: string) {
+  if (!lockState.locked) {
+    return 'Refunds are available right now. If you want to pull funds out, choose a top-up and submit a refund request.';
+  }
+
+  if (lockState.reasonCode === 'ACTIVE_META_AD_LOCK') {
+    return `Refunds are locked because ${pluralize(lockState.activeAdCount, 'Meta ad')} ${lockState.activeAdCount === 1 ? 'is' : 'are'} still active. Pause or archive them first, then any remaining unsettled spend can finish clearing.`;
+  }
+
+  return `Refunds are locked until ${formatMoney(lockState.totalUnpaidSpend, currency)} of unsettled ad spend is fully settled across ${pluralize(lockState.unpaidAdCount, 'ad')}.`;
+}
+
+function describeDeduction(item: WalletDeduction) {
+  if (item.description) return item.description;
+  if (item.ad_id) return 'Meta ad spend settlement';
+  return 'Wallet deduction';
+}
+
+function describePayout(item: WalletPayout) {
+  const status = String(item.status || 'pending').toLowerCase();
+  if (status === 'completed') return 'Affiliate payout received';
+  if (status === 'pending') return 'Affiliate payout scheduled';
+  return `Affiliate payout ${status}`;
+}
+
+function badgeTone(status: string) {
+  const normalized = status.toLowerCase();
+  if (normalized === 'completed' || normalized === 'succeeded' || normalized === 'applied') {
+    return 'bg-emerald-500/10 text-emerald-300';
+  }
+  if (normalized === 'pending') {
+    return 'bg-amber-500/10 text-amber-200';
+  }
+  if (normalized === 'failed' || normalized === 'canceled') {
+    return 'bg-red-500/10 text-red-300';
+  }
+  return 'bg-white/10 text-white/70';
+}
+
 export default function AffiliateWalletPage() {
   const session = useSession();
   const user = session?.user;
   const { settings, isLoading: settingsLoading } = useUserSettings();
 
   const [amount, setAmount] = useState('');
-  const [currency, setCurrency] = useState('');
+  const [currency, setCurrency] = useState('AUD');
   const [loading, setLoading] = useState(false);
-  const [walletData, setWalletData] = useState<WalletTopup[] | null>(null);
-  const [connectLoading, setConnectLoading] = useState(false);
-  const [totalNetAmount, setTotalNetAmount] = useState(0);
-  const [wallet, setWallet] = useState<any>(null);
+  const [walletData, setWalletData] = useState<WalletTopup[]>([]);
   const [refunds, setRefunds] = useState<WalletRefund[]>([]);
   const [refundAmount, setRefundAmount] = useState('');
   const [refundLoading, setRefundLoading] = useState(false);
   const [walletDeductions, setWalletDeductions] = useState<WalletDeduction[]>([]);
-  // New state for refundable topups and selected topup
+  const [walletPayouts, setWalletPayouts] = useState<WalletPayout[]>([]);
+  const [refundLockState, setRefundLockState] = useState<RefundLockState>({
+    hasActiveMetaAds: false,
+    hasUnpaidAdSpend: false,
+    activeAdCount: 0,
+    unpaidAdCount: 0,
+    totalUnpaidSpend: 0,
+    locked: false,
+    reasonCode: null,
+    message: null,
+  });
   const [refundableTopups, setRefundableTopups] = useState<WalletTopup[]>([]);
   const [selectedTopupId, setSelectedTopupId] = useState<string | null>(null);
+  const [showLedger, setShowLedger] = useState(false);
 
-  // Fetch live wallet balance (wallets table)
   useEffect(() => {
-    const fetchWalletBalance = async () => {
-      if (!user?.email) return;
-      const { data, error, status } = await supabase
-        .from('wallets')
-        .select('*')
-        .eq('email', user.email)
-        .limit(1)
-        .single();
+    if (settingsLoading) return;
+    const preferred = String(settings?.currency || settings?.preferred_currency || 'AUD').toUpperCase();
+    setCurrency(preferred);
+  }, [settings, settingsLoading]);
 
-      if (error && status !== 406) {
-        console.error('[❌ Wallet Balance Fetch Error]', error.message);
-        return;
-      }
+  const refreshWalletState = useCallback(async () => {
+    if (!user?.email) return;
 
-      setWallet(data || null);
-    };
-    fetchWalletBalance();
-  }, [user]);
-
-  // Fetch refund history
-  useEffect(() => {
-    const fetchRefunds = async () => {
-      if (!user?.email) return;
-      const { data, error } = await supabase
+    const [
+      refundsResult,
+      deductionsResult,
+      lockStateResult,
+      topupsResult,
+      payoutsResult,
+    ] = await Promise.all([
+      supabase
         .from('wallet_refunds')
-        .select('amount, status, stripe_refund_id, created_at')
+        .select('amount, status, stripe_refund_id, created_at, source_topup_id')
         .eq('affiliate_email', user.email)
-        .order('created_at', { ascending: false });
-      if (error) {
-        console.error('[❌ Refunds Fetch Error]', error.message);
-        return;
-      }
-      setRefunds(data || []);
-    };
-    fetchRefunds();
-  }, [user]);
-
-  // Fetch wallet deductions
-  useEffect(() => {
-    const fetchWalletDeductions = async () => {
-      if (!user?.email) return;
-      const { data, error } = await supabase
+        .order('created_at', { ascending: false }),
+      supabase
         .from('wallet_deductions')
-        .select('amount')
-        .eq('affiliate_email', user.email);
-      if (error) {
-        console.error('[❌ Wallet Deductions Fetch Error]', error.message);
-        return;
-      }
-      setWalletDeductions(data || []);
-    };
-    fetchWalletDeductions();
-  }, [user]);
+        .select('amount, created_at, description, ad_id, settlement_before, settlement_after, settlement_key')
+        .eq('affiliate_email', user.email)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('live_ads')
+        .select('id, status, billing_state, spend, spend_transferred')
+        .eq('affiliate_email', user.email),
+      supabase
+        .from('wallet_topups')
+        .select('amount_gross, amount_net, credited_amount, stripe_fees, nettmark_fee_amount, stripe_id, status, created_at, amount_refunded')
+        .eq('affiliate_email', user.email)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('wallet_payouts')
+        .select('id, amount, status, created_at, available_at, source_event_id, stripe_transfer_id')
+        .eq('affiliate_email', user.email)
+        .order('created_at', { ascending: false }),
+    ]);
 
-  // Insert Stripe transaction if pending session exists (moved above early returns)
+    if (refundsResult.error) {
+      console.error('[❌ Refunds Fetch Error]', refundsResult.error.message);
+    } else {
+      setRefunds((refundsResult.data as WalletRefund[]) || []);
+    }
+
+    if (deductionsResult.error) {
+      console.error('[❌ Wallet Deductions Fetch Error]', deductionsResult.error.message);
+    } else {
+      setWalletDeductions((deductionsResult.data as WalletDeduction[]) || []);
+    }
+
+    if (lockStateResult.error) {
+      console.error('[❌ Refund lock state fetch error]', lockStateResult.error.message);
+    } else {
+      setRefundLockState(calculateRefundLockState(lockStateResult.data || []));
+    }
+
+    if (topupsResult.error) {
+      console.error('[❌ Wallet Fetch Error]', topupsResult.error.message);
+    } else {
+      const topups = (topupsResult.data as WalletTopup[]) || [];
+      setWalletData(topups);
+      const refundable = topups
+        .filter(isRefundableTopup)
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      setRefundableTopups(refundable);
+      setSelectedTopupId((current) => {
+        if (current && refundable.some((item) => item.stripe_id === current)) {
+          return current;
+        }
+        return refundable[0]?.stripe_id ?? null;
+      });
+    }
+
+    if (payoutsResult.error) {
+      console.error('[❌ Wallet Payouts Fetch Error]', payoutsResult.error.message);
+    } else {
+      setWalletPayouts((payoutsResult.data as WalletPayout[]) || []);
+    }
+  }, [user?.email]);
+
   useEffect(() => {
-    const insertTransaction = async () => {
+    void refreshWalletState();
+  }, [refreshWalletState]);
+
+  useEffect(() => {
+    const confirmPendingSession = async () => {
       const sessionId = localStorage.getItem('pending_stripe_session');
       if (!sessionId || !user?.email) return;
 
@@ -124,100 +272,24 @@ export default function AffiliateWalletPage() {
         console.log('[📦 Stripe Session Data]', stripeSession);
 
         if (stripeSession.payment_status !== 'paid') {
-          console.warn('[⚠️ Skipping insert: payment not confirmed]');
+          console.warn('[⚠️ Pending session not paid yet]');
           return;
         }
 
-        const email = user.email;
-        const grossAmount = (stripeSession.amount_total ?? 0) / 100;
-        const netAmount = (stripeSession.amount_received ?? grossAmount * 0.97);
-        const feeAmount = grossAmount - netAmount;
-
-        const { error } = await supabase.from('wallet_topups').insert([
-          {
-            affiliate_email: email,
-            amount_gross: grossAmount,
-            amount_net: netAmount,
-            stripe_fees: feeAmount,
-            stripe_id: stripeSession.id,
-            status: 'succeeded',
-            created_at: new Date().toISOString(),
-          },
-        ]);
-
-        if (!error) {
-          console.log('[✅ Wallet Top-up Recorded]');
-          localStorage.removeItem('pending_stripe_session');
-          // Refresh wallet data after insert
-          const { data, error: fetchError } = await supabase
-            .from('wallet_topups')
-            .select('amount_gross, amount_net, stripe_fees, stripe_id, status, created_at')
-            .eq('affiliate_email', user.email)
-            .order('created_at', { ascending: false })
-            .limit(1);
-          if (!fetchError) {
-            setWalletData(data);
-          }
-        } else {
-          console.error('[❌ Supabase Insert Error]', error);
-        }
+        console.log('[✅ Paid session confirmed; awaiting webhook credit]', {
+          sessionId: stripeSession.id,
+        });
+        localStorage.removeItem('pending_stripe_session');
+        await refreshWalletState();
       } catch (err) {
         console.error('[❌ Stripe Session Fetch Error]', err);
       }
     };
 
-    insertTransaction();
-  }, [user]);
+    void confirmPendingSession();
+  }, [refreshWalletState]);
 
-  // Fetch wallet topups and set total net amount and refundable topups
-  useEffect(() => {
-    const fetchWallet = async () => {
-      if (!user || !user.email) return;
-
-      const { data, error } = await supabase
-        .from('wallet_topups')
-        .select('amount_gross, amount_net, stripe_fees, stripe_id, status, created_at, amount_refunded')
-        .eq('affiliate_email', user.email)
-        .order('created_at', { ascending: false });
-      console.log('[💳 Wallet Fetch Result]', data);
-      const topups = (data as unknown as WalletTopup[]) || [];
-
-      if (error) {
-        console.error('[❌ Wallet Fetch Error]', error.message);
-        return;
-      }
-
-      setWalletData(topups);
-
-      // Derive refundable topups, sorted by created_at desc, filtered by amount_refunded < amount_net
-      if (topups.length > 0) {
-        const refundable = topups
-          .filter((t) => (t.amount_refunded ?? 0) < (t.amount_net ?? 0))
-          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-        setRefundableTopups(refundable);
-        // Set default selected topup if not already set
-        if (!selectedTopupId && refundable.length > 0) {
-          setSelectedTopupId(refundable[0].stripe_id);
-        }
-
-        const totalNet = topups.reduce((sum, item) => sum + (item.amount_net ?? 0), 0);
-        const totalRefunded = refunds.reduce((sum, r) => sum + (r.amount ?? 0), 0);
-        const totalDeductions = walletDeductions.reduce((sum, d) => sum + (d.amount ?? 0), 0);
-        const availableBalance = totalNet - totalRefunded - totalDeductions;
-        setTotalNetAmount(availableBalance >= 0 ? availableBalance : 0);
-      } else {
-        setTotalNetAmount(0);
-        setRefundableTopups([]);
-      }
-    };
-
-    fetchWallet();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, refunds, walletDeductions]);
-
-  // Early return for session: fallback UI instead of redirect to avoid loops
   if (session === undefined) {
-    // Still loading
     return <div className="w-full flex items-center justify-center py-12">Loading...</div>;
   }
 
@@ -229,63 +301,90 @@ export default function AffiliateWalletPage() {
     );
   }
 
-  const handleConnectStripe = async () => {
-    setConnectLoading(true);
+  const walletSnapshot = calculateWalletBalance({
+    topups: walletData,
+    deductions: walletDeductions,
+    refunds,
+  });
+  const topupPreview = calculateChargeOnTopPreview(parseFloat(amount || '0'));
+  const availableBalance = walletSnapshot.availableBalance;
+  const refundableBalance = walletSnapshot.refundableBalance;
+  const lockedRefundBalance = refundLockState.locked ? refundableBalance : 0;
+  const availableToRefund = refundLockState.locked ? 0 : refundableBalance;
+  const totalTopups = walletSnapshot.totalTopupsCredited;
+  const totalDeductions = walletSnapshot.totalDeductions;
+  const pendingPayoutTotal = walletPayouts
+    .filter((item) => String(item.status || '').toLowerCase() === 'pending')
+    .reduce((sum, item) => sum + toMoney(item.amount), 0);
+  const refundBlockReason = getRefundBlockReason(refundLockState, currency);
 
-    try {
-      const email = session?.user?.email;
+  const activity: LedgerItem[] = (() => {
+    const topupItems = walletData.map((item) => ({
+      id: `topup-${item.stripe_id}`,
+      date: item.created_at,
+      type: 'Top-up',
+      amount: getCreditedTopupAmount(item),
+      positive: true,
+      status: item.status || 'succeeded',
+      ref: item.stripe_id,
+      note: item.nettmark_fee_amount
+        ? `Nettmark fee: ${formatMoney(toMoney(item.nettmark_fee_amount), currency)}${item.stripe_fees ? ` · Stripe fee: ${formatMoney(toMoney(item.stripe_fees), currency)}` : ''}`
+        : item.stripe_fees
+          ? `Stripe fee: ${formatMoney(toMoney(item.stripe_fees), currency)}`
+          : undefined,
+    }));
 
-      if (!email) {
-        console.error('[❌ Stripe Connect] Missing user email (no session user)');
-        alert('Missing email. Please log out and log back in.');
-        return;
-      }
+    const refundItems = refunds.map((item) => ({
+      id: `refund-${item.stripe_refund_id}`,
+      date: item.created_at,
+      type: 'Refund',
+      amount: toMoney(item.amount),
+      positive: false,
+      status: item.status || 'succeeded',
+      ref: item.stripe_refund_id,
+      note: item.source_topup_id ? `Source top-up: ${item.source_topup_id}` : undefined,
+    }));
 
-      // ✅ Affiliates must use the affiliate connect endpoint
-      const res = await fetch('/api/stripe/affiliates/create-account', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email,
-          role: 'affiliate',
-        }),
-      });
+    const deductionItems = walletDeductions.map((item, index) => ({
+      id: `deduction-${item.settlement_key || item.ad_id || index}`,
+      date: item.created_at || new Date(0).toISOString(),
+      type: describeDeduction(item),
+      amount: toMoney(item.amount),
+      positive: false,
+      status: 'applied',
+      ref: item.settlement_key || item.ad_id || 'wallet_deduction',
+      note:
+        item.settlement_before !== undefined && item.settlement_after !== undefined
+          ? `Settled from ${formatMoney(toMoney(item.settlement_before), currency)} to ${formatMoney(toMoney(item.settlement_after), currency)}`
+          : undefined,
+    }));
 
-      const data = await res.json();
+    const payoutItems = walletPayouts.map((item) => ({
+      id: `payout-${item.id}`,
+      date: item.created_at || item.available_at || new Date(0).toISOString(),
+      type: describePayout(item),
+      amount: toMoney(item.amount),
+      positive: true,
+      status: item.status || 'pending',
+      ref: item.stripe_transfer_id || item.source_event_id || item.id,
+      note: item.available_at ? `Available at ${new Date(item.available_at).toLocaleString()}` : undefined,
+    }));
 
-      if (!res.ok) {
-        console.error('[❌ Stripe Connect] API error', { status: res.status, data });
-        alert(data?.error || 'Failed to create Stripe onboarding link.');
-        return;
-      }
-
-      if (data?.url) {
-        window.location.href = data.url;
-      } else {
-        console.error('[❌ Stripe Connect] Missing url in response', data);
-        alert('Failed to create Stripe onboarding link (missing URL).');
-      }
-    } catch (err) {
-      console.error('[❌ Stripe Connect Error]', err);
-      alert('Stripe connection failed.');
-    } finally {
-      setConnectLoading(false);
-    }
-  };
-
-
+    return [...topupItems, ...refundItems, ...deductionItems, ...payoutItems].sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+    );
+  })();
 
   const handleTopUp = async () => {
     const amountInDollars = parseFloat(amount);
 
-    console.log("[🚀 Creating Top-Up Session] Payload:", {
+    console.log('[🚀 Creating Top-Up Session] Payload:', {
       email: session?.user.email,
       amount: amountInDollars,
-      role: "affiliate",
+      role: 'affiliate',
       currency,
     });
+
     if (isNaN(amountInDollars) || amountInDollars <= 0) {
       alert('Please enter a valid amount greater than $0.');
       return;
@@ -295,9 +394,7 @@ export default function AffiliateWalletPage() {
     try {
       const response = await fetch('/api/stripe/create-topup-session', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: session?.user.email,
           amount: amountInDollars,
@@ -310,7 +407,6 @@ export default function AffiliateWalletPage() {
       console.log('[🚀 Stripe Checkout Response]', data);
 
       if (data?.url) {
-        console.log('[✅ Stripe URL & Session ID Found]', { url: data.url, sessionId: data.sessionId });
         if (data.sessionId) {
           localStorage.setItem('pending_stripe_session', data.sessionId);
         }
@@ -328,7 +424,8 @@ export default function AffiliateWalletPage() {
   };
 
   const handleWithdrawAll = () => {
-    setRefundAmount(totalNetAmount.toFixed(2));
+    if (refundLockState.locked) return;
+    setRefundAmount(availableToRefund.toFixed(2));
   };
 
   const handleRequestRefund = async () => {
@@ -337,15 +434,19 @@ export default function AffiliateWalletPage() {
       alert('Please enter a valid refund amount greater than $0.');
       return;
     }
-    if (refundAmt > totalNetAmount) {
-      alert('Refund amount cannot exceed available balance.');
+    if (refundLockState.locked) {
+      alert(refundLockState.message || 'Refunds are currently locked.');
+      return;
+    }
+    if (refundAmt > availableToRefund) {
+      alert('Refund amount cannot exceed available to refund balance.');
       return;
     }
     if (!user?.email) {
       alert('User not authenticated.');
       return;
     }
-    // Find the selected topup
+
     const selectedTopup = refundableTopups.find((t) => t.stripe_id === selectedTopupId);
     if (!selectedTopup) {
       alert('Please select a top-up to refund from.');
@@ -354,25 +455,9 @@ export default function AffiliateWalletPage() {
 
     setRefundLoading(true);
     try {
-      // Log payload before sending
-      console.log('[🧪 Refund Payload]', {
-        email: user.email,
-        refundAmount: refundAmt,
-        stripe_charge_id: selectedTopup.stripe_id,
-      });
-
-      // Check for missing/null/undefined values before sending
-      if (!refundAmt || !selectedTopup?.stripe_id || !user.email) {
-        alert('Missing required refund parameters.');
-        setRefundLoading(false);
-        return;
-      }
-
       const response = await fetch('/api/stripe/refund', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: user.email,
           refundAmount: refundAmt,
@@ -384,43 +469,9 @@ export default function AffiliateWalletPage() {
       if (response.ok) {
         alert('Refund request submitted successfully.');
         setRefundAmount('');
-        // Optionally refresh refund history and wallet data
-        const { data: refundsData, error } = await supabase
-          .from('wallet_refunds')
-          .select('amount, status, stripe_refund_id, created_at')
-          .eq('affiliate_email', user.email)
-          .order('created_at', { ascending: false });
-        if (!error) {
-          setRefunds(refundsData || []);
-        }
-        // Refresh wallet data as well
-        const { data: walletTopupsData, error: walletError } = await supabase
-          .from('wallet_topups')
-          .select('amount_gross, amount_net, stripe_fees, stripe_id, status, created_at, amount_refunded')
-          .eq('affiliate_email', user.email)
-          .order('created_at', { ascending: false });
-        if (!walletError) {
-          const topups = (walletTopupsData as unknown as WalletTopup[]) || [];
-          setWalletData(topups);
-          // Also update refundableTopups and selectedTopupId after refund
-          const refundable = topups
-            .filter((t) => (t.amount_refunded ?? 0) < (t.amount_net ?? 0))
-            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-          setRefundableTopups(refundable);
-          if (refundable.length > 0) {
-            setSelectedTopupId(refundable[0].stripe_id);
-          } else {
-            setSelectedTopupId(null);
-          }
-          if (topups.length > 0) {
-            const totalNet = topups.reduce((sum, item) => sum + (item.amount_net ?? 0), 0);
-            setTotalNetAmount(totalNet);
-          } else {
-            setTotalNetAmount(0);
-          }
-        }
+        await refreshWalletState();
       } else {
-        alert(data.error || 'Failed to submit refund request.');
+        alert(data.message || data.error || 'Failed to submit refund request.');
       }
     } catch (error) {
       console.error('[❌ Refund Request Error]', error);
@@ -431,164 +482,145 @@ export default function AffiliateWalletPage() {
   };
 
   return (
-    <main className="min-h-screen w-full bg-[radial-gradient(ellipse_at_top,_#0b1f21_0,#050608_45%,#000_80%)] text-white overflow-x-hidden">
+    <main className="min-h-screen w-full bg-[var(--background)] text-[var(--foreground)] overflow-x-hidden">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
-        {/* Wallet hero */}
-        <section className="relative overflow-hidden rounded-3xl border border-white/5 bg-gradient-to-r from-[#00C2CB] via-[#00b0b8] to-[#00B1E7] px-6 sm:px-8 py-6 sm:py-8 shadow-[0_0_60px_rgba(0,194,203,0.35)]">
-          {/* subtle glow */}
+        <section
+          className={`${CARD_SHELL} relative overflow-hidden border-0 px-6 sm:px-8 py-6 sm:py-8 text-white shadow-[0_0_60px_rgba(0,194,203,0.35)]`}
+          style={{ background: 'linear-gradient(135deg, #00C2CB, #00b0b8 60%, #00B1E7)' }}
+        >
           <div className="pointer-events-none absolute inset-0 opacity-40 mix-blend-soft-light">
             <div className="absolute -left-10 -top-16 h-40 w-40 rounded-full bg-white/30 blur-3xl" />
             <div className="absolute right-0 bottom-0 h-40 w-40 rounded-full bg-black/20 blur-3xl" />
           </div>
 
-          <div className="relative flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
-            <div className="space-y-3">
+          <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div className="space-y-4">
               <div className="inline-flex items-center gap-2 rounded-full bg-black/20 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white/80">
-                <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />
+                <span className={`h-1.5 w-1.5 rounded-full ${refundLockState.locked ? 'bg-amber-300' : 'bg-emerald-300'}`} />
                 Nettmark wallet
               </div>
 
               <div>
                 <p className="text-sm font-medium text-white/80">Available balance</p>
                 <p className="mt-1 text-4xl sm:text-5xl font-extrabold tracking-tight">
-                  {currencySymbols[currency] ?? '$'}
-                  {totalNetAmount.toFixed(2)}
+                  {formatMoney(availableBalance, currency)}
                 </p>
               </div>
 
-              <p className="max-w-xl text-sm sm:text-base text-white/85">
-                Fund campaigns, receive payouts, and manage refunds from a single balance. Nettmark keeps a clear history of every top‑up and refund for audit trails.
+              <p className="max-w-2xl text-sm sm:text-base text-white/85">
+                See what is spendable now, what is locked by live campaign activity, and what can actually be refunded. The wallet timeline now includes top-ups, refunds, ad-spend settlements, and payout receipts.
               </p>
+
+              <div className="flex flex-wrap gap-2">
+                <span className="inline-flex items-center gap-2 rounded-full bg-black/20 px-3 py-1 text-xs font-semibold text-white/85">
+                  {pluralize(refundLockState.activeAdCount, 'active Meta ad')}
+                </span>
+                <span className="inline-flex items-center gap-2 rounded-full bg-black/20 px-3 py-1 text-xs font-semibold text-white/85">
+                  Unsettled spend {formatMoney(refundLockState.totalUnpaidSpend, currency)}
+                </span>
+                <span className="inline-flex items-center gap-2 rounded-full bg-black/20 px-3 py-1 text-xs font-semibold text-white/85">
+                  Refundable now {formatMoney(availableToRefund, currency)}
+                </span>
+              </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 sm:items-center sm:justify-end w-full sm:w-auto">
+            <div className="flex flex-col gap-3 w-full lg:w-auto lg:min-w-[280px]">
+              <div className="rounded-2xl bg-black/20 p-4 backdrop-blur-sm">
+                <p className="text-xs font-semibold uppercase tracking-wide text-white/60">Refund status</p>
+                <p className="mt-2 text-sm font-medium text-white">
+                  {refundLockState.locked ? 'Locked until campaign obligations clear' : 'Open for refunds'}
+                </p>
+                <p className="mt-2 text-xs leading-5 text-white/75">{refundBlockReason}</p>
+              </div>
               <button
                 onClick={handleRequestRefund}
-                disabled={refundLoading}
+                disabled={refundLoading || refundLockState.locked}
                 className={`inline-flex items-center justify-center gap-2 rounded-xl border border-white/75 bg-white/95 px-4 py-2.5 text-sm font-semibold text-[#00C2CB] shadow-sm backdrop-blur transition hover:bg-white ${
-                  refundLoading ? 'opacity-70 cursor-not-allowed' : ''
+                  refundLoading || refundLockState.locked ? 'opacity-70 cursor-not-allowed' : ''
                 }`}
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M4 17v-2a4 4 0 0 1 4-4h12"
-                  />
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M8 13 4 17l4 4"
-                  />
-                </svg>
-                {refundLoading ? 'Processing...' : 'Transfer out'}
-              </button>
-
-              <button
-                onClick={handleConnectStripe}
-                disabled={connectLoading}
-                className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/60 bg-black/15 px-4 py-2.5 text-sm font-semibold text-white shadow-sm backdrop-blur transition hover:bg-black/25"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <rect
-                    x="3"
-                    y="4"
-                    width="18"
-                    height="16"
-                    rx="2"
-                    className="stroke-current"
-                  />
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M7 9h10M7 13h6M7 17h3"
-                  />
-                </svg>
-                {connectLoading ? 'Opening Stripe…' : 'Connect Stripe'}
+                {refundLoading ? 'Processing…' : refundLockState.locked ? 'Refunds locked' : 'Transfer out'}
               </button>
             </div>
           </div>
         </section>
 
-        {/* Main row */}
+        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
+          <div className={`${PANEL_CARD} p-4`}>
+            <p className="text-xs text-white/60">Available balance</p>
+            <p className="mt-1 text-2xl font-bold text-[#7ff5fb]">{formatMoney(availableBalance, currency)}</p>
+          </div>
+          <div className={`${PANEL_CARD} p-4`}>
+            <p className="text-xs text-white/60">Refundable now</p>
+            <p className="mt-1 text-2xl font-bold text-emerald-300">{formatMoney(availableToRefund, currency)}</p>
+          </div>
+          <div className={`${PANEL_CARD} p-4`}>
+            <p className="text-xs text-white/60">Locked by ads / unsettled spend</p>
+            <p className="mt-1 text-2xl font-bold text-amber-200">{formatMoney(lockedRefundBalance, currency)}</p>
+          </div>
+          <div className={`${PANEL_CARD} p-4`}>
+            <p className="text-xs text-white/60">Active Meta ads</p>
+            <p className="mt-1 text-2xl font-bold">{refundLockState.activeAdCount}</p>
+          </div>
+          <div className={`${PANEL_CARD} p-4`}>
+            <p className="text-xs text-white/60">Unsettled ad spend</p>
+            <p className="mt-1 text-2xl font-bold text-amber-300">{formatMoney(refundLockState.totalUnpaidSpend, currency)}</p>
+          </div>
+          <div className={`${PANEL_CARD} p-4`}>
+            <p className="text-xs text-white/60">Pending payout receipts</p>
+            <p className="mt-1 text-2xl font-bold">{formatMoney(pendingPayoutTotal, currency)}</p>
+          </div>
+        </section>
+
+        {refundLockState.locked ? (
+          <section className="rounded-2xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
+            <p className="font-semibold">Why you cannot refund right now</p>
+            <p className="mt-1 text-amber-100/80">{refundBlockReason}</p>
+          </section>
+        ) : (
+          <section className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
+            <p className="font-semibold">No refund lock is active.</p>
+            <p className="mt-1 text-emerald-100/80">
+              You can refund up to {formatMoney(availableToRefund, currency)} from completed wallet top-ups.
+            </p>
+          </section>
+        )}
+
         <section className="grid gap-6 lg:grid-cols-[minmax(0,360px),minmax(0,1fr)] items-start">
-          {/* Left column: refund + top up */}
           <div className="flex flex-col gap-6">
-            {/* Refund card */}
-            <div className="w-full rounded-2xl border border-white/5 bg-[#05090a] px-5 py-5 shadow-[0_14px_40px_rgba(0,0,0,0.45)]">
+            <div className={`${PANEL_CARD} px-5 py-5`}>
               <div className="mb-3 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#00C2CB]/10 text-[#00C2CB]">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-4 w-4"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={2}
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M4 17v-2a4 4 0 0 1 4-4h12"
-                      />
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M8 13 4 17l4 4"
-                      />
-                    </svg>
-                  </div>
-                  <div>
-                    <h2 className="text-sm font-semibold tracking-wide text-white/90">
-                      Request refund
-                    </h2>
-                    <p className="text-xs text-white/50">
-                      Send money back to your card or bank.
-                    </p>
-                  </div>
+                <div>
+                  <h2 className="text-sm font-semibold tracking-wide text-white/90">Request refund</h2>
+                  <p className="text-xs text-white/50">Choose the top-up you want to refund from, then submit the amount.</p>
                 </div>
-                <span className="rounded-full bg-white/5 px-3 py-1 text-xs text-white/70">
-                  Available:{' '}
-                  <span className="font-semibold text-white">
-                    {currencySymbols[currency] ?? '$'}
-                    {totalNetAmount.toFixed(2)}
-                  </span>
-                </span>
+                <span className={BADGE_SOFT}>Refundable {formatMoney(availableToRefund, currency)}</span>
               </div>
 
-              {refundableTopups.length > 0 && (
+              <div className="mb-3 rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-white/75">
+                {refundBlockReason}
+              </div>
+
+              {refundableTopups.length > 0 ? (
                 <select
                   value={selectedTopupId ?? ''}
                   onChange={(e) => setSelectedTopupId(e.target.value)}
-                  className="mb-2 w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-xs text-white/80 outline-none focus:border-[#00C2CB] focus:ring-1 focus:ring-[#00C2CB]"
+                  disabled={refundLockState.locked}
+                  className="mb-2 w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-xs text-white/80 outline-none focus:border-[#00C2CB] focus:ring-1 focus:ring-[#00C2CB] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {refundableTopups.map((topup) => {
-                    const remaining =
-                      (topup.amount_net ?? 0) - (topup.amount_refunded ?? 0);
+                    const remaining = getCreditedTopupAmount(topup) - toMoney(topup.amount_refunded);
                     return (
                       <option key={topup.stripe_id} value={topup.stripe_id}>
-                        {currencySymbols[currency] ?? '$'}
-                        {remaining.toFixed(2)} available from{' '}
-                        {new Date(topup.created_at).toLocaleDateString()}
+                        {formatMoney(remaining, currency)} available from {new Date(topup.created_at).toLocaleDateString()}
                       </option>
                     );
                   })}
                 </select>
+              ) : (
+                <div className="mb-2 rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-white/45">
+                  No refundable top-ups are available yet.
+                </div>
               )}
 
               <input
@@ -598,7 +630,8 @@ export default function AffiliateWalletPage() {
                 placeholder="Enter amount"
                 value={refundAmount}
                 onChange={(e) => setRefundAmount(e.target.value)}
-                className="mb-3 w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white/90 outline-none placeholder:text-white/40 focus:border-[#00C2CB] focus:ring-1 focus:ring-[#00C2CB]"
+                disabled={refundLockState.locked}
+                className={`${INPUT_CLASS} mb-3 px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60`}
                 aria-label="Refund amount"
               />
 
@@ -606,52 +639,33 @@ export default function AffiliateWalletPage() {
                 <button
                   type="button"
                   onClick={handleWithdrawAll}
-                  className="flex-1 rounded-lg bg-white/5 px-3 py-2 text-sm font-medium text-white/80 transition hover:bg-white/10"
+                  disabled={refundLockState.locked}
+                  className="flex-1 rounded-lg bg-white/5 px-3 py-2 text-sm font-medium text-white/80 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   Withdraw all
                 </button>
                 <button
                   type="button"
                   onClick={handleRequestRefund}
-                  disabled={refundLoading}
+                  disabled={refundLoading || refundLockState.locked || refundableTopups.length === 0}
                   className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold shadow-sm transition ${
-                    refundLoading
+                    refundLoading || refundLockState.locked || refundableTopups.length === 0
                       ? 'bg-[#1f2933] text-white/60 cursor-not-allowed'
                       : 'bg-[#00C2CB] text-black hover:bg-[#00b0b8]'
                   }`}
                 >
-                  {refundLoading ? 'Processing…' : 'Submit refund'}
+                  {refundLoading ? 'Processing…' : refundLockState.locked ? 'Refunds locked' : 'Submit refund'}
                 </button>
               </div>
             </div>
 
-            {/* Top up card */}
-            <div className="w-full rounded-2xl border border-white/5 bg-[#05090a] px-5 py-5 shadow-[0_14px_40px_rgba(0,0,0,0.45)]">
-              <div className="mb-3 flex items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#00C2CB]/10 text-[#00C2CB]">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-4 w-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M12 4v16m8-8H4"
-                    />
-                  </svg>
-                </div>
+            <div className={`${PANEL_CARD} px-5 py-5`}>
+              <div className="mb-3 flex items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-sm font-semibold tracking-wide text-white/90">
-                    Top up wallet
-                  </h2>
-                  <p className="text-xs text-white/50">
-                    Secure Stripe checkout. Funds are ready to use instantly.
-                  </p>
+                  <h2 className="text-sm font-semibold tracking-wide text-white/90">Top up wallet</h2>
+                  <p className="text-xs text-white/50">Stripe checkout adds funds for campaign spend. Your wallet is credited with principal only.</p>
                 </div>
+                <span className={BADGE_SOFT}>{currency}</span>
               </div>
 
               <input
@@ -659,7 +673,7 @@ export default function AffiliateWalletPage() {
                 placeholder="Amount (e.g. 10)"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                className="mb-2 w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-sm text-white/90 outline-none placeholder:text-white/40 focus:border-[#00C2CB] focus:ring-1 focus:ring-[#00C2CB]"
+                className={`${INPUT_CLASS} mb-2 px-3 py-2 text-sm`}
               />
 
               <input
@@ -668,8 +682,20 @@ export default function AffiliateWalletPage() {
                 disabled
                 readOnly
                 aria-label="Currency"
-                className="mb-3 w-full cursor-not-allowed rounded-lg border border-white/5 bg-white/5 px-3 py-2 text-sm text-white/40"
+                className={`${INPUT_CLASS} mb-3 cursor-not-allowed px-3 py-2 text-sm opacity-70`}
               />
+
+              <div className="mb-3 rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-3 py-3 text-xs text-cyan-50">
+                <p className="font-semibold text-cyan-100">Fee disclosure</p>
+                <p className="mt-1 text-cyan-50/80">
+                  Nettmark charges {(NETTMARK_TRANSACTION_FEE_BPS / 100).toFixed(1)}% on wallet top-ups. Refund eligibility is based on the credited principal, not the fee.
+                </p>
+                {topupPreview.principalAmount > 0 ? (
+                  <p className="mt-2 text-cyan-50/90">
+                    Entered {formatMoney(topupPreview.principalAmount, currency)} → fee {formatMoney(topupPreview.feeAmount, currency)} → Stripe charge {formatMoney(topupPreview.grossAmount, currency)}
+                  </p>
+                ) : null}
+              </div>
 
               <button
                 onClick={handleTopUp}
@@ -682,162 +708,106 @@ export default function AffiliateWalletPage() {
               >
                 {loading ? 'Redirecting…' : 'Top up via Stripe'}
               </button>
+
+              <div className="mt-4 grid grid-cols-2 gap-3 text-xs text-white/60">
+                <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-3">
+                  <p>Total top-ups</p>
+                  <p className="mt-1 text-sm font-semibold text-white">{formatMoney(totalTopups, currency)}</p>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-3">
+                  <p>Ad spend settled</p>
+                  <p className="mt-1 text-sm font-semibold text-white">{formatMoney(totalDeductions, currency)}</p>
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Right column: activity */}
-          <div className="min-w-0 rounded-2xl border border-white/5 bg-[#05090a] p-5 shadow-[0_14px_40px_rgba(0,0,0,0.45)]">
-            <div className="mb-4 flex items-center justify-between gap-3">
+          <div className={`${PANEL_CARD} min-w-0 p-5 space-y-4`}>
+            <div className="flex items-center justify-between gap-3">
               <div>
-                <h2 className="text-sm font-semibold tracking-wide text-white/90">
-                  Wallet activity
-                </h2>
-                <p className="text-xs text-white/50">
-                  Top-ups and refunds synced from Stripe in real time.
-                </p>
+                <h2 className="text-sm font-semibold tracking-wide text-white/90">Wallet timeline</h2>
+                <p className="text-xs text-white/50">Top-ups, refunds, ad-spend settlements, and payout receipts in one ledger.</p>
               </div>
-              <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300">
-                Live
-              </span>
+              <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300">Live</span>
             </div>
 
-            <div className="w-full overflow-x-auto rounded-xl border border-white/5 bg-black/20">
-              <table className="min-w-full text-left text-xs">
-                <thead className="bg-white/5 text-white/60">
-                  <tr>
-                    <th className="px-4 py-2 font-semibold">Date</th>
-                    <th className="px-4 py-2 font-semibold">Type</th>
-                    <th className="px-4 py-2 font-semibold">Amount</th>
-                    <th className="px-4 py-2 font-semibold">Status</th>
-                    <th className="px-4 py-2 font-semibold">Reference</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/5">
-                  {walletData && walletData.length > 0 ? (
-                    walletData.map((item: any) => (
-                      <tr
-                        key={item.stripe_id}
-                        className="hover:bg-white/5 transition-colors"
-                      >
-                        <td className="px-4 py-3 whitespace-nowrap text-[11px] text-white/70">
-                          {new Date(item.created_at).toLocaleString()}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-[11px] text-white/80">
-                          <span className="inline-flex items-center gap-1 rounded-full bg-[#00C2CB]/10 px-2 py-0.5 text-[11px] text-[#7ff5fb]">
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              className="h-3 w-3"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                              strokeWidth={2}
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M12 4v16m8-8H4"
-                              />
-                            </svg>
-                            Top-up
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-[11px] font-semibold text-emerald-300">
-                          +{currencySymbols[currency] ?? '$'}
-                          {(item.amount_net ?? 0).toFixed(2)}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-[11px]">
-                          <span
-                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                              item.status === 'succeeded'
-                                ? 'bg-emerald-500/15 text-emerald-300'
-                                : 'bg-white/10 text-white/70'
-                            }`}
-                          >
-                            {item.status}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-[11px] text-white/40">
-                          {item.stripe_id}
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td
-                        colSpan={5}
-                        className="px-4 py-4 text-center text-xs text-white/40"
-                      >
-                        No top-up activity found.
-                      </td>
-                    </tr>
-                  )}
-
-                  {refunds && refunds.length > 0 ? (
-                    refunds.map((refund: any) => (
-                      <tr
-                        key={refund.stripe_refund_id}
-                        className="hover:bg-white/5 transition-colors"
-                      >
-                        <td className="px-4 py-3 whitespace-nowrap text-[11px] text-white/70">
-                          {new Date(refund.created_at).toLocaleString()}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-[11px] text-white/80">
-                          <span className="inline-flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-0.5 text-[11px] text-red-300">
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              className="h-3 w-3"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                              strokeWidth={2}
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M4 17v-2a4 4 0 0 1 4-4h12"
-                              />
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M8 13 4 17l4 4"
-                              />
-                            </svg>
-                            Refund
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-[11px] font-semibold text-red-300">
-                          -{currencySymbols[currency] ?? '$'}
-                          {(refund.amount ?? 0).toFixed(2)}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-[11px]">
-                          <span
-                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                              refund.status === 'succeeded'
-                                ? 'bg-emerald-500/15 text-emerald-300'
-                                : 'bg-white/10 text-white/70'
-                            }`}
-                          >
-                            {refund.status}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-[11px] text-white/40">
-                          {refund.stripe_refund_id}
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td
-                        colSpan={5}
-                        className="px-4 py-4 text-center text-xs text-white/40"
-                      >
-                        No refund activity found.
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+            <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
+              {activity.length > 0 ? (
+                activity.slice(0, 10).map((item) => (
+                  <div key={item.id} className="rounded-xl border border-white/10 bg-black/20 px-3 py-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-xs text-white/85 font-medium">{item.type}</p>
+                        <p className="text-[11px] text-white/40">{new Date(item.date).toLocaleString()}</p>
+                        {item.note ? <p className="mt-1 text-[11px] text-white/55">{item.note}</p> : null}
+                      </div>
+                      <p className={`text-sm font-semibold ${item.positive ? 'text-emerald-300' : 'text-red-300'}`}>
+                        {item.positive ? '+' : '-'}{formatMoney(item.amount, currency)}
+                      </p>
+                    </div>
+                    <div className="mt-2 flex items-center justify-between gap-3">
+                      <span className="text-[10px] text-white/45 truncate max-w-[70%]">{item.ref}</span>
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${badgeTone(item.status)}`}>
+                        {item.status}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-4 text-center text-xs text-white/40">
+                  No activity yet.
+                </div>
+              )}
             </div>
+
+            <button
+              onClick={() => setShowLedger((v) => !v)}
+              className="w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-xs text-white/80 hover:bg-white/10"
+            >
+              {showLedger ? 'Hide detailed ledger' : 'View detailed ledger'}
+            </button>
+
+            {showLedger && (
+              <div className="w-full overflow-x-auto rounded-xl border border-white/5 bg-black/20">
+                <table className="min-w-full text-left text-xs">
+                  <thead className="bg-white/5 text-white/60">
+                    <tr>
+                      <th className="px-4 py-2 font-semibold">Date</th>
+                      <th className="px-4 py-2 font-semibold">Type</th>
+                      <th className="px-4 py-2 font-semibold">Amount</th>
+                      <th className="px-4 py-2 font-semibold">Status</th>
+                      <th className="px-4 py-2 font-semibold">Reference</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {activity.length > 0 ? (
+                      activity.map((item) => (
+                        <tr key={`ledger-${item.id}`} className="hover:bg-white/5 transition-colors align-top">
+                          <td className="px-4 py-3 whitespace-nowrap text-[11px] text-white/70">{new Date(item.date).toLocaleString()}</td>
+                          <td className="px-4 py-3 text-[11px] text-white/80">
+                            <div>{item.type}</div>
+                            {item.note ? <div className="mt-1 text-white/45">{item.note}</div> : null}
+                          </td>
+                          <td className={`px-4 py-3 whitespace-nowrap text-[11px] font-semibold ${item.positive ? 'text-emerald-300' : 'text-red-300'}`}>
+                            {item.positive ? '+' : '-'}{formatMoney(item.amount, currency)}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap text-[11px]">
+                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${badgeTone(item.status)}`}>
+                              {item.status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-[11px] text-white/40 break-all">{item.ref}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={5} className="px-4 py-4 text-center text-xs text-white/40">No wallet ledger activity found.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </section>
       </div>

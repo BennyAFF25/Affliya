@@ -1,8 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { supabase } from "@/../utils/supabase/pages-client";
+import {
+  Sparkles,
+  ArrowRight,
+  Activity,
+  Archive,
+  Wallet,
+  Megaphone,
+} from "lucide-react";
 
 type LiveAdRow = {
   id: string;
@@ -36,6 +44,11 @@ type LiveCampaignRow = {
   created_at?: string | null;
 };
 
+const CARD_SHELL =
+  "rounded-3xl border border-[var(--border)] bg-[var(--card)] shadow-[0_25px_70px_rgba(0,0,0,0.08)]";
+const PANEL_CARD =
+  "rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[0_20px_55px_rgba(0,0,0,0.05)]";
+
 type CampaignItem =
   | {
       kind: "paid_meta";
@@ -67,7 +80,14 @@ function normalizeStatus(s?: string | null) {
 
 function isArchivedStatus(status: string) {
   const s = normalizeStatus(status);
-  return ["paused", "archived", "stopped", "completed", "ended", "deleted"].includes(s);
+  return [
+    "paused",
+    "archived",
+    "stopped",
+    "completed",
+    "ended",
+    "deleted",
+  ].includes(s);
 }
 
 function fmtMoney(n?: number) {
@@ -91,7 +111,9 @@ export default function AffiliateManageCampaignsPage() {
 
   // per-row spend sync loading (paid meta only)
   const [syncing, setSyncing] = useState<Record<string, boolean>>({});
-  const [offerNameById, setOfferNameById] = useState<Record<string, string>>({});
+  const [offerNameById, setOfferNameById] = useState<Record<string, string>>(
+    {},
+  );
   const [archivedOpen, setArchivedOpen] = useState(true);
 
   async function fetchAll() {
@@ -125,8 +147,14 @@ export default function AffiliateManageCampaignsPage() {
       const selectNoNameNoOffer =
         "id, status, billing_state, meta_ad_id, meta_campaign_id, spend, spend_transferred, created_at";
 
-      const runLiveAdsQuery = async (selectStr: string, withSourceFilter: boolean) => {
-        let q = supabase.from("live_ads").select(selectStr).eq("affiliate_email", email);
+      const runLiveAdsQuery = async (
+        selectStr: string,
+        withSourceFilter: boolean,
+      ) => {
+        let q = supabase
+          .from("live_ads")
+          .select(selectStr)
+          .eq("affiliate_email", email);
         if (withSourceFilter) q = q.eq("source", "paid_meta");
         return q.order("created_at", { ascending: false });
       };
@@ -135,43 +163,68 @@ export default function AffiliateManageCampaignsPage() {
       let currentSelect = selectWithNameFull;
       let withSource = true;
 
-      let { data: liveAdsData, error: liveAdsErr } = await runLiveAdsQuery(currentSelect, withSource);
+      let { data: liveAdsData, error: liveAdsErr } = await runLiveAdsQuery(
+        currentSelect,
+        withSource,
+      );
 
       // If ad_name doesn't exist, drop it
       if (liveAdsErr?.message?.includes("ad_name")) {
-        currentSelect = currentSelect.includes("offer_id") ? selectNoNameFull : selectNoNameNoOffer;
-        ({ data: liveAdsData, error: liveAdsErr } = await runLiveAdsQuery(currentSelect, withSource));
+        currentSelect = currentSelect.includes("offer_id")
+          ? selectNoNameFull
+          : selectNoNameNoOffer;
+        ({ data: liveAdsData, error: liveAdsErr } = await runLiveAdsQuery(
+          currentSelect,
+          withSource,
+        ));
       }
 
       // If offer_id doesn't exist, drop it (keep whether we include ad_name or not)
       if (liveAdsErr?.message?.includes("offer_id")) {
         const wantsName = currentSelect.includes("ad_name");
         currentSelect = wantsName ? selectWithNameNoOffer : selectNoNameNoOffer;
-        ({ data: liveAdsData, error: liveAdsErr } = await runLiveAdsQuery(currentSelect, withSource));
+        ({ data: liveAdsData, error: liveAdsErr } = await runLiveAdsQuery(
+          currentSelect,
+          withSource,
+        ));
 
         // After dropping offer_id, if ad_name still errors, drop it too
         if (liveAdsErr?.message?.includes("ad_name")) {
           currentSelect = selectNoNameNoOffer;
-          ({ data: liveAdsData, error: liveAdsErr } = await runLiveAdsQuery(currentSelect, withSource));
+          ({ data: liveAdsData, error: liveAdsErr } = await runLiveAdsQuery(
+            currentSelect,
+            withSource,
+          ));
         }
       }
 
       // If source doesn't exist, retry without source filter (keep the currentSelect)
       if (liveAdsErr?.message?.includes("source")) {
         withSource = false;
-        ({ data: liveAdsData, error: liveAdsErr } = await runLiveAdsQuery(currentSelect, withSource));
+        ({ data: liveAdsData, error: liveAdsErr } = await runLiveAdsQuery(
+          currentSelect,
+          withSource,
+        ));
 
         // If offer_id errors now, drop it
         if (liveAdsErr?.message?.includes("offer_id")) {
           const wantsName = currentSelect.includes("ad_name");
-          currentSelect = wantsName ? selectWithNameNoOffer : selectNoNameNoOffer;
-          ({ data: liveAdsData, error: liveAdsErr } = await runLiveAdsQuery(currentSelect, withSource));
+          currentSelect = wantsName
+            ? selectWithNameNoOffer
+            : selectNoNameNoOffer;
+          ({ data: liveAdsData, error: liveAdsErr } = await runLiveAdsQuery(
+            currentSelect,
+            withSource,
+          ));
         }
 
         // If ad_name errors now, drop it
         if (liveAdsErr?.message?.includes("ad_name")) {
           currentSelect = selectNoNameNoOffer;
-          ({ data: liveAdsData, error: liveAdsErr } = await runLiveAdsQuery(currentSelect, withSource));
+          ({ data: liveAdsData, error: liveAdsErr } = await runLiveAdsQuery(
+            currentSelect,
+            withSource,
+          ));
         }
       }
 
@@ -181,22 +234,30 @@ export default function AffiliateManageCampaignsPage() {
       // ----------------------------
       // Organic campaigns (live_campaigns)
       // ----------------------------
-      const { data: liveCampaignsData, error: liveCampaignsErr } = await supabase
-        .from("live_campaigns")
-        .select("id, type, offer_id, business_email, affiliate_email, media_url, caption, platform, created_from, status, created_at")
-        .eq("affiliate_email", email)
-        .order("created_at", { ascending: false });
+      const { data: liveCampaignsData, error: liveCampaignsErr } =
+        await supabase
+          .from("live_campaigns")
+          .select(
+            "id, type, offer_id, business_email, affiliate_email, media_url, caption, platform, created_from, status, created_at",
+          )
+          .eq("affiliate_email", email)
+          .order("created_at", { ascending: false });
 
       // If the table doesn't exist in this project yet, don’t kill the page.
       if (liveCampaignsErr) {
         // Only surface the error if it’s NOT a missing table scenario
         const msg = String(liveCampaignsErr.message || "");
-        if (!msg.toLowerCase().includes("does not exist") && !msg.toLowerCase().includes("relation")) {
+        if (
+          !msg.toLowerCase().includes("does not exist") &&
+          !msg.toLowerCase().includes("relation")
+        ) {
           throw liveCampaignsErr;
         }
         setOrganic([]);
       } else {
-        setOrganic(((liveCampaignsData as LiveCampaignRow[]) ?? []).filter(Boolean));
+        setOrganic(
+          ((liveCampaignsData as LiveCampaignRow[]) ?? []).filter(Boolean),
+        );
       }
 
       // ----------------------------
@@ -205,10 +266,14 @@ export default function AffiliateManageCampaignsPage() {
       const offerIds = Array.from(
         new Set(
           [
-            ...(((liveAdsData as LiveAdRow[]) ?? []).map((r) => (r as any)?.offer_id).filter(Boolean) as string[]),
-            ...(((liveCampaignsData as LiveCampaignRow[]) ?? []).map((r) => r.offer_id).filter(Boolean) as string[]),
-          ].filter(Boolean)
-        )
+            ...(((liveAdsData as LiveAdRow[]) ?? [])
+              .map((r) => (r as any)?.offer_id)
+              .filter(Boolean) as string[]),
+            ...(((liveCampaignsData as LiveCampaignRow[]) ?? [])
+              .map((r) => r.offer_id)
+              .filter(Boolean) as string[]),
+          ].filter(Boolean),
+        ),
       );
 
       if (offerIds.length === 0) {
@@ -223,11 +288,17 @@ export default function AffiliateManageCampaignsPage() {
 
         if (offersErr?.message?.includes("title")) {
           offersSelect = "id, name";
-          ({ data: offersData, error: offersErr } = await supabase.from("offers").select(offersSelect).in("id", offerIds));
+          ({ data: offersData, error: offersErr } = await supabase
+            .from("offers")
+            .select(offersSelect)
+            .in("id", offerIds));
         }
         if (offersErr?.message?.includes("name")) {
           offersSelect = "id, title";
-          ({ data: offersData, error: offersErr } = await supabase.from("offers").select(offersSelect).in("id", offerIds));
+          ({ data: offersData, error: offersErr } = await supabase
+            .from("offers")
+            .select(offersSelect)
+            .in("id", offerIds));
         }
 
         if (!offersErr && offersData) {
@@ -267,7 +338,8 @@ export default function AffiliateManageCampaignsPage() {
       });
 
       const json = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(json?.error || `Spend sync failed (${res.status})`);
+      if (!res.ok)
+        throw new Error(json?.error || `Spend sync failed (${res.status})`);
 
       // critical: refetch so list updates
       await fetchAll();
@@ -291,7 +363,11 @@ export default function AffiliateManageCampaignsPage() {
 
       const offerLabel = r.offer_id ? offerNameById[r.offer_id] : undefined;
       const title =
-        offerLabel || r.ad_name || (r.meta_campaign_id ? `Campaign ${r.meta_campaign_id}` : `Campaign ${r.id.slice(0, 8)}`);
+        offerLabel ||
+        r.ad_name ||
+        (r.meta_campaign_id
+          ? `Campaign ${r.meta_campaign_id}`
+          : `Campaign ${r.id.slice(0, 8)}`);
 
       return {
         kind: "paid_meta",
@@ -336,23 +412,94 @@ export default function AffiliateManageCampaignsPage() {
     return combined;
   }, [paidMeta, organic, offerNameById]);
 
-  const activeItems = useMemo(() => items.filter((i) => !isArchivedStatus(i.status)), [items]);
-  const archivedItems = useMemo(() => items.filter((i) => isArchivedStatus(i.status)), [items]);
+  const activeItems = useMemo(
+    () => items.filter((i) => !isArchivedStatus(i.status)),
+    [items],
+  );
+  const archivedItems = useMemo(
+    () => items.filter((i) => isArchivedStatus(i.status)),
+    [items],
+  );
 
   const activeCount = activeItems.length;
   const archivedCount = archivedItems.length;
+  const totalPaidSpend = paidMeta.reduce(
+    (sum, r) => sum + (Number(r.spend ?? 0) || 0),
+    0,
+  );
+  const totalUnpaidSpend = paidMeta.reduce((sum, r) => {
+    const spend = Number(r.spend ?? 0) || 0;
+    const transferred = Number(r.spend_transferred ?? 0) || 0;
+    return sum + Math.max(0, spend - transferred);
+  }, 0);
+  const organicCount = organic.length;
 
   return (
-    <div className="min-h-screen bg-surface p-6 text-white">
+    <div className="min-h-screen bg-[var(--background)] p-6 text-[var(--foreground)]">
       <div className="mx-auto w-full max-w-6xl">
-        <div className="mb-8">
-          <div className="mb-2 text-xs tracking-[0.35em] text-gray-400">CAMPAIGNS</div>
-          <h1 className="text-4xl font-semibold text-[#00C2CB]">Manage campaigns</h1>
-          <p className="mt-2 max-w-3xl text-sm text-gray-300">
-            See every campaign you’re running, sync Meta spend, and jump into a detailed view.
-            Organic posts also appear here.
-          </p>
-        </div>
+        <section className="relative mb-7 overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
+          <div className="pointer-events-none absolute -top-16 -right-16 h-48 w-48 rounded-full bg-[var(--primary)]/25 blur-3xl" />
+          <div className="relative z-10 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <p className="inline-flex items-center gap-2 rounded-full border border-[var(--primary)]/40 bg-[var(--primary)]/15 px-3 py-1 text-[11px] uppercase tracking-widest text-[var(--primary)]">
+                <Sparkles className="h-3.5 w-3.5" /> Campaign command deck
+              </p>
+              <h1 className="mt-3 text-3xl font-semibold">Manage campaigns</h1>
+              <p className="mt-2 max-w-3xl text-sm text-[var(--muted-foreground)]">
+                Track every campaign in one place, sync Meta spend, and jump
+                straight into the actions that matter.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <Link
+                href="/affiliate/marketplace"
+                className="inline-flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--card)] px-4 py-2 text-sm font-semibold hover:bg-[var(--card)]/70"
+              >
+                Promote offer <ArrowRight className="h-4 w-4" />
+              </Link>
+              <Link
+                href="/affiliate/dashboard"
+                className="inline-flex items-center gap-2 rounded-xl bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-[var(--primary-foreground)] hover:brightness-110"
+              >
+                Dashboard overview
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        <section className="mb-7 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <MetricCard
+            label="Live campaigns"
+            value={activeCount.toString()}
+            icon={<Activity className="h-4 w-4" />}
+            tone="cyan"
+          />
+          <MetricCard
+            label="Archived"
+            value={archivedCount.toString()}
+            icon={<Archive className="h-4 w-4" />}
+            tone="slate"
+          />
+          <MetricCard
+            label="Total paid spend"
+            value={`$${fmtMoney(totalPaidSpend)}`}
+            icon={<Wallet className="h-4 w-4" />}
+            tone="cyan"
+          />
+          <MetricCard
+            label="Unsettled spend"
+            value={`$${fmtMoney(totalUnpaidSpend)}`}
+            icon={<Wallet className="h-4 w-4" />}
+            tone="slate"
+          />
+          <MetricCard
+            label="Organic campaigns"
+            value={organicCount.toString()}
+            icon={<Megaphone className="h-4 w-4" />}
+            tone="slate"
+          />
+        </section>
 
         {error && (
           <div className="mb-6 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
@@ -361,31 +508,34 @@ export default function AffiliateManageCampaignsPage() {
         )}
 
         {/* Active */}
-        <div className="mb-6 rounded-2xl border border-white/10 bg-white/5 p-6 shadow-[0_0_40px_rgba(0,0,0,0.35)]">
+        <div className="mb-6 rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-[0_0_40px_rgba(0,0,0,0.35)]">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#00C2CB]/15 text-[#00C2CB]">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--primary)]/15 text-[var(--primary)]">
                 ✓
               </div>
               <div>
                 <div className="text-base font-semibold">Active campaigns</div>
-                <div className="text-xs text-gray-400">Campaigns currently live or delivering.</div>
+                <div className="text-xs text-[var(--muted-foreground)]">
+                  Campaigns currently live or delivering.
+                </div>
               </div>
             </div>
 
-            <div className="rounded-full bg-[#00C2CB]/15 px-3 py-1 text-sm font-semibold text-[#00C2CB]">
+            <div className="rounded-full bg-[var(--primary)]/15 px-3 py-1 text-sm font-semibold text-[var(--primary)]">
               {activeCount} active
             </div>
           </div>
 
           <div className="mt-5">
             {loading ? (
-              <div className="rounded-xl border border-white/10 bg-black/30 p-4 text-sm text-gray-300">
+              <div className="rounded-xl border border-[var(--border)] bg-[var(--card)]/70 p-4 text-sm text-[var(--muted-foreground)]">
                 Loading…
               </div>
             ) : activeItems.length === 0 ? (
-              <div className="rounded-xl border border-white/10 bg-black/30 p-4 text-sm text-gray-300">
-                No active campaigns. When you launch a campaign, it will show here.
+              <div className="rounded-xl border border-[var(--border)] bg-[var(--card)]/70 p-4 text-sm text-[var(--muted-foreground)]">
+                No active campaigns. When you launch a campaign, it will show
+                here.
               </div>
             ) : (
               <div className="space-y-3">
@@ -393,7 +543,9 @@ export default function AffiliateManageCampaignsPage() {
                   <CampaignRow
                     key={`${item.kind}-${item.id}`}
                     item={item}
-                    syncing={item.kind === "paid_meta" ? !!syncing[item.id] : false}
+                    syncing={
+                      item.kind === "paid_meta" ? !!syncing[item.id] : false
+                    }
                     onSync={() => {
                       if (item.kind !== "paid_meta") return;
                       const row = paidMeta.find((r) => r.id === item.id);
@@ -407,27 +559,33 @@ export default function AffiliateManageCampaignsPage() {
         </div>
 
         {/* Archived */}
-        <div className="rounded-2xl border border-[#00C2CB]/40 bg-white/5 p-6 shadow-[0_0_40px_rgba(0,0,0,0.35)]">
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-[0_0_40px_rgba(0,0,0,0.35)]">
           <div className="flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white">
+              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--card)]/60 text-[var(--foreground)]">
                 ▣
               </div>
               <div>
-                <div className="text-base font-semibold">Archived campaigns</div>
-                <div className="text-xs text-gray-400">Paused, completed, or stopped campaigns stay here.</div>
+                <div className="text-base font-semibold">
+                  Archived campaigns
+                </div>
+                <div className="text-xs text-[var(--muted-foreground)]">
+                  Paused, completed, or stopped campaigns stay here.
+                </div>
               </div>
             </div>
 
             <div className="flex items-center gap-3">
-              <div className="rounded-full bg-white/10 px-3 py-1 text-sm font-semibold text-white">
+              <div className="rounded-full bg-[var(--card)]/60 px-3 py-1 text-sm font-semibold text-[var(--foreground)]">
                 {archivedCount} archived
               </div>
               <button
                 type="button"
                 onClick={() => setArchivedOpen((v) => !v)}
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-white hover:bg-white/10"
-                aria-label={archivedOpen ? "Collapse archived" : "Expand archived"}
+                className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--card)]/50 text-[var(--foreground)] hover:bg-[var(--card)]/60"
+                aria-label={
+                  archivedOpen ? "Collapse archived" : "Expand archived"
+                }
               >
                 {archivedOpen ? "–" : "+"}
               </button>
@@ -437,11 +595,11 @@ export default function AffiliateManageCampaignsPage() {
           {archivedOpen && (
             <div className="mt-5">
               {loading ? (
-                <div className="rounded-xl border border-white/10 bg-black/30 p-4 text-sm text-gray-300">
+                <div className="rounded-xl border border-[var(--border)] bg-[var(--card)]/70 p-4 text-sm text-[var(--muted-foreground)]">
                   Loading…
                 </div>
               ) : archivedItems.length === 0 ? (
-                <div className="rounded-xl border border-white/10 bg-black/30 p-4 text-sm text-gray-300">
+                <div className="rounded-xl border border-[var(--border)] bg-[var(--card)]/70 p-4 text-sm text-[var(--muted-foreground)]">
                   No archived campaigns yet.
                 </div>
               ) : (
@@ -450,7 +608,9 @@ export default function AffiliateManageCampaignsPage() {
                     <CampaignRow
                       key={`${item.kind}-${item.id}`}
                       item={item}
-                      syncing={item.kind === "paid_meta" ? !!syncing[item.id] : false}
+                      syncing={
+                        item.kind === "paid_meta" ? !!syncing[item.id] : false
+                      }
                       onSync={() => {
                         if (item.kind !== "paid_meta") return;
                         const row = paidMeta.find((r) => r.id === item.id);
@@ -462,6 +622,37 @@ export default function AffiliateManageCampaignsPage() {
               )}
             </div>
           )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MetricCard({
+  label,
+  value,
+  icon,
+  tone,
+}: {
+  label: string;
+  value: string;
+  icon: ReactNode;
+  tone: "cyan" | "slate";
+}) {
+  const toneClass =
+    tone === "cyan"
+      ? "border-[var(--primary)]/40 bg-[var(--primary)]/12 text-[var(--primary)]"
+      : "border-[var(--border)] bg-[var(--card)]/60 text-[var(--muted-foreground)]";
+
+  return (
+    <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-4">
+      <div className="flex items-center gap-2 text-xs text-[var(--muted-foreground)]">
+        {label}
+      </div>
+      <div className="mt-3 flex items-center justify-between">
+        <p className="text-2xl font-bold">{value}</p>
+        <div className={`rounded-lg border px-2.5 py-2 ${toneClass}`}>
+          {icon}
         </div>
       </div>
     </div>
@@ -481,25 +672,43 @@ function CampaignRow({
 
   const statusPill = (() => {
     if (status === "active" || status === "live") {
-      return <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-200">LIVE</span>;
+      return (
+        <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-200">
+          LIVE
+        </span>
+      );
     }
     if (status === "paused") {
-      return <span className="rounded-full bg-amber-500/15 px-3 py-1 text-xs font-semibold text-amber-200">PAUSED</span>;
+      return (
+        <span className="rounded-full bg-amber-500/15 px-3 py-1 text-xs font-semibold text-amber-200">
+          PAUSED
+        </span>
+      );
     }
-    return <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-gray-200">{status.toUpperCase()}</span>;
+    return (
+      <span className="rounded-full bg-[var(--card)]/60 px-3 py-1 text-xs font-semibold text-[var(--muted-foreground)]">
+        {status.toUpperCase()}
+      </span>
+    );
   })();
 
   const typePills = (() => {
     if (item.kind === "paid_meta") {
       return (
         <div className="flex flex-wrap gap-2">
-          <span className="rounded-full bg-white/10 px-3 py-1 text-xs text-gray-200">Meta Ads</span>
-          <span className="rounded-full bg-white/10 px-3 py-1 text-xs text-gray-200">paid_meta</span>
+          <span className="rounded-full bg-[var(--card)]/60 px-3 py-1 text-xs text-[var(--muted-foreground)]">
+            Meta Ads
+          </span>
+          <span className="rounded-full bg-[var(--card)]/60 px-3 py-1 text-xs text-[var(--muted-foreground)]">
+            paid_meta
+          </span>
           {item.billingState ? (
-            <span className="rounded-full bg-white/10 px-3 py-1 text-xs text-gray-200">Billing {item.billingState}</span>
+            <span className="rounded-full bg-[var(--card)]/60 px-3 py-1 text-xs text-[var(--muted-foreground)]">
+              Billing {item.billingState}
+            </span>
           ) : null}
           {typeof item.spend === "number" ? (
-            <span className="rounded-full bg-[#00C2CB]/20 px-3 py-1 text-xs font-semibold text-[#00C2CB]">
+            <span className="rounded-full bg-[var(--primary)]/20 px-3 py-1 text-xs font-semibold text-[var(--primary)]">
               Spend ${fmtMoney(item.spend)}
             </span>
           ) : null}
@@ -509,19 +718,25 @@ function CampaignRow({
 
     return (
       <div className="flex flex-wrap gap-2">
-        <span className="rounded-full bg-white/10 px-3 py-1 text-xs text-gray-200">Organic</span>
+        <span className="rounded-full bg-[var(--card)]/60 px-3 py-1 text-xs text-[var(--muted-foreground)]">
+          Organic
+        </span>
         {item.platform ? (
-          <span className="rounded-full bg-white/10 px-3 py-1 text-xs text-gray-200">{item.platform}</span>
+          <span className="rounded-full bg-[var(--card)]/60 px-3 py-1 text-xs text-[var(--muted-foreground)]">
+            {item.platform}
+          </span>
         ) : null}
         {item.createdFrom ? (
-          <span className="rounded-full bg-white/10 px-3 py-1 text-xs text-gray-200">{item.createdFrom}</span>
+          <span className="rounded-full bg-[var(--card)]/60 px-3 py-1 text-xs text-[var(--muted-foreground)]">
+            {item.createdFrom}
+          </span>
         ) : null}
       </div>
     );
   })();
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-black/30 p-5">
+    <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)]/70 p-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-3">
@@ -529,15 +744,19 @@ function CampaignRow({
             {statusPill}
           </div>
 
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-gray-300">
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[var(--muted-foreground)]">
             {typePills}
             {item.createdAt ? (
-              <span className="rounded-full bg-white/10 px-3 py-1 text-xs text-gray-200">Started {shortDate(item.createdAt)}</span>
+              <span className="rounded-full bg-[var(--card)]/60 px-3 py-1 text-xs text-[var(--muted-foreground)]">
+                Started {shortDate(item.createdAt)}
+              </span>
             ) : null}
           </div>
 
           {item.kind === "organic" && item.caption ? (
-            <div className="mt-3 line-clamp-2 max-w-3xl text-sm text-gray-300">{item.caption}</div>
+            <div className="mt-3 line-clamp-2 max-w-3xl text-sm text-[var(--muted-foreground)]">
+              {item.caption}
+            </div>
           ) : null}
         </div>
 
@@ -546,35 +765,26 @@ function CampaignRow({
             <>
               <Link
                 href={`/affiliate/dashboard/manage-campaigns/${item.id}`}
-                className="rounded-full bg-[#00C2CB] px-4 py-2 text-sm font-semibold text-black hover:opacity-90"
+                className="rounded-full bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-[var(--primary-foreground)] hover:opacity-90"
               >
                 View campaign
               </Link>
               <button
                 onClick={onSync}
                 disabled={syncing}
-                className="rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold text-white hover:bg-white/10 disabled:opacity-60"
+                className="rounded-full border border-[var(--border)] bg-[var(--card)]/50 px-4 py-2 text-sm font-semibold text-[var(--foreground)] hover:bg-[var(--card)]/60 disabled:opacity-60"
               >
                 {syncing ? "Syncing…" : "Sync spend"}
               </button>
             </>
           ) : (
             <>
-              {item.mediaUrl ? (
-                <button
-                  onClick={() => window.open(item.mediaUrl!, "_blank", "noopener,noreferrer")}
-                  className="rounded-full bg-[#00C2CB] px-4 py-2 text-sm font-semibold text-black hover:opacity-90"
-                >
-                  Open post
-                </button>
-              ) : (
-                <button
-                  disabled
-                  className="rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-gray-300 opacity-60"
-                >
-                  No media
-                </button>
-              )}
+              <Link
+                href={`/affiliate/dashboard/manage-campaigns/${item.id}`}
+                className="rounded-full bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-[var(--primary-foreground)] hover:opacity-90"
+              >
+                Open post
+              </Link>
             </>
           )}
         </div>

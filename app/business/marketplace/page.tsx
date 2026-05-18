@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { supabase } from '@/../utils/supabase/pages-client';
+import { useEffect, useState } from "react";
+import { supabase } from "@/../utils/supabase/pages-client";
 
 interface Offer {
   id: string;
@@ -17,9 +17,9 @@ export default function BusinessMarketplace() {
 
   useEffect(() => {
     const fetchOffers = async () => {
-      const { data, error } = await supabase.from('offers').select('*');
+      const { data, error } = await supabase.from("offers").select("*");
       if (error) {
-        console.error('[❌ Error fetching offers]', error.message);
+        console.error("[❌ Error fetching offers]", error.message);
       } else if (data) {
         setOffers(data);
       }
@@ -29,27 +29,56 @@ export default function BusinessMarketplace() {
   }, []);
 
   return (
-    <div className="p-8 bg-surface min-h-screen text-white">
-      <h1 className="text-3xl font-extrabold mb-8 text-[#00C2CB] tracking-tight">Business Marketplace</h1>
+    <div className="business-marketplace-theme min-h-screen bg-[var(--background)] p-8 text-[var(--foreground)]">
+      <div className="mb-8 flex flex-col gap-2">
+        <h1 className="text-3xl font-extrabold tracking-tight text-[var(--primary)]">
+          Business Marketplace
+        </h1>
+        <p className="max-w-2xl text-sm text-[var(--muted-foreground)]">
+          Monitor active offers across the network and keep tabs on competitor
+          positioning.
+        </p>
+      </div>
+
       {offers.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
           {offers.map((offer) => (
-            <div key={offer.id} className="bg-[#1c1c1c] border border-gray-700 rounded-xl p-6 shadow-lg hover:shadow-xl transition-all duration-200">
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-sm font-semibold text-green-400 bg-green-900 px-2 py-1 rounded-full">Verified</span>
-                <span className="text-xs text-white bg-gray-800 px-2 py-1 rounded">{offer.type === 'recurring' ? 'Recurring' : 'One-time'}</span>
+            <div
+              key={offer.id}
+              className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-[0_18px_50px_rgba(0,0,0,0.10)] transition-all duration-200 hover:-translate-y-0.5 hover:border-[var(--primary)]/45 hover:shadow-[0_22px_60px_rgba(0,0,0,0.14)]"
+            >
+              <div className="mb-4 flex items-center justify-between gap-2">
+                <span className="rounded-full border border-emerald-500/35 bg-emerald-500/15 px-2 py-1 text-sm font-semibold text-emerald-400">
+                  Verified
+                </span>
+                <span className="rounded-full border border-[var(--border)] bg-[var(--secondary)] px-2 py-1 text-xs text-[var(--muted-foreground)]">
+                  {offer.type === "recurring" ? "Recurring" : "One-time"}
+                </span>
               </div>
-              <h2 className="text-lg font-semibold text-white mb-2">{offer.businessName}</h2>
-              <p className="text-sm text-gray-300 mb-4">{offer.description}</p>
-              <div className="flex items-center text-sm text-[#00C2CB] font-medium mb-4">
-                <svg className="w-4 h-4 mr-1 text-[#00C2CB]" fill="currentColor" viewBox="0 0 24 24"><path d="M12 1C8.13 1 5 4.13 5 8c0 4.5 7 13 7 13s7-8.5 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5S10.62 5.5 12 5.5 14.5 6.62 14.5 8 13.38 10.5 12 10.5z"/></svg>
+
+              <h2 className="mb-2 text-lg font-semibold text-[var(--foreground)]">
+                {offer.businessName}
+              </h2>
+              <p className="mb-4 text-sm text-[var(--muted-foreground)]">
+                {offer.description}
+              </p>
+
+              <div className="mb-4 flex items-center text-sm font-medium text-[var(--primary)]">
+                <svg
+                  className="mr-1 h-4 w-4 text-[var(--primary)]"
+                  fill="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path d="M12 1C8.13 1 5 4.13 5 8c0 4.5 7 13 7 13s7-8.5 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5S10.62 5.5 12 5.5 14.5 6.62 14.5 8 13.38 10.5 12 10.5z" />
+                </svg>
                 Commission: {offer.commission}%
               </div>
+
               <a
                 href={offer.website}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="block text-center w-full bg-[#00C2CB] hover:bg-[#00b0b8] text-white py-2 rounded-md transition-colors"
+                className="block w-full rounded-md bg-[var(--primary)] py-2 text-center text-[var(--primary-foreground)] transition hover:brightness-110"
               >
                 View Details
               </a>
@@ -57,7 +86,9 @@ export default function BusinessMarketplace() {
           ))}
         </div>
       ) : (
-        <p className="text-gray-400 italic">No offers available yet.</p>
+        <p className="italic text-[var(--muted-foreground)]">
+          No offers available yet.
+        </p>
       )}
     </div>
   );

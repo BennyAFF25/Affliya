@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { useEffect, useState } from 'react';
-import { useSession } from '@supabase/auth-helpers-react';
-import { supabase } from 'utils/supabase/pages-client';
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useSession } from "@supabase/auth-helpers-react";
+import { supabase } from "utils/supabase/pages-client";
 import {
   Home,
   Briefcase,
@@ -13,7 +13,7 @@ import {
   Settings,
   LifeBuoy,
   type LucideIcon,
-} from 'lucide-react';
+} from "lucide-react";
 
 export default function BusinessSidebar() {
   const pathname = usePathname();
@@ -26,8 +26,8 @@ export default function BusinessSidebar() {
       if (!user?.email) return;
 
       const [{ data: reqs }, { data: ads }] = await Promise.all([
-        supabase.from('affiliate_requests').select('*').eq('status', 'pending'),
-        supabase.from('ad_ideas').select('*').eq('status', 'pending'),
+        supabase.from("affiliate_requests").select("*").eq("status", "pending"),
+        supabase.from("ad_ideas").select("*").eq("status", "pending"),
       ]);
 
       if ((reqs?.length ?? 0) > 0 || (ads?.length ?? 0) > 0) {
@@ -39,110 +39,119 @@ export default function BusinessSidebar() {
   }, [user]);
 
   const links: { name: string; href: string; icon: LucideIcon }[] = [
-    { name: 'Dashboard', href: '/business/dashboard', icon: Home },
-    { name: 'My Business', href: '/business/my-business', icon: Briefcase },
-    { name: 'Marketplace', href: '/business/marketplace', icon: Package },
-    { name: 'Manage Campaigns', href: '/business/manage-campaigns', icon: Package },
-    { name: 'Inbox', href: '/business/inbox', icon: Mail },
-    { name: 'Settings', href: '/business/settings', icon: Settings },
-    { name: 'Support', href: '/business/support', icon: LifeBuoy },
+    { name: "Dashboard", href: "/business/dashboard", icon: Home },
+    { name: "My Business", href: "/business/my-business", icon: Briefcase },
+    { name: "Marketplace", href: "/business/marketplace", icon: Package },
+    {
+      name: "Manage Campaigns",
+      href: "/business/manage-campaigns",
+      icon: Package,
+    },
+    { name: "Inbox", href: "/business/inbox", icon: Mail },
+    { name: "Settings", href: "/business/settings", icon: Settings },
+    { name: "Support", href: "/business/support", icon: LifeBuoy },
   ];
 
   return (
     <>
       {/* Desktop sidebar wrapper now takes full height */}
-      <div className="hidden md:block h-full">
-        <div className="h-full w-64 bg-gradient-to-b from-[#121212] to-[#1a1a1a] border-r border-[#262626] p-6 text-white">
-          <ul className="mt-2 space-y-1">
-            {links.map((link) => {
-              const active = pathname === link.href;
-              const Icon = link.icon;
-              return (
-                <li key={link.href} className="relative">
-                  {/* Section divider before Inbox */}
-                  {link.name === 'Inbox' && (
-                    <div className="my-2 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-                  )}
-
-                  <Link
-                    href={link.href}
-                    className={[
-                      'group flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors border',
-                      active
-                        ? 'bg-[#00C2CB]/15 text-white border-[#00C2CB]/30 ring-1 ring-[#00C2CB]/20'
-                        : 'text-gray-200 border-transparent hover:bg-[#0b2a2b] hover:text-white hover:border-[#1f3a3b]',
-                    ].join(' ')}
-                  >
-                    <Icon
-                      size={18}
-                      className={
-                        active
-                          ? 'text-[#00C2CB]'
-                          : 'text-gray-400 group-hover:text-[#7ff5fb]'
-                      }
-                    />
-                    <span className={active ? 'tracking-wide' : ''}>
-                      {link.name}
-                    </span>
-                    {/* Active pill on the right for clarity */}
-                    {active && (
-                      <span className="ml-auto text-[10px] px-2 py-0.5 rounded-full bg-[#00C2CB]/20 text-[#7ff5fb] border border-[#00C2CB]/30">
-                        Active
-                      </span>
+      <div className="hidden h-full md:block">
+        <div className="relative h-full w-64 p-6 text-[var(--sidebar-foreground)]">
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[var(--sidebar)] via-[var(--card)] to-[var(--sidebar)]" />
+          <div className="pointer-events-none absolute -left-6 top-10 h-48 w-48 rounded-full bg-[var(--primary)]/15 blur-3xl" />
+          <div className="pointer-events-none absolute inset-0 border-r border-[var(--sidebar-border)] shadow-[0_30px_90px_rgba(0,0,0,0.2)]" />
+          <div className="relative">
+            <ul className="mt-2 space-y-1">
+              {links.map((link) => {
+                const active = pathname === link.href;
+                const Icon = link.icon;
+                return (
+                  <li key={link.href} className="relative">
+                    {/* Section divider before Inbox */}
+                    {link.name === "Inbox" && (
+                      <div className="my-2 h-px bg-gradient-to-r from-transparent via-[var(--sidebar-border)] to-transparent" />
                     )}
-                  </Link>
 
-                  {link.name === 'Inbox' && showNotification && (
-                    <span className="absolute top-3 right-3 h-2.5 w-2.5 rounded-full bg-[#00C2CB] ring-2 ring-[#0f0f0f] shadow-[0_0_12px_2px_rgba(0,194,203,0.45)]" />
-                  )}
-                </li>
-              );
-            })}
-          </ul>
+                    <Link
+                      href={link.href}
+                      className={[
+                        "group flex items-center gap-3 rounded-xl border px-4 py-3 text-sm font-medium backdrop-blur-sm transition-colors",
+                        active
+                          ? "border-[var(--primary)]/30 bg-[var(--primary)]/15 text-[var(--foreground)] ring-1 ring-[var(--primary)]/20"
+                          : "border-transparent text-[var(--muted-foreground)] hover:border-[var(--border)] hover:bg-[var(--card)] hover:text-[var(--foreground)]",
+                      ].join(" ")}
+                    >
+                      <Icon
+                        size={18}
+                        className={
+                          active
+                            ? "text-[var(--primary)]"
+                            : "text-[var(--muted-foreground)] group-hover:text-[var(--primary)]"
+                        }
+                      />
+                      <span className={active ? "tracking-wide" : ""}>
+                        {link.name}
+                      </span>
+                      {/* Active pill on the right for clarity */}
+                      {active && (
+                        <span className="ml-auto rounded-full border border-[var(--primary)]/30 bg-[var(--primary)]/20 px-2 py-0.5 text-[10px] text-[var(--primary)]">
+                          Active
+                        </span>
+                      )}
+                    </Link>
+
+                    {link.name === "Inbox" && showNotification && (
+                      <span className="absolute right-3 top-3 h-2.5 w-2.5 rounded-full bg-[var(--primary)] ring-2 ring-[var(--card)] shadow-[0_0_12px_2px_color-mix(in_oklab,var(--primary)_45%,transparent)]" />
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
         </div>
       </div>
 
       {/* Mobile pill slider nav */}
-      <div className="md:hidden bg-[#1F1F1F] border-b border-black/20 py-3 px-4 flex overflow-x-auto gap-3">
+      <div className="flex gap-3 overflow-x-auto border-b border-[var(--border)] bg-[var(--card)] px-4 py-3 md:hidden">
         <Link
           href="/business/dashboard"
-          className="px-4 py-2 rounded-full bg-[#00C2CB] text-black text-sm whitespace-nowrap"
+          className="whitespace-nowrap rounded-full border border-[var(--primary)]/35 bg-[var(--primary)]/20 px-4 py-2 text-sm text-[var(--primary)]"
         >
           Dashboard
         </Link>
         <Link
           href="/business/my-business"
-          className="px-4 py-2 rounded-full bg-[#00C2CB] text-black text-sm whitespace-nowrap"
+          className="whitespace-nowrap rounded-full border border-[var(--primary)]/35 bg-[var(--primary)]/20 px-4 py-2 text-sm text-[var(--primary)]"
         >
           My Business
         </Link>
         <Link
           href="/business/marketplace"
-          className="px-4 py-2 rounded-full bg-[#00C2CB] text-black text-sm whitespace-nowrap"
+          className="whitespace-nowrap rounded-full border border-[var(--primary)]/35 bg-[var(--primary)]/20 px-4 py-2 text-sm text-[var(--primary)]"
         >
           Marketplace
         </Link>
         <Link
           href="/business/manage-campaigns"
-          className="px-4 py-2 rounded-full bg-[#00C2CB] text-black text-sm whitespace-nowrap"
+          className="whitespace-nowrap rounded-full border border-[var(--primary)]/35 bg-[var(--primary)]/20 px-4 py-2 text-sm text-[var(--primary)]"
         >
           Campaigns
         </Link>
         <Link
           href="/business/inbox"
-          className="px-4 py-2 rounded-full bg-[#00C2CB] text-black text-sm whitespace-nowrap"
+          className="whitespace-nowrap rounded-full border border-[var(--primary)]/35 bg-[var(--primary)]/20 px-4 py-2 text-sm text-[var(--primary)]"
         >
           Inbox
         </Link>
         <Link
           href="/business/settings"
-          className="px-4 py-2 rounded-full bg-[#00C2CB] text-black text-sm whitespace-nowrap"
+          className="whitespace-nowrap rounded-full border border-[var(--primary)]/35 bg-[var(--primary)]/20 px-4 py-2 text-sm text-[var(--primary)]"
         >
           Settings
         </Link>
         <Link
           href="/business/support"
-          className="px-4 py-2 rounded-full bg-[#00C2CB] text-black text-sm whitespace-nowrap"
+          className="whitespace-nowrap rounded-full border border-[var(--primary)]/35 bg-[var(--primary)]/20 px-4 py-2 text-sm text-[var(--primary)]"
         >
           Support
         </Link>

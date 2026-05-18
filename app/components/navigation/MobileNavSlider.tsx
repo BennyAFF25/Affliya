@@ -1,8 +1,7 @@
 "use client";
 
-import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { ReactNode } from 'react';
+import React, { type ReactNode } from "react";
+import { usePathname, useRouter } from "next/navigation";
 
 export interface MobileNavTab {
   id: string;
@@ -18,7 +17,11 @@ interface MobileNavSliderProps {
   className?: string;
 }
 
-export function MobileNavSlider({ tabs, onNavigate, className = '' }: MobileNavSliderProps) {
+export function MobileNavSlider({
+  tabs,
+  onNavigate,
+  className = "",
+}: MobileNavSliderProps) {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -28,7 +31,9 @@ export function MobileNavSlider({ tabs, onNavigate, className = '' }: MobileNavS
   };
 
   return (
-    <div className={`flex gap-2 overflow-x-auto pb-1 scrollbar-hide ${className}`}>
+    <div
+      className={`flex gap-2 overflow-x-auto pb-1 scrollbar-hide ${className}`}
+    >
       {tabs.map((tab) => {
         const isActive = pathname?.startsWith(tab.href);
         return (
@@ -37,16 +42,24 @@ export function MobileNavSlider({ tabs, onNavigate, className = '' }: MobileNavS
             onClick={() => handleClick(tab.href)}
             className={`flex min-w-fit items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium transition ${
               isActive
-                ? 'border-[#00C2CB] bg-[#00C2CB] text-black shadow-[0_8px_20px_rgba(0,194,203,0.35)]'
-                : 'border-white/10 bg-[#1c1c1c] text-white/80 hover:border-white/30'
+                ? "border-[var(--primary)] bg-[var(--primary)] text-[var(--primary-foreground)] shadow-[0_8px_20px_rgba(0,194,203,0.35)]"
+                : "border-[var(--border)] bg-[var(--secondary)] text-[var(--muted-foreground)] hover:border-[var(--primary)]/40 hover:text-[var(--foreground)]"
             }`}
           >
-            {tab.icon && <span className={`text-sm ${isActive ? 'text-black' : 'text-[#00C2CB]'}`}>{tab.icon}</span>}
+            {tab.icon && (
+              <span
+                className={`text-sm ${isActive ? "text-[var(--primary-foreground)]" : "text-[var(--primary)]"}`}
+              >
+                {tab.icon}
+              </span>
+            )}
             <span className="whitespace-nowrap">{tab.label}</span>
-            {typeof tab.badge === 'number' && tab.badge > 0 && (
+            {typeof tab.badge === "number" && tab.badge > 0 && (
               <span
                 className={`rounded-full px-2 py-0.5 text-xs ${
-                  isActive ? 'bg-black/20 text-black' : 'bg-white/10 text-white'
+                  isActive
+                    ? "bg-[var(--primary-foreground)]/15 text-[var(--primary-foreground)]"
+                    : "bg-[var(--card)] text-[var(--foreground)]"
                 }`}
               >
                 {tab.badge}
