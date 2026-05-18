@@ -28,7 +28,6 @@ export default function PricingPage() {
     try {
       localStorage.setItem("intent.role", type);
       localStorage.setItem("intent.flow", "signup");
-<<<<<<< HEAD
     } catch {
       // ignore localStorage write failures
     }
