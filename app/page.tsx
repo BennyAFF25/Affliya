@@ -1,10 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { useSessionContext } from "@supabase/auth-helpers-react";
+import React, { useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import MarketingHeader from "@/components/marketing/MarketingHeader";
 import {
   ShieldCheck,
@@ -25,16 +22,6 @@ import {
 } from "lucide-react";
 
 export default function Home() {
-  const { supabaseClient } = useSessionContext();
-  const [session, setSession] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const user = session?.user ?? null;
-  const router = useRouter();
-  const [userType, setUserType] = useState<"business" | "affiliate" | null>(
-    null,
-  );
-  const [showBizWhy, setShowBizWhy] = useState(false);
-  const [showAffWhy, setShowAffWhy] = useState(false);
   const [walkthroughAudience, setWalkthroughAudience] = useState<
     "business" | "affiliate"
   >("business");
@@ -171,35 +158,6 @@ export default function Home() {
       a: "No. Early access is free for life for the first 150 orgs. After that, monthly plans with cancel-anytime apply.",
     },
   ];
-
-  useEffect(() => {
-    const initSession = async () => {
-      const { data } = await supabaseClient.auth.getSession();
-      setSession(data.session);
-      setIsLoading(false);
-    };
-
-    initSession();
-
-    const {
-      data: { subscription },
-    } = supabaseClient.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [supabaseClient]);
-
-  const handleLogin = (type: "business" | "affiliate") => {
-    setUserType(type);
-    try {
-      localStorage.setItem("intent.role", type); // canonical
-      localStorage.setItem("userType", type); // legacy (kept for backward-compat)
-    } catch {}
-    router.push(`/login?role=${type}`);
-  };
 
   return (
     <div className="marketing-home-theme min-h-screen flex flex-col overflow-x-hidden bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#0b1a1b] via-[#0b0b0b] to-black text-white">
