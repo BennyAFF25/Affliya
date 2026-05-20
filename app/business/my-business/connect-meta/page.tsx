@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useSession } from "@supabase/auth-helpers-react";
@@ -56,7 +56,7 @@ function StatusPill({ connected }: { connected: boolean }) {
   );
 }
 
-export default function ConnectMetaPage() {
+function ConnectMetaPageInner() {
   const searchParams = useSearchParams();
   const session = useSession();
   const user = session?.user;
@@ -406,5 +406,14 @@ export default function ConnectMetaPage() {
         </section>
       </div>
     </div>
+  );
+}
+
+
+export default function ConnectMetaPage() {
+  return (
+    <Suspense fallback={null}>
+      <ConnectMetaPageInner />
+    </Suspense>
   );
 }
