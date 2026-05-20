@@ -119,6 +119,21 @@ const IconCheck = (props: React.SVGProps<SVGSVGElement>) => (
     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
   </svg>
 );
+const IconSpinner = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    {...props}
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M21 12a9 9 0 11-6.219-8.56"
+    />
+  </svg>
+);
 const IconStorefront = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
     viewBox="0 0 24 24"
@@ -243,6 +258,49 @@ interface Offer {
   description: string;
   commission: number;
   type: string;
+  meta_page_id?: string | null;
+  meta_ad_account_id?: string | null;
+  meta_pixel_id?: string | null;
+}
+
+function getOfferMetaStatus(offer: Offer) {
+  if (offer.meta_page_id && offer.meta_ad_account_id && offer.meta_pixel_id) {
+    return {
+      label: "Ads enabled",
+      tone: "bg-emerald-500/15 text-emerald-200 border border-emerald-400/40",
+      helper: "This offer can run organic and paid Meta campaigns, including sales.",
+      needsSetup: false,
+      actionLabel: "Ads enabled",
+    };
+  }
+
+  if (offer.meta_page_id && offer.meta_ad_account_id) {
+    return {
+      label: "Ads enabled",
+      tone: "bg-cyan-500/15 text-cyan-200 border border-cyan-400/40",
+      helper: "Affiliates can run ads for this offer. Add a pixel if you want sales campaigns too.",
+      needsSetup: true,
+      actionLabel: "Add sales pixel",
+    };
+  }
+
+  if (offer.meta_page_id || offer.meta_ad_account_id || offer.meta_pixel_id) {
+    return {
+      label: "Organic only",
+      tone: "bg-amber-500/15 text-amber-200 border border-amber-400/40",
+      helper: "This offer is still marketplace-visible, but affiliates should only use organic promotion until Meta setup is finished.",
+      needsSetup: true,
+      actionLabel: "Finish Meta setup",
+    };
+  }
+
+  return {
+    label: "Organic only",
+    tone: "bg-white/5 text-white/70 border border-white/10",
+    helper: "This offer can be listed in the marketplace, but affiliates can only promote it organically until Meta is connected.",
+    needsSetup: true,
+    actionLabel: "Connect Meta assets",
+  };
 }
 
 // ---- Pending Notification Dot ----
@@ -261,6 +319,7 @@ export default function MyBusinessPage() {
   const [loadingPaymentForm, setLoadingPaymentForm] = useState(false);
   const [loadingDeleteId, setLoadingDeleteId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isEnablingPayouts, setIsEnablingPayouts] = useState(false);
   const [businessCustomerId, setBusinessCustomerId] = useState<string | null>(
     null,
   );
@@ -348,7 +407,9 @@ export default function MyBusinessPage() {
       setOffersLoading(true);
       const { data, error } = await supabase
         .from("offers")
-        .select("id,title,description,commission,type")
+        .select(
+          "id,title,description,commission,type,meta_page_id,meta_ad_account_id,meta_pixel_id",
+        )
         .eq("business_email", user.email);
 
       if (error) {
@@ -537,7 +598,11 @@ export default function MyBusinessPage() {
   }
 
   async function handleEnablePayouts() {
+    if (isEnablingPayouts) return;
+
     try {
+      setIsEnablingPayouts(true);
+
       const email = user?.email;
       if (!email) throw new Error("Missing business email");
 
@@ -559,6 +624,7 @@ export default function MyBusinessPage() {
     } catch (e: any) {
       console.error("[Enable payouts error]", e);
       toast.error(e?.message || "Stripe error");
+      setIsEnablingPayouts(false);
     }
   }
 
@@ -715,12 +781,11 @@ export default function MyBusinessPage() {
                   Finish setting up your account
                 </h2>
                 <p className="text-sm text-gray-400">
-                  Complete payouts and billing. Tracking can be verified after
-                  your first pixel ping.
+                  Work through the core setup in order: Stripe first, then Meta, then create your first offer, then install tracking against that offer.
                 </p>
               </div>
               <div className="text-xs px-3 py-1 rounded-full bg-[#00C2CB]/15 text-[#7ff5fb] border border-[#00C2CB]/25">
-                {(payoutsReady ? 1 : 0) + (billingReady ? 1 : 0)} / 2 complete
+                Guided setup
               </div>
             </div>
 
@@ -745,9 +810,13 @@ export default function MyBusinessPage() {
                     <>
                       <button
                         onClick={handleEnablePayouts}
-                        className="px-3 py-2 rounded-md bg-[#00C2CB] text-black text-sm hover:bg-[#00b0b8]"
+                        disabled={isEnablingPayouts}
+                        className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-[#00C2CB] text-black text-sm hover:bg-[#00b0b8] disabled:cursor-not-allowed disabled:opacity-70"
                       >
-                        Connect
+                        {isEnablingPayouts && (
+                          <IconSpinner className="h-4 w-4 animate-spin" />
+                        )}
+                        {isEnablingPayouts ? "Opening Stripe…" : "Connect"}
                       </button>
                       {businessAccountId && !onboardingComplete && (
                         <button
@@ -821,7 +890,57 @@ export default function MyBusinessPage() {
                 </div>
               )}
 
-              {/* Tracking hint */}
+              {/* Meta step */}
+              <div className="flex items-center justify-between rounded-xl border border-[#1f2a2b] bg-[#0e1112] px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <span className="inline-block w-3 h-3 rounded-full bg-[#334649]" />
+                  <div>
+                    <div className="text-white font-medium">
+                      Connect Meta ads <span className="text-gray-500">(optional)</span>
+                    </div>
+                    <div className="text-xs text-gray-400">
+                      Connect Meta here if affiliates should be able to run paid ads for your offers. Skip it if you only want organic promotion for now.
+                    </div>
+                  </div>
+                </div>
+                <Link
+                  href="/business/my-business/connect-meta?onboard=1"
+                  prefetch={false}
+                  className="px-3 py-2 rounded-md border border-[#00C2CB]/40 text-white text-sm hover:bg-[#0f1415]"
+                >
+                  Continue
+                </Link>
+              </div>
+
+              <div className="flex items-center justify-between rounded-xl border border-[#1f2a2b] bg-[#0e1112] px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <span className="inline-block w-3 h-3 rounded-full bg-[#334649]" />
+                  <div>
+                    <div className="text-white font-medium">Create your first offer</div>
+                    <div className="text-xs text-gray-400">
+                      When you get here, you’ll choose which connected Meta page and ad account this offer should use.
+                    </div>
+                  </div>
+                </div>
+                {canCreateOffer ? (
+                  <Link
+                    href="/business/my-business/create-offer?onboard=1"
+                    prefetch={false}
+                    className="px-3 py-2 rounded-md border border-[#00C2CB]/40 text-white text-sm hover:bg-[#0f1415]"
+                  >
+                    Continue
+                  </Link>
+                ) : (
+                  <button
+                    disabled
+                    className="px-3 py-2 rounded-md border border-[#00C2CB]/15 text-gray-500 text-sm cursor-not-allowed bg-transparent"
+                  >
+                    Continue
+                  </button>
+                )}
+              </div>
+
+              {/* Tracking step */}
               <div className="flex items-center justify-between rounded-xl border border-[#1f2a2b] bg-[#0e1112] px-4 py-3">
                 <div className="flex items-center gap-3">
                   <span className="inline-block w-3 h-3 rounded-full bg-[#334649]" />
@@ -830,24 +949,23 @@ export default function MyBusinessPage() {
                       Install &amp; verify tracking
                     </div>
                     <div className="text-xs text-gray-400">
-                      Optional to create your offer. We auto-verify once the
-                      pixel fires.
+                      Tracking needs an offer to attach to, so do this right after your first offer is live.
                     </div>
                   </div>
                 </div>
                 {canCreateOffer ? (
                   <Link
-                    href="/business/my-business/create-offer?onboard=tracking"
+                    href="/business/setup-tracking?onboard=1"
                     className="px-3 py-2 rounded-md border border-[#00C2CB]/40 text-white text-sm hover:bg-[#0f1415]"
                   >
-                    View instructions
+                    Continue
                   </Link>
                 ) : (
                   <button
                     disabled
                     className="px-3 py-2 rounded-md border border-[#00C2CB]/15 text-gray-500 text-sm cursor-not-allowed bg-transparent"
                   >
-                    View instructions
+                    Continue
                   </button>
                 )}
               </div>
@@ -987,10 +1105,15 @@ export default function MyBusinessPage() {
 
                   <button
                     onClick={handleEnablePayouts}
-                    className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-[#00C2CB] text-black font-semibold px-6 py-3 text-sm hover:bg-[#00b0b8] transition-all shadow-[0_0_25px_rgba(0,194,203,0.45)]"
+                    disabled={isEnablingPayouts}
+                    className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-[#00C2CB] text-black font-semibold px-6 py-3 text-sm hover:bg-[#00b0b8] transition-all shadow-[0_0_25px_rgba(0,194,203,0.45)] disabled:cursor-not-allowed disabled:opacity-70"
                   >
-                    <IconBank className="w-4 h-4" />
-                    Enable Payouts
+                    {isEnablingPayouts ? (
+                      <IconSpinner className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <IconBank className="w-4 h-4" />
+                    )}
+                    {isEnablingPayouts ? "Opening Stripe…" : "Enable Payouts"}
                   </button>
                 </div>
 
@@ -1078,6 +1201,10 @@ export default function MyBusinessPage() {
                   key={offer.id}
                   className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] p-5 shadow-[0_18px_45px_rgba(0,0,0,0.7)] transition hover:border-[#00C2CB]/60 hover:shadow-[0_22px_60px_rgba(0,0,0,0.95)]"
                 >
+                  {(() => {
+                    const metaStatus = getOfferMetaStatus(offer);
+                    return (
+                      <>
                   {/* Soft glow accent */}
                   <div
                     className="pointer-events-none absolute inset-x-0 -top-16 h-24 opacity-40 blur-3xl"
@@ -1145,6 +1272,18 @@ export default function MyBusinessPage() {
                     {offer.description}
                   </p>
 
+                  <div className="relative mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-white/40">
+                        Meta status
+                      </span>
+                      <span className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium ${metaStatus.tone}`}>
+                        {metaStatus.label}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-sm text-white/65">{metaStatus.helper}</p>
+                  </div>
+
                   <div className="relative mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
                     <Link
                       href={`/business/my-business/edit-offer/${offer.id}/`}
@@ -1163,7 +1302,20 @@ export default function MyBusinessPage() {
                         ? "Deleting…"
                         : "Delete Offer"}
                     </button>
+                    {metaStatus.needsSetup && (
+                      <Link
+                        href={`/business/my-business/edit-offer/${offer.id}/#meta-setup`}
+                        prefetch={false}
+                      >
+                        <button className="inline-flex w-full items-center justify-center rounded-full border border-[#00C2CB]/30 bg-[#00C2CB]/10 px-4 py-2.5 text-sm font-semibold text-[#7ff5fb] hover:bg-[#00C2CB]/15 sm:w-auto">
+                          {metaStatus.actionLabel}
+                        </button>
+                      </Link>
+                    )}
                   </div>
+                      </>
+                    );
+                  })()}
                 </div>
               ))}
             </div>

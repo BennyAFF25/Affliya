@@ -12,7 +12,7 @@ function CreateOfferPageInner() {
   const supabase = createPagesBrowserClient();
 
   const searchParams = useSearchParams();
-  const isOnboard = searchParams?.get("onboard") === "tracking";
+  const isOnboard = searchParams?.get("onboard") === "1" || searchParams?.get("onboard") === "tracking";
   const [showOnboard, setShowOnboard] = useState(false);
 
   // Fire-and-forget emails (Resend). Never block the user flow.
@@ -340,14 +340,6 @@ function CreateOfferPageInner() {
       );
       setStep(2);
       return;
-    }
-
-    if (hasMetaConnections) {
-      if (!selectedPage || !selectedAdAccount) {
-        alert("Please select a Facebook Page and Ad Account.");
-        setStep(3);
-        return;
-      }
     }
 
     let uploadedLogoUrl: string | null = null;
@@ -964,139 +956,181 @@ function CreateOfferPageInner() {
             </>
           )}
 
-          {step === 3 && hasMetaConnections && (
+          {step === 3 && (
             <>
               <h2 className="text-2xl font-bold text-[#00C2CB]">
-                Meta Connections
+                Meta campaign setup
               </h2>
 
-              <div>
-                <label className="block font-semibold text-white mb-1">
-                  Select Facebook Page
-                </label>
-                <select
-                  value={selectedPage}
-                  onChange={(e) => {
-                    console.log("[🧭 Page Selected]", e.target.value);
-                    setSelectedPage(e.target.value);
-                  }}
-                  className="w-full p-3 border border-[#2a2a2a] bg-[#0e0e0e] text-white rounded-lg"
-                >
-                  <option value="">Select a page</option>
-                  {uniquePages.map((conn) => (
-                    <option key={conn.page_id} value={conn.page_id}>
-                      {conn.page_name || conn.page_id}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <p className="text-sm text-gray-400 -mt-2">
+                Connect Meta now if affiliates should be able to run paid ads for this offer. If you skip it, the offer will still be listed in the marketplace as organic-only.
+              </p>
 
-              <div>
-                <label className="block font-semibold text-white mb-1">
-                  Select Ad Account
-                </label>
-                <select
-                  value={selectedAdAccount}
-                  onChange={(e) => {
-                    const next = e.target.value;
-                    console.log("[🏦 Ad Account Selected]", next);
-                    setSelectedAdAccount(next);
-                    // Pixel loading + reset handled by effect
-                  }}
-                  className="w-full p-3 border border-[#2a2a2a] bg-[#0e0e0e] text-white rounded-lg"
-                >
-                  <option value="">Select an ad account</option>
-                  {uniqueAdAccounts.map((conn) => (
-                    <option key={conn.ad_account_id} value={conn.ad_account_id}>
-                      {conn.ad_account_name || conn.ad_account_id}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {hasMetaConnections ? (
+                <>
+                  <div className="rounded-xl border border-[#1e3a3c] bg-[#071416] p-4 text-sm text-[#bff9fc]">
+                    Page + ad account enable paid ads for this offer. If you leave them blank, the offer stays organic-only. A pixel is only required when affiliates run Sales or Conversion campaigns.
+                  </div>
 
-              <div>
-                <div className="flex items-center justify-between mb-2">
-                  <label className="block font-semibold text-white">
-                    Select Meta Pixel (required for Sales ads)
-                  </label>
+                  <div className="rounded-xl border border-[#2a2a2a] bg-[#111111] p-4 text-sm text-gray-300">
+                    This is where you choose which connected Meta assets this offer belongs to. Each offer can be mapped to its own page, ad account, and optional sales pixel.
+                  </div>
 
-                  {pixelStatus !== "idle" && (
-                    <span
-                      className={
-                        "text-[11px] px-2 py-1 rounded-full border " +
-                        (pixelStatus === "ok"
-                          ? "bg-[#00C2CB]/10 text-[#7ff5fb] border-[#00C2CB]/25"
-                          : pixelStatus === "loading"
-                            ? "bg-[#222]/60 text-gray-200 border-[#2a2a2a]"
-                            : pixelStatus === "empty"
-                              ? "bg-[#f59e0b]/10 text-[#fbbf24] border-[#f59e0b]/25"
-                              : "bg-[#ef4444]/10 text-[#fecaca] border-[#ef4444]/25")
-                      }
+                  <div>
+                    <label className="block font-semibold text-white mb-1">
+                      Select Facebook Page <span className="text-xs text-gray-500">(offer asset)</span>
+                    </label>
+                    <select
+                      value={selectedPage}
+                      onChange={(e) => {
+                        console.log("[🧭 Page Selected]", e.target.value);
+                        setSelectedPage(e.target.value);
+                      }}
+                      className="w-full p-3 border border-[#2a2a2a] bg-[#0e0e0e] text-white rounded-lg"
                     >
-                      {pixelStatus === "loading"
-                        ? "Loading"
-                        : pixelStatus === "ok"
-                          ? "Pixels found"
-                          : pixelStatus === "empty"
-                            ? "No pixels"
-                            : "Error"}
-                    </span>
+                      <option value="">Skip for now</option>
+                      {uniquePages.map((conn) => (
+                        <option key={conn.page_id} value={conn.page_id}>
+                          {conn.page_name || conn.page_id}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-semibold text-white mb-1">
+                      Select Ad Account <span className="text-xs text-gray-500">(offer asset)</span>
+                    </label>
+                    <select
+                      value={selectedAdAccount}
+                      onChange={(e) => {
+                        const next = e.target.value;
+                        console.log("[🏦 Ad Account Selected]", next);
+                        setSelectedAdAccount(next);
+                      }}
+                      className="w-full p-3 border border-[#2a2a2a] bg-[#0e0e0e] text-white rounded-lg"
+                    >
+                      <option value="">Skip for now</option>
+                      {uniqueAdAccounts.map((conn) => (
+                        <option key={conn.ad_account_id} value={conn.ad_account_id}>
+                          {conn.ad_account_name || conn.ad_account_id}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="block font-semibold text-white">
+                        Select Meta Pixel <span className="text-xs text-gray-500">(sales campaigns only)</span>
+                      </label>
+
+                      {pixelStatus !== "idle" && (
+                        <span
+                          className={
+                            "text-[11px] px-2 py-1 rounded-full border " +
+                            (pixelStatus === "ok"
+                              ? "bg-[#00C2CB]/10 text-[#7ff5fb] border-[#00C2CB]/25"
+                              : pixelStatus === "loading"
+                                ? "bg-[#222]/60 text-gray-200 border-[#2a2a2a]"
+                                : pixelStatus === "empty"
+                                  ? "bg-[#f59e0b]/10 text-[#fbbf24] border-[#f59e0b]/25"
+                                  : "bg-[#ef4444]/10 text-[#fecaca] border-[#ef4444]/25")
+                          }
+                        >
+                          {pixelStatus === "loading"
+                            ? "Loading"
+                            : pixelStatus === "ok"
+                              ? "Pixels found"
+                              : pixelStatus === "empty"
+                                ? "No pixels"
+                                : "Error"}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex gap-3 mb-3 items-center flex-wrap">
+                      <button
+                        type="button"
+                        disabled={pixelsLoading || !selectedAdAccount || !userEmail}
+                        onClick={() => {
+                          console.log("[🔥 REFRESH PIXELS CLICKED]", {
+                            selectedAdAccount,
+                            userEmail,
+                          });
+                          lastLoadedAdAccountRef.current = "";
+                          loadPixels(selectedAdAccount);
+                        }}
+                        className={
+                          "px-4 py-2 rounded-md text-sm font-semibold shadow transition " +
+                          (pixelsLoading || !selectedAdAccount
+                            ? "opacity-50 cursor-not-allowed bg-[#1f1f1f] border border-[#2a2a2a] text-gray-300"
+                            : "bg-[#00C2CB] hover:bg-[#00b0b8] text-black")
+                        }
+                      >
+                        {pixelsLoading ? "Loading…" : "Refresh Pixels"}
+                      </button>
+
+                      {!selectedAdAccount && (
+                        <span className="text-xs text-gray-400">
+                          Select an ad account first
+                        </span>
+                      )}
+
+                      {pixelStatusMsg && (
+                        <span className="text-xs text-gray-400">
+                          {pixelStatusMsg}
+                        </span>
+                      )}
+                    </div>
+
+                    <select
+                      value={selectedPixel}
+                      onChange={(e) => setSelectedPixel(e.target.value)}
+                      className="w-full p-3 border border-[#2a2a2a] bg-[#0e0e0e] text-white rounded-lg"
+                      disabled={!selectedAdAccount}
+                    >
+                      <option value="">Skip pixel for now</option>
+                      {availablePixels.map((pixel) => (
+                        <option key={pixel.id} value={pixel.id}>
+                          {pixel.name}
+                        </option>
+                      ))}
+                    </select>
+
+                    <p className="mt-1 text-xs text-gray-400">
+                      Save without a pixel if you only need traffic or engagement first. Sales campaigns will ask for one later.
+                    </p>
+                  </div>
+
+                  {(!selectedPage || !selectedAdAccount) && (
+                    <div className="rounded-xl border border-white/10 bg-[#121212] p-4 text-sm text-gray-300">
+                      This offer will be created as <span className="font-semibold text-white">organic-only</span> until both a Meta page and ad account are attached.
+                    </div>
                   )}
+                </>
+              ) : (
+                <div className="rounded-2xl border border-dashed border-[#2a2a2a] bg-[#101010] p-5 space-y-4">
+                  <div>
+                    <h3 className="text-lg font-semibold text-white">Meta isn’t connected yet</h3>
+                    <p className="mt-2 text-sm text-gray-400">
+                      You can still save this offer now. It will be listed as organic-only until you connect a Meta page and ad account later.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col gap-3 sm:flex-row">
+                    <Link
+                      href="/business/my-business/connect-meta"
+                      className="inline-flex items-center justify-center rounded-lg bg-[#00C2CB] px-4 py-2 font-semibold text-black hover:bg-[#00b0b8]"
+                    >
+                      Connect Meta ads
+                    </Link>
+                    <span className="inline-flex items-center rounded-lg border border-[#2a2a2a] px-4 py-2 text-sm text-gray-400">
+                      Skip for now — this offer will be organic-only.
+                    </span>
+                  </div>
                 </div>
-
-                <div className="flex gap-3 mb-3 items-center flex-wrap">
-                  <button
-                    type="button"
-                    disabled={pixelsLoading || !selectedAdAccount || !userEmail}
-                    onClick={() => {
-                      console.log("[🔥 REFRESH PIXELS CLICKED]", {
-                        selectedAdAccount,
-                        userEmail,
-                      });
-                      lastLoadedAdAccountRef.current = "";
-                      loadPixels(selectedAdAccount);
-                    }}
-                    className={
-                      "px-4 py-2 rounded-md text-sm font-semibold shadow transition " +
-                      (pixelsLoading || !selectedAdAccount
-                        ? "opacity-50 cursor-not-allowed bg-[#1f1f1f] border border-[#2a2a2a] text-gray-300"
-                        : "bg-[#00C2CB] hover:bg-[#00b0b8] text-black")
-                    }
-                  >
-                    {pixelsLoading ? "Loading…" : "Refresh Pixels"}
-                  </button>
-
-                  {!selectedAdAccount && (
-                    <span className="text-xs text-gray-400">
-                      Select an ad account first
-                    </span>
-                  )}
-
-                  {pixelStatusMsg && (
-                    <span className="text-xs text-gray-400">
-                      {pixelStatusMsg}
-                    </span>
-                  )}
-                </div>
-
-                <select
-                  value={selectedPixel}
-                  onChange={(e) => setSelectedPixel(e.target.value)}
-                  className="w-full p-3 border border-[#2a2a2a] bg-[#0e0e0e] text-white rounded-lg"
-                  disabled={!selectedAdAccount}
-                >
-                  <option value="">Select a pixel</option>
-                  {availablePixels.map((pixel) => (
-                    <option key={pixel.id} value={pixel.id}>
-                      {pixel.name}
-                    </option>
-                  ))}
-                </select>
-
-                <p className="mt-1 text-xs text-gray-400">
-                  Required only if affiliates will run Sales campaigns.
-                </p>
-              </div>
+              )}
             </>
           )}
 
@@ -1118,12 +1152,7 @@ function CreateOfferPageInner() {
             {step > 1 && (
               <button
                 type="button"
-                onClick={() => {
-                  setStep((prev) => {
-                    if (!hasMetaConnections && prev === 4) return 2;
-                    return Math.max(prev - 1, 1);
-                  });
-                }}
+                onClick={() => setStep((prev) => Math.max(prev - 1, 1))}
                 className="bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2 px-6 rounded-lg shadow transition"
               >
                 Back
@@ -1133,12 +1162,7 @@ function CreateOfferPageInner() {
             {step < 4 ? (
               <button
                 type="button"
-                onClick={() => {
-                  setStep((prev) => {
-                    if (!hasMetaConnections && prev === 2) return 4;
-                    return prev + 1;
-                  });
-                }}
+                onClick={() => setStep((prev) => prev + 1)}
                 className="bg-[#00C2CB] hover:bg-[#00b0b8] text-black font-semibold py-2 px-6 rounded-lg shadow transition ml-auto"
               >
                 Next

@@ -19,47 +19,6 @@ export default function BusinessSettingsPage() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
-  const [openingPortal, setOpeningPortal] = useState(false);
-
-  const [trialInfo, setTrialInfo] = useState<{
-    status: string | null;
-    periodEnd: string | null;
-  } | null>(null);
-
-  const handleManageSubscription = async () => {
-    if (!user?.email) return;
-
-    try {
-      setOpeningPortal(true);
-
-      const res = await fetch("/api/stripe-app/create-portal-session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          accountType: "business",
-          userId: user.id,
-          email: user.email,
-        }),
-      });
-
-      const json = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        const msg = (json as any)?.error || "Failed to open billing portal";
-        throw new Error(msg);
-      }
-
-      const url = (json as any)?.url as string | undefined;
-      if (!url) throw new Error("Missing portal URL");
-
-      window.location.href = url;
-    } catch (err: any) {
-      console.error(err);
-      toast.error(err?.message || "Failed to open billing portal");
-    } finally {
-      setOpeningPortal(false);
-    }
-  };
 
   useEffect(() => {
     if (!user?.email) return;
@@ -78,22 +37,6 @@ export default function BusinessSettingsPage() {
         setBusinessName(row.business_name ?? "");
         setBillingEmail(row.billing_email ?? "");
         setAvatarUrl(row.avatar_url ?? null);
-      }
-
-      // New query for trial info
-      const { data: profileData, error: profileError } = await (supabase as any)
-        .from("profiles")
-        .select("revenue_subscription_status, revenue_current_period_end")
-        .eq("id", user.id)
-        .single();
-
-      if (!profileError && profileData) {
-        setTrialInfo({
-          status: profileData.revenue_subscription_status ?? null,
-          periodEnd: profileData.revenue_current_period_end ?? null,
-        });
-      } else {
-        setTrialInfo(null);
       }
 
       setLoadingProfile(false);
@@ -239,40 +182,6 @@ export default function BusinessSettingsPage() {
           </p>
         </header>
 
-        {trialInfo?.status === "trialing" &&
-          trialInfo.periodEnd &&
-          (() => {
-            const daysLeft = Math.max(
-              0,
-              Math.ceil(
-                (new Date(trialInfo.periodEnd).getTime() - Date.now()) /
-                  (1000 * 60 * 60 * 24),
-              ),
-            );
-            const formattedDate = new Date(
-              trialInfo.periodEnd,
-            ).toLocaleDateString("en-GB", {
-              day: "2-digit",
-              month: "short",
-              year: "numeric",
-            });
-            return (
-              <section className="relative rounded-3xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-[0_0_60px_0_rgba(0,0,0,0.10)]">
-                <h2 className="mb-2 text-sm font-semibold text-[var(--primary)]">
-                  Free Trial Active
-                </h2>
-                <p className="mb-1 text-xs text-[var(--muted-foreground)]">
-                  Your free trial ends in {daysLeft} day
-                  {daysLeft !== 1 ? "s" : ""} ({formattedDate}).
-                </p>
-                <p className="text-[11px] text-[var(--muted-foreground)]">
-                  Add a payment method before your trial ends to avoid
-                  interruption.
-                </p>
-              </section>
-            );
-          })()}
-
         {!user && (
           <p className="text-sm text-[var(--muted-foreground)] relative">
             Please sign in to manage your business settings.
@@ -410,30 +319,6 @@ export default function BusinessSettingsPage() {
           </section>
         )}
 
-        {user && (
-          <section className="relative rounded-3xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-[0_0_60px_0_rgba(0,0,0,0.10)]">
-            <h2 className="mb-3 text-sm font-semibold text-[var(--primary)]">
-              Billing
-            </h2>
-            <p className="text-xs text-[var(--muted-foreground)] mb-4">
-              Manage your Nettmark business subscription, update payment method,
-              and view invoices.
-            </p>
-
-            <button
-              type="button"
-              onClick={handleManageSubscription}
-              disabled={openingPortal}
-              className="inline-flex items-center rounded-full bg-[var(--primary)] px-4 py-2 text-xs font-medium text-[var(--primary-foreground)] hover:brightness-110 disabled:opacity-60"
-            >
-              {openingPortal ? "Opening billing…" : "Manage subscription"}
-            </button>
-
-            <p className="mt-3 text-[11px] text-[var(--muted-foreground)]">
-              You’ll be redirected to Stripe’s secure customer portal.
-            </p>
-          </section>
-        )}
       </div>
     </div>
   );

@@ -40,9 +40,6 @@ export default function AffiliateSettingsPage() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
-  const [billingLoading, setBillingLoading] = useState(false);
-  const [trialEndsAt, setTrialEndsAt] = useState<string | null>(null);
-  const [trialStatus, setTrialStatus] = useState<string | null>(null);
 
   async function refreshStatus() {
     try {
@@ -84,18 +81,6 @@ export default function AffiliateSettingsPage() {
 
     const loadProfile = async () => {
       setLoadingProfile(true);
-
-      // Fetch trial fields from 'profiles'
-      const { data, error } = await (supabase as any)
-        .from("profiles")
-        .select("revenue_current_period_end, revenue_subscription_status")
-        .eq("id", user.id)
-        .single();
-
-      if (!error && data) {
-        setTrialEndsAt(data.revenue_current_period_end ?? null);
-        setTrialStatus(data.revenue_subscription_status ?? null);
-      }
 
       // Fetch affiliate profile info as before
       const { data: affiliateData, error: affiliateError } = await (
@@ -260,48 +245,6 @@ export default function AffiliateSettingsPage() {
     }
   };
 
-  const handleManageSubscription = async () => {
-    try {
-      if (!user?.id || !user?.email) {
-        toast.error("Missing user session. Please re-login.");
-        return;
-      }
-
-      setBillingLoading(true);
-
-      const res = await fetch("/api/stripe-app/create-portal-session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          accountType: "affiliate",
-          userId: user.id,
-          email: user.email,
-        }),
-      });
-
-      const json = await res.json();
-      if (!res.ok)
-        throw new Error(json?.error || "Failed to open billing portal");
-      if (!json?.url) throw new Error("Missing portal URL");
-
-      window.location.href = json.url;
-    } catch (err: any) {
-      toast.error(err.message || "Failed to open billing portal");
-    } finally {
-      setBillingLoading(false);
-    }
-  };
-
-  const trialDaysRemaining = trialEndsAt
-    ? Math.max(
-        0,
-        Math.ceil(
-          (new Date(trialEndsAt).getTime() - Date.now()) /
-            (1000 * 60 * 60 * 24),
-        ),
-      )
-    : null;
-
   const initials = displayName?.trim()
     ? displayName
         .trim()
@@ -355,40 +298,10 @@ export default function AffiliateSettingsPage() {
             Affiliate settings
           </h1>
           <p className="text-sm text-[var(--muted-foreground)]">
-            Manage your account, billing, and withdrawals.{" "}
-            <span className="text-[var(--muted-foreground)]/70">
-              (Powered by Stripe)
-            </span>
+            Manage your account and withdrawal details.
           </p>
         </header>
 
-        {trialStatus === "trialing" && trialEndsAt && (
-          <div
-            className={`${CARD_SHELL} border border-[var(--border)] bg-[var(--card)] px-5 py-4 text-sm`}
-          >
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-              <div>
-                <p className="font-medium text-[var(--primary)]">
-                  Free trial active
-                </p>
-                <p className="text-[var(--muted-foreground)]">
-                  Your trial ends in{" "}
-                  <span className="font-semibold text-[var(--foreground)]">
-                    {trialDaysRemaining !== null
-                      ? `${trialDaysRemaining} days`
-                      : "—"}
-                  </span>
-                </p>
-              </div>
-              <button
-                onClick={handleManageSubscription}
-                className="inline-flex items-center rounded-full bg-[var(--primary)] px-4 py-2 text-xs font-medium text-[var(--primary-foreground)] hover:brightness-110"
-              >
-                Manage subscription
-              </button>
-            </div>
-          </div>
-        )}
 
         {user && (
           <section className="mt-6 rounded-3xl border border-white/10 bg-white/[0.04] backdrop-blur p-6 shadow-[0_0_60px_0_rgba(0,194,203,0.12)]">
@@ -502,30 +415,6 @@ export default function AffiliateSettingsPage() {
           </section>
         )}
 
-        {/* Billing (Revenue / Subscriptions) */}
-        {user && (
-          <section className="rounded-3xl border border-white/10 bg-white/[0.04] backdrop-blur p-6 shadow-[0_0_60px_0_rgba(0,194,203,0.12)]">
-            <h2 className="text-sm font-semibold text-[#00C2CB] mb-2">
-              Billing
-            </h2>
-            <p className="text-xs text-white/70 mb-4">
-              Manage your subscription, payment method, and invoices.
-            </p>
-
-            <button
-              type="button"
-              onClick={handleManageSubscription}
-              disabled={billingLoading}
-              className="inline-flex items-center rounded-full bg-[#00C2CB] px-4 py-2 text-xs font-medium text-black hover:bg-[#00b0b8] disabled:opacity-60"
-            >
-              {billingLoading ? "Opening…" : "Manage subscription"}
-            </button>
-
-            <p className="mt-3 text-[11px] text-white/50">
-              This opens Stripe’s billing portal for your Nettmark subscription.
-            </p>
-          </section>
-        )}
 
         {/* Withdrawals (Connect) */}
         <section

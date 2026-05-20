@@ -153,7 +153,7 @@ export async function POST(req: Request) {
         {
           success: false,
           error:
-            "Offer is missing Meta Page or Ad Account selection. Please re-save the offer.",
+            "This offer is organic-only right now. Attach a Meta Page and Ad Account on the offer before launching paid ads.",
         },
         { status: 400 },
       );

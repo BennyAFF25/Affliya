@@ -33,8 +33,6 @@ interface Profile {
   id: string;
   role: string | null;
   email: string | null;
-  revenue_subscription_status?: string | null;
-  revenue_current_period_end?: string | null;
 }
 
 type Timeframe = "7d" | "30d" | "1y" | "all";
@@ -211,9 +209,7 @@ export default function BusinessDashboard() {
     const fetchProfileAndData = async () => {
       const { data: profileData, error: profileError } = await supabase
         .from("profiles")
-        .select(
-          "id, role, email, revenue_subscription_status, revenue_current_period_end",
-        )
+        .select("id, role, email")
         .eq("id", user.id)
         .single();
 

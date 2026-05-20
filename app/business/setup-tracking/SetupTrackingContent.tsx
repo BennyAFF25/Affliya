@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState, type ReactNode } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useSession, useSupabaseClient } from "@supabase/auth-helpers-react";
 import {
   CheckCircleIcon,
@@ -14,6 +14,9 @@ type OfferRow = {
   website?: string | null;
   site_host?: string | null;
 };
+
+type StepKey = "offer" | "install" | "verify" | "meta";
+type StepState = "current" | "done" | "ready" | "locked";
 
 export default function SetupTrackingContent() {
   const session = useSession();
@@ -30,6 +33,8 @@ export default function SetupTrackingContent() {
   const [trackingCode, setTrackingCode] = useState("");
   const [isReady, setIsReady] = useState(false);
   const [trackingInstalled, setTrackingInstalled] = useState(false);
+  const [activeStep, setActiveStep] = useState<StepKey>("offer");
+  const [codeExpanded, setCodeExpanded] = useState(false);
 
   const [testing, setTesting] = useState(false);
   const [testStatus, setTestStatus] = useState<"idle" | "ok" | "fail">("idle");
@@ -195,6 +200,7 @@ analytics.subscribe('checkout_completed', async (event) => {
   }, []);
 
   const isShopify = selectedOffer?.site_host === "Shopify";
+  const installSnippet = isShopify ? shopifyUniversalPixel : trackingCode;
 
   const copyText = async (value: string, kind: "main" | "shopify") => {
     await navigator.clipboard.writeText(value);
@@ -297,53 +303,384 @@ analytics.subscribe('checkout_completed', async (event) => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         to: devEmail,
-        script: isShopify ? shopifyUniversalPixel : trackingCode,
+        script: installSnippet,
         from: user?.email,
       }),
     });
     setEmailSent(true);
   };
 
-  const StepCard = ({
-    number,
-    title,
-    description,
-    children,
-  }: {
-    number: string;
-    title: string;
-    description: string;
-    children: ReactNode;
-  }) => (
-    <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-sm sm:p-6">
-      <div className="mb-4 flex items-start gap-4">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[var(--primary)]/12 text-sm font-bold text-[var(--primary)]">
-          {number}
+  const stepOrder: StepKey[] = ["offer", "install", "verify"];
+  const currentStepIndex = stepOrder.indexOf(activeStep);
+  const hasOffer = !!selectedOffer;
+  const hasVerifiedTracking = testStatus === "ok";
+
+  const getStepState = (step: StepKey): StepState => {
+    if (step === activeStep) return "current";
+    if (step === "offer") return hasOffer ? "done" : "ready";
+    if (step === "install") {
+      if (trackingInstalled) return "done";
+      return hasOffer ? "ready" : "locked";
+    }
+    if (step === "verify") {
+      if (hasVerifiedTracking) return "done";
+      return trackingInstalled ? "ready" : "locked";
+    }
+    return "locked";
+  };
+
+  const steps = [
+    {
+      key: "offer" as StepKey,
+      number: "01",
+      title: "Choose offer",
+      subtitle: "Pick the site you’re wiring up.",
+    },
+    {
+      key: "install" as StepKey,
+      number: "02",
+      title: isShopify ? "Install pixel" : "Install script",
+      subtitle: isShopify
+        ? "Copy once into Shopify customer events."
+        : "Add the Nettmark script to your site.",
+    },
+    {
+      key: "verify" as StepKey,
+      number: "03",
+      title: "Verify tracking",
+      subtitle: "Run one quick test from here.",
+    },
+  ];
+
+  const nextStep = stepOrder[currentStepIndex + 1] || null;
+  const prevStep = stepOrder[currentStepIndex - 1] || null;
+
+  const summaryTitle = !selectedOffer
+    ? "Choose an offer to get started"
+    : activeStep === "offer"
+      ? "Select the right storefront"
+      : activeStep === "install"
+        ? isShopify
+          ? "Paste the Shopify pixel once"
+          : "Add the script to your global head"
+        : "Confirm Nettmark is receiving events";
+
+  const summaryBody = !selectedOffer
+    ? "Once an offer is selected, this flow will tailor the install steps to that site and platform."
+    : activeStep === "offer"
+      ? "We’ll keep the rest of the setup focused on this selected offer, so you’re not dealing with a giant mixed checklist."
+      : activeStep === "install"
+        ? "Copy the snippet on the right, publish it once, then move straight into verification."
+        : "You shouldn’t need to leave this flow again after publishing — just mark it installed and run the test.";
+
+  const goNext = () => {
+    if (nextStep) setActiveStep(nextStep);
+  };
+
+  const goPrev = () => {
+    if (prevStep) setActiveStep(prevStep);
+  };
+
+  const renderStepContent = () => {
+    if (activeStep === "offer") {
+      return (
+        <div className="space-y-6">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--primary)]">
+              Step 1
+            </p>
+            <h2 className="mt-2 text-2xl font-semibold text-[var(--foreground)]">
+              Choose the offer you’re setting up
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-[var(--muted-foreground)]">
+              If you just created an offer, it should already be selected below.
+            </p>
+          </div>
+
+          {offers.length > 0 ? (
+            <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+              <div className="rounded-2xl border border-[var(--border)] bg-[var(--background)] p-5">
+                <label className="block text-sm font-medium text-[var(--foreground)]">
+                  Offer
+                </label>
+                <select
+                  value={selectedOffer?.id || ""}
+                  onChange={(e) => {
+                    const offer = offers.find((o) => o.id === e.target.value) || null;
+                    setSelectedOffer(offer);
+                    setEmailSent(false);
+                    setTrackingInstalled(false);
+                    setTestStatus("idle");
+                    setTestMsg("");
+                    setPixelStatus("idle");
+                    setPixelMsg("");
+                    setCodeExpanded(false);
+                  }}
+                  className="mt-3 w-full rounded-xl border border-[var(--border)] bg-[var(--card)] px-4 py-3 text-[var(--foreground)] outline-none ring-2 ring-[var(--primary)]/5 transition focus:ring-[var(--ring)]"
+                >
+                  {offers.map((offer) => (
+                    <option key={offer.id} value={offer.id}>
+                      {offer.website || offer.id}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="rounded-2xl border border-[var(--border)] bg-[linear-gradient(180deg,rgba(0,194,203,0.08),transparent_55%)] p-5">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--primary)]">
+                  Current setup target
+                </p>
+                <div className="mt-3 text-lg font-semibold text-[var(--foreground)] break-all">
+                  {selectedOffer?.website || "No offer selected"}
+                </div>
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <span className="inline-flex rounded-full border border-[var(--border)] bg-[var(--card)] px-3 py-1 text-xs font-medium text-[var(--foreground)]">
+                    Platform: {selectedOffer?.site_host || "Custom site"}
+                  </span>
+                  <span className="inline-flex rounded-full border border-[var(--border)] bg-[var(--card)] px-3 py-1 text-xs font-medium text-[var(--foreground)]">
+                    Offer ID: {selectedOffer?.id || "—"}
+                  </span>
+                </div>
+                <p className="mt-4 text-sm leading-6 text-[var(--muted-foreground)]">
+                  Once this is selected, the code and test steps on the right stay locked to this offer so the setup feels smaller and safer.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--background)] px-4 py-5 text-sm text-[var(--muted-foreground)]">
+              No offers found yet. Create an offer first, then come back here.
+            </div>
+          )}
         </div>
-        <div>
-          <h2 className="text-lg font-semibold text-[var(--foreground)]">{title}</h2>
-          <p className="mt-1 text-sm text-[var(--muted-foreground)]">{description}</p>
+      );
+    }
+
+    if (activeStep === "install") {
+      return (
+        <div className="space-y-6">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--primary)]">
+              Step 2
+            </p>
+            <h2 className="mt-2 text-2xl font-semibold text-[var(--foreground)]">
+              {isShopify ? "Install the Shopify pixel" : "Install the Nettmark script"}
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-[var(--muted-foreground)]">
+              {isShopify
+                ? "Paste this once in Shopify Customer Events and you’re basically done with setup."
+                : "Add this once to your site’s global head so Nettmark can track visits and conversions."}
+            </p>
+          </div>
+
+          {selectedOffer ? (
+            <>
+              <div className="rounded-2xl border border-[var(--border)] bg-[var(--background)] p-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h3 className="text-sm font-semibold text-[var(--foreground)]">
+                      {isShopify ? "Tracking pixel" : "Tracking script"}
+                    </h3>
+                    <p className="mt-1 text-sm text-[var(--muted-foreground)]">
+                      Keep this collapsed if you just want the copy action. Expand it when you need to inspect or edit the full snippet.
+                    </p>
+                  </div>
+
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                    <button
+                      onClick={() =>
+                        copyText(installSnippet, isShopify ? "shopify" : "main")
+                      }
+                      className="inline-flex items-center justify-center gap-2 rounded-full bg-[var(--primary)] px-5 py-3 text-sm font-semibold text-[var(--primary-foreground)] transition hover:brightness-110"
+                    >
+                      <ClipboardDocumentIcon className="h-5 w-5" />
+                      {isShopify
+                        ? copiedUniversal
+                          ? "Pixel copied"
+                          : "Copy pixel"
+                        : copied
+                          ? "Code copied"
+                          : "Copy code"}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setCodeExpanded((prev) => !prev)}
+                      className="inline-flex items-center justify-center rounded-full border border-[var(--border)] px-4 py-3 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--card)]"
+                    >
+                      {codeExpanded ? "Hide full code" : "Show full code"}
+                    </button>
+                  </div>
+                </div>
+
+                {codeExpanded && (
+                  <div className="mt-4 rounded-xl border border-[var(--border)] bg-[var(--card)] p-4">
+                    <pre className="overflow-x-auto whitespace-pre-wrap text-xs leading-6 text-[var(--foreground)] sm:text-sm">
+                      {installSnippet}
+                    </pre>
+                  </div>
+                )}
+              </div>
+
+              <div className="grid gap-4 xl:grid-cols-2">
+                <div className="rounded-2xl border border-[var(--border)] bg-[var(--background)] p-5">
+                  <h3 className="text-sm font-semibold text-[var(--foreground)]">What to do</h3>
+                  {isShopify ? (
+                    <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-[var(--muted-foreground)]">
+                      <li>Open <span className="font-medium text-[var(--foreground)]">Settings → Customer events</span> in Shopify.</li>
+                      <li>Create a <span className="font-medium text-[var(--foreground)]">custom pixel</span> called Nettmark.</li>
+                      <li>Paste the code above, connect it, then save.</li>
+                    </ol>
+                  ) : (
+                    <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-[var(--muted-foreground)]">
+                      <li>Paste the script into your global <code className="rounded bg-[var(--card)] px-1 py-0.5 text-xs">&lt;head&gt;</code>.</li>
+                      <li>Make sure it loads across the site, especially product and thank-you pages.</li>
+                      <li>Publish the change, then come back here to verify.</li>
+                    </ol>
+                  )}
+                </div>
+
+                <div className="rounded-2xl border border-[var(--border)] bg-[var(--background)] p-5">
+                  <h3 className="text-sm font-semibold text-[var(--foreground)]">Send this to your developer</h3>
+                  <p className="mt-2 text-sm text-[var(--muted-foreground)]">
+                    If someone else is handling the site, email them the exact code from here.
+                  </p>
+                  <input
+                    type="email"
+                    placeholder="developer@example.com"
+                    value={devEmail}
+                    onChange={(e) => {
+                      setDevEmail(e.target.value);
+                      setEmailSent(false);
+                    }}
+                    className="mt-3 w-full rounded-xl border border-[var(--border)] bg-[var(--card)] px-4 py-3 text-sm text-[var(--foreground)] outline-none ring-2 ring-[var(--primary)]/5 focus:ring-[var(--ring)]"
+                  />
+                  <button
+                    onClick={handleSendEmail}
+                    className="mt-3 inline-flex items-center gap-2 rounded-full border border-[var(--border)] px-4 py-2 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--card)]"
+                  >
+                    <PaperAirplaneIcon className="h-5 w-5" />
+                    {emailSent ? "Sent" : "Send to developer"}
+                  </button>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--background)] px-4 py-5 text-sm text-[var(--muted-foreground)]">
+              Pick an offer first so I can show the right install code.
+            </div>
+          )}
         </div>
-      </div>
-      {children}
-    </section>
-  );
+      );
+    }
+
+    if (activeStep === "verify") {
+      return (
+        <div className="space-y-6">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--primary)]">
+              Step 3
+            </p>
+            <h2 className="mt-2 text-2xl font-semibold text-[var(--foreground)]">
+              Verify Nettmark is receiving tracking
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-[var(--muted-foreground)]">
+              Once the code is installed, run one quick check from here.
+            </p>
+          </div>
+
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--background)] p-5 text-sm text-[var(--muted-foreground)]">
+            {isShopify ? (
+              <ol className="list-decimal space-y-2 pl-5">
+                <li>Save the pixel in Shopify.</li>
+                <li>Open your storefront once so the pixel can fire.</li>
+                <li>Come back here and run the tracking test.</li>
+              </ol>
+            ) : (
+              <ol className="list-decimal space-y-2 pl-5">
+                <li>Publish your site change.</li>
+                <li>Visit your site once after the script is live.</li>
+                <li>Come back here and run the tracking test.</li>
+              </ol>
+            )}
+          </div>
+
+          {!trackingInstalled ? (
+            <button
+              type="button"
+              onClick={() => setTrackingInstalled(true)}
+              className="inline-flex items-center gap-2 rounded-full bg-[var(--primary)] px-5 py-3 text-sm font-semibold text-[var(--primary-foreground)] transition hover:brightness-110"
+            >
+              <CheckCircleIcon className="h-5 w-5" />
+              I’ve installed it
+            </button>
+          ) : (
+            <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/10 p-4 text-sm text-emerald-200">
+              Nice — tracking is marked as installed. Run the test below.
+            </div>
+          )}
+
+          <div className="rounded-2xl border border-[var(--border)] bg-[var(--background)] p-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h3 className="text-sm font-semibold text-[var(--foreground)]">Run test tracking</h3>
+                <p className="mt-1 text-sm text-[var(--muted-foreground)]">
+                  This creates a test event in Nettmark for the selected offer.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={startCombinedTest}
+                disabled={testing || !selectedOffer || !trackingInstalled}
+                className="rounded-full bg-[var(--primary)] px-5 py-3 text-sm font-semibold text-[var(--primary-foreground)] transition hover:brightness-110 disabled:opacity-50"
+              >
+                {testing ? "Testing…" : "Test tracking"}
+              </button>
+            </div>
+
+            {(testStatus !== "idle" || testMsg) && (
+              <div className="mt-4 rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 text-sm">
+                <p
+                  className={
+                    testStatus === "ok"
+                      ? "font-semibold text-emerald-300"
+                      : testStatus === "fail"
+                        ? "font-semibold text-red-300"
+                        : "font-semibold text-[var(--foreground)]"
+                  }
+                >
+                  {testStatus === "ok"
+                    ? "Tracking connected"
+                    : testStatus === "fail"
+                      ? "Tracking not confirmed yet"
+                      : "Waiting to test"}
+                </p>
+                {testMsg && (
+                  <p className="mt-1 text-[var(--muted-foreground)]">{testMsg}</p>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      );
+    }
+
+    return null;
+  };
 
   return (
     <div className="setup-tracking-theme min-h-screen bg-[var(--background)] px-4 py-8 sm:py-10">
-      <div className="mx-auto max-w-4xl space-y-6">
+      <div className="mx-auto max-w-7xl space-y-6">
         <section className="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-lg sm:p-8">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div>
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+            <div className="max-w-3xl">
               <p className="inline-flex rounded-full border border-[var(--primary)]/20 bg-[var(--primary)]/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.24em] text-[var(--primary)]">
                 Offer created
               </p>
               <h1 className="mt-3 text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
-                Now let’s connect your tracking
+                Connect your tracking without the giant wall of setup
               </h1>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--muted-foreground)] sm:text-base">
-                This page only needs to do two things: get the Nettmark tracking installed,
-                then confirm it’s working. I’ve stripped the rest back so it’s easier to follow.
+                I&apos;ve reworked this into a guided flow so you can focus on one step at a time instead of scrolling through one long page.
               </p>
             </div>
             <button
@@ -356,319 +693,132 @@ analytics.subscribe('checkout_completed', async (event) => {
           </div>
         </section>
 
-        <section className="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-sm sm:p-6">
-          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-            <div className="max-w-2xl">
-              <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--primary)]">
-                Reserved space
+        <div className="grid gap-6 xl:grid-cols-[300px_minmax(0,1fr)]">
+          <aside className="space-y-4 xl:sticky xl:top-6 xl:self-start">
+            <section className="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-4 shadow-sm">
+              <p className="px-2 text-xs font-semibold uppercase tracking-[0.22em] text-[var(--primary)]">
+                Setup steps
               </p>
-              <h2 className="mt-2 text-2xl font-semibold text-[var(--foreground)]">
-                Future guided setup demo
-              </h2>
+              <div className="mt-4 space-y-2">
+                {steps.map((step) => {
+                  const state = getStepState(step.key);
+                  const clickable = state !== "locked";
+                  return (
+                    <button
+                      key={step.key}
+                      type="button"
+                      onClick={() => clickable && setActiveStep(step.key)}
+                      disabled={!clickable}
+                      className={`w-full rounded-2xl border p-4 text-left transition ${
+                        state === "current"
+                          ? "border-[var(--primary)]/35 bg-[var(--primary)]/10 shadow-[0_10px_30px_rgba(0,194,203,0.08)]"
+                          : state === "done"
+                            ? "border-emerald-500/20 bg-emerald-500/10"
+                            : state === "ready"
+                              ? "border-[var(--border)] bg-[var(--background)] hover:bg-[var(--card)]"
+                              : "border-[var(--border)] bg-[var(--background)] opacity-55"
+                      } disabled:cursor-not-allowed`}
+                    >
+                      <div className="flex items-start gap-3">
+                        <div
+                          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-bold ${
+                            state === "current"
+                              ? "bg-[var(--primary)] text-[var(--primary-foreground)]"
+                              : state === "done"
+                                ? "bg-emerald-500 text-white"
+                                : "bg-[var(--card)] text-[var(--foreground)]"
+                          }`}
+                        >
+                          {state === "done" ? "✓" : step.number}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="text-sm font-semibold text-[var(--foreground)]">
+                            {step.title}
+                          </div>
+                          <div className="mt-1 text-xs leading-5 text-[var(--muted-foreground)]">
+                            {step.subtitle}
+                          </div>
+                          <div className="mt-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--muted-foreground)]">
+                            {state === "current"
+                              ? "Current"
+                              : state === "done"
+                                ? "Done"
+                                : state === "ready"
+                                  ? "Ready"
+                                  : "Locked"}
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+
+            <section className="rounded-3xl border border-[var(--border)] bg-[linear-gradient(180deg,rgba(0,194,203,0.08),transparent_60%)] p-4 shadow-sm">
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--primary)]">
+                Live summary
+              </p>
+              <h3 className="mt-3 text-lg font-semibold text-[var(--foreground)]">
+                {summaryTitle}
+              </h3>
               <p className="mt-2 text-sm leading-6 text-[var(--muted-foreground)]">
-                The old demo block has been cleared out so this page stays focused on installing and testing tracking. If you want a future <span className="font-medium text-[var(--foreground)]">gomarketme.co</span> walkthrough here, this section is ready for it.
+                {summaryBody}
               </p>
-            </div>
-
-            <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--background)] px-4 py-3 text-sm text-[var(--muted-foreground)] md:max-w-xs">
-              Keep this area lightweight for now — no interactive demo, just room for a future tour drop-in.
-            </div>
-          </div>
-        </section>
-
-        <div className="grid gap-3 sm:grid-cols-3">
-          {[
-            ["1", "Choose offer"],
-            ["2", "Install code"],
-            ["3", "Verify tracking"],
-          ].map(([n, label]) => (
-            <div
-              key={n}
-              className="rounded-2xl border border-[var(--border)] bg-[var(--card)] px-4 py-3 text-sm text-[var(--muted-foreground)]"
-            >
-              <span className="mr-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-[var(--primary)]/12 text-xs font-bold text-[var(--primary)]">
-                {n}
-              </span>
-              <span className="font-medium text-[var(--foreground)]">{label}</span>
-            </div>
-          ))}
-        </div>
-
-        <StepCard
-          number="1"
-          title="Choose the offer you’re setting up"
-          description="If you just created one, it should already be selected below."
-        >
-          {offers.length > 0 ? (
-            <div className="space-y-3">
-              <label className="block text-sm font-medium text-[var(--foreground)]">
-                Offer
-              </label>
-              <select
-                value={selectedOffer?.id || ""}
-                onChange={(e) => {
-                  const offer = offers.find((o) => o.id === e.target.value) || null;
-                  setSelectedOffer(offer);
-                  setEmailSent(false);
-                  setTrackingInstalled(false);
-                  setTestStatus("idle");
-                  setTestMsg("");
-                }}
-                className="w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-4 py-3 text-[var(--foreground)] outline-none ring-2 ring-[var(--primary)]/5 transition focus:ring-[var(--ring)]"
-              >
-                {offers.map((offer) => (
-                  <option key={offer.id} value={offer.id}>
-                    {offer.website || offer.id}
-                  </option>
-                ))}
-              </select>
-
-              {selectedOffer && (
-                <div className="rounded-xl border border-[var(--border)] bg-[var(--background)] px-4 py-3 text-sm text-[var(--muted-foreground)]">
-                  Platform detected: <span className="font-semibold text-[var(--foreground)]">{selectedOffer.site_host || "Custom site"}</span>
+              <div className="mt-4 space-y-2 text-sm text-[var(--muted-foreground)]">
+                <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] px-3 py-2">
+                  Offer: <span className="font-medium text-[var(--foreground)] break-all">{selectedOffer?.website || "Not selected"}</span>
                 </div>
-              )}
-            </div>
-          ) : (
-            <div className="rounded-xl border border-dashed border-[var(--border)] bg-[var(--background)] px-4 py-5 text-sm text-[var(--muted-foreground)]">
-              No offers found yet. Create an offer first, then come back here.
-            </div>
-          )}
-        </StepCard>
-
-        <StepCard
-          number="2"
-          title={isShopify ? "Install the Shopify pixel" : "Install the Nettmark script"}
-          description={
-            isShopify
-              ? "Paste this once in Shopify Customer Events. That’s the main setup done."
-              : "Add this once to your site’s global head so Nettmark can see visits and conversions."
-          }
-        >
-          {selectedOffer ? (
-            <div className="space-y-5">
-              <div className="rounded-2xl border border-[var(--border)] bg-[var(--background)] p-4">
-                <pre className="overflow-x-auto whitespace-pre-wrap text-xs leading-6 text-[var(--foreground)] sm:text-sm">
-                  {isShopify ? shopifyUniversalPixel : trackingCode}
-                </pre>
-              </div>
-
-              <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-                <button
-                  onClick={() =>
-                    copyText(isShopify ? shopifyUniversalPixel : trackingCode, isShopify ? "shopify" : "main")
-                  }
-                  className="inline-flex items-center justify-center gap-2 rounded-full bg-[var(--primary)] px-5 py-3 text-sm font-semibold text-[var(--primary-foreground)] transition hover:brightness-110"
-                >
-                  <ClipboardDocumentIcon className="h-5 w-5" />
-                  {isShopify
-                    ? copiedUniversal
-                      ? "Pixel copied"
-                      : "Copy pixel"
-                    : copied
-                      ? "Code copied"
-                      : "Copy code"}
-                </button>
-              </div>
-
-              <div className="grid gap-4 lg:grid-cols-2">
-                <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)]/60 p-4">
-                  <h3 className="text-sm font-semibold text-[var(--foreground)]">What to do</h3>
-                  {isShopify ? (
-                    <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-[var(--muted-foreground)]">
-                      <li>In Shopify, open <span className="font-medium text-[var(--foreground)]">Settings → Customer events</span>.</li>
-                      <li>Create a <span className="font-medium text-[var(--foreground)]">custom pixel</span> called Nettmark.</li>
-                      <li>Paste the code above, connect it, then save.</li>
-                    </ol>
-                  ) : (
-                    <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm text-[var(--muted-foreground)]">
-                      <li>Paste the script into your site’s global <code className="rounded bg-[var(--input-background)] px-1 py-0.5 text-xs">&lt;head&gt;</code>.</li>
-                      <li>Make sure it loads across your site, especially product and thank-you pages.</li>
-                      <li>Publish the change, then come back here to test.</li>
-                    </ol>
-                  )}
+                <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] px-3 py-2">
+                  Platform: <span className="font-medium text-[var(--foreground)]">{selectedOffer?.site_host || "—"}</span>
                 </div>
-
-                <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)]/60 p-4">
-                  <h3 className="text-sm font-semibold text-[var(--foreground)]">Send this to your developer</h3>
-                  <p className="mt-2 text-sm text-[var(--muted-foreground)]">
-                    If someone else is handling the website, email them the exact code from here.
-                  </p>
-                  <input
-                    type="email"
-                    placeholder="developer@example.com"
-                    value={devEmail}
-                    onChange={(e) => {
-                      setDevEmail(e.target.value);
-                      setEmailSent(false);
-                    }}
-                    className="mt-3 w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-4 py-3 text-sm text-[var(--foreground)] outline-none ring-2 ring-[var(--primary)]/5 focus:ring-[var(--ring)]"
-                  />
-                  <button
-                    onClick={handleSendEmail}
-                    className="mt-3 inline-flex items-center gap-2 rounded-full border border-[var(--border)] px-4 py-2 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--input-background)]"
-                  >
-                    <PaperAirplaneIcon className="h-5 w-5" />
-                    {emailSent ? "Sent" : "Send to developer"}
-                  </button>
+                <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] px-3 py-2">
+                  Tracking: <span className="font-medium text-[var(--foreground)]">{hasVerifiedTracking ? "Verified" : trackingInstalled ? "Installed" : "Not confirmed"}</span>
                 </div>
               </div>
-            </div>
-          ) : (
-            <div className="rounded-xl border border-dashed border-[var(--border)] bg-[var(--background)] px-4 py-5 text-sm text-[var(--muted-foreground)]">
-              Pick an offer first so I can show the right install code.
-            </div>
-          )}
-        </StepCard>
+            </section>
+          </aside>
 
-        <StepCard
-          number="3"
-          title="Verify that Nettmark is receiving tracking"
-          description="Once you’ve installed the code, run a quick check from here."
-        >
-          <div className="space-y-4">
-            <div className="rounded-2xl border border-[var(--border)] bg-[var(--background)] p-4 text-sm text-[var(--muted-foreground)]">
-              {isShopify ? (
-                <ol className="list-decimal space-y-2 pl-5">
-                  <li>Save the pixel in Shopify.</li>
-                  <li>Open your storefront once so the pixel can fire.</li>
-                  <li>Come back here and run the tracking test.</li>
-                </ol>
-              ) : (
-                <ol className="list-decimal space-y-2 pl-5">
-                  <li>Publish your site change.</li>
-                  <li>Visit your site once after the script is live.</li>
-                  <li>Come back here and run the tracking test.</li>
-                </ol>
-              )}
-            </div>
+          <section className="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-sm sm:p-6 lg:p-7">
+            {renderStepContent()}
 
-            {!trackingInstalled ? (
-              <button
-                type="button"
-                onClick={() => setTrackingInstalled(true)}
-                className="inline-flex items-center gap-2 rounded-full bg-[var(--primary)] px-5 py-3 text-sm font-semibold text-[var(--primary-foreground)] transition hover:brightness-110"
-              >
-                <CheckCircleIcon className="h-5 w-5" />
-                I’ve installed it
-              </button>
-            ) : (
-              <div className="rounded-2xl border border-emerald-500/25 bg-emerald-500/10 p-4 text-sm text-emerald-200">
-                Nice — tracking is marked as installed. Run the test below, or head back to your dashboard.
+            <div className="mt-8 flex flex-col gap-3 border-t border-[var(--border)] pt-5 sm:flex-row sm:items-center sm:justify-between">
+              <div className="text-sm text-[var(--muted-foreground)]">
+                Move through the setup one step at a time.
               </div>
-            )}
 
-            {trackingInstalled && (
-              <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)]/60 p-4">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <h3 className="text-sm font-semibold text-[var(--foreground)]">Run test tracking</h3>
-                    <p className="mt-1 text-sm text-[var(--muted-foreground)]">
-                      This creates a test event in Nettmark for the selected offer.
-                    </p>
-                  </div>
+              <div className="flex flex-col gap-3 sm:flex-row">
+                {prevStep && (
                   <button
                     type="button"
-                    onClick={startCombinedTest}
-                    disabled={testing || !selectedOffer}
-                    className="rounded-full bg-[var(--primary)] px-5 py-3 text-sm font-semibold text-[var(--primary-foreground)] transition hover:brightness-110 disabled:opacity-50"
+                    onClick={goPrev}
+                    className="rounded-full border border-[var(--border)] px-4 py-2 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--input-background)]"
                   >
-                    {testing ? "Testing…" : "Test tracking"}
+                    Back
                   </button>
-                </div>
-
-                {(testStatus !== "idle" || testMsg) && (
-                  <div className="mt-4 rounded-xl border border-[var(--border)] bg-[var(--background)] p-4 text-sm">
-                    <p
-                      className={
-                        testStatus === "ok"
-                          ? "font-semibold text-emerald-300"
-                          : testStatus === "fail"
-                            ? "font-semibold text-red-300"
-                            : "font-semibold text-[var(--foreground)]"
-                      }
-                    >
-                      {testStatus === "ok"
-                        ? "Tracking connected"
-                        : testStatus === "fail"
-                          ? "Tracking not confirmed yet"
-                          : "Waiting to test"}
-                    </p>
-                    {testMsg && (
-                      <p className="mt-1 text-[var(--muted-foreground)]">{testMsg}</p>
-                    )}
-                  </div>
                 )}
 
-                <button
-                  type="button"
-                  onClick={() => router.push("/business/my-business")}
-                  className="mt-4 rounded-full border border-[var(--border)] px-4 py-2 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--input-background)]"
-                >
-                  Return to dashboard
-                </button>
-              </div>
-            )}
-          </div>
-        </StepCard>
-
-        <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-sm sm:p-6">
-          <div className="mb-4">
-            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-[var(--primary)]">
-              Optional next step
-            </p>
-            <h2 className="mt-2 text-xl font-semibold text-[var(--foreground)]">
-              Connect Meta Pixel for sales campaigns
-            </h2>
-            <p className="mt-2 text-sm text-[var(--muted-foreground)]">
-              You only need this if you want conversion-optimised Meta sales campaigns.
-            </p>
-          </div>
-
-          <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
-            <div className="rounded-2xl border border-[var(--border)] bg-[var(--background)] p-4 text-sm text-[var(--muted-foreground)]">
-              <ol className="list-decimal space-y-2 pl-5">
-                <li>Install the Meta Pixel on your website.</li>
-                <li>Open your website and browse at least one page.</li>
-                <li>Come back here and verify it.</li>
-              </ol>
-            </div>
-
-            <div className="rounded-2xl border border-[var(--border)] bg-[var(--background)] p-4">
-              <button
-                type="button"
-                onClick={verifyMetaPixel}
-                disabled={verifyingPixel}
-                className="w-full rounded-full bg-[var(--primary)] px-5 py-3 text-sm font-semibold text-[var(--primary-foreground)] transition hover:brightness-110 disabled:opacity-50"
-              >
-                {verifyingPixel ? "Verifying…" : "Verify Meta Pixel"}
-              </button>
-
-              {(pixelStatus !== "idle" || pixelMsg) && (
-                <div className="mt-4 rounded-xl border border-[var(--border)] bg-[var(--card)]/60 p-4 text-sm">
-                  <p
-                    className={
-                      pixelStatus === "ok"
-                        ? "font-semibold text-emerald-300"
-                        : pixelStatus === "fail"
-                          ? "font-semibold text-red-300"
-                          : "font-semibold text-[var(--foreground)]"
-                    }
+                {nextStep ? (
+                  <button
+                    type="button"
+                    onClick={goNext}
+                    className="rounded-full bg-[var(--primary)] px-5 py-2.5 text-sm font-semibold text-[var(--primary-foreground)] transition hover:brightness-110"
                   >
-                    {pixelStatus === "ok"
-                      ? "Meta Pixel connected"
-                      : pixelStatus === "fail"
-                        ? "Meta Pixel not detected yet"
-                        : "Waiting to verify"}
-                  </p>
-                  {pixelMsg && (
-                    <p className="mt-1 text-[var(--muted-foreground)]">{pixelMsg}</p>
-                  )}
-                </div>
-              )}
+                    Continue
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => router.push("/business/my-business")}
+                    className="rounded-full bg-[var(--primary)] px-5 py-2.5 text-sm font-semibold text-[var(--primary-foreground)] transition hover:brightness-110"
+                  >
+                    Return to dashboard
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
+        </div>
       </div>
     </div>
   );

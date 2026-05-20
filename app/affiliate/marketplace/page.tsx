@@ -18,6 +18,9 @@ interface Offer {
   commissionValue?: number;
   isTopCommission?: boolean;
   business_email?: string;
+  meta_page_id?: string | null;
+  meta_ad_account_id?: string | null;
+  meta_pixel_id?: string | null;
 }
 
 export default function AffiliateMarketplace() {
@@ -67,6 +70,9 @@ export default function AffiliateMarketplace() {
       commission_value?: number | null;
       logo_url?: string | null;
       website?: string | null;
+      meta_page_id?: string | null;
+      meta_ad_account_id?: string | null;
+      meta_pixel_id?: string | null;
     };
 
     const fetchOffers = async () => {
@@ -81,7 +87,10 @@ export default function AffiliateMarketplace() {
           price,
           commission_value,
           logo_url,
-          website
+          website,
+          meta_page_id,
+          meta_ad_account_id,
+          meta_pixel_id
         `);
 
       if (error) {
@@ -111,6 +120,9 @@ export default function AffiliateMarketplace() {
         commissionValue: o.commission_value ?? undefined,
         isTopCommission: (o.commission ?? 0) >= threshold,
         business_email: o.business_email ?? undefined,
+        meta_page_id: o.meta_page_id ?? null,
+        meta_ad_account_id: o.meta_ad_account_id ?? null,
+        meta_pixel_id: o.meta_pixel_id ?? null,
       }));
 
       setOffers(formatted);
