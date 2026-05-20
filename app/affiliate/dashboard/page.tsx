@@ -42,8 +42,6 @@ interface Profile {
   id: string;
   role: string | null;
   onboarding_completed: boolean | null;
-  revenue_subscription_status?: string | null;
-  revenue_current_period_end?: string | null;
   username?: string | null;
 }
 
@@ -174,9 +172,7 @@ function AffiliateDashboardContent() {
       }
       const { data, error } = await supabase
         .from("profiles")
-        .select(
-          "id, role, onboarding_completed, terms_accepted, revenue_subscription_status, revenue_current_period_end, username",
-        )
+        .select("id, role, onboarding_completed, terms_accepted, username")
         .eq("id", session.user.id)
         .maybeSingle<any>();
 
@@ -473,16 +469,6 @@ function AffiliateDashboardContent() {
   const checklistDismissedStorageKey = user
     ? `affiliate-checklist-dismissed-${user.id}`
     : null;
-  const trialDaysLeft =
-    profile?.revenue_subscription_status === "trialing" &&
-    profile?.revenue_current_period_end
-      ? Math.ceil(
-          (new Date(profile.revenue_current_period_end).getTime() -
-            Date.now()) /
-            (1000 * 60 * 60 * 24),
-        )
-      : null;
-
   const approvedOffers = offers.filter((offer) =>
     approvedIds.includes(offer.id),
   );

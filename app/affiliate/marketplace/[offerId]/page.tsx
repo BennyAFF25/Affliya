@@ -17,7 +17,29 @@ type Offer = {
   hero_image_url?: string;
   avg_conversion_rate?: number | null;
   avg_epc?: number | null;
+  meta_page_id?: string | null;
+  meta_ad_account_id?: string | null;
+  meta_pixel_id?: string | null;
 };
+
+function getPromotionMode(offer: Offer | null) {
+  const adsEnabled = !!offer?.meta_page_id && !!offer?.meta_ad_account_id;
+  if (adsEnabled) {
+    return {
+      label: 'Ads enabled',
+      tone: 'border-emerald-400/30 bg-emerald-500/10 text-emerald-200',
+      helper: offer?.meta_pixel_id
+        ? 'Affiliates can promote this offer organically or with Meta ads, including sales.'
+        : 'Affiliates can promote this offer organically or with Meta ads. Sales campaigns still need a pixel.',
+    };
+  }
+
+  return {
+    label: 'Organic only',
+    tone: 'border-white/10 bg-white/5 text-white/75',
+    helper: 'This offer is listed in the marketplace, but paid ads stay locked until the business connects Meta.',
+  };
+}
 
 export default function AffiliateOfferProfilePage() {
   const params = useParams();
@@ -45,6 +67,7 @@ export default function AffiliateOfferProfilePage() {
         ? [offer.hero_image_url]
         : []
       : [];
+  const promotionMode = getPromotionMode(offer);
 
   // Load current user email
   useEffect(() => {
@@ -429,6 +452,12 @@ export default function AffiliateOfferProfilePage() {
           {/* Right: story + actions */}
           <div className="space-y-6">
             <div className="rounded-3xl border border-white/10 bg-white/[0.04] backdrop-blur p-6">
+              <div className="mb-4 flex flex-wrap items-center gap-2">
+                <span className={`inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-medium ${promotionMode.tone}`}>
+                  {promotionMode.label}
+                </span>
+                <span className="text-[11px] text-white/45">{promotionMode.helper}</span>
+              </div>
               <h2 className="text-sm font-semibold text-[#00C2CB] mb-1">
                 {offer.profile_headline || 'About this brand'}
               </h2>

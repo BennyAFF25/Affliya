@@ -336,13 +336,14 @@ export default function AdIdeasPage() {
       // Pull offer details from Supabase
       const { data: offerData, error: offerError } = await supabase
         .from("offers")
-        .select("meta_ad_account_id, meta_page_id")
+        .select("meta_ad_account_id, meta_page_id, meta_pixel_id")
         .eq("id", adIdea.offer_id)
         .single();
 
       const offer = offerData as {
         meta_ad_account_id: string;
         meta_page_id: string;
+        meta_pixel_id: string | null;
       } | null;
 
       if (offerError || !offer) {
@@ -350,6 +351,23 @@ export default function AdIdeasPage() {
         return;
       } else {
         console.log("[✅ Offer Details Fetched]", offer);
+      }
+
+      if (!offer.meta_page_id || !offer.meta_ad_account_id) {
+        nmToast.error(
+          "This offer is currently organic-only. Connect a Meta page and ad account on the offer before launching paid ads.",
+        );
+        return;
+      }
+
+      const isSalesObjective =
+        String(adIdea.objective || "").trim() === "OUTCOME_SALES";
+
+      if (isSalesObjective && !offer.meta_pixel_id) {
+        nmToast.error(
+          "This offer still needs a Meta pixel before Sales campaigns can launch.",
+        );
+        return;
       }
 
       const payload = {

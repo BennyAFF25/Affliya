@@ -20,6 +20,28 @@ interface Offer {
   business_email?: string;
   logoUrl?: string;
   website?: string;
+  meta_page_id?: string | null;
+  meta_ad_account_id?: string | null;
+  meta_pixel_id?: string | null;
+}
+
+function getPromotionMode(offer: Offer) {
+  const adsEnabled = !!offer.meta_page_id && !!offer.meta_ad_account_id;
+  if (adsEnabled) {
+    return {
+      label: "Ads enabled",
+      tone: "bg-emerald-500/15 text-emerald-300 border border-emerald-400/40",
+      helper: offer.meta_pixel_id
+        ? "Organic + paid ads available"
+        : "Organic + paid ads available",
+    };
+  }
+
+  return {
+    label: "Organic only",
+    tone: "bg-white/5 text-white/75 border border-white/10",
+    helper: "Paid ads unlock once Meta is connected",
+  };
 }
 
 export default function OfferCard({
@@ -35,6 +57,7 @@ export default function OfferCard({
   const user = session?.user;
   const [notes, setNotes] = useState('');
   const [requested, setRequested] = useState(alreadyRequested);
+  const promotionMode = getPromotionMode(offer);
 
   const sendEmail = async (endpoint: string, payload: any) => {
     try {
@@ -190,6 +213,13 @@ export default function OfferCard({
         <p className="text-xs text-gray-400 mt-1 mb-3 line-clamp-3">
           {offer.description}
         </p>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium ${promotionMode.tone}`}>
+            {promotionMode.label}
+          </span>
+          <span className="text-[11px] text-gray-500">{promotionMode.helper}</span>
+        </div>
       </div>
 
       {/* Stats */}

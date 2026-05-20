@@ -45,6 +45,8 @@ type OfferRow = {
   business_email?: string | null;
   website?: string | null; // use website from offers table
   meta_page_id?: string | null;
+  meta_ad_account_id?: string | null;
+  meta_pixel_id?: string | null;
 };
 
 type OfferBusinessEmailRow = {
@@ -244,6 +246,16 @@ export default function PromoteOfferPage() {
   // Brand preview data (from offers table / offer-logos bucket)
   const [brandName, setBrandName] = useState<string>("Your Brand Name");
   const [brandLogoUrl, setBrandLogoUrl] = useState<string | null>(null);
+  const [offerMetaResolved, setOfferMetaResolved] = useState(false);
+  const [offerMetaState, setOfferMetaState] = useState<{
+    hasPage: boolean;
+    hasAdAccount: boolean;
+    hasPixel: boolean;
+  }>({
+    hasPage: false,
+    hasAdAccount: false,
+    hasPixel: false,
+  });
 
   // Local preview URLs for selected files
   const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
@@ -268,7 +280,9 @@ export default function PromoteOfferPage() {
       // 1) Offer core fields
       const { data: offer, error: offerErr } = await (supabase as any)
         .from("offers")
-        .select("title, logo_url, business_email, website, meta_page_id")
+        .select(
+          "title, logo_url, business_email, website, meta_page_id, meta_ad_account_id, meta_pixel_id",
+        )
         .eq("id", offerId)
         .single();
 
@@ -280,6 +294,12 @@ export default function PromoteOfferPage() {
       // Preview title + logo
       setBrandName(offer?.title || "Your Brand Name");
       setBrandLogoUrl(offer?.logo_url || null);
+      setOfferMetaState({
+        hasPage: !!offer?.meta_page_id,
+        hasAdAccount: !!(offer as OfferRow | null)?.meta_ad_account_id,
+        hasPixel: !!(offer as OfferRow | null)?.meta_pixel_id,
+      });
+      setOfferMetaResolved(true);
       // Pre-fill Destination URL with the business website if available
       if (offer?.website) {
         setForm((p) => ({
@@ -417,6 +437,20 @@ export default function PromoteOfferPage() {
     () => dailyConversions * 30,
     [dailyConversions],
   );
+
+  const offerHasMetaLaunchSetup =
+    offerMetaState.hasPage && offerMetaState.hasAdAccount;
+  const offerHasSalesPixel = offerMetaState.hasPixel;
+  const needsSalesPixel = form.objective === "OUTCOME_SALES";
+  const isOrganicOnlyOffer = offerMetaResolved && !offerHasMetaLaunchSetup;
+  const showMetaSetupWarning = offerMetaResolved && !offerHasMetaLaunchSetup;
+  const showSalesPixelWarning = offerMetaResolved && offerHasMetaLaunchSetup && needsSalesPixel && !offerHasSalesPixel;
+
+  useEffect(() => {
+    if (isOrganicOnlyOffer && mode === "ad") {
+      setMode("organic");
+    }
+  }, [isOrganicOnlyOffer, mode]);
 
   // Sparkline for 30-day projection (tiny sideways line chart)
   function buildSparkPath(values: number[], w = 120, h = 36, pad = 2) {
@@ -872,6 +906,20 @@ export default function PromoteOfferPage() {
 
       const business_email = offerRow.business_email;
 
+      if (!offerHasMetaLaunchSetup) {
+        nmToast.error(
+          "This offer is organic-only right now. The business needs to attach a Meta page and ad account before paid ads can run.",
+        );
+        return;
+      }
+
+      if (form.objective === "OUTCOME_SALES" && !offerHasSalesPixel) {
+        nmToast.error(
+          "This offer still needs a Meta pixel before Sales campaigns can be submitted.",
+        );
+        return;
+      }
+
       // 2) Upload creative (and optional thumbnail) to "ad-ideas-assets" bucket
       const ts = Date.now();
 
@@ -1172,15 +1220,19 @@ export default function PromoteOfferPage() {
           <div className="flex gap-2 overflow-x-auto">
             <button
               type="button"
-              onClick={() => setMode("ad")}
+              onClick={() => {
+                if (!isOrganicOnlyOffer) setMode("ad");
+              }}
+              disabled={isOrganicOnlyOffer}
               className={[
                 "px-4 py-2 rounded-lg border text-sm",
                 mode === "ad"
                   ? "bg-[#00C2CB] text-black border-[#00C2CB]"
                   : "border-[#2a2a2a] text-gray-300 hover:bg-[#151515]",
+                isOrganicOnlyOffer ? "cursor-not-allowed opacity-50 hover:bg-transparent" : "",
               ].join(" ")}
             >
-              Submit Ad
+              {isOrganicOnlyOffer ? "Ads unavailable" : "Submit Ad"}
             </button>
             <button
               type="button"
@@ -1198,51 +1250,82 @@ export default function PromoteOfferPage() {
         </div>
         {/* LEFT: single card wizard */}
         {mode === "ad" && (
-          <AdCampaignWizard
-            form={form}
-            setForm={setForm}
-            onInput={onInput}
-            onPlacementToggle={onPlacementToggle}
-            applyEstimatorPreset={applyEstimatorPreset}
-            walletBalance={walletBalance}
-            walletLoading={walletLoading}
-            canRunWithWallet={canRunWithWallet}
-            walletDeficit={walletDeficit}
-            incBudget={incBudget}
-            setStartIn15m={setStartIn15m}
-            setEndIn7d={setEndIn7d}
-            reachDaily={reachDaily}
-            reachMonthly={reachMonthly}
-            interestsIgnored={interestsIgnored}
-            videoFile={videoFile}
-            setVideoFile={setVideoFile}
-            creativeKind={creativeKind}
-            thumbnailFile={thumbnailFile}
-            setThumbnailFile={setThumbnailFile}
-            thumbnailError={thumbnailError}
-            setThumbnailError={setThumbnailError}
-            validateThumbnailFile={validateThumbnailFile}
-            setVideoPreviewUrl={setVideoPreviewUrl}
-            setThumbPreviewUrl={setThumbPreviewUrl}
-            handleAdSubmit={handleAdSubmit}
-            onNavigateToWallet={() => router.push("/affiliate/wallet")}
-          />
+          <div className="space-y-4">
+            {showMetaSetupWarning && (
+              <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-100">
+                <div className="font-semibold">This offer is organic-only right now</div>
+                <p className="mt-1 text-amber-100/85">
+                  The business has not connected the Meta page and ad account for this offer yet, so affiliates can only promote it organically for now.
+                </p>
+              </div>
+            )}
+
+            {showSalesPixelWarning && (
+              <div className="rounded-2xl border border-cyan-500/30 bg-cyan-500/10 p-4 text-sm text-cyan-100">
+                <div className="font-semibold">Sales campaigns still need a Meta pixel</div>
+                <p className="mt-1 text-cyan-100/85">
+                  This offer is Meta-ready for traffic and engagement, but Sales requires a selected Meta pixel on the offer first.
+                </p>
+              </div>
+            )}
+
+            <AdCampaignWizard
+              form={form}
+              setForm={setForm}
+              onInput={onInput}
+              onPlacementToggle={onPlacementToggle}
+              applyEstimatorPreset={applyEstimatorPreset}
+              walletBalance={walletBalance}
+              walletLoading={walletLoading}
+              canRunWithWallet={canRunWithWallet}
+              walletDeficit={walletDeficit}
+              incBudget={incBudget}
+              setStartIn15m={setStartIn15m}
+              setEndIn7d={setEndIn7d}
+              reachDaily={reachDaily}
+              reachMonthly={reachMonthly}
+              interestsIgnored={interestsIgnored}
+              videoFile={videoFile}
+              setVideoFile={setVideoFile}
+              creativeKind={creativeKind}
+              thumbnailFile={thumbnailFile}
+              setThumbnailFile={setThumbnailFile}
+              thumbnailError={thumbnailError}
+              setThumbnailError={setThumbnailError}
+              validateThumbnailFile={validateThumbnailFile}
+              setVideoPreviewUrl={setVideoPreviewUrl}
+              setThumbPreviewUrl={setThumbPreviewUrl}
+              handleAdSubmit={handleAdSubmit}
+              onNavigateToWallet={() => router.push("/affiliate/wallet")}
+            />
+          </div>
         )}
 
         {mode === "organic" && (
-          <OrganicSubmissionForm
-            ogMethod={ogMethod}
-            setOgMethod={setOgMethod}
-            ogPlatform={ogPlatform}
-            setOgPlatform={setOgPlatform}
-            ogCaption={ogCaption}
-            setOgCaption={setOgCaption}
-            ogContent={ogContent}
-            setOgContent={setOgContent}
-            ogFile={ogFile}
-            setOgFile={setOgFile}
-            handleOrganicSubmit={handleOrganicSubmit}
-          />
+          <div className="space-y-4">
+            {isOrganicOnlyOffer && (
+              <div className="rounded-2xl border border-cyan-500/25 bg-cyan-500/10 p-4 text-sm text-cyan-100">
+                <div className="font-semibold">Organic-only offer</div>
+                <p className="mt-1 text-cyan-100/85">
+                  This offer is live in the marketplace, but paid ads are locked until the business connects Meta for it.
+                </p>
+              </div>
+            )}
+
+            <OrganicSubmissionForm
+              ogMethod={ogMethod}
+              setOgMethod={setOgMethod}
+              ogPlatform={ogPlatform}
+              setOgPlatform={setOgPlatform}
+              ogCaption={ogCaption}
+              setOgCaption={setOgCaption}
+              ogContent={ogContent}
+              setOgContent={setOgContent}
+              ogFile={ogFile}
+              setOgFile={setOgFile}
+              handleOrganicSubmit={handleOrganicSubmit}
+            />
+          </div>
         )}
 
         {/* RIGHT: Preview / Metrics */}
