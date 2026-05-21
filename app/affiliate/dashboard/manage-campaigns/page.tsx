@@ -441,11 +441,14 @@ export default function AffiliateManageCampaignsPage() {
           <div className="pointer-events-none absolute -top-16 -right-16 h-48 w-48 rounded-full bg-[var(--primary)]/25 blur-3xl" />
           <div className="relative z-10 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <p className="inline-flex items-center gap-2 rounded-full border border-[var(--primary)]/40 bg-[var(--primary)]/15 px-3 py-1 text-[11px] uppercase tracking-widest text-[var(--primary)]">
-                <Sparkles className="h-3.5 w-3.5" /> Campaign command deck
-              </p>
-              <h1 className="mt-3 text-3xl font-semibold">Manage campaigns</h1>
-              <p className="mt-2 max-w-3xl text-sm text-[var(--muted-foreground)]">
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#00C2CB]/20 bg-[#00C2CB]/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.24em] text-[#7ff5fb]">
+                <Sparkles className="h-3.5 w-3.5" />
+                Workspace overview
+              </div>
+              <h1 className="text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
+                Affiliate Manage Campaigns
+              </h1>
+              <p className="mt-3 max-w-3xl text-sm text-[var(--muted-foreground)] sm:text-base">
                 Track every campaign in one place, sync Meta spend, and jump
                 straight into the actions that matter.
               </p>

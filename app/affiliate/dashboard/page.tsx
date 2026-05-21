@@ -673,13 +673,14 @@ function AffiliateDashboardContent() {
       <div className="affiliate-dashboard-theme min-h-screen bg-[var(--background)] text-[var(--foreground)]">
         <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-10">
           <div>
-            <p className="text-xs uppercase tracking-[0.3em] text-white/45">
-              Getting started
-            </p>
-            <h1 className="mt-2 text-3xl font-semibold text-[var(--foreground)]">
-              Complete these two steps
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#00C2CB]/20 bg-[#00C2CB]/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.24em] text-[#7ff5fb]">
+              <Sparkles className="h-3.5 w-3.5" />
+              Workspace overview
+            </div>
+            <h1 className="text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
+              Affiliate Dashboard
             </h1>
-            <p className="mt-2 text-sm text-white/60">
+            <p className="mt-3 text-sm text-white/60 sm:text-base">
               Connect payouts and choose an offer to unlock your dashboard.
             </p>
           </div>
@@ -755,15 +756,16 @@ function AffiliateDashboardContent() {
 
           <div className="relative z-10 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <p className="inline-flex items-center gap-2 rounded-full border border-[#00C2CB]/30 bg-[#00C2CB]/10 px-3 py-1 text-[11px] uppercase tracking-widest text-[#7ff5fb]">
-                <Sparkles className="h-3.5 w-3.5" /> Affiliate HQ
-              </p>
-              <h1 className="mt-3 text-2xl md:text-3xl font-bold tracking-tight text-white">
-                Welcome back, {firstName}
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#00C2CB]/20 bg-[#00C2CB]/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.24em] text-[#7ff5fb]">
+                <Sparkles className="h-3.5 w-3.5" />
+                Workspace overview
+              </div>
+              <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+                Affiliate Dashboard
               </h1>
-              <p className="mt-2 max-w-2xl text-sm text-white/82">
-                Track campaign performance, monitor spend, and launch approved
-                offers faster.
+              <p className="mt-3 max-w-2xl text-sm text-white/82 sm:text-base">
+                Welcome back, {firstName}. Track campaign performance, monitor
+                spend, and launch approved offers faster.
               </p>
             </div>
 

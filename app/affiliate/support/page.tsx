@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Sparkles } from "lucide-react";
 
 const CARD_SHELL =
   "rounded-3xl border border-[var(--border)] bg-[var(--card)] shadow-[0_25px_70px_rgba(0,0,0,0.08)]";
@@ -39,16 +40,17 @@ export default function AffiliateSupportPage() {
   return (
     <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)] px-4 py-8">
       <div className="max-w-6xl mx-auto space-y-6">
-        <header className={`${CARD_SHELL} p-6 sm:p-8 space-y-4`}>
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-[0.3em] text-[var(--muted-foreground)]">
-                Need help?
-              </p>
-              <h1 className="text-3xl sm:text-4xl font-semibold tracking-tight">
+        <header className={`${CARD_SHELL} p-6 sm:p-8`}>
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
+            <div className="max-w-3xl">
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#00C2CB]/20 bg-[#00C2CB]/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.24em] text-[#7ff5fb]">
+                <Sparkles className="h-3.5 w-3.5" />
+                Workspace overview
+              </div>
+              <h1 className="text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
                 Affiliate Support
               </h1>
-              <p className="mt-2 text-[var(--muted-foreground)] max-w-2xl text-sm sm:text-base">
+              <p className="mt-3 max-w-2xl text-sm text-[var(--muted-foreground)] sm:text-base">
                 Clear answers, fast support, and zero guesswork. Browse the most
                 common questions or drop us a line directly in-app.
               </p>

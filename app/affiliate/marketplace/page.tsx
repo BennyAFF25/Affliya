@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import AcceptTermsModal from "@/../app/components/AcceptTermsModal";
 import OfferCard from "@/components/OfferCard";
 import { supabase } from "../../../utils/supabase/pages-client";
-import { Search } from "lucide-react";
+import { Search, Sparkles } from "lucide-react";
 
 interface Offer {
   id: string;
@@ -200,15 +200,23 @@ export default function AffiliateMarketplace() {
         />
       )}
       <div className="w-full max-w-7xl space-y-8">
-        <div className="rounded-3xl border border-[var(--border)] bg-[var(--card)] px-6 py-8 text-center shadow-[0_25px_70px_rgba(0,0,0,0.08)]">
-          <h1 className="text-3xl font-bold text-[var(--primary)] mb-2">
-            Affiliate Marketplace
-          </h1>
-          <p className="text-sm text-[var(--muted-foreground)]">
-            Choose offers aligned with your strengths and audience. Send a note
-            to stand out.
-          </p>
-        </div>
+        <header className="rounded-3xl border border-[var(--border)] bg-[var(--card)] px-6 py-8 shadow-[0_20px_60px_rgba(0,0,0,0.08)]">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-3xl">
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#00C2CB]/20 bg-[#00C2CB]/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.24em] text-[#7ff5fb]">
+                <Sparkles className="h-3.5 w-3.5" />
+                Workspace overview
+              </div>
+              <h1 className="text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
+                Affiliate Marketplace
+              </h1>
+              <p className="mt-3 max-w-2xl text-sm text-[var(--muted-foreground)] sm:text-base">
+                Choose offers aligned with your strengths and audience, and keep
+                your next promotion lined up in one place.
+              </p>
+            </div>
+          </div>
+        </header>
 
         <div className="rounded-3xl border border-[var(--border)] bg-[var(--card)] px-6 py-6 flex flex-wrap justify-center items-center gap-4 shadow-[0_20px_60px_rgba(0,0,0,0.08)]">
           <div className="relative w-full sm:w-80">
