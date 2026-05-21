@@ -176,7 +176,7 @@ export default function BusinessSettingsPage() {
         />
 
         <header className="space-y-2 relative">
-          <h1 className="text-3xl font-semibold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-[var(--primary)]/70 to-[var(--primary)]">
+          <h1 className="text-3xl font-semibold tracking-tight text-[var(--primary)]">
             Business settings
           </h1>
           <p className="text-sm text-[var(--muted-foreground)]">
