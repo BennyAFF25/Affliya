@@ -460,16 +460,17 @@ export default function AffiliateInbox() {
   return (
     <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)] px-4 sm:px-8 lg:px-12 py-10">
       <div className="mx-auto w-full max-w-6xl space-y-10">
-        <header className="space-y-3">
-          <p className="text-sm uppercase tracking-[0.2em] text-[var(--muted-foreground)]">
-            Command Center
-          </p>
-          <div className="flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <h1 className="text-4xl font-bold tracking-tight text-[var(--foreground)] sm:text-5xl">
-                Inbox
+        <header className="rounded-3xl border border-[var(--border)] bg-[var(--card)] px-6 py-8 shadow-[0_20px_60px_rgba(0,0,0,0.08)]">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-3xl">
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#00C2CB]/20 bg-[#00C2CB]/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.24em] text-[#7ff5fb]">
+                <Sparkles className="h-3.5 w-3.5" />
+                Workspace overview
+              </div>
+              <h1 className="text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
+                Affiliate Inbox
               </h1>
-              <p className="mt-2 text-base text-[var(--muted-foreground)]">
+              <p className="mt-3 max-w-2xl text-sm text-[var(--muted-foreground)] sm:text-base">
                 Approvals, creative feedback, and Nettmark alerts in one
                 streamlined lane.
               </p>

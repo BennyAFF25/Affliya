@@ -482,15 +482,18 @@ export default function MyShopPage() {
     return (
       <div className="myshop-theme min-h-screen bg-[var(--background)] text-[var(--foreground)] px-4 py-6">
         <div className="max-w-3xl mx-auto space-y-6">
-          <header className={`${CARD_SHELL} p-6`}>
-            <p className="text-xs uppercase tracking-[0.3em] text-white/60">
-              NettmarkShop
-            </p>
-            <h1 className="text-3xl font-bold text-white mt-1">My Shop</h1>
-            <p className="text-sm text-white/70 mt-2">
-              Request storefront approval so you can share a single link for all
-              of your offers.
-            </p>
+          <header className={`${CARD_SHELL} p-6 sm:p-8`}>
+            <div className="max-w-3xl">
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#00C2CB]/20 bg-[#00C2CB]/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.24em] text-[#7ff5fb]">
+                <SparklesIcon className="h-3.5 w-3.5" />
+                Workspace overview
+              </div>
+              <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">My Shop</h1>
+              <p className="mt-3 max-w-2xl text-sm text-white/70 sm:text-base">
+                Request storefront approval so you can share a single link for all
+                of your offers.
+              </p>
+            </div>
           </header>
 
           {error && (
@@ -597,14 +600,15 @@ export default function MyShopPage() {
     <div className="myshop-theme min-h-screen bg-[var(--background)] text-[var(--foreground)] px-4 py-6">
       <div className="max-w-5xl mx-auto space-y-6">
         <header
-          className={`${CARD_SHELL} p-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between`}
+          className={`${CARD_SHELL} p-6 sm:p-8 flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between`}
         >
-          <div>
-            <p className="text-xs uppercase tracking-[0.3em] text-white/60">
-              NettmarkShop
-            </p>
-            <h1 className="text-3xl font-bold text-white">My Shop</h1>
-            <p className="text-sm text-white/70 mt-1 max-w-2xl">
+          <div className="max-w-3xl">
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#00C2CB]/20 bg-[#00C2CB]/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.24em] text-[#7ff5fb]">
+              <SparklesIcon className="h-3.5 w-3.5" />
+              Workspace overview
+            </div>
+            <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">My Shop</h1>
+            <p className="mt-3 max-w-2xl text-sm text-white/70 sm:text-base">
               Craft the public storefront your followers see. Tweak handle,
               theme, imagery, and copy — everything updates live in the preview.
             </p>

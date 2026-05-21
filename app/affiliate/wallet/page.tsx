@@ -495,9 +495,19 @@ export default function AffiliateWalletPage() {
 
           <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div className="space-y-4">
-              <div className="inline-flex items-center gap-2 rounded-full bg-black/20 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-white/80">
+              <div className="inline-flex items-center gap-2 rounded-full bg-black/20 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.24em] text-white/80">
                 <span className={`h-1.5 w-1.5 rounded-full ${refundLockState.locked ? 'bg-amber-300' : 'bg-emerald-300'}`} />
-                Nettmark wallet
+                Workspace overview
+              </div>
+
+              <div>
+                <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
+                  Affiliate Wallet
+                </h1>
+                <p className="mt-3 max-w-2xl text-sm text-white/85 sm:text-base">
+                  See what is spendable now, what is locked by live campaign activity,
+                  and what can actually be refunded.
+                </p>
               </div>
 
               <div>
@@ -506,10 +516,6 @@ export default function AffiliateWalletPage() {
                   {formatMoney(availableBalance, currency)}
                 </p>
               </div>
-
-              <p className="max-w-2xl text-sm sm:text-base text-white/85">
-                See what is spendable now, what is locked by live campaign activity, and what can actually be refunded. The wallet timeline now includes top-ups, refunds, ad-spend settlements, and payout receipts.
-              </p>
 
               <div className="flex flex-wrap gap-2">
                 <span className="inline-flex items-center gap-2 rounded-full bg-black/20 px-3 py-1 text-xs font-semibold text-white/85">
