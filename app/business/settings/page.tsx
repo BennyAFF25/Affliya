@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type FormEvent, type ChangeEvent } from "react";
 import { useUser } from "@supabase/auth-helpers-react";
+import { Sparkles } from "lucide-react";
 import { supabase } from "utils/supabase/pages-client";
 import toast from "react-hot-toast";
 
@@ -173,13 +174,22 @@ export default function BusinessSettingsPage() {
           }}
         />
 
-        <header className="space-y-2 relative">
-          <h1 className="text-3xl font-semibold tracking-tight text-[var(--primary)]">
-            Business settings
-          </h1>
-          <p className="text-sm text-[var(--muted-foreground)]">
-            Manage your Nettmark business profile and account security.
-          </p>
+        <header className="relative rounded-3xl border border-[var(--border)] bg-[var(--card)] px-6 py-8 shadow-[0_20px_60px_rgba(0,0,0,0.08)]">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-3xl">
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#00C2CB]/20 bg-[#00C2CB]/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.24em] text-[#7ff5fb]">
+                <Sparkles className="h-3.5 w-3.5" />
+                Workspace overview
+              </div>
+              <h1 className="text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
+                Business Settings
+              </h1>
+              <p className="mt-3 max-w-2xl text-sm text-[var(--muted-foreground)] sm:text-base">
+                Manage your Nettmark business profile, billing contact details,
+                and account security from one place.
+              </p>
+            </div>
+          </div>
         </header>
 
         {!user && (
