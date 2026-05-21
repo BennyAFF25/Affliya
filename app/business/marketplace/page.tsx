@@ -284,15 +284,15 @@ export default function BusinessMarketplace() {
             <div className="max-w-3xl">
               <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#00C2CB]/20 bg-[#00C2CB]/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.24em] text-[#7ff5fb]">
                 <Sparkles className="h-3.5 w-3.5" />
-                Competition intel
+                Marketplace overview
               </div>
               <h1 className="text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
                 Business Marketplace
               </h1>
               <p className="mt-3 max-w-2xl text-sm text-[var(--muted-foreground)] sm:text-base">
-                Keep an eye on fresh offers, who is attracting the most affiliates,
-                and where the market is getting crowded. This view is for
-                competitive monitoring, not for sending promotion requests.
+                Browse active offers across the network, see what is trending,
+                and stay up to date with how similar businesses are positioning
+                themselves in the marketplace.
               </p>
             </div>
 
@@ -300,7 +300,7 @@ export default function BusinessMarketplace() {
               <div className="rounded-2xl border border-white/5 bg-black/30 p-4">
                 <div className="flex items-center gap-2 text-xs text-gray-400">
                   <Users className="h-3.5 w-3.5 text-[#7ff5fb]" />
-                  Competitor offers
+                  Active offers
                 </div>
                 <div className="mt-2 text-2xl font-semibold text-white">
                   {offers.length}
