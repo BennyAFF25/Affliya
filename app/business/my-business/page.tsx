@@ -747,29 +747,22 @@ export default function MyBusinessPage() {
       {console.log("MyBusinessPage mounted")}
       <div className="my-business-theme min-h-screen bg-[var(--background)] px-6 py-10 text-[var(--foreground)]">
         {/* Header */}
-        <div className="max-w-6xl mx-auto mb-10">
-          <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-[#7ff5fb] to-[#00C2CB]">
-            Business control hub
-          </h1>
-          <p className="mt-3 flex items-center gap-2 text-sm text-white/70">
-            <svg
-              className="w-4 h-4 text-[#00C2CB]"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M12 8c-1.333-1.333-4-1-4 2s2.667 4 4 4 4-1.333 4-4-2.667-3.333-4-2zm0 0V6m0 10v2"
-              />
-            </svg>
-            <span>
-              Manage affiliates, Meta integration, and billing for your Nettmark
-              offers — all in one place.
-            </span>
-          </p>
+        <div className="max-w-6xl mx-auto mb-10 rounded-3xl border border-[var(--border)] bg-[var(--card)] px-6 py-8 shadow-[0_20px_60px_rgba(0,0,0,0.08)]">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-3xl">
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#00C2CB]/20 bg-[#00C2CB]/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.24em] text-[#7ff5fb]">
+                <IconBolt className="w-3.5 h-3.5" />
+                Workspace overview
+              </div>
+              <h1 className="text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
+                My Business
+              </h1>
+              <p className="mt-3 max-w-2xl text-sm text-[var(--muted-foreground)] sm:text-base">
+                Manage affiliates, Meta integration, billing, and marketplace
+                offers for your Nettmark business from one control surface.
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* ===== Onboarding Checklist (stays until payouts + billing + at least one offer) ===== */}

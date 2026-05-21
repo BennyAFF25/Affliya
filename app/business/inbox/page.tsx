@@ -1,8 +1,6 @@
 "use client";
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSession } from "@supabase/auth-helpers-react";
 import Link from "next/link";
 import { supabase } from "utils/supabase/pages-client";
@@ -58,11 +56,6 @@ const accentMap: Record<EntryKind, DecoratedEntry["accent"]> = {
 
 const archiveStorageKey = (email?: string | null) =>
   email ? `nettmark_business_inbox_${email}` : null;
-
-const shouldAutoArchive = (entry: EntryData) => {
-  if (entry.status !== "approved") return false;
-  return entry.kind === "ad_idea" || entry.kind === "organic_post";
-};
 
 export default function BusinessInbox() {
   const session = useSession();
@@ -210,19 +203,9 @@ export default function BusinessInbox() {
     loadEntries();
   }, [offers]);
 
-  const manualArchivedIds = new Set(archivedData.map((entry) => entry.id));
-  const autoArchivedEntries = entries.filter((entry) => shouldAutoArchive(entry));
-  const autoArchivedIds = new Set(autoArchivedEntries.map((entry) => entry.id));
-  const archivedIds = new Set([
-    ...Array.from(manualArchivedIds),
-    ...Array.from(autoArchivedIds),
-  ]);
-  const activeEntriesData = entries.filter((entry) => !archivedIds.has(entry.id));
-  const archivedEntriesData = [
-    ...autoArchivedEntries,
-    ...archivedData.filter((entry) => !autoArchivedIds.has(entry.id)),
-  ].sort(
-    (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+  const archivedIds = new Set(archivedData.map((entry) => entry.id));
+  const activeEntriesData = entries.filter(
+    (entry) => !archivedIds.has(entry.id),
   );
 
   const decorateEntries = (data: EntryData[]): DecoratedEntry[] =>
@@ -248,12 +231,12 @@ export default function BusinessInbox() {
   };
 
   const displayedData = useMemo(() => {
-    const source = activeTab === "archived" ? archivedEntriesData : activeEntriesData;
+    const source = activeTab === "archived" ? archivedData : activeEntriesData;
     return filterByTab(source, activeTab);
-  }, [activeTab, activeEntriesData, archivedEntriesData]);
+  }, [activeTab, activeEntriesData, archivedData]);
 
   const displayedEntries = decorateEntries(displayedData);
-  const archivedEntries = decorateEntries(archivedEntriesData);
+  const archivedEntries = decorateEntries(archivedData);
   const liveEntries = decorateEntries(entries);
   const allEntriesMap = new Map<string, DecoratedEntry>();
   liveEntries.forEach((entry) => allEntriesMap.set(entry.id, entry));
@@ -315,7 +298,7 @@ export default function BusinessInbox() {
     {
       id: "archived",
       label: "Archived",
-      count: archivedEntriesData.length,
+      count: archivedData.length,
       icon: <Archive className="h-3.5 w-3.5" />,
     },
   ];
@@ -347,18 +330,21 @@ export default function BusinessInbox() {
   return (
     <div className="business-inbox-theme min-h-screen bg-[var(--background)] px-4 py-10 text-[var(--foreground)] sm:px-8 lg:px-12">
       <div className="mx-auto w-full max-w-6xl space-y-10">
-        <header className="space-y-3">
-          <p className="text-sm uppercase tracking-[0.2em] text-[var(--primary)]/70">
-            Business Ops
-          </p>
-          <div>
-            <h1 className="text-4xl font-bold tracking-tight text-[var(--foreground)] sm:text-5xl">
-              Inbox
-            </h1>
-            <p className="mt-2 text-base text-[var(--muted-foreground)]">
-              Review affiliate submissions, live campaign updates, and organic
-              assets without leaving one surface.
-            </p>
+        <header className="rounded-3xl border border-[var(--border)] bg-[var(--card)] px-6 py-8 shadow-[0_20px_60px_rgba(0,0,0,0.08)]">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-3xl">
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#00C2CB]/20 bg-[#00C2CB]/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.24em] text-[#7ff5fb]">
+                <Sparkles className="h-3.5 w-3.5" />
+                Workspace overview
+              </div>
+              <h1 className="text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
+                Business Inbox
+              </h1>
+              <p className="mt-3 max-w-2xl text-sm text-[var(--muted-foreground)] sm:text-base">
+                Review affiliate submissions, live campaign updates, and organic
+                assets without jumping between different business tools.
+              </p>
+            </div>
           </div>
         </header>
 
@@ -403,7 +389,6 @@ export default function BusinessInbox() {
             ) : (
               displayedEntries.map((entry) => {
                 const isArchived = archivedIds.has(entry.id);
-                const isAutoArchived = autoArchivedIds.has(entry.id);
                 const primaryAction = (
                   <Link
                     href={entry.link.href}
@@ -413,19 +398,13 @@ export default function BusinessInbox() {
                   </Link>
                 );
 
-                const archiveButton = isAutoArchived ? (
-                  <span className="rounded-lg border border-[var(--primary)]/20 bg-[var(--primary)]/10 px-3 py-1.5 text-xs font-semibold text-[var(--primary)]">
-                    Auto-archived
-                  </span>
-                ) : (
+                const archiveButton = (
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (isArchived) {
-                        handleRestore(entry.id);
-                      } else {
-                        handleArchive(entry.id);
-                      }
+                      isArchived
+                        ? handleRestore(entry.id)
+                        : handleArchive(entry.id);
                     }}
                     className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
                       isArchived
@@ -437,15 +416,13 @@ export default function BusinessInbox() {
                   </button>
                 );
 
-                const swipeActions = isAutoArchived ? undefined : (
+                const swipeActions = (
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (isArchived) {
-                        handleRestore(entry.id);
-                      } else {
-                        handleArchive(entry.id);
-                      }
+                      isArchived
+                        ? handleRestore(entry.id)
+                        : handleArchive(entry.id);
                     }}
                     className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
                       isArchived
@@ -523,30 +500,24 @@ export default function BusinessInbox() {
                   >
                     {selectedEntry.link.label}
                   </Link>
-                  {autoArchivedIds.has(selectedEntry.id) ? (
-                    <div className="inline-flex items-center gap-2 rounded-lg border border-[var(--primary)]/20 bg-[var(--primary)]/10 px-4 py-2 text-sm font-semibold text-[var(--primary)]">
-                      <Archive className="h-4 w-4" /> Archived automatically
-                    </div>
-                  ) : (
-                    <button
-                      onClick={() =>
-                        archivedIds.has(selectedEntry.id)
-                          ? handleRestore(selectedEntry.id)
-                          : handleArchive(selectedEntry.id)
-                      }
-                      className="inline-flex items-center gap-2 rounded-lg border border-[var(--border)] px-4 py-2 text-sm font-semibold text-[var(--muted-foreground)] transition hover:border-[var(--primary)]/50 hover:text-[var(--primary)]"
-                    >
-                      {archivedIds.has(selectedEntry.id) ? (
-                        <>
-                          <ArchiveRestore className="h-4 w-4" /> Restore
-                        </>
-                      ) : (
-                        <>
-                          <Archive className="h-4 w-4" /> Archive
-                        </>
-                      )}
-                    </button>
-                  )}
+                  <button
+                    onClick={() =>
+                      archivedIds.has(selectedEntry.id)
+                        ? handleRestore(selectedEntry.id)
+                        : handleArchive(selectedEntry.id)
+                    }
+                    className="inline-flex items-center gap-2 rounded-lg border border-[var(--border)] px-4 py-2 text-sm font-semibold text-[var(--muted-foreground)] transition hover:border-[var(--primary)]/50 hover:text-[var(--primary)]"
+                  >
+                    {archivedIds.has(selectedEntry.id) ? (
+                      <>
+                        <ArchiveRestore className="h-4 w-4" /> Restore
+                      </>
+                    ) : (
+                      <>
+                        <Archive className="h-4 w-4" /> Archive
+                      </>
+                    )}
+                  </button>
                 </div>
               </div>
             ) : (
