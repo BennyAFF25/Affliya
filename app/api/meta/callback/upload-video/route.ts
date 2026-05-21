@@ -81,7 +81,7 @@ export async function POST(req: Request) {
     }
 
     const fallback_image_url = rest.thumbnail_url;
-    const image_hash = null;
+    let image_hash: string | null = null;
 
     const affiliateEmail =
       (body as any)?.affiliate_email ?? (adIdea as any)?.affiliate_email ?? null;
@@ -290,26 +290,30 @@ export async function POST(req: Request) {
       trackingLink || offerWebsite || displayLink || "https://nettmark.com";
 
     // Media
-    const videoUrl = prefer(
-      (body as any).videoUrl,
+    const mediaType = String(
+      prefer((body as any).media_type, adIdea?.media_type, "VIDEO") ||
+        "VIDEO",
+    ).toUpperCase();
+    const fileUrl = prefer(
       (body as any).file_url,
       adIdea?.file_url,
       rest.file_url,
+      (body as any).videoUrl,
     );
+    const videoUrl =
+      mediaType === "VIDEO"
+        ? prefer(
+            (body as any).videoUrl,
+            fileUrl,
+            adIdea?.file_url,
+            rest.file_url,
+          )
+        : null;
     const thumbnailUrl = prefer(
       (body as any).thumbnail_url,
       adIdea?.thumbnail_url,
       null,
     );
-    const mediaType = String(
-      prefer(
-        (body as any).media_type,
-        (adIdea as any)?.media_type,
-        (adIdea as any)?.type,
-        "VIDEO",
-      ) || "VIDEO",
-    ).toUpperCase();
-    const isImageCreative = mediaType === "IMAGE";
 
     console.log("[Dynamic fields]", {
       campaignName,
@@ -324,8 +328,9 @@ export async function POST(req: Request) {
       trackingLink,
       displayLink,
       destinationLink,
-      videoUrl,
       mediaType,
+      fileUrl,
+      videoUrl,
     });
 
     console.log("[meta-upload] final payload", payload);
@@ -627,10 +632,56 @@ export async function POST(req: Request) {
     } else {
       console.log("[✅ Ad Set Created]", adSetRes);
 
-      let creativeBody: any;
+      let creativePayload: any;
 
-      if (isImageCreative) {
-        creativeBody = {
+      if (mediaType === "IMAGE") {
+        if (!fileUrl) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: "Image creative is missing a file URL",
+            },
+            { status: 400 },
+          );
+        }
+
+        const imageUploadRes = await fetch(
+          `https://graph.facebook.com/v19.0/${cleanAdAccountId}/adimages`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${access_token}`,
+            },
+            body: new URLSearchParams({
+              url: fileUrl,
+            }),
+          },
+        ).then((res) => safeParse(res));
+        console.log(
+          "[HTTP] image",
+          (imageUploadRes as any)?.images ? 200 : 400,
+        );
+
+        const uploadedImages = (imageUploadRes as any)?.images || {};
+        image_hash = Object.values(uploadedImages)[0]
+          ? ((Object.values(uploadedImages)[0] as any).hash ?? null)
+          : null;
+
+        if (!image_hash) {
+          console.error("[❌ Image Upload to Meta Failed]", imageUploadRes);
+          return NextResponse.json(
+            {
+              success: false,
+              error: "Image upload failed",
+              meta: imageUploadRes,
+            },
+            { status: 400 },
+          );
+        }
+
+        console.log("[✅ Image Uploaded to Meta]", image_hash);
+
+        creativePayload = {
           name: adName || `Creative – ${campaignData.id}`,
           object_story_spec: {
             page_id: selectedPageId,
@@ -645,16 +696,21 @@ export async function POST(req: Request) {
                   link: destinationLink,
                 },
               },
-              ...(videoUrl
-                ? { picture: videoUrl }
-                : fallback_image_url || thumbnailUrl
-                  ? { picture: fallback_image_url || thumbnailUrl }
-                  : {}),
+              image_hash,
             },
           },
         };
       } else {
-        // --- Upload Video to Meta ---
+        if (!videoUrl) {
+          return NextResponse.json(
+            {
+              success: false,
+              error: "Video creative is missing a video URL",
+            },
+            { status: 400 },
+          );
+        }
+
         const videoUploadRes = await fetch(
           `https://graph.facebook.com/v19.0/${cleanAdAccountId}/advideos`,
           {
@@ -686,7 +742,7 @@ export async function POST(req: Request) {
         const video_id = videoUploadRes.id;
         console.log("[✅ Video Uploaded to Meta]", video_id);
 
-        creativeBody = {
+        creativePayload = {
           name: adName || `Creative – ${campaignData.id}`,
           object_story_spec: {
             page_id: selectedPageId,
@@ -720,7 +776,7 @@ export async function POST(req: Request) {
             Authorization: `Bearer ${access_token}`,
             "Content-Type": "application/json",
           },
-          body: JSON.stringify(creativeBody),
+          body: JSON.stringify(creativePayload),
         },
       ).then((res) => safeParse(res));
       console.log("[HTTP] creative", creativeRes?.id ? 200 : 400);

@@ -198,14 +198,8 @@ export default function PromoteOfferPage() {
 
   // Media
   const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
-  const creativeKind = videoFile
-    ? videoFile.type.startsWith("image/")
-      ? "image"
-      : videoFile.type.startsWith("video/")
-        ? "video"
-        : null
-    : null;
   // Thumbnail error state for submission validation
   const [thumbnailError, setThumbnailError] = useState<string | null>(null);
 
@@ -380,7 +374,7 @@ export default function PromoteOfferPage() {
     if (placements.facebook_reels) {
       if (!publisher_platforms.includes("facebook"))
         publisher_platforms.push("facebook");
-      facebook_positions.push("reels");
+      facebook_positions.push("facebook_reels");
     }
 
     if (placements.instagram_feed) {
@@ -579,38 +573,8 @@ export default function PromoteOfferPage() {
       console.warn("[Reach Estimate Error]", e);
       setReachDaily(null);
       setReachMonthly(null);
-      const rawMessage = String(e?.message || "");
-      const msg = rawMessage.toLowerCase();
-
-      if (
-        msg.includes("access token") ||
-        msg.includes("ad_account_id") ||
-        msg.includes("could not resolve offer/business") ||
-        msg.includes("could not resolve meta connection") ||
-        msg.includes("missing token")
-      ) {
-        setReachStatus("unavailable");
-        setReachMessage(
-          "Estimated reach is unavailable until this offer has a valid Meta connection.",
-        );
-        return;
-      }
-
-      if (
-        msg.includes("targeting") ||
-        msg.includes("placement") ||
-        msg.includes("publisher_platforms") ||
-        msg.includes("facebook_positions") ||
-        msg.includes("instagram_positions")
-      ) {
-        setReachStatus("unavailable");
-        setReachMessage(
-          "Estimated reach is unavailable for the current placement mix. Try adjusting placements.",
-        );
-        return;
-      }
-
       setReachStatus("error");
+      const msg = e?.message?.toLowerCase?.() || "";
       if (msg.includes("access token")) {
         setReachMessage(
           "Meta token expired or invalid. Reconnect Meta to restore estimates.",
@@ -833,16 +797,11 @@ export default function PromoteOfferPage() {
           return;
         }
       }
-      if (!videoFile) {
-        nmToast.error("Please upload a video or image file");
-        return;
-      }
+      const isVideoCreative = !!videoFile;
+      const isImageCreative = !!imageFile;
 
-      const isImageCreative = videoFile.type.startsWith("image/");
-      const isVideoCreative = videoFile.type.startsWith("video/");
-
-      if (!isImageCreative && !isVideoCreative) {
-        nmToast.error("Creative must be a supported image or video file.");
+      if (!isVideoCreative && !isImageCreative) {
+        nmToast.error("Please upload either a video or a photo");
         return;
       }
 
@@ -856,6 +815,7 @@ export default function PromoteOfferPage() {
           return;
         }
       }
+
       setThumbnailError(null);
 
       // 0) Ensure budget does not exceed prefunded wallet
@@ -920,23 +880,38 @@ export default function PromoteOfferPage() {
         return;
       }
 
-      // 2) Upload creative (and optional thumbnail) to "ad-ideas-assets" bucket
+      // 2) Upload creative media to "ad-ideas-assets" bucket
       const ts = Date.now();
 
-      const creativeFolder = isImageCreative ? "images" : "videos";
-      const creativePath = `${creativeFolder}/${ts}-${sanitize(videoFile.name)}`;
-      const { error: upVidErr } = await supabase.storage
-        .from("ad-ideas-assets")
-        .upload(creativePath, videoFile, {
-          upsert: true,
-          contentType: videoFile.type,
-        });
-      if (upVidErr) throw upVidErr;
-      const videoPublicUrl = supabase.storage
-        .from("ad-ideas-assets")
-        .getPublicUrl(creativePath).data.publicUrl;
+      let creativePublicUrl: string | null = null;
+      let thumbPublicUrl: string | null = null;
 
-      let thumbPublicUrl: string | null = isImageCreative ? videoPublicUrl : null;
+      if (videoFile) {
+        const videoPath = `videos/${ts}-${sanitize(videoFile.name)}`;
+        const { error: upVidErr } = await supabase.storage
+          .from("ad-ideas-assets")
+          .upload(videoPath, videoFile, {
+            upsert: true,
+            contentType: videoFile.type,
+          });
+        if (upVidErr) throw upVidErr;
+        creativePublicUrl = supabase.storage
+          .from("ad-ideas-assets")
+          .getPublicUrl(videoPath).data.publicUrl;
+      } else if (imageFile) {
+        const imagePath = `images/${ts}-${sanitize(imageFile.name)}`;
+        const { error: upImgErr } = await supabase.storage
+          .from("ad-ideas-assets")
+          .upload(imagePath, imageFile, {
+            upsert: true,
+            contentType: imageFile.type,
+          });
+        if (upImgErr) throw upImgErr;
+        creativePublicUrl = supabase.storage
+          .from("ad-ideas-assets")
+          .getPublicUrl(imagePath).data.publicUrl;
+      }
+
       if (thumbnailFile) {
         const thumbPath = `thumbnails/${ts}-thumb-${sanitize(thumbnailFile.name)}`;
         const { error: upThumbErr } = await supabase.storage
@@ -982,10 +957,10 @@ export default function PromoteOfferPage() {
         affiliate_email: userEmail,
         business_email,
         // media
-        file_url: videoPublicUrl,
+        file_url: creativePublicUrl,
         thumbnail_url: thumbPublicUrl,
-        media_type: isImageCreative ? "IMAGE" : "VIDEO",
-        type: isImageCreative ? "Image" : "Video",
+        media_type: videoFile ? "VIDEO" : "IMAGE",
+        type: videoFile ? "Video" : "Image",
 
         // campaign/adset/ad
         campaign_name: form.campaign_name || null,
@@ -1287,7 +1262,8 @@ export default function PromoteOfferPage() {
               interestsIgnored={interestsIgnored}
               videoFile={videoFile}
               setVideoFile={setVideoFile}
-              creativeKind={creativeKind}
+              imageFile={imageFile}
+              setImageFile={setImageFile}
               thumbnailFile={thumbnailFile}
               setThumbnailFile={setThumbnailFile}
               thumbnailError={thumbnailError}
@@ -1342,7 +1318,6 @@ export default function PromoteOfferPage() {
           brandLogoUrl={brandLogoUrl}
           videoPreviewUrl={videoPreviewUrl}
           thumbPreviewUrl={thumbPreviewUrl}
-          creativeKind={creativeKind}
           form={form}
           ogMethod={ogMethod}
           ogFile={ogFile}
