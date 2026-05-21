@@ -18,6 +18,8 @@ interface Offer {
   commissionValue?: number;
   isTopCommission?: boolean;
   business_email?: string;
+  logoUrl?: string;
+  website?: string;
   meta_page_id?: string | null;
   meta_ad_account_id?: string | null;
   meta_pixel_id?: string | null;
@@ -120,6 +122,8 @@ export default function AffiliateMarketplace() {
         commissionValue: o.commission_value ?? undefined,
         isTopCommission: (o.commission ?? 0) >= threshold,
         business_email: o.business_email ?? undefined,
+        logoUrl: o.logo_url ?? undefined,
+        website: o.website ?? undefined,
         meta_page_id: o.meta_page_id ?? null,
         meta_ad_account_id: o.meta_ad_account_id ?? null,
         meta_pixel_id: o.meta_pixel_id ?? null,
