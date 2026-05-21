@@ -198,6 +198,7 @@ export default function PromoteOfferPage() {
 
   // Media
   const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   // Thumbnail error state for submission validation
   const [thumbnailError, setThumbnailError] = useState<string | null>(null);
@@ -796,23 +797,26 @@ export default function PromoteOfferPage() {
           return;
         }
       }
-      // Require thumbnail before submission
-      let thumbnailUrl: string | null = null;
-      if (thumbnailFile) {
-        // This will be set after upload, but for validation before upload, check existence
-        thumbnailUrl = thumbnailFile.name;
-      }
-      if (!thumbnailUrl || thumbnailUrl.trim() === "") {
-        setThumbnailError("Please upload a thumbnail before submitting.");
+      const isVideoCreative = !!videoFile;
+      const isImageCreative = !!imageFile;
+
+      if (!isVideoCreative && !isImageCreative) {
+        nmToast.error("Please upload either a video or a photo");
         return;
-      } else {
-        setThumbnailError(null);
       }
 
-      if (!videoFile) {
-        nmToast.error("Please upload a video file");
-        return;
+      if (isVideoCreative) {
+        let thumbnailUrl: string | null = null;
+        if (thumbnailFile) {
+          thumbnailUrl = thumbnailFile.name;
+        }
+        if (!thumbnailUrl || thumbnailUrl.trim() === "") {
+          setThumbnailError("Please upload a thumbnail before submitting.");
+          return;
+        }
       }
+
+      setThumbnailError(null);
 
       // 0) Ensure budget does not exceed prefunded wallet
       const budgetDollars = Number(form.budget_amount_dollars || 0);
@@ -876,22 +880,38 @@ export default function PromoteOfferPage() {
         return;
       }
 
-      // 2) Upload video (and optional thumbnail) to "ad-ideas-assets" bucket
+      // 2) Upload creative media to "ad-ideas-assets" bucket
       const ts = Date.now();
 
-      const videoPath = `videos/${ts}-${sanitize(videoFile.name)}`;
-      const { error: upVidErr } = await supabase.storage
-        .from("ad-ideas-assets")
-        .upload(videoPath, videoFile, {
-          upsert: true,
-          contentType: videoFile.type,
-        });
-      if (upVidErr) throw upVidErr;
-      const videoPublicUrl = supabase.storage
-        .from("ad-ideas-assets")
-        .getPublicUrl(videoPath).data.publicUrl;
-
+      let creativePublicUrl: string | null = null;
       let thumbPublicUrl: string | null = null;
+
+      if (videoFile) {
+        const videoPath = `videos/${ts}-${sanitize(videoFile.name)}`;
+        const { error: upVidErr } = await supabase.storage
+          .from("ad-ideas-assets")
+          .upload(videoPath, videoFile, {
+            upsert: true,
+            contentType: videoFile.type,
+          });
+        if (upVidErr) throw upVidErr;
+        creativePublicUrl = supabase.storage
+          .from("ad-ideas-assets")
+          .getPublicUrl(videoPath).data.publicUrl;
+      } else if (imageFile) {
+        const imagePath = `images/${ts}-${sanitize(imageFile.name)}`;
+        const { error: upImgErr } = await supabase.storage
+          .from("ad-ideas-assets")
+          .upload(imagePath, imageFile, {
+            upsert: true,
+            contentType: imageFile.type,
+          });
+        if (upImgErr) throw upImgErr;
+        creativePublicUrl = supabase.storage
+          .from("ad-ideas-assets")
+          .getPublicUrl(imagePath).data.publicUrl;
+      }
+
       if (thumbnailFile) {
         const thumbPath = `thumbnails/${ts}-thumb-${sanitize(thumbnailFile.name)}`;
         const { error: upThumbErr } = await supabase.storage
@@ -937,10 +957,10 @@ export default function PromoteOfferPage() {
         affiliate_email: userEmail,
         business_email,
         // media
-        file_url: videoPublicUrl,
+        file_url: creativePublicUrl,
         thumbnail_url: thumbPublicUrl,
-        media_type: "VIDEO",
-        type: "Video",
+        media_type: videoFile ? "VIDEO" : "IMAGE",
+        type: videoFile ? "Video" : "Image",
 
         // campaign/adset/ad
         campaign_name: form.campaign_name || null,
@@ -1242,6 +1262,8 @@ export default function PromoteOfferPage() {
               interestsIgnored={interestsIgnored}
               videoFile={videoFile}
               setVideoFile={setVideoFile}
+              imageFile={imageFile}
+              setImageFile={setImageFile}
               thumbnailFile={thumbnailFile}
               setThumbnailFile={setThumbnailFile}
               thumbnailError={thumbnailError}

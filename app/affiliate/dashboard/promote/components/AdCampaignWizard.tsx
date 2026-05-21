@@ -35,6 +35,8 @@ interface AdCampaignWizardProps {
   interestsIgnored: boolean;
   videoFile: File | null;
   setVideoFile: (file: File | null) => void;
+  imageFile: File | null;
+  setImageFile: (file: File | null) => void;
   thumbnailFile: File | null;
   setThumbnailFile: (file: File | null) => void;
   thumbnailError: string | null;
@@ -65,6 +67,8 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
     interestsIgnored,
     videoFile,
     setVideoFile,
+    imageFile,
+    setImageFile,
     thumbnailFile,
     setThumbnailFile,
     thumbnailError,
@@ -102,7 +106,9 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
     }
 
     if (step === 3) {
-      return !!videoFile && !!thumbnailFile;
+      if (videoFile) return !!thumbnailFile;
+      if (imageFile) return true;
+      return false;
     }
 
     return true;
@@ -719,7 +725,7 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
               </label>
             </div>
 
-            <div className="grid sm:grid-cols-2 gap-4">
+            <div className="grid gap-4 sm:grid-cols-2">
               <label className="block">
                 <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">
                   Upload Video
@@ -732,6 +738,7 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
                     const file = e.target.files?.[0] || null;
                     setVideoFile(file);
                     if (file) {
+                      setImageFile(null);
                       const url = URL.createObjectURL(file);
                       setVideoPreviewUrl(url);
                       setThumbPreviewUrl(null);
@@ -740,11 +747,14 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
                     }
                   }}
                 />
+                <p className="mt-2 text-xs text-gray-500">
+                  Use video if you want reels/feed motion creative.
+                </p>
               </label>
 
               <label className="block">
                 <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">
-                  Optional Thumbnail
+                  Upload Photo
                 </span>
                 <input
                   type="file"
@@ -753,34 +763,76 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
                   onChange={(e) => {
                     const file = e.target.files?.[0] || null;
                     if (!file) {
-                      setThumbnailFile(null);
-                      setThumbPreviewUrl(null);
-                      setThumbnailError(null);
+                      setImageFile(null);
+                      if (!videoFile) setThumbPreviewUrl(null);
                       return;
                     }
                     const err = validateThumbnailFile(file);
                     if (err) {
                       e.currentTarget.value = "";
-                      setThumbnailFile(null);
-                      setThumbPreviewUrl(null);
-                      setThumbnailError(err);
+                      setImageFile(null);
                       nmToast.error(err);
                       return;
                     }
+                    setImageFile(file);
+                    setVideoFile(null);
+                    setThumbnailFile(null);
                     setThumbnailError(null);
-                    setThumbnailFile(file);
+                    setVideoPreviewUrl(null);
                     const url = URL.createObjectURL(file);
                     setThumbPreviewUrl(url);
                   }}
                 />
+                <p className="mt-2 text-xs text-gray-500">
+                  Single-image ad creative for feed or story placements.
+                </p>
               </label>
             </div>
 
-            {thumbnailError || !thumbnailFile ? (
-              <div className="mt-3 px-3 py-2 border border-[#00C2CB]/50 text-[#00C2CB] text-sm rounded-md bg-[#001F20]/30">
+            <label className="block">
+              <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">
+                Video Thumbnail {videoFile ? "(required for video)" : "(not needed for photo ads)"}
+              </span>
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                className={`${INPUT} w-full text-base`}
+                disabled={!videoFile}
+                onChange={(e) => {
+                  const file = e.target.files?.[0] || null;
+                  if (!file) {
+                    setThumbnailFile(null);
+                    if (videoFile) setThumbPreviewUrl(null);
+                    setThumbnailError(null);
+                    return;
+                  }
+                  const err = validateThumbnailFile(file);
+                  if (err) {
+                    e.currentTarget.value = "";
+                    setThumbnailFile(null);
+                    setThumbnailError(err);
+                    nmToast.error(err);
+                    return;
+                  }
+                  setThumbnailError(null);
+                  setThumbnailFile(file);
+                  const url = URL.createObjectURL(file);
+                  setThumbPreviewUrl(url);
+                }}
+              />
+            </label>
+
+            {!videoFile && !imageFile ? (
+              <div className="mt-3 rounded-md border border-[#00C2CB]/50 bg-[#001F20]/30 px-3 py-2 text-sm text-[#00C2CB]">
+                Please upload either a video or a photo before submitting.
+              </div>
+            ) : null}
+
+            {videoFile && (thumbnailError || !thumbnailFile) ? (
+              <div className="mt-3 rounded-md border border-[#00C2CB]/50 bg-[#001F20]/30 px-3 py-2 text-sm text-[#00C2CB]">
                 {thumbnailError
                   ? thumbnailError
-                  : "Please upload a PNG/JPG/WebP thumbnail before submitting."}
+                  : "Please upload a PNG/JPG/WebP thumbnail before submitting your video ad."}
               </div>
             ) : null}
 

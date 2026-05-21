@@ -310,7 +310,9 @@ export default function AdIdeasPage() {
       const payload = {
         offerId: adIdea.offer_id,
         adIdeaId,
-        videoUrl: adIdea.file_url,
+        videoUrl: adIdea.media_type?.toUpperCase() === "VIDEO" ? adIdea.file_url : null,
+        file_url: adIdea.file_url,
+        media_type: adIdea.media_type,
         caption: adIdea.caption,
         audience: adIdea.audience,
         location: adIdea.location,
