@@ -318,6 +318,21 @@ export default function AffiliateWalletPage() {
         console.log('[✅ Paid session confirmed; awaiting webhook credit]', {
           sessionId: stripeSession.id,
         });
+
+        const reconcileRes = await fetch('/api/stripe/reconcile-topup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session_id: sessionId }),
+        });
+
+        if (!reconcileRes.ok) {
+          const reconcileBody = await reconcileRes.json().catch(() => null);
+          console.error('[❌ Top-up reconcile failed]', reconcileBody || reconcileRes.statusText);
+        } else {
+          const reconcileBody = await reconcileRes.json().catch(() => null);
+          console.log('[✅ Top-up reconcile result]', reconcileBody);
+        }
+
         setRecentCompletedTopupId(sessionId);
         sessionStorage.setItem('recent_completed_topup_session', sessionId);
         localStorage.removeItem('pending_stripe_session');
