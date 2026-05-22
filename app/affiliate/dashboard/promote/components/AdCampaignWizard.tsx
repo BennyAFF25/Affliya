@@ -83,6 +83,7 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
   const [step, setStep] = useState(1);
   const [showAdvancedBidding, setShowAdvancedBidding] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [adStyle, setAdStyle] = useState<"" | "video" | "image">("");
 
   const steps = [
     { id: 1, label: "Campaign" },
@@ -106,8 +107,8 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
     }
 
     if (step === 3) {
-      if (videoFile) return !!thumbnailFile;
-      if (imageFile) return true;
+      if (adStyle === "video") return !!videoFile && !!thumbnailFile;
+      if (adStyle === "image") return !!imageFile;
       return false;
     }
 
@@ -725,33 +726,114 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
               </label>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="block">
-                <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">
-                  Upload Video
-                </span>
-                <input
-                  type="file"
-                  accept="video/*"
-                  className={`${INPUT} w-full text-base`}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0] || null;
-                    setVideoFile(file);
-                    if (file) {
-                      setImageFile(null);
-                      const url = URL.createObjectURL(file);
-                      setVideoPreviewUrl(url);
-                      setThumbPreviewUrl(null);
-                    } else {
-                      setVideoPreviewUrl(null);
-                    }
-                  }}
-                />
-                <p className="mt-2 text-xs text-gray-500">
-                  Use video if you want reels/feed motion creative.
-                </p>
-              </label>
+            <label className="block">
+              <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">
+                Ad style
+              </span>
+              <select
+                className={`${INPUT} w-full text-base`}
+                value={adStyle}
+                onChange={(e) => {
+                  const nextStyle = e.target.value as "" | "video" | "image";
+                  setAdStyle(nextStyle);
+                  setThumbnailError(null);
 
+                  if (nextStyle === "video") {
+                    setImageFile(null);
+                    setThumbPreviewUrl(null);
+                    return;
+                  }
+
+                  if (nextStyle === "image") {
+                    setVideoFile(null);
+                    setThumbnailFile(null);
+                    setVideoPreviewUrl(null);
+                    setThumbPreviewUrl(null);
+                    return;
+                  }
+
+                  setVideoFile(null);
+                  setImageFile(null);
+                  setThumbnailFile(null);
+                  setVideoPreviewUrl(null);
+                  setThumbPreviewUrl(null);
+                }}
+              >
+                <option value="">Choose ad style</option>
+                <option value="video">Video ad</option>
+                <option value="image">Photo ad</option>
+              </select>
+              <p className="mt-2 text-xs text-gray-500">
+                Choose the format first so we only show the fields needed for that ad type.
+              </p>
+            </label>
+
+            {adStyle === "video" ? (
+              <div className="space-y-4">
+                <label className="block">
+                  <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">
+                    Upload Video
+                  </span>
+                  <input
+                    type="file"
+                    accept="video/*"
+                    className={`${INPUT} w-full text-base`}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] || null;
+                      setVideoFile(file);
+                      if (file) {
+                        setImageFile(null);
+                        const url = URL.createObjectURL(file);
+                        setVideoPreviewUrl(url);
+                        setThumbPreviewUrl(null);
+                      } else {
+                        setVideoPreviewUrl(null);
+                      }
+                    }}
+                  />
+                  <p className="mt-2 text-xs text-gray-500">
+                    Use video if you want reels/feed motion creative.
+                  </p>
+                </label>
+
+                <label className="block">
+                  <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">
+                    Video Thumbnail (required for video)
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp"
+                    className={`${INPUT} w-full text-base`}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] || null;
+                      if (!file) {
+                        setThumbnailFile(null);
+                        setThumbPreviewUrl(null);
+                        setThumbnailError(null);
+                        return;
+                      }
+                      const err = validateThumbnailFile(file);
+                      if (err) {
+                        e.currentTarget.value = "";
+                        setThumbnailFile(null);
+                        setThumbnailError(err);
+                        nmToast.error(err);
+                        return;
+                      }
+                      setThumbnailError(null);
+                      setThumbnailFile(file);
+                      const url = URL.createObjectURL(file);
+                      setThumbPreviewUrl(url);
+                    }}
+                  />
+                  <p className="mt-2 text-xs text-gray-500">
+                    Upload the thumbnail that should represent your video ad in placements where Meta shows a cover image.
+                  </p>
+                </label>
+              </div>
+            ) : null}
+
+            {adStyle === "image" ? (
               <label className="block">
                 <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">
                   Upload Photo
@@ -764,7 +846,7 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
                     const file = e.target.files?.[0] || null;
                     if (!file) {
                       setImageFile(null);
-                      if (!videoFile) setThumbPreviewUrl(null);
+                      setThumbPreviewUrl(null);
                       return;
                     }
                     const err = validateThumbnailFile(file);
@@ -787,52 +869,27 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
                   Single-image ad creative for feed or story placements.
                 </p>
               </label>
-            </div>
-
-            {videoFile ? (
-              <label className="block">
-                <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">
-                  Video Thumbnail (required for video)
-                </span>
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp"
-                  className={`${INPUT} w-full text-base`}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0] || null;
-                    if (!file) {
-                      setThumbnailFile(null);
-                      setThumbPreviewUrl(null);
-                      setThumbnailError(null);
-                      return;
-                    }
-                    const err = validateThumbnailFile(file);
-                    if (err) {
-                      e.currentTarget.value = "";
-                      setThumbnailFile(null);
-                      setThumbnailError(err);
-                      nmToast.error(err);
-                      return;
-                    }
-                    setThumbnailError(null);
-                    setThumbnailFile(file);
-                    const url = URL.createObjectURL(file);
-                    setThumbPreviewUrl(url);
-                  }}
-                />
-                <p className="mt-2 text-xs text-gray-500">
-                  Upload the thumbnail that should represent your video ad in placements where Meta shows a cover image.
-                </p>
-              </label>
             ) : null}
 
-            {!videoFile && !imageFile ? (
+            {!adStyle ? (
               <div className="mt-3 rounded-md border border-[#00C2CB]/50 bg-[#001F20]/30 px-3 py-2 text-sm text-[#00C2CB]">
-                Please upload either a video or a photo before submitting.
+                Choose an ad style to continue.
               </div>
             ) : null}
 
-            {videoFile && (thumbnailError || !thumbnailFile) ? (
+            {adStyle === "video" && !videoFile ? (
+              <div className="mt-3 rounded-md border border-[#00C2CB]/50 bg-[#001F20]/30 px-3 py-2 text-sm text-[#00C2CB]">
+                Please upload a video before submitting.
+              </div>
+            ) : null}
+
+            {adStyle === "image" && !imageFile ? (
+              <div className="mt-3 rounded-md border border-[#00C2CB]/50 bg-[#001F20]/30 px-3 py-2 text-sm text-[#00C2CB]">
+                Please upload a photo before submitting.
+              </div>
+            ) : null}
+
+            {adStyle === "video" && videoFile && (thumbnailError || !thumbnailFile) ? (
               <div className="mt-3 rounded-md border border-[#00C2CB]/50 bg-[#001F20]/30 px-3 py-2 text-sm text-[#00C2CB]">
                 {thumbnailError
                   ? thumbnailError
