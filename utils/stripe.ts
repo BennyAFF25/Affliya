@@ -7,20 +7,20 @@ type StripeMetadataValue = string | number | boolean | null | undefined;
 
 export function normalizeStripeSecret(secret = process.env.STRIPE_SECRET_KEY) {
   const raw = String(secret || "");
-  const trimmed = raw.trim();
-  const unquoted = trimmed.replace(/^(["'])(.*)\1$/, "$2");
+  const unquoted = raw.replace(/^\s*(["'])(.*)\1\s*$/s, "$2");
+  const sanitized = unquoted.replace(/[\s\u0000-\u001F\u007F-\u009F\u200B-\u200D\uFEFF]/g, "");
 
-  if (!unquoted) {
+  if (!sanitized) {
     throw new Error("Missing STRIPE_SECRET_KEY");
   }
 
-  if (/[\r\n\t]/.test(unquoted)) {
+  if (!/^(sk|rk)_(test|live)_/.test(sanitized)) {
     throw new Error(
-      "Invalid STRIPE_SECRET_KEY: contains control characters. Re-save the key in production without quotes or line breaks.",
+      "Invalid STRIPE_SECRET_KEY format. Re-save the production key exactly as provided by Stripe.",
     );
   }
 
-  return unquoted;
+  return sanitized;
 }
 
 export function createStripeClient(secret = process.env.STRIPE_SECRET_KEY) {
