@@ -183,6 +183,34 @@ export default function AffiliateWalletPage() {
   const [refundableTopups, setRefundableTopups] = useState<WalletTopup[]>([]);
   const [selectedTopupId, setSelectedTopupId] = useState<string | null>(null);
   const [showLedger, setShowLedger] = useState(false);
+  const [topupQueryState, setTopupQueryState] = useState<'success' | 'cancel' | null>(null);
+  const [recentCompletedTopupId, setRecentCompletedTopupId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const params = new URLSearchParams(window.location.search);
+    const topupState = params.get('topup');
+
+    if (topupState === 'success' || topupState === 'cancel') {
+      setTopupQueryState(topupState);
+    } else {
+      setTopupQueryState(null);
+    }
+
+    if (topupState === 'success') {
+      const rememberedSessionId =
+        sessionStorage.getItem('recent_completed_topup_session') ||
+        localStorage.getItem('pending_stripe_session');
+
+      if (rememberedSessionId) {
+        setRecentCompletedTopupId(rememberedSessionId);
+      }
+    } else {
+      sessionStorage.removeItem('recent_completed_topup_session');
+      setRecentCompletedTopupId(null);
+    }
+  }, []);
 
   useEffect(() => {
     if (settingsLoading) return;
@@ -290,6 +318,8 @@ export default function AffiliateWalletPage() {
         console.log('[✅ Paid session confirmed; awaiting webhook credit]', {
           sessionId: stripeSession.id,
         });
+        setRecentCompletedTopupId(sessionId);
+        sessionStorage.setItem('recent_completed_topup_session', sessionId);
         localStorage.removeItem('pending_stripe_session');
         await refreshWalletState();
       } catch (err) {
@@ -328,6 +358,10 @@ export default function AffiliateWalletPage() {
     .filter((item) => String(item.status || '').toLowerCase() === 'pending')
     .reduce((sum, item) => sum + toMoney(item.amount), 0);
   const refundBlockReason = getRefundBlockReason(refundLockState, currency);
+  const completedTopupRecord = recentCompletedTopupId
+    ? walletData.find((item) => item.stripe_id === recentCompletedTopupId)
+    : null;
+  const recentTopupActuals = topupQueryState === 'success' ? completedTopupRecord : null;
 
   const activity: LedgerItem[] = (() => {
     const topupItems = walletData.map((item) => ({
@@ -602,6 +636,50 @@ export default function AffiliateWalletPage() {
             </p>
           </section>
         )}
+
+        {topupQueryState === 'success' ? (
+          recentTopupActuals ? (
+            <section className="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-4 text-sm text-cyan-50">
+              <p className="font-semibold text-cyan-100">Top-up completed</p>
+              <p className="mt-1 text-cyan-50/85">
+                Actual settled deductions are now recorded from Stripe for this wallet credit.
+              </p>
+              <div className="mt-3 grid gap-3 sm:grid-cols-4">
+                <div className="rounded-xl border border-cyan-300/10 bg-black/15 px-3 py-3">
+                  <p className="text-[11px] uppercase tracking-[0.14em] text-cyan-50/60">Wallet credit</p>
+                  <p className="mt-1 text-base font-semibold text-white">
+                    {formatMoney(getCreditedTopupAmount(recentTopupActuals), currency)}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-cyan-300/10 bg-black/15 px-3 py-3">
+                  <p className="text-[11px] uppercase tracking-[0.14em] text-cyan-50/60">Nettmark fee</p>
+                  <p className="mt-1 text-base font-semibold text-white">
+                    {formatMoney(toMoney(recentTopupActuals.nettmark_fee_amount), currency)}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-cyan-300/10 bg-black/15 px-3 py-3">
+                  <p className="text-[11px] uppercase tracking-[0.14em] text-cyan-50/60">Stripe fee</p>
+                  <p className="mt-1 text-base font-semibold text-white">
+                    {formatMoney(toMoney(recentTopupActuals.stripe_fees), currency)}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-cyan-300/10 bg-black/15 px-3 py-3">
+                  <p className="text-[11px] uppercase tracking-[0.14em] text-cyan-50/60">Total charged</p>
+                  <p className="mt-1 text-base font-semibold text-white">
+                    {formatMoney(getTopupChargedAmount(recentTopupActuals), currency)}
+                  </p>
+                </div>
+              </div>
+            </section>
+          ) : (
+            <section className="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-4 text-sm text-cyan-50">
+              <p className="font-semibold text-cyan-100">Top-up received — finalising fee details</p>
+              <p className="mt-1 text-cyan-50/85">
+                We&apos;re waiting for the settled Stripe record so we can show the actual Stripe fee and Nettmark fee here.
+              </p>
+            </section>
+          )
+        ) : null}
 
         <section className="grid gap-6 lg:grid-cols-[minmax(0,360px),minmax(0,1fr)] items-start">
           <div className="flex flex-col gap-6">
