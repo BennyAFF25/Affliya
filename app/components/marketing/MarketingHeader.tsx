@@ -32,10 +32,9 @@ const navLinks = [
   },
   {
     href: "/pricing",
-    label: "Pricing",
-    description: "Early access",
-    badge: "Free",
-    group: "Plan",
+    label: "Create Account",
+    description: "Choose your path",
+    group: "Get Started",
   },
 ];
 

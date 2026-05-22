@@ -51,8 +51,8 @@ export default function PricingPage() {
 
   const faqs = [
     {
-      q: "Is it really free right now?",
-      a: "Yes. The first 150 users get free platform access for life while we keep polishing onboarding, support, and the overall UX.",
+      q: "Do I need to pay to create an account?",
+      a: "No. You can create your Nettmark account without paying up front. Platform fees only apply when money moves through wallet top-ups and business payout charges.",
     },
     {
       q: "How does Nettmark pricing work?",
@@ -99,13 +99,13 @@ export default function PricingPage() {
 
           <div className="mt-3 grid grid-cols-1 gap-2 text-xs text-gray-400 sm:grid-cols-3 w-full">
             <div className="rounded-md border border-white/10 bg-white/[0.03] px-3 py-2">
-              First 150 free for life
+              No subscription required
             </div>
             <div className="rounded-md border border-white/10 bg-white/[0.03] px-3 py-2">
               Fee-based pricing
             </div>
             <div className="rounded-md border border-white/10 bg-white/[0.03] px-3 py-2">
-              No card required
+              No card required to join
             </div>
           </div>
 
@@ -158,18 +158,13 @@ export default function PricingPage() {
       <main className="flex-1 w-full px-6 md:px-10 py-8 md:py-12">
         <section className="mx-auto mb-10 w-full max-w-5xl text-center">
           <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-[#00C2CB] drop-shadow-[0_0_12px_rgba(0,194,203,0.35)]">
-            Early Access is Live
+            Create your Nettmark account
           </h1>
 
           <p className="mt-3 text-gray-400 max-w-3xl mx-auto text-sm md:text-base">
-            The first{" "}
-            <span className="text-white/90 font-semibold">150 users</span> get{" "}
-            <span className="text-[#00C2CB] font-semibold">
-              free platform access for life
-            </span>
-            . Nettmark now uses a fee-based model instead of subscriptions, so
-            you only pay when money moves through the platform. Join as a
-            business or a partner.
+            Choose how you want to use Nettmark. Create a business account to
+            launch offers and approve affiliates, or create a partner account to
+            run campaigns and earn commissions.
           </p>
 
           <div className="mt-5 mx-auto max-w-3xl rounded-2xl border border-[#00C2CB]/25 bg-gradient-to-b from-[#001f20] via-[#0b0b0b] to-black p-5 text-left shadow-[0_0_25px_rgba(0,194,203,0.12)]">
@@ -177,7 +172,7 @@ export default function PricingPage() {
               <span className="mt-1 inline-block h-2 w-2 rounded-full bg-[#00C2CB]" />
               <div className="text-sm text-gray-200">
                 <div className="font-semibold text-[#00C2CB]">
-                  Free platform access (first 150 users)
+                  No subscription required
                 </div>
                 <div className="text-gray-400">
                   No card required to create an account. Nettmark charges a
