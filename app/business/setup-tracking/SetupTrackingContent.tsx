@@ -677,10 +677,10 @@ analytics.subscribe('checkout_completed', async (event) => {
                 Offer created
               </p>
               <h1 className="mt-3 text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
-                Connect your tracking without the giant wall of setup
+                Set up your tracking
               </h1>
               <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--muted-foreground)] sm:text-base">
-                I&apos;ve reworked this into a guided flow so you can focus on one step at a time instead of scrolling through one long page.
+                Follow the steps below to connect your tracking, verify everything is working, and get your offer ready for affiliates to promote.
               </p>
             </div>
             <button
