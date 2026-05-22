@@ -485,27 +485,29 @@ analytics.subscribe('checkout_completed', async (event) => {
                     </p>
                   </div>
 
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
                     <button
                       onClick={() =>
                         copyText(installSnippet, isShopify ? "shopify" : "main")
                       }
-                      className="inline-flex items-center justify-center gap-2 rounded-full bg-[var(--primary)] px-5 py-3 text-sm font-semibold text-[var(--primary-foreground)] transition hover:brightness-110"
+                      className="inline-flex min-h-[48px] w-full items-center justify-center gap-2 whitespace-nowrap rounded-full bg-[var(--primary)] px-5 py-3 text-sm font-semibold text-[var(--primary-foreground)] transition hover:brightness-110 sm:w-auto sm:min-w-[160px]"
                     >
-                      <ClipboardDocumentIcon className="h-5 w-5" />
-                      {isShopify
-                        ? copiedUniversal
-                          ? "Pixel copied"
-                          : "Copy pixel"
-                        : copied
-                          ? "Code copied"
-                          : "Copy code"}
+                      <ClipboardDocumentIcon className="h-5 w-5 shrink-0" />
+                      <span>
+                        {isShopify
+                          ? copiedUniversal
+                            ? "Pixel copied"
+                            : "Copy pixel"
+                          : copied
+                            ? "Code copied"
+                            : "Copy code"}
+                      </span>
                     </button>
 
                     <button
                       type="button"
                       onClick={() => setCodeExpanded((prev) => !prev)}
-                      className="inline-flex items-center justify-center rounded-full border border-[var(--border)] px-4 py-3 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--card)]"
+                      className="inline-flex min-h-[48px] w-full items-center justify-center whitespace-nowrap rounded-full border border-[var(--border)] px-5 py-3 text-sm font-semibold text-[var(--foreground)] transition hover:bg-[var(--card)] sm:w-auto sm:min-w-[160px]"
                     >
                       {codeExpanded ? "Hide full code" : "Show full code"}
                     </button>
