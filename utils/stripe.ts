@@ -5,12 +5,26 @@ export const STRIPE_API_VERSION: Stripe.LatestApiVersion =
 
 type StripeMetadataValue = string | number | boolean | null | undefined;
 
-export function createStripeClient(secret = process.env.STRIPE_SECRET_KEY) {
-  if (!secret) {
+export function normalizeStripeSecret(secret = process.env.STRIPE_SECRET_KEY) {
+  const raw = String(secret || "");
+  const trimmed = raw.trim();
+  const unquoted = trimmed.replace(/^(["'])(.*)\1$/, "$2");
+
+  if (!unquoted) {
     throw new Error("Missing STRIPE_SECRET_KEY");
   }
 
-  return new Stripe(secret, {
+  if (/[\r\n\t]/.test(unquoted)) {
+    throw new Error(
+      "Invalid STRIPE_SECRET_KEY: contains control characters. Re-save the key in production without quotes or line breaks.",
+    );
+  }
+
+  return unquoted;
+}
+
+export function createStripeClient(secret = process.env.STRIPE_SECRET_KEY) {
+  return new Stripe(normalizeStripeSecret(secret), {
     apiVersion: STRIPE_API_VERSION,
   });
 }
