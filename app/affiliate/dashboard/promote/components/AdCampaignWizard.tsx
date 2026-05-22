@@ -789,38 +789,42 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
               </label>
             </div>
 
-            <label className="block">
-              <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">
-                Video Thumbnail {videoFile ? "(required for video)" : "(not needed for photo ads)"}
-              </span>
-              <input
-                type="file"
-                accept="image/png,image/jpeg,image/webp"
-                className={`${INPUT} w-full text-base`}
-                disabled={!videoFile}
-                onChange={(e) => {
-                  const file = e.target.files?.[0] || null;
-                  if (!file) {
-                    setThumbnailFile(null);
-                    if (videoFile) setThumbPreviewUrl(null);
+            {videoFile ? (
+              <label className="block">
+                <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">
+                  Video Thumbnail (required for video)
+                </span>
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className={`${INPUT} w-full text-base`}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] || null;
+                    if (!file) {
+                      setThumbnailFile(null);
+                      setThumbPreviewUrl(null);
+                      setThumbnailError(null);
+                      return;
+                    }
+                    const err = validateThumbnailFile(file);
+                    if (err) {
+                      e.currentTarget.value = "";
+                      setThumbnailFile(null);
+                      setThumbnailError(err);
+                      nmToast.error(err);
+                      return;
+                    }
                     setThumbnailError(null);
-                    return;
-                  }
-                  const err = validateThumbnailFile(file);
-                  if (err) {
-                    e.currentTarget.value = "";
-                    setThumbnailFile(null);
-                    setThumbnailError(err);
-                    nmToast.error(err);
-                    return;
-                  }
-                  setThumbnailError(null);
-                  setThumbnailFile(file);
-                  const url = URL.createObjectURL(file);
-                  setThumbPreviewUrl(url);
-                }}
-              />
-            </label>
+                    setThumbnailFile(file);
+                    const url = URL.createObjectURL(file);
+                    setThumbPreviewUrl(url);
+                  }}
+                />
+                <p className="mt-2 text-xs text-gray-500">
+                  Upload the thumbnail that should represent your video ad in placements where Meta shows a cover image.
+                </p>
+              </label>
+            ) : null}
 
             {!videoFile && !imageFile ? (
               <div className="mt-3 rounded-md border border-[#00C2CB]/50 bg-[#001F20]/30 px-3 py-2 text-sm text-[#00C2CB]">
