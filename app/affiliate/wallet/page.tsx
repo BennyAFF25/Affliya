@@ -58,6 +58,16 @@ type LedgerItem = {
   note?: string;
 };
 
+type AffiliateBillingStatus = {
+  hasAccount: boolean;
+  stripeAccountId?: string | null;
+  onboardingComplete: boolean;
+  payoutsEnabled?: boolean;
+  chargesEnabled?: boolean;
+  detailsSubmitted?: boolean;
+  error?: string;
+};
+
 const currencySymbols: Record<string, string> = {
   USD: '$',
   EUR: '€',
@@ -185,6 +195,8 @@ export default function AffiliateWalletPage() {
   const [showLedger, setShowLedger] = useState(false);
   const [topupQueryState, setTopupQueryState] = useState<'success' | 'cancel' | null>(null);
   const [recentCompletedTopupId, setRecentCompletedTopupId] = useState<string | null>(null);
+  const [billingStatus, setBillingStatus] = useState<AffiliateBillingStatus | null>(null);
+  const [billingStatusLoading, setBillingStatusLoading] = useState(true);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -217,6 +229,34 @@ export default function AffiliateWalletPage() {
     const preferred = String(settings?.currency || settings?.preferred_currency || 'AUD').toUpperCase();
     setCurrency(preferred);
   }, [settings, settingsLoading]);
+
+  useEffect(() => {
+    const loadBillingStatus = async () => {
+      if (!user?.id && !user?.email) {
+        setBillingStatus(null);
+        setBillingStatusLoading(false);
+        return;
+      }
+
+      try {
+        setBillingStatusLoading(true);
+        const qs = user?.id
+          ? `?user_id=${encodeURIComponent(user.id)}`
+          : `?email=${encodeURIComponent(user!.email!)}`;
+        const res = await fetch(`/api/stripe/affiliates/check-account${qs}`, { cache: 'no-store' });
+        const json = (await res.json()) as AffiliateBillingStatus;
+        if (!res.ok) throw new Error(json.error || `Billing status check failed (${res.status})`);
+        setBillingStatus(json);
+      } catch (err) {
+        console.error('[❌ Affiliate billing status error]', err);
+        setBillingStatus(null);
+      } finally {
+        setBillingStatusLoading(false);
+      }
+    };
+
+    void loadBillingStatus();
+  }, [user?.id, user?.email]);
 
   const refreshWalletState = useCallback(async () => {
     if (!user?.email) return;
@@ -377,6 +417,12 @@ export default function AffiliateWalletPage() {
     ? walletData.find((item) => item.stripe_id === recentCompletedTopupId)
     : null;
   const recentTopupActuals = topupQueryState === 'success' ? completedTopupRecord : null;
+  const billingReady = !!billingStatus?.hasAccount && !!billingStatus?.onboardingComplete;
+  const topupBlockedReason = billingStatusLoading
+    ? 'Checking billing connection…'
+    : billingReady
+      ? null
+      : 'Connect billing in Affiliate Settings before adding wallet funds or running ads.';
 
   const activity: LedgerItem[] = (() => {
     const topupItems = walletData.map((item) => ({
@@ -447,6 +493,10 @@ export default function AffiliateWalletPage() {
 
     if (isNaN(amountInDollars) || amountInDollars <= 0) {
       alert('Please enter a valid amount greater than $0.');
+      return;
+    }
+    if (!billingReady) {
+      alert(topupBlockedReason || 'Connect billing in Affiliate Settings before topping up your wallet.');
       return;
     }
 
@@ -778,6 +828,21 @@ export default function AffiliateWalletPage() {
                 <span className={BADGE_SOFT}>{currency}</span>
               </div>
 
+              {!billingReady ? (
+                <div className="mb-3 rounded-xl border border-amber-400/20 bg-amber-400/10 px-3 py-3 text-xs text-amber-50">
+                  <p className="font-semibold text-amber-100">Billing connection required</p>
+                  <p className="mt-1 text-amber-50/80">
+                    {topupBlockedReason || 'Connect billing in Affiliate Settings before adding wallet funds.'}
+                  </p>
+                  <a
+                    href="/affiliate/settings"
+                    className="mt-3 inline-flex items-center rounded-lg bg-white/10 px-3 py-2 text-[11px] font-semibold text-white hover:bg-white/15"
+                  >
+                    Open affiliate settings
+                  </a>
+                </div>
+              ) : null}
+
               <input
                 type="number"
                 placeholder="Amount (e.g. 10)"
@@ -812,14 +877,20 @@ export default function AffiliateWalletPage() {
 
               <button
                 onClick={handleTopUp}
-                disabled={loading}
+                disabled={loading || billingStatusLoading || !billingReady}
                 className={`w-full rounded-lg px-4 py-2.5 text-sm font-semibold shadow-sm transition ${
-                  loading
+                  loading || billingStatusLoading || !billingReady
                     ? 'bg-[#1f2933] text-white/60 cursor-not-allowed'
                     : 'bg-[#00C2CB] text-black hover:bg-[#00b0b8]'
                 }`}
               >
-                {loading ? 'Redirecting…' : 'Top up via Stripe'}
+                {loading
+                  ? 'Redirecting…'
+                  : billingStatusLoading
+                    ? 'Checking billing…'
+                    : billingReady
+                      ? 'Top up via Stripe'
+                      : 'Connect billing in Settings first'}
               </button>
 
               <div className="mt-4 grid grid-cols-2 gap-3 text-xs text-white/60">
