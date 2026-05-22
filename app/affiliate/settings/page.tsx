@@ -432,10 +432,18 @@ export default function AffiliateSettingsPage() {
           className="rounded-3xl border border-white/10 bg-white/[0.04] backdrop-blur p-6 shadow-[0_0_60px_0_rgba(0,194,203,0.15)] scroll-mt-24"
         >
           <div className="flex items-center justify-between gap-4">
-            <h2 className="text-lg font-medium text-white">
-              Withdrawals{" "}
-              <span className="text-white/70">(Stripe Connect)</span>
-            </h2>
+            <div>
+              <h2 className="text-lg font-medium text-white">
+                Withdrawals{" "}
+                <span className="text-white/70">(Stripe Connect)</span>
+              </h2>
+              <p className="mt-2 max-w-2xl text-sm text-white/70">
+                Nettmark uses Stripe Express to send affiliate payouts. Stripe
+                may first show a <span className="text-white font-medium">Sign in to Express</span>{" "}
+                screen — that is expected, even if you have never used Stripe
+                before.
+              </p>
+            </div>
 
             <button
               onClick={refreshStatus}
@@ -447,6 +455,15 @@ export default function AffiliateSettingsPage() {
           </div>
 
           <div className="mt-4 space-y-4">
+            <div className="rounded-2xl border border-[#00C2CB40] bg-[#00C2CB14] px-4 py-3 text-sm text-white/80 shadow-[0_0_20px_rgba(0,194,203,0.12)]">
+              <p className="font-medium text-white">What to expect from Stripe</p>
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-white/70">
+                <li>Click the button below to open Stripe Express in a new step.</li>
+                <li>Stripe may ask for your email first before continuing onboarding.</li>
+                <li>You do not need to already have a Stripe account set up for this to work.</li>
+                <li>Use the same email you want payouts connected to, then follow Stripe&apos;s prompts.</li>
+              </ul>
+            </div>
             {status ? (
               <>
                 <div className="flex flex-wrap items-center gap-2">
@@ -482,7 +499,7 @@ export default function AffiliateSettingsPage() {
                     disabled={loading}
                     className="rounded-full bg-[#00C2CB] px-5 py-2 text-black hover:bg-[#00b0b8] shadow-[0_0_20px_#00C2CB40] hover:shadow-[0_0_30px_#00C2CB80] transition"
                   >
-                    {loading ? "Opening Stripe…" : "Enable withdrawals"}
+                    {loading ? "Opening Stripe…" : "Set up Stripe payouts"}
                   </button>
                 )}
 
@@ -504,7 +521,7 @@ export default function AffiliateSettingsPage() {
                       disabled={loading}
                       className="rounded-full bg-[#00C2CB] px-5 py-2 text-black hover:bg-[#00b0b8] shadow-[0_0_20px_#00C2CB40] hover:shadow-[0_0_30px_#00C2CB80] transition"
                     >
-                      {loading ? "Opening Stripe…" : "Resume onboarding"}
+                      {loading ? "Opening Stripe…" : "Continue Stripe setup"}
                     </button>
                   </div>
                 )}
