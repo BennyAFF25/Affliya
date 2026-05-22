@@ -59,6 +59,9 @@ type Campaign = {
   // Indicates whether this came from live_campaigns (organic) or live_ads (meta)
   meta_source?: "organic" | "meta";
   meta_campaign_id?: string | null;
+  billing_state?: string | null;
+  billing_paused_at?: string | null;
+  terminated_by_business_at?: string | null;
 };
 
 type CampaignStats = {
@@ -126,6 +129,9 @@ export default function BusinessCampaignDetailPage() {
           campaign_type,
           created_from,
           created_at,
+          billing_state,
+          billing_paused_at,
+          terminated_by_business_at,
           ad_ideas (
             file_url,
             caption
@@ -161,6 +167,9 @@ export default function BusinessCampaignDetailPage() {
           tracking_link: metaRow.tracking_link,
           campaign_type: metaRow.campaign_type,
           meta_source: "meta",
+          billing_state: (metaRow as any).billing_state || null,
+          billing_paused_at: (metaRow as any).billing_paused_at || null,
+          terminated_by_business_at: (metaRow as any).terminated_by_business_at || null,
         };
 
         setCampaign(mapped);
@@ -472,7 +481,12 @@ export default function BusinessCampaignDetailPage() {
   };
 
   // Derived pause state: respects status, billing_state, and billing_paused_at
+  const isBusinessStopped =
+    campaign?.billing_state === "TERMINATED_BY_BUSINESS" ||
+    !!campaign?.terminated_by_business_at;
+
   const isPaused =
+    isBusinessStopped ||
     (campaign?.status || "").toUpperCase() === "PAUSED" ||
     (campaign as any)?.billing_state === "PAUSED" ||
     !!(campaign as any)?.billing_paused_at;
@@ -481,6 +495,7 @@ export default function BusinessCampaignDetailPage() {
     if (!campaign) return;
 
     const isCurrentlyLive = !isPaused;
+    if (isBusinessStopped) return;
 
     // Shared warning when pausing a live campaign
     if (isCurrentlyLive) {
@@ -510,6 +525,7 @@ export default function BusinessCampaignDetailPage() {
           body: JSON.stringify({
             liveAdId: campaign.id,
             action,
+            actor: 'business',
           }),
         });
 
@@ -521,10 +537,22 @@ export default function BusinessCampaignDetailPage() {
         }
 
         const newStatus = json.newStatus as string;
-        setCampaign((prev) => (prev ? { ...prev, status: newStatus } : prev));
+        setCampaign((prev) =>
+          prev
+            ? {
+                ...prev,
+                status: newStatus,
+                billing_state: (json.billing_state as string | undefined) ?? prev.billing_state,
+                terminated_by_business_at:
+                  (json.terminated_by_business_at as string | null | undefined) ?? prev.terminated_by_business_at,
+              }
+            : prev,
+        );
       } else {
         // Organic campaigns: still toggle status directly in live_campaigns
         const newStatus = isCurrentlyLive ? "PAUSED" : "ACTIVE";
+
+        if (!isCurrentlyLive) return;
 
         const { error } = await (supabase as any)
           .from("live_campaigns")
@@ -1063,21 +1091,25 @@ export default function BusinessCampaignDetailPage() {
               <div className="flex flex-col items-end gap-2">
                 <button
                   onClick={handleToggleStatus}
-                  disabled={updating}
+                  disabled={updating || isBusinessStopped || (!(campaign.status || '').toLowerCase().includes('live') && !(campaign.status || '').toLowerCase().includes('active'))}
                   className="rounded-full bg-[#00C2CB] px-5 py-2 text-xs font-semibold text-black shadow hover:bg-[#00b0b8] disabled:opacity-60"
                 >
                   {updating
                     ? "Updating…"
-                    : (campaign.status || "").toLowerCase() === "live" ||
-                        (campaign.status || "").toLowerCase() === "active"
-                      ? "Pause campaign"
-                      : "Activate campaign"}
+                    : isBusinessStopped
+                      ? "Stopped by business"
+                      : (campaign.status || "").toLowerCase() === "live" ||
+                          (campaign.status || "").toLowerCase() === "active"
+                        ? "Pause campaign"
+                        : "Paused"}
                 </button>
-                {(campaign.status || "").toLowerCase() === "paused" ? (
+                {isBusinessStopped ? (
+                  <div className="mt-2 max-w-sm rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-[11px] text-red-100 text-right shadow-[0_0_20px_rgba(239,68,68,0.15)]">
+                    <span className="font-semibold">Campaign stopped by business.</span> Affiliates cannot turn this back on from Nettmark.
+                  </div>
+                ) : (campaign.status || "").toLowerCase() === "paused" ? (
                   <div className="mt-2 max-w-sm rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-[11px] text-amber-100 text-right shadow-[0_0_20px_rgba(245,158,11,0.15)]">
-                    <span className="font-semibold">Campaign paused.</span> The
-                    tracking link is temporarily disabled and affiliates cannot
-                    send traffic until you reactivate it.
+                    <span className="font-semibold">Campaign paused.</span> This placement is off and stays off until you deliberately relaunch it elsewhere.
                   </div>
                 ) : (
                   <div className="mt-2 max-w-sm rounded-xl border border-[#00C2CB40] bg-[#00C2CB14] px-4 py-3 text-[11px] text-white/80 text-right shadow-[0_0_20px_rgba(0,194,203,0.15)]">

@@ -113,6 +113,8 @@ const ManageCampaignsBusiness = () => {
         affiliate_email,
         caption,
         status,
+        billing_state,
+        terminated_by_business_at,
         spend,
         clicks,
         conversions,
@@ -266,8 +268,9 @@ const ManageCampaignsBusiness = () => {
   };
 
   const handleToggleStatus = async (id: string, currentStatus: string) => {
-    const newStatus =
-      (currentStatus || "").toUpperCase() === "ACTIVE" ? "PAUSED" : "ACTIVE";
+    const isCurrentlyActive = (currentStatus || "").toUpperCase() === "ACTIVE" || (currentStatus || "").toUpperCase() === "LIVE";
+    if (!isCurrentlyActive) return;
+    const newStatus = "PAUSED";
 
     const campaign = campaigns.find((c) => c.id === id);
     const source = campaign?._source === "meta" ? "live_ads" : "live_campaigns";
@@ -299,11 +302,10 @@ const ManageCampaignsBusiness = () => {
     if (!confirmed) return;
 
     try {
-      // 1) Pause at Meta level so it actually stops spending
       const res = await fetch("/api/meta/control-ad", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ liveAdId: id, action: "PAUSE" }),
+        body: JSON.stringify({ liveAdId: id, action: "PAUSE", actor: "business" }),
       });
 
       const json = await res.json().catch(() => null);
@@ -316,24 +318,18 @@ const ManageCampaignsBusiness = () => {
         return;
       }
 
-      // 2) Mark permanently stopped in Supabase so it moves to archived and cannot be restarted
-      const { error } = await (supabase as any)
-        .from("live_ads")
-        .update({ status: "STOPPED" })
-        .eq("id", id);
-
-      if (error) {
-        console.error(
-          "[❌ Failed to mark Meta campaign STOPPED in Supabase]",
-          error,
-        );
-        alert("Meta was paused, but Nettmark could not update the status.");
-        return;
-      }
-
-      // 3) Update local state so UI reflects the change immediately
       setCampaigns((prev) =>
-        prev.map((c) => (c.id === id ? { ...c, status: "STOPPED" } : c)),
+        prev.map((c) =>
+          c.id === id
+            ? {
+                ...c,
+                status: json?.newStatus || "STOPPED",
+                billing_state: json?.billing_state || "TERMINATED_BY_BUSINESS",
+                terminated_by_business_at:
+                  json?.terminated_by_business_at || new Date().toISOString(),
+              }
+            : c,
+        ),
       );
     } catch (err) {
       console.error("[❌ Error in handlePermanentStop]", err);
@@ -404,18 +400,20 @@ const ManageCampaignsBusiness = () => {
     },
   ];
 
-  const statusVisual = (status?: string) => {
-    const key = (status || "pending").toLowerCase();
+  const statusVisual = (campaign: any) => {
+    const key = (campaign?.status || "pending").toLowerCase();
+    const businessStopped =
+      campaign?.billing_state === 'TERMINATED_BY_BUSINESS' || !!campaign?.terminated_by_business_at;
+    if (businessStopped || key === "stopped" || key === "stopped permanently")
+      return { label: "Stopped", dot: "bg-red-500", text: "text-red-200" };
     if (key === "paused")
       return { label: "Paused", dot: "bg-amber-400", text: "text-amber-200" };
-    if (key === "stopped" || key === "stopped permanently")
-      return { label: "Stopped", dot: "bg-red-500", text: "text-red-200" };
     return { label: "Active", dot: "bg-emerald-400", text: "text-emerald-200" };
   };
 
   const renderCampaignCard = (campaign: any) => {
     const isMeta = campaign._source === "meta";
-    const status = statusVisual(campaign.status);
+    const status = statusVisual(campaign);
     return (
       <div
         key={campaign.id}
@@ -479,9 +477,10 @@ const ManageCampaignsBusiness = () => {
                 onClick={() =>
                   handleToggleStatus(campaign.id, campaign.status || "")
                 }
-                className="w-full rounded-full border border-white/15 px-4 py-2 text-sm font-semibold text-white/80 transition hover:bg-white/5"
+                disabled={!isActiveStatus(campaign.status)}
+                className="w-full rounded-full border border-white/15 px-4 py-2 text-sm font-semibold text-white/80 transition hover:bg-white/5 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isActiveStatus(campaign.status) ? "Pause" : "Activate"}
+                {isActiveStatus(campaign.status) ? "Pause" : "Paused"}
               </button>
             )}
           </div>

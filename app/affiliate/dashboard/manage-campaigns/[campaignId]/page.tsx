@@ -357,7 +357,7 @@ export default function ManageCampaignPage() {
       const res = await fetch('/api/meta/control-ad', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ liveAdId: campaign.id, action }),
+        body: JSON.stringify({ liveAdId: campaign.id, action, actor: 'affiliate' }),
       });
 
       const json = await res.json().catch(() => null);

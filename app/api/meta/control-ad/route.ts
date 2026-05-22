@@ -12,7 +12,7 @@ const META_SYSTEM_USER_TOKEN = process.env.META_SYSTEM_USER_TOKEN!; // kept for 
 
 export async function POST(req: Request) {
   try {
-    const { liveAdId, action, skipSettlement } = await req.json();
+    const { liveAdId, action, skipSettlement, actor } = await req.json();
 
     if (!liveAdId || !action) {
       return NextResponse.json(
@@ -21,16 +21,31 @@ export async function POST(req: Request) {
       );
     }
 
+    const controlActor = actor === 'business' ? 'business' : 'affiliate';
+
     // 1) Load live_ads row (we need meta ids + business_email)
     const { data: liveAd, error: liveErr } = await supabase
       .from('live_ads')
-      .select('id, meta_ad_id, meta_campaign_id, status, business_email, ad_set_id')
+      .select(
+        'id, meta_ad_id, meta_campaign_id, status, business_email, ad_set_id, billing_state, terminated_by_business_at'
+      )
       .eq('id', liveAdId)
       .single();
 
     if (liveErr || !liveAd) {
       console.error('[❌ live_ads lookup failed]', liveErr);
       return NextResponse.json({ error: 'LIVE_AD_NOT_FOUND' }, { status: 404 });
+    }
+
+    const isBusinessTerminated =
+      (liveAd as any).billing_state === 'TERMINATED_BY_BUSINESS' ||
+      !!(liveAd as any).terminated_by_business_at;
+
+    if (action === 'RESUME' && isBusinessTerminated) {
+      return NextResponse.json(
+        { error: 'CAMPAIGN_STOPPED_BY_BUSINESS', message: 'This campaign was paused by the business and cannot be reactivated.' },
+        { status: 409 }
+      );
     }
 
     // 2) Get the Meta access token for this business from meta_connections
@@ -89,6 +104,7 @@ export async function POST(req: Request) {
       targetType,
       targetId,
       action,
+      actor: controlActor,
       skipSettlement: !!skipSettlement,
     });
 
@@ -99,7 +115,7 @@ export async function POST(req: Request) {
     switch (action) {
       case 'PAUSE':
         targetStatus = 'PAUSED';
-        localStatus = 'paused';
+        localStatus = controlActor === 'business' ? 'stopped' : 'paused';
         break;
       case 'RESUME':
         targetStatus = 'ACTIVE';
@@ -118,7 +134,7 @@ export async function POST(req: Request) {
       accessToken
     )}`;
 
-    console.log('[Meta control] POST', url, { status: targetStatus, liveAdId, action });
+    console.log('[Meta control] POST', url, { status: targetStatus, liveAdId, action, actor: controlActor });
 
     const metaRes = await fetch(url, {
       method: 'POST',
@@ -139,9 +155,6 @@ export async function POST(req: Request) {
     console.log('[✅ Meta control success]', metaJson);
 
     // 5) Settlement on pause/archive (unless skipped)
-    const shouldSettle =
-      (action === 'PAUSE' || action === 'ARCHIVE') && !skipSettlement;
-
     let settlement: any = null;
     let settlementError: any = null;
     let settlementSkipped = false;
@@ -186,15 +199,21 @@ export async function POST(req: Request) {
       status: localStatus,
     };
 
-    if (action === 'PAUSE') {
+    if (action === 'PAUSE' && controlActor === 'business') {
+      extendedUpdate.billing_state = 'TERMINATED_BY_BUSINESS';
+      extendedUpdate.billing_paused_at = nowIso;
+      extendedUpdate.terminated_by_business_at = nowIso;
+    } else if (action === 'PAUSE') {
       extendedUpdate.billing_state = 'PAUSED';
       extendedUpdate.billing_paused_at = nowIso;
+      extendedUpdate.terminated_by_business_at = null;
     } else if (action === 'ARCHIVE') {
       extendedUpdate.billing_state = 'ARCHIVED';
       extendedUpdate.billing_paused_at = nowIso;
     } else if (action === 'RESUME') {
       extendedUpdate.billing_state = 'ACTIVE';
       extendedUpdate.billing_paused_at = null;
+      extendedUpdate.terminated_by_business_at = null;
     }
 
     const extUpdateRes = await supabase
@@ -221,6 +240,8 @@ export async function POST(req: Request) {
     return NextResponse.json({
       success: true,
       newStatus: localStatus,
+      billing_state: extendedUpdate.billing_state ?? null,
+      terminated_by_business_at: extendedUpdate.terminated_by_business_at ?? null,
       meta: { targetType, targetId, targetStatus, response: metaJson },
       settlement: settlementError ? null : settlement,
       settlementError,
