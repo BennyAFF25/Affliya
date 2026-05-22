@@ -640,51 +640,65 @@ export default function AffiliateWalletPage() {
               </div>
             </div>
 
-            <div className="flex flex-col gap-3 w-full lg:w-auto lg:min-w-[280px]">
+            <div className="flex w-full flex-col gap-3 lg:w-auto lg:min-w-[320px]">
               <div className="rounded-2xl bg-black/20 p-4 backdrop-blur-sm">
-                <p className="text-xs font-semibold uppercase tracking-wide text-white/60">Refund status</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-white/60">Wallet health</p>
                 <p className="mt-2 text-sm font-medium text-white">
-                  {refundLockState.locked ? 'Locked until campaign obligations clear' : 'Open for refunds'}
+                  {refundLockState.locked ? 'Some funds are temporarily locked' : 'Funds are clear for refunds'}
                 </p>
                 <p className="mt-2 text-xs leading-5 text-white/75">{refundBlockReason}</p>
               </div>
-              <button
-                onClick={handleRequestRefund}
-                disabled={refundLoading || refundLockState.locked}
-                className={`inline-flex items-center justify-center gap-2 rounded-xl border border-white/75 bg-white/95 px-4 py-2.5 text-sm font-semibold text-[#00C2CB] shadow-sm backdrop-blur transition hover:bg-white ${
-                  refundLoading || refundLockState.locked ? 'opacity-70 cursor-not-allowed' : ''
-                }`}
-              >
-                {refundLoading ? 'Processing…' : refundLockState.locked ? 'Refunds locked' : 'Transfer out'}
-              </button>
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
+                <a
+                  href="#topup-wallet"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/75 bg-white/95 px-4 py-2.5 text-sm font-semibold text-[#00C2CB] shadow-sm backdrop-blur transition hover:bg-white"
+                >
+                  Add funds
+                </a>
+                <a
+                  href="#refund-wallet"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/20 bg-black/15 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-black/25"
+                >
+                  Refund / withdraw
+                </a>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-black/15 px-4 py-3 text-xs text-white/70">
+                Payout setup lives in <a href="/affiliate/settings" className="font-semibold text-white hover:text-[#7ff5fb]">Affiliate Settings</a>. Wallet top-ups only unlock once Stripe payouts are connected.
+              </div>
             </div>
           </div>
         </section>
 
-        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
+        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           <div className={`${PANEL_CARD} p-4`}>
-            <p className="text-xs text-white/60">Available balance</p>
-            <p className="mt-1 text-2xl font-bold text-[#7ff5fb]">{formatMoney(availableBalance, currency)}</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/45">Available now</p>
+            <p className="mt-2 text-2xl font-bold text-[#7ff5fb]">{formatMoney(availableBalance, currency)}</p>
+            <p className="mt-1 text-xs text-white/50">Spendable wallet balance after settled refunds and ad deductions.</p>
           </div>
           <div className={`${PANEL_CARD} p-4`}>
-            <p className="text-xs text-white/60">Refundable now</p>
-            <p className="mt-1 text-2xl font-bold text-emerald-300">{formatMoney(availableToRefund, currency)}</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/45">Refundable now</p>
+            <p className="mt-2 text-2xl font-bold text-emerald-300">{formatMoney(availableToRefund, currency)}</p>
+            <p className="mt-1 text-xs text-white/50">Principal from completed top-ups that is currently clear to withdraw.</p>
           </div>
           <div className={`${PANEL_CARD} p-4`}>
-            <p className="text-xs text-white/60">Locked by ads / unsettled spend</p>
-            <p className="mt-1 text-2xl font-bold text-amber-200">{formatMoney(lockedRefundBalance, currency)}</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/45">Locked balance</p>
+            <p className="mt-2 text-2xl font-bold text-amber-200">{formatMoney(lockedRefundBalance, currency)}</p>
+            <p className="mt-1 text-xs text-white/50">Held back while live ads or unsettled spend still need to clear.</p>
           </div>
           <div className={`${PANEL_CARD} p-4`}>
-            <p className="text-xs text-white/60">Active Meta ads</p>
-            <p className="mt-1 text-2xl font-bold">{refundLockState.activeAdCount}</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/45">Active Meta ads</p>
+            <p className="mt-2 text-2xl font-bold">{refundLockState.activeAdCount}</p>
+            <p className="mt-1 text-xs text-white/50">Campaigns still capable of consuming wallet funds.</p>
           </div>
           <div className={`${PANEL_CARD} p-4`}>
-            <p className="text-xs text-white/60">Unsettled ad spend</p>
-            <p className="mt-1 text-2xl font-bold text-amber-300">{formatMoney(refundLockState.totalUnpaidSpend, currency)}</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/45">Unsettled spend</p>
+            <p className="mt-2 text-2xl font-bold text-amber-300">{formatMoney(refundLockState.totalUnpaidSpend, currency)}</p>
+            <p className="mt-1 text-xs text-white/50">Ad spend recorded in Meta that has not fully settled against the wallet yet.</p>
           </div>
           <div className={`${PANEL_CARD} p-4`}>
-            <p className="text-xs text-white/60">Pending payout receipts</p>
-            <p className="mt-1 text-2xl font-bold">{formatMoney(pendingPayoutTotal, currency)}</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/45">Pending payout receipts</p>
+            <p className="mt-2 text-2xl font-bold">{formatMoney(pendingPayoutTotal, currency)}</p>
+            <p className="mt-1 text-xs text-white/50">Affiliate payouts queued or still pending completion in Stripe.</p>
           </div>
         </section>
 
@@ -746,13 +760,13 @@ export default function AffiliateWalletPage() {
           )
         ) : null}
 
-        <section className="grid gap-6 lg:grid-cols-[minmax(0,360px),minmax(0,1fr)] items-start">
+        <section className="grid items-start gap-6 lg:grid-cols-[minmax(0,380px),minmax(0,1fr)]">
           <div className="flex flex-col gap-6">
-            <div className={`${PANEL_CARD} px-5 py-5`}>
+            <div id="refund-wallet" className={`${PANEL_CARD} px-5 py-5`}>
               <div className="mb-3 flex items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-sm font-semibold tracking-wide text-white/90">Request refund</h2>
-                  <p className="text-xs text-white/50">Choose the top-up you want to refund from, then submit the amount.</p>
+                  <h2 className="text-sm font-semibold tracking-wide text-white/90">Refund / withdraw</h2>
+                  <p className="text-xs text-white/50">Pick a completed top-up, choose the amount, and Stripe will return the refundable principal to the original payment method.</p>
                 </div>
                 <span className={BADGE_SOFT}>Refundable {formatMoney(availableToRefund, currency)}</span>
               </div>
@@ -819,11 +833,11 @@ export default function AffiliateWalletPage() {
               </div>
             </div>
 
-            <div className={`${PANEL_CARD} px-5 py-5`}>
+            <div id="topup-wallet" className={`${PANEL_CARD} px-5 py-5`}>
               <div className="mb-3 flex items-center justify-between gap-3">
                 <div>
                   <h2 className="text-sm font-semibold tracking-wide text-white/90">Top up wallet</h2>
-                  <p className="text-xs text-white/50">Stripe checkout adds funds for campaign spend. Your wallet is credited with principal only, while fees stay visible in the breakdown.</p>
+                  <p className="text-xs text-white/50">Add campaign funding through Stripe. Nettmark credits your wallet with the principal and shows the fees separately.</p>
                 </div>
                 <span className={BADGE_SOFT}>{currency}</span>
               </div>
@@ -909,10 +923,12 @@ export default function AffiliateWalletPage() {
           <div className={`${PANEL_CARD} min-w-0 p-5 space-y-4`}>
             <div className="flex items-center justify-between gap-3">
               <div>
-                <h2 className="text-sm font-semibold tracking-wide text-white/90">Wallet timeline</h2>
-                <p className="text-xs text-white/50">Top-ups, refunds, ad-spend settlements, and payout receipts in one ledger.</p>
+                <h2 className="text-sm font-semibold tracking-wide text-white/90">Wallet activity</h2>
+                <p className="text-xs text-white/50">A single timeline for top-ups, refunds, ad-spend settlements, and payout receipts.</p>
               </div>
-              <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300">Live</span>
+              <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300">
+                {activity.length} item{activity.length === 1 ? '' : 's'}
+              </span>
             </div>
 
             <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
