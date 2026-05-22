@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { calculateChargeOnTopFee, toStripeAmount } from "@/../utils/feeAccounting";
+import { calculateWalletTopupCharge, toStripeAmount } from "@/../utils/feeAccounting";
 import { buildNettmarkStripeMetadata, createStripeClient } from "@/../utils/stripe";
 
 export const runtime = "nodejs";
@@ -63,10 +63,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid amount" }, { status: 400 });
     }
 
-    const feeBreakdown = calculateChargeOnTopFee(amountNumber);
+    const feeBreakdown = calculateWalletTopupCharge(amountNumber);
 
     // Stripe expects "unit_amount" in the smallest currency unit (cents)
-    const unitAmount = toStripeAmount(feeBreakdown.grossAmount);
+    const unitAmount = toStripeAmount(feeBreakdown.totalChargeAmount);
 
     // ✅ These are the lines that were breaking for you before
     const successUrl = absUrl(`/affiliate/wallet?topup=success`);
@@ -81,8 +81,12 @@ export async function POST(req: Request) {
       currency,
       principalAmount: feeBreakdown.principalAmount,
       nettmarkFeeAmount: feeBreakdown.feeAmount,
-      grossChargeAmount: feeBreakdown.grossAmount,
+      estimatedStripeFeeAmount: feeBreakdown.estimatedStripeFeeAmount,
+      grossChargeAmount: feeBreakdown.totalChargeAmount,
+      netBeforeStripeAmount: feeBreakdown.passthroughBaseAmount,
       feeBps: feeBreakdown.feeBps,
+      stripeFeeBps: feeBreakdown.stripeFeeBps,
+      stripeFixedFeeAmount: feeBreakdown.stripeFixedFeeAmount,
       unitAmount,
       mode: process.env.STRIPE_SECRET_KEY.startsWith("sk_live_") ? "live" : "test",
     });
@@ -108,7 +112,8 @@ export async function POST(req: Request) {
         purpose: "wallet_topup",
         currency,
         topup_amount: feeBreakdown.principalAmount,
-        gross_charge_amount: feeBreakdown.grossAmount,
+        gross_charge_amount: feeBreakdown.totalChargeAmount,
+        stripe_fee_passthrough_amount: feeBreakdown.estimatedStripeFeeAmount,
         nettmark_fee_amount: feeBreakdown.feeAmount,
         fee_bps: feeBreakdown.feeBps,
       }),
@@ -118,7 +123,8 @@ export async function POST(req: Request) {
           purpose: "wallet_topup",
           currency,
           topup_amount: feeBreakdown.principalAmount,
-          gross_charge_amount: feeBreakdown.grossAmount,
+          gross_charge_amount: feeBreakdown.totalChargeAmount,
+          stripe_fee_passthrough_amount: feeBreakdown.estimatedStripeFeeAmount,
           nettmark_fee_amount: feeBreakdown.feeAmount,
           fee_bps: feeBreakdown.feeBps,
         }),
@@ -131,7 +137,8 @@ export async function POST(req: Request) {
         sessionId: session.id,
         principalAmount: feeBreakdown.principalAmount,
         nettmarkFeeAmount: feeBreakdown.feeAmount,
-        grossChargeAmount: feeBreakdown.grossAmount,
+        estimatedStripeFeeAmount: feeBreakdown.estimatedStripeFeeAmount,
+        grossChargeAmount: feeBreakdown.totalChargeAmount,
         feeBps: feeBreakdown.feeBps,
       },
       { status: 200 },

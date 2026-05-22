@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { calculateChargeOnTopFee, toStripeAmount } from '@/../utils/feeAccounting';
+import { calculateWalletTopupCharge, toStripeAmount } from '@/../utils/feeAccounting';
 import { buildNettmarkStripeMetadata, createStripeClient } from '@/../utils/stripe';
 
 const stripe = createStripeClient(process.env.STRIPE_SECRET_KEY as string);
@@ -16,8 +16,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing amount or email' }, { status: 400 });
     }
 
-    const feeBreakdown = calculateChargeOnTopFee(principalAmount);
-    amount = toStripeAmount(feeBreakdown.grossAmount);
+    const feeBreakdown = calculateWalletTopupCharge(principalAmount);
+    amount = toStripeAmount(feeBreakdown.totalChargeAmount);
 
     const paymentIntent = await stripe.paymentIntents.create({
       amount,
@@ -27,7 +27,8 @@ export async function POST(req: NextRequest) {
         purpose: 'wallet_topup',
         affiliate_email: email,
         topup_amount: feeBreakdown.principalAmount,
-        gross_charge_amount: feeBreakdown.grossAmount,
+        gross_charge_amount: feeBreakdown.totalChargeAmount,
+        stripe_fee_passthrough_amount: feeBreakdown.estimatedStripeFeeAmount,
         nettmark_fee_amount: feeBreakdown.feeAmount,
         fee_bps: feeBreakdown.feeBps,
       }),

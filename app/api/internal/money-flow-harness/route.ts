@@ -2,7 +2,7 @@ import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
-import { calculateChargeOnTopFee, recordPlatformFeeLedger, toStripeAmount } from "@/../utils/feeAccounting";
+import { calculateWalletTopupCharge, recordPlatformFeeLedger, toStripeAmount } from "@/../utils/feeAccounting";
 import { createStripeClient, getPlatformBalanceSnapshot } from "@/../utils/stripe";
 import { getWalletBalanceSnapshot } from "@/../utils/wallet/balance";
 import { getRefundLockState } from "@/../utils/wallet/refundLock";
@@ -295,8 +295,8 @@ async function resolveBalanceTransaction(paymentIntentId: string) {
 }
 
 async function simulateTopup(amount: number, opts: { paymentMethod?: string; label?: string } = {}) {
-  const feeBreakdown = calculateChargeOnTopFee(amount);
-  const amountCents = toStripeAmount(feeBreakdown.grossAmount);
+  const feeBreakdown = calculateWalletTopupCharge(amount);
+  const amountCents = toStripeAmount(feeBreakdown.totalChargeAmount);
   if (amountCents < 50) {
     throw new Error("Top-up amount must be at least 0.50 AUD");
   }

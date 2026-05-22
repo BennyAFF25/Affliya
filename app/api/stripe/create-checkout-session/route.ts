@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { calculateChargeOnTopFee, toStripeAmount } from '@/../utils/feeAccounting';
+import { calculateWalletTopupCharge, toStripeAmount } from '@/../utils/feeAccounting';
 import { buildNettmarkStripeMetadata, createStripeClient } from '@/../utils/stripe';
 
 const stripe = createStripeClient();
@@ -19,8 +19,8 @@ export async function POST(req: Request) {
     ? currency.toLowerCase()
     : 'usd';
 
-  const feeBreakdown = calculateChargeOnTopFee(Number(amount || 0) / 100);
-  const grossAmountCents = toStripeAmount(feeBreakdown.grossAmount);
+  const feeBreakdown = calculateWalletTopupCharge(Number(amount || 0) / 100);
+  const grossAmountCents = toStripeAmount(feeBreakdown.totalChargeAmount);
 
   console.log('[💰 Checkout Amount]', amount);
   console.log('[💱 Currency]', selectedCurrency);
@@ -57,7 +57,8 @@ export async function POST(req: Request) {
         affiliate_email: user.email,
         type: 'wallet_topup',
         topup_amount: feeBreakdown.principalAmount,
-        gross_charge_amount: feeBreakdown.grossAmount,
+        gross_charge_amount: feeBreakdown.totalChargeAmount,
+        stripe_fee_passthrough_amount: feeBreakdown.estimatedStripeFeeAmount,
         nettmark_fee_amount: feeBreakdown.feeAmount,
         fee_bps: feeBreakdown.feeBps,
       }),
@@ -66,7 +67,8 @@ export async function POST(req: Request) {
           affiliate_email: user.email,
           type: 'wallet_topup',
           topup_amount: feeBreakdown.principalAmount,
-          gross_charge_amount: feeBreakdown.grossAmount,
+          gross_charge_amount: feeBreakdown.totalChargeAmount,
+          stripe_fee_passthrough_amount: feeBreakdown.estimatedStripeFeeAmount,
           nettmark_fee_amount: feeBreakdown.feeAmount,
           fee_bps: feeBreakdown.feeBps,
         }),

@@ -1,4 +1,6 @@
 const DEFAULT_NETTMARK_FEE_BPS = 220;
+const DEFAULT_STRIPE_FEE_BPS = 175;
+const DEFAULT_STRIPE_FIXED_FEE = 0.3;
 
 function getConfiguredFeeBps() {
   const raw = (process.env.NETTMARK_TRANSACTION_FEE_BPS || "").trim();
@@ -17,6 +19,41 @@ export function getNettmarkTransactionFeeBps() {
   return getConfiguredFeeBps();
 }
 
+function getConfiguredStripeFeeBps() {
+  const raw = (process.env.STRIPE_TOPUP_FEE_BPS || "").trim();
+  if (!raw) {
+    return DEFAULT_STRIPE_FEE_BPS;
+  }
+
+  const parsed = Number(raw);
+  if (Number.isFinite(parsed) && parsed >= 0) {
+    return Math.round(parsed);
+  }
+
+  return DEFAULT_STRIPE_FEE_BPS;
+}
+
+function getConfiguredStripeFixedFee() {
+  const raw = (process.env.STRIPE_TOPUP_FIXED_FEE || "").trim();
+  if (!raw) {
+    return DEFAULT_STRIPE_FIXED_FEE;
+  }
+
+  const parsed = Number(raw);
+  if (Number.isFinite(parsed) && parsed >= 0) {
+    return roundCurrency(parsed);
+  }
+
+  return DEFAULT_STRIPE_FIXED_FEE;
+}
+
+export function getStripeTopupFeeConfig() {
+  return {
+    stripeFeeBps: getConfiguredStripeFeeBps(),
+    stripeFixedFeeAmount: getConfiguredStripeFixedFee(),
+  };
+}
+
 function roundCurrency(value: number) {
   return Math.round(value * 100) / 100;
 }
@@ -32,6 +69,30 @@ export function calculateChargeOnTopFee(principalAmount: number) {
     feeBps,
     feeAmount,
     grossAmount,
+  };
+}
+
+export function calculateWalletTopupCharge(principalAmount: number) {
+  const feeBreakdown = calculateChargeOnTopFee(principalAmount);
+  const { stripeFeeBps, stripeFixedFeeAmount } = getStripeTopupFeeConfig();
+
+  const passthroughBaseAmount = feeBreakdown.grossAmount;
+  const percentageRate = stripeFeeBps / 10000;
+
+  const estimatedTotalCharge =
+    percentageRate >= 1
+      ? passthroughBaseAmount
+      : roundCurrency((passthroughBaseAmount + stripeFixedFeeAmount) / (1 - percentageRate));
+
+  const estimatedStripeFeeAmount = roundCurrency(estimatedTotalCharge - passthroughBaseAmount);
+
+  return {
+    ...feeBreakdown,
+    passthroughBaseAmount,
+    stripeFeeBps,
+    stripeFixedFeeAmount,
+    estimatedStripeFeeAmount,
+    totalChargeAmount: estimatedTotalCharge,
   };
 }
 
