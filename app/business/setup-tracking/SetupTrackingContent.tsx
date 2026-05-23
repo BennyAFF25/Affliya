@@ -190,8 +190,8 @@ analytics.subscribe('page_viewed', async (event) => {
   await sendEvent('page_viewed', event);
 });
 
-analytics.subscribe('cart_updated', async (event) => {
-  await sendEvent('cart_updated', event);
+analytics.subscribe('product_added_to_cart', async (event) => {
+  await sendEvent('product_added_to_cart', event);
 });
 
 analytics.subscribe('checkout_completed', async (event) => {
