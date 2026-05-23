@@ -167,8 +167,7 @@ function normalizeEventType(rawEventType: unknown, hasBillableIdentity: boolean,
   const raw = typeof rawEventType === 'string' ? rawEventType.trim().toLowerCase() : '';
 
   if (raw === 'page_viewed' || raw === 'pageview') return 'page_view';
-  if (raw === 'add_to_cart') return 'add_to_cart';
-  if (raw === 'cart_updated') return 'cart_updated';
+  if (raw === 'add_to_cart' || raw === 'cart_updated') return 'add_to_cart';
   if (raw === 'checkout_completed') {
     return hasBillableIdentity && amount != null ? 'conversion' : 'checkout_completed';
   }
