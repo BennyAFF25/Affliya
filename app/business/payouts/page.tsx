@@ -216,7 +216,9 @@ export default function BusinessPayoutsPage() {
   );
 
   // --- Actions
-  async function runSelectedPayouts() {
+  async function runSelectedPayouts(event?: React.MouseEvent<HTMLButtonElement>) {
+    event?.preventDefault();
+    event?.stopPropagation();
     setRunning(true);
     setBanner(null);
     try {
@@ -316,6 +318,7 @@ export default function BusinessPayoutsPage() {
                 </span>
               </div>
               <button
+                type="button"
                 className="rounded-md bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-[var(--primary-foreground)] ring-1 ring-black/10 transition hover:brightness-95 disabled:opacity-40"
                 disabled={running || selectedIds.length === 0}
                 onClick={runSelectedPayouts}
@@ -440,6 +443,7 @@ function TabButton({
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
       className={`rounded-md px-3 py-2 text-sm transition ${
         active
