@@ -40,6 +40,11 @@ function toNum(v: any): number | null {
 function extractAmountAndCurrency(data: any): { amount: number | null; currency: string | null } {
   if (!data || typeof data !== 'object') return { amount: null, currency: null };
 
+  const checkout = data.checkout && typeof data.checkout === 'object' ? data.checkout : null;
+  const transactionAmount = Array.isArray(checkout?.transactions)
+    ? checkout.transactions.find((tx: any) => tx?.amount)?.amount
+    : null;
+
   let amount: number | null = null;
   let currency: string | null = null;
 
@@ -48,6 +53,28 @@ function extractAmountAndCurrency(data: any): { amount: number | null; currency:
     amount = toNum(data.totalPrice.amount);
     if (typeof data.totalPrice.currencyCode === 'string') {
       currency = data.totalPrice.currencyCode.toLowerCase();
+    }
+  }
+
+  // 1b) Shopify checkout payload nesting: checkout.totalPrice / subtotalPrice / transaction.amount
+  if (amount == null && checkout?.totalPrice) {
+    amount = toNum(checkout.totalPrice.amount);
+    if (typeof checkout.totalPrice.currencyCode === 'string') {
+      currency = checkout.totalPrice.currencyCode.toLowerCase();
+    }
+  }
+
+  if (amount == null && checkout?.subtotalPrice) {
+    amount = toNum(checkout.subtotalPrice.amount);
+    if (!currency && typeof checkout.subtotalPrice.currencyCode === 'string') {
+      currency = checkout.subtotalPrice.currencyCode.toLowerCase();
+    }
+  }
+
+  if (amount == null && transactionAmount) {
+    amount = toNum(transactionAmount.amount);
+    if (!currency && typeof transactionAmount.currencyCode === 'string') {
+      currency = transactionAmount.currencyCode.toLowerCase();
     }
   }
 
@@ -63,6 +90,15 @@ function extractAmountAndCurrency(data: any): { amount: number | null; currency:
       data.current_total_price,
       data.subtotal_price,
       data.total_line_items_price,
+      checkout?.amount,
+      checkout?.total,
+      checkout?.value,
+      checkout?.price,
+      checkout?.order_total,
+      checkout?.total_price,
+      checkout?.current_total_price,
+      checkout?.subtotal_price,
+      checkout?.total_line_items_price,
     ];
     for (const c of candidates) {
       const n = toNum(c);
@@ -78,6 +114,11 @@ function extractAmountAndCurrency(data: any): { amount: number | null; currency:
       data.currency,
       data.currencyCode,
       data?.totalPrice?.currencyCode,
+      checkout?.currency,
+      checkout?.currencyCode,
+      checkout?.totalPrice?.currencyCode,
+      checkout?.subtotalPrice?.currencyCode,
+      transactionAmount?.currencyCode,
     ];
     for (const cur of currencyCandidates) {
       if (typeof cur === 'string' && cur.trim()) {
