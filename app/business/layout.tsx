@@ -77,7 +77,7 @@ export default function BusinessLayout({
           <button
             type="button"
             onClick={() => setMobileNavOpen((prev) => !prev)}
-            className="md:hidden flex h-9 w-9 shrink-0 flex-col items-center justify-center rounded-md border border-[var(--border)] bg-[var(--secondary)]/70"
+            className="flex h-9 w-9 shrink-0 flex-col items-center justify-center rounded-md border border-[var(--border)] bg-[var(--secondary)]/70 lg:hidden"
           >
             <span className="mb-[3px] block h-[2px] w-5 rounded bg-[var(--foreground)]" />
             <span className="mb-[3px] block h-[2px] w-5 rounded bg-[var(--foreground)]" />
@@ -87,7 +87,7 @@ export default function BusinessLayout({
 
         {/* Mobile pill slider */}
         {mobileNavOpen && (
-          <div className="md:hidden border-t border-[var(--border)] bg-[var(--card)]/95 px-4 py-3">
+          <div className="border-t border-[var(--border)] bg-[var(--card)]/95 px-4 py-3 lg:hidden">
             <MobileNavSlider tabs={mobileTabs} onNavigate={closeMobileNav} />
           </div>
         )}
@@ -96,12 +96,12 @@ export default function BusinessLayout({
       {/* Shell under topbar */}
       <div className="flex min-h-0 flex-1 pt-16">
         {/* Desktop sidebar */}
-        <aside className="fixed bottom-0 left-0 top-16 hidden w-64 md:block">
+        <aside className="fixed bottom-0 left-0 top-16 hidden w-64 lg:block">
           <BusinessSidebar />
         </aside>
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto bg-[var(--background)] md:ml-64">
+        <main className="flex-1 overflow-y-auto bg-[var(--background)] lg:ml-64">
           {children}
         </main>
       </div>
