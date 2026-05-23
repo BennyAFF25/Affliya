@@ -219,8 +219,14 @@ export default function BusinessPayoutsPage() {
   async function runSelectedPayouts(event?: React.MouseEvent<HTMLButtonElement>) {
     event?.preventDefault();
     event?.stopPropagation();
+
+    if (selectedIds.length === 0) {
+      setBanner("Select at least one payout first.");
+      return;
+    }
+
     setRunning(true);
-    setBanner(null);
+    setBanner(`Processing ${selectedIds.length} payout${selectedIds.length === 1 ? "" : "s"}…`);
     try {
       const failures: string[] = [];
       let successCount = 0;
@@ -320,10 +326,11 @@ export default function BusinessPayoutsPage() {
               <button
                 type="button"
                 className="rounded-md bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-[var(--primary-foreground)] ring-1 ring-black/10 transition hover:brightness-95 disabled:opacity-40"
-                disabled={running || selectedIds.length === 0}
+                disabled={running}
+                aria-disabled={running || selectedIds.length === 0}
                 onClick={runSelectedPayouts}
               >
-                {running ? "Processing…" : `Settle ${selectedIds.length || ""}`}
+                {running ? "Processing…" : `Settle ${selectedIds.length > 0 ? selectedIds.length : "selected"}`}
               </button>
             </div>
           </div>
