@@ -87,6 +87,7 @@ export default function ManageCampaignPage() {
   const [chartSeries, setChartSeries] = useState<ChartSeries>({ labels: [], carts: [], conversions: [] });
   const [loadingStats, setLoadingStats] = useState<boolean>(false);
   const [pendingPayout, setPendingPayout] = useState<number>(0);
+  const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle');
 
   // Meta spend formatting
   const [metaCurrency, setMetaCurrency] = useState<string>('AUD');
@@ -566,6 +567,27 @@ export default function ManageCampaignPage() {
     return `https://www.nettmark.com/go/${campaignId}-${affiliateId}`;
   }, [campaign?.tracking_link, campaignId, affiliateId]);
 
+  const campaignTitle = useMemo(() => {
+    const captionTitle = String(campaign?.caption || '')
+      .split('\n')[0]
+      .trim();
+
+    return (
+      offer?.title ||
+      campaign?.ad_name ||
+      campaign?.platform ||
+      captionTitle ||
+      'Campaign'
+    );
+  }, [offer?.title, campaign?.ad_name, campaign?.platform, campaign?.caption]);
+
+  async function handleCopyTrackingLink() {
+    if (!trackingUrl) return;
+    await navigator.clipboard.writeText(trackingUrl);
+    setCopyState('copied');
+    window.setTimeout(() => setCopyState('idle'), 1800);
+  }
+
   if (error) return <div>Error: {error.message}</div>;
   if (!campaign) return <div>Loading...</div>;
 
@@ -719,8 +741,88 @@ export default function ManageCampaignPage() {
           )}
         </div>
 
-        {/* Right side: stats */}
+        {/* Right side: summary + stats */}
         <div className="w-full min-w-0 flex flex-col gap-6">
+          <div className="bg-[#171717] rounded-2xl border border-[#2A2A2A] shadow-md p-5 space-y-4 drop-shadow-[0_0_10px_rgba(0,194,203,0.10)]">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+              <div className="min-w-0">
+                <p className="text-[0.65rem] uppercase tracking-[0.2em] text-[#00C2CB]">Campaign Summary</p>
+                <h1 className="mt-2 text-2xl font-semibold text-white break-words">{campaignTitle}</h1>
+                <div className="mt-3 flex flex-wrap gap-2 text-[0.7rem] md:text-xs">
+                  <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-gray-200">
+                    {offer?.title || 'No linked offer'}
+                  </span>
+                  <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-gray-300">
+                    {isOrganic ? 'Organic' : 'Paid Meta'}
+                  </span>
+                  <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-gray-300">
+                    {campaign?.platform || 'Platform not set'}
+                  </span>
+                  <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-gray-300">
+                    {campaign?.status || 'Unknown status'}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 min-w-[220px] lg:min-w-[260px]">
+                <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+                  <p className="text-[0.65rem] uppercase tracking-wide text-gray-500">Pending payout</p>
+                  <p className="mt-2 text-lg font-semibold text-white">
+                    {pendingPayout > 0 ? `$${pendingPayout.toFixed(2)}` : '$0.00'}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+                  <p className="text-[0.65rem] uppercase tracking-wide text-gray-500">Commission</p>
+                  <p className="mt-2 text-lg font-semibold text-white">
+                    {offer?.commission ? `${offer.commission}%` : '—'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-[#00C2CB]/20 bg-[#0F0F0F] p-4">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div className="min-w-0">
+                  <p className="text-[0.65rem] uppercase tracking-wide text-gray-500">Tracking Link</p>
+                  {!affiliateId ? (
+                    <p className="mt-2 text-sm text-red-300">
+                      Missing affiliate ID. Please sign in again or complete your affiliate profile.
+                    </p>
+                  ) : (
+                    <p className={`mt-2 break-all text-sm ${isPaused || isTerminatedByBusiness ? 'text-[#00C2CB]/60' : 'text-[#00C2CB]'}`}>
+                      {trackingUrl}
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex shrink-0 gap-2">
+                  <button
+                    type="button"
+                    onClick={handleCopyTrackingLink}
+                    className="px-3 py-2 rounded-lg bg-[#00C2CB] hover:bg-[#00b0b8] text-white text-xs font-semibold disabled:opacity-60"
+                    disabled={!trackingUrl || isPaused || isTerminatedByBusiness}
+                  >
+                    {copyState === 'copied' ? 'Copied' : isPaused || isTerminatedByBusiness ? 'Copy (inactive)' : 'Copy Link'}
+                  </button>
+                </div>
+              </div>
+
+              {isTerminatedByBusiness ? (
+                <p className="text-xs text-amber-200 mt-3">
+                  This campaign has been permanently stopped by the business. The tracking link is archived and no longer counts new traffic.
+                </p>
+              ) : isPaused ? (
+                <p className="text-xs text-amber-200 mt-3">
+                  This campaign is currently paused. The tracking link is temporarily disabled until it is reactivated.
+                </p>
+              ) : (
+                <p className="text-xs text-gray-400 mt-3">
+                  Share this link anywhere you’re promoting the offer. Nettmark attaches <code>nm_aff</code> and <code>nm_camp</code> automatically.
+                </p>
+              )}
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-none">
             {/* Spend (Meta) - Paid only */}
             {isMetaPaid && (
@@ -793,25 +895,6 @@ export default function ManageCampaignPage() {
               </div>
             </div>
 
-            {/* Pending payout */}
-            <div className="bg-[#171717] hover:bg-[#1C1C1C] transition-all duration-300 p-4 rounded-2xl shadow-md flex items-center justify-between h-24 border border-[#2A2A2A] drop-shadow-[0_0_10px_rgba(0,194,203,0.12)]">
-              <div>
-                <h2 className="text-gray-300 text-sm font-medium mb-1 tracking-wide uppercase">
-                  Pending Payout
-                </h2>
-                <p className="text-2xl font-semibold text-white">
-                  {pendingPayout > 0 ? `$${pendingPayout.toFixed(2)}` : '$0.00'}
-                </p>
-                <p className="text-[0.6rem] text-gray-500 mt-1">
-                  {offer?.commission
-                    ? `This offer pays ${offer.commission}%`
-                    : 'No commission set → showing full amount'}
-                </p>
-              </div>
-              <div className="w-9 h-9 rounded-full bg-[#0F0F0F] flex items-center justify-center shadow-inner">
-                <CurrencyDollarIcon className="w-5 h-5 text-[#00C2CB]/80" />
-              </div>
-            </div>
           </div>
 
           {/* Line chart */}
@@ -940,100 +1023,6 @@ export default function ManageCampaignPage() {
                   onClick={() => setShowEmailModal(true)}
                 >
                   Open Full Email
-                </div>
-              )}
-            </div>
-          </details>
-        </div>
-      </div>
-
-      {/* Tracking Link */}
-      <div className="flex justify-center w-full mb-6">
-        <div className="w-[92%] max-w-6xl">
-          <details className="group bg-[#171717] rounded-2xl border border-[#2A2A2A] shadow-md overflow-hidden transition-all duration-300 drop-shadow-[0_0_12px_rgba(0,194,203,0.15)]">
-            <summary className="cursor-pointer select-none px-5 py-3 text-gray-300 text-xs md:text-sm tracking-wide uppercase bg-[#1C1C1C] hover:bg-[#1F1F1F] transition-all duration-300 flex justify-between items-center">
-              <div className="flex items-center">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="w-5 h-5 text-[#00C2CB] mr-2"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1.8}
-                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-                <span className="group-open:text-[#00C2CB] transition">
-                  Tracking Link <span className="text-gray-500 ml-1">(Campaign: {String(campaignId)})</span>
-                </span>
-              </div>
-              <svg
-                className="w-5 h-5 text-gray-400 group-open:rotate-180 transition-transform duration-300"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-              </svg>
-            </summary>
-            <div className="p-4 bg-[#0F0F0F] rounded-b-2xl">
-              {!affiliateId ? (
-                <div className="text-sm text-red-300">
-                  Missing affiliate ID. Please sign in again or complete your affiliate profile.
-                </div>
-              ) : (
-                <div className="text-sm">
-                  <div
-                    className={
-                      isPaused || isTerminatedByBusiness
-                        ? 'text-[#00C2CB]/60 break-all'
-                        : 'text-[#00C2CB] break-all'
-                    }
-                  >
-                    {trackingUrl}
-                  </div>
-                  <div className="mt-3 flex gap-2">
-                    <button
-                      onClick={async () => {
-                        if (trackingUrl) await navigator.clipboard.writeText(trackingUrl);
-                      }}
-                      className="px-3 py-1.5 rounded bg-[#00C2CB] hover:bg-[#00b0b8] text-white text-xs disabled:opacity-60"
-                      disabled={isPaused || isTerminatedByBusiness}
-                    >
-                      {isPaused || isTerminatedByBusiness ? 'Copy (inactive)' : 'Copy Link'}
-                    </button>
-                    {offer?.website && !(isPaused || isTerminatedByBusiness) && (
-                      <a
-                        href={trackingUrl || '#'}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="px-3 py-1.5 rounded bg-white hover:bg-[#e0fafa] border border-gray-300 text-[#00C2CB] text-xs"
-                      >
-                        Open Test
-                      </a>
-                    )}
-                  </div>
-                  {isTerminatedByBusiness ? (
-                    <p className="text-xs text-amber-200 mt-3">
-                      This campaign has been permanently stopped by the business. The tracking link is archived and no
-                      longer counts new traffic.
-                    </p>
-                  ) : isPaused ? (
-                    <p className="text-xs text-amber-200 mt-3">
-                      This campaign is currently paused. The tracking link is temporarily disabled until it is
-                      reactivated.
-                    </p>
-                  ) : (
-                    <p className="text-xs text-gray-400 mt-3">
-                      Clicking this redirects to the merchant with <code>nm_aff</code> and <code>nm_camp</code> query
-                      parameters. The on-site pixel sets first-party cookies and sends events to Nettmark.
-                    </p>
-                  )}
                 </div>
               )}
             </div>
