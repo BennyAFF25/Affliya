@@ -324,14 +324,15 @@ export default function BusinessCampaignDetailPage() {
           const t = (evt.event_type || "").toLowerCase();
           if (
             t === "page_view" ||
+            t === "page_viewed" ||
             t === "view" ||
             t === "landing_view" ||
             t === "click"
           ) {
             pageViews += 1;
-          } else if (t === "add_to_cart" || t === "cart") {
+          } else if (t === "add_to_cart" || t === "cart" || t === "cart_updated") {
             addToCarts += 1;
-          } else if (t === "conversion" || t === "purchase" || t === "order") {
+          } else if (t === "conversion" || t === "purchase" || t === "order" || t === "checkout_completed") {
             conversions += 1;
             if (typeof evt.amount === "number") {
               revenue += Number(evt.amount);
@@ -362,14 +363,15 @@ export default function BusinessCampaignDetailPage() {
           const t = (row.event_type || "").toLowerCase();
           if (
             t === "page_view" ||
+            t === "page_viewed" ||
             t === "view" ||
             t === "landing_view" ||
             t === "click"
           ) {
             pv[idx] += 1;
-          } else if (t === "add_to_cart" || t === "cart") {
+          } else if (t === "add_to_cart" || t === "cart" || t === "cart_updated") {
             carts[idx] += 1;
-          } else if (t === "conversion" || t === "purchase" || t === "order") {
+          } else if (t === "conversion" || t === "purchase" || t === "order" || t === "checkout_completed") {
             conv[idx] += 1;
           }
         }

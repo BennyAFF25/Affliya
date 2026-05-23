@@ -145,8 +145,8 @@ export default function ManageCampaignPage() {
   // Stats loader
   // Tracking-system stats only (no Meta clicks to avoid crossing wires)
   // IMPORTANT: Clicks should match business-side logic.
-  // Business counts "Clicks / Page views" as any of:
-  // page_view, view, landing_view, click (case-insensitive).
+      // Business counts "Clicks / Page views" as any of:
+      // page_view, page_viewed, view, landing_view, click (case-insensitive).
   // --------------------
   async function loadCampaignStats(currentCampaignId: string) {
     try {
@@ -186,11 +186,11 @@ export default function ManageCampaignPage() {
         const t = String(evt?.event_type || '').toLowerCase();
 
         // Business treats these as "Clicks" (meta) / "Page views" (organic)
-        if (t === 'page_view' || t === 'view' || t === 'landing_view' || t === 'click') {
+        if (t === 'page_view' || t === 'page_viewed' || t === 'view' || t === 'landing_view' || t === 'click') {
           pageViews += 1;
-        } else if (t === 'add_to_cart' || t === 'cart') {
+        } else if (t === 'add_to_cart' || t === 'cart' || t === 'cart_updated') {
           addToCarts += 1;
-        } else if (t === 'conversion' || t === 'purchase' || t === 'order') {
+        } else if (t === 'conversion' || t === 'purchase' || t === 'order' || t === 'checkout_completed') {
           conversions += 1;
         }
       }
@@ -219,8 +219,8 @@ export default function ManageCampaignPage() {
         const idx = Math.min(labels.length - 1, Math.max(0, (labels.length - 1) + diffDays));
 
         const t = String(row?.event_type || '').toLowerCase();
-        if (t === 'add_to_cart' || t === 'cart') cartsSeries[idx] += 1;
-        else if (t === 'conversion' || t === 'purchase' || t === 'order') conversionsSeries[idx] += 1;
+        if (t === 'add_to_cart' || t === 'cart' || t === 'cart_updated') cartsSeries[idx] += 1;
+        else if (t === 'conversion' || t === 'purchase' || t === 'order' || t === 'checkout_completed') conversionsSeries[idx] += 1;
       }
 
       setChartSeries({ labels, carts: cartsSeries, conversions: conversionsSeries });

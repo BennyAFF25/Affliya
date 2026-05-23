@@ -163,6 +163,19 @@ function resolveAffiliateAndCampaign(body: Record<string, any>, eventData: Recor
   return { affiliateId, campaignId };
 }
 
+function normalizeEventType(rawEventType: unknown, hasBillableIdentity: boolean, amount: number | null) {
+  const raw = typeof rawEventType === 'string' ? rawEventType.trim().toLowerCase() : '';
+
+  if (raw === 'page_viewed' || raw === 'pageview') return 'page_view';
+  if (raw === 'add_to_cart') return 'add_to_cart';
+  if (raw === 'cart_updated') return 'cart_updated';
+  if (raw === 'checkout_completed') {
+    return hasBillableIdentity && amount != null ? 'conversion' : 'checkout_completed';
+  }
+
+  return raw || 'unknown';
+}
+
 export async function OPTIONS(req: NextRequest) {
   return new NextResponse(null, {
     status: 204,
@@ -203,10 +216,11 @@ export async function POST(req: NextRequest) {
     let campaign_id = resolvedAttribution.campaignId;
     let offer_id = body.offer_id ?? body?.event_data?.offer_id ?? null;
     const { amount, currency } = extractAmountAndCurrency(event_data);
-    const event_type =
-      rawEventType === 'checkout_completed' && affiliate_id && campaign_id && amount != null
-        ? 'conversion'
-        : rawEventType;
+    const event_type = normalizeEventType(
+      rawEventType,
+      !!(affiliate_id && campaign_id),
+      amount,
+    );
     const isBillableEvent = event_type === 'conversion';
 
     console.log('[track-event] incoming event', {
