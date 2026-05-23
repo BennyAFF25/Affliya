@@ -8,6 +8,26 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+function corsHeaders(origin?: string | null) {
+  return {
+    'Access-Control-Allow-Origin': origin && origin !== 'null' ? origin : '*',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    'Access-Control-Max-Age': '86400',
+    Vary: 'Origin',
+  } as const;
+}
+
+function jsonWithCors(req: NextRequest, body: unknown, init?: ResponseInit) {
+  return NextResponse.json(body, {
+    ...init,
+    headers: {
+      ...corsHeaders(req.headers.get('origin') || req.headers.get('Origin')),
+      ...(init?.headers || {}),
+    },
+  });
+}
+
 function toNum(v: any): number | null {
   if (typeof v === 'number' && Number.isFinite(v)) return v;
   if (typeof v === 'string') {
@@ -143,6 +163,13 @@ function resolveAffiliateAndCampaign(body: Record<string, any>, eventData: Recor
   return { affiliateId, campaignId };
 }
 
+export async function OPTIONS(req: NextRequest) {
+  return new NextResponse(null, {
+    status: 204,
+    headers: corsHeaders(req.headers.get('origin') || req.headers.get('Origin')),
+  });
+}
+
 export async function POST(req: NextRequest) {
   try {
     // Support both JSON and text/plain from sendBeacon/fetch
@@ -162,7 +189,7 @@ export async function POST(req: NextRequest) {
 
     const rawEventType = body.event_type;
     if (!rawEventType) {
-      return NextResponse.json({ error: 'event_type required' }, { status: 400 });
+      return jsonWithCors(req, { error: 'event_type required' }, { status: 400 });
     }
 
     const raw_event_data = body.event_data;
@@ -221,7 +248,8 @@ export async function POST(req: NextRequest) {
           },
         });
 
-        return NextResponse.json(
+        return jsonWithCors(
+          req,
           {
             ok: false,
             error: 'INVALID_BILLABLE_CAMPAIGN_IDENTITY',
@@ -443,7 +471,7 @@ export async function POST(req: NextRequest) {
 
     if (insertErr || !insertedRows || !insertedRows[0]) {
       console.error('[track-event] insert error', insertErr);
-      return NextResponse.json({ ok: false, error: 'db_insert_failed' }, { status: 500 });
+      return jsonWithCors(req, { ok: false, error: 'db_insert_failed' }, { status: 500 });
     }
 
     const inserted = insertedRows[0];
@@ -473,10 +501,11 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({ ok: true, event_id: inserted.id });
+    return jsonWithCors(req, { ok: true, event_id: inserted.id });
   } catch (e) {
     console.error('[track-event] unhandled error', e);
-    return NextResponse.json(
+    return jsonWithCors(
+      req,
       { ok: false, error: 'unhandled' },
       { status: 500 }
     );
