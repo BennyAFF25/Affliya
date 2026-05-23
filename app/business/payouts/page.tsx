@@ -220,18 +220,39 @@ export default function BusinessPayoutsPage() {
     setRunning(true);
     setBanner(null);
     try {
+      const failures: string[] = [];
+      let successCount = 0;
+
       for (const id of selectedIds) {
         const res = await fetch("/api/run-payout", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ payout_id: id }),
         });
-        if (!res.ok) {
-          const j = await res.json().catch(() => ({} as Record<string, unknown>));
-          console.error("[run-payout] failed", id, j);
-          setBanner("Some payouts failed — check history for details.");
+
+        const payload = await res.json().catch(() => ({} as Record<string, unknown>));
+
+        const apiSucceeded =
+          res.ok &&
+          typeof payload === "object" &&
+          payload !== null &&
+          (((payload as Record<string, unknown>).ok === true) || ((payload as Record<string, unknown>).alreadyCompleted === true));
+
+        if (!apiSucceeded) {
+          console.error("[run-payout] failed", id, payload);
+          const message =
+            typeof payload.message === "string" && payload.message.trim()
+              ? payload.message
+              : typeof payload.error === "string" && payload.error.trim()
+                ? payload.error
+                : `Unexpected payout response (${res.status})`;
+          failures.push(message);
+          continue;
         }
+
+        successCount += 1;
       }
+
       const { data } = await supabase
         .from("wallet_payouts")
         .select("*")
@@ -239,7 +260,17 @@ export default function BusinessPayoutsPage() {
         .order("created_at", { ascending: false });
       setPayouts((data || []) as WPayout[]);
       setSelected({});
-      if (!banner) setBanner("Payouts processed.");
+
+      if (failures.length > 0) {
+        const firstFailure = failures[0];
+        setBanner(
+          successCount > 0
+            ? `${successCount} payout${successCount === 1 ? "" : "s"} processed, ${failures.length} failed — ${firstFailure}`
+            : `Payout failed — ${firstFailure}`,
+        );
+      } else {
+        setBanner(`Processed ${successCount} payout${successCount === 1 ? "" : "s"}.`);
+      }
     } catch (e) {
       console.error(e);
       setBanner("Unexpected error while running payouts.");
