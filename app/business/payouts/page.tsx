@@ -36,6 +36,18 @@ function toMoney(value: number | string | null | undefined) {
   return Math.round(n * 100) / 100;
 }
 
+function calculateEstimatedGrossCharge(principalAmount: number | string | null | undefined) {
+  const principal = toMoney(principalAmount);
+  const nettmarkFee = toMoney(principal * 0.022);
+  const grossCharge = toMoney(principal + nettmarkFee);
+
+  return {
+    principal,
+    nettmarkFee,
+    grossCharge,
+  };
+}
+
 type OfferRow = { id: string; title: string | null };
 
 type AdSpendSettlementSummary = {
@@ -194,7 +206,12 @@ export default function BusinessPayoutsPage() {
   }, [tab, pending, history, query, statusFilter, offersById]);
 
   const pendingTotal = useMemo(
-    () => pending.reduce((sum, p) => sum + (Number(p.amount) || 0), 0),
+    () =>
+      pending.reduce((sum, p) => {
+        const storedGross = toMoney(p.gross_charge_amount);
+        if (storedGross > 0) return sum + storedGross;
+        return sum + calculateEstimatedGrossCharge(p.amount).grossCharge;
+      }, 0),
     [pending],
   );
 
@@ -517,21 +534,30 @@ function Table({
                 <div className="mt-1 text-xs text-[var(--muted-foreground)]">
                   Principal to affiliate
                 </div>
-                {toMoney(r.nettmark_fee_amount) > 0 || toMoney(r.gross_charge_amount) > 0 ? (
-                  <div className="mt-2 space-y-1 text-xs text-[var(--muted-foreground)]">
-                    {toMoney(r.nettmark_fee_amount) > 0 ? (
-                      <div>Nettmark fee: {currencyFmt.format(toMoney(r.nettmark_fee_amount))}</div>
-                    ) : null}
-                    {toMoney(r.gross_charge_amount) > 0 ? (
-                      <div className="text-[var(--foreground)]/85">
-                        Business charged: {currencyFmt.format(toMoney(r.gross_charge_amount))}
-                      </div>
-                    ) : null}
-                    {toMoney(r.stripe_fee_amount) > 0 ? (
-                      <div>Stripe fee: {currencyFmt.format(toMoney(r.stripe_fee_amount))}</div>
-                    ) : null}
-                  </div>
-                ) : null}
+                {(() => {
+                  const estimated = calculateEstimatedGrossCharge(r.amount);
+                  const nettmarkFee = toMoney(r.nettmark_fee_amount) > 0 ? toMoney(r.nettmark_fee_amount) : estimated.nettmarkFee;
+                  const grossCharge = toMoney(r.gross_charge_amount) > 0 ? toMoney(r.gross_charge_amount) : estimated.grossCharge;
+                  const showBreakdown = nettmarkFee > 0 || grossCharge > 0 || toMoney(r.stripe_fee_amount) > 0;
+
+                  if (!showBreakdown) return null;
+
+                  return (
+                    <div className="mt-2 space-y-1 text-xs text-[var(--muted-foreground)]">
+                      {nettmarkFee > 0 ? (
+                        <div>Nettmark fee: {currencyFmt.format(nettmarkFee)}</div>
+                      ) : null}
+                      {grossCharge > 0 ? (
+                        <div className="text-[var(--foreground)]/85">
+                          Business charged: {currencyFmt.format(grossCharge)}
+                        </div>
+                      ) : null}
+                      {toMoney(r.stripe_fee_amount) > 0 ? (
+                        <div>Stripe fee: {currencyFmt.format(toMoney(r.stripe_fee_amount))}</div>
+                      ) : null}
+                    </div>
+                  );
+                })()}
               </td>
               <td className="px-4 py-3">
                 <StatusPill status={r.status} availableAt={r.available_at} />
