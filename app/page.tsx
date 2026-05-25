@@ -271,17 +271,21 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="mx-auto max-w-7xl px-4 sm:px-6 mb-16">
-          <div className="rounded-3xl border border-white/10 bg-black/40 px-6 py-5">
-            <p className="text-xs uppercase tracking-[0.35em] text-white/45 mb-4 text-center">
+        <section className="mx-auto mb-16 max-w-7xl px-4 sm:px-6">
+          <div className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(6,15,18,0.92),rgba(5,8,11,0.9))] px-4 py-6 shadow-[0_24px_80px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.04)] sm:px-6">
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(0,194,203,0.16),transparent_48%)]" />
+            <div className="pointer-events-none absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-[#7ff5fb]/45 to-transparent" />
+            <p className="relative mb-5 text-center text-xs uppercase tracking-[0.35em] text-white/45">
               Trusted by teams across
             </p>
-            <div className="flex flex-wrap items-center justify-center gap-4 text-sm text-white/70">
-              {trustBadges.map((badge) => (
+            <div className="relative flex flex-wrap items-center justify-center gap-3 sm:gap-4">
+              {trustBadges.map((badge, index) => (
                 <span
                   key={badge}
-                  className="inline-flex items-center rounded-full border border-white/15 bg-white/5 px-4 py-1.5"
+                  className="trust-pill inline-flex items-center rounded-full border border-[#7ff5fb]/20 bg-[linear-gradient(180deg,rgba(14,48,54,0.94),rgba(8,22,26,0.92))] px-4 py-2 text-sm font-medium text-[#dffcff] shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_12px_30px_rgba(0,194,203,0.15),inset_0_1px_0_rgba(255,255,255,0.08)] sm:px-5"
+                  style={{ animationDelay: `${index * 0.5}s` }}
                 >
+                  <span className="mr-2 inline-block h-2 w-2 rounded-full bg-[#7ff5fb] shadow-[0_0_12px_rgba(127,245,251,0.9)]" />
                   {badge}
                 </span>
               ))}
