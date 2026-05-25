@@ -118,34 +118,34 @@ export default function Topbar() {
 
   return (
     <div
-      className="h-[64px] w-full flex items-center justify-between px-4 sm:px-6"
+      className="flex h-[64px] w-full items-center justify-between gap-3 px-3 sm:px-4 lg:px-6"
       style={{
         backgroundColor: "var(--sidebar)",
         color: "var(--sidebar-foreground)",
       }}
     >
       {/* LEFT SIDE */}
-      <div className="flex items-center gap-6">
+      <div className="flex min-w-0 items-center gap-3 sm:gap-4 lg:gap-6">
         {/* Slightly Smaller Logo */}
-        <div className="flex items-center">
+        <div className="flex shrink-0 items-center">
           <Image
             src="/nettmark-logo.png"
             alt="Nettmark Logo"
-            width={150}
-            height={40}
+            width={120}
+            height={32}
             priority
-            className="object-contain"
+            className="h-8 w-auto object-contain sm:h-9 lg:h-10"
           />
         </div>
 
         {/* Page Title */}
-        <span className="text-[var(--muted-foreground)] text-xs tracking-[0.15em] uppercase">
+        <span className="hidden text-[var(--muted-foreground)] text-xs tracking-[0.15em] uppercase md:inline">
           {pageTitle}
         </span>
       </div>
 
       {/* RIGHT SIDE */}
-      <div className="flex items-center gap-4 sm:gap-6">
+      <div className="flex shrink-0 items-center gap-2 sm:gap-3 lg:gap-6">
         <button
           type="button"
           onClick={toggleTheme}
@@ -201,7 +201,7 @@ export default function Topbar() {
             "
           >
             <LogOut size={18} className="sm:size-[16px]" />
-            <span className="hidden sm:inline">Sign Out</span>
+            <span className="hidden lg:inline">Sign Out</span>
           </button>
         )}
       </div>
