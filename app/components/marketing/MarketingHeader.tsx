@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import clsx from "clsx";
 import { AnimatePresence, motion } from "framer-motion";
-import { Moon, Sun } from "lucide-react";
+import { ChevronRight, Moon, Sun } from "lucide-react";
 import { useSessionContext } from "@supabase/auth-helpers-react";
 import { useTheme } from "@/../context/ThemeContext";
 
@@ -39,8 +39,6 @@ const navLinks = [
   },
 ];
 
-type NavLink = (typeof navLinks)[number];
-
 export default function MarketingHeader() {
   const pathname = usePathname();
   const router = useRouter();
@@ -55,16 +53,6 @@ export default function MarketingHeader() {
   }, []);
 
   const resolvedTheme = mounted ? theme : "dark";
-
-  const groupedNav = useMemo(() => {
-    const groups: Record<string, NavLink[]> = {};
-    navLinks.forEach((link) => {
-      groups[link.group] ??= [];
-      groups[link.group].push(link);
-    });
-
-    return Object.entries(groups).map(([title, links]) => ({ title, links }));
-  }, []);
 
   const handleLogin = () => router.push("/login");
 
@@ -220,18 +208,18 @@ export default function MarketingHeader() {
             transition={{ duration: 0.16, ease: "easeOut" }}
             className="fixed inset-x-0 top-[calc(4rem+env(safe-area-inset-top))] z-40 px-4 md:hidden"
           >
-            <div className="relative overflow-hidden rounded-[1.75rem] border border-white/10 bg-[linear-gradient(180deg,rgba(7,10,14,0.96),rgba(5,8,11,0.94))] p-3 shadow-[0_24px_80px_-32px_rgba(0,194,203,0.45)] backdrop-blur-2xl">
+            <div className="relative overflow-hidden rounded-[1.5rem] border border-white/10 bg-[linear-gradient(180deg,rgba(7,10,14,0.97),rgba(5,8,11,0.95))] p-2.5 shadow-[0_24px_80px_-32px_rgba(0,194,203,0.45)] backdrop-blur-2xl">
               <div
                 className="absolute inset-0 opacity-35"
                 style={{
                   backgroundImage:
-                    "radial-gradient(circle at top, rgba(0,194,203,0.32), transparent 58%)",
+                    "radial-gradient(circle at top, rgba(0,194,203,0.28), transparent 58%)",
                 }}
                 aria-hidden
               />
 
-              <div className="relative space-y-2.5">
-                <div className="grid grid-cols-2 gap-2">
+              <div className="relative space-y-2">
+                <div className="space-y-1.5">
                   {navLinks.map((link) => {
                     const active = isActive(link.href);
                     return (
@@ -242,22 +230,29 @@ export default function MarketingHeader() {
                           router.push(link.href);
                         }}
                         className={clsx(
-                          "rounded-2xl border px-3 py-3 text-left transition",
+                          "flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left transition",
                           active
-                            ? "border-[#00C2CB]/40 bg-[#00C2CB]/14 text-white shadow-[0_10px_30px_-18px_rgba(0,194,203,0.85)]"
-                            : "border-white/8 bg-white/[0.03] text-white/82 hover:border-white/20 hover:bg-white/[0.06]",
+                            ? "bg-[#00C2CB]/14 text-white shadow-[0_10px_30px_-20px_rgba(0,194,203,0.9)] ring-1 ring-[#00C2CB]/25"
+                            : "bg-white/[0.03] text-white/82 hover:bg-white/[0.06]",
                         )}
                       >
-                        <span className="flex items-center justify-between gap-2">
-                          <span className="text-[13px] font-semibold leading-tight">
+                        <div className="flex items-center gap-2.5">
+                          <span
+                            className={clsx(
+                              "h-2 w-2 rounded-full",
+                              active ? "bg-[#00C2CB] shadow-[0_0_12px_#00C2CB]" : "bg-white/20",
+                            )}
+                          />
+                          <span className="text-[13px] font-medium leading-none">
                             {link.label}
                           </span>
-                          {link.badge && (
-                            <span className="rounded-full border border-white/15 bg-white/10 px-1.5 py-0.5 text-[9px] uppercase tracking-[0.18em] text-white/70">
-                              {link.badge}
-                            </span>
+                        </div>
+                        <ChevronRight
+                          className={clsx(
+                            "h-4 w-4 transition",
+                            active ? "text-[#7ff5fb]" : "text-white/35",
                           )}
-                        </span>
+                        />
                       </button>
                     );
                   })}
@@ -266,20 +261,20 @@ export default function MarketingHeader() {
                 <div className="grid grid-cols-2 gap-2 border-t border-white/8 pt-2">
                   <button
                     onClick={toggleTheme}
-                    className="flex items-center justify-between rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-3 text-[13px] font-medium text-white/82 transition hover:border-white/20 hover:bg-white/[0.06]"
+                    className="flex items-center justify-center gap-2 rounded-xl bg-white/[0.04] px-3 py-2.5 text-[12px] font-medium text-white/82 transition hover:bg-white/[0.07]"
                   >
-                    <span>{resolvedTheme === "dark" ? "Light mode" : "Dark mode"}</span>
                     {resolvedTheme === "dark" ? (
                       <Sun className="h-4 w-4" />
                     ) : (
                       <Moon className="h-4 w-4" />
                     )}
+                    {resolvedTheme === "dark" ? "Light mode" : "Dark mode"}
                   </button>
 
                   {user ? (
                     <button
                       onClick={handleLogout}
-                      className="rounded-2xl border border-white/8 bg-white/[0.03] px-3 py-3 text-[13px] font-medium text-white/82 transition hover:border-white/20 hover:bg-white/[0.06]"
+                      className="rounded-xl bg-white/[0.04] px-3 py-2.5 text-[12px] font-medium text-white/82 transition hover:bg-white/[0.07]"
                     >
                       Sign out
                     </button>
@@ -289,7 +284,7 @@ export default function MarketingHeader() {
                         setMenuOpen(false);
                         router.push("/login");
                       }}
-                      className="rounded-2xl border border-[#00C2CB]/25 bg-[#00C2CB]/12 px-3 py-3 text-[13px] font-semibold text-[#dffcff] transition hover:bg-[#00C2CB]/18"
+                      className="rounded-xl bg-[#00C2CB] px-3 py-2.5 text-[12px] font-semibold text-black shadow-[0_10px_30px_-18px_rgba(0,194,203,0.75)] transition hover:bg-[#00b0b8]"
                     >
                       Login
                     </button>
