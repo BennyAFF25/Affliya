@@ -1362,53 +1362,63 @@ body {
   }
 }
 
-@keyframes trust-pill-float {
+@keyframes trust-carousel-scroll {
   0% {
-    transform: translate3d(0, 0, 0) rotate(-1.5deg);
-  }
-  25% {
-    transform: translate3d(0, -5px, 0) rotate(0.8deg);
-  }
-  50% {
-    transform: translate3d(0, -9px, 0) rotate(1.8deg);
-  }
-  75% {
-    transform: translate3d(0, -4px, 0) rotate(-0.6deg);
+    transform: translate3d(0, 0, 0);
   }
   100% {
-    transform: translate3d(0, 0, 0) rotate(-1.5deg);
+    transform: translate3d(-50%, 0, 0);
   }
 }
 
-.trust-pill {
-  position: relative;
-  isolation: isolate;
-  animation: trust-pill-float 7s ease-in-out infinite;
+.trust-carousel-mask {
+  overflow: hidden;
+  mask-image: linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%);
+}
+
+.trust-carousel-track {
+  display: flex;
+  width: max-content;
+  gap: 1rem;
+  animation: trust-carousel-scroll 26s linear infinite;
   will-change: transform;
 }
 
-.trust-pill::before {
+.trust-carousel-pill {
+  position: relative;
+  isolation: isolate;
+}
+
+.trust-carousel-pill::before {
   content: "";
   position: absolute;
   inset: -1px;
   border-radius: 9999px;
-  background: linear-gradient(120deg, rgba(127,245,251,0.22), rgba(0,194,203,0.08), rgba(127,245,251,0.22));
-  opacity: 0.9;
+  background: linear-gradient(120deg, rgba(127,245,251,0.24), rgba(0,194,203,0.08), rgba(127,245,251,0.24));
+  opacity: 0.92;
   z-index: -2;
 }
 
-.trust-pill::after {
+.trust-carousel-pill::after {
   content: "";
   position: absolute;
-  inset: 18% 12%;
+  inset: 18% 10%;
   border-radius: 9999px;
-  background: radial-gradient(circle, rgba(0,194,203,0.25), transparent 70%);
-  filter: blur(14px);
+  background: radial-gradient(circle, rgba(0,194,203,0.26), transparent 72%);
+  filter: blur(16px);
   z-index: -1;
 }
 
+@media (max-width: 640px) {
+  .trust-carousel-track {
+    gap: 0.75rem;
+    animation-duration: 20s;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .trust-pill {
+  .trust-carousel-track {
     animation: none;
   }
 }
