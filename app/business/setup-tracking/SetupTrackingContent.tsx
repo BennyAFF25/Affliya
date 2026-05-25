@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import Script from "next/script";
 import { useSession, useSupabaseClient } from "@supabase/auth-helpers-react";
 import {
   CheckCircleIcon,
@@ -691,6 +692,56 @@ analytics.subscribe('checkout_completed', async (event) => {
               Back to dashboard
             </button>
           </div>
+
+          <details className="mt-6 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--background)]/60 group">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 text-left marker:content-none">
+              <div>
+                <p className="text-sm font-semibold text-[var(--foreground)]">
+                  Stuck? View the full setup tracking demo
+                </p>
+                <p className="mt-1 text-xs text-[var(--muted-foreground)] sm:text-sm">
+                  Open the full walkthrough for installing tracking, verifying events, and finishing business-side setup.
+                </p>
+              </div>
+              <span className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--primary)] transition group-open:rotate-45">
+                +
+              </span>
+            </summary>
+
+            <div className="border-t border-[var(--border)] px-4 py-4 sm:px-5 sm:py-5">
+              <Script
+                src="https://js.storylane.io/js/v2/storylane.js"
+                strategy="afterInteractive"
+                data-verify-origin=""
+              />
+              <div
+                className="sl-embed relative w-full overflow-hidden rounded-[1.2rem] bg-black"
+                style={{
+                  paddingBottom: "calc(65.19% + 25px)",
+                  height: 0,
+                  transform: "scale(1)",
+                }}
+              >
+                <iframe
+                  title="Business setup tracking walkthrough"
+                  loading="lazy"
+                  className="sl-demo absolute left-0 top-0 h-full w-full"
+                  src="https://app.storylane.io/demo/fkrv6kdadcmz?embed=inline"
+                  name="sl-embed"
+                  allow="fullscreen"
+                  allowFullScreen
+                  style={{
+                    border: "1px solid rgba(63,95,172,0.35)",
+                    boxShadow: "0px 0px 18px rgba(26, 19, 72, 0.15)",
+                    borderRadius: "10px",
+                    boxSizing: "border-box",
+                    width: "100%",
+                    height: "100%",
+                  }}
+                />
+              </div>
+            </div>
+          </details>
         </section>
 
         <div className="grid gap-6 xl:grid-cols-[300px_minmax(0,1fr)]">
