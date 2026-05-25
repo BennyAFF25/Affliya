@@ -69,6 +69,8 @@ interface LiveAdRow {
 interface TrackingEventRow {
   id: string;
   created_at: string | null;
+  event_type?: string | null;
+  affiliate_id?: string | null;
 }
 
 // (Not used on the dashboard right now, but keeping for future ad preview use)
@@ -382,10 +384,12 @@ function AffiliateDashboardContent() {
         setSpendSeries(sortedSpend);
       }
 
-      // Conversions from tracking events – treat every event as a conversion for now, within Conversions window
+      // Conversions from tracking events — only true conversion-type events for this affiliate
       let convQuery = supabase
         .from("campaign_tracking_events")
-        .select("id, created_at");
+        .select("id, created_at, event_type, affiliate_id")
+        .eq("affiliate_id", session.user?.email || "")
+        .in("event_type", ["conversion", "purchase", "order", "checkout_completed"]);
 
       if (convFromIso) {
         convQuery = convQuery.gte("created_at", convFromIso);
