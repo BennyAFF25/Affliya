@@ -271,21 +271,19 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="mx-auto mb-16 max-w-7xl px-4 sm:px-6">
-          <div className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(6,15,18,0.92),rgba(5,8,11,0.9))] px-4 py-6 shadow-[0_24px_80px_rgba(0,0,0,0.28),inset_0_1px_0_rgba(255,255,255,0.04)] sm:px-6">
-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(0,194,203,0.16),transparent_48%)]" />
-            <div className="pointer-events-none absolute inset-x-10 top-0 h-px bg-gradient-to-r from-transparent via-[#7ff5fb]/45 to-transparent" />
-            <p className="relative mb-5 text-center text-xs uppercase tracking-[0.35em] text-white/45">
-              Trusted by teams across
-            </p>
-            <div className="relative flex flex-wrap items-center justify-center gap-3 sm:gap-4">
-              {trustBadges.map((badge, index) => (
+        <section className="mx-auto mb-16 max-w-7xl overflow-hidden px-4 sm:px-6">
+          <p className="mb-6 text-center text-xs uppercase tracking-[0.35em] text-white/45">
+            Trusted by teams across
+          </p>
+
+          <div className="trust-carousel-mask relative">
+            <div className="trust-carousel-track">
+              {[...trustBadges, ...trustBadges].map((badge, index) => (
                 <span
-                  key={badge}
-                  className="trust-pill inline-flex items-center rounded-full border border-[#7ff5fb]/20 bg-[linear-gradient(180deg,rgba(14,48,54,0.94),rgba(8,22,26,0.92))] px-4 py-2 text-sm font-medium text-[#dffcff] shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_12px_30px_rgba(0,194,203,0.15),inset_0_1px_0_rgba(255,255,255,0.08)] sm:px-5"
-                  style={{ animationDelay: `${index * 0.5}s` }}
+                  key={`${badge}-${index}`}
+                  className="trust-carousel-pill inline-flex shrink-0 items-center rounded-full border border-[#7ff5fb]/20 bg-[linear-gradient(180deg,rgba(16,58,66,0.96),rgba(8,25,30,0.94))] px-6 py-3 text-base font-semibold text-[#e7fdff] shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_14px_34px_rgba(0,194,203,0.16),inset_0_1px_0_rgba(255,255,255,0.12)] sm:px-8 sm:py-4 sm:text-lg"
                 >
-                  <span className="mr-2 inline-block h-2 w-2 rounded-full bg-[#7ff5fb] shadow-[0_0_12px_rgba(127,245,251,0.9)]" />
+                  <span className="mr-3 inline-block h-2.5 w-2.5 rounded-full bg-[#7ff5fb] shadow-[0_0_14px_rgba(127,245,251,0.95)] sm:h-3 sm:w-3" />
                   {badge}
                 </span>
               ))}
