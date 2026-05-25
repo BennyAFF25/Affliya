@@ -1,12 +1,12 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import clsx from "clsx";
 import { AnimatePresence, motion } from "framer-motion";
-import { Moon, Sun } from "lucide-react";
+import { ChevronRight, Moon, Sun } from "lucide-react";
 import { useSessionContext } from "@supabase/auth-helpers-react";
 import { useTheme } from "@/../context/ThemeContext";
 
@@ -32,13 +32,12 @@ const navLinks = [
   },
   {
     href: "/pricing",
-    label: "Create Account",
-    description: "Choose your path",
-    group: "Get Started",
+    label: "Pricing",
+    description: "Early access",
+    badge: "Free",
+    group: "Plan",
   },
 ];
-
-type NavLink = (typeof navLinks)[number];
 
 export default function MarketingHeader() {
   const pathname = usePathname();
@@ -54,16 +53,6 @@ export default function MarketingHeader() {
   }, []);
 
   const resolvedTheme = mounted ? theme : "dark";
-
-  const groupedNav = useMemo(() => {
-    const groups: Record<string, NavLink[]> = {};
-    navLinks.forEach((link) => {
-      groups[link.group] ??= [];
-      groups[link.group].push(link);
-    });
-
-    return Object.entries(groups).map(([title, links]) => ({ title, links }));
-  }, []);
 
   const handleLogin = () => router.push("/login");
 
@@ -213,135 +202,93 @@ export default function MarketingHeader() {
       <AnimatePresence>
         {menuOpen && (
           <motion.div
-            initial={{ opacity: 0, y: -12 }}
+            initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -12 }}
-            transition={{ duration: 0.18, ease: "easeOut" }}
-            className="md:hidden fixed inset-x-0 top-[calc(4rem+env(safe-area-inset-top))] bottom-4 z-40 px-4"
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.16, ease: "easeOut" }}
+            className="fixed inset-x-0 top-[calc(4rem+env(safe-area-inset-top))] z-40 px-4 md:hidden"
           >
-            <div className="relative h-full overflow-hidden rounded-3xl border border-white/12 bg-gradient-to-br from-black/92 via-black/90 to-[#040b0b]/95 backdrop-blur-2xl shadow-[0_30px_120px_-50px_#00C2CB]">
+            <div className="relative overflow-hidden rounded-[1.5rem] border border-white/10 bg-[linear-gradient(180deg,rgba(7,10,14,0.97),rgba(5,8,11,0.95))] p-2.5 shadow-[0_24px_80px_-32px_rgba(0,194,203,0.45)] backdrop-blur-2xl">
               <div
-                className="absolute inset-0 opacity-30"
+                className="absolute inset-0 opacity-35"
                 style={{
                   backgroundImage:
-                    "radial-gradient(circle at top, rgba(0,194,203,0.5), transparent 55%)",
+                    "radial-gradient(circle at top, rgba(0,194,203,0.28), transparent 58%)",
                 }}
                 aria-hidden
               />
 
-              <div className="relative h-full flex flex-col">
-                <div className="px-6 pt-6 pb-4">
-                  <p className="text-[11px] uppercase tracking-[0.24em] text-white/40">
-                    {" "}
-                    Navigate{" "}
-                  </p>
+              <div className="relative space-y-2">
+                <div className="space-y-1.5">
+                  {navLinks.map((link) => {
+                    const active = isActive(link.href);
+                    return (
+                      <button
+                        key={link.href}
+                        onClick={() => {
+                          setMenuOpen(false);
+                          router.push(link.href);
+                        }}
+                        className={clsx(
+                          "flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-left transition",
+                          active
+                            ? "bg-[#00C2CB]/14 text-white shadow-[0_10px_30px_-20px_rgba(0,194,203,0.9)] ring-1 ring-[#00C2CB]/25"
+                            : "bg-white/[0.03] text-white/82 hover:bg-white/[0.06]",
+                        )}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <span
+                            className={clsx(
+                              "h-2 w-2 rounded-full",
+                              active ? "bg-[#00C2CB] shadow-[0_0_12px_#00C2CB]" : "bg-white/20",
+                            )}
+                          />
+                          <span className="text-[13px] font-medium leading-none">
+                            {link.label}
+                          </span>
+                        </div>
+                        <ChevronRight
+                          className={clsx(
+                            "h-4 w-4 transition",
+                            active ? "text-[#7ff5fb]" : "text-white/35",
+                          )}
+                        />
+                      </button>
+                    );
+                  })}
                 </div>
 
-                <div className="flex-1 overflow-y-auto px-6 pb-6 space-y-8">
-                  {groupedNav.map((group) => (
-                    <div key={group.title} className="space-y-3">
-                      <p className="text-[12px] uppercase tracking-[0.25em] text-white/35">
-                        {group.title}
-                      </p>
-                      <div className="space-y-2">
-                        {group.links.map((link) => (
-                          <button
-                            key={link.href}
-                            onClick={() => {
-                              setMenuOpen(false);
-                              router.push(link.href);
-                            }}
-                            className="w-full text-left"
-                          >
-                            <span className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3 transition hover:border-white/30 hover:bg-white/10">
-                              <span>
-                                <span className="text-base font-medium text-white">
-                                  {link.label}
-                                </span>
-                                <span className="block text-sm text-white/60">
-                                  {link.description}
-                                </span>
-                              </span>
-                              {link.badge && (
-                                <span className="text-[10px] rounded-full border border-white/30 px-2 py-0.5 text-white/80">
-                                  {link.badge}
-                                </span>
-                              )}
-                            </span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-
-                  <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-[#022426] via-[#041a1c] to-black p-5">
-                    <p className="text-xs uppercase tracking-[0.2em] text-[#7ff5fb]">
-                      Need a walkthrough?
-                    </p>
-                    <p className="mt-2 text-lg font-semibold text-white">
-                      Book a 15-min product tour.
-                    </p>
-                    <p className="mt-1 text-sm text-white/70">
-                      We’ll show you the partner workflow + Nettmark Shop.
-                    </p>
-                    <Link
-                      href="/for-businesses"
-                      onClick={() => setMenuOpen(false)}
-                      className="mt-4 inline-flex items-center justify-center rounded-2xl bg-[#00C2CB] px-4 py-2 text-sm font-semibold text-black shadow-[0_12px_40px_-20px_#00C2CB]"
-                    >
-                      Talk to us
-                    </Link>
-                  </div>
-
-                  <div className="space-y-3 border-t border-white/10 pt-5">
-                    <p className="text-[11px] uppercase tracking-[0.25em] text-white/35">
-                      Account
-                    </p>
-                    <button
-                      onClick={toggleTheme}
-                      className="flex w-full items-center justify-between rounded-2xl border border-white/15 px-4 py-3 text-left text-white hover:border-white/40"
-                    >
-                      <span>
-                        {resolvedTheme === "dark"
-                          ? "Switch to light mode"
-                          : "Switch to dark mode"}
-                      </span>
-                      {resolvedTheme === "dark" ? (
-                        <Sun className="h-4 w-4" />
-                      ) : (
-                        <Moon className="h-4 w-4" />
-                      )}
-                    </button>
-                    {user ? (
-                      <button
-                        onClick={handleLogout}
-                        className="w-full rounded-2xl border border-white/15 px-4 py-3 text-left text-white hover:border-white/40"
-                      >
-                        Sign out
-                      </button>
+                <div className="grid grid-cols-2 gap-2 border-t border-white/8 pt-2">
+                  <button
+                    onClick={toggleTheme}
+                    className="flex items-center justify-center gap-2 rounded-xl bg-white/[0.04] px-3 py-2.5 text-[12px] font-medium text-white/82 transition hover:bg-white/[0.07]"
+                  >
+                    {resolvedTheme === "dark" ? (
+                      <Sun className="h-4 w-4" />
                     ) : (
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        <button
-                          onClick={() => {
-                            setMenuOpen(false);
-                            router.push("/login?role=business");
-                          }}
-                          className="rounded-2xl border border-white/15 px-4 py-3 text-left text-white hover:border-white/40"
-                        >
-                          Business Login
-                        </button>
-                        <button
-                          onClick={() => {
-                            setMenuOpen(false);
-                            router.push("/login?role=affiliate");
-                          }}
-                          className="rounded-2xl border border-white/15 px-4 py-3 text-left text-white hover:border-white/40"
-                        >
-                          Partner Login
-                        </button>
-                      </div>
+                      <Moon className="h-4 w-4" />
                     )}
-                  </div>
+                    {resolvedTheme === "dark" ? "Light mode" : "Dark mode"}
+                  </button>
+
+                  {user ? (
+                    <button
+                      onClick={handleLogout}
+                      className="rounded-xl bg-white/[0.04] px-3 py-2.5 text-[12px] font-medium text-white/82 transition hover:bg-white/[0.07]"
+                    >
+                      Sign out
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        setMenuOpen(false);
+                        router.push("/login");
+                      }}
+                      className="rounded-xl bg-[#00C2CB] px-3 py-2.5 text-[12px] font-semibold text-black shadow-[0_10px_30px_-18px_rgba(0,194,203,0.75)] transition hover:bg-[#00b0b8]"
+                    >
+                      Login
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
