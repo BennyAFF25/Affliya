@@ -419,7 +419,7 @@ const ManageCampaignsBusiness = () => {
         key={campaign.id}
         className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.45)]"
       >
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+        <div className="flex flex-col gap-3 2xl:flex-row 2xl:items-start 2xl:justify-between">
           <div>
             <p className="text-base font-semibold text-white">
               {campaign.caption || "Untitled campaign"}
@@ -436,7 +436,7 @@ const ManageCampaignsBusiness = () => {
           </span>
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-3 text-center text-sm text-white/80 xl:grid-cols-4 xl:gap-4">
+        <div className="mt-4 grid grid-cols-2 gap-3 text-center text-sm text-white/80 2xl:grid-cols-4 2xl:gap-4">
           <StatCell
             label="Spend"
             value={isMeta ? formatMoney(campaign.spend || 0) : "—"}
@@ -449,8 +449,8 @@ const ManageCampaignsBusiness = () => {
           <StatCell label="Started" value={formatDate(campaign.created_at)} />
         </div>
 
-        <div className="mt-4 flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:flex xl:flex-wrap">
+        <div className="mt-4 flex flex-col gap-3 2xl:flex-row 2xl:items-center 2xl:justify-between">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 2xl:flex 2xl:flex-wrap">
             <Link href={`/business/manage-campaigns/${campaign.id}`}>
               <button className="w-full rounded-full bg-[#00C2CB] px-4 py-2 text-sm font-semibold text-black transition hover:bg-[#00b0b8]">
                 View campaign
@@ -489,7 +489,7 @@ const ManageCampaignsBusiness = () => {
               href={campaign.tracking_link}
               target="_blank"
               rel="noreferrer"
-              className="text-xs text-white/60 hover:text-white xl:text-right"
+              className="text-xs text-white/60 hover:text-white 2xl:text-right"
             >
               Tracking link
             </a>
@@ -501,10 +501,10 @@ const ManageCampaignsBusiness = () => {
 
   return (
     <div className="business-manage-campaigns-theme min-h-screen bg-[var(--background)] text-[var(--foreground)]">
-      <div className="mx-auto w-full max-w-7xl space-y-8 px-4 pb-8 pt-4 sm:px-6 lg:px-6 xl:px-0">
+      <div className="mx-auto w-full max-w-5xl space-y-8 px-4 pb-8 pt-4 sm:px-6 lg:px-6 2xl:max-w-7xl 2xl:px-0">
         <section className="relative overflow-hidden border-t border-white/10 bg-gradient-to-br from-[#061214] via-[#090d0e] to-black px-4 py-6 shadow-[0_30px_80px_rgba(0,0,0,0.55)] sm:rounded-3xl sm:border">
           <div className="pointer-events-none absolute -top-12 right-0 h-52 w-52 rounded-full bg-[#00C2CB]/20 blur-3xl" />
-          <div className="relative z-10 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+          <div className="relative z-10 flex flex-col gap-4 2xl:flex-row 2xl:items-center 2xl:justify-between">
             <div>
               <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#00C2CB]/20 bg-[#00C2CB]/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.24em] text-[#7ff5fb]">
                 <Sparkles className="h-3.5 w-3.5" />
@@ -535,7 +535,7 @@ const ManageCampaignsBusiness = () => {
           </div>
         </section>
 
-        <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-2 2xl:grid-cols-5">
           {metricCards.map((metric) => (
             <MetricCard key={metric.label} {...metric} />
           ))}
@@ -599,7 +599,7 @@ const ManageCampaignsBusiness = () => {
                   shopPlacements.map((placement) => (
                     <div
                       key={placement.affiliate_email}
-                      className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-black/30 p-4 xl:flex-row xl:items-center xl:justify-between"
+                      className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-black/30 p-4 2xl:flex-row 2xl:items-center 2xl:justify-between"
                     >
                       <div className="flex items-center gap-3">
                         <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-sm font-semibold text-[#00C2CB]">
@@ -618,7 +618,7 @@ const ManageCampaignsBusiness = () => {
                           </p>
                         </div>
                       </div>
-                      <div className="grid flex-1 grid-cols-1 gap-3 text-center text-sm text-white sm:grid-cols-3 lg:gap-4">
+                      <div className="grid flex-1 grid-cols-1 gap-3 text-center text-sm text-white sm:grid-cols-3 lg:gap-4 2xl:max-w-xl">
                         <ShopStat
                           label="Views (24h)"
                           value={formatNumber(placement.views24h)}

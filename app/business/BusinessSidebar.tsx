@@ -55,7 +55,7 @@ export default function BusinessSidebar() {
   return (
     <>
       {/* Desktop sidebar wrapper now takes full height */}
-      <div className="hidden h-full xl:block">
+      <div className="hidden h-full 2xl:block">
         <div className="relative h-full w-64 p-6 text-[var(--sidebar-foreground)]">
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-[var(--sidebar)] via-[var(--card)] to-[var(--sidebar)]" />
           <div className="pointer-events-none absolute -left-6 top-10 h-48 w-48 rounded-full bg-[var(--primary)]/15 blur-3xl" />
@@ -112,7 +112,7 @@ export default function BusinessSidebar() {
       </div>
 
       {/* Mobile pill slider nav */}
-      <div className="flex gap-3 overflow-x-auto border-b border-[var(--border)] bg-[var(--card)] px-4 py-3 xl:hidden">
+      <div className="flex gap-3 overflow-x-auto border-b border-[var(--border)] bg-[var(--card)] px-4 py-3 2xl:hidden">
         <Link
           href="/business/dashboard"
           className="whitespace-nowrap rounded-full border border-[var(--primary)]/35 bg-[var(--primary)]/20 px-4 py-2 text-sm text-[var(--primary)]"
