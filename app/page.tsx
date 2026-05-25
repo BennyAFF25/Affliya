@@ -1,7 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useSessionContext } from "@supabase/auth-helpers-react";
 import Link from "next/link";
+import Image from "next/image";
+import Script from "next/script";
 import MarketingHeader from "@/components/marketing/MarketingHeader";
 import {
   ShieldCheck,
@@ -22,6 +26,16 @@ import {
 } from "lucide-react";
 
 export default function Home() {
+  const { supabaseClient } = useSessionContext();
+  const [session, setSession] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const user = session?.user ?? null;
+  const router = useRouter();
+  const [userType, setUserType] = useState<"business" | "affiliate" | null>(
+    null,
+  );
+  const [showBizWhy, setShowBizWhy] = useState(false);
+  const [showAffWhy, setShowAffWhy] = useState(false);
   const [walkthroughAudience, setWalkthroughAudience] = useState<
     "business" | "affiliate"
   >("business");
@@ -158,6 +172,35 @@ export default function Home() {
       a: "No. Early access is free for life for the first 150 orgs. After that, monthly plans with cancel-anytime apply.",
     },
   ];
+
+  useEffect(() => {
+    const initSession = async () => {
+      const { data } = await supabaseClient.auth.getSession();
+      setSession(data.session);
+      setIsLoading(false);
+    };
+
+    initSession();
+
+    const {
+      data: { subscription },
+    } = supabaseClient.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [supabaseClient]);
+
+  const handleLogin = (type: "business" | "affiliate") => {
+    setUserType(type);
+    try {
+      localStorage.setItem("intent.role", type); // canonical
+      localStorage.setItem("userType", type); // legacy (kept for backward-compat)
+    } catch {}
+    router.push(`/login?role=${type}`);
+  };
 
   return (
     <div className="marketing-home-theme min-h-screen flex flex-col overflow-x-hidden bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#0b1a1b] via-[#0b0b0b] to-black text-white">
@@ -359,7 +402,7 @@ export default function Home() {
 
                 <div className="flex flex-wrap gap-3 text-sm">
                   <a
-                    href="https://app.storylane.io/demo/k1fm9bbbumcv?embed=inline"
+                    href="https://app.storylane.io/demo/qdg9lyyhmgmv?embed=inline"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center justify-center rounded-full border border-white/15 px-5 py-2.5 font-semibold text-white hover:bg-white/5"
@@ -380,20 +423,45 @@ export default function Home() {
                       : "Partner flow"}
                   </span>
                 </div>
-                <div
-                  className="relative overflow-hidden rounded-[1.2rem] border border-white/10 bg-black"
-                  style={{ paddingTop: "56.25%" }}
-                >
-                  {walkthroughAudience === "business" ? (
-                    <iframe
-                      title="Nettmark business walkthrough"
-                      src="https://app.storylane.io/demo/k1fm9bbbumcv?embed=inline"
-                      className="absolute inset-0 h-full w-full"
-                      allow="fullscreen"
-                      allowFullScreen
-                      loading="lazy"
+                {walkthroughAudience === "business" ? (
+                  <>
+                    <Script
+                      src="https://js.storylane.io/js/v2/storylane.js"
+                      strategy="afterInteractive"
+                      data-verify-origin=""
                     />
-                  ) : (
+                    <div
+                      className="sl-embed relative w-full overflow-hidden rounded-[1.2rem] bg-black"
+                      style={{
+                        paddingBottom: "calc(65.19% + 25px)",
+                        height: 0,
+                        transform: "scale(1)",
+                      }}
+                    >
+                      <iframe
+                        title="Nettmark business walkthrough"
+                        loading="lazy"
+                        className="sl-demo absolute left-0 top-0 h-full w-full"
+                        src="https://app.storylane.io/demo/qdg9lyyhmgmv?embed=inline"
+                        name="sl-embed"
+                        allow="fullscreen"
+                        allowFullScreen
+                        style={{
+                          border: "1px solid rgba(63,95,172,0.35)",
+                          boxShadow: "0px 0px 18px rgba(26, 19, 72, 0.15)",
+                          borderRadius: "10px",
+                          boxSizing: "border-box",
+                          width: "100%",
+                          height: "100%",
+                        }}
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <div
+                    className="relative overflow-hidden rounded-[1.2rem] border border-white/10 bg-black"
+                    style={{ paddingTop: "56.25%" }}
+                  >
                     <div className="absolute inset-0 flex items-center justify-center bg-[radial-gradient(circle_at_top,rgba(0,194,203,0.18),transparent_55%),linear-gradient(180deg,#0a0d14_0%,#05070b_100%)] p-8 text-center">
                       <div>
                         <p className="text-xs uppercase tracking-[0.35em] text-[#7ff5fb]/70">
@@ -408,7 +476,8 @@ export default function Home() {
                         </p>
                       </div>
                     </div>
-                  )}
+                  </div>
+                )}
                 </div>
               </div>
             </div>
