@@ -7,6 +7,7 @@ import Link from "next/link";
 import Image from "next/image";
 import Script from "next/script";
 import MarketingHeader from "@/components/marketing/MarketingHeader";
+import MarketingPageTracker from "@/components/marketing/MarketingPageTracker";
 import {
   ShieldCheck,
   Link2,
@@ -204,6 +205,7 @@ export default function Home() {
 
   return (
     <div className="marketing-home-theme min-h-screen flex flex-col overflow-x-hidden bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#0b1a1b] via-[#0b0b0b] to-black text-white">
+      <MarketingPageTracker pagePath="/" audience="general" />
       <MarketingHeader />
 
       <main className="flex-1">

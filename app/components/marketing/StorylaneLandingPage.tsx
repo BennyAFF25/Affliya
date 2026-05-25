@@ -1,8 +1,11 @@
 import Link from "next/link";
 import Script from "next/script";
 import { ArrowRight, CheckCircle2 } from "lucide-react";
+import MarketingPageTracker from "@/components/marketing/MarketingPageTracker";
 
 type StorylaneLandingPageProps = {
+  pagePath: string;
+  audience: string;
   audienceLabel: string;
   badge: string;
   title: string;
@@ -24,6 +27,8 @@ type StorylaneLandingPageProps = {
 };
 
 export default function StorylaneLandingPage({
+  pagePath,
+  audience,
   audienceLabel,
   badge,
   title,
@@ -39,6 +44,7 @@ export default function StorylaneLandingPage({
 }: StorylaneLandingPageProps) {
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(0,194,203,0.18),transparent_32%),linear-gradient(180deg,#061012_0%,#05070b_55%,#030405_100%)] text-white">
+      <MarketingPageTracker pagePath={pagePath} audience={audience} />
       <main className="mx-auto flex max-w-7xl flex-col px-4 pb-14 pt-6 sm:px-6 lg:px-8 lg:pb-20 lg:pt-8">
         <div className="mb-10 flex items-center justify-between gap-4">
           <Link
