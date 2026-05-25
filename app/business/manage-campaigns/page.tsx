@@ -419,7 +419,7 @@ const ManageCampaignsBusiness = () => {
         key={campaign.id}
         className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.45)]"
       >
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
           <div>
             <p className="text-base font-semibold text-white">
               {campaign.caption || "Untitled campaign"}
@@ -436,7 +436,7 @@ const ManageCampaignsBusiness = () => {
           </span>
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-3 text-center text-sm text-white/80 lg:grid-cols-4 lg:gap-4">
+        <div className="mt-4 grid grid-cols-2 gap-3 text-center text-sm text-white/80 xl:grid-cols-4 xl:gap-4">
           <StatCell
             label="Spend"
             value={isMeta ? formatMoney(campaign.spend || 0) : "—"}
@@ -504,7 +504,7 @@ const ManageCampaignsBusiness = () => {
       <div className="mx-auto w-full max-w-7xl space-y-8 px-4 pb-8 pt-4 sm:px-6 lg:px-6 xl:px-0">
         <section className="relative overflow-hidden border-t border-white/10 bg-gradient-to-br from-[#061214] via-[#090d0e] to-black px-4 py-6 shadow-[0_30px_80px_rgba(0,0,0,0.55)] sm:rounded-3xl sm:border">
           <div className="pointer-events-none absolute -top-12 right-0 h-52 w-52 rounded-full bg-[#00C2CB]/20 blur-3xl" />
-          <div className="relative z-10 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="relative z-10 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div>
               <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#00C2CB]/20 bg-[#00C2CB]/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.24em] text-[#7ff5fb]">
                 <Sparkles className="h-3.5 w-3.5" />
@@ -535,7 +535,7 @@ const ManageCampaignsBusiness = () => {
           </div>
         </section>
 
-        <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+        <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
           {metricCards.map((metric) => (
             <MetricCard key={metric.label} {...metric} />
           ))}
