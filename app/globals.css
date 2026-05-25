@@ -1361,3 +1361,54 @@ body {
     transform: translateX(100%);
   }
 }
+
+@keyframes trust-pill-float {
+  0% {
+    transform: translate3d(0, 0, 0) rotate(-1.5deg);
+  }
+  25% {
+    transform: translate3d(0, -5px, 0) rotate(0.8deg);
+  }
+  50% {
+    transform: translate3d(0, -9px, 0) rotate(1.8deg);
+  }
+  75% {
+    transform: translate3d(0, -4px, 0) rotate(-0.6deg);
+  }
+  100% {
+    transform: translate3d(0, 0, 0) rotate(-1.5deg);
+  }
+}
+
+.trust-pill {
+  position: relative;
+  isolation: isolate;
+  animation: trust-pill-float 7s ease-in-out infinite;
+  will-change: transform;
+}
+
+.trust-pill::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: 9999px;
+  background: linear-gradient(120deg, rgba(127,245,251,0.22), rgba(0,194,203,0.08), rgba(127,245,251,0.22));
+  opacity: 0.9;
+  z-index: -2;
+}
+
+.trust-pill::after {
+  content: "";
+  position: absolute;
+  inset: 18% 12%;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(0,194,203,0.25), transparent 70%);
+  filter: blur(14px);
+  z-index: -1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trust-pill {
+    animation: none;
+  }
+}
