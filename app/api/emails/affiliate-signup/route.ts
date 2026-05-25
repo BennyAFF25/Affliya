@@ -110,8 +110,8 @@ export async function POST(req: Request) {
                 </div>
 
                 <div style="border-left:4px solid ${brand.accent};background:#f0feff;border-radius:12px;padding:12px 12px;margin:14px 0 16px 0;">
-                  <div style="font-weight:700;margin:0 0 4px 0;">Early access perk</div>
-                  <div style="font-size:13px;color:#0f172a;line-height:1.55;">We’re onboarding the <b>first 150 users</b> as <b>free for life</b> in exchange for early feedback.</div>
+                  <div style="font-weight:700;margin:0 0 4px 0;">What happens next</div>
+                  <div style="font-size:13px;color:#0f172a;line-height:1.55;">Head into your dashboard to browse offers, request access, and start setting up your first campaigns.</div>
                 </div>
 
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:separate;border-spacing:0;">
