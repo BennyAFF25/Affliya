@@ -104,8 +104,8 @@ export default function Home() {
     {
       id: "business",
       title: "For Brands",
-      priceNow: "$0/mo (Early Access)",
-      priceLater: "Then $150/mo",
+      priceNow: "Fee-based pricing",
+      priceLater: "Pay based on performance, not a monthly seat",
       bullets: [
         "Publish offers, approvals, and guardrails",
         "Wallet-funded partner spend + meta sync",
@@ -117,8 +117,8 @@ export default function Home() {
     {
       id: "affiliate",
       title: "For Partners",
-      priceNow: "$0/mo (Early Access)",
-      priceLater: "Then $50/mo",
+      priceNow: "Fee-based pricing",
+      priceLater: "Built for performance, not recurring subscriptions",
       bullets: [
         "Access vetted offers + policy packs",
         "Submit creatives, track clicks & carts",
@@ -169,7 +169,7 @@ export default function Home() {
     },
     {
       q: "Is there a long-term contract?",
-      a: "No. Early access is free for life for the first 150 orgs. After that, monthly plans with cancel-anytime apply.",
+      a: "No. Nettmark is fee-based, not a locked monthly subscription. You can use it without being tied into a long-term contract.",
     },
   ];
 
