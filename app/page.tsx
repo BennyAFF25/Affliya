@@ -428,7 +428,7 @@ export default function Home() {
                     <div
                       className="sl-embed relative w-full overflow-hidden rounded-[1.2rem] bg-black"
                       style={{
-                        paddingBottom: "calc(62% + 25px)",
+                        paddingBottom: "calc(65.19% + 25px)",
                         height: 0,
                         transform: "scale(1)",
                       }}
@@ -446,10 +446,8 @@ export default function Home() {
                           boxShadow: "0px 0px 18px rgba(26, 19, 72, 0.15)",
                           borderRadius: "10px",
                           boxSizing: "border-box",
-                          width: "108%",
-                          height: "118%",
-                          left: "-4%",
-                          top: "-9%",
+                          width: "100%",
+                          height: "100%",
                         }}
                       />
                     </div>
