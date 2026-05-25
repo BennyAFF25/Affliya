@@ -13,6 +13,8 @@ export const metadata: Metadata = {
 export default function PartnerDemoLandingPage() {
   return (
     <StorylaneLandingPage
+      pagePath="/lp/partner-demo"
+      audience="affiliate"
       audienceLabel="For partners"
       badge="Private demo page"
       title="Try the partner-side Nettmark flow before you ever create an account"

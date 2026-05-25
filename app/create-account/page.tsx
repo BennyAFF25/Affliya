@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/../utils/supabase/pages-client';
+import MarketingPageTracker from '@/components/marketing/MarketingPageTracker';
 
 function CreateAccountInner() {
   const sp = useSearchParams();
@@ -231,6 +232,12 @@ function CreateAccountInner() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[radial-gradient(60%_80%_at_50%_0%,#0b2a2b_0%,#090909_40%,#000_100%)] text-white px-6">
+      <MarketingPageTracker
+        eventType="create_account_start"
+        pagePath="/create-account"
+        audience={role}
+        meta={{ role }}
+      />
       <div className="relative w-full max-w-md">
         <div className="absolute -inset-0.5 rounded-3xl bg-gradient-to-b from-[#00C2CB]/40 to-transparent blur-xl opacity-60 pointer-events-none" />
         <div className="relative w-full rounded-3xl border border-white/10 bg-white/5 backdrop-blur-xl p-7 shadow-[0_10px_40px_rgba(0,0,0,0.6)]">
