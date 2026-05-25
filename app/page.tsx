@@ -364,11 +364,6 @@ export default function Home() {
                 <h2 className="mt-3 text-3xl font-bold sm:text-4xl">
                   See the Nettmark flow before you even sign in
                 </h2>
-                <p className="mt-4 text-sm sm:text-base text-white/70">
-                  The demo should do the heavy lifting here, so I’ve moved the
-                  copy and controls above it and given the walkthrough the full
-                  card width.
-                </p>
               </div>
 
               <div className="flex flex-col gap-3 lg:items-end">
@@ -433,7 +428,7 @@ export default function Home() {
                     <div
                       className="sl-embed relative w-full overflow-hidden rounded-[1.2rem] bg-black"
                       style={{
-                        paddingBottom: "calc(65.19% + 25px)",
+                        paddingBottom: "calc(82% + 25px)",
                         height: 0,
                         transform: "scale(1)",
                       }}
