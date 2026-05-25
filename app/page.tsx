@@ -389,9 +389,6 @@ export default function Home() {
                     }`}
                   >
                     Partner
-                    <span className="ml-2 text-[10px] uppercase tracking-[0.18em] opacity-70">
-                      Soon
-                    </span>
                   </button>
                 </div>
 
@@ -453,25 +450,39 @@ export default function Home() {
                     </div>
                   </>
                 ) : (
-                  <div
-                    className="relative overflow-hidden rounded-[1.2rem] border border-white/10 bg-black"
-                    style={{ paddingTop: "56.25%" }}
-                  >
-                    <div className="absolute inset-0 flex items-center justify-center bg-[radial-gradient(circle_at_top,rgba(0,194,203,0.18),transparent_55%),linear-gradient(180deg,#0a0d14_0%,#05070b_100%)] p-8 text-center">
-                      <div>
-                        <p className="text-xs uppercase tracking-[0.35em] text-[#7ff5fb]/70">
-                          Partner demo
-                        </p>
-                        <h3 className="mt-3 text-2xl font-semibold text-white">
-                          Coming soon
-                        </h3>
-                        <p className="mt-3 max-w-md text-sm text-white/65">
-                          We’ll drop the partner Storylane here once that
-                          walkthrough is ready.
-                        </p>
-                      </div>
+                  <>
+                    <Script
+                      src="https://js.storylane.io/js/v2/storylane.js"
+                      strategy="afterInteractive"
+                      data-verify-origin=""
+                    />
+                    <div
+                      className="sl-embed relative w-full overflow-hidden rounded-[1.2rem] bg-black"
+                      style={{
+                        paddingBottom: "calc(65.41% + 25px)",
+                        height: 0,
+                        transform: "scale(1)",
+                      }}
+                    >
+                      <iframe
+                        title="Nettmark partner walkthrough"
+                        loading="lazy"
+                        className="sl-demo absolute left-0 top-0 h-full w-full"
+                        src="https://app.storylane.io/demo/p83vbgruopoj?embed=inline"
+                        name="sl-embed"
+                        allow="fullscreen"
+                        allowFullScreen
+                        style={{
+                          border: "1px solid rgba(63,95,172,0.35)",
+                          boxShadow: "0px 0px 18px rgba(26, 19, 72, 0.15)",
+                          borderRadius: "10px",
+                          boxSizing: "border-box",
+                          width: "100%",
+                          height: "100%",
+                        }}
+                      />
                     </div>
-                  </div>
+                  </>
                 )}
               </div>
             </div>
@@ -508,10 +519,35 @@ export default function Home() {
                   </div>
                 </>
               ) : (
-                <div className="md:col-span-3 rounded-2xl border border-dashed border-white/15 bg-white/[0.03] px-4 py-4 text-white/70">
-                  The partner walkthrough slot is ready — we just need the
-                  second Storylane demo when you’re ready to add it.
-                </div>
+                <>
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+                    <div className="mb-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/15 text-xs font-semibold text-white">
+                      1
+                    </div>
+                    <p>
+                      Walk partners through finding offers, launching campaigns,
+                      and grabbing their tracking links without extra setup.
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+                    <div className="mb-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/15 text-xs font-semibold text-white">
+                      2
+                    </div>
+                    <p>
+                      Show the operator view clearly: marketplace, promotion
+                      flow, and campaign management in one pass.
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+                    <div className="mb-2 inline-flex h-6 w-6 items-center justify-center rounded-full bg-white/15 text-xs font-semibold text-white">
+                      3
+                    </div>
+                    <p>
+                      Both sides now have live demos, so visitors can self-qualify
+                      before they ever sign up.
+                    </p>
+                  </div>
+                </>
               )}
             </div>
           </div>
