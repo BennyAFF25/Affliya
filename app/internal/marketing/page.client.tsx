@@ -8,7 +8,7 @@ import { ChevronDown } from "lucide-react";
 
 type DashboardData = {
   ok: boolean;
-  days: number;
+  days: number | "all";
   totals: {
     pageViews: number;
     createAccountStarts: number;
@@ -47,7 +47,7 @@ function fmtMoney(value: number) {
 }
 
 export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail: string }) {
-  const [days, setDays] = useState(30);
+  const [days, setDays] = useState<7 | 30 | 90 | 180 | 365 | "all">(30);
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -117,14 +117,21 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
-              {[7, 30, 90].map((value) => (
+              {[
+                { label: "7D", value: 7 as const },
+                { label: "30D", value: 30 as const },
+                { label: "90D", value: 90 as const },
+                { label: "6M", value: 180 as const },
+                { label: "1Y", value: 365 as const },
+                { label: "All", value: "all" as const },
+              ].map(({ label, value }) => (
                 <button
-                  key={value}
+                  key={label}
                   type="button"
                   onClick={() => setDays(value)}
                   className={`rounded-full px-4 py-2 text-sm font-semibold transition ${days === value ? "bg-[#00C2CB] text-black" : "border border-white/10 bg-white/5 text-white/75 hover:bg-white/10"}`}
                 >
-                  {value}d
+                  {label}
                 </button>
               ))}
               <span className="rounded-full border border-white/10 bg-black/25 px-3 py-2 text-xs text-white/55">{viewerEmail}</span>
