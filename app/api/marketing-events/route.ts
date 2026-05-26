@@ -75,22 +75,26 @@ export async function GET(req: Request) {
     }
 
     const url = new URL(req.url);
-    const days = Math.min(Math.max(Number(url.searchParams.get("days") || "30"), 1), 90);
-    const from = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+    const daysParam = (url.searchParams.get("days") || "30").toLowerCase();
+    const allTime = daysParam === "all";
+    const parsedDays = Number(daysParam);
+    const days = allTime ? null : Math.min(Math.max(Number.isFinite(parsedDays) ? parsedDays : 30, 1), 365);
+    const from = days ? new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString() : null;
+
+    const eventsQuery = (supabaseAdmin as any)
+      .from("marketing_site_events")
+      .select("event_type, page_path, audience, created_at")
+      .order("created_at", { ascending: false })
+      .limit(5000);
+    const revenueQuery = (supabaseAdmin as any)
+      .from("platform_fee_ledger")
+      .select("amount, status, currency, accrued_at")
+      .order("accrued_at", { ascending: false })
+      .limit(5000);
 
     const [eventsResult, revenueResult] = await Promise.all([
-      (supabaseAdmin as any)
-        .from("marketing_site_events")
-        .select("event_type, page_path, audience, created_at")
-        .gte("created_at", from)
-        .order("created_at", { ascending: false })
-        .limit(5000),
-      (supabaseAdmin as any)
-        .from("platform_fee_ledger")
-        .select("amount, status, currency, accrued_at")
-        .gte("accrued_at", from)
-        .order("accrued_at", { ascending: false })
-        .limit(5000),
+      from ? eventsQuery.gte("created_at", from) : eventsQuery,
+      from ? revenueQuery.gte("accrued_at", from) : revenueQuery,
     ]);
 
     const { data, error } = eventsResult;
@@ -169,7 +173,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({
       ok: true,
-      days,
+      days: days ?? "all",
       totals,
       byPage,
       byAudience,
