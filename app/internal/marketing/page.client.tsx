@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ChevronDown } from "lucide-react";
 
 type DashboardData = {
@@ -150,24 +150,48 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
               />
             </section>
 
-            <Panel title="Daily trend" right={<label className="inline-flex items-center gap-2 text-xs text-white/70"><input type="checkbox" checked={showRevenue} onChange={(e) => setShowRevenue(e.target.checked)} /> Show revenue</label>}>
-              <div className="h-64 w-full">
+            <Panel
+              title="Daily trend"
+              right={<label className="inline-flex items-center gap-2 text-xs text-white/70"><input type="checkbox" checked={showRevenue} onChange={(e) => setShowRevenue(e.target.checked)} /> Show revenue</label>}
+            >
+              <div className="mb-4 flex flex-wrap items-center gap-4 text-xs text-white/70">
+                <span className="inline-flex items-center gap-2"><span className="h-1.5 w-6 rounded-full bg-[#00C2CB]" /> Page views</span>
+                <span className="inline-flex items-center gap-2"><span className="h-1.5 w-6 rounded-full bg-[#8B5CF6]" /> Create account starts</span>
+                {showRevenue ? <span className="inline-flex items-center gap-2"><span className="h-1.5 w-6 rounded-full bg-[#F59E0B]" /> Revenue</span> : null}
+              </div>
+
+              <div className="h-72 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={trendRows}>
                     <defs>
-                      <linearGradient id="pv" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#00C2CB" stopOpacity={0.7} /><stop offset="100%" stopColor="#00C2CB" stopOpacity={0.08} /></linearGradient>
-                      <linearGradient id="ca" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#8B5CF6" stopOpacity={0.7} /><stop offset="100%" stopColor="#8B5CF6" stopOpacity={0.08} /></linearGradient>
+                      <linearGradient id="pv" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#00C2CB" stopOpacity={0.55} /><stop offset="100%" stopColor="#00C2CB" stopOpacity={0.04} /></linearGradient>
+                      <linearGradient id="ca" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#8B5CF6" stopOpacity={0.45} /><stop offset="100%" stopColor="#8B5CF6" stopOpacity={0.04} /></linearGradient>
                     </defs>
-                    <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
-                    <XAxis dataKey="label" stroke="rgba(255,255,255,0.6)" />
-                    <YAxis stroke="rgba(255,255,255,0.6)" />
-                    <Tooltip contentStyle={{ background: "#051018", border: "1px solid rgba(255,255,255,0.16)", borderRadius: 12 }} />
+                    <CartesianGrid stroke="rgba(255,255,255,0.11)" vertical={false} strokeDasharray="4 5" />
+                    <XAxis
+                      dataKey="label"
+                      stroke="rgba(255,255,255,0.6)"
+                      tickMargin={10}
+                      minTickGap={24}
+                      interval="preserveStartEnd"
+                    />
+                    <YAxis yAxisId="left" stroke="rgba(255,255,255,0.6)" tickMargin={8} width={40} />
+                    {showRevenue ? <YAxis yAxisId="right" orientation="right" stroke="rgba(245,158,11,0.9)" tickFormatter={(v) => `$${Math.round(Number(v || 0))}`} width={52} /> : null}
+                    <Tooltip
+                      contentStyle={{ background: "#051018", border: "1px solid rgba(255,255,255,0.16)", borderRadius: 12 }}
+                      formatter={(value: number, name: string) => {
+                        if (name === "revenue") return [fmtMoney(Number(value || 0)), "Revenue"];
+                        if (name === "pageViews") return [Number(value || 0), "Page views"];
+                        if (name === "createAccountStarts") return [Number(value || 0), "Create account starts"];
+                        return [Number(value || 0), name];
+                      }}
+                    />
                     <Area type="monotone" dataKey="pageViews" stroke="#00C2CB" fill="url(#pv)" strokeWidth={2.2} />
                     <Area type="monotone" dataKey="createAccountStarts" stroke="#8B5CF6" fill="url(#ca)" strokeWidth={2.2} />
+                    {showRevenue ? <Line yAxisId="right" type="monotone" dataKey="revenue" stroke="#F59E0B" strokeWidth={2} dot={false} /> : null}
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
-              {showRevenue ? <div className="mt-4 h-48 w-full"><ResponsiveContainer width="100%" height="100%"><BarChart data={trendRows}><CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} /><XAxis dataKey="label" stroke="rgba(255,255,255,0.6)" /><YAxis stroke="rgba(255,255,255,0.6)" /><Tooltip formatter={(value: number) => fmtMoney(Number(value || 0))} contentStyle={{ background: "#051018", border: "1px solid rgba(255,255,255,0.16)", borderRadius: 12 }} /><Bar dataKey="revenue" fill="#F59E0B" radius={[6, 6, 0, 0]} /></BarChart></ResponsiveContainer></div> : null}
             </Panel>
 
             <Panel title="By page" subtitle="Clean view of your key pages">
@@ -263,4 +287,3 @@ function CollapsibleStatCard({ label, pageViews, createAccountStarts }: { label:
     </details>
   );
 }
-
