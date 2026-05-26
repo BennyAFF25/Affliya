@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { ChevronDown } from "lucide-react";
 
 type DashboardData = {
   ok: boolean;
@@ -15,13 +17,41 @@ type DashboardData = {
   byAudience: Record<string, { pageViews: number; createAccountStarts: number }>;
   daily: Array<{ date: string; pageViews: number; createAccountStarts: number }>;
   recentCount: number;
+  revenue?: {
+    total: number;
+    byStatus: Record<string, number>;
+    daily: Array<{ date: string; amount: number }>;
+    count: number;
+  };
 };
+
+const PAGE_LABELS: Record<string, string> = {
+  "/": "Home page",
+  "/lp/partner-demo": "Affiliate demo",
+  "/lp/business-demo": "Business demo",
+  "/create-account": "Create account",
+};
+
+const PAGE_ORDER = ["/lp/partner-demo", "/lp/business-demo", "/", "/create-account"];
+
+function friendlyPage(path: string) {
+  return PAGE_LABELS[path] || path;
+}
+
+function fmtMoney(value: number) {
+  return new Intl.NumberFormat("en-AU", {
+    style: "currency",
+    currency: "AUD",
+    maximumFractionDigits: value % 1 === 0 ? 0 : 2,
+  }).format(value || 0);
+}
 
 export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail: string }) {
   const [days, setDays] = useState(30);
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showRevenue, setShowRevenue] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -30,18 +60,12 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(`/api/marketing-events?days=${days}`, {
-          cache: "no-store",
-        });
+        const res = await fetch(`/api/marketing-events?days=${days}`, { cache: "no-store" });
         const json = await res.json();
-        if (!res.ok || !json?.ok) {
-          throw new Error(json?.error || `Failed to load (${res.status})`);
-        }
+        if (!res.ok || !json?.ok) throw new Error(json?.error || `Failed to load (${res.status})`);
         if (!cancelled) setData(json);
       } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : "Failed to load dashboard");
-        }
+        if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load dashboard");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -58,41 +82,37 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
     return (data.totals.createAccountStarts / data.totals.pageViews) * 100;
   }, [data]);
 
-  const topPages = useMemo(() => {
+  const pageRows = useMemo(() => {
+    if (!data) return [] as Array<{ key: string; label: string; pageViews: number; createAccountStarts: number }>;
+    return PAGE_ORDER.map((path) => ({
+      key: path,
+      label: friendlyPage(path),
+      pageViews: data.byPage[path]?.pageViews || 0,
+      createAccountStarts: data.byPage[path]?.createAccountStarts || 0,
+    }));
+  }, [data]);
+
+  const trendRows = useMemo(() => {
     if (!data) return [];
-    return Object.entries(data.byPage)
-      .sort((a, b) => b[1].pageViews - a[1].pageViews)
-      .slice(0, 3);
+    const revenueMap = new Map((data.revenue?.daily || []).map((r) => [r.date, r.amount]));
+    return data.daily.map((d) => ({
+      ...d,
+      revenue: revenueMap.get(d.date) || 0,
+      label: d.date.slice(5),
+    }));
   }, [data]);
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(0,194,203,0.12),transparent_28%),linear-gradient(180deg,#091114_0%,#06090d_60%,#030405_100%)] px-5 py-6 text-white sm:px-6 lg:px-8 lg:py-8">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(0,194,203,0.18),transparent_30%),linear-gradient(180deg,#071014_0%,#04080b_62%,#030405_100%)] px-5 py-6 text-white sm:px-6 lg:px-8 lg:py-8">
       <div className="mx-auto max-w-6xl space-y-6">
-        <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
+        <section className="rounded-3xl border border-white/10 bg-[linear-gradient(160deg,rgba(255,255,255,0.09),rgba(255,255,255,0.03))] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.3)] backdrop-blur-sm">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-[#7ff5fb]/75">
-                Internal only
-              </p>
-              <h1 className="mt-2 text-3xl font-extrabold tracking-tight sm:text-4xl">
-                Marketing traffic dashboard
-              </h1>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-white/65 sm:text-base">
-                Lightweight counts for homepage/demo traffic and how many people make it to the create-account screen.
-              </p>
+              <p className="text-xs font-semibold uppercase tracking-[0.32em] text-[#7ff5fb]/80">Internal only</p>
+              <h1 className="mt-2 text-3xl font-extrabold tracking-tight sm:text-4xl">Nettmark analytics</h1>
               <div className="mt-4 flex flex-wrap gap-2">
-                <Link
-                  href="/"
-                  className="rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white/80 transition hover:bg-white/10 hover:text-white"
-                >
-                  Visit Nettmark home
-                </Link>
-                <Link
-                  href="/internal/marketing-login"
-                  className="rounded-full border border-[#00C2CB]/40 bg-[#00C2CB]/12 px-3 py-1.5 text-xs font-semibold text-[#aefcff] transition hover:bg-[#00C2CB]/18"
-                >
-                  Analytics access link
-                </Link>
+                <Link href="/" className="rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white/80 transition hover:bg-white/10 hover:text-white">Visit Nettmark home</Link>
+                <Link href="/internal/marketing-login" className="rounded-full border border-[#00C2CB]/40 bg-[#00C2CB]/12 px-3 py-1.5 text-xs font-semibold text-[#aefcff] transition hover:bg-[#00C2CB]/18">Analytics access link</Link>
               </div>
             </div>
 
@@ -102,121 +122,67 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
                   key={value}
                   type="button"
                   onClick={() => setDays(value)}
-                  className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
-                    days === value
-                      ? "bg-[#00C2CB] text-black"
-                      : "border border-white/10 bg-white/5 text-white/75 hover:bg-white/10"
-                  }`}
+                  className={`rounded-full px-4 py-2 text-sm font-semibold transition ${days === value ? "bg-[#00C2CB] text-black" : "border border-white/10 bg-white/5 text-white/75 hover:bg-white/10"}`}
                 >
                   {value}d
                 </button>
               ))}
-              <span className="rounded-full border border-white/10 bg-black/25 px-3 py-2 text-xs text-white/55">
-                {viewerEmail}
-              </span>
+              <span className="rounded-full border border-white/10 bg-black/25 px-3 py-2 text-xs text-white/55">{viewerEmail}</span>
             </div>
           </div>
         </section>
 
         {loading ? (
-          <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-8 text-white/70">
-            Loading dashboard…
-          </div>
+          <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-8 text-white/70">Loading dashboard…</div>
         ) : error ? (
-          <div className="rounded-3xl border border-red-400/20 bg-red-500/10 p-8 text-red-200">
-            {error}
-          </div>
+          <div className="rounded-3xl border border-red-400/20 bg-red-500/10 p-8 text-red-200">{error}</div>
         ) : data ? (
           <>
-            <section className="grid gap-4 md:grid-cols-3">
-              <StatCard label="Page views" value={data.totals.pageViews.toLocaleString()} />
-              <StatCard label="Create account starts" value={data.totals.createAccountStarts.toLocaleString()} />
-              <StatCard label="View → start rate" value={`${conversionRate.toFixed(1)}%`} />
+            <section className="grid gap-4 md:grid-cols-4">
+              <StatCard label="Page views" value={data.totals.pageViews.toLocaleString()} tone="cyan" />
+              <StatCard label="Create account starts" value={data.totals.createAccountStarts.toLocaleString()} tone="violet" />
+              <StatCard label="View → start rate" value={`${conversionRate.toFixed(1)}%`} tone="emerald" />
+              <StatCard
+                label="Fee ledger revenue"
+                value={fmtMoney(data.revenue?.total || 0)}
+                tone="amber"
+                note={data.revenue?.count ? `${data.revenue.count} ledger rows` : "No ledger rows yet"}
+              />
             </section>
 
-            <section className="grid gap-4 lg:grid-cols-[1.2fr,0.8fr]">
-              <Panel title="Pulse">
-                <div className="grid gap-3 sm:grid-cols-3">
-                  {topPages.length ? (
-                    topPages.map(([page, counts]) => (
-                      <div key={page} className="rounded-2xl border border-white/10 bg-black/25 p-3">
-                        <p className="truncate text-xs text-white/60">{page}</p>
-                        <p className="mt-1 text-xl font-bold text-white">{counts.pageViews}</p>
-                        <p className="text-xs text-[#7ff5fb]">{counts.createAccountStarts} starts</p>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-sm text-white/60">No page data yet.</p>
-                  )}
-                </div>
-              </Panel>
+            <Panel title="Daily trend" right={<label className="inline-flex items-center gap-2 text-xs text-white/70"><input type="checkbox" checked={showRevenue} onChange={(e) => setShowRevenue(e.target.checked)} /> Show revenue</label>}>
+              <div className="h-64 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={trendRows}>
+                    <defs>
+                      <linearGradient id="pv" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#00C2CB" stopOpacity={0.7} /><stop offset="100%" stopColor="#00C2CB" stopOpacity={0.08} /></linearGradient>
+                      <linearGradient id="ca" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#8B5CF6" stopOpacity={0.7} /><stop offset="100%" stopColor="#8B5CF6" stopOpacity={0.08} /></linearGradient>
+                    </defs>
+                    <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
+                    <XAxis dataKey="label" stroke="rgba(255,255,255,0.6)" />
+                    <YAxis stroke="rgba(255,255,255,0.6)" />
+                    <Tooltip contentStyle={{ background: "#051018", border: "1px solid rgba(255,255,255,0.16)", borderRadius: 12 }} />
+                    <Area type="monotone" dataKey="pageViews" stroke="#00C2CB" fill="url(#pv)" strokeWidth={2.2} />
+                    <Area type="monotone" dataKey="createAccountStarts" stroke="#8B5CF6" fill="url(#ca)" strokeWidth={2.2} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+              {showRevenue ? <div className="mt-4 h-48 w-full"><ResponsiveContainer width="100%" height="100%"><BarChart data={trendRows}><CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} /><XAxis dataKey="label" stroke="rgba(255,255,255,0.6)" /><YAxis stroke="rgba(255,255,255,0.6)" /><Tooltip formatter={(value: number) => fmtMoney(Number(value || 0))} contentStyle={{ background: "#051018", border: "1px solid rgba(255,255,255,0.16)", borderRadius: 12 }} /><Bar dataKey="revenue" fill="#F59E0B" radius={[6, 6, 0, 0]} /></BarChart></ResponsiveContainer></div> : null}
+            </Panel>
 
-              <Panel title="Access">
-                <p className="text-sm leading-6 text-white/70">
-                  Share this with your own team: <span className="font-semibold text-white">/internal/marketing-login</span>
-                </p>
-                <p className="mt-2 text-xs text-white/50">
-                  Users still need a whitelisted account email to open the dashboard.
-                </p>
-              </Panel>
-            </section>
+            <Panel title="By page" subtitle="Clean view of your key pages">
+              <div className="space-y-3">
+                {pageRows.map((row) => (
+                  <CollapsibleStatCard key={row.key} label={row.label} pageViews={row.pageViews} createAccountStarts={row.createAccountStarts} />
+                ))}
+              </div>
+            </Panel>
 
-            <section className="grid gap-6 xl:grid-cols-[1.15fr,0.85fr]">
-              <Panel title="By page">
-                <div className="space-y-3">
-                  {Object.entries(data.byPage).map(([page, counts]) => (
-                    <Row
-                      key={page}
-                      label={page}
-                      pageViews={counts.pageViews}
-                      createAccountStarts={counts.createAccountStarts}
-                    />
-                  ))}
-                </div>
-              </Panel>
-
-              <Panel title="By audience">
-                <div className="space-y-3">
-                  {Object.entries(data.byAudience).map(([audience, counts]) => (
-                    <Row
-                      key={audience}
-                      label={audience}
-                      pageViews={counts.pageViews}
-                      createAccountStarts={counts.createAccountStarts}
-                    />
-                  ))}
-                </div>
-              </Panel>
-            </section>
-
-            <Panel title="Daily trend">
-              <div className="overflow-hidden rounded-2xl border border-white/10">
-                <table className="min-w-full divide-y divide-white/10 text-sm">
-                  <thead className="bg-white/[0.03] text-left text-white/55">
-                    <tr>
-                      <th className="px-4 py-3 font-medium">Date</th>
-                      <th className="px-4 py-3 font-medium">Page views</th>
-                      <th className="px-4 py-3 font-medium">Create account starts</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/10">
-                    {data.daily.length ? (
-                      data.daily.map((row) => (
-                        <tr key={row.date}>
-                          <td className="px-4 py-3 text-white/75">{row.date}</td>
-                          <td className="px-4 py-3 text-white">{row.pageViews}</td>
-                          <td className="px-4 py-3 text-white">{row.createAccountStarts}</td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan={3} className="px-4 py-5 text-center text-white/55">
-                          No tracked events yet.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+            <Panel title="By audience">
+              <div className="space-y-3">
+                {Object.entries(data.byAudience).map(([audience, counts]) => (
+                  <CollapsibleStatCard key={audience} label={audience === "unknown" ? "Unknown" : audience} pageViews={counts.pageViews} createAccountStarts={counts.createAccountStarts} />
+                ))}
               </div>
             </Panel>
           </>
@@ -226,46 +192,75 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
   );
 }
 
-function Panel({ title, children }: { title: string; children: ReactNode }) {
+function Panel({ title, subtitle, right, children }: { title: string; subtitle?: string; right?: ReactNode; children: ReactNode }) {
   return (
-    <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.18)]">
-      <h2 className="mb-4 text-lg font-semibold text-white">{title}</h2>
+    <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.2)]">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold text-white">{title}</h2>
+          {subtitle ? <p className="mt-1 text-xs text-white/55">{subtitle}</p> : null}
+        </div>
+        {right}
+      </div>
       {children}
     </section>
   );
 }
 
-function StatCard({ label, value }: { label: string; value: string }) {
+function StatCard({ label, value, tone, note }: { label: string; value: string; tone: "cyan" | "violet" | "emerald" | "amber"; note?: string }) {
+  const toneClass: Record<string, string> = {
+    cyan: "from-cyan-400/25",
+    violet: "from-violet-400/25",
+    emerald: "from-emerald-400/25",
+    amber: "from-amber-400/25",
+  };
   return (
-    <div className="rounded-3xl border border-white/10 bg-[linear-gradient(160deg,rgba(255,255,255,0.09),rgba(255,255,255,0.03))] p-5 shadow-[0_16px_50px_rgba(0,0,0,0.18)] backdrop-blur-sm">
-      <p className="text-sm text-white/60">{label}</p>
+    <div className={`rounded-3xl border border-white/10 bg-gradient-to-br ${toneClass[tone]} to-transparent p-5`}>
+      <p className="text-sm text-white/65">{label}</p>
       <p className="mt-2 text-3xl font-bold text-white">{value}</p>
+      {note ? <p className="mt-1 text-xs text-white/55">{note}</p> : null}
     </div>
   );
 }
 
-function Row({
-  label,
-  pageViews,
-  createAccountStarts,
-}: {
-  label: string;
-  pageViews: number;
-  createAccountStarts: number;
-}) {
-  const rate = pageViews ? ((createAccountStarts / pageViews) * 100).toFixed(1) : "0.0";
+function CollapsibleStatCard({ label, pageViews, createAccountStarts }: { label: string; pageViews: number; createAccountStarts: number }) {
+  const rate = pageViews ? (createAccountStarts / pageViews) * 100 : 0;
+  const chartRows = [
+    { name: "Views", value: pageViews, fill: "#00C2CB" },
+    { name: "Starts", value: createAccountStarts, fill: "#8B5CF6" },
+  ];
+
   return (
-    <div className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <details className="group rounded-2xl border border-white/10 bg-black/20 open:bg-black/30">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
         <div>
           <p className="text-sm font-semibold text-white">{label}</p>
-          <p className="mt-1 text-xs text-white/50">View → start rate {rate}%</p>
+          <p className="text-xs text-white/55">View → start {rate.toFixed(1)}%</p>
         </div>
-        <div className="flex gap-4 text-sm text-white/75">
-          <span>Views: <strong className="text-white">{pageViews}</strong></span>
-          <span>Starts: <strong className="text-white">{createAccountStarts}</strong></span>
+        <div className="flex items-center gap-4 text-xs text-white/80">
+          <span>Views <strong className="text-white">{pageViews}</strong></span>
+          <span>Starts <strong className="text-white">{createAccountStarts}</strong></span>
+          <ChevronDown className="h-4 w-4 transition group-open:rotate-180" />
+        </div>
+      </summary>
+      <div className="border-t border-white/10 px-4 py-4">
+        <div className="h-44 w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={chartRows}>
+              <CartesianGrid stroke="rgba(255,255,255,0.08)" vertical={false} />
+              <XAxis dataKey="name" stroke="rgba(255,255,255,0.65)" />
+              <YAxis stroke="rgba(255,255,255,0.65)" />
+              <Tooltip contentStyle={{ background: "#051018", border: "1px solid rgba(255,255,255,0.16)", borderRadius: 12 }} />
+              <Bar dataKey="value" radius={[8, 8, 0, 0]}>
+                {chartRows.map((row) => (
+                  <Cell key={row.name} fill={row.fill} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
         </div>
       </div>
-    </div>
+    </details>
   );
 }
+
