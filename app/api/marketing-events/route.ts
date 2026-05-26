@@ -78,12 +78,22 @@ export async function GET(req: Request) {
     const days = Math.min(Math.max(Number(url.searchParams.get("days") || "30"), 1), 90);
     const from = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
 
-    const { data, error } = await (supabaseAdmin as any)
-      .from("marketing_site_events")
-      .select("event_type, page_path, audience, created_at")
-      .gte("created_at", from)
-      .order("created_at", { ascending: false })
-      .limit(5000);
+    const [eventsResult, revenueResult] = await Promise.all([
+      (supabaseAdmin as any)
+        .from("marketing_site_events")
+        .select("event_type, page_path, audience, created_at")
+        .gte("created_at", from)
+        .order("created_at", { ascending: false })
+        .limit(5000),
+      (supabaseAdmin as any)
+        .from("platform_fee_ledger")
+        .select("amount, status, currency, accrued_at")
+        .gte("accrued_at", from)
+        .order("accrued_at", { ascending: false })
+        .limit(5000),
+    ]);
+
+    const { data, error } = eventsResult;
 
     if (error) {
       console.error("[marketing-events][GET] select error", error);
@@ -130,6 +140,33 @@ export async function GET(req: Request) {
 
     const daily = Object.values(dailyMap).sort((a, b) => a.date.localeCompare(b.date));
 
+    const revenueRows = ((revenueResult?.data as Array<{
+      amount: number | string | null;
+      status: string | null;
+      currency: string | null;
+      accrued_at: string;
+    }>) || []).filter((row) => row?.accrued_at);
+
+    const revenueByStatus: Record<string, number> = {};
+    const revenueDailyMap: Record<string, number> = {};
+    let revenueTotal = 0;
+
+    for (const row of revenueRows) {
+      const amount = Number(row.amount || 0);
+      if (!Number.isFinite(amount)) continue;
+
+      revenueTotal += amount;
+      const statusKey = row.status || "unknown";
+      revenueByStatus[statusKey] = (revenueByStatus[statusKey] || 0) + amount;
+
+      const date = row.accrued_at.slice(0, 10);
+      revenueDailyMap[date] = (revenueDailyMap[date] || 0) + amount;
+    }
+
+    const revenueDaily = Object.entries(revenueDailyMap)
+      .map(([date, amount]) => ({ date, amount }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
     return NextResponse.json({
       ok: true,
       days,
@@ -138,6 +175,14 @@ export async function GET(req: Request) {
       byAudience,
       daily,
       recentCount: rows.length,
+      revenue: {
+        total: Number(revenueTotal.toFixed(2)),
+        byStatus: Object.fromEntries(
+          Object.entries(revenueByStatus).map(([key, value]) => [key, Number(value.toFixed(2))]),
+        ),
+        daily: revenueDaily.map((row) => ({ ...row, amount: Number(row.amount.toFixed(2)) })),
+        count: revenueRows.length,
+      },
     });
   } catch (error) {
     console.error("[marketing-events][GET] unexpected error", error);
