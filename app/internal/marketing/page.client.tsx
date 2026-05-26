@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
+import Link from "next/link";
 
 type DashboardData = {
   ok: boolean;
@@ -57,6 +58,13 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
     return (data.totals.createAccountStarts / data.totals.pageViews) * 100;
   }, [data]);
 
+  const topPages = useMemo(() => {
+    if (!data) return [];
+    return Object.entries(data.byPage)
+      .sort((a, b) => b[1].pageViews - a[1].pageViews)
+      .slice(0, 3);
+  }, [data]);
+
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(0,194,203,0.12),transparent_28%),linear-gradient(180deg,#091114_0%,#06090d_60%,#030405_100%)] px-5 py-6 text-white sm:px-6 lg:px-8 lg:py-8">
       <div className="mx-auto max-w-6xl space-y-6">
@@ -72,6 +80,20 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
               <p className="mt-3 max-w-2xl text-sm leading-6 text-white/65 sm:text-base">
                 Lightweight counts for homepage/demo traffic and how many people make it to the create-account screen.
               </p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Link
+                  href="/"
+                  className="rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-semibold text-white/80 transition hover:bg-white/10 hover:text-white"
+                >
+                  Visit Nettmark home
+                </Link>
+                <Link
+                  href="/internal/marketing-login"
+                  className="rounded-full border border-[#00C2CB]/40 bg-[#00C2CB]/12 px-3 py-1.5 text-xs font-semibold text-[#aefcff] transition hover:bg-[#00C2CB]/18"
+                >
+                  Analytics access link
+                </Link>
+              </div>
             </div>
 
             <div className="flex flex-wrap items-center gap-3">
@@ -110,6 +132,33 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
               <StatCard label="Page views" value={data.totals.pageViews.toLocaleString()} />
               <StatCard label="Create account starts" value={data.totals.createAccountStarts.toLocaleString()} />
               <StatCard label="View → start rate" value={`${conversionRate.toFixed(1)}%`} />
+            </section>
+
+            <section className="grid gap-4 lg:grid-cols-[1.2fr,0.8fr]">
+              <Panel title="Pulse">
+                <div className="grid gap-3 sm:grid-cols-3">
+                  {topPages.length ? (
+                    topPages.map(([page, counts]) => (
+                      <div key={page} className="rounded-2xl border border-white/10 bg-black/25 p-3">
+                        <p className="truncate text-xs text-white/60">{page}</p>
+                        <p className="mt-1 text-xl font-bold text-white">{counts.pageViews}</p>
+                        <p className="text-xs text-[#7ff5fb]">{counts.createAccountStarts} starts</p>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-sm text-white/60">No page data yet.</p>
+                  )}
+                </div>
+              </Panel>
+
+              <Panel title="Access">
+                <p className="text-sm leading-6 text-white/70">
+                  Share this with your own team: <span className="font-semibold text-white">/internal/marketing-login</span>
+                </p>
+                <p className="mt-2 text-xs text-white/50">
+                  Users still need a whitelisted account email to open the dashboard.
+                </p>
+              </Panel>
             </section>
 
             <section className="grid gap-6 xl:grid-cols-[1.15fr,0.85fr]">
@@ -188,8 +237,8 @@ function Panel({ title, children }: { title: string; children: ReactNode }) {
 
 function StatCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5 shadow-[0_16px_50px_rgba(0,0,0,0.18)]">
-      <p className="text-sm text-white/55">{label}</p>
+    <div className="rounded-3xl border border-white/10 bg-[linear-gradient(160deg,rgba(255,255,255,0.09),rgba(255,255,255,0.03))] p-5 shadow-[0_16px_50px_rgba(0,0,0,0.18)] backdrop-blur-sm">
+      <p className="text-sm text-white/60">{label}</p>
       <p className="mt-2 text-3xl font-bold text-white">{value}</p>
     </div>
   );
