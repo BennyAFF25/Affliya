@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, Cell, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Area, Bar, BarChart, CartesianGrid, Cell, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ChevronDown } from "lucide-react";
 
 type DashboardData = {
@@ -169,7 +169,7 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
 
               <div className="h-72 w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={trendRows}>
+                  <ComposedChart data={trendRows}>
                     <defs>
                       <linearGradient id="pv" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#00C2CB" stopOpacity={0.55} /><stop offset="100%" stopColor="#00C2CB" stopOpacity={0.04} /></linearGradient>
                       <linearGradient id="ca" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#8B5CF6" stopOpacity={0.45} /><stop offset="100%" stopColor="#8B5CF6" stopOpacity={0.04} /></linearGradient>
@@ -193,10 +193,10 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
                         return [Number(value || 0), name];
                       }}
                     />
-                    <Area type="monotone" dataKey="pageViews" stroke="#00C2CB" fill="url(#pv)" strokeWidth={2.2} />
-                    <Area type="monotone" dataKey="createAccountStarts" stroke="#8B5CF6" fill="url(#ca)" strokeWidth={2.2} />
+                    <Area yAxisId="left" type="monotone" dataKey="pageViews" stroke="#00C2CB" fill="url(#pv)" strokeWidth={2.2} />
+                    <Area yAxisId="left" type="monotone" dataKey="createAccountStarts" stroke="#8B5CF6" fill="url(#ca)" strokeWidth={2.2} />
                     {showRevenue ? <Line yAxisId="right" type="monotone" dataKey="revenue" stroke="#F59E0B" strokeWidth={2} dot={false} /> : null}
-                  </AreaChart>
+                  </ComposedChart>
                 </ResponsiveContainer>
               </div>
             </Panel>
