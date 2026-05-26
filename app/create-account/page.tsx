@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/../utils/supabase/pages-client';
 import MarketingPageTracker from '@/components/marketing/MarketingPageTracker';
+import { trackMetaStandardEvent } from '@/../utils/marketing/metaPixel';
 
 function CreateAccountInner() {
   const sp = useSearchParams();
@@ -208,6 +209,11 @@ function CreateAccountInner() {
           '[SIGNUP] No user id returned from signUp (email-confirm flow likely). Skipping profile upsert for now.'
         );
       }
+
+      trackMetaStandardEvent('CompleteRegistration', {
+        role,
+        signup_method: 'email',
+      });
 
       // ✅ Redirect only AFTER emails were attempted
       router.replace(onboardingPath);
