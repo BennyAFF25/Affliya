@@ -49,9 +49,9 @@ export default function StorylaneLandingPage({
         <div className="mb-10 flex items-center justify-between gap-4">
           <Link
             href="/"
-            className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.24em] text-white/75"
+            className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.2em] text-white/85 transition hover:bg-white/10 hover:text-white"
           >
-            Nettmark
+            Visit Nettmark home
           </Link>
           <span className="rounded-full border border-[#00C2CB]/20 bg-[#00C2CB]/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.22em] text-[#7ff5fb]">
             {badge}
