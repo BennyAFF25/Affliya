@@ -36,6 +36,15 @@ export const metadata = {
   title: 'Nettmark',
   description: 'Nettmark – The Fastest Growing Affiliate Platform on the Planet',
   metadataBase: new URL('https://www.nettmark.com'),
+  icons: {
+    icon: '/Nettmark-icon.png',
+    apple: '/apple-touch-icon.png',
+  },
+  appleWebApp: {
+    capable: true,
+    title: 'Nettmark',
+    statusBarStyle: 'black-translucent',
+  },
   openGraph: {
     title: 'Nettmark',
     description: 'Join the future of performance marketing.',
