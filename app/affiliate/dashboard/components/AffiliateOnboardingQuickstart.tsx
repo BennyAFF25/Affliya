@@ -15,7 +15,7 @@ const slides = [
   },
   {
     title: "Connect payouts",
-    body: "Go to Settings → Payouts to connect Stripe Express before launching campaigns.",
+    body: "No rush — you only need Stripe when you make your first sale and want to withdraw.",
     actions: [
       { label: "Open settings", href: "/affiliate/settings?from=onboarding#payouts" },
     ],

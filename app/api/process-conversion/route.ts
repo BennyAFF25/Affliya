@@ -33,6 +33,12 @@ async function createPayoutsForConversion(opts: {
     basePayoutAmount,
   } = opts;
 
+  const withAffiliateConnectWindow = (dateLike?: string | null) => {
+    const base = dateLike ? new Date(dateLike) : new Date();
+    base.setDate(base.getDate() + 14);
+    return base;
+  };
+
   const payoutMode: string = offer.payout_mode || 'upfront';
   const payoutInterval: string = offer.payout_interval || 'monthly';
   const payoutCycles: number | null = offer.payout_cycles;
@@ -84,7 +90,7 @@ async function createPayoutsForConversion(opts: {
       status: 'pending',
       source_event_id: event.id,
       cycle_number: 1,
-      available_at: new Date().toISOString(),
+      available_at: withAffiliateConnectWindow(event.created_at).toISOString(),
       is_recurring: isRecurringOffer,
     });
 
@@ -107,7 +113,7 @@ async function createPayoutsForConversion(opts: {
 
   const rows: any[] = [];
   for (let i = 1; i <= cycles; i++) {
-    const availableAt = new Date(baseTime.getTime());
+    const availableAt = withAffiliateConnectWindow(baseTime.toISOString());
     availableAt.setMonth(availableAt.getMonth() + i);
 
     rows.push({

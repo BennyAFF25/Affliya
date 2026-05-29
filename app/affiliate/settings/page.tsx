@@ -41,6 +41,7 @@ export default function AffiliateSettingsPage() {
 
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [payoutConnectNotice, setPayoutConnectNotice] = useState<string | null>(null);
 
 
   async function refreshStatus() {
@@ -77,6 +78,35 @@ export default function AffiliateSettingsPage() {
     refreshStatus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, user?.email]);
+
+  useEffect(() => {
+    const loadPayoutNotice = async () => {
+      if (!user?.email) return;
+      const { data, error } = await (supabase as any)
+        .from("wallet_payouts")
+        .select("created_at, available_at, status")
+        .eq("affiliate_email", user.email)
+        .eq("status", "pending")
+        .order("created_at", { ascending: true })
+        .limit(1);
+
+      if (error || !data?.length) {
+        setPayoutConnectNotice(null);
+        return;
+      }
+
+      const row = data[0];
+      const fallbackAvailable = new Date(row.created_at || Date.now());
+      fallbackAvailable.setDate(fallbackAvailable.getDate() + 14);
+      const availableAt = row.available_at ? new Date(row.available_at) : fallbackAvailable;
+
+      setPayoutConnectNotice(
+        `You have pending payout(s). Connect Stripe by ${availableAt.toLocaleDateString()} to receive withdrawal release on time.`,
+      );
+    };
+
+    void loadPayoutNotice();
+  }, [user?.email]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -309,8 +339,17 @@ export default function AffiliateSettingsPage() {
                 Manage your account profile, payout setup, and withdrawal
                 details from one place.
               </p>
+              <p className="mt-2 max-w-2xl text-xs text-[var(--muted-foreground)] sm:text-sm">
+                No need to connect Stripe until you’ve made your first sale.
+              </p>
             </div>
           </div>
+
+          {payoutConnectNotice ? (
+            <div className="mt-4 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+              {payoutConnectNotice}
+            </div>
+          ) : null}
 
           <details className="mt-6 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--background)]/60 group">
             <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 text-left marker:content-none">

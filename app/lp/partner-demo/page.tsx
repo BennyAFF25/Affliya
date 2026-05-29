@@ -33,6 +33,7 @@ export default function PartnerDemoLandingPage() {
       bullets={[
         "Walk through finding offers, launching campaigns, and understanding how approvals work before you commit.",
         "See the actual affiliate-side product instead of reading generic feature copy.",
+        "No need to connect Stripe until your first sale — connect when you're ready to withdraw.",
         "Perfect for paid campaigns where you want cold traffic to hit the demo immediately.",
       ]}
       footerTitle="Want to start promoting offers with real tracking and automated payouts?"

@@ -57,11 +57,29 @@ type AdSpendSettlementSummary = {
   failed: number;
 };
 
+function resolveAvailableAt(payout: WPayout) {
+  if (payout.available_at) return new Date(payout.available_at);
+  const d = new Date(payout.created_at || Date.now());
+  d.setDate(d.getDate() + 14);
+  return d;
+}
+
+function getSettlementBlockReason(payout: WPayout, hasStripe: boolean) {
+  if (payout.status !== "pending") return "Already settled or failed";
+  if (!hasStripe) return "Affiliate has not connected Stripe";
+  const availableAt = resolveAvailableAt(payout);
+  if (availableAt > new Date()) {
+    return `In 14-day connect window until ${availableAt.toLocaleDateString()}`;
+  }
+  return "Ready to settle";
+}
+
 export default function BusinessPayoutsPage() {
   const [email, setEmail] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [payouts, setPayouts] = useState<WPayout[]>([]);
   const [offersById, setOffersById] = useState<Record<string, string>>({});
+  const [affiliateStripeByEmail, setAffiliateStripeByEmail] = useState<Record<string, string | null>>({});
   const [tab, setTab] = useState<"pending" | "history">("pending");
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [running, setRunning] = useState(false);
@@ -85,8 +103,15 @@ export default function BusinessPayoutsPage() {
   );
 
   const selectedIds = useMemo(
-    () => Object.keys(selected).filter((k) => selected[k]),
-    [selected],
+    () =>
+      Object.keys(selected).filter((k) => {
+        if (!selected[k]) return false;
+        const row = payouts.find((p) => p.id === k);
+        if (!row) return false;
+        const hasStripe = Boolean(affiliateStripeByEmail[row.affiliate_email]);
+        return row.status === "pending" && resolveAvailableAt(row) <= new Date() && hasStripe;
+      }),
+    [selected, payouts, affiliateStripeByEmail],
   );
 
   // --- Load session & payouts
@@ -118,6 +143,19 @@ export default function BusinessPayoutsPage() {
 
       const rows = (data || []) as unknown as WPayout[];
       setPayouts(rows);
+
+      const affiliateEmails = Array.from(new Set(rows.map((r) => r.affiliate_email).filter(Boolean)));
+      if (affiliateEmails.length) {
+        const { data: affiliates } = await supabase
+          .from("affiliate_profiles")
+          .select("email, stripe_account_id")
+          .in("email", affiliateEmails);
+        const stripeMap: Record<string, string | null> = {};
+        (affiliates || []).forEach((a: any) => {
+          stripeMap[String(a.email)] = a.stripe_account_id || null;
+        });
+        setAffiliateStripeByEmail(stripeMap);
+      }
 
       const { data: settlements, error: settlementsErr } = await supabase
         .from("ad_spend_settlements")
@@ -289,7 +327,11 @@ export default function BusinessPayoutsPage() {
 
   function toggleAll(v: boolean) {
     const map: Record<string, boolean> = {};
-    filteredRows.forEach((p) => (map[p.id] = v));
+    filteredRows.forEach((p) => {
+      const hasStripe = Boolean(affiliateStripeByEmail[p.affiliate_email]);
+      const canSettle = p.status === "pending" && resolveAvailableAt(p) <= new Date() && hasStripe;
+      map[p.id] = v ? canSettle : false;
+    });
     setSelected(map);
   }
 
@@ -314,6 +356,9 @@ export default function BusinessPayoutsPage() {
               </p>
               <p className="mt-2 text-xs text-[var(--muted-foreground)]">
                 Businesses are charged payout principal plus the Nettmark payout fee. The affiliate still receives principal only.
+              </p>
+              <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+                Payouts are only settleable after the 14-day Stripe connect window and once the affiliate has connected Stripe.
               </p>
             </div>
             <div className="flex items-center gap-3">
@@ -398,6 +443,7 @@ export default function BusinessPayoutsPage() {
             <Table
               rows={filteredRows}
               offersById={offersById}
+              affiliateStripeByEmail={affiliateStripeByEmail}
               currencyFmt={currencyFmt}
               selectable={tab === "pending"}
               selected={selected}
@@ -472,12 +518,13 @@ function SkeletonTable() {
         <div>Offer</div>
         <div>Payout / charge</div>
         <div>Status</div>
+        <div>Readiness</div>
         <div>Created</div>
         <div>Stripe</div>
       </div>
       {[...Array(6)].map((_, i) => (
         <div key={i} className="grid grid-cols-7 items-center px-4 py-4">
-          {[...Array(7)].map((__, j) => (
+          {[...Array(8)].map((__, j) => (
             <div
               key={j}
               className="h-4 animate-pulse rounded bg-[var(--secondary)]"
@@ -492,6 +539,7 @@ function SkeletonTable() {
 function Table({
   rows,
   offersById,
+  affiliateStripeByEmail,
   currencyFmt,
   selectable = false,
   selected,
@@ -500,6 +548,7 @@ function Table({
 }: {
   rows: WPayout[];
   offersById: Record<string, string>;
+  affiliateStripeByEmail: Record<string, string | null>;
   currencyFmt: Intl.NumberFormat;
   selectable?: boolean;
   selected?: Record<string, boolean>;
@@ -524,6 +573,7 @@ function Table({
         <th className="px-4 py-3">Offer</th>
         <th className="px-4 py-3">Payout / charge</th>
         <th className="px-4 py-3">Status</th>
+        <th className="px-4 py-3">Readiness</th>
         <th className="px-4 py-3">Created</th>
         <th className="px-4 py-3">Stripe</th>
       </tr>
@@ -546,7 +596,10 @@ function Table({
       <table className="min-w-full text-left text-sm">
         {header}
         <tbody>
-          {rows.map((r) => (
+          {rows.map((r) => {
+            const hasStripe = Boolean(affiliateStripeByEmail[r.affiliate_email]);
+            const canSettle = r.status === "pending" && resolveAvailableAt(r) <= new Date() && hasStripe;
+            return (
             <tr
               key={r.id}
               className="border-b border-[var(--border)] transition hover:bg-[var(--secondary)]"
@@ -556,6 +609,7 @@ function Table({
                   <input
                     type="checkbox"
                     className="h-4 w-4 accent-[var(--primary)]"
+                    disabled={!canSettle}
                     checked={Boolean(selected?.[r.id])}
                     onChange={(e) =>
                       onToggle && onToggle(r.id, e.currentTarget.checked)
@@ -602,7 +656,10 @@ function Table({
                 })()}
               </td>
               <td className="px-4 py-3">
-                <StatusPill status={r.status} availableAt={r.available_at} />
+                <StatusPill status={r.status} availableAt={r.available_at} hasStripe={hasStripe} />
+              </td>
+              <td className="px-4 py-3 text-xs text-[var(--muted-foreground)]">
+                {getSettlementBlockReason(r, hasStripe)}
               </td>
               <td className="px-4 py-3 text-[var(--muted-foreground)]">
                 {new Date(r.created_at).toLocaleString()}
@@ -617,7 +674,8 @@ function Table({
                 )}
               </td>
             </tr>
-          ))}
+            );
+          })}
         </tbody>
       </table>
     </div>
@@ -627,19 +685,24 @@ function Table({
 function StatusPill({
   status,
   availableAt,
+  hasStripe,
 }: {
   status: string;
   availableAt?: string | null;
+  hasStripe?: boolean;
 }) {
   let label = status;
   let className: string;
 
   if (status === "pending") {
+    if (!hasStripe) {
+      label = "awaiting stripe";
+    }
     if (availableAt) {
       const now = new Date();
       const available = new Date(availableAt);
       if (available > now) {
-        label = "scheduled";
+        label = hasStripe ? "scheduled" : "awaiting stripe";
       }
     }
     className = "bg-yellow-500/10 text-yellow-300";

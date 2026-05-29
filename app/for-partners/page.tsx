@@ -40,6 +40,9 @@ export default function ForPartnersPage() {
             you can fund campaigns from your Nettmark wallet and get paid
             automatically on verified conversions.
           </p>
+          <p className="mt-2 max-w-2xl text-sm text-gray-400">
+            No need to connect Stripe until you make your first sale.
+          </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link
               href="/pricing"
