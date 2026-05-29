@@ -153,6 +153,13 @@ function getErrorMessage(err: unknown) {
   return "unknown";
 }
 
+function resolvePayoutAvailableAtIso(payout: Record<string, any>) {
+  if (payout.available_at) return String(payout.available_at);
+  const createdAt = payout.created_at ? new Date(payout.created_at) : new Date();
+  createdAt.setDate(createdAt.getDate() + 14);
+  return createdAt.toISOString();
+}
+
 async function getTransferReadiness(destinationAcct: string) {
   try {
     const account = await stripe.accounts.retrieve(destinationAcct);
@@ -249,6 +256,23 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "invalid_amount" }, { status: 400 });
     }
 
+    const availableAtIso = resolvePayoutAvailableAtIso(payout);
+    const availableAt = new Date(availableAtIso);
+    if (availableAt.getTime() > Date.now()) {
+      const msRemaining = availableAt.getTime() - Date.now();
+      const daysRemaining = Math.ceil(msRemaining / (1000 * 60 * 60 * 24));
+      return NextResponse.json(
+        {
+          error: "payout_hold_window_active",
+          message:
+            "Payout is in the 14-day connect window and cannot be settled yet.",
+          available_at: availableAtIso,
+          days_remaining: daysRemaining,
+        },
+        { status: 400 },
+      );
+    }
+
     const feeBreakdown = calculateChargeOnTopFee(amount);
     const payoutAmountInCents = toStripeAmount(amount);
     const grossChargeAmountInCents = toStripeAmount(feeBreakdown.grossAmount);
@@ -302,7 +326,16 @@ export async function POST(req: Request) {
     }
 
     if (!affiliateAccountId) {
-      return NextResponse.json({ error: "missing_affiliate_stripe_account" }, { status: 400 });
+      return NextResponse.json(
+        {
+          error: "missing_affiliate_stripe_account",
+          message:
+            "Affiliate must connect Stripe before this payout can be settled.",
+          reconnectPath: "/affiliate/settings",
+          payout_connect_deadline: availableAtIso,
+        },
+        { status: 400 },
+      );
     }
 
     const transferReadiness = await getTransferReadiness(affiliateAccountId);
