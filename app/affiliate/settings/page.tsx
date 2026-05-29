@@ -82,6 +82,10 @@ export default function AffiliateSettingsPage() {
   useEffect(() => {
     const loadPayoutNotice = async () => {
       if (!user?.email) return;
+      if (status?.payoutsEnabled) {
+        setPayoutConnectNotice(null);
+        return;
+      }
       const { data, error } = await (supabase as any)
         .from("wallet_payouts")
         .select("created_at, available_at, status")
@@ -106,7 +110,7 @@ export default function AffiliateSettingsPage() {
     };
 
     void loadPayoutNotice();
-  }, [user?.email]);
+  }, [user?.email, status?.payoutsEnabled]);
 
   useEffect(() => {
     if (!user?.id) return;
