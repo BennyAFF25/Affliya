@@ -588,12 +588,18 @@ export default function BusinessDashboard() {
   const activationProgress = Math.round((activationDoneCount / activationItems.length) * 100);
 
   const firstPendingRequest = pendingRequests[0] || null;
+  const canApproveAffiliates =
+    (onboardingProgressFlags.billing_connected || hasBillingConnected) &&
+    onboardingProgressFlags.payouts_enabled;
 
   const handleRequestDecision = async (
     requestId: string,
     newStatus: "approved" | "rejected",
   ) => {
     if (!requestId) return;
+    if (newStatus === "approved" && !canApproveAffiliates) {
+      return;
+    }
     setRequestActionBusyId(requestId);
     try {
       const { error } = await (supabase as any)
@@ -727,6 +733,25 @@ export default function BusinessDashboard() {
           <p className="mt-2 text-sm text-[var(--foreground)]">
             {firstPendingRequest.affiliate_email} requested to promote {offerLookup[firstPendingRequest.offer_id] || "your offer"}.
           </p>
+          {!canApproveAffiliates && (
+            <div className="mt-3 rounded-xl border border-red-400/35 bg-red-500/10 p-3 text-sm text-red-200">
+              Connect billing and enable payouts to approve affiliate requests.
+              <div className="mt-2 flex flex-wrap gap-2">
+                <button
+                  onClick={() => router.push("/business/payouts")}
+                  className="rounded-lg border border-red-300/40 bg-red-500/15 px-3 py-1.5 text-xs font-semibold text-red-100"
+                >
+                  Connect billing
+                </button>
+                <button
+                  onClick={() => router.push("/business/payouts")}
+                  className="rounded-lg border border-red-300/40 bg-red-500/15 px-3 py-1.5 text-xs font-semibold text-red-100"
+                >
+                  Enable payouts
+                </button>
+              </div>
+            </div>
+          )}
           <div className="mt-4 flex flex-wrap gap-2">
             <button
               onClick={() => router.push("/business/inbox")}
@@ -736,10 +761,10 @@ export default function BusinessDashboard() {
             </button>
             <button
               onClick={() => handleRequestDecision(firstPendingRequest.id, "approved")}
-              disabled={requestActionBusyId === firstPendingRequest.id}
-              className="rounded-lg bg-[#00C2CB] px-4 py-2 text-sm font-semibold text-black disabled:opacity-60"
+              disabled={requestActionBusyId === firstPendingRequest.id || !canApproveAffiliates}
+              className="rounded-lg bg-[#00C2CB] px-4 py-2 text-sm font-semibold text-black disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Approve
+              {canApproveAffiliates ? "Approve" : "Approve (blocked)"}
             </button>
             <button
               onClick={() => handleRequestDecision(firstPendingRequest.id, "rejected")}

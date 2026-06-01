@@ -68,6 +68,10 @@ export default function AffiliateRequestsPage() {
   const session = useSession();
   const [requests, setRequests] = useState<AffiliateRequest[]>([]);
   const [shopRequests, setShopRequests] = useState<ShopRequest[]>([]);
+  const [approvalReadiness, setApprovalReadiness] = useState({
+    billing_connected: false,
+    payouts_enabled: false,
+  });
 
   useEffect(() => {
     if (!session) return;
@@ -107,6 +111,18 @@ export default function AffiliateRequestsPage() {
         setRequests(data as AffiliateRequest[]);
       }
 
+      const { data: progressRows, error: progressError } = await supabase
+        .from("business_onboarding_progress")
+        .select("billing_connected,payouts_enabled")
+        .eq("business_email", userEmail);
+
+      if (!progressError && progressRows) {
+        setApprovalReadiness({
+          billing_connected: progressRows.some((r: any) => Boolean(r.billing_connected)),
+          payouts_enabled: progressRows.some((r: any) => Boolean(r.payouts_enabled)),
+        });
+      }
+
       const { data: shopData, error: shopError } = await supabase
         .from("affiliate_shop_requests")
         .select(
@@ -129,6 +145,10 @@ export default function AffiliateRequestsPage() {
   }, [session]);
 
   const handleUpdateStatus = async (requestId: string, newStatus: string) => {
+    if (newStatus === "approved" && !canApproveAffiliates) {
+      console.warn("[affiliate-requests] approve blocked: billing/payouts missing");
+      return;
+    }
     const current = requests.find((r) => r.id === requestId);
     const currentAffiliateEmail = current?.affiliate_email;
     const currentOfferId = (current as any)?.offer?.id;
@@ -225,6 +245,8 @@ export default function AffiliateRequestsPage() {
   };
 
   const pending = requests.filter((r) => r.status === "pending");
+  const canApproveAffiliates =
+    approvalReadiness.billing_connected && approvalReadiness.payouts_enabled;
   const rejected = requests.filter((r) => r.status === "rejected");
   const shopPending = shopRequests.filter((r) => r.status === "pending");
 
@@ -286,6 +308,17 @@ export default function AffiliateRequestsPage() {
               {pending.length} pending
             </span>
           </div>
+
+      {!canApproveAffiliates && pending.length > 0 && (
+        <div className="mb-4 rounded-xl border border-red-400/35 bg-red-500/10 px-4 py-3 text-sm text-red-200">
+          Connect billing and enable payouts to approve affiliate requests.
+          <div className="mt-2">
+            <a href="/business/payouts" className="inline-flex rounded-lg border border-red-300/40 bg-red-500/15 px-3 py-1.5 text-xs font-semibold text-red-100">
+              Go to billing & payouts
+            </a>
+          </div>
+        </div>
+      )}
 
       {pending.length === 0 ? (
         <EmptyState
@@ -367,9 +400,10 @@ export default function AffiliateRequestsPage() {
                   </button>
                   <button
                     onClick={() => handleUpdateStatus(req.id, "approved")}
-                    className="rounded-xl bg-[var(--primary)] px-4 py-2.5 text-sm font-semibold text-[var(--primary-foreground)] transition hover:brightness-110"
+                    disabled={!canApproveAffiliates}
+                    className="rounded-xl bg-[var(--primary)] px-4 py-2.5 text-sm font-semibold text-[var(--primary-foreground)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    Approve
+                    {canApproveAffiliates ? "Approve" : "Approve (blocked)"}
                   </button>
                 </div>
               </div>
