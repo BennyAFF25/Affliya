@@ -98,15 +98,7 @@ export default function BusinessMarketplace() {
 
       const { data, error } = await offersQuery;
 
-      if (error) {
-        console.error("[❌ Error fetching offers]", error.message);
-        setOffers([]);
-        setStatsByOffer({});
-        setLoading(false);
-        return;
-      }
-
-      const typedOffers = (data ?? []) as Array<{
+      let typedOffers = (data ?? []) as Array<{
         id: string;
         title: string;
         business_email?: string | null;
@@ -116,6 +108,34 @@ export default function BusinessMarketplace() {
         website?: string | null;
         created_at?: string | null;
       }>;
+
+      if (error) {
+        console.error("[❌ Error fetching offers]", error.message);
+        const fallbackQuery = supabase
+          .from("offers")
+          .select("id,title,business_email,description,commission,type,website");
+        const { data: fallbackData, error: fallbackError } = currentBusinessEmail
+          ? await fallbackQuery.neq("business_email", currentBusinessEmail)
+          : await fallbackQuery;
+
+        if (fallbackError) {
+          console.error("[❌ Fallback offers fetch failed]", fallbackError.message);
+          setOffers([]);
+          setStatsByOffer({});
+          setLoading(false);
+          return;
+        }
+
+        typedOffers = ((fallbackData ?? []) as Array<{
+          id: string;
+          title: string;
+          business_email?: string | null;
+          description?: string | null;
+          commission?: number | null;
+          type?: string | null;
+          website?: string | null;
+        }>).map((row) => ({ ...row, created_at: null }));
+      }
 
       const formattedOffers: Offer[] = typedOffers.map((offer) => ({
         id: offer.id,

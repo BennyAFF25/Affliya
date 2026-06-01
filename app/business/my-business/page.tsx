@@ -408,26 +408,32 @@ export default function MyBusinessPage() {
   }
 
   useEffect(() => {
-    if (!user?.email) {
-      setOffersLoading(false);
-      return;
-    }
-
     const fetchOffers = async () => {
       setOffersLoading(true);
+      const authUser = user?.email
+        ? { email: user.email }
+        : (await supabase.auth.getUser()).data.user;
+      const businessEmail = authUser?.email;
+
+      if (!businessEmail) {
+        setOffers([]);
+        setOffersLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase
         .from("offers")
         .select(
           "id,title,description,commission,type,site_host,meta_page_id,meta_ad_account_id,meta_pixel_id",
         )
-        .eq("business_email", user.email);
+        .eq("business_email", businessEmail);
 
       if (error) {
         console.error("[❌ Error fetching business offers]", error.message);
         const { data: fallbackData, error: fallbackError } = await supabase
           .from("offers")
           .select("id,title,description,commission,type,site_host")
-          .eq("business_email", user.email);
+          .eq("business_email", businessEmail);
 
         if (fallbackError) {
           console.error("[❌ Fallback offer fetch failed]", fallbackError.message);
@@ -449,18 +455,22 @@ export default function MyBusinessPage() {
 
     fetchOffers();
   }, [user?.email, supabase]);
-
   useEffect(() => {
-    if (!user?.email) {
-      setHasAffiliateRequests(false);
-      return;
-    }
-
     const fetchAffiliateRequests = async () => {
+      const authUser = user?.email
+        ? { email: user.email }
+        : (await supabase.auth.getUser()).data.user;
+      const businessEmail = authUser?.email;
+
+      if (!businessEmail) {
+        setHasAffiliateRequests(false);
+        return;
+      }
+
       const { data, error } = await supabase
         .from("affiliate_requests")
         .select("id")
-        .eq("business_email", user.email)
+        .eq("business_email", businessEmail)
         .limit(1);
 
       if (error) {
