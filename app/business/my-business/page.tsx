@@ -1413,7 +1413,7 @@ export default function MyBusinessPage() {
 
                   <div className="relative mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-white/40">
+                      <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-white/50">
                         Offer status
                       </span>
                       <span className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium ${trackingReady ? "bg-emerald-500/15 text-emerald-200 border border-emerald-400/40" : "bg-amber-500/15 text-amber-200 border border-amber-400/40"}`}>
@@ -1423,27 +1423,27 @@ export default function MyBusinessPage() {
                         {metaStatus.label}
                       </span>
                     </div>
-                    <p className="mt-2 text-sm text-white/65">
+                    <p className="mt-2 text-sm text-white">
                       {trackingReady
                         ? "Tracking is connected, so affiliates can request this offer from the marketplace."
                         : "To push your offer to marketplace, setup tracking. Until then it appears as Coming soon and affiliates cannot request to promote."}
                     </p>
-                    <p className="mt-2 text-xs text-white/55">{metaStatus.helper}</p>
+                    <p className="mt-2 text-sm text-white">{metaStatus.helper}</p>
                   </div>
 
-                  <div className="relative mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
+                  <div className="relative mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
                     <Link
                       href={`/business/my-business/edit-offer/${offer.id}/`}
                       prefetch={false}
                     >
-                      <button className="inline-flex w-full items-center justify-center rounded-full bg-[#00C2CB] px-4 py-2.5 text-sm font-semibold text-black shadow-[0_0_25px_rgba(0,194,203,0.45)] hover:bg-[#00b0b8] sm:w-auto">
+                      <button className="inline-flex w-full items-center justify-center rounded-full bg-[#00C2CB] px-4 py-2.5 text-sm font-semibold text-black shadow-[0_0_25px_rgba(0,194,203,0.45)] hover:bg-[#00b0b8]">
                         Edit Offer
                       </button>
                     </Link>
                     <button
                       onClick={() => handleDelete(offer.id)}
                       disabled={loadingDeleteId === offer.id}
-                      className="inline-flex w-full items-center justify-center rounded-full border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm font-semibold text-white/80 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+                      className="inline-flex w-full items-center justify-center rounded-full border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       {loadingDeleteId === offer.id
                         ? "Deleting…"
@@ -1461,7 +1461,7 @@ export default function MyBusinessPage() {
                         href={`/business/my-business/edit-offer/${offer.id}/#meta-setup`}
                         prefetch={false}
                       >
-                        <button className="inline-flex w-full items-center justify-center rounded-full border border-[#00C2CB]/30 bg-[#00C2CB]/10 px-4 py-2.5 text-sm font-semibold text-[#7ff5fb] hover:bg-[#00C2CB]/15 sm:w-auto">
+                        <button className="inline-flex w-full items-center justify-center rounded-full border border-[#00C2CB]/30 bg-[#00C2CB]/10 px-4 py-2.5 text-sm font-semibold text-[#7ff5fb] hover:bg-[#00C2CB]/15">
                           {metaStatus.actionLabel}
                         </button>
                       </Link>
