@@ -340,6 +340,7 @@ export default function MyBusinessPage() {
 
   const [showAcceptTerms, setShowAcceptTerms] = useState(false);
   const [showMetaOptionalWhy, setShowMetaOptionalWhy] = useState(false);
+  const [showLaunchSteps, setShowLaunchSteps] = useState(false);
 
   const session = useSession();
   const user = session?.user;
@@ -506,6 +507,52 @@ export default function MyBusinessPage() {
   // ---- Readiness states (informational only; no onboarding gate) ----
   const payoutsReady = !!onboardingComplete;
   const billingReady = !!businessCustomerId && !!hasCard;
+  const hasAnyOffer = offers.length > 0;
+  const hasTrackingConnected = offers.some((offer) => Boolean(offer.site_host));
+  const hasMetaConnected = offers.some(
+    (offer) =>
+      Boolean(offer.meta_page_id) ||
+      Boolean(offer.meta_ad_account_id) ||
+      Boolean(offer.meta_pixel_id),
+  );
+
+  const launchSteps = [
+    {
+      key: "offer",
+      label: "Create your first offer",
+      desc: "Required to appear in marketplace.",
+      done: hasAnyOffer,
+      optional: false,
+      href: "/business/my-business/create-offer",
+    },
+    {
+      key: "tracking",
+      label: "Connect tracking",
+      desc: "Required to enable affiliate requests (Coming soon → Requests open).",
+      done: hasTrackingConnected,
+      optional: false,
+      href: "/business/setup-tracking",
+    },
+    {
+      key: "billing",
+      label: "Connect billing",
+      desc: "Optional now. Required before paid affiliate/ad workflows.",
+      done: billingReady,
+      optional: true,
+      href: "/business/payouts",
+    },
+    {
+      key: "meta",
+      label: "Connect Meta",
+      desc: "Optional. Needed for paid campaigns.",
+      done: hasMetaConnected,
+      optional: true,
+      href: "/business/my-business/connect-meta",
+    },
+  ];
+
+  const launchDoneCount = launchSteps.filter((s) => s.done).length;
+  const launchProgress = Math.round((launchDoneCount / launchSteps.length) * 100);
 
   // Guided setup removed: keep core sections visible and allow offers anytime
   const showOnboardingChecklist = false;
@@ -1020,6 +1067,48 @@ export default function MyBusinessPage() {
             </div>
           </div>
         )}
+
+        <div className="max-w-6xl mx-auto mb-8 rounded-2xl border border-[#00C2CB]/20 bg-[#101314] p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-white">Launch progress</h2>
+              <p className="text-sm text-gray-400">
+                {launchDoneCount} of {launchSteps.length} complete · clear next step guidance.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowLaunchSteps((prev) => !prev)}
+              className="rounded-md border border-[#00C2CB]/35 px-3 py-2 text-xs text-[#7ff5fb] hover:bg-[#0f1415]"
+            >
+              {showLaunchSteps ? "Hide steps" : "Show steps"}
+            </button>
+          </div>
+
+          <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-black/30">
+            <div className="h-full rounded-full bg-[#00C2CB]" style={{ width: `${launchProgress}%` }} />
+          </div>
+
+          {showLaunchSteps && (
+            <div className="mt-4 grid gap-2 md:grid-cols-2">
+              {launchSteps.map((step) => (
+                <button
+                  key={step.key}
+                  onClick={() => router.push(step.href)}
+                  className="rounded-xl border border-[#1f2a2b] bg-[#0e1112] p-3 text-left"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-sm font-medium text-white">{step.label}</span>
+                    <span className={`text-[11px] rounded-full px-2 py-0.5 border ${step.done ? "border-emerald-400/40 bg-emerald-500/10 text-emerald-200" : "border-white/15 bg-white/5 text-white/65"}`}>
+                      {step.done ? "Done" : step.optional ? "Optional" : "Required"}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-gray-400">{step.desc}</p>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* ===== Action sections (grouped) ===== */}
         <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
