@@ -503,31 +503,16 @@ export default function MyBusinessPage() {
     }
   }, [showPaymentForm, businessCustomerId, setupClientSecret]);
 
-  // ---- Derived readiness + onboarding gates ----
+  // ---- Readiness states (informational only; no onboarding gate) ----
   const payoutsReady = !!onboardingComplete;
   const billingReady = !!businessCustomerId && !!hasCard;
-  const readyForOffer = payoutsReady && billingReady;
-  const hasAnyOffer = offers.length > 0;
 
-  // Enable onboarding gate (payouts + billing + first offer required)
-  const ignoreOnboardingGate = false;
-
-  // Show checklist until: payouts + billing + at least one offer exist
-  const showOnboardingChecklist = ignoreOnboardingGate
-    ? false
-    : !payoutsReady || !billingReady || !hasAnyOffer;
-
-  // Main cards (Affiliates / Meta / Billing) should always show while gate is bypassed
-  const showBillingCard = ignoreOnboardingGate
-    ? true
-    : !showOnboardingChecklist;
-  const showMetaCard = ignoreOnboardingGate ? true : !showOnboardingChecklist;
-  const showAffiliatesCard = ignoreOnboardingGate
-    ? true
-    : !showOnboardingChecklist;
-
-  // For now, allow creating offers even if payouts/billing aren't connected when gate is bypassed
-  const canCreateOffer = ignoreOnboardingGate ? true : readyForOffer;
+  // Guided setup removed: keep core sections visible and allow offers anytime
+  const showOnboardingChecklist = false;
+  const showBillingCard = true;
+  const showMetaCard = true;
+  const showAffiliatesCard = true;
+  const canCreateOffer = true;
 
   const handleDelete = async (id: string) => {
     console.log("[🗑 Attempting to delete offer]", id);
@@ -1228,25 +1213,12 @@ export default function MyBusinessPage() {
                 Manage your marketplace offers
               </h2>
             </div>
-            {canCreateOffer ? (
-              <Link href="/business/my-business/create-offer/" prefetch={false}>
-                <ActionButton size="sm">
-                  <IconPlus className="w-4 h-4" />
-                  <span>New offer</span>
-                </ActionButton>
-              </Link>
-            ) : (
-              <div className="group">
-                <ActionButton size="sm" disabled>
-                  <IconPlus className="w-4 h-4" />
-                  <span>New offer</span>
-                </ActionButton>
-                <p className="mt-2 text-xs text-gray-400 text-center">
-                  Complete payouts and add a card to create an offer. Tracking
-                  can be done after.
-                </p>
-              </div>
-            )}
+            <Link href="/business/my-business/create-offer/" prefetch={false}>
+              <ActionButton size="sm">
+                <IconPlus className="w-4 h-4" />
+                <span>New offer</span>
+              </ActionButton>
+            </Link>
           </div>
 
           {offersLoading ? (
