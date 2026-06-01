@@ -408,7 +408,10 @@ export default function MyBusinessPage() {
   }
 
   useEffect(() => {
-    if (!session || !user?.email) return;
+    if (!user?.email) {
+      setOffersLoading(false);
+      return;
+    }
 
     const fetchOffers = async () => {
       setOffersLoading(true);
@@ -445,10 +448,13 @@ export default function MyBusinessPage() {
     };
 
     fetchOffers();
-  }, [session, user, supabase]);
+  }, [user?.email, supabase]);
 
   useEffect(() => {
-    if (!session || !user?.email) return;
+    if (!user?.email) {
+      setHasAffiliateRequests(false);
+      return;
+    }
 
     const fetchAffiliateRequests = async () => {
       const { data, error } = await supabase
@@ -467,10 +473,10 @@ export default function MyBusinessPage() {
     };
 
     fetchAffiliateRequests();
-  }, [session, user, supabase]);
+  }, [user?.email, supabase]);
 
   useEffect(() => {
-    if (!session || offers.length === 0) {
+    if (offers.length === 0) {
       setTrackingVerifiedOfferIds(new Set());
       setTrackingReadinessResolved(true);
       return;
@@ -498,7 +504,7 @@ export default function MyBusinessPage() {
     };
 
     fetchTrackingReadiness();
-  }, [session, offers]);
+  }, [offers]);
 
   useEffect(() => {
     if (!session || !user?.email) return;
