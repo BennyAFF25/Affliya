@@ -161,6 +161,14 @@ export default function BusinessDashboard() {
   const [hasTrackingConfigured, setHasTrackingConfigured] = useState(false);
   const [hasMetaConnected, setHasMetaConnected] = useState(false);
   const [hasBillingConnected, setHasBillingConnected] = useState(false);
+  const [onboardingProgressFlags, setOnboardingProgressFlags] = useState({
+    first_offer_created: false,
+    tracking_connected: false,
+    payouts_enabled: false,
+    billing_connected: false,
+    meta_connected: false,
+    first_affiliate_request_seen: false,
+  });
   const [showBillingWhy, setShowBillingWhy] = useState(false);
   const [showMetaWhy, setShowMetaWhy] = useState(false);
   const [requestActionBusyId, setRequestActionBusyId] = useState<string | null>(null);
@@ -238,6 +246,24 @@ export default function BusinessDashboard() {
       setProfile(profileData as Profile);
 
       const businessEmail = user?.email || "";
+
+      const { data: onboardingRows, error: onboardingErr } = await supabase
+        .from("business_onboarding_progress")
+        .select(
+          "first_offer_created,tracking_connected,payouts_enabled,billing_connected,meta_connected,first_affiliate_request_seen",
+        )
+        .eq("business_email", businessEmail);
+
+      if (!onboardingErr && onboardingRows) {
+        setOnboardingProgressFlags({
+          first_offer_created: onboardingRows.some((r: any) => Boolean(r.first_offer_created)),
+          tracking_connected: onboardingRows.some((r: any) => Boolean(r.tracking_connected)),
+          payouts_enabled: onboardingRows.some((r: any) => Boolean(r.payouts_enabled)),
+          billing_connected: onboardingRows.some((r: any) => Boolean(r.billing_connected)),
+          meta_connected: onboardingRows.some((r: any) => Boolean(r.meta_connected)),
+          first_affiliate_request_seen: onboardingRows.some((r: any) => Boolean(r.first_affiliate_request_seen)),
+        });
+      }
 
       // Billing status (optional, used for checklist guidance)
       try {
@@ -527,12 +553,34 @@ export default function BusinessDashboard() {
 
   const activationItems = [
     { label: "Create Account", done: true, href: "/create-account?role=business" },
-    { label: "Publish First Offer", done: liveOffersCount > 0, href: "/business/my-business/create-offer" },
-    { label: "Setup Tracking", done: hasTrackingConfigured, href: "/business/setup-tracking" },
-    { label: "Receive First Request", done: pendingRequests.length + approved.length > 0, href: "/business/inbox" },
+    {
+      label: "Publish First Offer",
+      done: onboardingProgressFlags.first_offer_created || liveOffersCount > 0,
+      href: "/business/my-business/create-offer",
+    },
+    {
+      label: "Setup Tracking",
+      done: onboardingProgressFlags.tracking_connected || hasTrackingConfigured,
+      href: "/business/setup-tracking",
+    },
+    {
+      label: "Receive First Request",
+      done:
+        onboardingProgressFlags.first_affiliate_request_seen ||
+        pendingRequests.length + approved.length > 0,
+      href: "/business/inbox",
+    },
     { label: "Approve First Affiliate", done: approved.length > 0, href: "/business/inbox" },
-    { label: "Connect billing to launch your first campaign", done: hasBillingConnected, href: "/business/payouts" },
-    { label: "Connect meta to get paid campaigns", done: hasMetaConnected, href: "/business/my-business/connect-meta" },
+    {
+      label: "Connect billing to launch your first campaign",
+      done: onboardingProgressFlags.billing_connected || hasBillingConnected,
+      href: "/business/payouts",
+    },
+    {
+      label: "Connect meta to get paid campaigns",
+      done: onboardingProgressFlags.meta_connected || hasMetaConnected,
+      href: "/business/my-business/connect-meta",
+    },
     { label: "Launch First Campaign", done: activeCampaigns.length > 0, href: "/business/manage-campaigns" },
     { label: "Receive First Sale", done: totalRevenue > 0, href: "/business/dashboard" },
   ];

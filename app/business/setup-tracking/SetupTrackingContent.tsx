@@ -240,6 +240,25 @@ analytics.subscribe('checkout_completed', async (event) => {
     }
   };
 
+  async function markTrackingConnected(offerId: string, businessEmail: string) {
+    const { error } = await supabase
+      .from("business_onboarding_progress")
+      .upsert(
+        {
+          business_email: businessEmail,
+          offer_id: offerId,
+          first_offer_created: true,
+          tracking_connected: true,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "business_email,offer_id" },
+      );
+
+    if (error) {
+      console.error("[onboarding progress update failed]", error);
+    }
+  }
+
   async function startCombinedTest() {
     try {
       setTestStatus("idle");
@@ -284,6 +303,7 @@ analytics.subscribe('checkout_completed', async (event) => {
 
       setTestStatus("ok");
       setTestMsg("Test event recorded. Nettmark is receiving tracking for this offer.");
+      await markTrackingConnected(selectedOffer.id, user.email);
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "Unexpected error while testing.";
       setTestStatus("fail");

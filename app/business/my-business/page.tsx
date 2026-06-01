@@ -253,6 +253,17 @@ function ActionButton({
   );
 }
 
+interface OnboardingProgressRow {
+  business_email: string;
+  offer_id: string;
+  first_offer_created: boolean;
+  tracking_connected: boolean;
+  payouts_enabled: boolean;
+  billing_connected: boolean;
+  meta_connected: boolean;
+  first_affiliate_request_seen: boolean;
+}
+
 interface Offer {
   id: string;
   title: string;
@@ -319,6 +330,7 @@ export default function MyBusinessPage() {
   const [offers, setOffers] = useState<Offer[]>([]);
   const [trackingVerifiedOfferIds, setTrackingVerifiedOfferIds] = useState<Set<string>>(new Set());
   const [trackingReadinessResolved, setTrackingReadinessResolved] = useState(false);
+  const [onboardingProgressRows, setOnboardingProgressRows] = useState<OnboardingProgressRow[]>([]);
   const [hasAffiliateRequests, setHasAffiliateRequests] = useState(false);
   const [offersLoading, setOffersLoading] = useState<boolean>(true);
   const [loadingPaymentForm, setLoadingPaymentForm] = useState(false);
@@ -486,6 +498,29 @@ export default function MyBusinessPage() {
   }, [user?.email, supabase]);
 
   useEffect(() => {
+    if (!user?.email) return;
+
+    const loadOnboardingProgress = async () => {
+      const { data, error } = await supabase
+        .from("business_onboarding_progress")
+        .select(
+          "business_email,offer_id,first_offer_created,tracking_connected,payouts_enabled,billing_connected,meta_connected,first_affiliate_request_seen",
+        )
+        .eq("business_email", user.email);
+
+      if (error) {
+        console.error("[onboarding progress load failed]", error.message);
+        setOnboardingProgressRows([]);
+        return;
+      }
+
+      setOnboardingProgressRows((data || []) as OnboardingProgressRow[]);
+    };
+
+    loadOnboardingProgress();
+  }, [user?.email, supabase]);
+
+  useEffect(() => {
     if (offers.length === 0) {
       setTrackingVerifiedOfferIds(new Set());
       setTrackingReadinessResolved(true);
@@ -592,23 +627,71 @@ export default function MyBusinessPage() {
     }
   }, [showPaymentForm, businessCustomerId, setupClientSecret]);
 
-  // ---- Readiness states (informational only; no onboarding gate) ----
-  const payoutsReady = !!onboardingComplete;
-  const billingReady = !!businessCustomerId && !!hasCard;
-  const hasAnyOffer = offers.length > 0;
-  const hasTrackingConnected = offers.some((offer) => {
+  // ---- Readiness states from onboarding progress (fallbacks kept for resilience) ----
+  const payoutsReadyDerived = !!onboardingComplete;
+  const billingReadyDerived = !!businessCustomerId && !!hasCard;
+  const hasAnyOfferDerived = offers.length > 0;
+  const hasTrackingDerived = offers.some((offer) => {
     if (!offer.site_host) return false;
     if (!trackingReadinessResolved) return true;
     if (trackingVerifiedOfferIds.size === 0) return true;
     return trackingVerifiedOfferIds.has(offer.id);
   });
-  const payoutsRequiredNow = hasAffiliateRequests;
-  const hasMetaConnected = offers.some(
+  const hasMetaDerived = offers.some(
     (offer) =>
       Boolean(offer.meta_page_id) ||
       Boolean(offer.meta_ad_account_id) ||
       Boolean(offer.meta_pixel_id),
   );
+
+  const hasAnyOffer = onboardingProgressRows.some((r) => r.first_offer_created) || hasAnyOfferDerived;
+  const hasTrackingConnected = onboardingProgressRows.some((r) => r.tracking_connected) || hasTrackingDerived;
+  const payoutsReady = onboardingProgressRows.some((r) => r.payouts_enabled) || payoutsReadyDerived;
+  const billingReady = onboardingProgressRows.some((r) => r.billing_connected) || billingReadyDerived;
+  const hasMetaConnected = onboardingProgressRows.some((r) => r.meta_connected) || hasMetaDerived;
+  const payoutsRequiredNow =
+    onboardingProgressRows.some((r) => r.first_affiliate_request_seen) || hasAffiliateRequests;
+
+  useEffect(() => {
+    if (!user?.email || offers.length === 0) return;
+
+    const syncOnboardingProgress = async () => {
+      const payload = offers.map((offer) => ({
+        business_email: user.email,
+        offer_id: offer.id,
+        first_offer_created: true,
+        tracking_connected:
+          onboardingProgressRows.find((r) => r.offer_id === offer.id)?.tracking_connected ||
+          (Boolean(offer.site_host) && (!trackingReadinessResolved || trackingVerifiedOfferIds.size === 0 || trackingVerifiedOfferIds.has(offer.id))),
+        payouts_enabled: payoutsReady,
+        billing_connected: billingReady,
+        meta_connected: hasMetaConnected,
+        first_affiliate_request_seen: payoutsRequiredNow,
+        updated_at: new Date().toISOString(),
+      }));
+
+      const { error } = await supabase
+        .from("business_onboarding_progress")
+        .upsert(payload, { onConflict: "business_email,offer_id" });
+
+      if (error) {
+        console.error("[onboarding progress sync failed]", error.message);
+      }
+    };
+
+    syncOnboardingProgress();
+  }, [
+    user?.email,
+    offers,
+    payoutsReady,
+    billingReady,
+    hasMetaConnected,
+    payoutsRequiredNow,
+    trackingReadinessResolved,
+    trackingVerifiedOfferIds,
+    onboardingProgressRows,
+    supabase,
+  ]);
 
   const launchSteps = [
     {
