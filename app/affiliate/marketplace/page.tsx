@@ -98,17 +98,38 @@ export default function AffiliateMarketplace() {
           site_host
         `);
 
+      let typedData: SupabaseOffer[] = [];
+
       if (error) {
         console.error("[❌ Error fetching offers]", error.message);
-        return;
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from("offers")
+          .select("id,title,business_email,description,commission,type,logo_url,website");
+
+        if (fallbackError) {
+          console.error("[❌ Fallback offers fetch failed]", fallbackError.message);
+          setOffers([]);
+          return;
+        }
+
+        typedData = ((fallbackData || []) as SupabaseOffer[]).map((o) => ({
+          ...o,
+          currency: null,
+          price: null,
+          commission_value: null,
+          meta_page_id: null,
+          meta_ad_account_id: null,
+          meta_pixel_id: null,
+          site_host: null,
+        }));
+      } else if (data) {
+        typedData = data as SupabaseOffer[];
       }
 
-      if (!data) {
+      if (!typedData.length) {
         setOffers([]);
         return;
       }
-
-      const typedData = data as SupabaseOffer[];
 
       const commissions = typedData.map((o) => o.commission ?? 0);
       const threshold = commissions.length ? Math.max(...commissions) * 0.9 : 0;
