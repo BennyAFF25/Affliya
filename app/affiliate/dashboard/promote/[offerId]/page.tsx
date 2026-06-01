@@ -250,6 +250,8 @@ export default function PromoteOfferPage() {
     hasAdAccount: false,
     hasPixel: false,
   });
+  const [businessPaymentReady, setBusinessPaymentReady] = useState<boolean>(false);
+  const [businessPaymentResolved, setBusinessPaymentResolved] = useState<boolean>(false);
 
   // Local preview URLs for selected files
   const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
@@ -300,6 +302,21 @@ export default function PromoteOfferPage() {
           ...p,
           display_link: p.display_link || offer.website!,
         }));
+      }
+
+      // 2) Check business payment readiness for paid campaigns
+      try {
+        const res = await fetch(
+          `/api/business/payment-readiness?offerId=${encodeURIComponent(offerId)}`,
+          { cache: "no-store" },
+        );
+        const json = await res.json().catch(() => ({}));
+        setBusinessPaymentReady(Boolean(json?.hasPaymentMethod));
+      } catch (e) {
+        console.warn("[payment readiness check failed]", e);
+        setBusinessPaymentReady(false);
+      } finally {
+        setBusinessPaymentResolved(true);
       }
 
       // 2) Meta creds by business_email (from meta_connections)
@@ -439,12 +456,16 @@ export default function PromoteOfferPage() {
   const isOrganicOnlyOffer = offerMetaResolved && !offerHasMetaLaunchSetup;
   const showMetaSetupWarning = offerMetaResolved && !offerHasMetaLaunchSetup;
   const showSalesPixelWarning = offerMetaResolved && offerHasMetaLaunchSetup && needsSalesPixel && !offerHasSalesPixel;
+  const showBusinessPaymentWarning =
+    businessPaymentResolved && !businessPaymentReady;
+  const canLaunchPaidCampaign =
+    offerHasMetaLaunchSetup && (!needsSalesPixel || offerHasSalesPixel) && businessPaymentReady;
 
   useEffect(() => {
-    if (isOrganicOnlyOffer && mode === "ad") {
+    if ((isOrganicOnlyOffer || showBusinessPaymentWarning) && mode === "ad") {
       setMode("organic");
     }
-  }, [isOrganicOnlyOffer, mode]);
+  }, [isOrganicOnlyOffer, mode, showBusinessPaymentWarning]);
 
   // Sparkline for 30-day projection (tiny sideways line chart)
   function buildSparkPath(values: number[], w = 120, h = 36, pad = 2) {
@@ -1198,16 +1219,16 @@ export default function PromoteOfferPage() {
               onClick={() => {
                 if (!isOrganicOnlyOffer) setMode("ad");
               }}
-              disabled={isOrganicOnlyOffer}
+              disabled={isOrganicOnlyOffer || showBusinessPaymentWarning}
               className={[
                 "px-4 py-2 rounded-lg border text-sm",
                 mode === "ad"
                   ? "bg-[#00C2CB] text-black border-[#00C2CB]"
                   : "border-[#2a2a2a] text-gray-300 hover:bg-[#151515]",
-                isOrganicOnlyOffer ? "cursor-not-allowed opacity-50 hover:bg-transparent" : "",
+                isOrganicOnlyOffer || showBusinessPaymentWarning ? "cursor-not-allowed opacity-50 hover:bg-transparent" : "",
               ].join(" ")}
             >
-              {isOrganicOnlyOffer ? "Ads unavailable" : "Submit Ad"}
+              {isOrganicOnlyOffer || showBusinessPaymentWarning ? "Ads unavailable" : "Submit Ad"}
             </button>
             <button
               type="button"
@@ -1226,11 +1247,21 @@ export default function PromoteOfferPage() {
         {/* LEFT: single card wizard */}
         {mode === "ad" && (
           <div className="space-y-4">
+            <div className="rounded-2xl border border-white/15 bg-[#111317] p-4 text-sm text-white/85">
+              <div className="font-semibold text-white">Paid campaign requirements</div>
+              <div className="mt-2 space-y-1 text-xs text-white/75">
+                <p>{offerMetaState.hasPage ? "Ready" : "Missing"} · Meta connected</p>
+                <p>{offerMetaState.hasAdAccount ? "Ready" : "Missing"} · Ad account selected</p>
+                <p>{offerMetaState.hasPixel ? "Ready" : "Missing"} · Pixel selected</p>
+                <p>{businessPaymentReady ? "Ready" : "Missing"} · Payment method connected</p>
+              </div>
+            </div>
+
             {showMetaSetupWarning && (
               <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-100">
-                <div className="font-semibold">This offer is organic-only right now</div>
+                <div className="font-semibold">Connect Meta to allow affiliates to launch campaigns.</div>
                 <p className="mt-1 text-amber-100/85">
-                  The business has not connected the Meta page and ad account for this offer yet, so affiliates can only promote it organically for now.
+                  This offer can still be promoted organically while Meta setup is pending.
                 </p>
               </div>
             )}
@@ -1244,36 +1275,51 @@ export default function PromoteOfferPage() {
               </div>
             )}
 
-            <AdCampaignWizard
-              form={form}
-              setForm={setForm}
-              onInput={onInput}
-              onPlacementToggle={onPlacementToggle}
-              applyEstimatorPreset={applyEstimatorPreset}
-              walletBalance={walletBalance}
-              walletLoading={walletLoading}
-              canRunWithWallet={canRunWithWallet}
-              walletDeficit={walletDeficit}
-              incBudget={incBudget}
-              setStartIn15m={setStartIn15m}
-              setEndIn7d={setEndIn7d}
-              reachDaily={reachDaily}
-              reachMonthly={reachMonthly}
-              interestsIgnored={interestsIgnored}
-              videoFile={videoFile}
-              setVideoFile={setVideoFile}
-              imageFile={imageFile}
-              setImageFile={setImageFile}
-              thumbnailFile={thumbnailFile}
-              setThumbnailFile={setThumbnailFile}
-              thumbnailError={thumbnailError}
-              setThumbnailError={setThumbnailError}
-              validateThumbnailFile={validateThumbnailFile}
-              setVideoPreviewUrl={setVideoPreviewUrl}
-              setThumbPreviewUrl={setThumbPreviewUrl}
-              handleAdSubmit={handleAdSubmit}
-              onNavigateToWallet={() => router.push("/affiliate/wallet")}
-            />
+            {showBusinessPaymentWarning && (
+              <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-100">
+                <div className="font-semibold">A payment method is required before paid campaigns can launch.</div>
+                <p className="mt-1 text-amber-100/85">
+                  Affiliate commissions are charged only when a tracked sale occurs.
+                </p>
+              </div>
+            )}
+
+            {canLaunchPaidCampaign ? (
+              <AdCampaignWizard
+               form={form}
+               setForm={setForm}
+               onInput={onInput}
+               onPlacementToggle={onPlacementToggle}
+               applyEstimatorPreset={applyEstimatorPreset}
+               walletBalance={walletBalance}
+               walletLoading={walletLoading}
+               canRunWithWallet={canRunWithWallet}
+               walletDeficit={walletDeficit}
+               incBudget={incBudget}
+               setStartIn15m={setStartIn15m}
+               setEndIn7d={setEndIn7d}
+               reachDaily={reachDaily}
+               reachMonthly={reachMonthly}
+               interestsIgnored={interestsIgnored}
+               videoFile={videoFile}
+               setVideoFile={setVideoFile}
+               imageFile={imageFile}
+               setImageFile={setImageFile}
+               thumbnailFile={thumbnailFile}
+               setThumbnailFile={setThumbnailFile}
+               thumbnailError={thumbnailError}
+               setThumbnailError={setThumbnailError}
+               validateThumbnailFile={validateThumbnailFile}
+               setVideoPreviewUrl={setVideoPreviewUrl}
+               setThumbPreviewUrl={setThumbPreviewUrl}
+               handleAdSubmit={handleAdSubmit}
+               onNavigateToWallet={() => router.push("/affiliate/wallet")}
+             />
+            ) : (
+              <div className="rounded-2xl border border-white/12 bg-[#111317] p-4 text-sm text-white/80">
+                Paid launch is temporarily locked. You can continue with organic promotion now.
+              </div>
+            )}
           </div>
         )}
 

@@ -16,6 +16,10 @@ import {
   CreditCard,
   Store,
   CheckCircle2,
+  ListChecks,
+  ChevronDown,
+  ChevronUp,
+  Circle,
 } from "lucide-react";
 import DashboardCard from "@/components/DashboardCard";
 import {
@@ -298,7 +302,19 @@ function AffiliateDashboardContent() {
           new Set((approved || []).map((r: ApprovedRequest) => r.offer_id)),
         );
         setApprovedIds(ids);
+        setApprovedRequestCount((approved || []).length);
         console.log("[✅ Approved IDs]", ids);
+      }
+
+      const { data: allRequests, error: allRequestsError } = await (supabase as any)
+        .from("affiliate_requests")
+        .select("id")
+        .eq("affiliate_email", session.user?.email || "");
+
+      if (allRequestsError) {
+        console.error("[❌ Failed to fetch all affiliate requests]", allRequestsError);
+      } else {
+        setRequestCount((allRequests || []).length);
       }
 
       // Approved ad ideas for this affiliate
@@ -430,6 +446,18 @@ function AffiliateDashboardContent() {
         setConversionSeries(sortedConv);
       }
 
+      const { data: clickEvents, error: clickErr } = await (supabase as any)
+        .from("campaign_tracking_events")
+        .select("id")
+        .eq("affiliate_id", session.user?.email || "")
+        .in("event_type", ["click", "landing_view", "page_view"]);
+
+      if (clickErr) {
+        console.error("[❌ Failed to fetch click events]", clickErr);
+      } else {
+        setClickCount((clickEvents || []).length);
+      }
+
       // Wallet payouts for this affiliate
       const { data: payouts, error: payoutsErr } = await supabase
         .from("wallet_payouts")
@@ -469,6 +497,10 @@ function AffiliateDashboardContent() {
   });
   const [checklistDismissed, setChecklistDismissed] = useState(false);
   const [checklistCompletionSent, setChecklistCompletionSent] = useState(false);
+  const [showChecklistDetails, setShowChecklistDetails] = useState(false);
+  const [requestCount, setRequestCount] = useState(0);
+  const [approvedRequestCount, setApprovedRequestCount] = useState(0);
+  const [clickCount, setClickCount] = useState(0);
   const checklistStorageKey = user ? `affiliate-checklist-${user.id}` : null;
   const checklistDismissedStorageKey = user
     ? `affiliate-checklist-dismissed-${user.id}`
@@ -669,80 +701,16 @@ function AffiliateDashboardContent() {
     },
   ];
 
-  const shouldShowChecklist =
-    !profile?.onboarding_completed && !checklistAllDone && !checklistDismissed;
-
-  if (shouldShowChecklist) {
-    return (
-      <div className="affiliate-dashboard-theme min-h-screen bg-[var(--background)] text-[var(--foreground)]">
-        <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-10">
-          <div>
-            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#00C2CB]/20 bg-[#00C2CB]/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.24em] text-[#7ff5fb]">
-              <Sparkles className="h-3.5 w-3.5" />
-              Workspace overview
-            </div>
-            <h1 className="text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
-              Affiliate Dashboard
-            </h1>
-            <p className="mt-3 text-sm text-white/60 sm:text-base">
-              Connect payouts and choose an offer to unlock your dashboard.
-            </p>
-          </div>
-          <div className="space-y-4">
-            {checklistTasks.map((task) => {
-              const Icon = task.icon;
-              const completed = checklistState[task.key];
-              return (
-                <div
-                  key={task.key}
-                  className={`flex flex-col gap-4 rounded-2xl border ${completed ? "border-emerald-400/30 bg-[#111b15]" : "border-white/12 bg-[#111317]"} p-5 transition`}
-                >
-                  <div className="flex items-start gap-4">
-                    <span className="rounded-2xl border border-white/10 bg-[#15191c] p-3">
-                      <Icon className="h-5 w-5 text-white" />
-                    </span>
-                    <div>
-                      <p className="text-base font-semibold text-white">
-                        {task.title}
-                      </p>
-                      <p className="text-sm text-white/60">
-                        {task.description}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    {completed ? (
-                      <div className="flex items-center gap-2 text-sm font-semibold text-[#00C2CB]">
-                        <CheckCircle2 className="h-4 w-4" /> Done
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() =>
-                          handleChecklistAction(task.key, task.href)
-                        }
-                        className="rounded-full border border-[#00C2CB]/30 bg-[#00C2CB]/10 px-4 py-2 text-sm font-semibold text-[#00C2CB] hover:bg-[#00C2CB]/20"
-                      >
-                        {task.cta}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-xs text-white/60">
-            <button
-              onClick={() => setChecklistDismissed(true)}
-              className="inline-flex items-center justify-center rounded-full border border-white/12 px-4 py-1 text-white/70 transition hover:bg-[#15191c]"
-            >
-              Skip for now
-            </button>
-            <p>If you change your mind, you can finish these steps anytime.</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const activationItems = [
+    { label: "Create Account", done: true, href: "/create-account?role=affiliate" },
+    { label: "Request First Offer", done: requestCount > 0, href: "/affiliate/marketplace" },
+    { label: "Get Approved", done: approvedRequestCount > 0, href: "/affiliate/inbox" },
+    { label: "Launch First Campaign", done: activeCampaignCount > 0, href: "/affiliate/dashboard" },
+    { label: "Generate First Click", done: clickCount > 0, href: "/affiliate/dashboard/manage-campaigns" },
+    { label: "Earn First Commission", done: pendingPayoutTotal > 0, href: "/affiliate/wallet" },
+  ];
+  const activationDoneCount = activationItems.filter((item) => item.done).length;
+  const activationProgress = Math.round((activationDoneCount / activationItems.length) * 100);
 
   return (
     <div className="affiliate-dashboard-theme min-h-screen bg-[var(--background)] text-[var(--foreground)]">
@@ -789,6 +757,84 @@ function AffiliateDashboardContent() {
             </div>
           </div>
         </section>
+
+        <section className="mb-7 rounded-2xl border border-white/12 bg-[#111317] p-4 md:p-5">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-start gap-3">
+              <span className="rounded-xl border border-white/12 bg-[#15191c] p-2">
+                <ListChecks className="h-4 w-4 text-white/85" />
+              </span>
+              <div>
+                <p className="text-sm font-semibold text-white">Activation checklist</p>
+                <p className="text-xs text-white/60">
+                  {activationDoneCount} of {activationItems.length} complete
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowChecklistDetails((prev) => !prev)}
+              className="inline-flex items-center gap-1 rounded-lg border border-white/12 px-3 py-2 text-xs font-semibold text-white/75 transition hover:bg-[#15191c]"
+            >
+              Steps left
+              {showChecklistDetails ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
+            </button>
+          </div>
+
+          <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-[#1b2026]">
+            <div
+              className="h-full rounded-full bg-[#00C2CB] transition-all"
+              style={{ width: `${activationProgress}%` }}
+            />
+          </div>
+
+          {showChecklistDetails && (
+            <div className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-2">
+              {activationItems.map((item) => (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  className="flex items-center justify-between rounded-xl border border-white/10 bg-[#15191c] px-3 py-2"
+                >
+                  <span className="text-sm text-white/85">{item.label}</span>
+                  {item.done ? (
+                    <CheckCircle2 className="h-4 w-4 text-[#7ff5fb]" />
+                  ) : (
+                    <Circle className="h-4 w-4 text-white/40" />
+                  )}
+                </Link>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {approvedOffers.length > 0 && (
+          <section className="mb-7 rounded-2xl border border-[#00C2CB]/25 bg-[#0f161b] p-4 md:p-5">
+            <p className="text-xs uppercase tracking-[0.2em] text-[#7ff5fb]">
+              Approved to promote
+            </p>
+            <h3 className="mt-2 text-xl font-semibold text-white">
+              {approvedOffers[0]?.title || "Offer approved"}
+            </h3>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <Link
+                href={`/affiliate/dashboard/promote/${approvedOffers[0].id}?mode=ad`}
+                className="rounded-lg bg-[#00C2CB] px-4 py-2 text-sm font-semibold text-black transition hover:bg-[#28d3da]"
+              >
+                Launch Campaign
+              </Link>
+              <Link
+                href={`/affiliate/dashboard/promote/${approvedOffers[0].id}?mode=organic`}
+                className="rounded-lg border border-white/12 bg-[#15191c] px-4 py-2 text-sm font-semibold text-white/85 transition hover:bg-[#1a2026]"
+              >
+                Promote Organically
+              </Link>
+            </div>
+          </section>
+        )}
 
         <section className="mb-7">
           <p className="mb-3 text-xs uppercase tracking-[0.2em] text-white/45">

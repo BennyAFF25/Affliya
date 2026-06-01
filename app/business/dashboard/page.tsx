@@ -26,6 +26,10 @@ import {
   Receipt,
   ChevronRight,
   X,
+  ListChecks,
+  ChevronDown,
+  ChevronUp,
+  Circle,
 } from "lucide-react";
 import { supabase } from "utils/supabase/pages-client";
 
@@ -152,6 +156,10 @@ export default function BusinessDashboard() {
   const [showAllCampaigns, setShowAllCampaigns] = useState(false);
   const [showAllAffiliateActivity, setShowAllAffiliateActivity] =
     useState(false);
+  const [showActivationDetails, setShowActivationDetails] = useState(false);
+  const [hasTrackingConfigured, setHasTrackingConfigured] = useState(false);
+  const [hasMetaConnected, setHasMetaConnected] = useState(false);
+  const [requestActionBusyId, setRequestActionBusyId] = useState<string | null>(null);
 
   // simple dynamic goal line for sales
   const salesGoal =
@@ -231,7 +239,7 @@ export default function BusinessDashboard() {
       const { data: offers, error: offersError } = await supabase
         .from("offers")
         .select(
-          "id, title, commission, payout_mode, payout_interval, payout_cycles",
+          "id, title, commission, payout_mode, payout_interval, payout_cycles, site_host, meta_page_id, meta_ad_account_id, meta_pixel_id",
         )
         .eq("business_email", businessEmail);
 
@@ -259,6 +267,17 @@ export default function BusinessDashboard() {
         });
         setOfferLookup(lookup);
         setOfferPayoutMeta(payoutMeta);
+        setHasTrackingConfigured(
+          (offers || []).some((o: any) => Boolean(o.site_host)),
+        );
+        setHasMetaConnected(
+          (offers || []).some(
+            (o: any) =>
+              Boolean(o.meta_page_id) ||
+              Boolean(o.meta_ad_account_id) ||
+              Boolean(o.meta_pixel_id),
+          ),
+        );
       } else {
         console.error("[❌ Failed to fetch offers for dashboard]", offersError);
       }
@@ -490,8 +509,126 @@ export default function BusinessDashboard() {
     }
   }, [session, router, user]);
 
+  const activationItems = [
+    { label: "Create Account", done: true, href: "/create-account?role=business" },
+    { label: "Publish First Offer", done: liveOffersCount > 0, href: "/business/my-business/create-offer" },
+    { label: "Setup Tracking", done: hasTrackingConfigured, href: "/business/setup-tracking" },
+    { label: "Receive First Request", done: pendingRequests.length + approved.length > 0, href: "/business/inbox" },
+    { label: "Approve First Affiliate", done: approved.length > 0, href: "/business/inbox" },
+    { label: "Connect Meta", done: hasMetaConnected, href: "/business/my-business/connect-meta" },
+    { label: "Launch First Campaign", done: activeCampaigns.length > 0, href: "/business/manage-campaigns" },
+    { label: "Receive First Sale", done: totalRevenue > 0, href: "/business/dashboard" },
+  ];
+  const activationDoneCount = activationItems.filter((item) => item.done).length;
+  const activationProgress = Math.round((activationDoneCount / activationItems.length) * 100);
+
+  const firstPendingRequest = pendingRequests[0] || null;
+
+  const handleRequestDecision = async (
+    requestId: string,
+    newStatus: "approved" | "rejected",
+  ) => {
+    if (!requestId) return;
+    setRequestActionBusyId(requestId);
+    try {
+      const { error } = await (supabase as any)
+        .from("affiliate_requests")
+        .update({ status: newStatus })
+        .eq("id", requestId);
+
+      if (error) {
+        console.error("[❌ Failed to update affiliate request status]", error);
+        return;
+      }
+
+      setPendingRequests((prev) => prev.filter((r: any) => r.id !== requestId));
+      if (newStatus === "approved") {
+        const approvedRow = pendingRequests.find((r: any) => r.id === requestId);
+        if (approvedRow) {
+          setApprovedAffiliates((prev) => [approvedRow, ...prev]);
+        }
+      }
+    } finally {
+      setRequestActionBusyId(null);
+    }
+  };
+
   return (
     <div className="business-dashboard-theme min-h-screen w-full bg-[var(--background)] text-[var(--foreground)] px-4 py-4 sm:px-5 sm:py-6">
+      <section className="mb-6 rounded-2xl border border-[var(--border)] bg-[var(--card)] p-4 sm:p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-start gap-3">
+            <span className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-2">
+              <ListChecks className="h-4 w-4 text-[#7ff5fb]" />
+            </span>
+            <div>
+              <p className="text-sm font-semibold text-[var(--foreground)]">Activation checklist</p>
+              <p className="text-xs text-[var(--muted-foreground)]">{activationDoneCount} of {activationItems.length} complete</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowActivationDetails((prev) => !prev)}
+            className="inline-flex items-center gap-1 rounded-lg border border-[var(--border)] px-3 py-2 text-xs font-semibold text-[var(--muted-foreground)] transition hover:bg-black/10"
+          >
+            Steps left {showActivationDetails ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </button>
+        </div>
+
+        <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-black/20">
+          <div className="h-full rounded-full bg-[#00C2CB]" style={{ width: `${activationProgress}%` }} />
+        </div>
+
+        {showActivationDetails && (
+          <div className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-2">
+            {activationItems.map((item) => (
+              <button
+                key={item.label}
+                onClick={() => router.push(item.href)}
+                className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-left"
+              >
+                <span className="text-sm text-[var(--foreground)]">{item.label}</span>
+                {item.done ? (
+                  <CheckCircle2 className="h-4 w-4 text-[#7ff5fb]" />
+                ) : (
+                  <Circle className="h-4 w-4 text-[var(--muted-foreground)]" />
+                )}
+              </button>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {firstPendingRequest && (
+        <section className="mb-6 rounded-2xl border border-[#00C2CB]/25 bg-[var(--card)] p-4 sm:p-5">
+          <p className="text-xs uppercase tracking-[0.2em] text-[#7ff5fb]">Affiliate Interested</p>
+          <p className="mt-2 text-sm text-[var(--foreground)]">
+            {firstPendingRequest.affiliate_email} requested to promote {offerLookup[firstPendingRequest.offer_id] || "your offer"}.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              onClick={() => router.push("/business/inbox")}
+              className="rounded-lg border border-[var(--border)] bg-[var(--card)] px-4 py-2 text-sm font-semibold text-[var(--foreground)]"
+            >
+              Review Request
+            </button>
+            <button
+              onClick={() => handleRequestDecision(firstPendingRequest.id, "approved")}
+              disabled={requestActionBusyId === firstPendingRequest.id}
+              className="rounded-lg bg-[#00C2CB] px-4 py-2 text-sm font-semibold text-black disabled:opacity-60"
+            >
+              Approve
+            </button>
+            <button
+              onClick={() => handleRequestDecision(firstPendingRequest.id, "rejected")}
+              disabled={requestActionBusyId === firstPendingRequest.id}
+              className="rounded-lg border border-[var(--border)] bg-black/20 px-4 py-2 text-sm font-semibold text-[var(--foreground)] disabled:opacity-60"
+            >
+              Reject
+            </button>
+          </div>
+        </section>
+      )}
+
       {/* Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-6 mb-6 mt-2">
         <div className={`${CARD} relative overflow-hidden`}>
