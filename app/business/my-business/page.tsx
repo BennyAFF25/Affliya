@@ -534,6 +534,14 @@ export default function MyBusinessPage() {
       href: "/business/setup-tracking",
     },
     {
+      key: "payouts",
+      label: "Enable payouts",
+      desc: "Required before affiliate payouts can be sent.",
+      done: payoutsReady,
+      optional: false,
+      href: "/business/payouts",
+    },
+    {
       key: "billing",
       label: "Connect billing",
       desc: "Optional now. Required before paid affiliate/ad workflows.",
@@ -1068,7 +1076,7 @@ export default function MyBusinessPage() {
           </div>
         )}
 
-        <div className="max-w-6xl mx-auto mb-8 rounded-2xl border border-[#00C2CB]/20 bg-[#101314] p-5">
+        <div className="max-w-6xl mx-auto mb-8 rounded-2xl border border-[#00C2CB]/35 bg-[#0d1316] p-5 shadow-[0_0_30px_rgba(0,194,203,0.12)]">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-lg font-semibold text-white">Launch progress</h2>
@@ -1079,7 +1087,7 @@ export default function MyBusinessPage() {
             <button
               type="button"
               onClick={() => setShowLaunchSteps((prev) => !prev)}
-              className="rounded-md border border-[#00C2CB]/35 px-3 py-2 text-xs text-[#7ff5fb] hover:bg-[#0f1415]"
+              className="rounded-md border border-[#00C2CB]/45 bg-[#00C2CB]/10 px-3 py-2 text-xs font-semibold text-[#7ff5fb] hover:bg-[#00C2CB]/15"
             >
               {showLaunchSteps ? "Hide steps" : "Show steps"}
             </button>
@@ -1095,13 +1103,18 @@ export default function MyBusinessPage() {
                 <button
                   key={step.key}
                   onClick={() => router.push(step.href)}
-                  className="rounded-xl border border-[#1f2a2b] bg-[#0e1112] p-3 text-left"
+                  className="rounded-xl border border-[#00C2CB]/25 bg-[#0e1112] p-3 text-left hover:border-[#00C2CB]/45 hover:bg-[#10181b]"
                 >
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-sm font-medium text-white">{step.label}</span>
-                    <span className={`text-[11px] rounded-full px-2 py-0.5 border ${step.done ? "border-emerald-400/40 bg-emerald-500/10 text-emerald-200" : "border-white/15 bg-white/5 text-white/65"}`}>
-                      {step.done ? "Done" : step.optional ? "Optional" : "Required"}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-[11px] rounded-full px-2 py-0.5 border ${step.done ? "border-emerald-400/40 bg-emerald-500/10 text-emerald-200" : step.optional ? "border-[#00C2CB]/35 bg-[#00C2CB]/10 text-[#7ff5fb]" : "border-white/15 bg-white/5 text-white/65"}`}>
+                        {step.done ? "Done" : step.optional ? "Optional" : "Required"}
+                      </span>
+                      <span className="text-[11px] rounded-full border border-[#00C2CB]/35 bg-[#00C2CB]/10 px-2 py-0.5 text-[#7ff5fb]">
+                        Open
+                      </span>
+                    </div>
                   </div>
                   <p className="mt-1 text-xs text-gray-400">{step.desc}</p>
                 </button>
