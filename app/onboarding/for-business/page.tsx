@@ -49,6 +49,13 @@ export default function BusinessOnboardingPage() {
     logoFile &&
     productImageFiles.length > 0;
 
+  const commissionPreviewAmount = useMemo(() => {
+    const priceValue = Number(productPrice || 0);
+    const commissionValue = Number(commissionPercent || 0);
+    if (!Number.isFinite(priceValue) || !Number.isFinite(commissionValue)) return 0;
+    return (priceValue * commissionValue) / 100;
+  }, [productPrice, commissionPercent]);
+
   const onLogoChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null;
     if (!file) {
@@ -151,7 +158,7 @@ export default function BusinessOnboardingPage() {
         website: websiteUrl.trim(),
         commission: commissionValue,
         price: priceValue,
-        commission_value: (priceValue * commissionValue) / 100,
+        commission_value: Math.round((priceValue * commissionValue) / 100),
         type: "one-time",
         created_at: new Date().toISOString(),
         logo_url: uploadedLogoUrl,
@@ -219,6 +226,9 @@ export default function BusinessOnboardingPage() {
                 <label className="text-sm text-white/80">Commission Percentage
                   <input value={commissionPercent} onChange={(e) => setCommissionPercent(e.target.value)} type="number" min="0" max="100" step="0.01" className="mt-1 w-full rounded-xl border border-[var(--border)] bg-[#202020] px-3 py-2.5 text-sm text-white outline-none" />
                 </label>
+                <div className="md:col-span-2 rounded-xl border border-[#00C2CB]/35 bg-[#00C2CB]/10 px-3 py-2.5 text-sm text-[#7ff5fb]">
+                  Estimated affiliate payout per sale: <span className="font-semibold text-white">${commissionPreviewAmount.toFixed(2)}</span>
+                </div>
                 <label className="text-sm text-white/80 md:col-span-2">Upload Product Images
                   <input type="file" accept="image/*" multiple onChange={onProductImagesChange} className="mt-1 w-full rounded-xl border border-[var(--border)] bg-[#202020] px-3 py-2.5 text-sm text-white outline-none file:mr-3 file:rounded-lg file:border-0 file:bg-[#00C2CB] file:px-3 file:py-1.5 file:text-black" />
                 </label>
