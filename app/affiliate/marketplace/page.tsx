@@ -24,6 +24,7 @@ interface Offer {
   meta_ad_account_id?: string | null;
   meta_pixel_id?: string | null;
   site_host?: string | null;
+  tracking_connected?: boolean;
 }
 
 export default function AffiliateMarketplace() {
@@ -131,6 +132,17 @@ export default function AffiliateMarketplace() {
         return;
       }
 
+      const offerIds = typedData.map((o) => o.id);
+      const { data: onboardingRows } = await supabase
+        .from("business_onboarding_progress")
+        .select("offer_id,tracking_connected")
+        .in("offer_id", offerIds);
+
+      const trackingMap = new Map<string, boolean>();
+      (onboardingRows || []).forEach((row: any) => {
+        if (row?.offer_id) trackingMap.set(row.offer_id, Boolean(row.tracking_connected));
+      });
+
       const commissions = typedData.map((o) => o.commission ?? 0);
       const threshold = commissions.length ? Math.max(...commissions) * 0.9 : 0;
 
@@ -152,6 +164,7 @@ export default function AffiliateMarketplace() {
         meta_ad_account_id: o.meta_ad_account_id ?? null,
         meta_pixel_id: o.meta_pixel_id ?? null,
         site_host: o.site_host ?? null,
+        tracking_connected: trackingMap.get(o.id) || false,
       }));
 
       setOffers(formatted);

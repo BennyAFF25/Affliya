@@ -21,6 +21,7 @@ type Offer = {
   meta_ad_account_id?: string | null;
   meta_pixel_id?: string | null;
   site_host?: string | null;
+  tracking_connected?: boolean;
 };
 
 function getPromotionMode(offer: Offer | null) {
@@ -69,7 +70,7 @@ export default function AffiliateOfferProfilePage() {
         : []
       : [];
   const promotionMode = getPromotionMode(offer);
-  const trackingReady = Boolean(offer?.site_host);
+  const trackingReady = Boolean(offer?.tracking_connected) || Boolean(offer?.site_host);
   const comingSoon = !trackingReady;
 
   // Load current user email
@@ -108,7 +109,17 @@ export default function AffiliateOfferProfilePage() {
         setLoadError(error.message || 'Failed to load offer.');
         setOffer(null);
       } else {
-        setOffer(data as Offer);
+        const row = data as Offer;
+        const { data: onboardingRow } = await (supabase as any)
+          .from('business_onboarding_progress')
+          .select('tracking_connected')
+          .eq('offer_id', row.id)
+          .maybeSingle();
+
+        setOffer({
+          ...row,
+          tracking_connected: Boolean(onboardingRow?.tracking_connected),
+        });
       }
       setLoading(false);
     };

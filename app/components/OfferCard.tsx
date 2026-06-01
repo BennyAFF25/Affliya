@@ -24,6 +24,7 @@ interface Offer {
   meta_ad_account_id?: string | null;
   meta_pixel_id?: string | null;
   site_host?: string | null;
+  tracking_connected?: boolean;
 }
 
 function getPromotionMode(offer: Offer) {
@@ -87,7 +88,7 @@ export default function OfferCard({
   const [notes, setNotes] = useState('');
   const [requested, setRequested] = useState(alreadyRequested);
   const promotionMode = getPromotionMode(offer);
-  const trackingReady = Boolean(offer.site_host);
+  const trackingReady = Boolean(offer.tracking_connected) || Boolean(offer.site_host);
   const comingSoon = !trackingReady;
   const offerTags = useMemo(() => getOfferTags(offer), [offer]);
   const formattedPrice = offer.price ? formatMoney(offer.price, offer.currency) : null;
