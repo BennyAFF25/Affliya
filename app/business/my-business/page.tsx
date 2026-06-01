@@ -317,6 +317,8 @@ const PendingDot = () => (
 
 export default function MyBusinessPage() {
   const [offers, setOffers] = useState<Offer[]>([]);
+  const [trackingVerifiedOfferIds, setTrackingVerifiedOfferIds] = useState<Set<string>>(new Set());
+  const [hasAffiliateRequests, setHasAffiliateRequests] = useState(false);
   const [offersLoading, setOffersLoading] = useState<boolean>(true);
   const [loadingPaymentForm, setLoadingPaymentForm] = useState(false);
   const [loadingDeleteId, setLoadingDeleteId] = useState<string | null>(null);
@@ -430,6 +432,55 @@ export default function MyBusinessPage() {
 
   useEffect(() => {
     if (!session || !user?.email) return;
+
+    const fetchAffiliateRequests = async () => {
+      const { data, error } = await supabase
+        .from("affiliate_requests")
+        .select("id")
+        .eq("business_email", user.email)
+        .limit(1);
+
+      if (error) {
+        console.error("[affiliate requests check failed]", error.message);
+        setHasAffiliateRequests(false);
+        return;
+      }
+
+      setHasAffiliateRequests((data?.length || 0) > 0);
+    };
+
+    fetchAffiliateRequests();
+  }, [session, user, supabase]);
+
+  useEffect(() => {
+    if (!session || offers.length === 0) {
+      setTrackingVerifiedOfferIds(new Set());
+      return;
+    }
+
+    const fetchTrackingReadiness = async () => {
+      try {
+        const res = await fetch("/api/business/tracking-readiness", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ offerIds: offers.map((o) => o.id) }),
+        });
+        const json = await parseJsonSafe(res);
+        if (!res.ok || !Array.isArray(json?.verifiedOfferIds)) {
+          setTrackingVerifiedOfferIds(new Set());
+          return;
+        }
+        setTrackingVerifiedOfferIds(new Set(json.verifiedOfferIds));
+      } catch {
+        setTrackingVerifiedOfferIds(new Set());
+      }
+    };
+
+    fetchTrackingReadiness();
+  }, [session, offers]);
+
+  useEffect(() => {
+    if (!session || !user?.email) return;
     const loadStripeCustomerId = async () => {
       const { data, error } = await supabase
         .from("business_profiles")
@@ -508,7 +559,10 @@ export default function MyBusinessPage() {
   const payoutsReady = !!onboardingComplete;
   const billingReady = !!businessCustomerId && !!hasCard;
   const hasAnyOffer = offers.length > 0;
-  const hasTrackingConnected = offers.some((offer) => Boolean(offer.site_host));
+  const hasTrackingConnected = offers.some(
+    (offer) => Boolean(offer.site_host) && trackingVerifiedOfferIds.has(offer.id),
+  );
+  const payoutsRequiredNow = hasAffiliateRequests;
   const hasMetaConnected = offers.some(
     (offer) =>
       Boolean(offer.meta_page_id) ||
@@ -536,9 +590,11 @@ export default function MyBusinessPage() {
     {
       key: "payouts",
       label: "Enable payouts",
-      desc: "Required before affiliate payouts can be sent.",
+      desc: payoutsRequiredNow
+        ? "Required now because at least one affiliate request exists."
+        : "Optional for now. Becomes required when your first affiliate request arrives.",
       done: payoutsReady,
-      optional: false,
+      optional: !payoutsRequiredNow,
       href: "/business/payouts",
     },
     {
@@ -1341,7 +1397,7 @@ export default function MyBusinessPage() {
                 >
                   {(() => {
                     const metaStatus = getOfferMetaStatus(offer);
-                    const trackingReady = Boolean(offer.site_host);
+                    const trackingReady = Boolean(offer.site_host) && trackingVerifiedOfferIds.has(offer.id);
                     return (
                       <>
                   {/* Soft glow accent */}
@@ -1431,41 +1487,58 @@ export default function MyBusinessPage() {
                     <p className="mt-2 text-sm text-white">{metaStatus.helper}</p>
                   </div>
 
-                  <div className="relative mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="relative mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2">
                     <Link
                       href={`/business/my-business/edit-offer/${offer.id}/`}
                       prefetch={false}
+                      className="inline-flex min-h-[46px] w-full items-center justify-center rounded-xl bg-[#00C2CB] px-4 py-2.5 text-sm font-semibold text-black shadow-[0_0_25px_rgba(0,194,203,0.45)] hover:bg-[#00b0b8]"
                     >
-                      <button className="inline-flex w-full items-center justify-center rounded-full bg-[#00C2CB] px-4 py-2.5 text-sm font-semibold text-black shadow-[0_0_25px_rgba(0,194,203,0.45)] hover:bg-[#00b0b8]">
-                        Edit Offer
-                      </button>
+                      Edit offer
                     </Link>
-                    <button
-                      onClick={() => handleDelete(offer.id)}
-                      disabled={loadingDeleteId === offer.id}
-                      className="inline-flex w-full items-center justify-center rounded-full border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {loadingDeleteId === offer.id
-                        ? "Deleting…"
-                        : "Delete Offer"}
-                    </button>
-                    {!trackingReady && (
-                      <Link href="/business/setup-tracking" prefetch={false}>
-                        <button className="inline-flex w-full items-center justify-center rounded-full border border-amber-400/40 bg-amber-500/10 px-4 py-2.5 text-sm font-semibold text-amber-200 hover:bg-amber-500/15 sm:w-auto">
-                          Setup tracking to enable requests
-                        </button>
+
+                    {!trackingReady ? (
+                      <Link
+                        href="/business/setup-tracking"
+                        prefetch={false}
+                        className="inline-flex min-h-[46px] w-full items-center justify-center rounded-xl border border-amber-400/40 bg-amber-500/10 px-4 py-2.5 text-sm font-semibold text-amber-200 hover:bg-amber-500/15"
+                      >
+                        Connect tracking
                       </Link>
-                    )}
-                    {metaStatus.needsSetup && (
+                    ) : metaStatus.needsSetup ? (
                       <Link
                         href={`/business/my-business/edit-offer/${offer.id}/#meta-setup`}
                         prefetch={false}
+                        className="inline-flex min-h-[46px] w-full items-center justify-center rounded-xl border border-[#00C2CB]/30 bg-[#00C2CB]/10 px-4 py-2.5 text-sm font-semibold text-[#7ff5fb] hover:bg-[#00C2CB]/15"
                       >
-                        <button className="inline-flex w-full items-center justify-center rounded-full border border-[#00C2CB]/30 bg-[#00C2CB]/10 px-4 py-2.5 text-sm font-semibold text-[#7ff5fb] hover:bg-[#00C2CB]/15">
-                          {metaStatus.actionLabel}
-                        </button>
+                        {metaStatus.actionLabel}
+                      </Link>
+                    ) : (
+                      <Link
+                        href="/business/my-business/affiliate-requests"
+                        prefetch={false}
+                        className="inline-flex min-h-[46px] w-full items-center justify-center rounded-xl border border-white/15 bg-white/[0.04] px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/10"
+                      >
+                        View affiliate requests
                       </Link>
                     )}
+
+                    {metaStatus.needsSetup && !trackingReady && (
+                      <Link
+                        href={`/business/my-business/edit-offer/${offer.id}/#meta-setup`}
+                        prefetch={false}
+                        className="inline-flex min-h-[46px] w-full items-center justify-center rounded-xl border border-[#00C2CB]/30 bg-[#00C2CB]/10 px-4 py-2.5 text-sm font-semibold text-[#7ff5fb] hover:bg-[#00C2CB]/15"
+                      >
+                        {metaStatus.actionLabel}
+                      </Link>
+                    )}
+
+                    <button
+                      onClick={() => handleDelete(offer.id)}
+                      disabled={loadingDeleteId === offer.id}
+                      className="inline-flex min-h-[46px] w-full items-center justify-center rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-2.5 text-sm font-semibold text-red-200 hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {loadingDeleteId === offer.id ? "Deleting…" : "Delete offer"}
+                    </button>
                   </div>
                       </>
                     );

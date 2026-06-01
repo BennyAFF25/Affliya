@@ -660,7 +660,12 @@ analytics.subscribe('checkout_completed', async (event) => {
           {!trackingInstalled ? (
             <button
               type="button"
-              onClick={() => setTrackingInstalled(true)}
+              onClick={async () => {
+                if (selectedOffer && !selectedOffer.site_host) {
+                  await updateOfferHost("Custom site");
+                }
+                setTrackingInstalled(true);
+              }}
               className="inline-flex items-center gap-2 rounded-full bg-[var(--primary)] px-5 py-3 text-sm font-semibold text-[var(--primary-foreground)] transition hover:brightness-110"
             >
               <CheckCircleIcon className="h-5 w-5" />
