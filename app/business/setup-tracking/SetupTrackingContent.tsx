@@ -256,6 +256,17 @@ analytics.subscribe('checkout_completed', async (event) => {
 
     if (error) {
       console.error("[onboarding progress update failed]", error);
+      return;
+    }
+
+    const { error: hostError } = await supabase
+      .from("offers")
+      .update({ site_host: selectedOffer?.site_host || "Custom site" })
+      .eq("id", offerId)
+      .eq("business_email", businessEmail);
+
+    if (hostError) {
+      console.error("[offer site_host sync failed]", hostError);
     }
   }
 

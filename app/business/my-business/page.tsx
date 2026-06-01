@@ -1522,7 +1522,15 @@ export default function MyBusinessPage() {
                 >
                   {(() => {
                     const metaStatus = getOfferMetaStatus(offer);
-                    const trackingReady = Boolean(offer.site_host) && (!trackingReadinessResolved || trackingVerifiedOfferIds.size === 0 || trackingVerifiedOfferIds.has(offer.id));
+                    const onboardingTrackingReady = onboardingProgressRows.some(
+                      (row) => row.offer_id === offer.id && row.tracking_connected,
+                    );
+                    const derivedTrackingReady =
+                      Boolean(offer.site_host) &&
+                      (!trackingReadinessResolved ||
+                        trackingVerifiedOfferIds.size === 0 ||
+                        trackingVerifiedOfferIds.has(offer.id));
+                    const trackingReady = onboardingTrackingReady || derivedTrackingReady;
                     return (
                       <>
                   {/* Soft glow accent */}
