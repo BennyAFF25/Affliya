@@ -36,6 +36,7 @@ export default function SetupTrackingContent() {
   const [trackingInstalled, setTrackingInstalled] = useState(false);
   const [activeStep, setActiveStep] = useState<StepKey>("offer");
   const [codeExpanded, setCodeExpanded] = useState(false);
+  const [savingHost, setSavingHost] = useState(false);
 
   const [testing, setTesting] = useState(false);
   const [testStatus, setTestStatus] = useState<"idle" | "ok" | "fail">("idle");
@@ -202,6 +203,31 @@ analytics.subscribe('checkout_completed', async (event) => {
 
   const isShopify = selectedOffer?.site_host === "Shopify";
   const installSnippet = isShopify ? shopifyUniversalPixel : trackingCode;
+
+  const updateOfferHost = async (host: string) => {
+    if (!selectedOffer?.id) return;
+    setSavingHost(true);
+    try {
+      const { error } = await supabase
+        .from("offers")
+        .update({ site_host: host })
+        .eq("id", selectedOffer.id);
+
+      if (error) {
+        console.error("[setup-tracking host update failed]", error);
+        return;
+      }
+
+      setSelectedOffer((prev) =>
+        prev ? { ...prev, site_host: host } : prev,
+      );
+      setOffers((prev) =>
+        prev.map((o) => (o.id === selectedOffer.id ? { ...o, site_host: host } : o)),
+      );
+    } finally {
+      setSavingHost(false);
+    }
+  };
 
   const copyText = async (value: string, kind: "main" | "shopify") => {
     await navigator.clipboard.writeText(value);
@@ -400,31 +426,55 @@ analytics.subscribe('checkout_completed', async (event) => {
 
           {offers.length > 0 ? (
             <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-              <div className="rounded-2xl border border-[var(--border)] bg-[var(--background)] p-5">
-                <label className="block text-sm font-medium text-[var(--foreground)]">
-                  Offer
-                </label>
-                <select
-                  value={selectedOffer?.id || ""}
-                  onChange={(e) => {
-                    const offer = offers.find((o) => o.id === e.target.value) || null;
-                    setSelectedOffer(offer);
-                    setEmailSent(false);
-                    setTrackingInstalled(false);
-                    setTestStatus("idle");
-                    setTestMsg("");
-                    setPixelStatus("idle");
-                    setPixelMsg("");
-                    setCodeExpanded(false);
-                  }}
-                  className="mt-3 w-full rounded-xl border border-[var(--border)] bg-[var(--card)] px-4 py-3 text-[var(--foreground)] outline-none ring-2 ring-[var(--primary)]/5 transition focus:ring-[var(--ring)]"
-                >
-                  {offers.map((offer) => (
-                    <option key={offer.id} value={offer.id}>
-                      {offer.website || offer.id}
-                    </option>
-                  ))}
-                </select>
+              <div className="rounded-2xl border border-[var(--border)] bg-[var(--background)] p-5 space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-[var(--foreground)]">
+                    Offer
+                  </label>
+                  <select
+                    value={selectedOffer?.id || ""}
+                    onChange={(e) => {
+                      const offer = offers.find((o) => o.id === e.target.value) || null;
+                      setSelectedOffer(offer);
+                      setEmailSent(false);
+                      setTrackingInstalled(false);
+                      setTestStatus("idle");
+                      setTestMsg("");
+                      setPixelStatus("idle");
+                      setPixelMsg("");
+                      setCodeExpanded(false);
+                    }}
+                    className="mt-3 w-full rounded-xl border border-[var(--border)] bg-[var(--card)] px-4 py-3 text-[var(--foreground)] outline-none ring-2 ring-[var(--primary)]/5 transition focus:ring-[var(--ring)]"
+                  >
+                    {offers.map((offer) => (
+                      <option key={offer.id} value={offer.id}>
+                        {offer.website || offer.id}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[var(--foreground)]">
+                    Platform / Host
+                  </label>
+                  <select
+                    value={selectedOffer?.site_host || "Custom site"}
+                    onChange={(e) => void updateOfferHost(e.target.value)}
+                    disabled={!selectedOffer || savingHost}
+                    className="mt-3 w-full rounded-xl border border-[var(--border)] bg-[var(--card)] px-4 py-3 text-[var(--foreground)] outline-none ring-2 ring-[var(--primary)]/5 transition focus:ring-[var(--ring)] disabled:opacity-60"
+                  >
+                    <option value="Shopify">Shopify</option>
+                    <option value="WooCommerce">WooCommerce</option>
+                    <option value="Wix">Wix</option>
+                    <option value="Custom site">Custom site</option>
+                  </select>
+                  <p className="mt-2 text-xs text-[var(--muted-foreground)]">
+                    {savingHost
+                      ? "Saving platform…"
+                      : "Choose the platform first so the install instructions match your setup."}
+                  </p>
+                </div>
               </div>
 
               <div className="rounded-2xl border border-[var(--border)] bg-[linear-gradient(180deg,rgba(0,194,203,0.08),transparent_55%)] p-5">
