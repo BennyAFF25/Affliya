@@ -30,6 +30,7 @@ import {
   ChevronDown,
   ChevronUp,
   Circle,
+  CheckCircle2,
 } from "lucide-react";
 import { supabase } from "utils/supabase/pages-client";
 
@@ -159,6 +160,9 @@ export default function BusinessDashboard() {
   const [showActivationDetails, setShowActivationDetails] = useState(false);
   const [hasTrackingConfigured, setHasTrackingConfigured] = useState(false);
   const [hasMetaConnected, setHasMetaConnected] = useState(false);
+  const [hasBillingConnected, setHasBillingConnected] = useState(false);
+  const [showBillingWhy, setShowBillingWhy] = useState(false);
+  const [showMetaWhy, setShowMetaWhy] = useState(false);
   const [requestActionBusyId, setRequestActionBusyId] = useState<string | null>(null);
 
   // simple dynamic goal line for sales
@@ -234,6 +238,18 @@ export default function BusinessDashboard() {
       setProfile(profileData as Profile);
 
       const businessEmail = user?.email || "";
+
+      // Billing status (optional, used for checklist guidance)
+      try {
+        const billingRes = await fetch("/api/stripe/check-customer-card", {
+          method: "POST",
+        });
+        const billingJson = await billingRes.json().catch(() => ({}));
+        setHasBillingConnected(Boolean(billingJson?.hasCard));
+      } catch (billingErr) {
+        console.warn("[billing status check failed]", billingErr);
+        setHasBillingConnected(false);
+      }
 
       // Fetch offers
       const { data: offers, error: offersError } = await supabase
@@ -515,7 +531,8 @@ export default function BusinessDashboard() {
     { label: "Setup Tracking", done: hasTrackingConfigured, href: "/business/setup-tracking" },
     { label: "Receive First Request", done: pendingRequests.length + approved.length > 0, href: "/business/inbox" },
     { label: "Approve First Affiliate", done: approved.length > 0, href: "/business/inbox" },
-    { label: "Connect Meta", done: hasMetaConnected, href: "/business/my-business/connect-meta" },
+    { label: "Connect billing to launch your first campaign", done: hasBillingConnected, href: "/business/payouts" },
+    { label: "Connect meta to get paid campaigns", done: hasMetaConnected, href: "/business/my-business/connect-meta" },
     { label: "Launch First Campaign", done: activeCampaigns.length > 0, href: "/business/manage-campaigns" },
     { label: "Receive First Sale", done: totalRevenue > 0, href: "/business/dashboard" },
   ];
@@ -596,6 +613,64 @@ export default function BusinessDashboard() {
             ))}
           </div>
         )}
+
+        <div className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-2">
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-3">
+            <button
+              type="button"
+              onClick={() => setShowBillingWhy((prev) => !prev)}
+              className="flex w-full items-center justify-between text-left"
+            >
+              <span className="text-sm font-semibold text-[var(--foreground)]">Connect billing now or later</span>
+              {showBillingWhy ? <ChevronUp className="h-4 w-4 text-[var(--muted-foreground)]" /> : <ChevronDown className="h-4 w-4 text-[var(--muted-foreground)]" />}
+            </button>
+            <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+              {hasBillingConnected ? "Billing connected" : "Optional for now"}
+            </p>
+            {showBillingWhy && (
+              <div className="mt-2 space-y-2 text-xs text-[var(--muted-foreground)]">
+                <p>Billing is used to settle commissions for paid promotion workflows.</p>
+                <p>You can connect billing now, or wait until your first affiliate request for a paid ad comes through.</p>
+                {!hasBillingConnected && (
+                  <button
+                    onClick={() => router.push("/business/payouts")}
+                    className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs font-semibold text-[var(--foreground)]"
+                  >
+                    Connect billing
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-3">
+            <button
+              type="button"
+              onClick={() => setShowMetaWhy((prev) => !prev)}
+              className="flex w-full items-center justify-between text-left"
+            >
+              <span className="text-sm font-semibold text-[var(--foreground)]">Connect Meta now or later</span>
+              {showMetaWhy ? <ChevronUp className="h-4 w-4 text-[var(--muted-foreground)]" /> : <ChevronDown className="h-4 w-4 text-[var(--muted-foreground)]" />}
+            </button>
+            <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+              {hasMetaConnected ? "Meta connected" : "Optional for now"}
+            </p>
+            {showMetaWhy && (
+              <div className="mt-2 space-y-2 text-xs text-[var(--muted-foreground)]">
+                <p>Meta connection unlocks paid campaigns (page, ad account, and pixel-based launches).</p>
+                <p>You can still onboard and list offers without it, then connect when you’re ready to run paid traffic.</p>
+                {!hasMetaConnected && (
+                  <button
+                    onClick={() => router.push("/business/my-business/connect-meta")}
+                    className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs font-semibold text-[var(--foreground)]"
+                  >
+                    Connect Meta
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
       </section>
 
       {firstPendingRequest && (

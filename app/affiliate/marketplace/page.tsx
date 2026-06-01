@@ -23,6 +23,7 @@ interface Offer {
   meta_page_id?: string | null;
   meta_ad_account_id?: string | null;
   meta_pixel_id?: string | null;
+  site_host?: string | null;
 }
 
 export default function AffiliateMarketplace() {
@@ -75,6 +76,7 @@ export default function AffiliateMarketplace() {
       meta_page_id?: string | null;
       meta_ad_account_id?: string | null;
       meta_pixel_id?: string | null;
+      site_host?: string | null;
     };
 
     const fetchOffers = async () => {
@@ -92,7 +94,8 @@ export default function AffiliateMarketplace() {
           website,
           meta_page_id,
           meta_ad_account_id,
-          meta_pixel_id
+          meta_pixel_id,
+          site_host
         `);
 
       if (error) {
@@ -127,6 +130,7 @@ export default function AffiliateMarketplace() {
         meta_page_id: o.meta_page_id ?? null,
         meta_ad_account_id: o.meta_ad_account_id ?? null,
         meta_pixel_id: o.meta_pixel_id ?? null,
+        site_host: o.site_host ?? null,
       }));
 
       setOffers(formatted);

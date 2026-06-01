@@ -259,6 +259,7 @@ interface Offer {
   description: string;
   commission: number;
   type: string;
+  site_host?: string | null;
   meta_page_id?: string | null;
   meta_ad_account_id?: string | null;
   meta_pixel_id?: string | null;
@@ -338,6 +339,7 @@ export default function MyBusinessPage() {
   const [hasPendingAdIdeas, setHasPendingAdIdeas] = useState(false);
 
   const [showAcceptTerms, setShowAcceptTerms] = useState(false);
+  const [showMetaOptionalWhy, setShowMetaOptionalWhy] = useState(false);
 
   const session = useSession();
   const user = session?.user;
@@ -409,7 +411,7 @@ export default function MyBusinessPage() {
       const { data, error } = await supabase
         .from("offers")
         .select(
-          "id,title,description,commission,type,meta_page_id,meta_ad_account_id,meta_pixel_id",
+          "id,title,description,commission,type,site_host,meta_page_id,meta_ad_account_id,meta_pixel_id",
         )
         .eq("business_email", user.email);
 
@@ -935,25 +937,42 @@ export default function MyBusinessPage() {
               )}
 
               {/* Meta step */}
-              <div className="flex items-center justify-between rounded-xl border border-[#1f2a2b] bg-[#0e1112] px-4 py-3">
-                <div className="flex items-center gap-3">
-                  <span className="inline-block w-3 h-3 rounded-full bg-[#334649]" />
-                  <div>
-                    <div className="text-white font-medium">
-                      Connect Meta ads <span className="text-gray-500">(optional)</span>
-                    </div>
-                    <div className="text-xs text-gray-400">
-                      Connect Meta here if affiliates should be able to run paid ads for your offers. Skip it if you only want organic promotion for now.
+              <div className="rounded-xl border border-[#1f2a2b] bg-[#0e1112] px-4 py-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <span className="inline-block w-3 h-3 rounded-full bg-[#334649]" />
+                    <div>
+                      <div className="text-white font-medium">
+                        Connect Meta now or later <span className="text-gray-500">(optional)</span>
+                      </div>
+                      <div className="text-xs text-gray-400">
+                        Meta is only required for paid campaigns. Organic marketplace promotion can start without it.
+                      </div>
                     </div>
                   </div>
+                  <Link
+                    href="/business/my-business/connect-meta?onboard=1"
+                    prefetch={false}
+                    className="px-3 py-2 rounded-md border border-[#00C2CB]/40 text-white text-sm hover:bg-[#0f1415]"
+                  >
+                    Connect Meta
+                  </Link>
                 </div>
-                <Link
-                  href="/business/my-business/connect-meta?onboard=1"
-                  prefetch={false}
-                  className="px-3 py-2 rounded-md border border-[#00C2CB]/40 text-white text-sm hover:bg-[#0f1415]"
+
+                <button
+                  type="button"
+                  onClick={() => setShowMetaOptionalWhy((prev) => !prev)}
+                  className="mt-3 inline-flex items-center rounded-md border border-[#1f2a2b] px-3 py-1.5 text-xs text-gray-300 hover:bg-[#101416]"
                 >
-                  Continue
-                </Link>
+                  {showMetaOptionalWhy ? "Hide why" : "Why connect Meta?"}
+                </button>
+
+                {showMetaOptionalWhy && (
+                  <div className="mt-3 space-y-2 text-xs text-gray-400">
+                    <p>Connecting Meta unlocks paid ad workflows (page, ad account, and pixel-linked launches).</p>
+                    <p>You can connect later when you’re ready to run paid traffic or after your first affiliate request needs paid ads.</p>
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center justify-between rounded-xl border border-[#1f2a2b] bg-[#0e1112] px-4 py-3">
@@ -1247,6 +1266,7 @@ export default function MyBusinessPage() {
                 >
                   {(() => {
                     const metaStatus = getOfferMetaStatus(offer);
+                    const trackingReady = Boolean(offer.site_host);
                     return (
                       <>
                   {/* Soft glow accent */}
@@ -1319,13 +1339,21 @@ export default function MyBusinessPage() {
                   <div className="relative mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-white/40">
-                        Meta status
+                        Offer status
+                      </span>
+                      <span className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium ${trackingReady ? "bg-emerald-500/15 text-emerald-200 border border-emerald-400/40" : "bg-amber-500/15 text-amber-200 border border-amber-400/40"}`}>
+                        {trackingReady ? "Requests open" : "Coming soon"}
                       </span>
                       <span className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium ${metaStatus.tone}`}>
                         {metaStatus.label}
                       </span>
                     </div>
-                    <p className="mt-2 text-sm text-white/65">{metaStatus.helper}</p>
+                    <p className="mt-2 text-sm text-white/65">
+                      {trackingReady
+                        ? "Tracking is connected, so affiliates can request this offer from the marketplace."
+                        : "To push your offer to marketplace, setup tracking. Until then it appears as Coming soon and affiliates cannot request to promote."}
+                    </p>
+                    <p className="mt-2 text-xs text-white/55">{metaStatus.helper}</p>
                   </div>
 
                   <div className="relative mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -1346,6 +1374,13 @@ export default function MyBusinessPage() {
                         ? "Deleting…"
                         : "Delete Offer"}
                     </button>
+                    {!trackingReady && (
+                      <Link href="/business/setup-tracking" prefetch={false}>
+                        <button className="inline-flex w-full items-center justify-center rounded-full border border-amber-400/40 bg-amber-500/10 px-4 py-2.5 text-sm font-semibold text-amber-200 hover:bg-amber-500/15 sm:w-auto">
+                          Setup tracking to enable requests
+                        </button>
+                      </Link>
+                    )}
                     {metaStatus.needsSetup && (
                       <Link
                         href={`/business/my-business/edit-offer/${offer.id}/#meta-setup`}

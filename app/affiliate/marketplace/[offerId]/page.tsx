@@ -20,6 +20,7 @@ type Offer = {
   meta_page_id?: string | null;
   meta_ad_account_id?: string | null;
   meta_pixel_id?: string | null;
+  site_host?: string | null;
 };
 
 function getPromotionMode(offer: Offer | null) {
@@ -68,6 +69,8 @@ export default function AffiliateOfferProfilePage() {
         : []
       : [];
   const promotionMode = getPromotionMode(offer);
+  const trackingReady = Boolean(offer?.site_host);
+  const comingSoon = !trackingReady;
 
   // Load current user email
   useEffect(() => {
@@ -464,7 +467,7 @@ export default function AffiliateOfferProfilePage() {
               <p className="text-sm text-white/70 leading-relaxed whitespace-pre-line">
                 {offer.profile_bio ||
                   offer.description ||
-                  'This business hasn’t added a full story yet, but you can still request to promote and chat through details once approved.'}
+                  'This business hasn’t added a full story yet. You can request once tracking is set up and requests are unlocked.'}
               </p>
             </div>
 
@@ -496,6 +499,11 @@ export default function AffiliateOfferProfilePage() {
 
             {/* Request to promote */}
             <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 space-y-4">
+              {comingSoon && (
+                <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-100">
+                  Coming soon: this offer is visible in the marketplace now, but request-to-promote unlocks after the business completes tracking setup.
+                </div>
+              )}
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <h3 className="text-sm font-semibold text-[#00C2CB]">Request to promote</h3>
@@ -517,7 +525,7 @@ export default function AffiliateOfferProfilePage() {
                   rows={4}
                   value={requestNotes}
                   onChange={(e) => setRequestNotes(e.target.value)}
-                  disabled={requested}
+                  disabled={requested || comingSoon}
                   className="w-full rounded-xl border border-white/15 bg-black/50 px-3 py-2 text-sm text-white/80 placeholder:text-white/40 focus:outline-none focus:ring-1 focus:ring-[#00C2CB] disabled:opacity-60"
                   placeholder="Share how you plan to promote, your audience, or any results you’ve had before."
                 />
@@ -530,10 +538,10 @@ export default function AffiliateOfferProfilePage() {
                 <button
                   type="button"
                   onClick={handleRequestToPromote}
-                  disabled={requestLoading || requested || !userEmail}
+                  disabled={requestLoading || requested || !userEmail || comingSoon}
                   className="inline-flex items-center rounded-full bg-[#00C2CB] hover:bg-[#00b0b8] text-black text-xs font-medium px-5 py-2 disabled:opacity-60"
                 >
-                  {requested ? 'Request sent' : requestLoading ? 'Sending…' : 'Request to promote'}
+                  {comingSoon ? 'Coming soon' : requested ? 'Request sent' : requestLoading ? 'Sending…' : 'Request to promote'}
                 </button>
                 {!userEmail && (
                   <p className="text-[11px] text-red-300">

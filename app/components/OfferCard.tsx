@@ -23,6 +23,7 @@ interface Offer {
   meta_page_id?: string | null;
   meta_ad_account_id?: string | null;
   meta_pixel_id?: string | null;
+  site_host?: string | null;
 }
 
 function getPromotionMode(offer: Offer) {
@@ -86,11 +87,13 @@ export default function OfferCard({
   const [notes, setNotes] = useState('');
   const [requested, setRequested] = useState(alreadyRequested);
   const promotionMode = getPromotionMode(offer);
+  const trackingReady = Boolean(offer.site_host);
+  const comingSoon = !trackingReady;
   const offerTags = useMemo(() => getOfferTags(offer), [offer]);
   const formattedPrice = offer.price ? formatMoney(offer.price, offer.currency) : null;
   const estimatedPayout = offer.commissionValue ?? (offer.price ? (offer.price * offer.commission) / 100 : null);
   const payoutLabel = offer.type === 'recurring' ? 'Recurring payout' : 'Est. payout per sale';
-  const approvalLabel = offer.meta_pixel_id ? 'Review ready' : 'Manual review';
+  const approvalLabel = comingSoon ? 'Coming soon' : offer.meta_pixel_id ? 'Review ready' : 'Manual review';
   const fitSummary = offer.meta_page_id && offer.meta_ad_account_id
     ? 'Built for both organic placements and paid Meta campaigns.'
     : 'Best suited to organic content, link-in-bio placements, and creator-led promotion.';
@@ -262,6 +265,11 @@ export default function OfferCard({
         <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium ${promotionMode.tone}`}>
           {promotionMode.label}
         </span>
+        {comingSoon && (
+          <span className="inline-flex items-center rounded-full border border-amber-400/40 bg-amber-500/10 px-2.5 py-1 text-[11px] font-medium text-amber-200">
+            Coming soon
+          </span>
+        )}
         {offerTags.map((tag) => (
           <span
             key={tag}
@@ -314,7 +322,7 @@ export default function OfferCard({
       </div>
 
       {/* Affiliate note */}
-      {role === 'affiliate' && !requested && (
+      {role === 'affiliate' && !requested && !comingSoon && (
         <textarea
           placeholder="Write a note for the business..."
           value={notes}
@@ -336,14 +344,14 @@ export default function OfferCard({
             </Link>
             <button
               onClick={handleRequest}
-              disabled={requested}
+              disabled={requested || comingSoon}
               className={`flex-1 font-semibold px-4 py-2 rounded-lg text-xs sm:text-sm transition-colors ${
-                requested
+                requested || comingSoon
                   ? 'bg-zinc-700 text-gray-400 cursor-not-allowed'
                   : 'bg-[#00C2CB] hover:bg-[#00b0b8] text-black'
               }`}
             >
-              {requested ? 'Request Sent' : 'Request to Promote'}
+              {comingSoon ? 'Coming Soon' : requested ? 'Request Sent' : 'Request to Promote'}
             </button>
           </>
         ) : (
@@ -354,6 +362,11 @@ export default function OfferCard({
           </Link>
         )}
       </div>
+      {role === 'affiliate' && comingSoon && (
+        <p className="mt-3 text-xs text-amber-200/90">
+          This offer is visible in the marketplace, but requests unlock after tracking is set up by the business.
+        </p>
+      )}
     </div>
   );
 }
