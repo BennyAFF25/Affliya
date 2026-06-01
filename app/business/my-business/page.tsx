@@ -1100,15 +1100,16 @@ export default function MyBusinessPage() {
           {showLaunchSteps && (
             <div className="mt-4 grid gap-2 md:grid-cols-2">
               {launchSteps.map((step) => (
-                <button
+                <Link
                   key={step.key}
-                  onClick={() => router.push(step.href)}
-                  className="rounded-xl border border-[#00C2CB]/25 bg-[#0e1112] p-3 text-left hover:border-[#00C2CB]/45 hover:bg-[#10181b]"
+                  href={step.href}
+                  prefetch={false}
+                  className="block rounded-xl border border-[#00C2CB]/25 bg-[#0e1112] p-3 text-left hover:border-[#00C2CB]/45 hover:bg-[#10181b]"
                 >
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-sm font-medium text-white">{step.label}</span>
                     <div className="flex items-center gap-2">
-                      <span className={`text-[11px] rounded-full px-2 py-0.5 border ${step.done ? "border-emerald-400/40 bg-emerald-500/10 text-emerald-200" : step.optional ? "border-[#00C2CB]/35 bg-[#00C2CB]/10 text-[#7ff5fb]" : "border-white/15 bg-white/5 text-white/65"}`}>
+                      <span className={`text-[11px] rounded-full px-2 py-0.5 border ${step.done ? "border-emerald-400/40 bg-emerald-500/10 text-emerald-200" : step.optional ? "border-[#00C2CB]/35 bg-[#00C2CB]/10 text-[#7ff5fb]" : "border-red-400/45 bg-red-500/10 text-red-200"}`}>
                         {step.done ? "Done" : step.optional ? "Optional" : "Required"}
                       </span>
                       <span className="text-[11px] rounded-full border border-[#00C2CB]/35 bg-[#00C2CB]/10 px-2 py-0.5 text-[#7ff5fb]">
@@ -1117,7 +1118,7 @@ export default function MyBusinessPage() {
                     </div>
                   </div>
                   <p className="mt-1 text-xs text-gray-400">{step.desc}</p>
-                </button>
+                </Link>
               ))}
             </div>
           )}
