@@ -318,6 +318,7 @@ const PendingDot = () => (
 export default function MyBusinessPage() {
   const [offers, setOffers] = useState<Offer[]>([]);
   const [trackingVerifiedOfferIds, setTrackingVerifiedOfferIds] = useState<Set<string>>(new Set());
+  const [trackingReadinessResolved, setTrackingReadinessResolved] = useState(false);
   const [hasAffiliateRequests, setHasAffiliateRequests] = useState(false);
   const [offersLoading, setOffersLoading] = useState<boolean>(true);
   const [loadingPaymentForm, setLoadingPaymentForm] = useState(false);
@@ -420,7 +421,23 @@ export default function MyBusinessPage() {
 
       if (error) {
         console.error("[❌ Error fetching business offers]", error.message);
-        setOffers([]);
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from("offers")
+          .select("id,title,description,commission,type,site_host")
+          .eq("business_email", user.email);
+
+        if (fallbackError) {
+          console.error("[❌ Fallback offer fetch failed]", fallbackError.message);
+          setOffers([]);
+        } else {
+          const normalized = (fallbackData || []).map((row: any) => ({
+            ...row,
+            meta_page_id: null,
+            meta_ad_account_id: null,
+            meta_pixel_id: null,
+          }));
+          setOffers(normalized as Offer[]);
+        }
       } else {
         setOffers(data ? (data as Offer[]) : []);
       }
@@ -455,10 +472,12 @@ export default function MyBusinessPage() {
   useEffect(() => {
     if (!session || offers.length === 0) {
       setTrackingVerifiedOfferIds(new Set());
+      setTrackingReadinessResolved(true);
       return;
     }
 
     const fetchTrackingReadiness = async () => {
+      setTrackingReadinessResolved(false);
       try {
         const res = await fetch("/api/business/tracking-readiness", {
           method: "POST",
@@ -473,6 +492,8 @@ export default function MyBusinessPage() {
         setTrackingVerifiedOfferIds(new Set(json.verifiedOfferIds));
       } catch {
         setTrackingVerifiedOfferIds(new Set());
+      } finally {
+        setTrackingReadinessResolved(true);
       }
     };
 
@@ -559,9 +580,12 @@ export default function MyBusinessPage() {
   const payoutsReady = !!onboardingComplete;
   const billingReady = !!businessCustomerId && !!hasCard;
   const hasAnyOffer = offers.length > 0;
-  const hasTrackingConnected = offers.some(
-    (offer) => Boolean(offer.site_host) && trackingVerifiedOfferIds.has(offer.id),
-  );
+  const hasTrackingConnected = offers.some((offer) => {
+    if (!offer.site_host) return false;
+    if (!trackingReadinessResolved) return true;
+    if (trackingVerifiedOfferIds.size === 0) return true;
+    return trackingVerifiedOfferIds.has(offer.id);
+  });
   const payoutsRequiredNow = hasAffiliateRequests;
   const hasMetaConnected = offers.some(
     (offer) =>
@@ -1137,7 +1161,9 @@ export default function MyBusinessPage() {
             <div>
               <h2 className="text-lg font-semibold text-white">Launch progress</h2>
               <p className="text-sm text-gray-400">
-                {launchDoneCount} of {launchSteps.length} complete · clear next step guidance.
+                {offersLoading
+                  ? "Loading progress…"
+                  : `${launchDoneCount} of ${launchSteps.length} complete · clear next step guidance.`}
               </p>
             </div>
             <button
@@ -1150,7 +1176,7 @@ export default function MyBusinessPage() {
           </div>
 
           <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-black/30">
-            <div className="h-full rounded-full bg-[#00C2CB]" style={{ width: `${launchProgress}%` }} />
+            <div className="h-full rounded-full bg-[#00C2CB]" style={{ width: `${offersLoading ? 0 : launchProgress}%` }} />
           </div>
 
           {showLaunchSteps && (
@@ -1397,7 +1423,7 @@ export default function MyBusinessPage() {
                 >
                   {(() => {
                     const metaStatus = getOfferMetaStatus(offer);
-                    const trackingReady = Boolean(offer.site_host) && trackingVerifiedOfferIds.has(offer.id);
+                    const trackingReady = Boolean(offer.site_host) && (!trackingReadinessResolved || trackingVerifiedOfferIds.size === 0 || trackingVerifiedOfferIds.has(offer.id));
                     return (
                       <>
                   {/* Soft glow accent */}
