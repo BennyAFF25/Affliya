@@ -1247,16 +1247,6 @@ export default function PromoteOfferPage() {
         {/* LEFT: single card wizard */}
         {mode === "ad" && (
           <div className="space-y-4">
-            <div className="rounded-2xl border border-white/15 bg-[#111317] p-4 text-sm text-white/85">
-              <div className="font-semibold text-white">Paid campaign requirements</div>
-              <div className="mt-2 space-y-1 text-xs text-white/75">
-                <p>{offerMetaState.hasPage ? "Ready" : "Missing"} · Meta connected</p>
-                <p>{offerMetaState.hasAdAccount ? "Ready" : "Missing"} · Ad account selected</p>
-                <p>{offerMetaState.hasPixel ? "Ready" : "Missing"} · Pixel selected</p>
-                <p>{businessPaymentReady ? "Ready" : "Missing"} · Payment method connected</p>
-              </div>
-            </div>
-
             {showMetaSetupWarning && (
               <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-100">
                 <div className="font-semibold">Connect Meta to allow affiliates to launch campaigns.</div>
