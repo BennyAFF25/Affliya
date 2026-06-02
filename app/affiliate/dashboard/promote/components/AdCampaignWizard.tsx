@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { nmToast } from "@/components/ui/toast";
 import { AdFormState, PlacementKey } from "../types";
 import {
@@ -30,9 +30,6 @@ interface AdCampaignWizardProps {
   incBudget: (amt: number) => void;
   setStartIn15m: () => void;
   setEndIn7d: () => void;
-  reachDaily: number | null;
-  reachMonthly: number | null;
-  interestsIgnored: boolean;
   videoFile: File | null;
   setVideoFile: (file: File | null) => void;
   imageFile: File | null;
@@ -62,9 +59,6 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
     incBudget,
     setStartIn15m,
     setEndIn7d,
-    reachDaily,
-    reachMonthly,
-    interestsIgnored,
     videoFile,
     setVideoFile,
     imageFile,
@@ -639,36 +633,6 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
                 </div>
               )}
             </div>
-
-            {(reachDaily !== null || reachMonthly !== null) && (
-              <div className="mt-2 p-3 rounded-xl border border-[#2a2a2a] bg-[#0f0f0f]">
-                <div className="text-xs text-gray-400 mb-1">
-                  Estimated Reach (unique users)
-                </div>
-                <div className="flex items-center gap-6">
-                  <div>
-                    <div className="text-[11px] text-gray-400">Daily</div>
-                    <div className="text-lg font-bold text-[#00C2CB]">
-                      {reachDaily !== null ? reachDaily.toLocaleString() : "—"}
-                    </div>
-                  </div>
-                  <div>
-                    <div className="text-[11px] text-gray-400">Monthly</div>
-                    <div className="text-lg font-bold text-[#00C2CB]">
-                      {reachMonthly !== null
-                        ? reachMonthly.toLocaleString()
-                        : "—"}
-                    </div>
-                  </div>
-                </div>
-                {interestsIgnored && (
-                  <span className="block mt-1 text-[11px] text-gray-500">
-                    Some typed interests were ignored because they didn’t match
-                    official Meta interest IDs.
-                  </span>
-                )}
-              </div>
-            )}
           </div>
         )}
 

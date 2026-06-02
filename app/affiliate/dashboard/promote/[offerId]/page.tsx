@@ -21,13 +21,12 @@ function friendlyObjective(objective?: string): string {
 }
 // eslint-disable-next-line
 
-import { useState, useEffect, useMemo, useRef, type ReactNode } from "react";
+import { useState, useEffect, useMemo, type ReactNode } from "react";
 import { nmToast } from "@/components/ui/toast";
 import { FaSpinner } from "react-icons/fa";
 import { useRouter, useParams } from "next/navigation";
 import { useSession } from "@supabase/auth-helpers-react";
 import { supabase } from "@/../utils/supabase/pages-client";
-import { fetchReachEstimate } from "@/../utils/meta/fetchReachEstimate";
 import { calculateWalletBalance } from "@/../utils/wallet/balance";
 
 import { AdFormState, GenderOpt, PlacementKey } from "../types";
@@ -51,13 +50,6 @@ type OfferRow = {
 
 type OfferBusinessEmailRow = {
   business_email: string | null;
-};
-
-type MetaConnectionRow = {
-  access_token?: string | null;
-  ad_account_id?: string | null;
-  page_id?: string | null;
-  updated_at?: string | null;
 };
 
 export default function PromoteOfferPage() {
@@ -263,12 +255,6 @@ export default function PromoteOfferPage() {
     };
   }, [videoPreviewUrl, thumbPreviewUrl]);
 
-  // Meta business connection (for reach estimate)
-  const [biz, setBiz] = useState<{
-    access_token: string;
-    ad_account_id: string;
-  } | null>(null);
-
   useEffect(() => {
     if (session === undefined || session === null) return;
 
@@ -318,115 +304,15 @@ export default function PromoteOfferPage() {
       } finally {
         setBusinessPaymentResolved(true);
       }
-
-      // 2) Meta creds by business_email (from meta_connections)
-      // AppleDash + similar cases can have multiple rows per business_email (different pages/ad accounts).
-      // Pick the row that matches offer.meta_page_id first, then fallback to most recent valid row.
-      setBiz(null);
-      if (offer?.business_email) {
-        const { data: mcRows, error: mcErr } = await (supabase as any)
-          .from("meta_connections")
-          .select("access_token, ad_account_id, page_id, updated_at")
-          .eq("business_email", offer.business_email as string)
-          .order("updated_at", { ascending: false });
-
-        if (mcErr) {
-          console.warn("[meta_connections fetch warn]", mcErr);
-        } else {
-          const rows = (mcRows || []) as MetaConnectionRow[];
-          const valid = rows.filter(
-            (r) => !!r?.access_token && !!r?.ad_account_id,
-          );
-          const offerPageId = String(
-            (offer as OfferRow)?.meta_page_id || "",
-          ).trim();
-
-          const matchedByPage = offerPageId
-            ? valid.find((r) => String(r.page_id || "").trim() === offerPageId)
-            : null;
-
-          const chosen = matchedByPage || valid[0] || null;
-
-          if (chosen?.access_token && chosen?.ad_account_id) {
-            setBiz({
-              access_token: chosen.access_token,
-              ad_account_id: chosen.ad_account_id,
-            });
-          }
-        }
-      }
     };
 
     go();
   }, [offerId, session]);
 
-  // Debounce helper – prevents spamming Graph while typing
-  function useDebounce(fn: (...args: any[]) => void, delay = 600) {
-    const t = useRef<number | null>(null);
-    return (...args: any[]) => {
-      if (t.current) window.clearTimeout(t.current);
-      t.current = window.setTimeout(
-        () => fn(...args),
-        delay,
-      ) as unknown as number;
-    };
-  }
-
-  // Map our placements to Meta positions (publisher_platforms + *_positions)
-  function buildPlacementTargeting(placements: Record<PlacementKey, boolean>) {
-    const publisher_platforms: string[] = [];
-    const facebook_positions: string[] = [];
-    const instagram_positions: string[] = [];
-
-    if (placements.facebook_feed) {
-      if (!publisher_platforms.includes("facebook"))
-        publisher_platforms.push("facebook");
-      facebook_positions.push("feed");
-    }
-    if (placements.facebook_stories) {
-      if (!publisher_platforms.includes("facebook"))
-        publisher_platforms.push("facebook");
-      facebook_positions.push("story");
-    }
-    if (placements.facebook_reels) {
-      if (!publisher_platforms.includes("facebook"))
-        publisher_platforms.push("facebook");
-      facebook_positions.push("facebook_reels");
-    }
-
-    if (placements.instagram_feed) {
-      if (!publisher_platforms.includes("instagram"))
-        publisher_platforms.push("instagram");
-      instagram_positions.push("stream");
-    }
-    if (placements.instagram_stories) {
-      if (!publisher_platforms.includes("instagram"))
-        publisher_platforms.push("instagram");
-      instagram_positions.push("story");
-    }
-    if (placements.instagram_reels) {
-      if (!publisher_platforms.includes("instagram"))
-        publisher_platforms.push("instagram");
-      instagram_positions.push("reels");
-    }
-
-    const out: any = { publisher_platforms };
-    if (facebook_positions.length) out.facebook_positions = facebook_positions;
-    if (instagram_positions.length)
-      out.instagram_positions = instagram_positions;
-    return out;
-  }
-
   // ─────────────────────────────
-  // Reach estimate (optional) - split daily/monthly
+  // Local planning assumptions only. Meta reach is unavailable pre-approval
+  // because the campaign/ad set is not created until the business approves.
   // ─────────────────────────────
-  const [reachDaily, setReachDaily] = useState<number | null>(null);
-  const [reachMonthly, setReachMonthly] = useState<number | null>(null);
-  const [reachStatus, setReachStatus] = useState<
-    "idle" | "loading" | "ready" | "unavailable" | "error"
-  >("idle");
-  const [reachMessage, setReachMessage] = useState<string>("");
-  const [interestsIgnored, setInterestsIgnored] = useState(false);
   const [assumeCPM, setAssumeCPM] = useState<number>(10); // $10 CPM default
   const [assumeCTR, setAssumeCTR] = useState<number>(1); // 1% CTR default
   const [assumeCVR, setAssumeCVR] = useState<number>(3); // 3% CVR default
@@ -466,183 +352,6 @@ export default function PromoteOfferPage() {
       setMode("organic");
     }
   }, [isOrganicOnlyOffer, mode, showBusinessPaymentWarning]);
-
-  // Sparkline for 30-day projection (tiny sideways line chart)
-  function buildSparkPath(values: number[], w = 120, h = 36, pad = 2) {
-    const max = Math.max(1, ...values);
-    const n = values.length;
-    if (n === 0) return "";
-    const innerW = w - pad * 2;
-    const innerH = h - pad * 2;
-    return values
-      .map((val, i) => {
-        const x = pad + (i * innerW) / (n - 1 || 1);
-        const y = h - pad - (Math.max(0, val) / max) * innerH;
-        return `${i === 0 ? "M" : "L"}${x},${y}`;
-      })
-      .join(" ");
-  }
-
-  const sparkValues = useMemo(() => {
-    const v = Number.isFinite(dailyConversions)
-      ? Math.max(0, dailyConversions)
-      : 0;
-    // 30 points flat projection (daily × 30). Keep flat to avoid fake volatility.
-    return Array.from({ length: 30 }, () => v);
-  }, [dailyConversions]);
-
-  const sparkPath = useMemo(() => buildSparkPath(sparkValues), [sparkValues]);
-
-  const triggerReach = useDebounce(async () => {
-    try {
-      // We prefer client-resolved biz creds when available, but server can fallback via offer_id.
-      const numericAd = biz?.ad_account_id
-        ? String(biz.ad_account_id).replace(/^act_/, "")
-        : "";
-
-      const countries = form.location_countries
-        .split(",")
-        .map((c) => c.trim())
-        .filter(Boolean);
-      if (countries.length === 0) {
-        setReachStatus("idle");
-        setReachMessage("Select at least one country to estimate reach.");
-        setReachDaily(null);
-        setReachMonthly(null);
-        return;
-      }
-
-      const age_min = Number(form.age_min || 18);
-      const age_max = Number(form.age_max || 65);
-      if (age_min < 13 || age_max < age_min) {
-        setReachStatus("idle");
-        setReachMessage("Adjust age range to continue estimating reach.");
-        setReachDaily(null);
-        setReachMonthly(null);
-        return;
-      }
-
-      setReachStatus("loading");
-      setReachMessage("Loading estimate…");
-
-      const genders = form.gender === "" ? [] : [Number(form.gender)];
-
-      const interests = form.interests_csv
-        ? form.interests_csv
-            .split(",")
-            .map((s) => s.trim())
-            .filter(Boolean)
-            .map((i) => ({ id: i, name: i }))
-        : [];
-
-      // (Future) placements – server can merge into targeting_spec if supported
-      const placementSpec = buildPlacementTargeting(form.placements);
-
-      const est = await fetchReachEstimate({
-        access_token: biz?.access_token,
-        ad_account_id: numericAd,
-        offer_id: offerId,
-        countries,
-        age_min,
-        age_max,
-        genders,
-        interests,
-        optimization_goal: "REACH",
-        currency: "AUD", // ignored by server route
-        placementSpec, // ← added to send placements
-      } as any);
-
-      const diagnostics = (est as any)?.meta?.diagnostics || null;
-
-      // Graph returns: { data: [{ estimate_dau, estimate_mau, estimate_ready, ... }] }
-      const first = Array.isArray(est?.data) ? est.data[0] : (null as any);
-      setInterestsIgnored(Boolean((est as any)?.meta?.interests_ignored));
-
-      function extractEstimate(val: any): number | null {
-        if (val == null) return null;
-        if (typeof val === "number" && isFinite(val)) return val;
-        if (typeof val === "object") {
-          // common shapes: { estimate }, { value }, { lower_bound, upper_bound }
-          if (typeof val.estimate === "number" && isFinite(val.estimate))
-            return val.estimate;
-          if (typeof val.value === "number" && isFinite(val.value))
-            return val.value;
-          if (
-            typeof val.lower_bound === "number" &&
-            typeof val.upper_bound === "number"
-          ) {
-            // pick midpoint when a range is provided
-            const mid = (val.lower_bound + val.upper_bound) / 2;
-            return isFinite(mid) ? mid : null;
-          }
-        }
-        return null;
-      }
-
-      const dau = extractEstimate(first?.estimate_dau);
-      const mau = extractEstimate(first?.estimate_mau);
-
-      setReachDaily(dau);
-      setReachMonthly(mau);
-
-      if (dau !== null || mau !== null) {
-        setReachStatus("ready");
-        setReachMessage(
-          diagnostics?.placementRetry
-            ? "Estimate updated from Meta after simplifying placements."
-            : "Estimate updated from Meta delivery data.",
-        );
-      } else {
-        setReachStatus("unavailable");
-        setReachMessage(
-          diagnostics?.metaRowsReturned === 0
-            ? "Meta returned no delivery estimate rows for this targeting. Try broader location, age, or placements."
-            : "Meta returned no estimate for this targeting.",
-        );
-      }
-    } catch (e: any) {
-      setReachDaily(null);
-      setReachMonthly(null);
-      setReachStatus("error");
-      const msg = e?.message?.toLowerCase?.() || "";
-      const diagnostics = e?.diagnostics || null;
-
-      if (msg.includes("access token") || msg.includes("token")) {
-        setReachMessage(
-          "Meta token expired or invalid. Reconnect Meta to restore estimates.",
-        );
-      } else if (msg.includes("permission") || msg.includes("permissions")) {
-        setReachMessage("Meta permissions are missing for reach estimates. Reconnect Meta with ad account access.");
-      } else if (msg.includes("ad account") || msg.includes("act_")) {
-        setReachMessage("Could not estimate reach for the selected Meta ad account. Check the business Meta connection.");
-      } else if (diagnostics?.usedServerFallback && !diagnostics?.resolvedAdAccount) {
-        setReachMessage("Could not resolve a Meta ad account for this offer. Reconnect Meta for the business offer.");
-      } else if (diagnostics?.placementRetry) {
-        setReachMessage("Meta rejected the selected placements and the simplified retry also failed.");
-      } else {
-        setReachMessage(`Could not load estimate: ${e?.message || "Meta estimate unavailable"}`);
-      }
-    }
-  }, 600);
-
-  useEffect(() => {
-    triggerReach();
-    // include placements so toggling them updates estimate
-  }, [
-    biz,
-    offerId,
-    form.location_countries,
-    form.age_min,
-    form.age_max,
-    form.gender,
-    form.interests_csv,
-    form.placements.facebook_feed,
-    form.placements.instagram_feed,
-    form.placements.instagram_reels,
-    form.placements.facebook_reels,
-    form.placements.facebook_stories,
-    form.placements.instagram_stories,
-  ]);
 
   // ─────────────────────────────
   // Helpers
@@ -1307,9 +1016,6 @@ export default function PromoteOfferPage() {
                incBudget={incBudget}
                setStartIn15m={setStartIn15m}
                setEndIn7d={setEndIn7d}
-               reachDaily={reachDaily}
-               reachMonthly={reachMonthly}
-               interestsIgnored={interestsIgnored}
                videoFile={videoFile}
                setVideoFile={setVideoFile}
                imageFile={imageFile}
@@ -1362,11 +1068,6 @@ export default function PromoteOfferPage() {
         {/* RIGHT: Preview / Metrics */}
         <PreviewSidebar
           mode={mode}
-          reachDaily={reachDaily}
-          reachMonthly={reachMonthly}
-          reachStatus={reachStatus}
-          reachMessage={reachMessage}
-          interestsIgnored={interestsIgnored}
           dailyConversions={dailyConversions}
           monthlyConversions={monthlyConversions}
           brandName={brandName}

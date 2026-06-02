@@ -5,11 +5,6 @@ import { AdFormState } from "../types";
 
 interface PreviewSidebarProps {
   mode: "ad" | "organic";
-  reachDaily: number | null;
-  reachMonthly: number | null;
-  reachStatus: "idle" | "loading" | "ready" | "unavailable" | "error";
-  reachMessage: string;
-  interestsIgnored: boolean;
   dailyConversions: number | null;
   monthlyConversions: number | null;
   brandName: string;
@@ -36,11 +31,6 @@ function StatCell({ label, value, loading }: { label: string; value: string; loa
 export function PreviewSidebar(props: PreviewSidebarProps) {
   const {
     mode,
-    reachDaily,
-    reachMonthly,
-    reachStatus,
-    reachMessage,
-    interestsIgnored,
     dailyConversions,
     monthlyConversions,
     brandName,
@@ -66,40 +56,8 @@ export function PreviewSidebar(props: PreviewSidebarProps) {
     };
   }, [socialPreviewUrl]);
 
-  const reachLoading = mode === "ad" && reachStatus === "loading";
-
   return (
     <aside className="space-y-4 sm:space-y-6 lg:sticky lg:top-24 self-start">
-      {mode === "ad" && (
-        <div className="rounded-xl border border-[#2a2a2a] bg-[#0f0f0f] p-4 sm:p-6">
-          <div className="flex items-center justify-between gap-2 mb-2">
-            <div className="text-[#00C2CB] font-semibold text-base sm:text-lg">Estimated Reach</div>
-            <span className={[
-              "text-[10px] uppercase tracking-wider",
-              reachStatus === "ready"
-                ? "text-emerald-400"
-                : reachStatus === "loading"
-                ? "text-[#00C2CB]"
-                : reachStatus === "error"
-                ? "text-red-400"
-                : "text-gray-500",
-            ].join(" ")}>
-              {reachStatus === "ready" ? "Live" : reachStatus === "loading" ? "Loading" : reachStatus === "error" ? "Error" : "Unavailable"}
-            </span>
-          </div>
-          <div className="flex items-center gap-8">
-            <StatCell label="Daily" value={reachDaily !== null ? reachDaily.toLocaleString() : "—"} loading={reachLoading} />
-            <StatCell label="Monthly" value={reachMonthly !== null ? reachMonthly.toLocaleString() : "—"} loading={reachLoading} />
-          </div>
-          <div className="text-xs text-gray-400 mt-2">
-            {reachMessage || "Estimated unique users based on your ad set targeting."}
-            {interestsIgnored && (
-              <span className="block mt-1 text-[11px] text-gray-500">Some typed interests were ignored because they didn’t match official Meta interest IDs.</span>
-            )}
-          </div>
-        </div>
-      )}
-
       {mode === "ad" && (
         <div className="rounded-xl border border-[#2a2a2a] bg-[#0f0f0f] p-4 sm:p-6">
           <div className="text-[#00C2CB] font-semibold text-base sm:text-lg mb-3">Estimated Conversions</div>
