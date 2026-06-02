@@ -25,6 +25,7 @@ type SupabaseOffer = {
 };
 
 type OnboardingProgressRow = {
+  business_email?: string | null;
   offer_id?: string | null;
   tracking_connected?: boolean | null;
 };
@@ -141,22 +142,65 @@ export default function AffiliateMarketplace() {
       }
 
       const offerIds = typedData.map((o) => o.id);
-      const { data: onboardingRows, error: onboardingError } = await supabase
+      const businessEmails = Array.from(
+        new Set(
+          typedData
+            .map((o) => o.business_email)
+            .filter((email): email is string => Boolean(email)),
+        ),
+      );
+
+      const { data: offerOnboardingRows, error: offerOnboardingError } = await supabase
         .from("business_onboarding_progress")
-        .select("offer_id,tracking_connected")
+        .select("business_email,offer_id,tracking_connected")
         .in("offer_id", offerIds);
 
-      if (onboardingError) {
+      if (offerOnboardingError) {
         console.error(
-          "[❌ Error fetching onboarding tracking status]",
-          onboardingError.message,
+          "[❌ Error fetching offer tracking status]",
+          offerOnboardingError.message,
+        );
+      }
+
+      const { data: businessOnboardingRows, error: businessOnboardingError } = businessEmails.length
+        ? await supabase
+            .from("business_onboarding_progress")
+            .select("business_email,offer_id,tracking_connected")
+            .in("business_email", businessEmails)
+            .is("offer_id", null)
+        : { data: [], error: null };
+
+      if (businessOnboardingError) {
+        console.error(
+          "[❌ Error fetching business tracking status]",
+          businessOnboardingError.message,
         );
       }
 
       const trackingMap = new Map<string, boolean>();
-      ((onboardingRows || []) as OnboardingProgressRow[]).forEach((row) => {
-        if (row?.offer_id) trackingMap.set(row.offer_id, Boolean(row.tracking_connected));
+      const businessTrackingMap = new Map<string, boolean>();
+      ([...(offerOnboardingRows || []), ...(businessOnboardingRows || [])] as OnboardingProgressRow[]).forEach((row) => {
+        if (!row?.tracking_connected) return;
+        if (row.offer_id) trackingMap.set(row.offer_id, true);
+        if (!row.offer_id && row.business_email) businessTrackingMap.set(row.business_email, true);
       });
+
+      let verifiedTrackingIds = new Set<string>();
+      try {
+        const readinessRes = await fetch("/api/business/tracking-readiness", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ offerIds }),
+        });
+        const readinessJson = await readinessRes.json().catch(() => null);
+        if (readinessRes.ok && Array.isArray(readinessJson?.verifiedOfferIds)) {
+          verifiedTrackingIds = new Set(readinessJson.verifiedOfferIds as string[]);
+        } else if (!readinessRes.ok) {
+          console.error("[❌ Error fetching verified tracking readiness]", readinessJson);
+        }
+      } catch (readinessError) {
+        console.error("[❌ Tracking readiness request failed]", readinessError);
+      }
 
       const commissions = typedData.map((o) => o.commission ?? 0);
       const threshold = commissions.length ? Math.max(...commissions) * 0.9 : 0;
@@ -179,7 +223,11 @@ export default function AffiliateMarketplace() {
         meta_ad_account_id: o.meta_ad_account_id ?? null,
         meta_pixel_id: o.meta_pixel_id ?? null,
         site_host: o.site_host ?? null,
-        tracking_connected: trackingMap.get(o.id) || false,
+        tracking_connected:
+          trackingMap.get(o.id) ||
+          verifiedTrackingIds.has(o.id) ||
+          (o.business_email ? businessTrackingMap.get(o.business_email) : false) ||
+          false,
       }));
 
       setOffers(formatted);

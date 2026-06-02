@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/../utils/supabase/pages-client';
 
@@ -109,16 +109,55 @@ export default function AffiliateOfferProfilePage() {
         setLoadError(error.message || 'Failed to load offer.');
         setOffer(null);
       } else {
-        const row = data as Offer;
-        const { data: onboardingRow } = await (supabase as any)
+        const row = data as Offer & { business_email?: string | null };
+        const { data: offerOnboardingRow, error: offerOnboardingError } = await (supabase as any)
           .from('business_onboarding_progress')
           .select('tracking_connected')
           .eq('offer_id', row.id)
           .maybeSingle();
 
+        if (offerOnboardingError && offerOnboardingError.code !== 'PGRST116') {
+          console.error('[Error fetching offer tracking status]', offerOnboardingError);
+        }
+
+        let businessTrackingConnected = false;
+        if (row.business_email) {
+          const { data: businessOnboardingRow, error: businessOnboardingError } = await (supabase as any)
+            .from('business_onboarding_progress')
+            .select('tracking_connected')
+            .eq('business_email', row.business_email)
+            .is('offer_id', null)
+            .maybeSingle();
+
+          if (businessOnboardingError && businessOnboardingError.code !== 'PGRST116') {
+            console.error('[Error fetching business tracking status]', businessOnboardingError);
+          }
+
+          businessTrackingConnected = Boolean(businessOnboardingRow?.tracking_connected);
+        }
+
+        let verifiedTrackingConnected = false;
+        try {
+          const readinessRes = await fetch('/api/business/tracking-readiness', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ offerIds: [row.id] }),
+          });
+          const readinessJson = await readinessRes.json().catch(() => null);
+          verifiedTrackingConnected =
+            readinessRes.ok &&
+            Array.isArray(readinessJson?.verifiedOfferIds) &&
+            readinessJson.verifiedOfferIds.includes(row.id);
+        } catch (readinessError) {
+          console.error('[Tracking readiness request failed]', readinessError);
+        }
+
         setOffer({
           ...row,
-          tracking_connected: Boolean(onboardingRow?.tracking_connected),
+          tracking_connected:
+            Boolean(offerOnboardingRow?.tracking_connected) ||
+            businessTrackingConnected ||
+            verifiedTrackingConnected,
         });
       }
       setLoading(false);
