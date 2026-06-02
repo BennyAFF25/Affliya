@@ -1,10 +1,33 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import AcceptTermsModal from "@/../app/components/AcceptTermsModal";
 import OfferCard from "@/components/OfferCard";
 import { supabase } from "../../../utils/supabase/pages-client";
 import { Search, Sparkles } from "lucide-react";
+
+type SupabaseOffer = {
+  id: string;
+  title: string;
+  business_email?: string | null;
+  description?: string | null;
+  commission: number | null;
+  type: string;
+  currency?: string | null;
+  price?: number | null;
+  commission_value?: number | null;
+  logo_url?: string | null;
+  website?: string | null;
+  meta_page_id?: string | null;
+  meta_ad_account_id?: string | null;
+  meta_pixel_id?: string | null;
+  site_host?: string | null;
+};
+
+type OnboardingProgressRow = {
+  offer_id?: string | null;
+  tracking_connected?: boolean | null;
+};
 
 interface Offer {
   id: string;
@@ -47,7 +70,7 @@ export default function AffiliateMarketplace() {
 
       setUserId(user.id);
 
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from("profiles")
         .select("terms_accepted")
         .eq("id", user.id)
@@ -61,26 +84,7 @@ export default function AffiliateMarketplace() {
     checkTerms();
   }, []);
 
-  useEffect(() => {
-    type SupabaseOffer = {
-      id: string;
-      title: string;
-      business_email?: string | null;
-      description?: string | null;
-      commission: number | null;
-      type: string;
-      currency?: string | null;
-      price?: number | null;
-      commission_value?: number | null;
-      logo_url?: string | null;
-      website?: string | null;
-      meta_page_id?: string | null;
-      meta_ad_account_id?: string | null;
-      meta_pixel_id?: string | null;
-      site_host?: string | null;
-    };
-
-    const fetchOffers = async () => {
+  const fetchOffers = useCallback(async () => {
       const { data, error } = await supabase.from("offers").select(`
           id,
           title,
@@ -133,13 +137,20 @@ export default function AffiliateMarketplace() {
       }
 
       const offerIds = typedData.map((o) => o.id);
-      const { data: onboardingRows } = await supabase
+      const { data: onboardingRows, error: onboardingError } = await supabase
         .from("business_onboarding_progress")
         .select("offer_id,tracking_connected")
         .in("offer_id", offerIds);
 
+      if (onboardingError) {
+        console.error(
+          "[❌ Error fetching onboarding tracking status]",
+          onboardingError.message,
+        );
+      }
+
       const trackingMap = new Map<string, boolean>();
-      (onboardingRows || []).forEach((row: any) => {
+      ((onboardingRows || []) as OnboardingProgressRow[]).forEach((row) => {
         if (row?.offer_id) trackingMap.set(row.offer_id, Boolean(row.tracking_connected));
       });
 
@@ -168,10 +179,33 @@ export default function AffiliateMarketplace() {
       }));
 
       setOffers(formatted);
+    }, []);
+
+  useEffect(() => {
+    void fetchOffers();
+  }, [fetchOffers]);
+
+  useEffect(() => {
+    const refetchOffers = () => {
+      void fetchOffers();
     };
 
-    fetchOffers();
-  }, []);
+    const refetchWhenVisible = () => {
+      if (document.visibilityState === "visible") {
+        refetchOffers();
+      }
+    };
+
+    window.addEventListener("focus", refetchOffers);
+    window.addEventListener("pageshow", refetchOffers);
+    document.addEventListener("visibilitychange", refetchWhenVisible);
+
+    return () => {
+      window.removeEventListener("focus", refetchOffers);
+      window.removeEventListener("pageshow", refetchOffers);
+      document.removeEventListener("visibilitychange", refetchWhenVisible);
+    };
+  }, [fetchOffers]);
 
   useEffect(() => {
     type AffiliateRequestRow = {
@@ -182,7 +216,6 @@ export default function AffiliateMarketplace() {
     const fetchRequests = async () => {
       const {
         data: { user },
-        error,
       } = await supabase.auth.getUser();
       if (!user || !user.email) {
         console.warn("[❌ No email found in session]");
