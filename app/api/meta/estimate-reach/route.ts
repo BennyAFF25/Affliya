@@ -23,8 +23,9 @@ export async function POST(req: NextRequest) {
       usedServerFallback: false,
       clientProvidedToken: Boolean(token),
       clientProvidedAdAccount: Boolean(numeric),
-      resolvedAdAccount: numeric ? `act_${numeric}` : null,
+      resolvedAdAccount: Boolean(numeric),
       matchedMetaConnectionByPage: false,
+      matchedMetaConnectionByAdAccount: false,
       placementRetry: false,
     };
 
@@ -51,27 +52,22 @@ export async function POST(req: NextRequest) {
         return NextResponse.json(
           {
             error: 'Could not resolve offer/business for estimator',
-            diagnostics: { ...diagnostics, offerLookupError: offerErr?.message || null },
+            diagnostics: { ...diagnostics, offerLookupFailed: true },
           },
           { status: 400 },
         );
       }
 
-      diagnostics.offerBusinessEmail = offer.business_email;
-      diagnostics.offerMetaPageId = offer.meta_page_id || null;
-      diagnostics.offerMetaAdAccountId = offer.meta_ad_account_id || null;
-
       const { data: mcRows, error: mcErr } = await admin
         .from('meta_connections')
-        .select('access_token, ad_account_id, page_id, updated_at')
-        .eq('business_email', offer.business_email)
-        .order('updated_at', { ascending: false });
+        .select('access_token, ad_account_id, page_id')
+        .eq('business_email', offer.business_email);
 
       if (mcErr) {
         return NextResponse.json(
           {
             error: 'Could not resolve meta connection for offer',
-            diagnostics: { ...diagnostics, metaConnectionError: mcErr.message },
+            diagnostics: { ...diagnostics, metaConnectionLookupFailed: true },
           },
           { status: 400 },
         );
@@ -90,12 +86,12 @@ export async function POST(req: NextRequest) {
 
       diagnostics.matchedMetaConnectionByPage = Boolean(matchedByPage);
       diagnostics.matchedMetaConnectionByAdAccount = Boolean(!matchedByPage && matchedByAdAccount);
-      diagnostics.selectedMetaConnectionPageId = chosen?.page_id || null;
-      diagnostics.selectedMetaConnectionAdAccountId = chosen?.ad_account_id || null;
+      diagnostics.selectedMetaConnectionHasPage = Boolean(chosen?.page_id);
+      diagnostics.selectedMetaConnectionHasAdAccount = Boolean(chosen?.ad_account_id);
 
       token = String(chosen?.access_token || '').trim();
       numeric = String(chosen?.ad_account_id || '').replace(/^act_/, '').trim();
-      diagnostics.resolvedAdAccount = numeric ? `act_${numeric}` : null;
+      diagnostics.resolvedAdAccount = Boolean(numeric);
     }
 
     // normalize id; add act_ exactly once
@@ -170,7 +166,7 @@ export async function POST(req: NextRequest) {
       if (looksLikePlacementIssue && placementSpec) {
         console.warn('[estimate-reach] retrying without placement spec', json);
         diagnostics.placementRetry = true;
-        diagnostics.placementRetryReason = json?.error?.message || json?.error || null;
+        diagnostics.placementRetryReason = 'placement_targeting_rejected';
         const targetingWithoutPlacements = { ...targeting };
         delete targetingWithoutPlacements.publisher_platforms;
         delete targetingWithoutPlacements.facebook_positions;
@@ -184,11 +180,17 @@ export async function POST(req: NextRequest) {
     }
 
     if (!r.ok) {
-      console.error('[Meta API Error]', { json, diagnostics });
+      console.error('[Meta API Error]', { json, diagnostics, offer_id });
       return NextResponse.json(
         {
           error: json?.error?.message || json?.error || 'Meta reach estimate failed',
-          metaError: json?.error || json,
+          metaError: json?.error
+            ? {
+                code: json.error.code ?? null,
+                type: json.error.type ?? null,
+                subcode: json.error.error_subcode ?? null,
+              }
+            : null,
           diagnostics,
         },
         { status: r.status },

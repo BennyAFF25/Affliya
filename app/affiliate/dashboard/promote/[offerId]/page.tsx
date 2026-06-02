@@ -553,9 +553,6 @@ export default function PromoteOfferPage() {
       } as any);
 
       const diagnostics = (est as any)?.meta?.diagnostics || null;
-      if (diagnostics) {
-        console.info("[Reach Estimate Diagnostics]", diagnostics);
-      }
 
       // Graph returns: { data: [{ estimate_dau, estimate_mau, estimate_ready, ... }] }
       const first = Array.isArray(est?.data) ? est.data[0] : (null as any);
@@ -604,13 +601,11 @@ export default function PromoteOfferPage() {
         );
       }
     } catch (e: any) {
-      console.warn("[Reach Estimate Error]", e);
       setReachDaily(null);
       setReachMonthly(null);
       setReachStatus("error");
       const msg = e?.message?.toLowerCase?.() || "";
       const diagnostics = e?.diagnostics || null;
-      console.warn("[Reach Estimate Diagnostics]", diagnostics || e?.metaError || null);
 
       if (msg.includes("access token") || msg.includes("token")) {
         setReachMessage(

@@ -51,7 +51,6 @@ export async function fetchReachEstimate(params: ReachParams) {
 
   const json = await res.json().catch(() => null);
   if (!res.ok) {
-    console.warn('[estimate-reach route error]', json || res.statusText);
     const message =
       json?.error?.message ||
       json?.error ||
