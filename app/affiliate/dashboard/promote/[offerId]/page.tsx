@@ -552,6 +552,11 @@ export default function PromoteOfferPage() {
         placementSpec, // ← added to send placements
       } as any);
 
+      const diagnostics = (est as any)?.meta?.diagnostics || null;
+      if (diagnostics) {
+        console.info("[Reach Estimate Diagnostics]", diagnostics);
+      }
+
       // Graph returns: { data: [{ estimate_dau, estimate_mau, estimate_ready, ... }] }
       const first = Array.isArray(est?.data) ? est.data[0] : (null as any);
       setInterestsIgnored(Boolean((est as any)?.meta?.interests_ignored));
@@ -585,10 +590,18 @@ export default function PromoteOfferPage() {
 
       if (dau !== null || mau !== null) {
         setReachStatus("ready");
-        setReachMessage("Estimate updated from Meta delivery data.");
+        setReachMessage(
+          diagnostics?.placementRetry
+            ? "Estimate updated from Meta after simplifying placements."
+            : "Estimate updated from Meta delivery data.",
+        );
       } else {
         setReachStatus("unavailable");
-        setReachMessage("Meta returned no estimate for this targeting.");
+        setReachMessage(
+          diagnostics?.metaRowsReturned === 0
+            ? "Meta returned no delivery estimate rows for this targeting. Try broader location, age, or placements."
+            : "Meta returned no estimate for this targeting.",
+        );
       }
     } catch (e: any) {
       console.warn("[Reach Estimate Error]", e);
@@ -596,12 +609,23 @@ export default function PromoteOfferPage() {
       setReachMonthly(null);
       setReachStatus("error");
       const msg = e?.message?.toLowerCase?.() || "";
-      if (msg.includes("access token")) {
+      const diagnostics = e?.diagnostics || null;
+      console.warn("[Reach Estimate Diagnostics]", diagnostics || e?.metaError || null);
+
+      if (msg.includes("access token") || msg.includes("token")) {
         setReachMessage(
           "Meta token expired or invalid. Reconnect Meta to restore estimates.",
         );
+      } else if (msg.includes("permission") || msg.includes("permissions")) {
+        setReachMessage("Meta permissions are missing for reach estimates. Reconnect Meta with ad account access.");
+      } else if (msg.includes("ad account") || msg.includes("act_")) {
+        setReachMessage("Could not estimate reach for the selected Meta ad account. Check the business Meta connection.");
+      } else if (diagnostics?.usedServerFallback && !diagnostics?.resolvedAdAccount) {
+        setReachMessage("Could not resolve a Meta ad account for this offer. Reconnect Meta for the business offer.");
+      } else if (diagnostics?.placementRetry) {
+        setReachMessage("Meta rejected the selected placements and the simplified retry also failed.");
       } else {
-        setReachMessage("Could not load estimate right now. Please try again.");
+        setReachMessage(`Could not load estimate: ${e?.message || "Meta estimate unavailable"}`);
       }
     }
   }, 600);

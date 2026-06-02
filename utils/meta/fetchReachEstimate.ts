@@ -10,7 +10,7 @@ export type ReachParams = {
   interests: { id?: string | number; name?: string }[];
   optimization_goal: 'REACH' | 'IMPRESSIONS' | 'LEAD_GENERATION' | string;
   currency: string;
-  placementSpec?: Record<string, any>;
+  placementSpec?: Record<string, unknown>;
 };
 
 export async function fetchReachEstimate(params: ReachParams) {
@@ -59,7 +59,13 @@ export async function fetchReachEstimate(params: ReachParams) {
       json?.hint ||
       res.statusText ||
       'Failed to fetch reach estimate';
-    throw new Error(String(message));
+    const err = new Error(String(message)) as Error & {
+      diagnostics?: Record<string, unknown>;
+      metaError?: unknown;
+    };
+    err.diagnostics = json?.diagnostics;
+    err.metaError = json?.metaError;
+    throw err;
   }
   return json;
 }
