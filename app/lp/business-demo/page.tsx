@@ -1,5 +1,13 @@
+import React from "react";
 import type { Metadata } from "next";
 import StorylaneLandingPage from "@/components/marketing/StorylaneLandingPage";
+
+const businessMobileDemoHref =
+  process.env.NEXT_PUBLIC_STORYLANE_BUSINESS_MOBILE_DEMO_URL ||
+  "https://app.storylane.io/demo/8bo7mlvtch9m?embed=inline";
+const businessMobileDemoPadding =
+  process.env.NEXT_PUBLIC_STORYLANE_BUSINESS_MOBILE_DEMO_PADDING ||
+  "calc(217.27% + 25px)";
 
 export const metadata: Metadata = {
   title: "Nettmark for Brands Demo",
@@ -30,6 +38,9 @@ export default function BusinessDemoLandingPage() {
       demoHref="https://app.storylane.io/demo/qdg9lyyhmgmv?embed=inline"
       demoPadding="calc(65.19% + 25px)"
       demoTitle="Nettmark business short demo"
+      mobileDemoHref={businessMobileDemoHref}
+      mobileDemoPadding={businessMobileDemoPadding}
+      mobileDemoTitle="Nettmark business mobile demo"
       bullets={[
         "See the exact flow for publishing offers, reviewing partners, and keeping approvals tight.",
         "Understand how billing, wallet-funded spend, and automated payouts fit together without a long sales call.",

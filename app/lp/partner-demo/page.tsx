@@ -1,5 +1,9 @@
+import React from "react";
 import type { Metadata } from "next";
 import StorylaneLandingPage from "@/components/marketing/StorylaneLandingPage";
+
+const partnerMobileDemoHref = process.env.NEXT_PUBLIC_STORYLANE_PARTNER_MOBILE_DEMO_URL;
+const partnerMobileDemoPadding = process.env.NEXT_PUBLIC_STORYLANE_PARTNER_MOBILE_DEMO_PADDING;
 
 export const metadata: Metadata = {
   title: "Nettmark for Partners Demo",
@@ -30,6 +34,9 @@ export default function PartnerDemoLandingPage() {
       demoHref="https://app.storylane.io/demo/p83vbgruopoj?embed=inline"
       demoPadding="calc(65.41% + 25px)"
       demoTitle="Nettmark partner short demo"
+      mobileDemoHref={partnerMobileDemoHref}
+      mobileDemoPadding={partnerMobileDemoPadding}
+      mobileDemoTitle="Nettmark partner mobile demo"
       bullets={[
         "Walk through finding offers, launching campaigns, and understanding how approvals work before you commit.",
         "See the actual affiliate-side product instead of reading generic feature copy.",

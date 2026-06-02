@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSessionContext } from "@supabase/auth-helpers-react";
 import Link from "next/link";
 import Image from "next/image";
-import Script from "next/script";
 import MarketingHeader from "@/components/marketing/MarketingHeader";
 import MarketingPageTracker from "@/components/marketing/MarketingPageTracker";
+import StorylaneEmbed from "@/components/marketing/StorylaneEmbed";
 import {
   ShieldCheck,
   Link2,
@@ -420,73 +420,20 @@ export default function Home() {
                   </span>
                 </div>
                 {walkthroughAudience === "business" ? (
-                  <>
-                    <Script
-                      src="https://js.storylane.io/js/v2/storylane.js"
-                      strategy="afterInteractive"
-                      data-verify-origin=""
-                    />
-                    <div
-                      className="sl-embed relative w-full overflow-hidden rounded-[1.2rem] bg-black"
-                      style={{
-                        paddingBottom: "calc(65.19% + 25px)",
-                        height: 0,
-                        transform: "scale(1)",
-                      }}
-                    >
-                      <iframe
-                        title="Nettmark business walkthrough"
-                        loading="lazy"
-                        className="sl-demo absolute left-0 top-0 h-full w-full"
-                        src="https://app.storylane.io/demo/qdg9lyyhmgmv?embed=inline"
-                        name="sl-embed"
-                        allow="fullscreen"
-                        allowFullScreen
-                        style={{
-                          border: "1px solid rgba(63,95,172,0.35)",
-                          boxShadow: "0px 0px 18px rgba(26, 19, 72, 0.15)",
-                          borderRadius: "10px",
-                          boxSizing: "border-box",
-                          width: "100%",
-                          height: "100%",
-                        }}
-                      />
-                    </div>
-                  </>
+                  <StorylaneEmbed
+                    desktopHref="https://app.storylane.io/demo/qdg9lyyhmgmv?embed=inline"
+                    desktopPadding="calc(65.19% + 25px)"
+                    title="Nettmark business walkthrough"
+                    mobileHref="https://app.storylane.io/demo/8bo7mlvtch9m?embed=inline"
+                    mobilePadding="calc(217.27% + 25px)"
+                    mobileTitle="Nettmark business mobile walkthrough"
+                  />
                 ) : (
-                  <>
-                    <Script
-                      src="https://js.storylane.io/js/v2/storylane.js"
-                      strategy="afterInteractive"
-                      data-verify-origin=""
-                    />
-                    <div
-                      className="sl-embed relative w-full overflow-hidden rounded-[1.2rem] bg-black"
-                      style={{
-                        paddingBottom: "calc(65.41% + 25px)",
-                        height: 0,
-                        transform: "scale(1)",
-                      }}
-                    >
-                      <iframe
-                        title="Nettmark partner walkthrough"
-                        loading="lazy"
-                        className="sl-demo absolute left-0 top-0 h-full w-full"
-                        src="https://app.storylane.io/demo/p83vbgruopoj?embed=inline"
-                        name="sl-embed"
-                        allow="fullscreen"
-                        allowFullScreen
-                        style={{
-                          border: "1px solid rgba(63,95,172,0.35)",
-                          boxShadow: "0px 0px 18px rgba(26, 19, 72, 0.15)",
-                          borderRadius: "10px",
-                          boxSizing: "border-box",
-                          width: "100%",
-                          height: "100%",
-                        }}
-                      />
-                    </div>
-                  </>
+                  <StorylaneEmbed
+                    desktopHref="https://app.storylane.io/demo/p83vbgruopoj?embed=inline"
+                    desktopPadding="calc(65.41% + 25px)"
+                    title="Nettmark partner walkthrough"
+                  />
                 )}
               </div>
             </div>

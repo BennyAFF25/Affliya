@@ -1,7 +1,8 @@
+import React from "react";
 import Link from "next/link";
-import Script from "next/script";
 import { ArrowRight, CheckCircle2 } from "lucide-react";
 import MarketingPageTracker from "@/components/marketing/MarketingPageTracker";
+import StorylaneEmbed from "@/components/marketing/StorylaneEmbed";
 
 type StorylaneLandingPageProps = {
   pagePath: string;
@@ -21,6 +22,9 @@ type StorylaneLandingPageProps = {
   demoHref: string;
   demoPadding: string;
   demoTitle: string;
+  mobileDemoHref?: string;
+  mobileDemoPadding?: string;
+  mobileDemoTitle?: string;
   bullets: string[];
   footerTitle: string;
   footerCopy: string;
@@ -38,6 +42,9 @@ export default function StorylaneLandingPage({
   demoHref,
   demoPadding,
   demoTitle,
+  mobileDemoHref,
+  mobileDemoPadding,
+  mobileDemoTitle,
   bullets,
   footerTitle,
   footerCopy,
@@ -101,40 +108,14 @@ export default function StorylaneLandingPage({
           <div className="relative">
             <div className="absolute -inset-5 rounded-[2rem] bg-[radial-gradient(circle,rgba(0,194,203,0.2),transparent_65%)] blur-2xl" />
             <div className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.03] p-3 shadow-[0_30px_100px_-30px_rgba(0,0,0,0.85)] sm:p-4">
-              <Script
-                src="https://js.storylane.io/js/v2/storylane.js"
-                strategy="afterInteractive"
-                data-verify-origin=""
+              <StorylaneEmbed
+                desktopHref={demoHref}
+                desktopPadding={demoPadding}
+                title={demoTitle}
+                mobileHref={mobileDemoHref}
+                mobilePadding={mobileDemoPadding}
+                mobileTitle={mobileDemoTitle}
               />
-              <div
-                className="sl-embed relative w-full overflow-hidden rounded-[1.35rem] bg-black"
-                style={{
-                  paddingBottom: demoPadding,
-                  height: 0,
-                  transform: "scale(1)",
-                }}
-              >
-                <iframe
-                  title={demoTitle}
-                  loading="lazy"
-                  className="sl-demo absolute left-0 top-0 h-full w-full"
-                  src={demoHref}
-                  name="sl-embed"
-                  allow="fullscreen"
-                  allowFullScreen
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    width: "100%",
-                    height: "100%",
-                    border: "1px solid rgba(63,95,172,0.35)",
-                    boxShadow: "0px 0px 18px rgba(26, 19, 72, 0.15)",
-                    borderRadius: "10px",
-                    boxSizing: "border-box",
-                  }}
-                />
-              </div>
             </div>
           </div>
         </section>
