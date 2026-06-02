@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useSession } from "@supabase/auth-helpers-react";
 import { supabase } from "@/../utils/supabase/pages-client";
 
@@ -27,6 +27,14 @@ interface ShopRequest {
   status: string;
   message?: string | null;
   created_at: string;
+}
+
+async function parseJsonSafe(res: Response) {
+  try {
+    return await res.json();
+  } catch {
+    return null;
+  }
 }
 
 function formatWhen(value: string) {
@@ -116,12 +124,63 @@ export default function AffiliateRequestsPage() {
         .select("billing_connected,payouts_enabled")
         .eq("business_email", userEmail);
 
-      if (!progressError && progressRows) {
-        setApprovalReadiness({
-          billing_connected: progressRows.some((r: any) => Boolean(r.billing_connected)),
-          payouts_enabled: progressRows.some((r: any) => Boolean(r.payouts_enabled)),
-        });
+      const progressBillingReady = !progressError && progressRows
+        ? progressRows.some((r: { billing_connected?: boolean | null }) => Boolean(r.billing_connected))
+        : false;
+      const progressPayoutsReady = !progressError && progressRows
+        ? progressRows.some((r: { payouts_enabled?: boolean | null }) => Boolean(r.payouts_enabled))
+        : false;
+
+      if (progressError) {
+        console.error("[affiliate-requests] Error fetching approval readiness:", progressError.message);
       }
+
+      let derivedBillingReady = false;
+      let derivedPayoutsReady = false;
+
+      const { data: businessProfile, error: businessProfileError } = await supabase
+        .from("business_profiles")
+        .select("stripe_customer_id, stripe_account_id, stripe_onboarding_complete")
+        .eq("business_email", userEmail)
+        .single();
+
+      if (businessProfileError) {
+        console.warn(
+          "[affiliate-requests] Business billing profile lookup failed:",
+          businessProfileError.message,
+        );
+      } else {
+        derivedPayoutsReady = Boolean(businessProfile?.stripe_onboarding_complete);
+
+        if (businessProfile?.stripe_customer_id) {
+          try {
+            const cardRes = await fetch("/api/stripe/check-customer-card", {
+              method: "POST",
+            });
+            const cardJson = await parseJsonSafe(cardRes);
+            derivedBillingReady = cardRes.ok && Boolean(cardJson?.hasCard);
+          } catch (billingErr) {
+            console.warn("[affiliate-requests] Customer card check failed:", billingErr);
+          }
+        }
+
+        if (businessProfile?.stripe_account_id && !derivedPayoutsReady) {
+          try {
+            const accountRes = await fetch("/api/stripe/check-account", {
+              method: "POST",
+            });
+            const accountJson = await parseJsonSafe(accountRes);
+            derivedPayoutsReady = accountRes.ok && Boolean(accountJson?.onboardingComplete);
+          } catch (accountErr) {
+            console.warn("[affiliate-requests] Stripe account check failed:", accountErr);
+          }
+        }
+      }
+
+      setApprovalReadiness({
+        billing_connected: progressBillingReady || derivedBillingReady,
+        payouts_enabled: progressPayoutsReady || derivedPayoutsReady,
+      });
 
       const { data: shopData, error: shopError } = await supabase
         .from("affiliate_shop_requests")
@@ -151,8 +210,8 @@ export default function AffiliateRequestsPage() {
     }
     const current = requests.find((r) => r.id === requestId);
     const currentAffiliateEmail = current?.affiliate_email;
-    const currentOfferId = (current as any)?.offer?.id;
-    const currentOfferTitle = (current as any)?.offer?.title || "Your offer";
+    const currentOfferId = current?.offer?.id;
+    const currentOfferTitle = current?.offer?.title || "Your offer";
     const currentBusinessEmail = session?.user?.email;
 
     const { error } = await supabase
