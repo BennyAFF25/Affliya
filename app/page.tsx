@@ -433,6 +433,9 @@ export default function Home() {
                     desktopHref="https://app.storylane.io/demo/p83vbgruopoj?embed=inline"
                     desktopPadding="calc(65.41% + 25px)"
                     title="Nettmark partner walkthrough"
+                    mobileHref="https://app.storylane.io/demo/vql4sszz4w7m?embed=inline"
+                    mobilePadding="calc(217.27% + 25px)"
+                    mobileTitle="Nettmark partner mobile walkthrough"
                   />
                 )}
               </div>

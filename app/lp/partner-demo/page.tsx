@@ -2,8 +2,12 @@ import React from "react";
 import type { Metadata } from "next";
 import StorylaneLandingPage from "@/components/marketing/StorylaneLandingPage";
 
-const partnerMobileDemoHref = process.env.NEXT_PUBLIC_STORYLANE_PARTNER_MOBILE_DEMO_URL;
-const partnerMobileDemoPadding = process.env.NEXT_PUBLIC_STORYLANE_PARTNER_MOBILE_DEMO_PADDING;
+const partnerMobileDemoHref =
+  process.env.NEXT_PUBLIC_STORYLANE_PARTNER_MOBILE_DEMO_URL ||
+  "https://app.storylane.io/demo/vql4sszz4w7m?embed=inline";
+const partnerMobileDemoPadding =
+  process.env.NEXT_PUBLIC_STORYLANE_PARTNER_MOBILE_DEMO_PADDING ||
+  "calc(217.27% + 25px)";
 
 export const metadata: Metadata = {
   title: "Nettmark for Partners Demo",
