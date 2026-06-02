@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import AcceptTermsModal from "@/../app/components/AcceptTermsModal";
 import OfferCard from "@/components/OfferCard";
 import { supabase } from "../../../utils/supabase/pages-client";
-import { Search, Sparkles } from "lucide-react";
+import { RefreshCw, Search, Sparkles } from "lucide-react";
 
 type SupabaseOffer = {
   id: string;
@@ -60,6 +60,10 @@ export default function AffiliateMarketplace() {
 
   const [showAcceptTerms, setShowAcceptTerms] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const [refreshingOffers, setRefreshingOffers] = useState(false);
+  const [lastRefreshedAt, setLastRefreshedAt] = useState<Date | null>(null);
+  const pullStartYRef = useRef<number | null>(null);
+  const pullTriggeredRef = useRef(false);
   useEffect(() => {
     const checkTerms = async () => {
       const {
@@ -181,13 +185,23 @@ export default function AffiliateMarketplace() {
       setOffers(formatted);
     }, []);
 
-  useEffect(() => {
-    void fetchOffers();
+  const refreshOffers = useCallback(async () => {
+    setRefreshingOffers(true);
+    try {
+      await fetchOffers();
+      setLastRefreshedAt(new Date());
+    } finally {
+      setRefreshingOffers(false);
+    }
   }, [fetchOffers]);
 
   useEffect(() => {
+    void refreshOffers();
+  }, [refreshOffers]);
+
+  useEffect(() => {
     const refetchOffers = () => {
-      void fetchOffers();
+      void refreshOffers();
     };
 
     const refetchWhenVisible = () => {
@@ -205,7 +219,7 @@ export default function AffiliateMarketplace() {
       window.removeEventListener("pageshow", refetchOffers);
       document.removeEventListener("visibilitychange", refetchWhenVisible);
     };
-  }, [fetchOffers]);
+  }, [refreshOffers]);
 
   useEffect(() => {
     type AffiliateRequestRow = {
@@ -259,6 +273,31 @@ export default function AffiliateMarketplace() {
     return matchesSearch && matchesType;
   });
 
+  const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
+    if (window.scrollY > 0 || refreshingOffers) return;
+
+    pullStartYRef.current = event.touches[0]?.clientY ?? null;
+    pullTriggeredRef.current = false;
+  };
+
+  const handleTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
+    const startY = pullStartYRef.current;
+    const currentY = event.touches[0]?.clientY;
+
+    if (startY === null || currentY === undefined || pullTriggeredRef.current) return;
+    if (window.scrollY > 0) return;
+
+    if (currentY - startY > 90) {
+      pullTriggeredRef.current = true;
+      void refreshOffers();
+    }
+  };
+
+  const handleTouchEnd = () => {
+    pullStartYRef.current = null;
+    pullTriggeredRef.current = false;
+  };
+
   const sorted = [...filtered].sort((a, b) => {
     if (sortOrder === "Highest Commission") return b.commission - a.commission;
     if (sortOrder === "Business Name")
@@ -267,7 +306,12 @@ export default function AffiliateMarketplace() {
   });
 
   return (
-    <div className="flex justify-center px-6 py-10 min-h-screen bg-[var(--background)] text-[var(--foreground)]">
+    <div
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      className="flex min-h-screen justify-center bg-[var(--background)] px-6 py-10 text-[var(--foreground)]"
+    >
       {showAcceptTerms && userId && (
         <AcceptTermsModal
           userId={userId}
@@ -289,8 +333,25 @@ export default function AffiliateMarketplace() {
                 Choose offers aligned with your strengths and audience, and keep
                 your next promotion lined up in one place.
               </p>
+              <p className="mt-3 text-xs text-[var(--muted-foreground)] sm:hidden">
+                Pull down from the top or tap refresh to update offer status.
+              </p>
             </div>
+            <button
+              type="button"
+              onClick={() => void refreshOffers()}
+              disabled={refreshingOffers}
+              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#00C2CB]/30 bg-[#00C2CB]/10 px-4 py-2 text-sm font-semibold text-[#7ff5fb] transition hover:bg-[#00C2CB]/15 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <RefreshCw className={`h-4 w-4 ${refreshingOffers ? "animate-spin" : ""}`} />
+              {refreshingOffers ? "Refreshing…" : "Refresh offers"}
+            </button>
           </div>
+          {lastRefreshedAt && (
+            <p className="mt-4 text-xs text-[var(--muted-foreground)]">
+              Last refreshed {lastRefreshedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+            </p>
+          )}
         </header>
 
         <div className="rounded-3xl border border-[var(--border)] bg-[var(--card)] px-6 py-6 flex flex-wrap justify-center items-center gap-4 shadow-[0_20px_60px_rgba(0,0,0,0.08)]">
