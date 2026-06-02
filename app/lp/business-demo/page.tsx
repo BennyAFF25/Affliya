@@ -42,9 +42,31 @@ export default function BusinessDemoLandingPage() {
       mobileDemoPadding={businessMobileDemoPadding}
       mobileDemoTitle="Nettmark business mobile demo"
       bullets={[
-        "See the exact flow for publishing offers, reviewing partners, and keeping approvals tight.",
-        "Understand how billing, wallet-funded spend, and automated payouts fit together without a long sales call.",
-        "Use this page as a focused ad landing experience — product first, clutter removed.",
+        "Launch partner offers without giving up approval control.",
+        "Keep paid campaign requests, tracking, billing, and payouts in one workflow.",
+        "Only move forward after seeing the exact brand-side flow.",
+      ]}
+      demoIntroTitle="A 3-minute brand-side walkthrough"
+      demoIntroCopy="See how a business publishes an offer, reviews partner activity, and keeps campaign approvals tight before spend goes live."
+      demoSteps={[
+        "Create the offer",
+        "Review partners",
+        "Track sales and payouts",
+      ]}
+      objectionTitle="Built for brands that want growth without losing control"
+      objectionCards={[
+        {
+          title: "Approve before paid spend",
+          copy: "Partners can request paid campaigns, but the business stays in control before anything launches through Meta.",
+        },
+        {
+          title: "Commission-first economics",
+          copy: "Use tracked sales and automated payout flows so partner growth is tied back to measurable outcomes.",
+        },
+        {
+          title: "No generic agency funnel",
+          copy: "The demo shows the actual product flow, not a vague pitch deck or long discovery-call promise.",
+        },
       ]}
       footerTitle="Ready to turn paid traffic into a controlled partner channel?"
       footerCopy="Create your brand account, connect billing and payouts, and launch your first offer without sending traffic back through a generic homepage funnel."

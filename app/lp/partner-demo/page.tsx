@@ -42,10 +42,31 @@ export default function PartnerDemoLandingPage() {
       mobileDemoPadding={partnerMobileDemoPadding}
       mobileDemoTitle="Nettmark partner mobile demo"
       bullets={[
-        "Walk through finding offers, launching campaigns, and understanding how approvals work before you commit.",
-        "See the actual affiliate-side product instead of reading generic feature copy.",
-        "No need to connect Stripe until your first sale — connect when you're ready to withdraw.",
-        "Perfect for paid campaigns where you want cold traffic to hit the demo immediately.",
+        "Browse offers and understand the approval flow before you commit.",
+        "See how organic posts and paid campaign requests fit into one partner workspace.",
+        "No Stripe setup needed until you’re ready to withdraw earnings.",
+      ]}
+      demoIntroTitle="A 3-minute partner-side walkthrough"
+      demoIntroCopy="See how partners find offers, prepare promotion requests, and understand what happens before a business approves paid activity."
+      demoSteps={[
+        "Find an offer",
+        "Build a campaign",
+        "Track approval and payouts",
+      ]}
+      objectionTitle="Made for partners who want clarity before they promote"
+      objectionCards={[
+        {
+          title: "Know the rules upfront",
+          copy: "Offer details, commission terms, and approval steps are visible before you spend time building campaigns.",
+        },
+        {
+          title: "Organic or paid paths",
+          copy: "Submit organic promotion proof or request paid campaigns when the business has Meta launch setup ready.",
+        },
+        {
+          title: "Payouts when it matters",
+          copy: "You can explore first and connect Stripe later when there are real earnings to withdraw.",
+        },
       ]}
       footerTitle="Want to start promoting offers with real tracking and automated payouts?"
       footerCopy="Join as a partner, browse live offers, and move from interest to action without digging through the main website first."
