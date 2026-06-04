@@ -1,10 +1,10 @@
 "use client";
 import React from "react";
-import Link from "next/link";
 import { useSession } from "@supabase/auth-helpers-react";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/../utils/supabase/pages-client";
+import { Badge, Button, Card, Input, PageHeader, Select, Textarea } from "@/../components/ui";
 
 interface Offer {
   id: string;
@@ -324,45 +324,43 @@ export default function EditOfferPage() {
   });
 
   return (
-    <div className="mx-auto min-h-screen max-w-4xl bg-[var(--background)] p-8 text-[var(--foreground)]">
-      <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 className="mb-2 text-3xl font-semibold text-[var(--foreground)]">
-            Edit Offer
-          </h1>
-          <p className="text-[var(--muted-foreground)]">
-            Fine‑tune your offer details and attach Meta assets whenever this offer is ready for campaign launch.
-          </p>
-        </div>
-        <Link
-          href="/business/my-business/connect-meta"
-          className="inline-flex items-center justify-center rounded-full border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--foreground)] transition hover:bg-[var(--input-background)]"
-        >
-          Manage Meta connections
-        </Link>
+    <div className="mx-auto min-h-screen max-w-4xl bg-[var(--background)] px-4 py-6 text-[var(--foreground)] sm:px-6 lg:py-8">
+      <div className="mb-6">
+        <Card variant="elevated" className="px-5 py-6 sm:px-6">
+          <PageHeader
+            eyebrow="Offer settings"
+            title="Edit offer"
+            description="Fine-tune your offer details and attach Meta assets whenever this offer is ready for campaign launch."
+            actions={(
+              <Button href="/business/my-business/connect-meta" variant="outline">
+                Manage Meta connections
+              </Button>
+            )}
+          />
+        </Card>
       </div>
 
-      <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-8 shadow-[0_0_40px_rgba(0,0,0,0.12)]">
+      <Card className="p-5 sm:p-6">
         {loading ? (
           <p className="text-[var(--muted-foreground)]">Loading offer…</p>
         ) : error ? (
           <p className="text-sm text-red-500">{error}</p>
         ) : offer ? (
           <form onSubmit={handleSubmit} className="space-y-8 max-w-2xl">
-            <div className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium ${metaStatus.tone}`}>
+            <Badge variant="primary" className={metaStatus.tone}>
               {metaStatus.label}
-            </div>
+            </Badge>
             <p className="-mt-5 text-sm text-[var(--muted-foreground)]">{metaStatus.helper}</p>
 
             <div>
               <label className="mb-1 block text-xs font-medium tracking-wide text-[var(--muted-foreground)]">
                 Business Name
               </label>
-              <input
+              <Input
                 type="text"
                 value={businessName}
                 onChange={(e) => setBusinessName(e.target.value)}
-                className="w-full rounded-lg border border-[var(--border)] bg-[var(--input-background)] px-3 py-2 text-[var(--foreground)] focus:border-[var(--ring)] focus:outline-none"
+
                 required
               />
             </div>
@@ -371,10 +369,10 @@ export default function EditOfferPage() {
               <label className="mb-1 block text-xs font-medium tracking-wide text-[var(--muted-foreground)]">
                 Description
               </label>
-              <textarea
+              <Textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                className="w-full rounded-lg border border-[var(--border)] bg-[var(--input-background)] px-3 py-2 text-[var(--foreground)] focus:border-[var(--ring)] focus:outline-none"
+
                 required
               />
             </div>
@@ -383,11 +381,11 @@ export default function EditOfferPage() {
               <label className="mb-1 block text-xs font-medium tracking-wide text-[var(--muted-foreground)]">
                 Commission (%)
               </label>
-              <input
+              <Input
                 type="number"
                 value={commission}
                 onChange={(e) => setCommission(e.target.value)}
-                className="w-full rounded-lg border border-[var(--border)] bg-[var(--input-background)] px-3 py-2 text-[var(--foreground)] focus:border-[var(--ring)] focus:outline-none"
+
                 required
               />
             </div>
@@ -396,11 +394,11 @@ export default function EditOfferPage() {
               <label className="mb-1 block text-xs font-medium tracking-wide text-[var(--muted-foreground)]">
                 Product Price (Optional)
               </label>
-              <input
+              <Input
                 type="number"
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
-                className="w-full rounded-lg border border-[var(--border)] bg-[var(--input-background)] px-3 py-2 text-[var(--foreground)] focus:border-[var(--ring)] focus:outline-none"
+
               />
             </div>
 
@@ -408,27 +406,27 @@ export default function EditOfferPage() {
               <label className="mb-1 block text-xs font-medium tracking-wide text-[var(--muted-foreground)]">
                 Currency
               </label>
-              <select
+              <Select
                 value={currency}
                 onChange={(e) => setCurrency(e.target.value)}
-                className="w-full rounded-lg border border-[var(--border)] bg-[var(--input-background)] px-3 py-2 text-[var(--foreground)] focus:border-[var(--ring)] focus:outline-none"
+
               >
                 <option value="USD">USD</option>
                 <option value="AUD">AUD</option>
                 <option value="GBP">GBP</option>
                 <option value="EUR">EUR</option>
-              </select>
+              </Select>
             </div>
 
             <div>
               <label className="mb-1 block text-xs font-medium tracking-wide text-[var(--muted-foreground)]">
                 Commission Value (Optional)
               </label>
-              <input
+              <Input
                 type="number"
                 value={commissionValue}
                 onChange={(e) => setCommissionValue(e.target.value)}
-                className="w-full rounded-lg border border-[var(--border)] bg-[var(--input-background)] px-3 py-2 text-[var(--foreground)] focus:border-[var(--ring)] focus:outline-none"
+
               />
             </div>
 
@@ -436,14 +434,14 @@ export default function EditOfferPage() {
               <label className="mb-1 block text-xs font-medium tracking-wide text-[var(--muted-foreground)]">
                 Type
               </label>
-              <select
+              <Select
                 value={type}
                 onChange={(e) => setType(e.target.value)}
-                className="w-full rounded-lg border border-[var(--border)] bg-[var(--input-background)] px-3 py-2 text-[var(--foreground)] focus:border-[var(--ring)] focus:outline-none"
+
               >
                 <option value="one-time">One-Time</option>
                 <option value="recurring">Recurring</option>
-              </select>
+              </Select>
             </div>
 
             <div className="rounded-xl border border-[var(--border)] bg-[var(--input-background)]/40 p-4 space-y-4">
@@ -451,18 +449,18 @@ export default function EditOfferPage() {
                 <label className="mb-1 block text-xs font-medium tracking-wide text-[var(--muted-foreground)]">
                   Commission scope
                 </label>
-                <select
+                <Select
                   value={conversionScope}
                   onChange={(e) =>
                     setConversionScope(
                       e.target.value as "store_wide" | "specific_products",
                     )
                   }
-                  className="w-full rounded-lg border border-[var(--border)] bg-[var(--input-background)] px-3 py-2 text-[var(--foreground)] focus:border-[var(--ring)] focus:outline-none"
+
                 >
                   <option value="store_wide">Entire store / any product purchased</option>
                   <option value="specific_products">Only specific products or variants</option>
-                </select>
+                </Select>
                 <p className="mt-2 text-xs text-[var(--muted-foreground)]">
                   <strong className="text-[var(--foreground)]">Entire store</strong> pays on the eligible order value no matter what product was bought. <strong className="text-[var(--foreground)]">Specific products</strong> only pays when tracked order data includes matching product or variant IDs.
                 </p>
@@ -474,11 +472,11 @@ export default function EditOfferPage() {
                     <label className="mb-1 block text-xs font-medium tracking-wide text-[var(--muted-foreground)]">
                       Eligible product IDs
                     </label>
-                    <textarea
+                    <Textarea
                       value={eligibleProductIdsText}
                       onChange={(e) => setEligibleProductIdsText(e.target.value)}
                       placeholder="Example: 1234567890 or gid://shopify/Product/1234567890"
-                      className="w-full rounded-lg border border-[var(--border)] bg-[var(--input-background)] px-3 py-2 text-[var(--foreground)] focus:border-[var(--ring)] focus:outline-none"
+
                       rows={4}
                     />
                   </div>
@@ -487,11 +485,11 @@ export default function EditOfferPage() {
                     <label className="mb-1 block text-xs font-medium tracking-wide text-[var(--muted-foreground)]">
                       Eligible variant IDs / SKUs (optional)
                     </label>
-                    <textarea
+                    <Textarea
                       value={eligibleVariantIdsText}
                       onChange={(e) => setEligibleVariantIdsText(e.target.value)}
                       placeholder="Example: 987654321 or gid://shopify/ProductVariant/987654321 or SKU-RED-L"
-                      className="w-full rounded-lg border border-[var(--border)] bg-[var(--input-background)] px-3 py-2 text-[var(--foreground)] focus:border-[var(--ring)] focus:outline-none"
+
                       rows={3}
                     />
                   </div>
@@ -514,10 +512,10 @@ export default function EditOfferPage() {
                     <label className="mb-1 block text-xs font-medium tracking-wide text-[var(--muted-foreground)]">
                       Meta page
                     </label>
-                    <select
+                    <Select
                       value={selectedPage}
                       onChange={(e) => setSelectedPage(e.target.value)}
-                      className="w-full rounded-lg border border-[var(--border)] bg-[var(--input-background)] px-3 py-2 text-[var(--foreground)] focus:border-[var(--ring)] focus:outline-none"
+
                     >
                       <option value="">Skip for now</option>
                       {uniquePages.map((conn) => (
@@ -525,17 +523,17 @@ export default function EditOfferPage() {
                           {conn.page_name || conn.page_id}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   </div>
 
                   <div>
                     <label className="mb-1 block text-xs font-medium tracking-wide text-[var(--muted-foreground)]">
                       Meta ad account
                     </label>
-                    <select
+                    <Select
                       value={selectedAdAccount}
                       onChange={(e) => setSelectedAdAccount(e.target.value)}
-                      className="w-full rounded-lg border border-[var(--border)] bg-[var(--input-background)] px-3 py-2 text-[var(--foreground)] focus:border-[var(--ring)] focus:outline-none"
+
                     >
                       <option value="">Skip for now</option>
                       {uniqueAdAccounts.map((conn) => (
@@ -543,7 +541,7 @@ export default function EditOfferPage() {
                           {conn.ad_account_name || conn.ad_account_id}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   </div>
 
                   <div>
@@ -573,27 +571,27 @@ export default function EditOfferPage() {
                     </div>
 
                     <div className="mb-3 flex flex-wrap items-center gap-3">
-                      <button
+                      <Button
                         type="button"
                         disabled={pixelsLoading || !selectedAdAccount || !user?.email}
                         onClick={() => {
                           lastLoadedAdAccountRef.current = "";
                           void loadPixels(selectedAdAccount);
                         }}
-                        className="rounded-full border border-[var(--border)] px-4 py-2 text-sm font-medium text-[var(--foreground)] transition hover:bg-[var(--background)] disabled:cursor-not-allowed disabled:opacity-50"
+                        variant="secondary"
                       >
                         {pixelsLoading ? "Loading…" : "Refresh pixels"}
-                      </button>
+                      </Button>
                       {pixelStatusMsg && (
                         <span className="text-xs text-[var(--muted-foreground)]">{pixelStatusMsg}</span>
                       )}
                     </div>
 
-                    <select
+                    <Select
                       value={selectedPixel}
                       onChange={(e) => setSelectedPixel(e.target.value)}
                       disabled={!selectedAdAccount}
-                      className="w-full rounded-lg border border-[var(--border)] bg-[var(--input-background)] px-3 py-2 text-[var(--foreground)] focus:border-[var(--ring)] focus:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+
                     >
                       <option value="">Skip pixel for now</option>
                       {availablePixels.map((pixel) => (
@@ -601,7 +599,7 @@ export default function EditOfferPage() {
                           {pixel.name}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                     <p className="mt-2 text-xs text-[var(--muted-foreground)]">
                       Traffic and engagement can work without a pixel. Sales campaigns will require one later.
                     </p>
@@ -614,18 +612,18 @@ export default function EditOfferPage() {
               )}
             </div>
 
-            <button
+            <Button
               type="submit"
               disabled={saving}
-              className="rounded-full bg-[var(--primary)] px-6 py-2 font-semibold text-[var(--primary-foreground)] shadow-[0_0_20px_rgba(0,194,203,0.25)] transition-all hover:brightness-110 hover:shadow-[0_0_30px_rgba(0,194,203,0.35)] disabled:cursor-not-allowed disabled:opacity-60"
+
             >
               {saving ? "Saving…" : "Save Changes"}
-            </button>
+            </Button>
           </form>
         ) : (
           <p className="text-[var(--muted-foreground)]">Offer not found.</p>
         )}
-      </div>
+      </Card>
     </div>
   );
 }

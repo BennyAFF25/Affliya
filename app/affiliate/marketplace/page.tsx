@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import AcceptTermsModal from "@/../app/components/AcceptTermsModal";
 import OfferCard from "@/components/OfferCard";
+import { Button, Card, EmptyState, Input, PageHeader, Select } from "@/../components/ui";
 import { supabase } from "../../../utils/supabase/pages-client";
 import { RefreshCw, Search, Sparkles } from "lucide-react";
 
@@ -358,7 +359,7 @@ export default function AffiliateMarketplace() {
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
-      className="flex min-h-screen justify-center bg-[var(--background)] px-6 py-10 text-[var(--foreground)]"
+      className="flex min-h-screen justify-center bg-[var(--background)] px-4 py-6 text-[var(--foreground)] sm:px-6 lg:py-8"
     >
       {showAcceptTerms && userId && (
         <AcceptTermsModal
@@ -366,77 +367,70 @@ export default function AffiliateMarketplace() {
           onAccepted={() => setShowAcceptTerms(false)}
         />
       )}
-      <div className="w-full max-w-7xl space-y-8">
-        <header className="rounded-3xl border border-[var(--border)] bg-[var(--card)] px-6 py-8 shadow-[0_20px_60px_rgba(0,0,0,0.08)]">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-            <div className="max-w-3xl">
-              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#00C2CB]/20 bg-[#00C2CB]/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.24em] text-[#7ff5fb]">
-                <Sparkles className="h-3.5 w-3.5" />
-                Workspace overview
-              </div>
-              <h1 className="text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
-                Affiliate Marketplace
-              </h1>
-              <p className="mt-3 max-w-2xl text-sm text-[var(--muted-foreground)] sm:text-base">
-                Choose offers aligned with your strengths and audience, and keep
-                your next promotion lined up in one place.
-              </p>
-              <p className="mt-3 text-xs text-[var(--muted-foreground)] sm:hidden">
-                Pull down from the top or tap refresh to update offer status.
-              </p>
-            </div>
-            <button
+      <div className="w-full max-w-7xl space-y-6">
+        <Card variant="elevated" className="px-5 py-6 sm:px-6">
+          <PageHeader
+            eyebrow="Workspace overview"
+            title="Affiliate Marketplace"
+            description="Choose offers aligned with your strengths and audience, and keep your next promotion lined up in one place."
+            actions={(
+              <Button
               type="button"
               onClick={() => void refreshOffers()}
               disabled={refreshingOffers}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[#00C2CB]/30 bg-[#00C2CB]/10 px-4 py-2 text-sm font-semibold text-[#7ff5fb] transition hover:bg-[#00C2CB]/15 disabled:cursor-not-allowed disabled:opacity-60"
+                variant="outline"
+                size="md"
             >
               <RefreshCw className={`h-4 w-4 ${refreshingOffers ? "animate-spin" : ""}`} />
               {refreshingOffers ? "Refreshing…" : "Refresh offers"}
-            </button>
-          </div>
+              </Button>
+            )}
+          />
+          <p className="mt-3 text-xs text-[var(--muted-foreground)] sm:hidden">
+            Pull down from the top or tap refresh to update offer status.
+          </p>
           {lastRefreshedAt && (
             <p className="mt-4 text-xs text-[var(--muted-foreground)]">
               Last refreshed {lastRefreshedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
             </p>
           )}
-        </header>
+        </Card>
 
-        <div className="rounded-3xl border border-[var(--border)] bg-[var(--card)] px-6 py-6 flex flex-wrap justify-center items-center gap-4 shadow-[0_20px_60px_rgba(0,0,0,0.08)]">
+        <Card className="flex flex-wrap items-center gap-3 p-4">
           <div className="relative w-full sm:w-80">
-            <Search className="absolute top-3.5 left-3 text-[var(--muted-foreground)] w-5 h-5" />
-            <input
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted-foreground)]" />
+            <Input
               type="text"
               placeholder="Search by business name..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-10 pr-4 py-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--input-background)] text-[var(--foreground)] placeholder-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+              className="pl-9"
             />
           </div>
 
-          <select
+          <Select
             value={filterType}
             onChange={(e) => setFilterType(e.target.value)}
-            className="p-2 rounded-2xl border border-[var(--border)] bg-[var(--input-background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+            className="w-full sm:w-44"
           >
             <option value="All">All</option>
             <option value="Recurring">Recurring</option>
             <option value="One-Time">One-Time</option>
-          </select>
+          </Select>
 
-          <select
+          <Select
             value={sortOrder}
             onChange={(e) => setSortOrder(e.target.value)}
-            className="p-2 rounded-2xl border border-[var(--border)] bg-[var(--input-background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
+            className="w-full sm:w-56"
           >
             <option value="None">None</option>
             <option value="Highest Commission">Highest Commission</option>
             <option value="Business Name">Business Name</option>
-          </select>
-        </div>
+          </Select>
+        </Card>
 
         {sorted.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {sorted.map((offer) => (
               <OfferCard
                 key={offer.id}
@@ -447,9 +441,11 @@ export default function AffiliateMarketplace() {
             ))}
           </div>
         ) : (
-          <div className="text-center text-[var(--muted-foreground)] mt-20">
-            No matching offers. Try adjusting your filters or search.
-          </div>
+          <EmptyState
+            icon={<Sparkles className="h-5 w-5" />}
+            title="No matching offers"
+            description="Try adjusting your filters or search to surface more opportunities."
+          />
         )}
       </div>
     </div>

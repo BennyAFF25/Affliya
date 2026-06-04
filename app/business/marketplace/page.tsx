@@ -11,6 +11,7 @@ import {
   Users,
 } from "lucide-react";
 import { supabase } from "@/../utils/supabase/pages-client";
+import { Badge, Button, Card, EmptyState, Input, PageHeader, Select } from "@/../components/ui";
 
 interface Offer {
   id: string;
@@ -40,9 +41,6 @@ interface CampaignRow {
   offer_id: string;
   status: string;
 }
-
-const CARD =
-  "rounded-3xl border border-[var(--border)] bg-[var(--card)] shadow-[0_20px_60px_rgba(0,0,0,0.08)]";
 
 const formatLaunchLabel = (createdAt?: string | null) => {
   if (!createdAt) return "Recently added";
@@ -297,27 +295,18 @@ export default function BusinessMarketplace() {
   }, [offers, statsByOffer]);
 
   return (
-    <div className="business-marketplace-theme min-h-screen bg-[var(--background)] px-6 py-10 text-[var(--foreground)] sm:px-8">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-8">
-        <div className={`${CARD} overflow-hidden px-6 py-8`}>
+    <div className="business-marketplace-theme min-h-screen bg-[var(--background)] px-4 py-6 text-[var(--foreground)] sm:px-6 lg:py-8">
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-6">
+        <Card variant="elevated" className="overflow-hidden px-5 py-6 sm:px-6">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-            <div className="max-w-3xl">
-              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#00C2CB]/20 bg-[#00C2CB]/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.24em] text-[#7ff5fb]">
-                <Sparkles className="h-3.5 w-3.5" />
-                Marketplace overview
-              </div>
-              <h1 className="text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
-                Business Marketplace
-              </h1>
-              <p className="mt-3 max-w-2xl text-sm text-[var(--muted-foreground)] sm:text-base">
-                Browse active offers across the network, see what is trending,
-                and stay up to date with how similar businesses are positioning
-                themselves in the marketplace.
-              </p>
-            </div>
+            <PageHeader
+              eyebrow="Marketplace overview"
+              title="Business Marketplace"
+              description="Browse active offers across the network, see what is trending, and stay up to date with how similar businesses are positioning themselves."
+            />
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:min-w-[430px]">
-              <div className="rounded-2xl border border-white/5 bg-black/30 p-4">
+              <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
                 <div className="flex items-center gap-2 text-xs text-gray-400">
                   <Users className="h-3.5 w-3.5 text-[#7ff5fb]" />
                   Active offers
@@ -326,7 +315,7 @@ export default function BusinessMarketplace() {
                   {offers.length}
                 </div>
               </div>
-              <div className="rounded-2xl border border-white/5 bg-black/30 p-4">
+              <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
                 <div className="flex items-center gap-2 text-xs text-gray-400">
                   <Clock3 className="h-3.5 w-3.5 text-[#7ff5fb]" />
                   New in 14 days
@@ -335,7 +324,7 @@ export default function BusinessMarketplace() {
                   {summary.recentlyLaunched}
                 </div>
               </div>
-              <div className="rounded-2xl border border-white/5 bg-black/30 p-4">
+              <div className="rounded-2xl border border-white/10 bg-black/25 p-4">
                 <div className="flex items-center gap-2 text-xs text-gray-400">
                   <TrendingUp className="h-3.5 w-3.5 text-[#7ff5fb]" />
                   Live campaigns
@@ -346,10 +335,10 @@ export default function BusinessMarketplace() {
               </div>
             </div>
           </div>
-        </div>
+        </Card>
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <div className={`${CARD} p-5`}>
+          <Card className="p-5">
             <p className="text-xs text-gray-400">Average commission</p>
             <div className="mt-2 text-2xl font-semibold text-white">
               {summary.avgCommission.toFixed(1)}%
@@ -357,8 +346,8 @@ export default function BusinessMarketplace() {
             <p className="mt-2 text-xs text-[var(--muted-foreground)]">
               Useful for pressure-testing how aggressive your current offer is.
             </p>
-          </div>
-          <div className={`${CARD} p-5`}>
+          </Card>
+          <Card className="p-5">
             <p className="text-xs text-gray-400">Most affiliate traction</p>
             <div className="mt-2 text-lg font-semibold text-white">
               {summary.hottestOffer?.businessName ?? "No data yet"}
@@ -368,8 +357,8 @@ export default function BusinessMarketplace() {
                 ? `${statsByOffer[summary.hottestOffer.id]?.approvedAffiliates ?? 0} approved affiliates currently attached.`
                 : "Once requests start rolling in, this will surface the leader."}
             </p>
-          </div>
-          <div className={`${CARD} p-5`}>
+          </Card>
+          <Card className="p-5">
             <p className="text-xs text-gray-400">Best use of this page</p>
             <div className="mt-2 text-lg font-semibold text-white">
               Watch the market, then move faster
@@ -378,18 +367,18 @@ export default function BusinessMarketplace() {
               Track new launches, commission shifts, and affiliate momentum so
               your own listing stays sharp.
             </p>
-          </div>
+          </Card>
         </div>
 
-        <div className={`${CARD} flex flex-col gap-4 px-6 py-5 lg:flex-row lg:items-center lg:justify-between`}>
+        <Card className="flex flex-col gap-4 p-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="relative w-full lg:max-w-md">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted-foreground)]" />
-            <input
+            <Input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search businesses or offer angles..."
-              className="w-full rounded-2xl border border-[var(--border)] bg-[var(--input-background)] py-2.5 pl-10 pr-4 text-sm text-[var(--foreground)] placeholder-[var(--muted-foreground)] outline-none transition focus:border-[#00C2CB]/40 focus:ring-2 focus:ring-[#00C2CB]/15"
+              className="pl-9"
             />
           </div>
 
@@ -397,7 +386,7 @@ export default function BusinessMarketplace() {
             <span className="text-xs uppercase tracking-[0.18em] text-[var(--muted-foreground)]">
               Sort by
             </span>
-            <select
+            <Select
               value={sortOrder}
               onChange={(e) =>
                 setSortOrder(
@@ -407,19 +396,19 @@ export default function BusinessMarketplace() {
                     | "highest-commission",
                 )
               }
-              className="rounded-2xl border border-[var(--border)] bg-[var(--input-background)] px-4 py-2 text-sm text-[var(--foreground)] outline-none transition focus:border-[#00C2CB]/40 focus:ring-2 focus:ring-[#00C2CB]/15"
+              className="w-full sm:w-52"
             >
               <option value="most-affiliates">Most affiliates</option>
               <option value="newest">Newest offers</option>
               <option value="highest-commission">Highest commission</option>
-            </select>
+            </Select>
           </div>
-        </div>
+        </Card>
 
         {loading ? (
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             {Array.from({ length: 6 }).map((_, index) => (
-              <div key={index} className={`${CARD} animate-pulse p-6`}>
+              <Card key={index} className="animate-pulse p-5">
                 <div className="h-4 w-24 rounded bg-white/10" />
                 <div className="mt-4 h-6 w-2/3 rounded bg-white/10" />
                 <div className="mt-3 h-16 rounded bg-white/5" />
@@ -429,11 +418,11 @@ export default function BusinessMarketplace() {
                   <div className="h-20 rounded-2xl bg-white/5" />
                   <div className="h-20 rounded-2xl bg-white/5" />
                 </div>
-              </div>
+              </Card>
             ))}
           </div>
         ) : filteredOffers.length > 0 ? (
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             {filteredOffers.map((offer) => {
               const stats = statsByOffer[offer.id] ?? {
                 approvedAffiliates: 0,
@@ -443,29 +432,30 @@ export default function BusinessMarketplace() {
               };
 
               return (
-                <div
+                <Card
                   key={offer.id}
-                  className={`${CARD} group overflow-hidden p-6 transition-all duration-200 hover:-translate-y-1 hover:border-[#00C2CB]/30 hover:shadow-[0_24px_70px_rgba(0,194,203,0.08)]`}
+                  interactive
+                  className="group overflow-hidden p-5"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <div className="inline-flex items-center rounded-full border border-[#00C2CB]/20 bg-[#00C2CB]/10 px-2.5 py-1 text-[11px] font-medium text-[#7ff5fb]">
+                      <Badge variant="primary" className="normal-case tracking-normal">
                         {formatLaunchLabel(offer.created_at)}
-                      </div>
-                      <h2 className="mt-4 text-xl font-semibold text-white">
+                      </Badge>
+                      <h2 className="mt-3 text-lg font-semibold text-white">
                         {offer.businessName}
                       </h2>
                     </div>
-                    <div className="rounded-full border border-white/10 bg-black/30 px-2.5 py-1 text-[11px] text-gray-300">
+                    <Badge variant="muted" className="normal-case tracking-normal">
                       {offer.type === "recurring" ? "Recurring" : "One-time"}
-                    </div>
+                    </Badge>
                   </div>
 
                   <p className="mt-3 line-clamp-3 text-sm leading-6 text-[var(--muted-foreground)]">
                     {offer.description}
                   </p>
 
-                  <div className="mt-5 grid grid-cols-2 gap-3">
+                  <div className="mt-4 grid grid-cols-2 gap-3">
                     <div className="rounded-2xl border border-white/5 bg-black/25 p-4">
                       <p className="text-[11px] uppercase tracking-[0.14em] text-gray-500">
                         Approved
@@ -512,7 +502,7 @@ export default function BusinessMarketplace() {
                     </div>
                   </div>
 
-                  <div className="mt-5 flex items-center justify-between rounded-2xl border border-white/5 bg-black/20 px-4 py-3">
+                  <div className="mt-4 flex items-center justify-between rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
                     <div>
                       <p className="text-[11px] uppercase tracking-[0.14em] text-gray-500">
                         Total request volume
@@ -524,37 +514,33 @@ export default function BusinessMarketplace() {
                     <ArrowUpRight className="h-4 w-4 text-[#7ff5fb]" />
                   </div>
 
-                  <div className="mt-5 flex items-center gap-3">
+                  <div className="mt-4 flex items-center gap-3">
                     {offer.website ? (
-                      <a
+                      <Button
                         href={offer.website}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex flex-1 items-center justify-center gap-2 rounded-2xl bg-[var(--primary)] px-4 py-3 text-sm font-medium text-[var(--primary-foreground)] transition hover:brightness-110"
+                        className="flex-1"
                       >
                         Visit website
                         <ExternalLink className="h-4 w-4" />
-                      </a>
+                      </Button>
                     ) : (
                       <div className="inline-flex flex-1 items-center justify-center rounded-2xl border border-dashed border-[var(--border)] px-4 py-3 text-sm text-[var(--muted-foreground)]">
                         Website not listed
                       </div>
                     )}
                   </div>
-                </div>
+                </Card>
               );
             })}
           </div>
         ) : (
-          <div className={`${CARD} px-6 py-14 text-center`}>
-            <h3 className="text-lg font-semibold text-white">
-              No competitor offers match that search
-            </h3>
-            <p className="mt-2 text-sm text-[var(--muted-foreground)]">
-              Try a broader keyword or switch the sorting to surface different
-              market signals.
-            </p>
-          </div>
+          <EmptyState
+            icon={<Sparkles className="h-5 w-5" />}
+            title="No competitor offers match that search"
+            description="Try a broader keyword or switch the sorting to surface different market signals."
+          />
         )}
       </div>
     </div>

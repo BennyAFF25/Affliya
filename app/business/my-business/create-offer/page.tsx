@@ -4,6 +4,7 @@ import "@/globals.css";
 import React, { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { Button, Card, Input, PageHeader, Select, Textarea } from "@/../components/ui";
 import { v4 as uuidv4 } from "uuid";
 import { createPagesBrowserClient } from "@supabase/auth-helpers-nextjs";
 
@@ -528,13 +529,17 @@ function CreateOfferPageInner() {
   };
 
   return (
-    <div className="create-offer-theme min-h-screen bg-[var(--background)] py-12 px-6 text-[var(--foreground)]">
-      <div className="max-w-3xl mx-auto">
-        <h1 className="text-4xl font-extrabold text-[#00C2CB] mb-10">
-          Upload Your Offer
-        </h1>
+    <div className="create-offer-theme min-h-screen bg-[var(--background)] px-4 py-6 text-[var(--foreground)] sm:px-6 lg:py-8">
+      <div className="mx-auto max-w-4xl space-y-6">
+        <Card variant="elevated" className="px-5 py-6 sm:px-6">
+          <PageHeader
+            eyebrow="Offer builder"
+            title="Upload your offer"
+            description="Create a clear, marketplace-ready offer affiliates can scan and request quickly."
+          />
+        </Card>
 
-        <div className="bg-[#1a1a1a] rounded-lg shadow-lg border border-[#2a2a2a] p-8 space-y-6">
+        <Card className="space-y-6 p-5 sm:p-6">
           {showOnboard && (
             <div className="mb-6 rounded-xl border border-[#1f2a2a] bg-[#0f1313] p-5">
               <div className="text-[#7ff5fb] text-xs tracking-wide">
@@ -570,12 +575,12 @@ function CreateOfferPageInner() {
                 <label className="block font-semibold text-white mb-1">
                   Business Name
                 </label>
-                <input
+                <Input
                   required
                   value={businessName}
                   onChange={(e) => setBusinessName(e.target.value)}
                   placeholder="Business Name"
-                  className="w-full p-3 border border-[#2a2a2a] bg-[#0e0e0e] text-white rounded-lg"
+
                 />
               </div>
 
@@ -583,12 +588,12 @@ function CreateOfferPageInner() {
                 <label className="block font-semibold text-white mb-1">
                   Product/Service Description
                 </label>
-                <textarea
+                <Textarea
                   required
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="What are you offering?"
-                  className="w-full p-3 border border-[#2a2a2a] bg-[#0e0e0e] text-white rounded-lg"
+
                 />
               </div>
 
@@ -596,12 +601,12 @@ function CreateOfferPageInner() {
                 <label className="block font-semibold text-white mb-1">
                   Website
                 </label>
-                <input
+                <Input
                   type="url"
                   value={website}
                   onChange={(e) => setWebsite(e.target.value)}
                   placeholder="https://yourwebsite.com"
-                  className="w-full p-3 border border-[#2a2a2a] bg-[#0e0e0e] text-white rounded-lg"
+
                 />
               </div>
 
@@ -609,11 +614,11 @@ function CreateOfferPageInner() {
                 <label className="block font-semibold text-white mb-1">
                   Website Platform/Host
                 </label>
-                <select
+                <Select
                   required
                   value={siteHost}
                   onChange={(e) => setSiteHost(e.target.value)}
-                  className="w-full p-3 border border-[#2a2a2a] bg-[#0e0e0e] text-white rounded-lg"
+
                 >
                   <option value="">Select platform/host</option>
                   <option value="Shopify">Shopify</option>
@@ -621,7 +626,7 @@ function CreateOfferPageInner() {
                   <option value="WooCommerce">WooCommerce</option>
                   <option value="Squarespace">Squarespace</option>
                   <option value="Custom/Other">Custom/Other</option>
-                </select>
+                </Select>
               </div>
 
               <div className="mt-8 border-t border-[#262626] pt-6 space-y-4">
@@ -633,11 +638,11 @@ function CreateOfferPageInner() {
                   <label className="block font-semibold text-white mb-1">
                     Profile headline
                   </label>
-                  <input
+                  <Input
                     value={profileHeadline}
                     onChange={(e) => setProfileHeadline(e.target.value)}
                     placeholder="Short hook affiliates will see first"
-                    className="w-full p-3 border border-[#2a2a2a] bg-[#0e0e0e] text-white rounded-lg"
+
                   />
                 </div>
 
@@ -645,11 +650,11 @@ function CreateOfferPageInner() {
                   <label className="block font-semibold text-white mb-1">
                     Profile bio / story
                   </label>
-                  <textarea
+                  <Textarea
                     value={profileBio}
                     onChange={(e) => setProfileBio(e.target.value)}
                     placeholder="Explain who you are, who this offer is for, and why it converts."
-                    className="w-full p-3 border border-[#2a2a2a] bg-[#0e0e0e] text-white rounded-lg"
+
                     rows={4}
                   />
                 </div>
@@ -658,7 +663,7 @@ function CreateOfferPageInner() {
                   <label className="block font-semibold text-white mb-1">
                     Profile / brand images
                   </label>
-                  <input
+                  <Input
                     type="file"
                     accept="image/*"
                     multiple
@@ -670,7 +675,7 @@ function CreateOfferPageInner() {
                       );
                       setHeroImagePreviews(previews);
                     }}
-                    className="w-full p-3 border border-[#2a2a2a] bg-[#0e0e0e] text-white rounded-lg"
+
                   />
                   <p className="mt-1 text-xs text-gray-400">
                     These images will be used on your offer profile page (e.g.
@@ -700,14 +705,14 @@ function CreateOfferPageInner() {
                       Avg conversion rate (%){" "}
                       <span className="text-xs text-gray-500">(optional)</span>
                     </label>
-                    <input
+                    <Input
                       type="number"
                       min={0}
                       step="0.1"
                       value={avgConversionRate}
                       onChange={(e) => setAvgConversionRate(e.target.value)}
                       placeholder="e.g. 3.5"
-                      className="w-full p-3 border border-[#2a2a2a] bg-[#0e0e0e] text-white rounded-lg"
+
                     />
                   </div>
                   <div>
@@ -715,14 +720,14 @@ function CreateOfferPageInner() {
                       Avg EPC ({currency}){" "}
                       <span className="text-xs text-gray-500">(optional)</span>
                     </label>
-                    <input
+                    <Input
                       type="number"
                       min={0}
                       step="0.01"
                       value={avgEpc}
                       onChange={(e) => setAvgEpc(e.target.value)}
                       placeholder="e.g. 1.20"
-                      className="w-full p-3 border border-[#2a2a2a] bg-[#0e0e0e] text-white rounded-lg"
+
                     />
                   </div>
                 </div>
@@ -740,12 +745,12 @@ function CreateOfferPageInner() {
                 <label className="block font-semibold text-white mb-1">
                   Product Value ($)
                 </label>
-                <input
+                <Input
                   type="number"
                   value={price}
                   onChange={(e) => setPrice(e.target.value)}
                   placeholder="200"
-                  className="w-full p-3 border border-[#2a2a2a] bg-[#0e0e0e] text-white rounded-lg"
+
                 />
               </div>
 
@@ -753,12 +758,12 @@ function CreateOfferPageInner() {
                 <label className="block font-semibold text-white mb-1">
                   Commission (%)
                 </label>
-                <input
+                <Input
                   type="number"
                   value={commission}
                   onChange={(e) => setCommission(e.target.value)}
                   placeholder="30"
-                  className="w-full p-3 border border-[#2a2a2a] bg-[#0e0e0e] text-white rounded-lg"
+
                 />
               </div>
 
@@ -775,33 +780,33 @@ function CreateOfferPageInner() {
                 <label className="block font-semibold text-white mb-1">
                   Currency
                 </label>
-                <select
+                <Select
                   value={currency}
                   onChange={(e) => setCurrency(e.target.value)}
-                  className="w-full p-3 border border-[#2a2a2a] bg-[#0e0e0e] text-white rounded-lg"
+
                 >
                   <option value="USD">USD</option>
                   <option value="AUD">AUD</option>
                   <option value="EUR">EUR</option>
                   <option value="GBP">GBP</option>
                   <option value="CAD">CAD</option>
-                </select>
+                </Select>
               </div>
 
               <div>
                 <label className="block font-semibold text-white mb-1">
                   Offer Type
                 </label>
-                <select
+                <Select
                   value={type}
                   onChange={(e) =>
                     setType(e.target.value as "one-time" | "recurring")
                   }
-                  className="w-full p-3 border border-[#2a2a2a] bg-[#0e0e0e] text-white rounded-lg"
+
                 >
                   <option value="one-time">One-Time</option>
                   <option value="recurring">Recurring</option>
-                </select>
+                </Select>
               </div>
 
               <div className="mt-4 space-y-4 border border-[#262626] rounded-lg p-4 bg-[#111111]">
@@ -813,14 +818,14 @@ function CreateOfferPageInner() {
                   <label className="block font-semibold text-white mb-1">
                     What should count for commission?
                   </label>
-                  <select
+                  <Select
                     value={conversionScope}
                     onChange={(e) =>
                       setConversionScope(
                         e.target.value as "store_wide" | "specific_products",
                       )
                     }
-                    className="w-full p-3 border border-[#2a2a2a] bg-[#0e0e0e] text-white rounded-lg"
+
                   >
                     <option value="store_wide">
                       Entire store / any product purchased
@@ -828,7 +833,7 @@ function CreateOfferPageInner() {
                     <option value="specific_products">
                       Only specific products or variants
                     </option>
-                  </select>
+                  </Select>
                   <p className="mt-2 text-xs text-gray-400">
                     <strong className="text-white">Entire store</strong> pays on the eligible order value no matter which product is bought. <strong className="text-white">Specific products</strong> only pays when Nettmark sees matching product or variant IDs in the tracked order.
                   </p>
@@ -840,11 +845,11 @@ function CreateOfferPageInner() {
                       <label className="block font-semibold text-white mb-1">
                         Eligible product IDs
                       </label>
-                      <textarea
+                      <Textarea
                         value={eligibleProductIdsText}
                         onChange={(e) => setEligibleProductIdsText(e.target.value)}
                         placeholder="Example: 1234567890 or gid://shopify/Product/1234567890"
-                        className="w-full p-3 border border-[#2a2a2a] bg-[#0e0e0e] text-white rounded-lg"
+
                         rows={4}
                       />
                       <p className="mt-2 text-xs text-gray-400">
@@ -856,11 +861,11 @@ function CreateOfferPageInner() {
                       <label className="block font-semibold text-white mb-1">
                         Eligible variant IDs / SKUs (optional)
                       </label>
-                      <textarea
+                      <Textarea
                         value={eligibleVariantIdsText}
                         onChange={(e) => setEligibleVariantIdsText(e.target.value)}
                         placeholder="Example: 987654321 or gid://shopify/ProductVariant/987654321 or SKU-RED-L"
-                        className="w-full p-3 border border-[#2a2a2a] bg-[#0e0e0e] text-white rounded-lg"
+
                         rows={3}
                       />
                       <p className="mt-2 text-xs text-gray-400">
@@ -889,12 +894,12 @@ function CreateOfferPageInner() {
                     <label className="block text-xs text-gray-400 mb-1">
                       How do you want to pay affiliates?
                     </label>
-                    <select
+                    <Select
                       value={payoutMode}
                       onChange={(e) =>
                         setPayoutMode(e.target.value as "upfront" | "spread")
                       }
-                      className="w-full p-3 border border-[#2a2a2a] bg-[#0e0e0e] text-white rounded-lg"
+
                     >
                       <option value="upfront">
                         Pay full commission upfront
@@ -902,7 +907,7 @@ function CreateOfferPageInner() {
                       <option value="spread">
                         Spread commission over time
                       </option>
-                    </select>
+                    </Select>
                   </div>
 
                   {payoutMode === "spread" && (
@@ -912,29 +917,29 @@ function CreateOfferPageInner() {
                           <label className="block text-xs text-gray-400 mb-1">
                             Payout interval
                           </label>
-                          <select
+                          <Select
                             value={payoutInterval}
                             onChange={(e) =>
                               setPayoutInterval(e.target.value as "monthly")
                             }
-                            className="w-full p-3 border border-[#2a2a2a] bg-[#0e0e0e] text-white rounded-lg"
+
                           >
                             <option value="monthly">Monthly</option>
-                          </select>
+                          </Select>
                         </div>
 
                         <div>
                           <label className="block text-xs text-gray-400 mb-1">
                             Number of payout cycles
                           </label>
-                          <input
+                          <Input
                             type="number"
                             min={1}
                             value={payoutCycles}
                             onChange={(e) =>
                               setPayoutCycles(Number(e.target.value) || 1)
                             }
-                            className="w-full p-3 border border-[#2a2a2a] bg-[#0e0e0e] text-white rounded-lg"
+
                           />
                         </div>
                       </div>
@@ -980,13 +985,13 @@ function CreateOfferPageInner() {
                     <label className="block font-semibold text-white mb-1">
                       Select Facebook Page <span className="text-xs text-gray-500">(offer asset)</span>
                     </label>
-                    <select
+                    <Select
                       value={selectedPage}
                       onChange={(e) => {
                         console.log("[🧭 Page Selected]", e.target.value);
                         setSelectedPage(e.target.value);
                       }}
-                      className="w-full p-3 border border-[#2a2a2a] bg-[#0e0e0e] text-white rounded-lg"
+
                     >
                       <option value="">Skip for now</option>
                       {uniquePages.map((conn) => (
@@ -994,21 +999,21 @@ function CreateOfferPageInner() {
                           {conn.page_name || conn.page_id}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   </div>
 
                   <div>
                     <label className="block font-semibold text-white mb-1">
                       Select Ad Account <span className="text-xs text-gray-500">(offer asset)</span>
                     </label>
-                    <select
+                    <Select
                       value={selectedAdAccount}
                       onChange={(e) => {
                         const next = e.target.value;
                         console.log("[🏦 Ad Account Selected]", next);
                         setSelectedAdAccount(next);
                       }}
-                      className="w-full p-3 border border-[#2a2a2a] bg-[#0e0e0e] text-white rounded-lg"
+
                     >
                       <option value="">Skip for now</option>
                       {uniqueAdAccounts.map((conn) => (
@@ -1016,7 +1021,7 @@ function CreateOfferPageInner() {
                           {conn.ad_account_name || conn.ad_account_id}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   </div>
 
                   <div>
@@ -1050,7 +1055,7 @@ function CreateOfferPageInner() {
                     </div>
 
                     <div className="flex gap-3 mb-3 items-center flex-wrap">
-                      <button
+                      <Button
                         type="button"
                         disabled={pixelsLoading || !selectedAdAccount || !userEmail}
                         onClick={() => {
@@ -1061,15 +1066,10 @@ function CreateOfferPageInner() {
                           lastLoadedAdAccountRef.current = "";
                           loadPixels(selectedAdAccount);
                         }}
-                        className={
-                          "px-4 py-2 rounded-md text-sm font-semibold shadow transition " +
-                          (pixelsLoading || !selectedAdAccount
-                            ? "opacity-50 cursor-not-allowed bg-[#1f1f1f] border border-[#2a2a2a] text-gray-300"
-                            : "bg-[#00C2CB] hover:bg-[#00b0b8] text-black")
-                        }
+                        variant={pixelsLoading || !selectedAdAccount ? "secondary" : "primary"}
                       >
                         {pixelsLoading ? "Loading…" : "Refresh Pixels"}
-                      </button>
+                      </Button>
 
                       {!selectedAdAccount && (
                         <span className="text-xs text-gray-400">
@@ -1084,10 +1084,10 @@ function CreateOfferPageInner() {
                       )}
                     </div>
 
-                    <select
+                    <Select
                       value={selectedPixel}
                       onChange={(e) => setSelectedPixel(e.target.value)}
-                      className="w-full p-3 border border-[#2a2a2a] bg-[#0e0e0e] text-white rounded-lg"
+
                       disabled={!selectedAdAccount}
                     >
                       <option value="">Skip pixel for now</option>
@@ -1096,7 +1096,7 @@ function CreateOfferPageInner() {
                           {pixel.name}
                         </option>
                       ))}
-                    </select>
+                    </Select>
 
                     <p className="mt-1 text-xs text-gray-400">
                       Save without a pixel if you only need traffic or engagement first. Sales campaigns will ask for one later.
@@ -1119,12 +1119,9 @@ function CreateOfferPageInner() {
                   </div>
 
                   <div className="flex flex-col gap-3 sm:flex-row">
-                    <Link
-                      href="/business/my-business/connect-meta"
-                      className="inline-flex items-center justify-center rounded-lg bg-[#00C2CB] px-4 py-2 font-semibold text-black hover:bg-[#00b0b8]"
-                    >
+                    <Button href="/business/my-business/connect-meta">
                       Connect Meta ads
-                    </Link>
+                    </Button>
                     <span className="inline-flex items-center rounded-lg border border-[#2a2a2a] px-4 py-2 text-sm text-gray-400">
                       Skip for now — this offer will be organic-only.
                     </span>
@@ -1139,45 +1136,45 @@ function CreateOfferPageInner() {
               <h2 className="text-2xl font-bold text-[#00C2CB]">
                 Upload Logo or Product Image
               </h2>
-              <input
+              <Input
                 type="file"
                 accept="image/*"
                 onChange={(e) => setLogoFile(e.target.files?.[0] || null)}
-                className="w-full p-3 border border-[#2a2a2a] bg-[#0e0e0e] text-white rounded-lg"
+
               />
             </>
           )}
 
           <div className="flex justify-between pt-6">
             {step > 1 && (
-              <button
+              <Button
                 type="button"
                 onClick={() => setStep((prev) => Math.max(prev - 1, 1))}
-                className="bg-gray-700 hover:bg-gray-600 text-white font-semibold py-2 px-6 rounded-lg shadow transition"
+                variant="secondary"
               >
                 Back
-              </button>
+              </Button>
             )}
 
             {step < 4 ? (
-              <button
+              <Button
                 type="button"
                 onClick={() => setStep((prev) => prev + 1)}
-                className="bg-[#00C2CB] hover:bg-[#00b0b8] text-black font-semibold py-2 px-6 rounded-lg shadow transition ml-auto"
+                className="ml-auto"
               >
                 Next
-              </button>
+              </Button>
             ) : (
-              <button
+              <Button
                 type="button"
                 onClick={handleSubmit}
-                className="bg-[#00C2CB] hover:bg-[#00b0b8] text-black font-semibold py-2 px-6 rounded-lg shadow transition ml-auto"
+                className="ml-auto"
               >
                 Submit Offer
-              </button>
+              </Button>
             )}
           </div>
-        </div>
+        </Card>
       </div>
     </div>
   );

@@ -2,7 +2,6 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useSession } from "@supabase/auth-helpers-react";
-import Link from "next/link";
 import { supabase } from "utils/supabase/pages-client";
 import {
   Rocket,
@@ -16,6 +15,7 @@ import {
 } from "lucide-react";
 import { InboxTabs } from "@/components/inbox/InboxTabs";
 import { InboxCard } from "@/components/inbox/InboxCard";
+import { Button, Card, EmptyState, PageHeader } from "@/../components/ui";
 
 interface AffiliateRequest {
   id: string;
@@ -68,11 +68,11 @@ interface EntryData {
 }
 
 interface DecoratedEntry extends EntryData {
-  icon: JSX.Element;
+  icon: React.ReactElement;
   accent: "teal" | "amber" | "red" | "neutral";
 }
 
-const iconMap: Record<EntryKind, JSX.Element> = {
+const iconMap: Record<EntryKind, React.ReactElement> = {
   approval: <Rocket className="h-4 w-4" />,
   creative: <Sparkles className="h-4 w-4" />,
   alert: <Bell className="h-4 w-4" />,
@@ -454,32 +454,22 @@ export default function AffiliateInbox() {
   }[];
 
   return (
-    <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)] px-4 sm:px-8 lg:px-12 py-10">
-      <div className="mx-auto w-full max-w-6xl space-y-10">
-        <header className="rounded-3xl border border-[var(--border)] bg-[var(--card)] px-6 py-8 shadow-[0_20px_60px_rgba(0,0,0,0.08)]">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-            <div className="max-w-3xl">
-              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#00C2CB]/20 bg-[#00C2CB]/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.24em] text-[#7ff5fb]">
-                <Sparkles className="h-3.5 w-3.5" />
-                Workspace overview
-              </div>
-              <h1 className="text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
-                Affiliate Inbox
-              </h1>
-              <p className="mt-3 max-w-2xl text-sm text-[var(--muted-foreground)] sm:text-base">
-                Approvals, creative feedback, and Nettmark alerts in one
-                streamlined lane.
-              </p>
-            </div>
-          </div>
-        </header>
+    <div className="min-h-screen bg-[var(--background)] px-4 py-6 text-[var(--foreground)] sm:px-6 lg:py-8">
+      <div className="mx-auto w-full max-w-6xl space-y-6">
+        <Card variant="elevated" className="px-5 py-6 sm:px-6">
+          <PageHeader
+            eyebrow="Workspace overview"
+            title="Affiliate Inbox"
+            description="Approvals, creative feedback, and Nettmark alerts in one streamlined lane."
+          />
+        </Card>
 
         {suggestionCards.length > 0 && (
           <div className="grid gap-4 md:grid-cols-2">
             {suggestionCards.map((card) => (
-              <div
+              <Card
                 key={card.title}
-                className="rounded-2xl border border-[var(--border)] bg-[var(--card)] px-6 py-5 shadow-[0_10px_30px_rgba(0,0,0,0.35)]"
+                className="p-5"
               >
                 <p className="text-sm font-semibold text-[var(--foreground)]">
                   {card.title}
@@ -487,14 +477,16 @@ export default function AffiliateInbox() {
                 <p className="mt-2 text-sm text-[var(--muted-foreground)]">
                   {card.body}
                 </p>
-                <Link
+                <Button
                   href={card.href}
-                  className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-[var(--primary)] hover:brightness-110"
+                  variant="outline"
+                  size="sm"
+                  className="mt-4"
                 >
                   {card.label}
                   <ArrowUpRight className="h-4 w-4" />
-                </Link>
-              </div>
+                </Button>
+              </Card>
             ))}
           </div>
         )}
@@ -509,25 +501,27 @@ export default function AffiliateInbox() {
           <div className="grid gap-6 lg:grid-cols-[360px,1fr]">
             <div className="space-y-3">
               {displayedEntries.length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--card)] px-5 py-10 text-center text-sm text-[var(--muted-foreground)]">
-                  Nothing in this view yet. Switch tabs or head to the
-                  marketplace to get moving.
-                </div>
+                <EmptyState
+                  icon={<InboxIcon className="h-5 w-5" />}
+                  title="Nothing in this view yet"
+                  description="Switch tabs or head to the marketplace to get moving."
+                  className="border-dashed"
+                />
               ) : (
                 displayedEntries.map((entry) => {
                   const isArchived = archivedIds.has(entry.id);
                   const actions = (
                     <>
                       {entry.link && (
-                        <Link
+                        <Button
                           href={entry.link.href}
-                          className="rounded-lg bg-[var(--primary)] px-3 py-1.5 text-xs font-semibold text-[var(--primary-foreground)] transition hover:brightness-110"
+                          size="sm"
                         >
                           {entry.link.label}
-                        </Link>
+                        </Button>
                       )}
-                      <button
-                        onClick={(e) => {
+                      <Button
+                        onClick={(e: React.MouseEvent<HTMLButtonElement | HTMLAnchorElement>) => {
                           e.stopPropagation();
                           if (isArchived) {
                             handleRestore(entry.id);
@@ -535,20 +529,17 @@ export default function AffiliateInbox() {
                             handleArchive(entry.id);
                           }
                         }}
-                        className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
-                          isArchived
-                            ? "border-[var(--primary)]/30 text-[var(--primary)] hover:border-[var(--primary)]"
-                            : "border-[var(--border)] text-[var(--muted-foreground)] hover:text-[var(--primary)] hover:border-[var(--primary)]/50"
-                        }`}
+                        variant={isArchived ? "outline" : "secondary"}
+                        size="sm"
                       >
                         {isArchived ? "Restore" : "Archive"}
-                      </button>
+                      </Button>
                     </>
                   );
 
                   const swipeActions = (
-                    <button
-                      onClick={(e) => {
+                    <Button
+                      onClick={(e: React.MouseEvent<HTMLButtonElement | HTMLAnchorElement>) => {
                         e.stopPropagation();
                         if (isArchived) {
                           handleRestore(entry.id);
@@ -556,14 +547,11 @@ export default function AffiliateInbox() {
                           handleArchive(entry.id);
                         }
                       }}
-                      className={`rounded-lg px-3 py-1.5 text-xs font-semibold ${
-                        isArchived
-                          ? "bg-[var(--primary)]/20 text-[var(--primary)]"
-                          : "bg-[var(--primary)] text-[var(--primary-foreground)]"
-                      }`}
+                      variant={isArchived ? "outline" : "primary"}
+                      size="sm"
                     >
                       {isArchived ? "Restore" : "Archive"}
-                    </button>
+                    </Button>
                   );
 
                   return (
@@ -586,7 +574,7 @@ export default function AffiliateInbox() {
               )}
             </div>
 
-            <aside className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-[0_15px_40px_rgba(0,0,0,0.45)]">
+            <Card className="p-5 lg:p-6">
               {selectedEntry ? (
                 <div className="space-y-4">
                   <div className="flex items-center gap-3 text-[var(--primary)]">
@@ -625,21 +613,20 @@ export default function AffiliateInbox() {
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {selectedEntry.link && (
-                      <Link
+                      <Button
                         href={selectedEntry.link.href}
-                        className="inline-flex items-center gap-2 rounded-lg bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-[var(--primary-foreground)] transition hover:brightness-110"
                       >
                         {selectedEntry.link.label}
                         <ArrowUpRight className="h-4 w-4" />
-                      </Link>
+                      </Button>
                     )}
-                    <button
+                    <Button
                       onClick={() =>
                         archivedIds.has(selectedEntry.id)
                           ? handleRestore(selectedEntry.id)
                           : handleArchive(selectedEntry.id)
                       }
-                      className="inline-flex items-center gap-2 rounded-lg border border-[var(--border)] px-4 py-2 text-sm font-semibold text-[var(--foreground)]/80 transition hover:border-[var(--primary)]/50 hover:text-[var(--primary)]"
+                      variant="secondary"
                     >
                       {archivedIds.has(selectedEntry.id) ? (
                         <>
@@ -650,7 +637,7 @@ export default function AffiliateInbox() {
                           <Archive className="h-4 w-4" /> Archive
                         </>
                       )}
-                    </button>
+                    </Button>
                   </div>
                 </div>
               ) : (
@@ -665,7 +652,7 @@ export default function AffiliateInbox() {
                   </p>
                 </div>
               )}
-            </aside>
+            </Card>
           </div>
         </div>
       </div>

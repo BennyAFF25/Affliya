@@ -1,4 +1,5 @@
-import { ReactNode, useState } from "react";
+import React, { ReactNode, useState } from "react";
+import { Badge, Card } from "@/../components/ui";
 
 interface InboxCardProps {
   title: string;
@@ -62,7 +63,7 @@ export function InboxCard({
           {swipeActions}
         </div>
       )}
-      <div
+      <Card
         role="button"
         tabIndex={0}
         onClick={onSelect}
@@ -71,13 +72,13 @@ export function InboxCard({
         }}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
-        className={`group relative rounded-2xl border border-[var(--border)] ${accentMap[accent]} bg-[var(--card)] backdrop-blur px-5 py-4 transition-all cursor-pointer hover:border-[var(--primary)]/40 hover:bg-[var(--secondary)] ${
+        className={`group relative border-l-4 ${accentMap[accent]} px-4 py-3 transition-all cursor-pointer hover:border-[var(--primary)]/40 hover:bg-[var(--secondary)] ${
           selected
             ? "ring-2 ring-[var(--primary)] ring-offset-2 ring-offset-[var(--background)]"
             : ""
         } ${isSwiped ? "translate-x-[-64px]" : ""}`}
       >
-        <div className="flex items-start gap-4">
+        <div className="flex items-start gap-3">
           <div className="mt-1 text-[var(--primary)]">{icon}</div>
           <div className="min-w-0 space-y-1">
             <div className="flex flex-wrap items-center gap-2">
@@ -85,9 +86,9 @@ export function InboxCard({
                 {title}
               </p>
               {statusBadge && (
-                <span className="rounded-full border border-[var(--border)] bg-[var(--secondary)] px-2 py-0.5 text-[11px] uppercase tracking-wide text-[var(--muted-foreground)]">
+                <Badge variant="muted" className="py-0.5 normal-case tracking-normal">
                   {statusBadge}
-                </span>
+                </Badge>
               )}
             </div>
             {subtitle && (
@@ -115,7 +116,7 @@ export function InboxCard({
         {actions && (
           <div className="mt-4 hidden flex-wrap gap-2 sm:flex">{actions}</div>
         )}
-      </div>
+      </Card>
     </div>
   );
 }

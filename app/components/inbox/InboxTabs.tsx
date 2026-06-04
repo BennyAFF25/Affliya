@@ -1,4 +1,5 @@
-import { ReactNode } from "react";
+import React, { ReactNode } from "react";
+import { Badge, Button } from "@/../components/ui";
 
 export interface InboxTab {
   id: string;
@@ -19,31 +20,28 @@ export function InboxTabs({ tabs, activeTab, onTabChange }: InboxTabsProps) {
       {tabs.map((tab) => {
         const isActive = tab.id === activeTab;
         return (
-          <button
+          <Button
             key={tab.id}
             onClick={() => onTabChange(tab.id)}
-            className={`flex items-center gap-2 rounded-full px-3 sm:px-4 py-1.5 text-xs sm:text-sm font-medium transition-all border ${
-              isActive
-                ? "border-[var(--primary)] bg-[var(--primary)] text-[var(--primary-foreground)] shadow-[0_8px_20px_rgba(0,194,203,0.25)]"
-                : "border-[var(--border)] bg-[var(--card)] text-[var(--muted-foreground)] hover:border-[var(--primary)]/30"
-            }`}
+            variant={isActive ? "primary" : "secondary"}
+            size="sm"
+            className="rounded-full"
           >
             {tab.icon && (
               <span className="text-base sm:text-lg">{tab.icon}</span>
             )}
             <span>{tab.label}</span>
             {typeof tab.count === "number" && (
-              <span
-                className={`inline-flex min-w-[1.5rem] justify-center rounded-full px-2 py-0.5 text-[11px] ${
-                  isActive
-                    ? "bg-[var(--primary-foreground)]/15 text-[var(--primary-foreground)]"
-                    : "bg-[var(--secondary)] text-[var(--muted-foreground)]"
+              <Badge
+                variant={isActive ? "outline" : "muted"}
+                className={`min-w-[1.5rem] justify-center px-2 py-0.5 tracking-normal ${
+                  isActive ? "border-black/10 bg-black/10 text-[#041012]" : ""
                 }`}
               >
                 {tab.count}
-              </span>
+              </Badge>
             )}
-          </button>
+          </Button>
         );
       })}
     </div>
