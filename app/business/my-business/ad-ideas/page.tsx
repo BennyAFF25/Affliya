@@ -1,10 +1,11 @@
 "use client";
 
 import { useSession } from "@supabase/auth-helpers-react";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { supabase } from "utils/supabase/pages-client";
 import { useRouter } from "next/navigation";
 import { nmToast } from "@/components/ui/toast";
+import { ActionBar, Badge, Button, EmptyState, ReviewCard, ReviewMetaItem, ReviewQueue, StatCard, StatusBadge } from "@/../components/ui";
 
 // Email notifications (client -> server)
 async function postJson(url: string, body: any) {
@@ -97,9 +98,16 @@ interface AdIdea {
   performance_goal?: string;
 }
 
-interface Offer {
-  id: string;
-  businessName: string;
+function formatIdeaDate(value?: string) {
+  if (!value) return "Unknown time";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Unknown time";
+  return date.toLocaleString("en-AU", {
+    day: "2-digit",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 export default function AdIdeasPage() {
@@ -112,10 +120,13 @@ export default function AdIdeasPage() {
   const [selectedReason, setSelectedReason] = useState<string>("");
   const [customReason, setCustomReason] = useState<string>("");
   const [showRecent, setShowRecent] = useState(false);
-  const [showTargetingDetails, setShowTargetingDetails] = useState(false);
+  const [, setShowTargetingDetails] = useState(false);
   const session = useSession();
   const user = session?.user;
   const router = useRouter();
+  const pendingIdeas = ideas.filter((i) => i.status === "pending");
+  const reviewedIdeas = ideas.filter((i) => i.status !== "pending");
+  const approvedCount = ideas.filter((i) => i.status === "approved").length;
 
   useEffect(() => {
     if (session === undefined) return;
@@ -408,228 +419,219 @@ export default function AdIdeasPage() {
   return (
     <div className="ad-ideas-theme min-h-screen bg-[var(--background)] px-4 py-8 md:px-10 md:py-10">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold text-[#00C2CB] mb-6">
-          Affiliate Promotion Requests
-        </h1>
+        <div className="mb-8 rounded-[28px] border border-[var(--border)] bg-[radial-gradient(circle_at_top_right,rgba(0,194,203,0.16),transparent_32%),var(--card)] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.28)] md:p-7">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted-foreground)]">
+                Review queue
+              </p>
+              <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#00C2CB]">
+                Affiliate Promotion Requests
+              </h1>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted-foreground)]">
+                Review paid ad ideas, inspect targeting details, and approve only the campaigns ready to launch.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+              <StatCard label="Pending" value={pendingIdeas.length} tone="warning" />
+              <StatCard label="Approved" value={approvedCount} tone="success" />
+              <StatCard label="Reviewed" value={reviewedIdeas.length} tone="muted" className="col-span-2 sm:col-span-1" />
+            </div>
+          </div>
+        </div>
 
         {ideas.length === 0 ? (
-          <p className="text-gray-600">No ad ideas submitted yet.</p>
+          <EmptyState
+            title="No ad ideas submitted yet"
+            description="Paid ad submissions from affiliates will appear here for review."
+          />
         ) : (
           <>
-            <h2 className="text-xl font-semibold text-white mb-4">
-              No new ads to review
-            </h2>
-            <div className="space-y-6">
-              {ideas
-                .filter((i) => i.status === "pending")
-                .map((idea) => (
-                  <div
-                    key={idea.id}
-                    className="bg-[#1f1f1f] border border-[#2c2c2c] rounded-xl px-4 py-4 md:px-6 md:py-5 shadow-md flex flex-col md:flex-row md:justify-between md:items-center gap-4 hover:shadow-[0_0_8px_#00C2CB] transition-all"
-                  >
-                    <div className="flex items-start gap-4 w-full md:w-auto">
-                      <div className="w-12 h-12 rounded-full bg-[#00C2CB]/20 flex items-center justify-center">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          className="w-6 h-6 text-[#00C2CB]"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M13 10V3L4 14h7v7l9-11h-7z"
-                          />
-                        </svg>
-                      </div>
-                      <div className="flex flex-col">
-                        <h2 className="text-xl font-semibold text-white">
-                          {offersMap[idea.offer_id] || "Unknown Offer"}
-                        </h2>
-                        <p className="text-sm text-gray-400">
-                          {idea.audience} - {idea.location}
-                        </p>
-                        <div className="flex items-center gap-3 mt-2">
-                          <p className="text-sm text-gray-400">
-                            <span className="font-semibold text-white">
-                              Affiliate:
-                            </span>{" "}
-                            {idea.affiliate_email}
-                          </p>
-                          <button
-                            onClick={() => {
-                              setSelectedIdea(idea);
-                              setShowTargetingDetails(false);
-                            }}
-                            className="text-sm text-[#00C2CB] hover:underline"
-                          >
-                            View Detail
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-stretch md:items-end gap-2 w-full md:w-auto">
-                      <span
-                        className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          idea.status === "approved"
-                            ? "bg-green-500/20 text-green-300"
-                            : idea.status === "rejected"
-                              ? "bg-red-500/20 text-red-400"
-                              : "bg-yellow-400/20 text-yellow-300"
-                        }`}
-                      >
-                        {idea.status}
-                      </span>
-                      {idea.status === "pending" && (
-                        <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-                          <button
-                            onClick={async () => {
-                              const ok = await handleStatusChange(
-                                idea.id,
-                                "approved",
-                              );
-                              if (ok) {
-                                await sendToMeta(idea.id);
-                              }
-                            }}
-                            className="flex-1 md:flex-none bg-[#00C2CB] text-black hover:bg-[#00b0b8] px-4 py-2 rounded-lg text-sm font-semibold text-center"
-                          >
-                            Approve
-                          </button>
-                          <button
-                            onClick={() => setShowRejectionInput(idea.id)}
-                            className="flex-1 md:flex-none bg-[#2c2c2c] text-gray-300 hover:bg-[#3a3a3a] px-4 py-2 rounded-lg text-sm text-center"
-                          >
-                            Reject
-                          </button>
-                        </div>
-                      )}
-                      {showRejectionInput === idea.id && (
-                        <div className="flex flex-col gap-3 mt-2 w-full md:w-48">
-                          <select
-                            className="border border-gray-300 rounded px-3 py-2 text-sm bg-[#181818] text-white"
-                            onChange={(e) => setSelectedReason(e.target.value)}
-                            value={selectedReason}
-                          >
-                            <option value="">Select a reason</option>
-                            <option value="Not aligned with brand">
-                              Not aligned with brand
-                            </option>
-                            <option value="Inappropriate content">
-                              Inappropriate content
-                            </option>
-                            <option value="Low quality creative">
-                              Low quality creative
-                            </option>
-                            <option value="Other">Other</option>
-                          </select>
-                          {selectedReason === "Other" && (
-                            <textarea
-                              className="border border-gray-300 rounded px-3 py-2 text-sm bg-[#181818] text-white"
-                              placeholder="Custom reason..."
-                              value={customReason}
-                              onChange={(e) => setCustomReason(e.target.value)}
-                            />
-                          )}
-                          <button
-                            onClick={async () => {
-                              const finalReason =
-                                selectedReason === "Other"
-                                  ? customReason
-                                  : selectedReason;
-                              await handleStatusChange(
-                                idea.id,
-                                "rejected",
-                                finalReason,
-                              );
-                            }}
-                            className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded text-sm"
-                          >
-                            Confirm Rejection
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-            </div>
-
-            {/* Recent Ads dropdown */}
-            <div className="mt-8">
-              <div
-                onClick={() => setShowRecent((prev) => !prev)}
-                className="cursor-pointer mt-10 bg-[#1f1f1f] hover:bg-[#2a2a2a] text-[#00C2CB] font-semibold px-6 py-3 rounded-lg text-center shadow transition-all"
-              >
-                {showRecent ? "Hide Recent Ads" : "Show Recent Ads"}
-              </div>
-              {showRecent && (
-                <div className="space-y-6 mt-4">
-                  {ideas
-                    .filter((i) => i.status !== "pending")
-                    .map((idea) => (
-                      <div
-                        key={idea.id}
-                        className="bg-[#1f1f1f] border border-[#2c2c2c] rounded-xl px-4 py-4 md:px-6 md:py-5 shadow-md flex flex-col md:flex-row md:justify-between md:items-center gap-4"
-                      >
-                        <div className="flex items-start gap-4 w-full md:w-auto">
-                          <div className="w-12 h-12 rounded-full bg-[#00C2CB]/20 flex items-center justify-center">
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              className="w-6 h-6 text-[#00C2CB]"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
+            <ReviewQueue
+              title="Pending ad ideas"
+              description="New paid ad ideas waiting for a business decision."
+              actions={<StatusBadge status="pending" label={`${pendingIdeas.length} pending`} />}
+            >
+              {pendingIdeas.length === 0 ? (
+                <EmptyState
+                  title="No new ads to review"
+                  description="Recent approvals and rejections can be opened below."
+                  className="py-8"
+                />
+              ) : (
+                <ul className="space-y-4">
+                  {pendingIdeas.map((idea) => (
+                    <li key={idea.id}>
+                      <ReviewCard
+                        header={(
+                          <>
+                            <StatusBadge status={idea.status} />
+                            <Badge variant="muted">Paid ad</Badge>
+                            {idea.daily_budget || idea.budget_amount ? (
+                              <Badge variant="primary">Budget ${idea.daily_budget || idea.budget_amount}</Badge>
+                            ) : null}
+                          </>
+                        )}
+                        title={offersMap[idea.offer_id] || "Unknown Offer"}
+                        description={`${idea.audience || "Audience not set"} · ${idea.location || "Location not set"}`}
+                        meta={(
+                          <>
+                            <ReviewMetaItem label="Affiliate">{idea.affiliate_email}</ReviewMetaItem>
+                            <ReviewMetaItem label="Submitted">{formatIdeaDate(idea.created_at)}</ReviewMetaItem>
+                            <ReviewMetaItem label="Objective">{idea.objective || idea.performance_goal || "Not set"}</ReviewMetaItem>
+                          </>
+                        )}
+                        actions={(
+                          <ActionBar className="lg:flex-col">
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              className="w-full"
+                              onClick={() => {
+                                setSelectedIdea(idea);
+                                setShowTargetingDetails(false);
+                              }}
                             >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M13 10V3L4 14h7v7l9-11h-7z"
-                              />
-                            </svg>
-                          </div>
-                          <div className="flex flex-col">
-                            <h2 className="text-xl font-semibold text-white">
-                              {offersMap[idea.offer_id] || "Unknown Offer"}
-                            </h2>
-                            <p className="text-sm text-gray-400">
-                              {idea.audience} - {idea.location}
-                            </p>
-                            <div className="flex items-center gap-3 mt-2">
-                              <p className="text-sm text-gray-400">
-                                <span className="font-semibold text-white">
-                                  Affiliate:
-                                </span>{" "}
-                                {idea.affiliate_email}
-                              </p>
-                              <button
+                              View details
+                            </Button>
+                            <Button
+                              type="button"
+                              className="w-full"
+                              onClick={async () => {
+                                const ok = await handleStatusChange(
+                                  idea.id,
+                                  "approved",
+                                );
+                                if (ok) {
+                                  await sendToMeta(idea.id);
+                                }
+                              }}
+                            >
+                              Approve
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="secondary"
+                              className="w-full"
+                              onClick={() => setShowRejectionInput(idea.id)}
+                            >
+                              Reject
+                            </Button>
+                            {showRejectionInput === idea.id && (
+                              <div className="mt-2 flex w-full flex-col gap-2 rounded-xl border border-[var(--border)] bg-[var(--secondary)]/60 p-3">
+                                <select
+                                  className="rounded-lg border border-[var(--border)] bg-[#181818] px-3 py-2 text-sm text-white"
+                                  onChange={(e) => setSelectedReason(e.target.value)}
+                                  value={selectedReason}
+                                >
+                                  <option value="">Select a reason</option>
+                                  <option value="Not aligned with brand">
+                                    Not aligned with brand
+                                  </option>
+                                  <option value="Inappropriate content">
+                                    Inappropriate content
+                                  </option>
+                                  <option value="Low quality creative">
+                                    Low quality creative
+                                  </option>
+                                  <option value="Other">Other</option>
+                                </select>
+                                {selectedReason === "Other" && (
+                                  <textarea
+                                    className="rounded-lg border border-[var(--border)] bg-[#181818] px-3 py-2 text-sm text-white"
+                                    placeholder="Custom reason..."
+                                    value={customReason}
+                                    onChange={(e) => setCustomReason(e.target.value)}
+                                  />
+                                )}
+                                <Button
+                                  type="button"
+                                  variant="danger"
+                                  size="sm"
+                                  onClick={async () => {
+                                    const finalReason =
+                                      selectedReason === "Other"
+                                        ? customReason
+                                        : selectedReason;
+                                    await handleStatusChange(
+                                      idea.id,
+                                      "rejected",
+                                      finalReason,
+                                    );
+                                  }}
+                                >
+                                  Confirm rejection
+                                </Button>
+                              </div>
+                            )}
+                          </ActionBar>
+                        )}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </ReviewQueue>
+
+            <div className="mt-8">
+              <Button
+                type="button"
+                onClick={() => setShowRecent((prev) => !prev)}
+                variant="secondary"
+                className="w-full justify-center"
+              >
+                {showRecent ? "Hide recent ads" : `Show recent ads (${reviewedIdeas.length})`}
+              </Button>
+              {showRecent && (
+                <ReviewQueue
+                  title="Recent ad decisions"
+                  description="Previously approved or rejected ad ideas."
+                  className="mt-5"
+                >
+                  {reviewedIdeas.length === 0 ? (
+                    <EmptyState
+                      title="No recent ad decisions"
+                      description="Approved and rejected ad ideas will appear here."
+                      className="py-8"
+                    />
+                  ) : (
+                    <ul className="space-y-4">
+                      {reviewedIdeas.map((idea) => (
+                        <li key={idea.id}>
+                          <ReviewCard
+                            header={(
+                              <>
+                                <StatusBadge status={idea.status} />
+                                <Badge variant="muted">Paid ad</Badge>
+                              </>
+                            )}
+                            title={offersMap[idea.offer_id] || "Unknown Offer"}
+                            description={`${idea.audience || "Audience not set"} · ${idea.location || "Location not set"}`}
+                            meta={(
+                              <>
+                                <ReviewMetaItem label="Affiliate">{idea.affiliate_email}</ReviewMetaItem>
+                                <ReviewMetaItem label="Submitted">{formatIdeaDate(idea.created_at)}</ReviewMetaItem>
+                              </>
+                            )}
+                            actions={(
+                              <Button
+                                type="button"
+                                variant="secondary"
+                                className="w-full"
                                 onClick={() => {
                                   setSelectedIdea(idea);
                                   setShowTargetingDetails(false);
                                 }}
-                                className="text-sm text-[#00C2CB] hover:underline"
                               >
-                                View Detail
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex flex-col items-stretch md:items-end gap-2 w-full md:w-auto">
-                          <span
-                            className={`px-2 py-1 rounded-full text-xs font-medium ${
-                              idea.status === "approved"
-                                ? "bg-green-500/20 text-green-300"
-                                : "bg-red-500/20 text-red-400"
-                            }`}
-                          >
-                            {idea.status}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                </div>
+                                View details
+                              </Button>
+                            )}
+                          />
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </ReviewQueue>
               )}
             </div>
           </>

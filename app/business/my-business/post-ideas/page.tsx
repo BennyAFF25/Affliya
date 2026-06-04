@@ -5,6 +5,7 @@
 import React, { useEffect, useState } from "react";
 import { useSession } from "@supabase/auth-helpers-react";
 import { supabase } from "@/../utils/supabase/pages-client";
+import { Button, EmptyState, StatCard, StatusBadge } from "@/../components/ui";
 
 interface OfferRow {
   id: string;
@@ -93,17 +94,6 @@ function formatIdeaDate(value?: string) {
     hour: "numeric",
     minute: "2-digit",
   });
-}
-
-function statusPillClass(status: string) {
-  switch (status) {
-    case "approved":
-      return "bg-emerald-500/15 text-emerald-300 border border-emerald-400/20";
-    case "rejected":
-      return "bg-red-500/15 text-red-300 border border-red-400/20";
-    default:
-      return "bg-amber-500/15 text-amber-200 border border-amber-300/20";
-  }
 }
 
 function kindLabel(kind: PostKind, platform?: string) {
@@ -319,18 +309,9 @@ export default function PostIdeasPage() {
               </p>
             </div>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                <div className="text-[11px] uppercase tracking-[0.18em] text-white/45">Pending</div>
-                <div className="mt-1 text-2xl font-bold text-white">{pendingPosts.length}</div>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                <div className="text-[11px] uppercase tracking-[0.18em] text-white/45">Approved</div>
-                <div className="mt-1 text-2xl font-bold text-white">{approvedCount}</div>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-white/5 px-4 py-3 col-span-2 sm:col-span-1">
-                <div className="text-[11px] uppercase tracking-[0.18em] text-white/45">Recently reviewed</div>
-                <div className="mt-1 text-2xl font-bold text-white">{reviewedPosts.length}</div>
-              </div>
+              <StatCard label="Pending" value={pendingPosts.length} tone="warning" />
+              <StatCard label="Approved" value={approvedCount} tone="success" />
+              <StatCard label="Recently reviewed" value={reviewedPosts.length} tone="muted" className="col-span-2 sm:col-span-1" />
             </div>
           </div>
         </div>
@@ -386,9 +367,7 @@ export default function PostIdeasPage() {
                               <h3 className="text-xl font-semibold text-white">
                                 {offersMap[post.offer_id] || "Unknown Offer"}
                               </h3>
-                              <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${statusPillClass(post.status)}`}>
-                                {post.status}
-                              </span>
+                              <StatusBadge status={post.status} />
                             </div>
                             <p className="mt-2 text-sm text-white/60">
                               Submitted by <span className="font-medium text-white/80">{post.affiliate_email}</span> · {formatIdeaDate(post.created_at)}
@@ -407,28 +386,32 @@ export default function PostIdeasPage() {
                         </div>
 
                         <div className="flex w-full flex-col gap-3 lg:w-auto lg:min-w-[250px]">
-                          <button
+                          <Button
+                            type="button"
+                            variant="secondary"
                             onClick={() => {
                               setSelectedPost(post);
                               setShowContextDetails(false);
                             }}
-                            className="rounded-xl border border-white/10 bg-[#151a1c] px-4 py-2.5 text-sm font-medium text-white/80 transition hover:bg-[#1a2022]"
                           >
-                            Open preview
-                          </button>
+                            View details
+                          </Button>
                           <div className="flex gap-3">
-                            <button
+                            <Button
+                              type="button"
                               onClick={() => void handleStatusChange(post.id, "approved", post)}
-                              className="flex-1 rounded-xl bg-[#00C2CB] px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-[#00b0b8]"
+                              className="flex-1"
                             >
                               Approve
-                            </button>
-                            <button
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="secondary"
                               onClick={() => void handleStatusChange(post.id, "rejected", post)}
-                              className="flex-1 rounded-xl border border-white/10 bg-[#1a1a1a] px-4 py-2.5 text-sm text-white/72 transition hover:bg-[#242424]"
+                              className="flex-1"
                             >
                               Reject
-                            </button>
+                            </Button>
                           </div>
                         </div>
                       </div>
@@ -441,9 +424,11 @@ export default function PostIdeasPage() {
             {showRecent && (
               <div className="mt-8 space-y-4">
                 {reviewedPosts.length === 0 ? (
-                  <div className="rounded-3xl border border-white/10 bg-[#111517] px-6 py-8 text-center text-sm text-white/60">
-                    No reviewed requests yet.
-                  </div>
+                  <EmptyState
+                    title="No reviewed requests yet"
+                    description="Approved and rejected organic submissions will appear here."
+                    className="py-8"
+                  />
                 ) : (
                   reviewedPosts.map((post) => {
                     const kind = inferPostKind(post);
@@ -458,24 +443,23 @@ export default function PostIdeasPage() {
                               <h3 className="text-lg font-semibold text-white">
                                 {offersMap[post.offer_id] || "Unknown Offer"}
                               </h3>
-                              <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${statusPillClass(post.status)}`}>
-                                {post.status}
-                              </span>
+                              <StatusBadge status={post.status} />
                             </div>
                             <p className="mt-2 text-sm text-white/60">
                               {post.affiliate_email} · {formatIdeaDate(post.created_at)}
                             </p>
                             <p className="mt-2 text-sm text-white/55">{kindLabel(kind, post.platform)}</p>
                           </div>
-                          <button
+                          <Button
+                            type="button"
+                            variant="secondary"
                             onClick={() => {
                               setSelectedPost(post);
                               setShowContextDetails(false);
                             }}
-                            className="rounded-xl border border-white/10 bg-[#151a1c] px-4 py-2.5 text-sm font-medium text-[#00C2CB] transition hover:bg-[#1a2022]"
                           >
-                            View detail
-                          </button>
+                            View details
+                          </Button>
                         </div>
                       </div>
                     );
@@ -527,9 +511,7 @@ export default function PostIdeasPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 text-white/50">
-                    <span className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] ${statusPillClass(selectedPost.status)}`}>
-                      {selectedPost.status}
-                    </span>
+                    <StatusBadge status={selectedPost.status} className="text-[10px]" />
                     <span className="rounded-full border border-white/10 px-2.5 py-1 text-[10px] uppercase tracking-[0.15em]">
                       {kindLabel(selectedKind, selectedPost.platform)}
                     </span>

@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useSession } from "@supabase/auth-helpers-react";
 import { supabase } from "@/../utils/supabase/pages-client";
+import { ActionBar, Badge, Button, ReviewCard, ReviewMetaItem, ReviewQueue, StatCard, StatusBadge } from "@/../components/ui";
 
 interface AffiliateRequest {
   id: string;
@@ -38,18 +39,14 @@ async function parseJsonSafe(res: Response) {
 }
 
 function formatWhen(value: string) {
-  return new Date(value).toLocaleString();
-}
-
-function statusBadge(status: string) {
-  const key = status.toLowerCase();
-  if (key === "approved") {
-    return "border-emerald-500/20 bg-emerald-500/10 text-emerald-300";
-  }
-  if (key === "rejected") {
-    return "border-rose-500/20 bg-rose-500/10 text-rose-300";
-  }
-  return "border-amber-500/20 bg-amber-500/10 text-amber-300";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Unknown time";
+  return date.toLocaleString("en-AU", {
+    day: "2-digit",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 function EmptyState({
@@ -331,50 +328,27 @@ export default function AffiliateRequestsPage() {
             </div>
 
             <div className="grid gap-3 sm:grid-cols-3">
-              <div className="rounded-xl border border-[var(--border)] bg-[var(--secondary)]/60 px-4 py-3">
-                <div className="text-xs uppercase tracking-[0.16em] text-[var(--muted-foreground)]">
-                  Offer requests
-                </div>
-                <div className="mt-2 text-2xl font-semibold">{pending.length}</div>
-              </div>
-              <div className="rounded-xl border border-[var(--border)] bg-[var(--secondary)]/60 px-4 py-3">
-                <div className="text-xs uppercase tracking-[0.16em] text-[var(--muted-foreground)]">
-                  Storefront requests
-                </div>
-                <div className="mt-2 text-2xl font-semibold">{shopPending.length}</div>
-              </div>
-              <div className="rounded-xl border border-[var(--border)] bg-[var(--secondary)]/60 px-4 py-3">
-                <div className="text-xs uppercase tracking-[0.16em] text-[var(--muted-foreground)]">
-                  Rejected logged
-                </div>
-                <div className="mt-2 text-2xl font-semibold">{rejected.length}</div>
-              </div>
+              <StatCard label="Offer requests" value={pending.length} tone="warning" />
+              <StatCard label="Storefront requests" value={shopPending.length} tone="warning" />
+              <StatCard label="Rejected logged" value={rejected.length} tone="danger" />
             </div>
           </div>
         </div>
 
-        <section className="mb-10">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-xl font-semibold text-[var(--foreground)]">
-                Promotion requests
-              </h2>
-              <p className="text-sm text-[var(--muted-foreground)]">
-                Affiliates waiting for approval to promote one of your offers.
-              </p>
-            </div>
-            <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-300">
-              {pending.length} pending
-            </span>
-          </div>
+        <ReviewQueue
+          title="Promotion requests"
+          description="Affiliates waiting for approval to promote one of your offers."
+          actions={<StatusBadge status="pending" label={`${pending.length} pending`} />}
+          className="mb-10"
+        >
 
       {!canApproveAffiliates && pending.length > 0 && (
         <div className="mb-4 rounded-xl border border-red-400/35 bg-red-500/10 px-4 py-3 text-sm text-red-200">
           Connect billing and enable payouts to approve affiliate requests.
           <div className="mt-2">
-            <a href="/business/payouts" className="inline-flex rounded-lg border border-red-300/40 bg-red-500/15 px-3 py-1.5 text-xs font-semibold text-red-100">
+            <Button href="/business/payouts" variant="outline" size="sm" className="border-red-300/40 bg-red-500/15 text-red-100 hover:bg-red-500/20">
               Go to billing & payouts
-            </a>
+            </Button>
           </div>
         </div>
       )}
@@ -387,106 +361,62 @@ export default function AffiliateRequestsPage() {
       ) : (
         <ul className="space-y-4">
           {pending.map((req) => (
-            <li
-              key={req.id}
-              className="rounded-2xl border border-[var(--border)] bg-[var(--card)] px-6 py-5 text-[var(--foreground)] shadow-[0_0_0_1px_rgba(0,0,0,0.18),0_10px_28px_rgba(0,0,0,0.18)]"
-            >
-              <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-                <div className="min-w-0 flex-1">
-                  <div className="mb-3 flex flex-wrap items-center gap-2">
-                    <span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${statusBadge(req.status)}`}>
-                      {req.status}
-                    </span>
-                    <span className="rounded-full border border-[var(--border)] bg-[var(--secondary)]/60 px-2.5 py-1 text-xs text-[var(--muted-foreground)]">
-                      {req.offer?.type === "recurring" ? "Recurring" : "One-time"}
-                    </span>
-                    <span className="rounded-full border border-[var(--border)] bg-[var(--secondary)]/60 px-2.5 py-1 text-xs text-[var(--muted-foreground)]">
-                      {req.offer?.commission}% commission
-                    </span>
-                  </div>
-
-                  <h3 className="text-xl font-semibold text-[var(--foreground)]">
-                    {req.offer?.title}
-                  </h3>
-                  <p className="mt-1 text-sm text-[var(--muted-foreground)]">
-                    {req.offer?.description}
-                  </p>
-
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                    <div className="rounded-xl border border-[var(--border)] bg-[var(--secondary)]/60 px-4 py-3">
-                      <div className="text-xs uppercase tracking-[0.16em] text-[var(--muted-foreground)]">
-                        Affiliate
-                      </div>
-                      <div className="mt-2 break-all text-sm font-medium text-[var(--foreground)]">
-                        {req.affiliate_email}
-                      </div>
-                    </div>
-                    <div className="rounded-xl border border-[var(--border)] bg-[var(--secondary)]/60 px-4 py-3">
-                      <div className="text-xs uppercase tracking-[0.16em] text-[var(--muted-foreground)]">
-                        Requested
-                      </div>
-                      <div className="mt-2 text-sm font-medium text-[var(--foreground)]">
-                        {formatWhen(req.created_at)}
-                      </div>
-                    </div>
-                    <div className="rounded-xl border border-[var(--border)] bg-[var(--secondary)]/60 px-4 py-3 sm:col-span-2 xl:col-span-1">
-                      <div className="text-xs uppercase tracking-[0.16em] text-[var(--muted-foreground)]">
-                        Review status
-                      </div>
-                      <div className="mt-2 text-sm font-medium text-[var(--foreground)]">
-                        Waiting on your decision
-                      </div>
-                    </div>
+            <li key={req.id}>
+              <ReviewCard
+                header={(
+                  <>
+                    <StatusBadge status={req.status} />
+                    <Badge variant="muted">{req.offer?.type === "recurring" ? "Recurring" : "One-time"}</Badge>
+                    <Badge variant="primary">{req.offer?.commission}% commission</Badge>
+                  </>
+                )}
+                title={req.offer?.title}
+                description={req.offer?.description}
+                meta={(
+                  <>
+                    <ReviewMetaItem label="Affiliate">{req.affiliate_email}</ReviewMetaItem>
+                    <ReviewMetaItem label="Requested">{formatWhen(req.created_at)}</ReviewMetaItem>
+                    <ReviewMetaItem label="Review status">Waiting on your decision</ReviewMetaItem>
                     {req.notes && (
-                      <div className="rounded-xl border border-[var(--border)] bg-[var(--secondary)]/60 px-4 py-3 sm:col-span-2 xl:col-span-3">
-                        <div className="text-xs uppercase tracking-[0.16em] text-[var(--muted-foreground)]">
-                          Affiliate note
-                        </div>
-                        <p className="mt-2 text-sm italic text-[var(--muted-foreground)]">
-                          “{req.notes}”
-                        </p>
-                      </div>
+                      <ReviewMetaItem label="Affiliate note" className="sm:col-span-2 xl:col-span-3">
+                        <span className="italic text-[var(--muted-foreground)]">“{req.notes}”</span>
+                      </ReviewMetaItem>
                     )}
-                  </div>
-                </div>
-
-                <div className="flex w-full flex-col gap-2 lg:w-auto lg:min-w-[180px]">
-                  <button
-                    onClick={() => handleUpdateStatus(req.id, "rejected")}
-                    className="rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-4 py-2.5 text-sm text-[var(--muted-foreground)] transition hover:brightness-110"
-                  >
-                    Reject
-                  </button>
-                  <button
-                    onClick={() => handleUpdateStatus(req.id, "approved")}
-                    disabled={!canApproveAffiliates}
-                    className="rounded-xl bg-[var(--primary)] px-4 py-2.5 text-sm font-semibold text-[var(--primary-foreground)] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {canApproveAffiliates ? "Approve" : "Approve (blocked)"}
-                  </button>
-                </div>
-              </div>
+                  </>
+                )}
+                actions={(
+                  <ActionBar className="lg:flex-col">
+                    <Button
+                      type="button"
+                      onClick={() => handleUpdateStatus(req.id, "rejected")}
+                      variant="secondary"
+                      className="w-full"
+                    >
+                      Reject
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={() => handleUpdateStatus(req.id, "approved")}
+                      disabled={!canApproveAffiliates}
+                      className="w-full disabled:cursor-not-allowed"
+                    >
+                      {canApproveAffiliates ? "Approve" : "Approve (blocked)"}
+                    </Button>
+                  </ActionBar>
+                )}
+              />
             </li>
           ))}
         </ul>
       )}
 
-        </section>
+        </ReviewQueue>
 
-        <section>
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-xl font-semibold text-[var(--foreground)]">
-                NettmarkShop access requests
-              </h2>
-              <p className="text-sm text-[var(--muted-foreground)]">
-                Affiliates requesting storefront access for organic campaigns and link-in-bio style promotion.
-              </p>
-            </div>
-            <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-300">
-              {shopPending.length} pending
-            </span>
-          </div>
+        <ReviewQueue
+          title="NettmarkShop access requests"
+          description="Affiliates requesting storefront access for organic campaigns and link-in-bio style promotion."
+          actions={<StatusBadge status="pending" label={`${shopPending.length} pending`} />}
+        >
 
       {shopPending.length === 0 ? (
         <EmptyState
@@ -496,79 +426,55 @@ export default function AffiliateRequestsPage() {
       ) : (
         <ul className="space-y-4">
           {shopPending.map((req) => (
-            <li
-              key={req.id}
-              className="rounded-2xl border border-[var(--border)] bg-[var(--card)] px-6 py-5 text-[var(--foreground)] shadow-[0_0_0_1px_rgba(0,0,0,0.18),0_10px_28px_rgba(0,0,0,0.18)]"
-            >
-              <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-                <div className="min-w-0 flex-1 space-y-4">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${statusBadge(req.status)}`}>
-                      {req.status}
-                    </span>
-                    <span className="rounded-full border border-[var(--border)] bg-[var(--secondary)]/60 px-2.5 py-1 text-xs text-[var(--muted-foreground)]">
-                      Storefront access
-                    </span>
-                  </div>
-
-                  <h3 className="text-xl font-semibold text-[var(--foreground)]">
-                    Storefront access request
-                  </h3>
-
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-xl border border-[var(--border)] bg-[var(--secondary)]/60 px-4 py-3">
-                      <div className="text-xs uppercase tracking-[0.16em] text-[var(--muted-foreground)]">
-                        Affiliate
-                      </div>
-                      <div className="mt-2 break-all text-sm font-medium text-[var(--foreground)]">
-                        {req.affiliate_email}
-                      </div>
-                    </div>
-                    <div className="rounded-xl border border-[var(--border)] bg-[var(--secondary)]/60 px-4 py-3">
-                      <div className="text-xs uppercase tracking-[0.16em] text-[var(--muted-foreground)]">
-                        Requested
-                      </div>
-                      <div className="mt-2 text-sm font-medium text-[var(--foreground)]">
-                        {formatWhen(req.created_at)}
-                      </div>
-                    </div>
-                    <div className="rounded-xl border border-[var(--border)] bg-[var(--secondary)]/60 px-4 py-3 sm:col-span-2">
-                      <div className="text-xs uppercase tracking-[0.16em] text-[var(--muted-foreground)]">
-                        Request note
-                      </div>
-                      <p className="mt-2 text-sm text-[var(--muted-foreground)]">
-                        {req.message ||
-                          "This affiliate is requesting a shop link that can display your offer alongside other partner offers on a storefront used for organic campaigns and social media links."}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex w-full flex-col gap-2 lg:w-auto lg:min-w-[200px]">
-                  <button
-                    onClick={() =>
-                      handleShopRequestDecision(req.id, "rejected")
-                    }
-                    className="rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-4 py-2.5 text-sm text-[var(--muted-foreground)] transition hover:brightness-110"
-                  >
-                    Reject
-                  </button>
-                  <button
-                    onClick={() =>
-                      handleShopRequestDecision(req.id, "approved")
-                    }
-                    className="rounded-xl bg-[var(--primary)] px-4 py-2.5 text-sm font-semibold text-[var(--primary-foreground)] transition hover:brightness-110"
-                  >
-                    Approve storefront
-                  </button>
-                </div>
-              </div>
+            <li key={req.id}>
+              <ReviewCard
+                header={(
+                  <>
+                    <StatusBadge status={req.status} />
+                    <Badge variant="muted">Storefront access</Badge>
+                  </>
+                )}
+                title="Storefront access request"
+                meta={(
+                  <>
+                    <ReviewMetaItem label="Affiliate">{req.affiliate_email}</ReviewMetaItem>
+                    <ReviewMetaItem label="Requested">{formatWhen(req.created_at)}</ReviewMetaItem>
+                    <ReviewMetaItem label="Request note" className="sm:col-span-2 xl:col-span-3">
+                      {req.message ||
+                        "This affiliate is requesting a shop link that can display your offer alongside other partner offers on a storefront used for organic campaigns and social media links."}
+                    </ReviewMetaItem>
+                  </>
+                )}
+                actions={(
+                  <ActionBar className="lg:flex-col">
+                    <Button
+                      type="button"
+                      onClick={() =>
+                        handleShopRequestDecision(req.id, "rejected")
+                      }
+                      variant="secondary"
+                      className="w-full"
+                    >
+                      Reject
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={() =>
+                        handleShopRequestDecision(req.id, "approved")
+                      }
+                      className="w-full"
+                    >
+                      Approve storefront
+                    </Button>
+                  </ActionBar>
+                )}
+              />
             </li>
           ))}
         </ul>
       )}
 
-        </section>
+        </ReviewQueue>
 
       {rejected.length > 0 && (
         <section className="mt-12">
@@ -582,9 +488,7 @@ export default function AffiliateRequestsPage() {
                 className="rounded-2xl border border-rose-500/20 bg-[var(--card)] p-6 shadow-[0_0_0_1px_rgba(0,0,0,0.18)]"
               >
                 <div className="mb-3 flex flex-wrap items-center gap-2">
-                  <span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${statusBadge(req.status)}`}>
-                    {req.status}
-                  </span>
+                  <StatusBadge status={req.status} />
                   <span className="rounded-full border border-[var(--border)] bg-[var(--secondary)]/60 px-2.5 py-1 text-xs text-[var(--muted-foreground)]">
                     {req.offer?.commission}% commission
                   </span>
