@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
-import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/../utils/supabase/pages-client";
+import { Badge, Button, Card, EmptyState, LoadingSkeleton, SectionHeader, StatCard } from "@/../components/ui";
 import {
   Sparkles,
   ArrowRight,
@@ -43,11 +43,6 @@ type LiveCampaignRow = {
   status?: string | null;
   created_at?: string | null;
 };
-
-const CARD_SHELL =
-  "rounded-3xl border border-[var(--border)] bg-[var(--card)] shadow-[0_25px_70px_rgba(0,0,0,0.08)]";
-const PANEL_CARD =
-  "rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[0_20px_55px_rgba(0,0,0,0.05)]";
 
 type CampaignItem =
   | {
@@ -455,53 +450,22 @@ export default function AffiliateManageCampaignsPage() {
             </div>
 
             <div className="flex flex-wrap gap-2">
-              <Link
-                href="/affiliate/marketplace"
-                className="inline-flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--card)] px-4 py-2 text-sm font-semibold hover:bg-[var(--card)]/70"
-              >
+              <Button href="/affiliate/marketplace" variant="secondary">
                 Promote offer <ArrowRight className="h-4 w-4" />
-              </Link>
-              <Link
-                href="/affiliate/dashboard"
-                className="inline-flex items-center gap-2 rounded-xl bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-[var(--primary-foreground)] hover:brightness-110"
-              >
+              </Button>
+              <Button href="/affiliate/dashboard">
                 Dashboard overview
-              </Link>
+              </Button>
             </div>
           </div>
         </section>
 
         <section className="mb-7 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
-          <MetricCard
-            label="Live campaigns"
-            value={activeCount.toString()}
-            icon={<Activity className="h-4 w-4" />}
-            tone="cyan"
-          />
-          <MetricCard
-            label="Archived"
-            value={archivedCount.toString()}
-            icon={<Archive className="h-4 w-4" />}
-            tone="slate"
-          />
-          <MetricCard
-            label="Total paid spend"
-            value={`$${fmtMoney(totalPaidSpend)}`}
-            icon={<Wallet className="h-4 w-4" />}
-            tone="cyan"
-          />
-          <MetricCard
-            label="Unsettled spend"
-            value={`$${fmtMoney(totalUnpaidSpend)}`}
-            icon={<Wallet className="h-4 w-4" />}
-            tone="slate"
-          />
-          <MetricCard
-            label="Organic campaigns"
-            value={organicCount.toString()}
-            icon={<Megaphone className="h-4 w-4" />}
-            tone="slate"
-          />
+          <StatCard label="Live campaigns" value={activeCount.toString()} icon={<Activity className="h-4 w-4" />} tone="primary" />
+          <StatCard label="Archived" value={archivedCount.toString()} icon={<Archive className="h-4 w-4" />} tone="muted" />
+          <StatCard label="Total paid spend" value={`$${fmtMoney(totalPaidSpend)}`} icon={<Wallet className="h-4 w-4" />} tone="primary" />
+          <StatCard label="Unsettled spend" value={`$${fmtMoney(totalUnpaidSpend)}`} icon={<Wallet className="h-4 w-4" />} tone="muted" />
+          <StatCard label="Organic campaigns" value={organicCount.toString()} icon={<Megaphone className="h-4 w-4" />} tone="muted" />
         </section>
 
         {error && (
@@ -511,35 +475,22 @@ export default function AffiliateManageCampaignsPage() {
         )}
 
         {/* Active */}
-        <div className="mb-6 rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-[0_0_40px_rgba(0,0,0,0.35)]">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--primary)]/15 text-[var(--primary)]">
-                ✓
-              </div>
-              <div>
-                <div className="text-base font-semibold">Active campaigns</div>
-                <div className="text-xs text-[var(--muted-foreground)]">
-                  Campaigns currently live or delivering.
-                </div>
-              </div>
-            </div>
+        <Card className="mb-6 p-5 md:p-6" variant="elevated">
+          <SectionHeader
+            title="Active campaigns"
+            description="Campaigns currently live or delivering."
+            actions={<Badge variant="primary">{activeCount} active</Badge>}
+          />
 
-            <div className="rounded-full bg-[var(--primary)]/15 px-3 py-1 text-sm font-semibold text-[var(--primary)]">
-              {activeCount} active
-            </div>
-          </div>
-
-          <div className="mt-5">
+          <div>
             {loading ? (
-              <div className="rounded-xl border border-[var(--border)] bg-[var(--card)]/70 p-4 text-sm text-[var(--muted-foreground)]">
-                Loading…
-              </div>
+              <LoadingSkeleton lines={3} />
             ) : activeItems.length === 0 ? (
-              <div className="rounded-xl border border-[var(--border)] bg-[var(--card)]/70 p-4 text-sm text-[var(--muted-foreground)]">
-                No active campaigns. When you launch a campaign, it will show
-                here.
-              </div>
+              <EmptyState
+                title="No active campaigns"
+                description="When you launch a campaign, it will show here."
+                className="py-7"
+              />
             ) : (
               <div className="space-y-3">
                 {activeItems.map((item) => (
@@ -559,52 +510,39 @@ export default function AffiliateManageCampaignsPage() {
               </div>
             )}
           </div>
-        </div>
+        </Card>
 
         {/* Archived */}
-        <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-[0_0_40px_rgba(0,0,0,0.35)]">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--card)]/60 text-[var(--foreground)]">
-                ▣
-              </div>
-              <div>
-                <div className="text-base font-semibold">
-                  Archived campaigns
-                </div>
-                <div className="text-xs text-[var(--muted-foreground)]">
-                  Paused, completed, or stopped campaigns stay here.
-                </div>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3">
-              <div className="rounded-full bg-[var(--card)]/60 px-3 py-1 text-sm font-semibold text-[var(--foreground)]">
-                {archivedCount} archived
-              </div>
-              <button
-                type="button"
-                onClick={() => setArchivedOpen((v) => !v)}
-                className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--border)] bg-[var(--card)]/50 text-[var(--foreground)] hover:bg-[var(--card)]/60"
-                aria-label={
-                  archivedOpen ? "Collapse archived" : "Expand archived"
-                }
-              >
-                {archivedOpen ? "–" : "+"}
-              </button>
-            </div>
-          </div>
+        <Card className="p-5 md:p-6" variant="elevated">
+          <SectionHeader
+            title="Archived campaigns"
+            description="Paused, completed, or stopped campaigns stay here."
+            actions={(
+              <>
+                <Badge variant="muted">{archivedCount} archived</Badge>
+                <Button
+                  type="button"
+                  onClick={() => setArchivedOpen((v) => !v)}
+                  variant="secondary"
+                  size="icon"
+                  aria-label={archivedOpen ? "Collapse archived" : "Expand archived"}
+                >
+                  {archivedOpen ? "–" : "+"}
+                </Button>
+              </>
+            )}
+          />
 
           {archivedOpen && (
             <div className="mt-5">
               {loading ? (
-                <div className="rounded-xl border border-[var(--border)] bg-[var(--card)]/70 p-4 text-sm text-[var(--muted-foreground)]">
-                  Loading…
-                </div>
+                <LoadingSkeleton lines={3} />
               ) : archivedItems.length === 0 ? (
-                <div className="rounded-xl border border-[var(--border)] bg-[var(--card)]/70 p-4 text-sm text-[var(--muted-foreground)]">
-                  No archived campaigns yet.
-                </div>
+                <EmptyState
+                  title="No archived campaigns yet"
+                  description="Paused, completed, or stopped campaigns will stay here."
+                  className="py-7"
+                />
               ) : (
                 <div className="space-y-3">
                   {archivedItems.map((item) => (
@@ -625,38 +563,7 @@ export default function AffiliateManageCampaignsPage() {
               )}
             </div>
           )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function MetricCard({
-  label,
-  value,
-  icon,
-  tone,
-}: {
-  label: string;
-  value: string;
-  icon: ReactNode;
-  tone: "cyan" | "slate";
-}) {
-  const toneClass =
-    tone === "cyan"
-      ? "border-[var(--primary)]/40 bg-[var(--primary)]/12 text-[var(--primary)]"
-      : "border-[var(--border)] bg-[var(--card)]/60 text-[var(--muted-foreground)]";
-
-  return (
-    <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-4">
-      <div className="flex items-center gap-2 text-xs text-[var(--muted-foreground)]">
-        {label}
-      </div>
-      <div className="mt-3 flex items-center justify-between">
-        <p className="text-2xl font-bold">{value}</p>
-        <div className={`rounded-lg border px-2.5 py-2 ${toneClass}`}>
-          {icon}
-        </div>
+        </Card>
       </div>
     </div>
   );
@@ -675,24 +582,12 @@ function CampaignRow({
 
   const statusPill = (() => {
     if (status === "active" || status === "live") {
-      return (
-        <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-200">
-          LIVE
-        </span>
-      );
+      return <Badge variant="success">LIVE</Badge>;
     }
     if (status === "paused") {
-      return (
-        <span className="rounded-full bg-amber-500/15 px-3 py-1 text-xs font-semibold text-amber-200">
-          PAUSED
-        </span>
-      );
+      return <Badge variant="warning">PAUSED</Badge>;
     }
-    return (
-      <span className="rounded-full bg-[var(--card)]/60 px-3 py-1 text-xs font-semibold text-[var(--muted-foreground)]">
-        {status.toUpperCase()}
-      </span>
-    );
+    return <Badge variant="muted">{status.toUpperCase()}</Badge>;
   })();
 
   const typePills = (() => {
@@ -766,29 +661,23 @@ function CampaignRow({
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           {item.kind === "paid_meta" ? (
             <>
-              <Link
-                href={`/affiliate/dashboard/manage-campaigns/${item.id}`}
-                className="rounded-full bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-[var(--primary-foreground)] hover:opacity-90"
-              >
+              <Button href={`/affiliate/dashboard/manage-campaigns/${item.id}`} className="rounded-full">
                 View campaign
-              </Link>
-              <button
+              </Button>
+              <Button
+                type="button"
                 onClick={onSync}
                 disabled={syncing}
-                className="rounded-full border border-[var(--border)] bg-[var(--card)]/50 px-4 py-2 text-sm font-semibold text-[var(--foreground)] hover:bg-[var(--card)]/60 disabled:opacity-60"
+                variant="secondary"
+                className="rounded-full"
               >
                 {syncing ? "Syncing…" : "Sync spend"}
-              </button>
+              </Button>
             </>
           ) : (
-            <>
-              <Link
-                href={`/affiliate/dashboard/manage-campaigns/${item.id}`}
-                className="rounded-full bg-[var(--primary)] px-4 py-2 text-sm font-semibold text-[var(--primary-foreground)] hover:opacity-90"
-              >
-                Open post
-              </Link>
-            </>
+            <Button href={`/affiliate/dashboard/manage-campaigns/${item.id}`} className="rounded-full">
+              Open post
+            </Button>
           )}
         </div>
       </div>

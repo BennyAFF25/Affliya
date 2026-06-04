@@ -33,6 +33,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { supabase } from "utils/supabase/pages-client";
+import { SectionHeader, StatCard } from "@/../components/ui";
 
 interface Profile {
   id: string;
@@ -777,103 +778,23 @@ export default function BusinessDashboard() {
         </section>
       )}
 
-      {/* Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-6 mb-6 mt-2">
-        <div className={`${CARD} relative overflow-hidden`}>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-gray-400 flex items-center gap-1">
-                <Users className="h-3 w-3 text-[#7ff5fb]" />
-                Active Affiliates
-              </p>
-              <div className="mt-1 flex items-baseline gap-2">
-                <h2 className="text-2xl font-semibold text-white">
-                  {approved.length}
-                </h2>
-                <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#00C2CB]/15 text-[#7ff5fb] border border-[#00C2CB]/25">
-                  Live
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div
-          className={`${CARD} ring-1 ring-[#fbbf24]/25 relative overflow-hidden`}
-        >
-          <div className="absolute -right-4 -top-8 h-16 w-16 rounded-full bg-[#facc15]/10 blur-xl" />
-          <p className="text-xs text-gray-400 flex items-center gap-1">
-            <Sparkles className="h-3 w-3 text-[#fde68a]" />
-            Pending Requests
-          </p>
-          <div className="mt-1 flex items-baseline gap-2">
-            <h2 className="text-2xl font-semibold text-white">
-              {pendingRequests.length}
-            </h2>
-            <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#fbbf24]/15 text-[#fde68a] border border-[#fbbf24]/25">
-              Queue
-            </span>
-          </div>
-        </div>
-
-        <div
-          className={`${CARD} ring-1 ring-[#10b981]/20 relative overflow-hidden`}
-        >
-          <div className="absolute -right-6 -bottom-8 h-16 w-16 rounded-full bg-[#10b981]/15 blur-xl" />
-          <p className="text-xs text-gray-400 flex items-center gap-1">
-            <LineChartIcon className="h-3 w-3 text-[#bbf7d0]" />
-            Total Revenue
-          </p>
-          <div className="mt-1 flex items-baseline gap-2">
-            <h2 className="text-2xl font-semibold text-white">
-              {formatCurrency(totalRevenue)}
-            </h2>
-            <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#10b981]/15 text-[#bbf7d0] border border-[#10b981]/25">
-              MTD
-            </span>
-          </div>
-        </div>
-
-        <div
+      <SectionHeader eyebrow="Snapshot" title="Business snapshot" className="mb-4 mt-2" />
+      <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <StatCard label="Active affiliates" value={approved.length} icon={<Users className="h-4 w-4" />} helper="Live" tone="primary" />
+        <StatCard label="Pending requests" value={pendingRequests.length} icon={<Sparkles className="h-4 w-4" />} helper="Queue" tone="warning" />
+        <StatCard label="Total revenue" value={formatCurrency(totalRevenue)} icon={<LineChartIcon className="h-4 w-4" />} helper="MTD" tone="success" />
+        <StatCard
+          label="Pending payouts"
+          value={formatCurrency(pendingPayoutTotal)}
+          icon={<ArrowUpRight className="h-4 w-4" />}
+          helper={`${pendingPayoutCount} awaiting`}
+          tone="primary"
+          interactive
           onClick={() => router.push("/business/payouts")}
-          className={`${CARD} cursor-pointer relative overflow-hidden`}
           role="button"
           aria-label="View pending payouts"
-        >
-          <p className="text-xs text-gray-400 flex items-center gap-1">
-            <Wallet className="h-3 w-3 text-[#7ff5fb]" />
-            Pending Payouts
-          </p>
-          <div className="mt-1 flex items-baseline justify-between gap-2">
-            <div>
-              <h2 className="text-2xl font-semibold text-white">
-                {formatCurrency(pendingPayoutTotal)}
-              </h2>
-              <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#00C2CB]/15 text-[#7ff5fb] border border-[#00C2CB]/25">
-                {pendingPayoutCount} awaiting
-              </span>
-            </div>
-            <ArrowUpRight className="w-5 h-5 text-[#7ff5fb]" />
-          </div>
-        </div>
-
-        <div
-          className={`${CARD} ring-1 ring-[#a78bfa]/20 relative overflow-hidden`}
-        >
-          <div className="absolute -right-6 -top-6 h-16 w-16 rounded-full bg-[#a78bfa]/15 blur-xl" />
-          <p className="text-xs text-gray-400 flex items-center gap-1">
-            <PlayCircle className="h-3 w-3 text-[#e9d5ff]" />
-            Live Offers
-          </p>
-          <div className="mt-1 flex items-baseline gap-2">
-            <h2 className="text-2xl font-semibold text-white">
-              {liveOffersCount}
-            </h2>
-            <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#a78bfa]/15 text-[#e9d5ff] border border-[#a78bfa]/25">
-              Now
-            </span>
-          </div>
-        </div>
+        />
+        <StatCard label="Live offers" value={liveOffersCount} icon={<PlayCircle className="h-4 w-4" />} helper="Now" tone="muted" />
       </div>
 
       {/* Graphs */}

@@ -22,6 +22,7 @@ import {
   Circle,
 } from "lucide-react";
 import DashboardCard from "@/components/DashboardCard";
+import { Button, SectionHeader, StatCard } from "@/../components/ui";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -742,18 +743,12 @@ function AffiliateDashboardContent() {
             </div>
 
             <div className="flex flex-wrap gap-3">
-              <Link
-                href="/affiliate/marketplace"
-                className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-[#111317] px-4 py-2.5 text-sm font-semibold text-white/80 transition hover:bg-[#15191c]"
-              >
+              <Button href="/affiliate/marketplace" variant="secondary">
                 Browse Offers <ArrowRight className="h-4 w-4" />
-              </Link>
-              <Link
-                href="/affiliate/wallet"
-                className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-[#111317] px-4 py-2.5 text-sm font-semibold text-white/80 transition hover:bg-[#15191c]"
-              >
+              </Button>
+              <Button href="/affiliate/wallet" variant="secondary">
                 Open Wallet
-              </Link>
+              </Button>
             </div>
           </div>
         </section>
@@ -853,86 +848,15 @@ function AffiliateDashboardContent() {
           </div>
         </section>
 
-        <section className="mb-4">
-          <p className="text-xs uppercase tracking-[0.2em] text-white/45">
-            Snapshot
-          </p>
-        </section>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-10">
-          {/* Stat Card: Active Campaigns */}
-          <DashboardCard>
-            <div className="flex items-center gap-4">
-              <div className="text-white/80 bg-[#15191c] rounded-lg border border-white/10 p-2.5">
-                <TrendingUp className="h-6 w-6" />
-              </div>
-              <div>
-                <p className="text-xs text-[var(--muted-foreground)]">
-                  Active Campaigns
-                </p>
-                <h2 className="text-3xl font-bold text-white">
-                  {activeCampaignCount}
-                </h2>
-              </div>
-            </div>
-          </DashboardCard>
-
-          {/* Stat Card: Total Spent */}
-          <DashboardCard>
-            <div className="flex items-center gap-4">
-              <div className="text-white/80 bg-[#15191c] rounded-lg border border-white/10 p-2.5">
-                <DollarSign className="h-6 w-6" />
-              </div>
-              <div>
-                <p className="text-xs text-[var(--muted-foreground)]">
-                  Total Spent
-                </p>
-                <h2 className="text-3xl font-bold text-white">
-                  {formatCurrency(totalSpent)}
-                </h2>
-              </div>
-            </div>
-          </DashboardCard>
-
-          {/* Stat Card: Pending Payout */}
-          <DashboardCard>
-            <div className="flex items-center gap-4">
-              <div className="text-white/80 bg-[#15191c] rounded-lg border border-white/10 p-2.5">
-                <Wallet className="h-6 w-6" />
-              </div>
-              <div>
-                <p className="text-xs text-[var(--muted-foreground)]">
-                  Pending Payout
-                </p>
-                <h2 className="text-3xl font-bold text-white">
-                  {formatCurrency(pendingPayoutTotal)}
-                </h2>
-              </div>
-            </div>
-          </DashboardCard>
-
-          {/* Stat Card: Approved Offers */}
-          <DashboardCard>
-            <div className="flex items-center gap-4">
-              <div className="text-white/80 bg-[#15191c] rounded-lg border border-white/10 p-2.5">
-                <CheckCircle className="h-6 w-6" />
-              </div>
-              <div>
-                <p className="text-xs text-[var(--muted-foreground)]">
-                  Approved Offers
-                </p>
-                <h2 className="text-3xl font-bold text-white">
-                  {approvedOffers.length}
-                </h2>
-              </div>
-            </div>
-          </DashboardCard>
+        <SectionHeader eyebrow="Snapshot" title="Dashboard snapshot" className="mb-4" />
+        <div className="mb-9 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard label="Active campaigns" value={activeCampaignCount} icon={<TrendingUp className="h-4 w-4" />} tone="primary" />
+          <StatCard label="Total spent" value={formatCurrency(totalSpent)} icon={<DollarSign className="h-4 w-4" />} tone="primary" />
+          <StatCard label="Pending payout" value={formatCurrency(pendingPayoutTotal)} icon={<Wallet className="h-4 w-4" />} tone="muted" />
+          <StatCard label="Approved offers" value={approvedOffers.length} icon={<CheckCircle className="h-4 w-4" />} tone="success" />
         </div>
 
-        <section className="mb-4">
-          <p className="text-xs uppercase tracking-[0.2em] text-white/45">
-            Performance
-          </p>
-        </section>
+        <SectionHeader eyebrow="Performance" title="Performance trends" className="mb-4" />
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
           {chartConfigs.map((chart, i) => {
             const isSpendChart = chart.id === "spend";

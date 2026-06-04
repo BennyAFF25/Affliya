@@ -1,8 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { useSession } from "@supabase/auth-helpers-react";
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { Badge, Button, Card, EmptyState, SectionHeader, StatCard } from "@/../components/ui";
 import {
   Sparkles,
   Activity,
@@ -428,12 +428,13 @@ const ManageCampaignsBusiness = () => {
               {campaign.affiliate_email || "Affiliate unknown"}
             </p>
           </div>
-          <span
-            className={`inline-flex items-center gap-2 rounded-full border border-white/15 px-3 py-1 text-xs font-semibold ${status.text}`}
+          <Badge
+            variant={status.label === "Active" ? "success" : status.label === "Paused" ? "warning" : "danger"}
+            className="normal-case tracking-normal"
           >
-            <span className={`h-2 w-2 rounded-full ${status.dot}`}></span>
+            <span className={`mr-1.5 h-2 w-2 rounded-full ${status.dot}`} />
             {status.label}
-          </span>
+          </Badge>
         </div>
 
         <div className="mt-4 grid grid-cols-2 gap-3 text-center text-sm text-white/80 2xl:grid-cols-4 2xl:gap-4">
@@ -451,37 +452,41 @@ const ManageCampaignsBusiness = () => {
 
         <div className="mt-4 flex flex-col gap-3 2xl:flex-row 2xl:items-center 2xl:justify-between">
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 2xl:flex 2xl:flex-wrap">
-            <Link href={`/business/manage-campaigns/${campaign.id}`}>
-              <button className="w-full rounded-full bg-[#00C2CB] px-4 py-2 text-sm font-semibold text-black transition hover:bg-[#00b0b8]">
-                View campaign
-              </button>
-            </Link>
+            <Button href={`/business/manage-campaigns/${campaign.id}`} className="w-full rounded-full">
+              View campaign
+            </Button>
             {isMeta ? (
               <>
-                <button
+                <Button
+                  type="button"
                   onClick={() => handleSyncSpend(campaign.id)}
                   disabled={!!syncingById[campaign.id]}
-                  className="w-full rounded-full border border-white/15 px-4 py-2 text-sm font-semibold text-white/80 transition hover:bg-white/5 disabled:opacity-50"
+                  variant="secondary"
+                  className="w-full rounded-full"
                 >
                   {syncingById[campaign.id] ? "Syncing..." : "Sync spend"}
-                </button>
-                <button
+                </Button>
+                <Button
+                  type="button"
                   onClick={() => handlePermanentStop(campaign.id)}
-                  className="w-full rounded-full border border-red-500/40 px-4 py-2 text-sm font-semibold text-red-400 transition hover:bg-red-500/10"
+                  variant="outline"
+                  className="w-full rounded-full border-red-500/40 text-red-400 hover:bg-red-500/10"
                 >
                   Stop
-                </button>
+                </Button>
               </>
             ) : (
-              <button
+              <Button
+                type="button"
                 onClick={() =>
                   handleToggleStatus(campaign.id, campaign.status || "")
                 }
                 disabled={!isActiveStatus(campaign.status)}
-                className="w-full rounded-full border border-white/15 px-4 py-2 text-sm font-semibold text-white/80 transition hover:bg-white/5 disabled:opacity-50 disabled:cursor-not-allowed"
+                variant="secondary"
+                className="w-full rounded-full disabled:cursor-not-allowed"
               >
                 {isActiveStatus(campaign.status) ? "Pause" : "Paused"}
-              </button>
+              </Button>
             )}
           </div>
           {campaign.tracking_link ? (
@@ -519,82 +524,71 @@ const ManageCampaignsBusiness = () => {
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Link
-                href="/business/my-business/create-offer"
-                className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-sm font-semibold text-white hover:bg-white/10"
-              >
+              <Button href="/business/my-business/create-offer" variant="secondary">
                 New offer
-              </Link>
-              <Link
-                href="/business/dashboard"
-                className="inline-flex items-center gap-2 rounded-xl bg-[#00C2CB] px-4 py-2 text-sm font-semibold text-black hover:bg-[#00b0b8]"
-              >
+              </Button>
+              <Button href="/business/dashboard">
                 Business dashboard
-              </Link>
+              </Button>
             </div>
           </div>
         </section>
 
         <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-2 2xl:grid-cols-5">
           {metricCards.map((metric) => (
-            <MetricCard key={metric.label} {...metric} />
+            <StatCard
+              key={metric.label}
+              label={metric.label}
+              value={metric.value}
+              icon={metric.icon}
+              tone={metric.tone === "cyan" ? "primary" : "muted"}
+            />
           ))}
         </section>
 
         {campaigns.length === 0 && shopPlacements.length === 0 ? (
-          <div className="rounded-2xl border border-yellow-500/20 bg-yellow-500/10 p-5 text-center text-sm text-yellow-100">
-            No campaign or shop activity yet. Approve affiliate requests or
-            launch paid placements to see activity here.
-          </div>
+          <EmptyState
+            title="No campaign or shop activity yet"
+            description="Approve affiliate requests or launch paid placements to see activity here."
+            className="border-yellow-500/20 bg-yellow-500/10 text-yellow-100"
+          />
         ) : (
           <>
-            <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.45)]">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-lg font-semibold">Active campaigns</h2>
-                  <p className="text-sm text-white/60">
-                    Campaigns currently delivering or awaiting settlement.
-                  </p>
-                </div>
-                <span className="rounded-full bg-[#00C2CB]/10 px-3 py-1 text-sm font-semibold text-[#00C2CB]">
-                  {activeCount} live
-                </span>
-              </div>
+            <Card className="p-5 md:p-6" variant="glass">
+              <SectionHeader
+                title="Active campaigns"
+                description="Campaigns currently delivering or awaiting settlement."
+                actions={<Badge variant="primary">{activeCount} live</Badge>}
+              />
               <div className="mt-5 space-y-4">
                 {activeCount === 0 ? (
-                  <div className="rounded-xl border border-white/10 bg-black/30 p-4 text-sm text-white/70">
-                    No live campaigns right now. When affiliates push new
-                    placements they will appear here automatically.
-                  </div>
+                  <EmptyState
+                    title="No live campaigns right now"
+                    description="When affiliates push new placements they will appear here automatically."
+                    className="bg-black/20 py-7"
+                  />
                 ) : (
                   activeCampaigns.map((campaign) =>
                     renderCampaignCard(campaign),
                   )
                 )}
               </div>
-            </section>
+            </Card>
 
-            <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.45)]">
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-lg font-semibold">
-                    Shopfront placements
-                  </h2>
-                  <p className="text-sm text-white/60">
-                    Affiliates driving traffic via NettmarkShop.
-                  </p>
-                </div>
-                <span className="rounded-full bg-white/5 px-3 py-1 text-sm font-semibold text-white/70">
-                  {shopCount} live
-                </span>
-              </div>
+            <Card className="p-5 md:p-6" variant="glass">
+              <SectionHeader
+                title="Shopfront placements"
+                description="Affiliates driving traffic via NettmarkShop."
+                actions={<Badge variant="muted">{shopCount} live</Badge>}
+              />
 
               <div className="mt-5 space-y-4">
                 {shopCount === 0 ? (
-                  <div className="rounded-xl border border-white/10 bg-black/30 p-4 text-sm text-white/70">
-                    No approved storefronts yet. Once affiliates finish setup,
-                    their stats land here.
-                  </div>
+                  <EmptyState
+                    title="No approved storefronts yet"
+                    description="Once affiliates finish setup, their stats land here."
+                    className="bg-black/20 py-7"
+                  />
                 ) : (
                   shopPlacements.map((placement) => (
                     <div
@@ -650,33 +644,32 @@ const ManageCampaignsBusiness = () => {
                   ))
                 )}
               </div>
-            </section>
+            </Card>
 
-            <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.45)]">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-lg font-semibold">Archived campaigns</h2>
-                  <p className="text-sm text-white/60">
-                    Paused or completed placements stay here for historical
-                    reference.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowArchived((prev) => !prev)}
-                  className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 text-xl text-white"
-                  aria-label="Toggle archived campaigns"
-                >
-                  {showArchived ? "-" : "+"}
-                </button>
-              </div>
+            <Card className="p-5 md:p-6" variant="glass">
+              <SectionHeader
+                title="Archived campaigns"
+                description="Paused or completed placements stay here for historical reference."
+                actions={(
+                  <Button
+                    type="button"
+                    onClick={() => setShowArchived((prev) => !prev)}
+                    variant="secondary"
+                    size="icon"
+                    aria-label="Toggle archived campaigns"
+                  >
+                    {showArchived ? "-" : "+"}
+                  </Button>
+                )}
+              />
               {showArchived && (
                 <div className="mt-5 space-y-4">
                   {archivedCount === 0 ? (
-                    <div className="rounded-xl border border-white/10 bg-black/30 p-4 text-sm text-white/70">
-                      Nothing archived yet. Stopped campaigns roll in here
-                      automatically.
-                    </div>
+                    <EmptyState
+                      title="Nothing archived yet"
+                      description="Stopped campaigns roll in here automatically."
+                      className="bg-black/20 py-7"
+                    />
                   ) : (
                     archivedCampaigns.map((campaign) =>
                       renderCampaignCard(campaign),
@@ -684,40 +677,13 @@ const ManageCampaignsBusiness = () => {
                   )}
                 </div>
               )}
-            </section>
+            </Card>
           </>
         )}
       </div>
     </div>
   );
 };
-
-function MetricCard({
-  label,
-  value,
-  tone,
-  icon,
-}: {
-  label: string;
-  value: string;
-  tone: "cyan" | "slate";
-  icon: ReactNode;
-}) {
-  const toneClass =
-    tone === "cyan"
-      ? "border-[#00C2CB]/30 bg-[#00C2CB]/10 text-[#7ff5fb]"
-      : "border-white/15 bg-white/5 text-white/80";
-
-  return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
-      <div className="flex items-center justify-between text-xs text-white/55">
-        <span>{label}</span>
-        <div className={`rounded-lg border px-2 py-1 ${toneClass}`}>{icon}</div>
-      </div>
-      <p className="mt-3 text-2xl font-bold text-white">{value}</p>
-    </div>
-  );
-}
 
 function StatCell({ label, value }: { label: string; value: string }) {
   return (
