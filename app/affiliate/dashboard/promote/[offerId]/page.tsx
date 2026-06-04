@@ -1,37 +1,15 @@
 "use client";
 
-// Helper: friendlyObjective
-function friendlyObjective(objective?: string): string {
-  switch (objective) {
-    case "OUTCOME_SALES":
-      return "Sales";
-    case "OUTCOME_LEADS":
-      return "Leads";
-    case "OUTCOME_ENGAGEMENT":
-      return "Engagement";
-    case "OUTCOME_VIDEO_VIEWS":
-      return "Video Views";
-    case "OUTCOME_REACH":
-      return "Reach";
-    case "OUTCOME_AWARENESS":
-      return "Awareness";
-    default:
-      return "Traffic";
-  }
-}
-// eslint-disable-next-line
-
-import { useState, useEffect, useMemo, type ReactNode } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { nmToast } from "@/components/ui/toast";
-import { FaSpinner } from "react-icons/fa";
 import { useRouter, useParams } from "next/navigation";
 import { useSession } from "@supabase/auth-helpers-react";
 import { supabase } from "@/../utils/supabase/pages-client";
 import { calculateWalletBalance } from "@/../utils/wallet/balance";
+import { Badge, Card, ModeSelector, PreviewPanel, ReadinessBanner } from "@/../components/ui";
 
 import { AdFormState, GenderOpt, PlacementKey } from "../types";
 
-import { INPUT } from "../constants";
 
 import { AdCampaignWizard } from "../components/AdCampaignWizard";
 import { OrganicSubmissionForm } from "../components/OrganicSubmissionForm";
@@ -46,10 +24,6 @@ type OfferRow = {
   meta_page_id?: string | null;
   meta_ad_account_id?: string | null;
   meta_pixel_id?: string | null;
-};
-
-type OfferBusinessEmailRow = {
-  business_email: string | null;
 };
 
 export default function PromoteOfferPage() {
@@ -478,8 +452,8 @@ export default function PromoteOfferPage() {
 
       // Map fields by method
       let platform = ogPlatform;
-      let caption = ogCaption;
-      let content = ogContent;
+      const caption = ogCaption;
+      const content = ogContent;
 
       if (ogMethod === "email") {
         platform = "Email";
@@ -775,280 +749,151 @@ export default function PromoteOfferPage() {
     }
   };
 
-  // ─────────────────────────────
-  // Placements – branded toggle cards
-  // ─────────────────────────────
-  const PLACEMENT_ORDER: PlacementKey[] = [
-    "facebook_feed",
-    "instagram_feed",
-    "instagram_reels",
-    "facebook_reels",
-    "facebook_stories",
-    "instagram_stories",
-  ];
-
-  const PLACEMENT_META: Record<
-    PlacementKey,
-    { label: string; sub?: string; icon: ReactNode }
-  > = {
-    facebook_feed: {
-      label: "Facebook Feed",
-      sub: "Main feed",
-      icon: (
-        <svg
-          viewBox="0 0 24 24"
-          className="h-5 w-5"
-          fill="currentColor"
-          aria-hidden
-        >
-          <path d="M22 12.073C22 6.505 17.523 2 12 2S2 6.505 2 12.073c0 4.999 3.657 9.144 8.438 9.878v-6.988H7.898v-2.89h2.54V9.845c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.242 0-1.63.772-1.63 1.562v1.875h2.773l-.443 2.889h-2.33v6.988C18.343 21.217 22 17.072 22 12.073z" />
-        </svg>
-      ),
-    },
-    instagram_feed: {
-      label: "Instagram Feed",
-      sub: "Main feed",
-      icon: (
-        <svg
-          viewBox="0 0 24 24"
-          className="h-5 w-5"
-          fill="currentColor"
-          aria-hidden
-        >
-          <path d="M7 2h10a5 5 0 0 1 5 5v10a5 5 0 0 1-5 5H7a5 5 0 0 1-5-5V7a5 5 0 0 1 5-5zm0 2a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3H7zm5 3.5A5.5 5.5 0 1 1 6.5 13 5.5 5.5 0 0 1 12 7.5zm0 2A3.5 3.5 0 1 0 15.5 13 3.5 3.5 0 0 0 12 9.5zm5.25-3.25a1.25 1.25 0 1 1-1.25 1.25 1.25 1.25 0 0 1 1.25-1.25z" />
-        </svg>
-      ),
-    },
-    instagram_reels: {
-      label: "Instagram Reels",
-      sub: "Short video",
-      icon: (
-        <svg
-          viewBox="0 0 24 24"
-          className="h-5 w-5"
-          fill="currentColor"
-          aria-hidden
-        >
-          <path d="M4 3h16a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm2.5 1.5L10 8H7.5L5 4.5h1.5zm4 0L14 8h-2.5L8.5 4.5H10zm4 0L18 8h-2.5L12.5 4.5H14zM9 10.25v3.5a.75.75 0 0 0 1.125.654l3-1.75a.75.75 0 0 0 0-1.308l-3-1.75A.75.75 0 0 0 9 10.25z" />
-        </svg>
-      ),
-    },
-    facebook_reels: {
-      label: "Facebook Reels",
-      sub: "Short video",
-      icon: (
-        <svg
-          viewBox="0 0 24 24"
-          className="h-5 w-5"
-          fill="currentColor"
-          aria-hidden
-        >
-          <path d="M4 3h16a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm6 6.25v5.5a.75.75 0 0 0 1.125.654l4-2.25a.75.75 0 0 0 0-1.308l-4-2.25A.75.75 0 0 0 10 9.25zM6.5 4.5L9 8H7.5L5 4.5h1.5zM11 4.5L13.5 8H12L9.5 4.5H11zM15.5 4.5L18 8h-1.5L14 4.5h1.5z" />
-        </svg>
-      ),
-    },
-    facebook_stories: {
-      label: "Facebook Stories",
-      sub: "Vertical story",
-      icon: (
-        <svg
-          viewBox="0 0 24 24"
-          className="h-5 w-5"
-          fill="currentColor"
-          aria-hidden
-        >
-          <path d="M8 2.75A2.75 2.75 0 0 1 10.75 0h2.5A2.75 2.75 0 0 1 16 2.75v18.5A2.75 2.75 0 0 1 13.25 24h-2.5A2.75 2.75 0 0 1 8 21.25zM10 2.5h4v19h-4z" />
-        </svg>
-      ),
-    },
-    instagram_stories: {
-      label: "Instagram Stories",
-      sub: "Vertical story",
-      icon: (
-        <svg
-          viewBox="0 0 24 24"
-          className="h-5 w-5"
-          fill="currentColor"
-          aria-hidden
-        >
-          <path d="M6 1.75A2.75 2.75 0 0 1 8.75-1h6.5A2.75 2.75 0 0 1 18 1.75v20.5A2.75 2.75 0 0 1 15.25 25h-6.5A2.75 2.75 0 0 1 6 22.25zM8 3.5h8v18H8z" />
-        </svg>
-      ),
-    },
-  };
-
-  function PlacementCard({
-    k,
-    active,
-    onToggle,
-  }: {
-    k: PlacementKey;
-    active: boolean;
-    onToggle: () => void;
-  }) {
-    const meta = PLACEMENT_META[k];
-    return (
-      <button
-        type="button"
-        onClick={onToggle}
-        className={[
-          "group w-full text-left rounded-xl border transition relative overflow-hidden",
-          active
-            ? "border-[#00C2CB]/60 bg-gradient-to-br from-[#0d1f21] via-[#0f0f0f] to-[#0b0b0b] ring-1 ring-[#00C2CB]/40"
-            : "border-[#232323] hover:border-[#2f2f2f] bg-[#101010]",
-        ].join(" ")}
-      >
-        <div className="p-3 flex items-center gap-3">
-          <div
-            className={[
-              "h-9 w-9 rounded-lg flex items-center justify-center",
-              active
-                ? "bg-[#043a3d] text-[#7ff5fb]"
-                : "bg-[#171717] text-gray-300",
-              "border",
-              active ? "border-[#00C2CB]/50" : "border-[#2a2a2a]",
-            ].join(" ")}
-          >
-            {meta.icon}
-          </div>
-          <div className="flex-1">
-            <div className="text-sm font-medium">{meta.label}</div>
-            <div className="text-[11px] text-gray-400">
-              {meta.sub || (active ? "Selected" : "Tap to include")}
-            </div>
-          </div>
-          {/* Toggle pill */}
-          <div
-            className={[
-              "ml-auto h-5 w-9 rounded-full relative transition",
-              active ? "bg-[#00C2CB]" : "bg-[#2a2a2a]",
-            ].join(" ")}
-          >
-            <span
-              className={[
-                "absolute top-0.5 h-4 w-4 rounded-full bg-black transition-all",
-                active ? "left-5" : "left-0.5",
-              ].join(" ")}
-            />
-          </div>
-        </div>
-      </button>
-    );
-  }
 
   return (
-    <div className="promote-theme min-h-screen py-10 px-6 bg-[var(--background)] text-[var(--foreground)] pb-8">
-      <div className="max-w-6xl mx-auto grid lg:grid-cols-[1fr_360px] gap-8">
-        {/* Mode toggle (Ad vs Organic) */}
-        <div className="lg:col-span-2 -mb-2 flex items-center justify-between">
-          <div className="flex gap-2 overflow-x-auto">
-            <button
-              type="button"
-              onClick={() => {
-                if (!isOrganicOnlyOffer) setMode("ad");
-              }}
-              disabled={isOrganicOnlyOffer || showBusinessPaymentWarning}
-              className={[
-                "px-4 py-2 rounded-lg border text-sm",
-                mode === "ad"
-                  ? "bg-[#00C2CB] text-black border-[#00C2CB]"
-                  : "border-[#2a2a2a] text-gray-300 hover:bg-[#151515]",
-                isOrganicOnlyOffer || showBusinessPaymentWarning ? "cursor-not-allowed opacity-50 hover:bg-transparent" : "",
-              ].join(" ")}
-            >
-              {isOrganicOnlyOffer || showBusinessPaymentWarning ? "Ads unavailable" : "Submit Ad"}
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode("organic")}
-              className={[
-                "px-4 py-2 rounded-lg border text-sm",
-                mode === "organic"
-                  ? "bg-[#00C2CB] text-black border-[#00C2CB]"
-                  : "border-[#2a2a2a] text-gray-300 hover:bg-[#151515]",
-              ].join(" ")}
-            >
-              Submit Organic
-            </button>
-          </div>
-        </div>
-        {/* LEFT: single card wizard */}
-        {mode === "ad" && (
-          <div className="space-y-4">
-            {showMetaSetupWarning && (
-              <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-100">
-                <div className="font-semibold">Connect Meta to allow affiliates to launch campaigns.</div>
-                <p className="mt-1 text-amber-100/85">
-                  This offer can still be promoted organically while Meta setup is pending.
+    <div className="promote-theme min-h-screen bg-[var(--background)] px-4 py-6 text-[var(--foreground)] sm:px-6 lg:py-8">
+      <div className="mx-auto grid max-w-6xl gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <Card className="lg:col-span-2 overflow-hidden border-[#00C2CB]/15 bg-[radial-gradient(circle_at_top_right,rgba(0,194,203,0.16),transparent_34%),var(--card)] p-5 sm:p-6" variant="elevated">
+          <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+            <div className="flex min-w-0 items-start gap-4">
+              <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-[#00C2CB]/25 bg-[#00C2CB]/10 text-lg font-semibold text-[#7ff5fb]">
+                {brandLogoUrl ? (
+                  <img
+                    src={brandLogoUrl}
+                    alt={`${brandName} logo`}
+                    className="h-full w-full object-cover"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  brandName.charAt(0).toUpperCase()
+                )}
+              </div>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="primary">Promote offer</Badge>
+                  {canLaunchPaidCampaign ? (
+                    <Badge variant="success">Paid ready</Badge>
+                  ) : isOrganicOnlyOffer ? (
+                    <Badge variant="warning">Organic only</Badge>
+                  ) : (
+                    <Badge variant="muted">Readiness pending</Badge>
+                  )}
+                </div>
+                <h1 className="mt-3 truncate text-2xl font-semibold tracking-tight text-white sm:text-3xl">
+                  {brandName}
+                </h1>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted-foreground)]">
+                  Build a paid Meta campaign or submit an organic promotion for business review. Required uploads, wallet checks, and approvals remain enforced at submit.
                 </p>
               </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2 text-sm md:min-w-[260px]">
+              <div className="rounded-2xl border border-[var(--border)] bg-black/20 px-4 py-3">
+                <div className="text-[11px] uppercase tracking-[0.16em] text-[var(--muted-foreground)]">Wallet</div>
+                <div className="mt-1 font-semibold text-white">
+                  {walletLoading ? "Checking…" : `$${walletBalance.toFixed(2)}`}
+                </div>
+              </div>
+              <div className="rounded-2xl border border-[var(--border)] bg-black/20 px-4 py-3">
+                <div className="text-[11px] uppercase tracking-[0.16em] text-[var(--muted-foreground)]">Budget</div>
+                <div className="mt-1 font-semibold text-white">${requiredBudget.toFixed(2)}</div>
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        <div className="space-y-4 lg:col-span-2">
+          <ModeSelector
+            value={mode}
+            onChange={(value) => setMode(value as "ad" | "organic")}
+            options={[
+              {
+                value: "ad",
+                label: isOrganicOnlyOffer || showBusinessPaymentWarning ? "Ads unavailable" : "Paid ad campaign",
+                description: "Create a Meta-ready campaign idea with budget, targeting, creative, and uploads.",
+                disabled: isOrganicOnlyOffer || showBusinessPaymentWarning,
+                badge: <Badge variant={mode === "ad" ? "primary" : "muted"}>Paid</Badge>,
+              },
+              {
+                value: "organic",
+                label: "Organic submission",
+                description: "Submit social, email, forum, or other non-paid promotion ideas for approval.",
+                badge: <Badge variant={mode === "organic" ? "primary" : "muted"}>No spend</Badge>,
+              },
+            ]}
+          />
+
+          <div className="grid gap-3 md:grid-cols-2">
+            {showMetaSetupWarning && (
+              <ReadinessBanner tone="warning" title="Connect Meta to allow affiliates to launch campaigns.">
+                This offer can still be promoted organically while Meta setup is pending.
+              </ReadinessBanner>
             )}
 
             {showSalesPixelWarning && (
-              <div className="rounded-2xl border border-cyan-500/30 bg-cyan-500/10 p-4 text-sm text-cyan-100">
-                <div className="font-semibold">Sales campaigns still need a Meta pixel</div>
-                <p className="mt-1 text-cyan-100/85">
-                  This offer is Meta-ready for traffic and engagement, but Sales requires a selected Meta pixel on the offer first.
-                </p>
-              </div>
+              <ReadinessBanner tone="info" title="Sales campaigns still need a Meta pixel">
+                This offer is Meta-ready for traffic and engagement, but Sales requires a selected Meta pixel on the offer first.
+              </ReadinessBanner>
             )}
 
             {showBusinessPaymentWarning && (
-              <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-100">
-                <div className="font-semibold">A payment method is required before paid campaigns can launch.</div>
-                <p className="mt-1 text-amber-100/85">
-                  Affiliate commissions are charged only when a tracked sale occurs.
-                </p>
-              </div>
+              <ReadinessBanner tone="warning" title="A payment method is required before paid campaigns can launch.">
+                Affiliate commissions are charged only when a tracked sale occurs.
+              </ReadinessBanner>
             )}
 
-            {canLaunchPaidCampaign ? (
-              <AdCampaignWizard
-               form={form}
-               setForm={setForm}
-               onInput={onInput}
-               onPlacementToggle={onPlacementToggle}
-               applyEstimatorPreset={applyEstimatorPreset}
-               walletBalance={walletBalance}
-               walletLoading={walletLoading}
-               canRunWithWallet={canRunWithWallet}
-               walletDeficit={walletDeficit}
-               incBudget={incBudget}
-               setStartIn15m={setStartIn15m}
-               setEndIn7d={setEndIn7d}
-               videoFile={videoFile}
-               setVideoFile={setVideoFile}
-               imageFile={imageFile}
-               setImageFile={setImageFile}
-               thumbnailFile={thumbnailFile}
-               setThumbnailFile={setThumbnailFile}
-               thumbnailError={thumbnailError}
-               setThumbnailError={setThumbnailError}
-               validateThumbnailFile={validateThumbnailFile}
-               setVideoPreviewUrl={setVideoPreviewUrl}
-               setThumbPreviewUrl={setThumbPreviewUrl}
-               handleAdSubmit={handleAdSubmit}
-               onNavigateToWallet={() => router.push("/affiliate/wallet")}
-             />
-            ) : (
-              <div className="rounded-2xl border border-white/12 bg-[#111317] p-4 text-sm text-white/80">
-                Paid launch is temporarily locked. You can continue with organic promotion now.
-              </div>
+            {!walletLoading && mode === "ad" && !canRunWithWallet && (
+              <ReadinessBanner tone="danger" title={`Wallet top-up needed: $${walletDeficit.toFixed(2)}`}>
+                Your paid campaign budget is higher than the available wallet balance. The existing submit gate will route you to top up.
+              </ReadinessBanner>
+            )}
+
+            {isOrganicOnlyOffer && mode === "organic" && (
+              <ReadinessBanner tone="info" title="Organic-only offer">
+                This offer is live in the marketplace, but paid ads are locked until the business connects Meta for it.
+              </ReadinessBanner>
             )}
           </div>
-        )}
+        </div>
 
-        {mode === "organic" && (
-          <div className="space-y-4">
-            {isOrganicOnlyOffer && (
-              <div className="rounded-2xl border border-cyan-500/25 bg-cyan-500/10 p-4 text-sm text-cyan-100">
-                <div className="font-semibold">Organic-only offer</div>
-                <p className="mt-1 text-cyan-100/85">
-                  This offer is live in the marketplace, but paid ads are locked until the business connects Meta for it.
-                </p>
-              </div>
-            )}
+        <main className="min-w-0 space-y-4">
+          {mode === "ad" && (
+            canLaunchPaidCampaign ? (
+              <AdCampaignWizard
+                form={form}
+                setForm={setForm}
+                onInput={onInput}
+                onPlacementToggle={onPlacementToggle}
+                applyEstimatorPreset={applyEstimatorPreset}
+                walletBalance={walletBalance}
+                walletLoading={walletLoading}
+                canRunWithWallet={canRunWithWallet}
+                walletDeficit={walletDeficit}
+                incBudget={incBudget}
+                setStartIn15m={setStartIn15m}
+                setEndIn7d={setEndIn7d}
+                videoFile={videoFile}
+                setVideoFile={setVideoFile}
+                imageFile={imageFile}
+                setImageFile={setImageFile}
+                thumbnailFile={thumbnailFile}
+                setThumbnailFile={setThumbnailFile}
+                thumbnailError={thumbnailError}
+                setThumbnailError={setThumbnailError}
+                validateThumbnailFile={validateThumbnailFile}
+                setVideoPreviewUrl={setVideoPreviewUrl}
+                setThumbPreviewUrl={setThumbPreviewUrl}
+                handleAdSubmit={handleAdSubmit}
+                onNavigateToWallet={() => router.push("/affiliate/wallet")}
+              />
+            ) : (
+              <ReadinessBanner tone="warning" title="Paid launch is temporarily locked.">
+                You can continue with organic promotion now.
+              </ReadinessBanner>
+            )
+          )}
 
+          {mode === "organic" && (
             <OrganicSubmissionForm
               ogMethod={ogMethod}
               setOgMethod={setOgMethod}
@@ -1062,24 +907,29 @@ export default function PromoteOfferPage() {
               setOgFile={setOgFile}
               handleOrganicSubmit={handleOrganicSubmit}
             />
-          </div>
-        )}
+          )}
+        </main>
 
-        {/* RIGHT: Preview / Metrics */}
-        <PreviewSidebar
-          mode={mode}
-          dailyConversions={dailyConversions}
-          monthlyConversions={monthlyConversions}
-          brandName={brandName}
-          brandLogoUrl={brandLogoUrl}
-          videoPreviewUrl={videoPreviewUrl}
-          thumbPreviewUrl={thumbPreviewUrl}
-          form={form}
-          ogMethod={ogMethod}
-          ogFile={ogFile}
-          ogPlatform={ogPlatform}
-          ogCaption={ogCaption}
-        />
+        <PreviewPanel
+          title="Preview & summary"
+          description="A live summary of the selected promotion mode and attached creative."
+          className="lg:sticky lg:top-6 lg:self-start"
+        >
+          <PreviewSidebar
+            mode={mode}
+            dailyConversions={dailyConversions}
+            monthlyConversions={monthlyConversions}
+            brandName={brandName}
+            brandLogoUrl={brandLogoUrl}
+            videoPreviewUrl={videoPreviewUrl}
+            thumbPreviewUrl={thumbPreviewUrl}
+            form={form}
+            ogMethod={ogMethod}
+            ogFile={ogFile}
+            ogPlatform={ogPlatform}
+            ogCaption={ogCaption}
+          />
+        </PreviewPanel>
       </div>
     </div>
   );

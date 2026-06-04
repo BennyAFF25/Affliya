@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { nmToast } from "@/components/ui/toast";
+import { Badge, Button } from "@/../components/ui";
 import { AdFormState, PlacementKey } from "../types";
 import {
   CountryMultiSelect,
@@ -129,24 +130,28 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
   };
 
   return (
-    <div className="relative bg-[#141414] border border-[#232323] rounded-2xl shadow-xl overflow-hidden w-full max-w-full mx-auto">
-      <div className="px-4 sm:px-8 py-5 border-b border-[#232323] bg-gradient-to-r from-[#101616] to-[#121212]">
-        <div className="flex items-start sm:items-center justify-between gap-3">
+    <div className="relative mx-auto w-full max-w-full overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[0_18px_55px_rgba(0,0,0,0.22)]">
+      <div className="border-b border-[var(--border)] bg-gradient-to-r from-[#101616] to-[#121212] px-4 py-4 sm:px-5">
+        <div className="flex items-start justify-between gap-3">
           <div>
-            <h1 className="text-xl sm:text-2xl font-bold text-[#00C2CB]">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="primary">Paid campaign</Badge>
+              <Badge variant="muted">Step {step} of 4</Badge>
+            </div>
+            <h1 className="mt-2 text-xl font-semibold text-[#00C2CB] sm:text-2xl">
               Create New Ad Campaign
             </h1>
-            <p className="text-[11px] sm:text-xs text-gray-400 mt-1">
-              Step {step} of 4 · Mobile + desktop ready
+            <p className="mt-1 text-xs text-gray-400">
+              Budget, targeting, creative, then final review.
             </p>
           </div>
-          <div className="hidden sm:flex items-center gap-2">
+          <div className="hidden items-center gap-2 sm:flex">
             {steps.map((s) => (
               <StepPill key={s.id} active={step >= s.id} />
             ))}
           </div>
         </div>
-        <div className="mt-3 h-1.5 w-full rounded-full bg-[#1f1f1f] overflow-hidden">
+        <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-[#1f1f1f]">
           <div
             className="h-full bg-gradient-to-r from-[#00C2CB] to-[#7ff5fb]"
             style={{ width: `${(step / 4) * 100}%` }}
@@ -154,7 +159,7 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
         </div>
       </div>
 
-      <div className="px-4 sm:px-8 py-6 space-y-4 sm:space-y-6">
+      <div className="space-y-4 px-4 py-5 sm:px-5 sm:py-6">
         <div className="flex justify-between gap-2 text-[11px] sm:text-sm overflow-x-auto pb-1">
           {steps.map((s) => {
             const active = step === s.id;
@@ -1001,55 +1006,48 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
       <div className="px-4 sm:px-8 py-5 border-t border-[#232323] bg-[#111111]">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           {step > 1 && (
-            <button
-              onClick={() => setStep(step - 1)}
-              className="px-4 py-2 rounded-md border border-[#2a2a2a] text-gray-300 hover:bg-[#151515]"
-            >
+            <Button type="button" onClick={() => setStep(step - 1)} variant="secondary">
               Back
-            </button>
+            </Button>
           )}
 
           {step < 4 && (
-            <button
+            <Button
+              type="button"
               disabled={!canProceed()}
               onClick={() => setStep(step + 1)}
-              className={`sm:ml-auto w-full sm:w-auto px-6 py-2 rounded-md transition ${
-                canProceed()
-                  ? "bg-[#00C2CB] text-black hover:bg-[#00b0b8]"
-                  : "bg-[#1a1a1a] text-gray-500 cursor-not-allowed"
-              }`}
+              className="w-full sm:ml-auto sm:w-auto"
             >
               Next
-            </button>
+            </Button>
           )}
 
           {step === 4 &&
             (canRunWithWallet ? (
-              <button
+              <Button
+                type="button"
                 onClick={onSubmitClick}
                 disabled={isSubmitting}
-                className={`sm:ml-auto w-full sm:w-auto px-6 py-2 rounded-md transition flex items-center justify-center gap-2 ${
-                  isSubmitting
-                    ? "bg-[#1a1a1a] text-gray-400 cursor-not-allowed"
-                    : "bg-[#00C2CB] text-black hover:bg-[#00b0b8]"
-                }`}
+                className="w-full gap-2 sm:ml-auto sm:w-auto"
               >
                 {isSubmitting ? (
                   <>
-                    <span className="h-4 w-4 rounded-full border-2 border-gray-500 border-t-[#00C2CB] animate-spin" />
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-gray-500 border-t-[#00C2CB]" />
                     Submitting…
                   </>
                 ) : (
                   "Submit Ad Idea"
                 )}
-              </button>
+              </Button>
             ) : (
-              <button
+              <Button
+                type="button"
                 onClick={onNavigateToWallet}
-                className="sm:ml-auto w-full sm:w-auto px-6 py-2 rounded-md transition bg-[#1a1a1a] text-[#00C2CB] border border-[#00C2CB]/40 hover:bg-[#0f1f20]"
+                variant="outline"
+                className="w-full sm:ml-auto sm:w-auto"
               >
                 Top Up Wallet
-              </button>
+              </Button>
             ))}
         </div>
       </div>
