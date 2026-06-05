@@ -428,56 +428,86 @@ const ManageCampaignsBusiness = () => {
   const renderCampaignCard = (campaign: any) => {
     const isMeta = campaign._source === "meta";
     const status = statusVisual(campaign);
+    const title =
+      campaign.caption || (isMeta ? "Meta campaign" : "Organic campaign");
+
     return (
       <div
         key={campaign.id}
         className="rounded-2xl border border-[var(--border)] bg-[var(--card)]/70 p-5"
       >
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-3">
-              <p className="line-clamp-1 text-lg font-semibold text-[var(--foreground)]">
-                {campaign.caption ||
-                  (isMeta ? "Meta campaign" : "Organic campaign")}
-              </p>
+              <div className="line-clamp-1 text-lg font-semibold text-[var(--foreground)]">
+                {title}
+              </div>
+              <Badge
+                variant={
+                  status.label === "Active"
+                    ? "success"
+                    : status.label === "Paused"
+                      ? "warning"
+                      : "danger"
+                }
+                className="normal-case tracking-normal"
+              >
+                <span className={`mr-1.5 h-2 w-2 rounded-full ${status.dot}`} />
+                {status.label}
+              </Badge>
             </div>
-            <p className="mt-1 text-sm text-[var(--muted-foreground)]">
-              {campaign.affiliate_email || "Affiliate unknown"}
-            </p>
+
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[var(--muted-foreground)]">
+              <span className="rounded-full bg-[var(--card)]/60 px-3 py-1">
+                {isMeta ? "Meta Ads" : "Organic"}
+              </span>
+              {isMeta ? (
+                <span className="rounded-full bg-[var(--card)]/60 px-3 py-1">
+                  paid_meta
+                </span>
+              ) : campaign.platform ? (
+                <span className="rounded-full bg-[var(--card)]/60 px-3 py-1">
+                  {campaign.platform}
+                </span>
+              ) : null}
+              {isMeta && campaign.billing_state ? (
+                <span className="rounded-full bg-[var(--card)]/60 px-3 py-1">
+                  Billing {campaign.billing_state}
+                </span>
+              ) : null}
+              {isMeta ? (
+                <span className="rounded-full bg-[var(--primary)]/20 px-3 py-1 font-semibold text-[var(--primary)]">
+                  Spend {formatMoney(campaign.spend || 0)}
+                </span>
+              ) : null}
+              {campaign.created_at ? (
+                <span className="rounded-full bg-[var(--card)]/60 px-3 py-1">
+                  Started {formatDate(campaign.created_at)}
+                </span>
+              ) : null}
+              {campaign.tracking_link ? (
+                <a
+                  href={campaign.tracking_link}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-full bg-[var(--card)]/60 px-3 py-1 text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
+                >
+                  Tracking link
+                </a>
+              ) : null}
+            </div>
+
+            {!isMeta && campaign.caption ? (
+              <div className="mt-3 line-clamp-2 max-w-3xl text-sm text-[var(--muted-foreground)]">
+                {campaign.caption}
+              </div>
+            ) : null}
           </div>
-          <Badge
-            variant={
-              status.label === "Active"
-                ? "success"
-                : status.label === "Paused"
-                  ? "warning"
-                  : "danger"
-            }
-            className="normal-case tracking-normal"
-          >
-            <span className={`mr-1.5 h-2 w-2 rounded-full ${status.dot}`} />
-            {status.label}
-          </Badge>
-        </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-3 text-center text-sm text-[var(--foreground)] lg:grid-cols-4">
-          <StatCell
-            label="Spend"
-            value={isMeta ? formatMoney(campaign.spend || 0) : "—"}
-          />
-          <StatCell label="Clicks" value={formatNumber(campaign.clicks)} />
-          <StatCell
-            label="Conversions"
-            value={formatNumber(campaign.conversions)}
-          />
-          <StatCell label="Started" value={formatDate(campaign.created_at)} />
-        </div>
-
-        <div className="mt-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:flex lg:flex-wrap">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
             <Button
               href={`/business/manage-campaigns/${campaign.id}`}
-              className="w-full rounded-full"
+              className="rounded-full"
             >
               View campaign
             </Button>
@@ -488,7 +518,7 @@ const ManageCampaignsBusiness = () => {
                   onClick={() => handleSyncSpend(campaign.id)}
                   disabled={!!syncingById[campaign.id]}
                   variant="secondary"
-                  className="w-full rounded-full"
+                  className="rounded-full"
                 >
                   {syncingById[campaign.id] ? "Syncing..." : "Sync spend"}
                 </Button>
@@ -496,7 +526,7 @@ const ManageCampaignsBusiness = () => {
                   type="button"
                   onClick={() => handlePermanentStop(campaign.id)}
                   variant="outline"
-                  className="w-full rounded-full border-red-500/40 text-red-400 hover:bg-red-500/10"
+                  className="rounded-full border-red-500/40 text-red-400 hover:bg-red-500/10"
                 >
                   Stop
                 </Button>
@@ -509,22 +539,12 @@ const ManageCampaignsBusiness = () => {
                 }
                 disabled={!isActiveStatus(campaign.status)}
                 variant="secondary"
-                className="w-full rounded-full disabled:cursor-not-allowed"
+                className="rounded-full disabled:cursor-not-allowed"
               >
                 {isActiveStatus(campaign.status) ? "Pause" : "Paused"}
               </Button>
             )}
           </div>
-          {campaign.tracking_link ? (
-            <a
-              href={campaign.tracking_link}
-              target="_blank"
-              rel="noreferrer"
-              className="text-xs text-[var(--muted-foreground)] hover:text-[var(--foreground)] lg:text-right"
-            >
-              Tracking link
-            </a>
-          ) : null}
         </div>
       </div>
     );
@@ -711,17 +731,6 @@ const ManageCampaignsBusiness = () => {
     </div>
   );
 };
-
-function StatCell({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-2xl font-semibold text-[var(--foreground)]">{value}</p>
-      <p className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">
-        {label}
-      </p>
-    </div>
-  );
-}
 
 function ShopStat({ label, value }: { label: string; value: string }) {
   return (
