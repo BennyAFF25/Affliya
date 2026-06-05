@@ -9,7 +9,6 @@ import {
   Card,
   ReadinessBanner,
   SectionHeader,
-  StatCard,
 } from "@/../components/ui";
 import { useSession } from "@supabase/auth-helpers-react";
 import { supabase } from "utils/supabase/pages-client";
@@ -882,41 +881,20 @@ export default function BusinessCampaignDetailPage() {
                     </p>
                   ) : (
                     <>
-                      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                        {/* Clicks / Page views */}
-                        <StatCard
+                      <div className="mb-4 grid grid-cols-2 gap-3">
+                        <MetricTile
                           label={
-                            campaign.meta_source === "meta"
-                              ? "Clicks"
-                              : "Page views"
+                            campaign.meta_source === "meta" ? "Clicks" : "Views"
                           }
                           value={stats.pageViews}
-                          tone="primary"
-                          icon={<CursorArrowRaysIcon className="h-5 w-5" />}
-                          className="min-h-[112px]"
                         />
-
-                        {/* Add to carts */}
-                        <StatCard
-                          label="Add to carts"
-                          value={stats.addToCarts}
-                          tone="primary"
-                          icon={<ShoppingCartIcon className="h-5 w-5" />}
-                          className="min-h-[112px]"
-                        />
-
-                        {/* Conversions */}
-                        <StatCard
+                        <MetricTile label="Carts" value={stats.addToCarts} />
+                        <MetricTile
                           label="Conversions"
                           value={stats.conversions}
-                          tone="primary"
-                          icon={<CurrencyDollarIcon className="h-5 w-5" />}
-                          className="min-h-[112px]"
                         />
-
-                        {/* For Meta campaigns, show Spend as 4th tile */}
-                        {campaign.meta_source === "meta" && (
-                          <StatCard
+                        {campaign.meta_source === "meta" ? (
+                          <MetricTile
                             label="Spend"
                             value={(campaign.spend || 0).toLocaleString(
                               undefined,
@@ -926,22 +904,15 @@ export default function BusinessCampaignDetailPage() {
                               },
                             )}
                             tone="success"
-                            icon={<CurrencyDollarIcon className="h-5 w-5" />}
-                            className="min-h-[112px]"
                           />
-                        )}
-
-                        {/* For organic campaigns, keep Revenue tile */}
-                        {campaign.meta_source !== "meta" && (
-                          <StatCard
+                        ) : (
+                          <MetricTile
                             label="Revenue"
                             value={stats.revenue.toLocaleString(undefined, {
                               style: "currency",
                               currency: "USD",
                             })}
                             tone="success"
-                            icon={<CurrencyDollarIcon className="h-5 w-5" />}
-                            className="min-h-[112px]"
                           />
                         )}
                       </div>
@@ -969,7 +940,7 @@ export default function BusinessCampaignDetailPage() {
                       </p>
 
                       {series.labels.length > 0 && (
-                        <div className="mt-4 rounded-2xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-3 sm:px-4">
+                        <div className="mt-4 h-[220px] rounded-2xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-3 sm:px-4">
                           <Line
                             data={{
                               labels: series.labels,
@@ -1011,6 +982,7 @@ export default function BusinessCampaignDetailPage() {
                             }}
                             options={{
                               responsive: true,
+                              maintainAspectRatio: false,
                               plugins: {
                                 legend: {
                                   labels: {
@@ -1144,6 +1116,31 @@ export default function BusinessCampaignDetailPage() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+function MetricTile({
+  label,
+  value,
+  tone = "primary",
+}: {
+  label: string;
+  value: React.ReactNode;
+  tone?: "primary" | "success";
+}) {
+  const toneClass =
+    tone === "success"
+      ? "border-emerald-400/25 bg-emerald-500/10 text-emerald-200"
+      : "border-[#00C2CB]/25 bg-[#00C2CB]/10 text-[#00C2CB]";
+
+  return (
+    <div className={`rounded-2xl border p-4 ${toneClass}`}>
+      <p className="truncate text-[11px] font-semibold uppercase tracking-[0.16em] opacity-80">
+        {label}
+      </p>
+      <p className="mt-3 truncate text-2xl font-semibold tracking-tight text-[var(--foreground)]">
+        {value}
+      </p>
     </div>
   );
 }
