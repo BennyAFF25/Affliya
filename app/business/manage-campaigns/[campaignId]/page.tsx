@@ -691,8 +691,8 @@ export default function BusinessCampaignDetailPage() {
               <div className="grid gap-4 md:gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1.3fr)]">
                 {/* LEFT: creative preview with iPhone mockup */}
                 <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] px-4 py-5 shadow-sm sm:px-6 flex flex-col order-2 lg:order-1">
-                  <div className="flex items-center justify-between mb-3">
-                    <h2 className="text-sm font-semibold flex items-center gap-2">
+                  <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <h2 className="flex items-center gap-2 text-sm font-semibold">
                       <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#00C2CB]/10 text-[#00C2CB]">
                         <PlayCircleIcon className="h-4 w-4" />
                       </span>
@@ -834,14 +834,14 @@ export default function BusinessCampaignDetailPage() {
 
                 {/* RIGHT: performance stats */}
                 <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] px-4 py-5 shadow-sm sm:px-6 flex flex-col order-1 lg:order-2">
-                  <div className="flex items-center justify-between mb-3">
-                    <h2 className="text-sm font-semibold flex items-center gap-2">
+                  <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <h2 className="flex items-center gap-2 text-sm font-semibold">
                       <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-300">
                         <CursorArrowRaysIcon className="h-4 w-4" />
                       </span>
                       Performance
                     </h2>
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       {campaign.meta_source === "meta" && (
                         <Button
                           type="button"
@@ -882,7 +882,7 @@ export default function BusinessCampaignDetailPage() {
                     </p>
                   ) : (
                     <>
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
+                      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
                         {/* Clicks / Page views */}
                         <StatCard
                           label={
@@ -893,6 +893,7 @@ export default function BusinessCampaignDetailPage() {
                           value={stats.pageViews}
                           tone="primary"
                           icon={<CursorArrowRaysIcon className="h-5 w-5" />}
+                          className="min-h-[112px]"
                         />
 
                         {/* Add to carts */}
@@ -901,6 +902,7 @@ export default function BusinessCampaignDetailPage() {
                           value={stats.addToCarts}
                           tone="primary"
                           icon={<ShoppingCartIcon className="h-5 w-5" />}
+                          className="min-h-[112px]"
                         />
 
                         {/* Conversions */}
@@ -909,46 +911,38 @@ export default function BusinessCampaignDetailPage() {
                           value={stats.conversions}
                           tone="primary"
                           icon={<CurrencyDollarIcon className="h-5 w-5" />}
+                          className="min-h-[112px]"
                         />
 
                         {/* For Meta campaigns, show Spend as 4th tile */}
                         {campaign.meta_source === "meta" && (
-                          <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 px-3 sm:px-4 py-3 flex flex-col justify-between">
-                            <div className="flex items-center justify-between">
-                              <p className="text-[11px] text-emerald-100">
-                                Spend
-                              </p>
-                              <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/20">
-                                <CurrencyDollarIcon className="h-4 w-4 text-emerald-300" />
-                              </span>
-                            </div>
-                            <p className="mt-2 text-xl font-semibold text-emerald-100">
-                              {(campaign.spend || 0).toLocaleString(undefined, {
+                          <StatCard
+                            label="Spend"
+                            value={(campaign.spend || 0).toLocaleString(
+                              undefined,
+                              {
                                 style: "currency",
                                 currency: metaCurrency,
-                              })}
-                            </p>
-                          </div>
+                              },
+                            )}
+                            tone="success"
+                            icon={<CurrencyDollarIcon className="h-5 w-5" />}
+                            className="min-h-[112px]"
+                          />
                         )}
 
                         {/* For organic campaigns, keep Revenue tile */}
                         {campaign.meta_source !== "meta" && (
-                          <div className="rounded-2xl border border-emerald-500/40 bg-emerald-500/10 px-3 sm:px-4 py-3 flex flex-col justify-between">
-                            <div className="flex items-center justify-between">
-                              <p className="text-[11px] text-emerald-100">
-                                Revenue
-                              </p>
-                              <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-emerald-500/20">
-                                <CurrencyDollarIcon className="h-4 w-4 text-emerald-300" />
-                              </span>
-                            </div>
-                            <p className="mt-2 text-xl font-semibold text-emerald-100">
-                              {stats.revenue.toLocaleString(undefined, {
-                                style: "currency",
-                                currency: "USD",
-                              })}
-                            </p>
-                          </div>
+                          <StatCard
+                            label="Revenue"
+                            value={stats.revenue.toLocaleString(undefined, {
+                              style: "currency",
+                              currency: "USD",
+                            })}
+                            tone="success"
+                            icon={<CurrencyDollarIcon className="h-5 w-5" />}
+                            className="min-h-[112px]"
+                          />
                         )}
                       </div>
 

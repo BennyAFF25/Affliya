@@ -2,7 +2,14 @@
 
 import { useSession } from "@supabase/auth-helpers-react";
 import { useCallback, useEffect, useState } from "react";
-import { Badge, Button, Card, EmptyState, SectionHeader, StatCard } from "@/../components/ui";
+import {
+  Badge,
+  Button,
+  Card,
+  EmptyState,
+  SectionHeader,
+  StatCard,
+} from "@/../components/ui";
 import {
   Sparkles,
   Activity,
@@ -268,7 +275,9 @@ const ManageCampaignsBusiness = () => {
   };
 
   const handleToggleStatus = async (id: string, currentStatus: string) => {
-    const isCurrentlyActive = (currentStatus || "").toUpperCase() === "ACTIVE" || (currentStatus || "").toUpperCase() === "LIVE";
+    const isCurrentlyActive =
+      (currentStatus || "").toUpperCase() === "ACTIVE" ||
+      (currentStatus || "").toUpperCase() === "LIVE";
     if (!isCurrentlyActive) return;
     const newStatus = "PAUSED";
 
@@ -305,7 +314,11 @@ const ManageCampaignsBusiness = () => {
       const res = await fetch("/api/meta/control-ad", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ liveAdId: id, action: "PAUSE", actor: "business" }),
+        body: JSON.stringify({
+          liveAdId: id,
+          action: "PAUSE",
+          actor: "business",
+        }),
       });
 
       const json = await res.json().catch(() => null);
@@ -403,7 +416,8 @@ const ManageCampaignsBusiness = () => {
   const statusVisual = (campaign: any) => {
     const key = (campaign?.status || "pending").toLowerCase();
     const businessStopped =
-      campaign?.billing_state === 'TERMINATED_BY_BUSINESS' || !!campaign?.terminated_by_business_at;
+      campaign?.billing_state === "TERMINATED_BY_BUSINESS" ||
+      !!campaign?.terminated_by_business_at;
     if (businessStopped || key === "stopped" || key === "stopped permanently")
       return { label: "Stopped", dot: "bg-red-500", text: "text-red-200" };
     if (key === "paused")
@@ -417,19 +431,28 @@ const ManageCampaignsBusiness = () => {
     return (
       <div
         key={campaign.id}
-        className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.45)]"
+        className="rounded-2xl border border-[var(--border)] bg-[var(--card)]/70 p-5"
       >
-        <div className="flex flex-col gap-3 2xl:flex-row 2xl:items-start 2xl:justify-between">
-          <div>
-            <p className="text-base font-semibold text-white">
-              {campaign.caption || "Untitled campaign"}
-            </p>
-            <p className="text-sm text-white/60">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-3">
+              <p className="line-clamp-1 text-lg font-semibold text-[var(--foreground)]">
+                {campaign.caption ||
+                  (isMeta ? "Meta campaign" : "Organic campaign")}
+              </p>
+            </div>
+            <p className="mt-1 text-sm text-[var(--muted-foreground)]">
               {campaign.affiliate_email || "Affiliate unknown"}
             </p>
           </div>
           <Badge
-            variant={status.label === "Active" ? "success" : status.label === "Paused" ? "warning" : "danger"}
+            variant={
+              status.label === "Active"
+                ? "success"
+                : status.label === "Paused"
+                  ? "warning"
+                  : "danger"
+            }
             className="normal-case tracking-normal"
           >
             <span className={`mr-1.5 h-2 w-2 rounded-full ${status.dot}`} />
@@ -437,7 +460,7 @@ const ManageCampaignsBusiness = () => {
           </Badge>
         </div>
 
-        <div className="mt-4 grid grid-cols-2 gap-3 text-center text-sm text-white/80 2xl:grid-cols-4 2xl:gap-4">
+        <div className="mt-4 grid grid-cols-2 gap-3 text-center text-sm text-[var(--foreground)] lg:grid-cols-4">
           <StatCell
             label="Spend"
             value={isMeta ? formatMoney(campaign.spend || 0) : "—"}
@@ -450,9 +473,12 @@ const ManageCampaignsBusiness = () => {
           <StatCell label="Started" value={formatDate(campaign.created_at)} />
         </div>
 
-        <div className="mt-4 flex flex-col gap-3 2xl:flex-row 2xl:items-center 2xl:justify-between">
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 2xl:flex 2xl:flex-wrap">
-            <Button href={`/business/manage-campaigns/${campaign.id}`} className="w-full rounded-full">
+        <div className="mt-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:flex lg:flex-wrap">
+            <Button
+              href={`/business/manage-campaigns/${campaign.id}`}
+              className="w-full rounded-full"
+            >
               View campaign
             </Button>
             {isMeta ? (
@@ -494,7 +520,7 @@ const ManageCampaignsBusiness = () => {
               href={campaign.tracking_link}
               target="_blank"
               rel="noreferrer"
-              className="text-xs text-white/60 hover:text-white 2xl:text-right"
+              className="text-xs text-[var(--muted-foreground)] hover:text-[var(--foreground)] lg:text-right"
             >
               Tracking link
             </a>
@@ -506,10 +532,10 @@ const ManageCampaignsBusiness = () => {
 
   return (
     <div className="business-manage-campaigns-theme min-h-screen bg-[var(--background)] text-[var(--foreground)]">
-      <div className="mx-auto w-full max-w-5xl space-y-8 px-4 pb-8 pt-4 sm:px-6 lg:px-6 2xl:max-w-7xl 2xl:px-0">
-        <section className="relative overflow-hidden border-t border-white/10 bg-gradient-to-br from-[#061214] via-[#090d0e] to-black px-4 py-6 shadow-[0_30px_80px_rgba(0,0,0,0.55)] sm:rounded-3xl sm:border">
+      <div className="mx-auto w-full max-w-6xl space-y-7 p-6">
+        <section className="relative overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
           <div className="pointer-events-none absolute -top-12 right-0 h-52 w-52 rounded-full bg-[#00C2CB]/20 blur-3xl" />
-          <div className="relative z-10 flex flex-col gap-4 2xl:flex-row 2xl:items-center 2xl:justify-between">
+          <div className="relative z-10 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#00C2CB]/20 bg-[#00C2CB]/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.24em] text-[#7ff5fb]">
                 <Sparkles className="h-3.5 w-3.5" />
@@ -518,23 +544,24 @@ const ManageCampaignsBusiness = () => {
               <h1 className="text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
                 Business Manage Campaigns
               </h1>
-              <p className="mt-3 max-w-2xl text-sm text-[var(--muted-foreground)] sm:text-base">
+              <p className="mt-3 max-w-3xl text-sm text-[var(--muted-foreground)] sm:text-base">
                 Monitor every affiliate placement, sync Meta spend, and jump
                 straight into campaign controls before performance drifts.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button href="/business/my-business/create-offer" variant="secondary">
+              <Button
+                href="/business/my-business/create-offer"
+                variant="secondary"
+              >
                 New offer
               </Button>
-              <Button href="/business/dashboard">
-                Business dashboard
-              </Button>
+              <Button href="/business/dashboard">Business dashboard</Button>
             </div>
           </div>
         </section>
 
-        <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-2 2xl:grid-cols-5">
+        <section className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
           {metricCards.map((metric) => (
             <StatCard
               key={metric.label}
@@ -554,7 +581,7 @@ const ManageCampaignsBusiness = () => {
           />
         ) : (
           <>
-            <Card className="p-5 md:p-6" variant="glass">
+            <Card className="p-5 md:p-6" variant="elevated">
               <SectionHeader
                 title="Active campaigns"
                 description="Campaigns currently delivering or awaiting settlement."
@@ -575,7 +602,7 @@ const ManageCampaignsBusiness = () => {
               </div>
             </Card>
 
-            <Card className="p-5 md:p-6" variant="glass">
+            <Card className="p-5 md:p-6" variant="elevated">
               <SectionHeader
                 title="Shopfront placements"
                 description="Affiliates driving traffic via NettmarkShop."
@@ -593,7 +620,7 @@ const ManageCampaignsBusiness = () => {
                   shopPlacements.map((placement) => (
                     <div
                       key={placement.affiliate_email}
-                      className="flex flex-col gap-4 rounded-2xl border border-white/10 bg-black/30 p-4 2xl:flex-row 2xl:items-center 2xl:justify-between"
+                      className="flex flex-col gap-4 rounded-2xl border border-[var(--border)] bg-[var(--card)]/70 p-4 lg:flex-row lg:items-center lg:justify-between"
                     >
                       <div className="flex items-center gap-3">
                         <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-sm font-semibold text-[#00C2CB]">
@@ -612,7 +639,7 @@ const ManageCampaignsBusiness = () => {
                           </p>
                         </div>
                       </div>
-                      <div className="grid flex-1 grid-cols-1 gap-3 text-center text-sm text-white sm:grid-cols-3 lg:gap-4 2xl:max-w-xl">
+                      <div className="grid flex-1 grid-cols-1 gap-3 text-center text-sm text-[var(--foreground)] sm:grid-cols-3 lg:max-w-xl">
                         <ShopStat
                           label="Views (24h)"
                           value={formatNumber(placement.views24h)}
@@ -646,11 +673,11 @@ const ManageCampaignsBusiness = () => {
               </div>
             </Card>
 
-            <Card className="p-5 md:p-6" variant="glass">
+            <Card className="p-5 md:p-6" variant="elevated">
               <SectionHeader
                 title="Archived campaigns"
                 description="Paused or completed placements stay here for historical reference."
-                actions={(
+                actions={
                   <Button
                     type="button"
                     onClick={() => setShowArchived((prev) => !prev)}
@@ -660,7 +687,7 @@ const ManageCampaignsBusiness = () => {
                   >
                     {showArchived ? "-" : "+"}
                   </Button>
-                )}
+                }
               />
               {showArchived && (
                 <div className="mt-5 space-y-4">
@@ -688,8 +715,10 @@ const ManageCampaignsBusiness = () => {
 function StatCell({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-2xl font-semibold text-white">{value}</p>
-      <p className="text-xs uppercase tracking-wide text-white/45">{label}</p>
+      <p className="text-2xl font-semibold text-[var(--foreground)]">{value}</p>
+      <p className="text-xs uppercase tracking-wide text-[var(--muted-foreground)]">
+        {label}
+      </p>
     </div>
   );
 }
@@ -697,8 +726,8 @@ function StatCell({ label, value }: { label: string; value: string }) {
 function ShopStat({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <p className="text-xl font-semibold text-white">{value}</p>
-      <p className="text-[11px] uppercase tracking-[0.2em] text-white/45">
+      <p className="text-xl font-semibold text-[var(--foreground)]">{value}</p>
+      <p className="text-[11px] uppercase tracking-[0.2em] text-[var(--muted-foreground)]">
         {label}
       </p>
     </div>
