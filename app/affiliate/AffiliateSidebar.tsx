@@ -82,9 +82,10 @@ export default function AffiliateSidebar() {
         borderColor: "var(--sidebar-border)",
       }}
     >
-      <ul className="space-y-1">
+      <ul className="mt-2 space-y-1">
         {links.map((link) => {
-          const active = pathname === link.href;
+          const active =
+            pathname === link.href || pathname.startsWith(`${link.href}/`);
           const Icon = link.icon;
           return (
             <li key={link.href} className="relative">
@@ -94,7 +95,7 @@ export default function AffiliateSidebar() {
 
               <Link
                 href={link.href}
-                className="group flex items-center gap-3 rounded-xl border px-4 py-3 text-sm font-medium transition-all"
+                className="group flex items-center gap-3 rounded-xl border px-4 py-3 text-sm font-medium transition-colors"
                 style={{
                   backgroundColor: active
                     ? "var(--sidebar-accent)"

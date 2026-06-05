@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useEffect, useMemo, useState, useCallback } from 'react';
-import { Line } from 'react-chartjs-2';
+import { useEffect, useMemo, useState, useCallback } from "react";
+import { Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -12,7 +12,7 @@ import {
   Tooltip,
   Legend,
   Filler,
-} from 'chart.js';
+} from "chart.js";
 
 ChartJS.register(
   CategoryScale,
@@ -22,12 +22,12 @@ ChartJS.register(
   Title,
   Tooltip,
   Legend,
-  Filler
+  Filler,
 );
 
-import { useParams, useRouter } from 'next/navigation';
-import { supabase } from '@/../utils/supabase/pages-client';
-import type { PostgrestError } from '@supabase/supabase-js';
+import { useParams, useRouter } from "next/navigation";
+import { supabase } from "@/../utils/supabase/pages-client";
+import type { PostgrestError } from "@supabase/supabase-js";
 import {
   ShoppingCartIcon,
   CurrencyDollarIcon,
@@ -35,7 +35,17 @@ import {
   ArrowPathIcon,
   CursorArrowRaysIcon,
   XMarkIcon,
-} from '@heroicons/react/24/outline';
+} from "@heroicons/react/24/outline";
+import {
+  Badge,
+  Button,
+  Card,
+  CardHeader,
+  CardTitle,
+  ReadinessBanner,
+  SectionHeader,
+  StatCard,
+} from "@/../components/ui";
 
 type Campaign = {
   id: string;
@@ -82,15 +92,27 @@ export default function ManageCampaignPage() {
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [metaControlLoading, setMetaControlLoading] = useState(false);
 
-  const [offer, setOffer] = useState<{ website?: string; title?: string; commission?: number } | null>(null);
-  const [stats, setStats] = useState<Stats>({ clicks: 0, carts: 0, conversions: 0 });
-  const [chartSeries, setChartSeries] = useState<ChartSeries>({ labels: [], carts: [], conversions: [] });
+  const [offer, setOffer] = useState<{
+    website?: string;
+    title?: string;
+    commission?: number;
+  } | null>(null);
+  const [stats, setStats] = useState<Stats>({
+    clicks: 0,
+    carts: 0,
+    conversions: 0,
+  });
+  const [chartSeries, setChartSeries] = useState<ChartSeries>({
+    labels: [],
+    carts: [],
+    conversions: [],
+  });
   const [loadingStats, setLoadingStats] = useState<boolean>(false);
   const [pendingPayout, setPendingPayout] = useState<number>(0);
-  const [copyState, setCopyState] = useState<'idle' | 'copied'>('idle');
+  const [copyState, setCopyState] = useState<"idle" | "copied">("idle");
 
   // Meta spend formatting
-  const [metaCurrency, setMetaCurrency] = useState<string>('AUD');
+  const [metaCurrency, setMetaCurrency] = useState<string>("AUD");
   const [syncingSpend, setSyncingSpend] = useState(false);
 
   // --------------------
@@ -98,12 +120,13 @@ export default function ManageCampaignPage() {
   // --------------------
   function buildLast7DaysBuckets() {
     const labels: string[] = [];
-    const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    const startOfDay = (d: Date) =>
+      new Date(d.getFullYear(), d.getMonth(), d.getDate());
     const today = startOfDay(new Date());
     for (let i = 6; i >= 0; i--) {
       const day = new Date(today);
       day.setDate(today.getDate() - i);
-      labels.push(day.toLocaleDateString(undefined, { weekday: 'short' }));
+      labels.push(day.toLocaleDateString(undefined, { weekday: "short" }));
     }
     return labels;
   }
@@ -112,33 +135,39 @@ export default function ManageCampaignPage() {
     (val: any) => {
       const n = Number(val);
       const safe = Number.isFinite(n) ? n : 0;
-      const currency = String(metaCurrency || 'AUD').toUpperCase();
+      const currency = String(metaCurrency || "AUD").toUpperCase();
       try {
-        return new Intl.NumberFormat('en-AU', { style: 'currency', currency }).format(safe);
+        return new Intl.NumberFormat("en-AU", {
+          style: "currency",
+          currency,
+        }).format(safe);
       } catch {
         return `A$${safe.toFixed(2)}`;
       }
     },
-    [metaCurrency]
+    [metaCurrency],
   );
 
   async function loadMetaCurrencyForBusiness(businessEmail?: string | null) {
     if (!businessEmail) return;
 
     const { data, error: connErr } = await supabase
-      .from('meta_connections')
-      .select('currency, account_currency, ad_account_currency, created_at')
-      .eq('business_email', businessEmail)
-      .order('created_at', { ascending: false })
+      .from("meta_connections")
+      .select("currency, account_currency, ad_account_currency, created_at")
+      .eq("business_email", businessEmail)
+      .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
 
     if (connErr) {
-      console.warn('[⚠️ meta currency lookup failed]', connErr);
+      console.warn("[⚠️ meta currency lookup failed]", connErr);
       return;
     }
 
-    const cur = (data as any)?.currency || (data as any)?.account_currency || (data as any)?.ad_account_currency;
+    const cur =
+      (data as any)?.currency ||
+      (data as any)?.account_currency ||
+      (data as any)?.ad_account_currency;
     if (cur) setMetaCurrency(String(cur).toUpperCase());
   }
 
@@ -146,8 +175,8 @@ export default function ManageCampaignPage() {
   // Stats loader
   // Tracking-system stats only (no Meta clicks to avoid crossing wires)
   // IMPORTANT: Clicks should match business-side logic.
-      // Business counts "Clicks / Page views" as any of:
-      // page_view, page_viewed, view, landing_view, click (case-insensitive).
+  // Business counts "Clicks / Page views" as any of:
+  // page_view, page_viewed, view, landing_view, click (case-insensitive).
   // --------------------
   async function loadCampaignStats(currentCampaignId: string) {
     try {
@@ -155,15 +184,17 @@ export default function ManageCampaignPage() {
 
       // 🔑 Single source of truth: stats are always per campaign_id (same as business side)
       const resp = await (supabase as any)
-        .from('campaign_tracking_events')
-        .select('id, event_type, amount, created_at, offer_id, affiliate_id, campaign_id')
-        .eq('campaign_id', currentCampaignId);
+        .from("campaign_tracking_events")
+        .select(
+          "id, event_type, amount, created_at, offer_id, affiliate_id, campaign_id",
+        )
+        .eq("campaign_id", currentCampaignId);
 
       let rows: any[] = resp?.data || [];
       const fetchErr: any = resp?.error;
 
       if (fetchErr) {
-        console.error('[❌ Failed to fetch campaign stats]', fetchErr);
+        console.error("[❌ Failed to fetch campaign stats]", fetchErr);
       }
 
       // 🚫 No fallback to offer_id/affiliate_id here.
@@ -174,7 +205,11 @@ export default function ManageCampaignPage() {
       if (!rows || rows.length === 0) {
         setStats({ clicks: 0, carts: 0, conversions: 0 });
         const labels = buildLast7DaysBuckets();
-        setChartSeries({ labels, carts: Array(labels.length).fill(0), conversions: Array(labels.length).fill(0) });
+        setChartSeries({
+          labels,
+          carts: Array(labels.length).fill(0),
+          conversions: Array(labels.length).fill(0),
+        });
         return;
       }
 
@@ -184,14 +219,29 @@ export default function ManageCampaignPage() {
       let conversions = 0;
 
       for (const evt of rows) {
-        const t = String(evt?.event_type || '').toLowerCase();
+        const t = String(evt?.event_type || "").toLowerCase();
 
         // Business treats these as "Clicks" (meta) / "Page views" (organic)
-        if (t === 'page_view' || t === 'page_viewed' || t === 'view' || t === 'landing_view' || t === 'click') {
+        if (
+          t === "page_view" ||
+          t === "page_viewed" ||
+          t === "view" ||
+          t === "landing_view" ||
+          t === "click"
+        ) {
           pageViews += 1;
-        } else if (t === 'add_to_cart' || t === 'cart' || t === 'cart_updated') {
+        } else if (
+          t === "add_to_cart" ||
+          t === "cart" ||
+          t === "cart_updated"
+        ) {
           addToCarts += 1;
-        } else if (t === 'conversion' || t === 'purchase' || t === 'order' || t === 'checkout_completed') {
+        } else if (
+          t === "conversion" ||
+          t === "purchase" ||
+          t === "order" ||
+          t === "checkout_completed"
+        ) {
           conversions += 1;
         }
       }
@@ -207,7 +257,8 @@ export default function ManageCampaignPage() {
       const cartsSeries = Array(labels.length).fill(0);
       const conversionsSeries = Array(labels.length).fill(0);
 
-      const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      const startOfDay = (d: Date) =>
+        new Date(d.getFullYear(), d.getMonth(), d.getDate());
       const today = startOfDay(new Date());
 
       for (const row of rows) {
@@ -216,15 +267,31 @@ export default function ManageCampaignPage() {
 
         const d = new Date(createdAt);
         const rowDay = startOfDay(d);
-        const diffDays = Math.round((rowDay.getTime() - today.getTime()) / 86400000);
-        const idx = Math.min(labels.length - 1, Math.max(0, (labels.length - 1) + diffDays));
+        const diffDays = Math.round(
+          (rowDay.getTime() - today.getTime()) / 86400000,
+        );
+        const idx = Math.min(
+          labels.length - 1,
+          Math.max(0, labels.length - 1 + diffDays),
+        );
 
-        const t = String(row?.event_type || '').toLowerCase();
-        if (t === 'add_to_cart' || t === 'cart' || t === 'cart_updated') cartsSeries[idx] += 1;
-        else if (t === 'conversion' || t === 'purchase' || t === 'order' || t === 'checkout_completed') conversionsSeries[idx] += 1;
+        const t = String(row?.event_type || "").toLowerCase();
+        if (t === "add_to_cart" || t === "cart" || t === "cart_updated")
+          cartsSeries[idx] += 1;
+        else if (
+          t === "conversion" ||
+          t === "purchase" ||
+          t === "order" ||
+          t === "checkout_completed"
+        )
+          conversionsSeries[idx] += 1;
       }
 
-      setChartSeries({ labels, carts: cartsSeries, conversions: conversionsSeries });
+      setChartSeries({
+        labels,
+        carts: cartsSeries,
+        conversions: conversionsSeries,
+      });
     } finally {
       setLoadingStats(false);
     }
@@ -256,7 +323,7 @@ export default function ManageCampaignPage() {
 
     // 1) Organic / live_campaigns
     const { data: organic, error: organicErr } = await supabase
-      .from('live_campaigns')
+      .from("live_campaigns")
       .select(
         `
           *,
@@ -264,16 +331,17 @@ export default function ManageCampaignPage() {
             id,
             title
           )
-        `
+        `,
       )
-      .eq('id', campaignId)
+      .eq("id", campaignId)
       .maybeSingle();
 
     if (organic) {
       const normalised: Campaign = {
         ...(organic as any),
-        type: (organic as any).type || 'organic',
-        media_url: (organic as any).media_url || (organic as any).file_url || null,
+        type: (organic as any).type || "organic",
+        media_url:
+          (organic as any).media_url || (organic as any).file_url || null,
       };
       setCampaign(normalised);
       if (organicErr) setError(organicErr);
@@ -282,7 +350,7 @@ export default function ManageCampaignPage() {
 
     // 2) Paid Meta / live_ads
     const { data: paid, error: paidErr } = await supabase
-      .from('live_ads')
+      .from("live_ads")
       .select(
         `
           *,
@@ -290,27 +358,28 @@ export default function ManageCampaignPage() {
             id,
             title
           )
-        `
+        `,
       )
-      .eq('id', campaignId)
+      .eq("id", campaignId)
       .maybeSingle();
 
     if (paid) {
       // Start with anything stored on live_ads
-      let mediaUrl: string | null = (paid as any).media_url || (paid as any).file_url || null;
+      let mediaUrl: string | null =
+        (paid as any).media_url || (paid as any).file_url || null;
       let caption: string | undefined = (paid as any).caption;
 
       // If no media on live_ads, fall back to the original ad_idea (approved only)
-      if ((!mediaUrl || mediaUrl === '') && (paid as any).ad_idea_id) {
+      if ((!mediaUrl || mediaUrl === "") && (paid as any).ad_idea_id) {
         // NOTE: Some Supabase type setups infer `ad_ideas` as `never` if generated DB types are out of date.
         // We cast the query to `any` so TS doesn't error on `file_url` / `caption`.
         type AdIdeaMini = { file_url?: string | null; caption?: string | null };
 
         const { data: idea } = await (supabase as any)
-          .from('ad_ideas')
-          .select('file_url, caption')
-          .eq('id', (paid as any).ad_idea_id)
-          .eq('status', 'approved')
+          .from("ad_ideas")
+          .select("file_url, caption")
+          .eq("id", (paid as any).ad_idea_id)
+          .eq("status", "approved")
           .maybeSingle();
 
         const typedIdea = (idea as AdIdeaMini | null) ?? null;
@@ -320,8 +389,8 @@ export default function ManageCampaignPage() {
 
       const normalised: Campaign = {
         ...(paid as any),
-        type: (paid as any).campaign_type || 'paid_meta',
-        platform: (paid as any).platform || 'Meta',
+        type: (paid as any).campaign_type || "paid_meta",
+        platform: (paid as any).platform || "Meta",
         media_url: mediaUrl,
         caption: caption,
         spend: Number((paid as any).spend ?? 0),
@@ -343,27 +412,31 @@ export default function ManageCampaignPage() {
 
   useEffect(() => {
     if (!campaignId) return;
-    console.log('✅ CAMPAIGN ID FROM ROUTE:', campaignId);
+    console.log("✅ CAMPAIGN ID FROM ROUTE:", campaignId);
     reloadCampaign();
   }, [campaignId, reloadCampaign]);
 
   // --------------------
   // Meta control (pause / resume)
   // --------------------
-  async function handleMetaControl(action: 'PAUSE' | 'RESUME') {
+  async function handleMetaControl(action: "PAUSE" | "RESUME") {
     if (!campaign?.id) return;
 
     try {
       setMetaControlLoading(true);
-      const res = await fetch('/api/meta/control-ad', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ liveAdId: campaign.id, action, actor: 'affiliate' }),
+      const res = await fetch("/api/meta/control-ad", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          liveAdId: campaign.id,
+          action,
+          actor: "affiliate",
+        }),
       });
 
       const json = await res.json().catch(() => null);
       if (!res.ok || !(json && json.success)) {
-        console.error('[❌ Failed Meta control]', json);
+        console.error("[❌ Failed Meta control]", json);
         return;
       }
 
@@ -377,10 +450,10 @@ export default function ManageCampaignPage() {
               status: newStatus || prev.status,
               billing_state: newBillingState ?? prev.billing_state,
             }
-          : prev
+          : prev,
       );
     } catch (err) {
-      console.error('[❌ Meta control client error]', err);
+      console.error("[❌ Meta control client error]", err);
     } finally {
       setMetaControlLoading(false);
     }
@@ -394,23 +467,23 @@ export default function ManageCampaignPage() {
 
     try {
       setSyncingSpend(true);
-      const res = await fetch('/api/meta/ad-insights', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/meta/ad-insights", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ liveAdId: campaign.id }),
       });
 
       const json = await res.json().catch(() => null);
       if (!res.ok || (json && (json as any).error)) {
-        console.error('[❌ Sync spend failed]', json);
-        alert('Failed to sync spend. Check terminal logs.');
+        console.error("[❌ Sync spend failed]", json);
+        alert("Failed to sync spend. Check terminal logs.");
         return;
       }
 
       await reloadCampaign();
     } catch (err) {
-      console.error('[❌ Sync spend threw]', err);
-      alert('Failed to sync spend. Check terminal logs.');
+      console.error("[❌ Sync spend threw]", err);
+      alert("Failed to sync spend. Check terminal logs.");
     } finally {
       setSyncingSpend(false);
     }
@@ -442,9 +515,9 @@ export default function ManageCampaignPage() {
       }
 
       // Fallback localStorage profile
-      if (typeof window !== 'undefined') {
+      if (typeof window !== "undefined") {
         try {
-          const raw = localStorage.getItem('affiliateProfile');
+          const raw = localStorage.getItem("affiliateProfile");
           if (raw) {
             const parsed = JSON.parse(raw);
             if (parsed?.email && !cancelled) {
@@ -476,20 +549,22 @@ export default function ManageCampaignPage() {
 
     async function loadPendingFromEvents() {
       const { data, error } = await supabase
-        .from('campaign_tracking_events')
-        .select('amount, event_type')
-        .eq('affiliate_id', affiliateId as string)
-        .eq('campaign_id', campaignId)
-        .eq('event_type', 'conversion');
+        .from("campaign_tracking_events")
+        .select("amount, event_type")
+        .eq("affiliate_id", affiliateId as string)
+        .eq("campaign_id", campaignId)
+        .eq("event_type", "conversion");
 
       if (error) {
-        console.warn('pending payout (events) fetch error', error);
+        console.warn("pending payout (events) fetch error", error);
         if (!cancelled) setPendingPayout(0);
         return;
       }
 
       const commissionPct =
-        offer && typeof offer.commission !== 'undefined' && offer.commission !== null
+        offer &&
+        typeof offer.commission !== "undefined" &&
+        offer.commission !== null
           ? Number(offer.commission)
           : null;
 
@@ -525,9 +600,9 @@ export default function ManageCampaignPage() {
     }
     let cancelled = false;
     supabase
-      .from('offers')
-      .select('website,title,commission')
-      .eq('id', campaign.offer_id)
+      .from("offers")
+      .select("website,title,commission")
+      .eq("id", campaign.offer_id)
       .maybeSingle()
       .then(({ data }) => {
         if (!cancelled) {
@@ -543,17 +618,19 @@ export default function ManageCampaignPage() {
   // --------------------
   // Derived flags / values
   // --------------------
-  const rawStatus = campaign?.status ? String(campaign.status).toUpperCase() : '';
+  const rawStatus = campaign?.status
+    ? String(campaign.status).toUpperCase()
+    : "";
   const isPaused =
-    rawStatus === 'PAUSED' ||
-    campaign?.billing_state === 'PAUSED' ||
+    rawStatus === "PAUSED" ||
+    campaign?.billing_state === "PAUSED" ||
     !!campaign?.billing_paused_at;
 
-  const isOrganic = campaign?.type === 'organic';
+  const isOrganic = campaign?.type === "organic";
   const isMetaPaid = !isOrganic;
 
   const isTerminatedByBusiness =
-    campaign?.billing_state === 'TERMINATED_BY_BUSINESS' ||
+    campaign?.billing_state === "TERMINATED_BY_BUSINESS" ||
     !!campaign?.terminated_by_business_at;
 
   const canAffiliateControlMeta = isMetaPaid && !isTerminatedByBusiness;
@@ -562,14 +639,14 @@ export default function ManageCampaignPage() {
     // Prefer the stored tracking_link on live_ads
     if (campaign?.tracking_link) return String(campaign.tracking_link);
 
-    if (!campaignId || !affiliateId) return '';
+    if (!campaignId || !affiliateId) return "";
     // fallback legacy format
     return `https://www.nettmark.com/go/${campaignId}-${affiliateId}`;
   }, [campaign?.tracking_link, campaignId, affiliateId]);
 
   const campaignTitle = useMemo(() => {
-    const captionTitle = String(campaign?.caption || '')
-      .split('\n')[0]
+    const captionTitle = String(campaign?.caption || "")
+      .split("\n")[0]
       .trim();
 
     return (
@@ -577,56 +654,64 @@ export default function ManageCampaignPage() {
       campaign?.ad_name ||
       campaign?.platform ||
       captionTitle ||
-      'Campaign'
+      "Campaign"
     );
   }, [offer?.title, campaign?.ad_name, campaign?.platform, campaign?.caption]);
 
   async function handleCopyTrackingLink() {
     if (!trackingUrl) return;
     await navigator.clipboard.writeText(trackingUrl);
-    setCopyState('copied');
-    window.setTimeout(() => setCopyState('idle'), 1800);
+    setCopyState("copied");
+    window.setTimeout(() => setCopyState("idle"), 1800);
   }
 
-  if (error) return <div>Error: {error.message}</div>;
-  if (!campaign) return <div>Loading...</div>;
+  if (error) {
+    return (
+      <div className="min-h-screen bg-[var(--background)] px-4 py-8 text-[var(--foreground)]">
+        <Card className="mx-auto max-w-3xl p-5 text-red-200">
+          Error: {error.message}
+        </Card>
+      </div>
+    );
+  }
+
+  if (!campaign) {
+    return (
+      <div className="min-h-screen bg-[var(--background)] px-4 py-8 text-[var(--foreground)]">
+        <Card className="mx-auto max-w-3xl p-5 text-sm text-[var(--muted-foreground)]">
+          Loading campaign…
+        </Card>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-surface text-gray-100 px-4 py-6 md:px-8 md:py-8">
+    <div className="min-h-screen bg-[var(--background)] px-4 py-6 text-[var(--foreground)] md:px-8 md:py-8">
       {/* Status banners */}
       {isTerminatedByBusiness && (
-        <div className="max-w-6xl mx-auto mb-4">
-          <div className="rounded-xl border border-red-500/40 bg-red-500/10 text-red-100 px-4 py-3 text-xs md:text-sm flex items-start gap-3">
-            <div>
-              <p className="font-semibold uppercase tracking-wide text-[0.7rem] md:text-[0.75rem] text-red-200">
-                Campaign permanently stopped by business
+        <div className="mx-auto mb-4 max-w-6xl">
+          <ReadinessBanner
+            tone="danger"
+            title="Campaign permanently stopped by business"
+          >
+            This Meta campaign has been hard-stopped at the business level. You
+            can still view historical stats, but it cannot be reactivated from
+            Nettmark.
+            {campaign.terminated_by_business_note && (
+              <p className="mt-2 italic">
+                Business note: {campaign.terminated_by_business_note}
               </p>
-              <p className="mt-1 text-[0.75rem] md:text-xs text-red-100/80">
-                This Meta campaign has been hard-stopped at the business level. You can still view historical stats, but
-                it cannot be reactivated from Nettmark. Any further changes must be handled by the business owner.
-              </p>
-              {campaign.terminated_by_business_note && (
-                <p className="mt-2 text-[0.7rem] md:text-xs text-red-100/80 italic">
-                  Business note: {campaign.terminated_by_business_note}
-                </p>
-              )}
-            </div>
-          </div>
+            )}
+          </ReadinessBanner>
         </div>
       )}
 
       {!isTerminatedByBusiness && isPaused && (
-        <div className="max-w-6xl mx-auto mb-4">
-          <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 text-amber-100 px-4 py-3 text-xs md:text-sm flex items-start gap-3">
-            <div>
-              <p className="font-semibold uppercase tracking-wide text-[0.7rem] md:text-[0.75rem] text-amber-200">
-                Campaign paused
-              </p>
-              <p className="mt-1 text-[0.75rem] md:text-xs text-amber-100/80">
-                Stats remain visible but won&apos;t increase until this campaign is reactivated.
-              </p>
-            </div>
-          </div>
+        <div className="mx-auto mb-4 max-w-6xl">
+          <ReadinessBanner tone="warning" title="Campaign paused">
+            Stats remain visible but won&apos;t increase until this campaign is
+            reactivated.
+          </ReadinessBanner>
         </div>
       )}
 
@@ -634,37 +719,39 @@ export default function ManageCampaignPage() {
       <div className="max-w-6xl mx-auto mb-4">
         <div className="flex flex-wrap items-center justify-between gap-3 text-xs md:text-sm">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center rounded-full border border-[#00C2CB]/30 bg-[#00C2CB]/10 px-2.5 py-0.5 text-[0.65rem] md:text-[0.7rem] font-semibold uppercase tracking-wide text-[#00C2CB]">
-              {isOrganic ? 'ORGANIC CAMPAIGN' : 'META AD • PAID CAMPAIGN'}
-            </span>
+            <Badge variant="primary">
+              {isOrganic ? "ORGANIC CAMPAIGN" : "META AD • PAID CAMPAIGN"}
+            </Badge>
             <span
               className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[0.65rem] md:text-[0.7rem] font-medium border ${
                 isPaused || isTerminatedByBusiness
-                  ? 'border-amber-500/40 bg-amber-500/10 text-amber-200'
-                  : 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200'
+                  ? "border-amber-500/40 bg-amber-500/10 text-amber-200"
+                  : "border-emerald-500/40 bg-emerald-500/10 text-emerald-200"
               }`}
             >
               {isTerminatedByBusiness
-                ? 'Off (Stopped by Business)'
+                ? "Off (Stopped by Business)"
                 : isPaused
-                ? 'Off (Paused)'
-                : 'On (Active)'}
+                  ? "Off (Paused)"
+                  : "On (Active)"}
             </span>
           </div>
 
           {/* Affiliates can soft-control Meta (pause / resume), but not if business hard-stopped */}
           {canAffiliateControlMeta && (
-            <button
-              onClick={() => handleMetaControl(isPaused ? 'RESUME' : 'PAUSE')}
+            <Button
+              type="button"
+              variant={isPaused ? "primary" : "outline"}
+              size="sm"
+              onClick={() => handleMetaControl(isPaused ? "RESUME" : "PAUSE")}
               disabled={metaControlLoading}
-              className="inline-flex items-center rounded-full bg-white/10 hover:bg-white/20 border border-white/15 px-3 py-1.5 text-[0.7rem] md:text-xs font-semibold text-white transition disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {metaControlLoading
-                ? 'Updating...'
+                ? "Updating..."
                 : isPaused
-                ? 'Activate campaign'
-                : 'Pause campaign'}
-            </button>
+                  ? "Activate campaign"
+                  : "Pause campaign"}
+            </Button>
           )}
         </div>
       </div>
@@ -673,7 +760,8 @@ export default function ManageCampaignPage() {
       <div className="grid grid-cols-1 lg:grid-cols-[340px,minmax(0,1fr)] gap-8 items-start justify-center max-w-6xl mx-auto">
         {/* Left side: media / email preview */}
         <div className="w-full flex justify-center items-start">
-          {campaign.platform && String(campaign.platform).toLowerCase() === 'email' ? (
+          {campaign.platform &&
+          String(campaign.platform).toLowerCase() === "email" ? (
             <div className="bg-gradient-to-b from-[#181d22] to-[#101214] rounded-2xl border border-[#232931] shadow-xl w-full max-w-lg min-h-[340px] flex flex-col justify-between p-12 relative drop-shadow-[0_0_16px_rgba(0,194,203,0.11)]">
               <div>
                 <div className="flex items-center gap-3 mb-4">
@@ -682,7 +770,7 @@ export default function ManageCampaignPage() {
                   </div>
                   <div>
                     <div className="text-xs text-[#7e8a9a]">
-                      From:{' '}
+                      From:{" "}
                       <span className="font-semibold text-gray-200">
                         Nettmark &lt;no-reply@nettmark.com&gt;
                       </span>
@@ -690,7 +778,7 @@ export default function ManageCampaignPage() {
                   </div>
                 </div>
                 <h2 className="text-[1.2rem] font-bold text-[#00C2CB] mb-2 leading-snug truncate">
-                  {campaign.caption?.split('\n')[0] || '[No Subject]'}
+                  {campaign.caption?.split("\n")[0] || "[No Subject]"}
                 </h2>
               </div>
               <div className="flex-1 overflow-y-auto">
@@ -698,7 +786,7 @@ export default function ManageCampaignPage() {
                   className="text-gray-300 text-[0.97rem] whitespace-pre-line leading-relaxed px-1 mb-4"
                   style={{ maxHeight: 170, minHeight: 64 }}
                 >
-                  {campaign.caption || 'No content available.'}
+                  {campaign.caption || "No content available."}
                 </div>
               </div>
               <button
@@ -719,77 +807,92 @@ export default function ManageCampaignPage() {
               </div>
               <div className="h-[calc(100%-48px)] overflow-hidden">
                 {String(campaign.media_url).match(/\.(mp4|mov)$/i) ? (
-                  <video controls className="w-full h-full object-cover bg-black">
+                  <video
+                    controls
+                    className="w-full h-full object-cover bg-black"
+                  >
                     <source src={String(campaign.media_url)} type="video/mp4" />
                     Your browser does not support the video tag.
                   </video>
-                ) : String(campaign.media_url).match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                ) : String(campaign.media_url).match(
+                    /\.(jpg|jpeg|png|gif|webp)$/i,
+                  ) ? (
                   <img
                     src={String(campaign.media_url)}
                     alt="Ad Preview"
                     className="w-full h-full object-cover bg-black"
                   />
                 ) : (
-                  <div className="p-8 text-center text-gray-500">Unsupported media format</div>
+                  <div className="p-8 text-center text-gray-500">
+                    Unsupported media format
+                  </div>
                 )}
               </div>
             </div>
           ) : (
             <div className="bg-[#1A1A1A] w-[90%] max-w-md rounded-xl border border-[#2A2A2A] p-8 shadow-lg flex items-center justify-center">
-              <span className="text-gray-500 text-center">No content available for this campaign type</span>
+              <span className="text-gray-500 text-center">
+                No content available for this campaign type
+              </span>
             </div>
           )}
         </div>
 
         {/* Right side: summary + stats */}
         <div className="w-full min-w-0 flex flex-col gap-6">
-          <div className="bg-[#171717] rounded-2xl border border-[#2A2A2A] shadow-md p-5 space-y-4 drop-shadow-[0_0_10px_rgba(0,194,203,0.10)]">
+          <Card variant="elevated" className="space-y-4 p-5">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
               <div className="min-w-0">
-                <p className="text-[0.65rem] uppercase tracking-[0.2em] text-[#00C2CB]">Campaign Summary</p>
-                <h1 className="mt-2 text-2xl font-semibold text-white break-words">{campaignTitle}</h1>
+                <SectionHeader
+                  eyebrow="Campaign Summary"
+                  title={campaignTitle}
+                />
+
                 <div className="mt-3 flex flex-wrap gap-2 text-[0.7rem] md:text-xs">
                   <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-gray-200">
-                    {offer?.title || 'No linked offer'}
+                    {offer?.title || "No linked offer"}
                   </span>
                   <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-gray-300">
-                    {isOrganic ? 'Organic' : 'Paid Meta'}
+                    {isOrganic ? "Organic" : "Paid Meta"}
                   </span>
                   <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-gray-300">
-                    {campaign?.platform || 'Platform not set'}
+                    {campaign?.platform || "Platform not set"}
                   </span>
                   <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-gray-300">
-                    {campaign?.status || 'Unknown status'}
+                    {campaign?.status || "Unknown status"}
                   </span>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3 min-w-[220px] lg:min-w-[260px]">
-                <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-                  <p className="text-[0.65rem] uppercase tracking-wide text-gray-500">Pending payout</p>
-                  <p className="mt-2 text-lg font-semibold text-white">
-                    {pendingPayout > 0 ? `$${pendingPayout.toFixed(2)}` : '$0.00'}
-                  </p>
-                </div>
-                <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-                  <p className="text-[0.65rem] uppercase tracking-wide text-gray-500">Commission</p>
-                  <p className="mt-2 text-lg font-semibold text-white">
-                    {offer?.commission ? `${offer.commission}%` : '—'}
-                  </p>
-                </div>
+                <StatCard
+                  label="Pending payout"
+                  value={
+                    pendingPayout > 0 ? `$${pendingPayout.toFixed(2)}` : "$0.00"
+                  }
+                />
+                <StatCard
+                  label="Commission"
+                  value={offer?.commission ? `${offer.commission}%` : "—"}
+                />
               </div>
             </div>
 
-            <div className="rounded-xl border border-[#00C2CB]/20 bg-[#0F0F0F] p-4">
+            <Card className="p-4">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div className="min-w-0">
-                  <p className="text-[0.65rem] uppercase tracking-wide text-gray-500">Tracking Link</p>
+                  <p className="text-[0.65rem] uppercase tracking-wide text-gray-500">
+                    Tracking Link
+                  </p>
                   {!affiliateId ? (
                     <p className="mt-2 text-sm text-red-300">
-                      Missing affiliate ID. Please sign in again or complete your affiliate profile.
+                      Missing affiliate ID. Please sign in again or complete
+                      your affiliate profile.
                     </p>
                   ) : (
-                    <p className={`mt-2 break-all text-sm ${isPaused || isTerminatedByBusiness ? 'text-[#00C2CB]/60' : 'text-[#00C2CB]'}`}>
+                    <p
+                      className={`mt-2 break-all text-sm ${isPaused || isTerminatedByBusiness ? "text-[#00C2CB]/60" : "text-[#00C2CB]"}`}
+                    >
                       {trackingUrl}
                     </p>
                   )}
@@ -800,65 +903,79 @@ export default function ManageCampaignPage() {
                     type="button"
                     onClick={handleCopyTrackingLink}
                     className="px-3 py-2 rounded-lg bg-[#00C2CB] hover:bg-[#00b0b8] text-white text-xs font-semibold disabled:opacity-60"
-                    disabled={!trackingUrl || isPaused || isTerminatedByBusiness}
+                    disabled={
+                      !trackingUrl || isPaused || isTerminatedByBusiness
+                    }
                   >
-                    {copyState === 'copied' ? 'Copied' : isPaused || isTerminatedByBusiness ? 'Copy (inactive)' : 'Copy Link'}
+                    {copyState === "copied"
+                      ? "Copied"
+                      : isPaused || isTerminatedByBusiness
+                        ? "Copy (inactive)"
+                        : "Copy Link"}
                   </button>
                 </div>
               </div>
 
               {isTerminatedByBusiness ? (
                 <p className="text-xs text-amber-200 mt-3">
-                  This campaign has been permanently stopped by the business. The tracking link is archived and no longer counts new traffic.
+                  This campaign has been permanently stopped by the business.
+                  The tracking link is archived and no longer counts new
+                  traffic.
                 </p>
               ) : isPaused ? (
                 <p className="text-xs text-amber-200 mt-3">
-                  This campaign is currently paused. The tracking link is temporarily disabled until it is reactivated.
+                  This campaign is currently paused. The tracking link is
+                  temporarily disabled until it is reactivated.
                 </p>
               ) : (
                 <p className="text-xs text-gray-400 mt-3">
-                  Share this link anywhere you’re promoting the offer. Nettmark attaches <code>nm_aff</code> and <code>nm_camp</code> automatically.
+                  Share this link anywhere you’re promoting the offer. Nettmark
+                  attaches <code>nm_aff</code> and <code>nm_camp</code>{" "}
+                  automatically.
                 </p>
               )}
-            </div>
-          </div>
+            </Card>
+          </Card>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-none">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {/* Spend (Meta) - Paid only */}
             {isMetaPaid && (
-              <div className="bg-[#171717] hover:bg-[#1C1C1C] transition-all duration-300 p-4 rounded-2xl shadow-md flex items-center justify-between h-24 border border-[#2A2A2A] drop-shadow-[0_0_10px_rgba(0,194,203,0.12)]">
-                <div>
-                  <h2 className="text-gray-300 text-sm font-medium mb-1 tracking-wide uppercase">
-                    Spend (Meta)
-                  </h2>
-                  <p className="text-2xl font-semibold text-white">
-                    {formatMoney((campaign as any).spend ?? 0)}
-                  </p>
+              <StatCard
+                label="Spend (Meta)"
+                value={formatMoney((campaign as any).spend ?? 0)}
+                tone="primary"
+                icon={<CurrencyDollarIcon className="h-5 w-5" />}
+                helper={
                   <button
+                    type="button"
                     onClick={handleSyncSpend}
                     disabled={syncingSpend}
-                    className="mt-2 inline-flex items-center gap-2 text-[0.7rem] font-semibold text-[#7ff5fb] hover:text-white disabled:opacity-60"
+                    className="inline-flex items-center gap-2 font-semibold text-[#00C2CB] hover:text-[#7ff5fb] disabled:opacity-60"
                   >
-                    <ArrowPathIcon className={`w-4 h-4 ${syncingSpend ? 'animate-spin' : ''}`} />
-                    {syncingSpend ? 'Syncing…' : 'Sync spend'}
+                    <ArrowPathIcon
+                      className={`h-4 w-4 ${syncingSpend ? "animate-spin" : ""}`}
+                    />
+                    {syncingSpend ? "Syncing…" : "Sync spend"}
                   </button>
-                </div>
-                <div className="w-9 h-9 rounded-full bg-[#0F0F0F] flex items-center justify-center shadow-inner">
-                  <CurrencyDollarIcon className="w-5 h-5 text-[#00C2CB]/80" />
-                </div>
-              </div>
+                }
+              />
             )}
 
             {/* Clicks (Nettmark tracking) */}
             <div className="bg-[#171717] hover:bg-[#1C1C1C] transition-all duration-300 p-4 rounded-2xl shadow-md flex items-center justify-between h-24 border border-[#2A2A2A] drop-shadow-[0_0_10px_rgba(0,194,203,0.12)]">
               <div>
                 <h2 className="text-gray-300 text-sm font-medium mb-1 tracking-wide uppercase">
-                  Clicks {loadingStats && <span className="text-xs text-gray-500">•</span>}
+                  Clicks{" "}
+                  {loadingStats && (
+                    <span className="text-xs text-gray-500">•</span>
+                  )}
                 </h2>
                 <p className="text-2xl font-semibold text-white">
                   {stats.clicks.toLocaleString()}
                 </p>
-                <p className="text-[0.6rem] text-gray-500 mt-1">Tracked by Nettmark</p>
+                <p className="text-[0.6rem] text-gray-500 mt-1">
+                  Tracked by Nettmark
+                </p>
               </div>
               <div className="w-9 h-9 rounded-full bg-[#0F0F0F] flex items-center justify-center shadow-inner">
                 <CursorArrowRaysIcon className="w-5 h-5 text-[#00C2CB]/80" />
@@ -869,7 +986,10 @@ export default function ManageCampaignPage() {
             <div className="bg-[#171717] hover:bg-[#1C1C1C] transition-all duration-300 p-4 rounded-2xl shadow-md flex items-center justify-between h-24 border border-[#2A2A2A] drop-shadow-[0_0_10px_rgba(0,194,203,0.12)]">
               <div>
                 <h2 className="text-gray-300 text-sm font-medium mb-1 tracking-wide uppercase">
-                  Add to Carts {loadingStats && <span className="text-xs text-gray-500">•</span>}
+                  Add to Carts{" "}
+                  {loadingStats && (
+                    <span className="text-xs text-gray-500">•</span>
+                  )}
                 </h2>
                 <p className="text-2xl font-semibold text-white">
                   {stats.carts.toLocaleString()}
@@ -884,7 +1004,10 @@ export default function ManageCampaignPage() {
             <div className="bg-[#171717] hover:bg-[#1C1C1C] transition-all duration-300 p-4 rounded-2xl shadow-md flex items-center justify-between h-24 border border-[#2A2A2A] drop-shadow-[0_0_10px_rgba(0,194,203,0.12)]">
               <div>
                 <h2 className="text-gray-300 text-sm font-medium mb-1 tracking-wide uppercase">
-                  Conversions {loadingStats && <span className="text-xs text-gray-500">•</span>}
+                  Conversions{" "}
+                  {loadingStats && (
+                    <span className="text-xs text-gray-500">•</span>
+                  )}
                 </h2>
                 <p className="text-2xl font-semibold text-white">
                   {stats.conversions.toLocaleString()}
@@ -894,32 +1017,38 @@ export default function ManageCampaignPage() {
                 <CurrencyDollarIcon className="w-5 h-5 text-[#00C2CB]/80" />
               </div>
             </div>
-
           </div>
 
           {/* Line chart */}
-          <div className="bg-[#171717] rounded-2xl border border-[#2A2A2A] shadow-md p-4 flex-1 min-h-[200px]">
-            <h3 className="text-gray-300 text-sm font-medium mb-3 tracking-wide uppercase">
-              Performance Overview
-            </h3>
+          <Card className="min-h-[260px] p-4">
+            <CardHeader className="p-0 pb-3">
+              <CardTitle>Performance overview</CardTitle>
+            </CardHeader>
             <div className="h-full">
               <Line
                 data={{
                   labels: chartSeries.labels.length
                     ? chartSeries.labels
-                    : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+                    : ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
                   datasets: [
                     {
-                      label: 'Add to Carts',
-                      data: chartSeries.carts.length ? chartSeries.carts : [0, 0, 0, 0, 0, 0, 0],
+                      label: "Add to Carts",
+                      data: chartSeries.carts.length
+                        ? chartSeries.carts
+                        : [0, 0, 0, 0, 0, 0, 0],
                       fill: true,
                       backgroundColor: (context) => {
-                        const gradient = context.chart.ctx.createLinearGradient(0, 0, 0, 200);
-                        gradient.addColorStop(0, 'rgba(0,194,203,0.10)');
-                        gradient.addColorStop(1, 'rgba(0,194,203,0)');
+                        const gradient = context.chart.ctx.createLinearGradient(
+                          0,
+                          0,
+                          0,
+                          200,
+                        );
+                        gradient.addColorStop(0, "rgba(0,194,203,0.10)");
+                        gradient.addColorStop(1, "rgba(0,194,203,0)");
                         return gradient;
                       },
-                      borderColor: '#009aa2',
+                      borderColor: "#009aa2",
                       borderWidth: 1.5,
                       borderDash: [3, 4],
                       tension: 0.35,
@@ -927,18 +1056,23 @@ export default function ManageCampaignPage() {
                       pointHoverRadius: 4,
                     },
                     {
-                      label: 'Conversions',
+                      label: "Conversions",
                       data: chartSeries.conversions.length
                         ? chartSeries.conversions
                         : [0, 0, 0, 0, 0, 0, 0],
                       fill: true,
                       backgroundColor: (context) => {
-                        const gradient = context.chart.ctx.createLinearGradient(0, 0, 0, 200);
-                        gradient.addColorStop(0, 'rgba(0,194,203,0.08)');
-                        gradient.addColorStop(1, 'rgba(0,194,203,0)');
+                        const gradient = context.chart.ctx.createLinearGradient(
+                          0,
+                          0,
+                          0,
+                          200,
+                        );
+                        gradient.addColorStop(0, "rgba(0,194,203,0.08)");
+                        gradient.addColorStop(1, "rgba(0,194,203,0)");
                         return gradient;
                       },
-                      borderColor: '#00787f',
+                      borderColor: "#00787f",
                       borderWidth: 1.5,
                       tension: 0.35,
                       pointRadius: 2,
@@ -952,38 +1086,38 @@ export default function ManageCampaignPage() {
                   plugins: {
                     legend: {
                       labels: {
-                        color: '#9CA3AF',
+                        color: "#9CA3AF",
                         font: { size: 11 },
                         boxWidth: 10,
                         usePointStyle: true,
-                        pointStyle: 'line',
+                        pointStyle: "line",
                       },
                     },
-                    tooltip: { mode: 'index', intersect: false },
+                    tooltip: { mode: "index", intersect: false },
                   },
                   scales: {
                     x: {
-                      ticks: { color: '#9CA3AF', font: { size: 10 } },
-                      grid: { color: '#1E293B20' },
+                      ticks: { color: "#9CA3AF", font: { size: 10 } },
+                      grid: { color: "#1E293B20" },
                     },
                     y: {
-                      ticks: { color: '#9CA3AF', font: { size: 10 } },
-                      grid: { color: '#1E293B20' },
+                      ticks: { color: "#9CA3AF", font: { size: 10 } },
+                      grid: { color: "#1E293B20" },
                       beginAtZero: true,
                     },
                   },
                 }}
               />
             </div>
-          </div>
+          </Card>
         </div>
       </div>
 
       {/* Campaign Details */}
-      <div className="flex justify-center w-full mt-16 mb-6">
-        <div className="w-[92%] max-w-6xl">
-          <details className="group bg-[#171717] rounded-2xl border border-[#2A2A2A] shadow-md overflow-hidden transition-all duration-300 drop-shadow-[0_0_12px_rgba(0,194,203,0.15)]">
-            <summary className="cursor-pointer select-none px-5 py-3 text-gray-300 text-xs md:text-sm tracking-wide uppercase bg-[#1C1C1C] hover:bg-[#1F1F1F] transition-all duration-300 flex justify-between items-center">
+      <div className="mx-auto mt-10 mb-6 max-w-6xl">
+        <div className="w-full">
+          <details className="group overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-sm transition-all duration-300">
+            <summary className="flex cursor-pointer select-none items-center justify-between bg-[var(--secondary)] px-5 py-3 text-xs uppercase tracking-wide text-[var(--muted-foreground)] transition-all duration-300 hover:bg-[var(--accent)] md:text-sm">
               <div className="flex items-center">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -992,9 +1126,16 @@ export default function ManageCampaignPage() {
                   viewBox="0 0 24 24"
                   stroke="currentColor"
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M4 6h16M4 12h16M4 18h16" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.8}
+                    d="M4 6h16M4 12h16M4 18h16"
+                  />
                 </svg>
-                <span className="group-open:text-[#00C2CB] transition">Campaign Details</span>
+                <span className="group-open:text-[#00C2CB] transition">
+                  Campaign Details
+                </span>
               </div>
               <svg
                 className="w-5 h-5 text-gray-400 group-open:rotate-180 transition-transform duration-300"
@@ -1003,21 +1144,37 @@ export default function ManageCampaignPage() {
                 viewBox="0 0 24 24"
                 stroke="currentColor"
               >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M19 9l-7 7-7-7"
+                />
               </svg>
             </summary>
-            <div className="p-4 space-y-3 text-gray-200 text-xs md:text-sm bg-[#0F0F0F]">
+            <div className="space-y-3 bg-[var(--card)] p-4 text-xs text-[var(--foreground)] md:text-sm">
               {Object.entries(campaign)
-                .filter(([key]) => ['caption', 'type', 'status', 'platform', 'billing_state'].includes(key))
+                .filter(([key]) =>
+                  [
+                    "caption",
+                    "type",
+                    "status",
+                    "platform",
+                    "billing_state",
+                  ].includes(key),
+                )
                 .map(([key, value]) => (
-                  <div key={key} className="flex justify-between border-b border-[#1C1C1C] pb-2">
+                  <div
+                    key={key}
+                    className="flex justify-between border-b border-[#1C1C1C] pb-2"
+                  >
                     <span className="text-gray-400 capitalize">
-                      {key.replace(/_/g, ' ')}:
+                      {key.replace(/_/g, " ")}:
                     </span>
                     <span className="text-[#00C2CB]">{String(value)}</span>
                   </div>
                 ))}
-              {campaign.type === 'Email Campaign' && (
+              {campaign.type === "Email Campaign" && (
                 <div
                   className="cursor-pointer text-[#00C2CB] underline mt-2"
                   onClick={() => setShowEmailModal(true)}
@@ -1031,10 +1188,10 @@ export default function ManageCampaignPage() {
       </div>
 
       {/* Affiliate Guide */}
-      <div className="flex justify-center w-full mt-6">
-        <div className="w-[92%] max-w-6xl">
-          <details className="group bg-[#171717] rounded-2xl border border-[#2A2A2A] shadow-md overflow-hidden transition-all duration-300 drop-shadow-[0_0_12px_rgba(0,194,203,0.15)]">
-            <summary className="cursor-pointer select-none px-5 py-3 text-gray-300 text-xs md:text-sm tracking-wide uppercase bg-[#1C1C1C] hover:bg-[#1F1F1F] transition-all duration-300 flex justify-between items-center">
+      <div className="mx-auto mt-6 max-w-6xl">
+        <div className="w-full">
+          <details className="group overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-sm transition-all duration-300">
+            <summary className="flex cursor-pointer select-none items-center justify-between bg-[var(--secondary)] px-5 py-3 text-xs uppercase tracking-wide text-[var(--muted-foreground)] transition-all duration-300 hover:bg-[var(--accent)] md:text-sm">
               <div className="flex items-center">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -1043,9 +1200,16 @@ export default function ManageCampaignPage() {
                   viewBox="0 0 24 24"
                   stroke="currentColor"
                 >
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M12 6v6l4 2m6 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={1.8}
+                    d="M12 6v6l4 2m6 0a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
                 </svg>
-                <span className="group-open:text-[#00C2CB] transition">Affiliate Guide</span>
+                <span className="group-open:text-[#00C2CB] transition">
+                  Affiliate Guide
+                </span>
               </div>
               <svg
                 className="w-5 h-5 text-gray-400 group-open:rotate-180 transition-transform duration-300"
@@ -1054,38 +1218,62 @@ export default function ManageCampaignPage() {
                 viewBox="0 0 24 24"
                 stroke="currentColor"
               >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M19 9l-7 7-7-7"
+                />
               </svg>
             </summary>
-            <div className="p-4 bg-[#0F0F0F] text-gray-300 text-xs md:text-sm leading-relaxed space-y-3">
+            <div className="space-y-3 bg-[var(--card)] p-4 text-xs leading-relaxed text-[var(--muted-foreground)] md:text-sm">
               {isOrganic ? (
                 <>
                   <p>
-                    This is an <span className="text-[#00C2CB] font-medium">organic campaign</span>. You’ll be
-                    promoting the brand using your own social posts, stories, or reels. Your{' '}
-                    <span className="text-[#00C2CB]">tracking link</span> automatically monitors visits, signups, and
-                    purchases generated from your post.
+                    This is an{" "}
+                    <span className="text-[#00C2CB] font-medium">
+                      organic campaign
+                    </span>
+                    . You’ll be promoting the brand using your own social posts,
+                    stories, or reels. Your{" "}
+                    <span className="text-[#00C2CB]">tracking link</span>{" "}
+                    automatically monitors visits, signups, and purchases
+                    generated from your post.
                   </p>
                   <p>
-                    Organic campaigns remain <span className="text-[#00C2CB] font-medium">active indefinitely</span>{' '}
-                    unless misuse is detected. If your tracking link is shared in misleading or inappropriate ways, it
-                    will be disabled, and you’ll be notified.
+                    Organic campaigns remain{" "}
+                    <span className="text-[#00C2CB] font-medium">
+                      active indefinitely
+                    </span>{" "}
+                    unless misuse is detected. If your tracking link is shared
+                    in misleading or inappropriate ways, it will be disabled,
+                    and you’ll be notified.
                   </p>
                   <p>
-                    All verified conversions tracked through your link trigger an automatic{' '}
-                    <span className="text-[#00C2CB]">Stripe payout</span> once confirmed by the business.
+                    All verified conversions tracked through your link trigger
+                    an automatic{" "}
+                    <span className="text-[#00C2CB]">Stripe payout</span> once
+                    confirmed by the business.
                   </p>
                 </>
               ) : (
                 <>
                   <p>
-                    This is a <span className="text-[#00C2CB] font-medium">paid ad campaign</span> managed via Meta.
-                    Spend is pulled from Meta insights, while conversions are shown from Nettmark tracking.
+                    This is a{" "}
+                    <span className="text-[#00C2CB] font-medium">
+                      paid ad campaign
+                    </span>{" "}
+                    managed via Meta. Spend is pulled from Meta insights, while
+                    conversions are shown from Nettmark tracking.
                   </p>
                   <p>
-                    You can <span className="text-[#00C2CB] font-medium">pause or re-activate</span> this campaign from
-                    here to manage your cashflow. If the business permanently stops the campaign, it will be locked and
-                    shown as stopped inside Nettmark.
+                    You can{" "}
+                    <span className="text-[#00C2CB] font-medium">
+                      pause or re-activate
+                    </span>{" "}
+                    this campaign from here to manage your cashflow. If the
+                    business permanently stops the campaign, it will be locked
+                    and shown as stopped inside Nettmark.
                   </p>
                 </>
               )}
@@ -1096,31 +1284,35 @@ export default function ManageCampaignPage() {
 
       {/* Delete Campaign – affiliates can only fully delete ORGANIC campaigns here */}
       {isOrganic && (
-        <div className="max-w-5xl mx-auto mt-10 text-center">
+        <div className="mx-auto mt-10 max-w-5xl rounded-2xl border border-red-500/25 bg-red-500/5 p-5 text-center">
           <button
             onClick={async () => {
               const confirmDelete = window.confirm(
-                `Permanently delete this organic campaign?\n\nThis action cannot be undone.`
+                `Permanently delete this organic campaign?\n\nThis action cannot be undone.`,
               );
               if (!confirmDelete) return;
 
-              const { error: delErr } = await supabase.from('live_campaigns').delete().eq('id', campaign.id);
+              const { error: delErr } = await supabase
+                .from("live_campaigns")
+                .delete()
+                .eq("id", campaign.id);
               if (delErr) {
-                console.error('❌ Delete error:', delErr);
-                alert('Error deleting campaign.');
+                console.error("❌ Delete error:", delErr);
+                alert("Error deleting campaign.");
               } else {
-                alert('Campaign deleted.');
-                router.replace('/affiliate/dashboard/manage-campaigns');
+                alert("Campaign deleted.");
+                router.replace("/affiliate/dashboard/manage-campaigns");
               }
             }}
-            className="relative inline-flex items-center px-6 py-2.5 bg-[#1A1A1A] hover:bg-[#2A2A2A] border border-red-500/40 hover:border-red-500/70 text-red-400 hover:text-red-300 rounded-xl font-medium transition-all duration-300 group shadow-[0_0_10px_rgba(255,0,0,0.05)]"
+            className="relative inline-flex items-center rounded-xl border border-red-500/40 bg-red-500/10 px-6 py-2.5 font-medium text-red-300 transition-all duration-300 hover:border-red-500/70 hover:bg-red-500/15"
           >
             <TrashIcon className="w-5 h-5 mr-2 text-red-400 group-hover:text-red-300 transition" />
             Delete Campaign
             <span className="absolute inset-0 rounded-xl bg-red-500/10 opacity-0 group-hover:opacity-100 transition" />
           </button>
           <p className="text-xs text-gray-500 mt-2">
-            This will permanently remove all data linked to this organic campaign.
+            This will permanently remove all data linked to this organic
+            campaign.
           </p>
         </div>
       )}
@@ -1136,7 +1328,9 @@ export default function ManageCampaignPage() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold text-[#00C2CB]">Email Preview</h2>
+              <h2 className="text-lg font-semibold text-[#00C2CB]">
+                Email Preview
+              </h2>
               <button
                 onClick={() => setShowEmailModal(false)}
                 className="text-gray-400 hover:text-white inline-flex items-center justify-center"
@@ -1145,7 +1339,9 @@ export default function ManageCampaignPage() {
                 <XMarkIcon className="w-5 h-5" />
               </button>
             </div>
-            <div className="text-gray-300 whitespace-pre-line">{campaign.caption}</div>
+            <div className="text-gray-300 whitespace-pre-line">
+              {campaign.caption}
+            </div>
           </div>
         </div>
       )}

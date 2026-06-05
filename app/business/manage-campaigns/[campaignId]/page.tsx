@@ -3,6 +3,14 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import {
+  Badge,
+  Button,
+  Card,
+  ReadinessBanner,
+  SectionHeader,
+  StatCard,
+} from "@/../components/ui";
 import { useSession } from "@supabase/auth-helpers-react";
 import { supabase } from "utils/supabase/pages-client";
 import {
@@ -169,7 +177,8 @@ export default function BusinessCampaignDetailPage() {
           meta_source: "meta",
           billing_state: (metaRow as any).billing_state || null,
           billing_paused_at: (metaRow as any).billing_paused_at || null,
-          terminated_by_business_at: (metaRow as any).terminated_by_business_at || null,
+          terminated_by_business_at:
+            (metaRow as any).terminated_by_business_at || null,
         };
 
         setCampaign(mapped);
@@ -339,9 +348,18 @@ export default function BusinessCampaignDetailPage() {
             t === "click"
           ) {
             pageViews += 1;
-          } else if (t === "add_to_cart" || t === "cart" || t === "cart_updated") {
+          } else if (
+            t === "add_to_cart" ||
+            t === "cart" ||
+            t === "cart_updated"
+          ) {
             addToCarts += 1;
-          } else if (t === "conversion" || t === "purchase" || t === "order" || t === "checkout_completed") {
+          } else if (
+            t === "conversion" ||
+            t === "purchase" ||
+            t === "order" ||
+            t === "checkout_completed"
+          ) {
             conversions += 1;
             if (typeof evt.amount === "number") {
               revenue += Number(evt.amount);
@@ -378,9 +396,18 @@ export default function BusinessCampaignDetailPage() {
             t === "click"
           ) {
             pv[idx] += 1;
-          } else if (t === "add_to_cart" || t === "cart" || t === "cart_updated") {
+          } else if (
+            t === "add_to_cart" ||
+            t === "cart" ||
+            t === "cart_updated"
+          ) {
             carts[idx] += 1;
-          } else if (t === "conversion" || t === "purchase" || t === "order" || t === "checkout_completed") {
+          } else if (
+            t === "conversion" ||
+            t === "purchase" ||
+            t === "order" ||
+            t === "checkout_completed"
+          ) {
             conv[idx] += 1;
           }
         }
@@ -527,7 +554,7 @@ export default function BusinessCampaignDetailPage() {
           body: JSON.stringify({
             liveAdId: campaign.id,
             action,
-            actor: 'business',
+            actor: "business",
           }),
         });
 
@@ -544,9 +571,14 @@ export default function BusinessCampaignDetailPage() {
             ? {
                 ...prev,
                 status: newStatus,
-                billing_state: (json.billing_state as string | undefined) ?? prev.billing_state,
+                billing_state:
+                  (json.billing_state as string | undefined) ??
+                  prev.billing_state,
                 terminated_by_business_at:
-                  (json.terminated_by_business_at as string | null | undefined) ?? prev.terminated_by_business_at,
+                  (json.terminated_by_business_at as
+                    | string
+                    | null
+                    | undefined) ?? prev.terminated_by_business_at,
               }
             : prev,
         );
@@ -588,10 +620,10 @@ export default function BusinessCampaignDetailPage() {
 
   if (!session) {
     return (
-      <div className="business-campaign-detail-theme min-h-screen bg-[var(--background)] text-[var(--foreground)] flex items-center justify-center">
-        <p className="text-sm text-white/70">
+      <div className="business-campaign-detail-theme flex min-h-screen items-center justify-center bg-[var(--background)] text-[var(--foreground)]">
+        <Card className="p-5 text-sm text-[var(--muted-foreground)]">
           You need to be signed in to view this campaign.
-        </p>
+        </Card>
       </div>
     );
   }
@@ -612,36 +644,29 @@ export default function BusinessCampaignDetailPage() {
         </button>
 
         {/* Header */}
-        <header className="space-y-2">
-          <p className="text-xs font-medium uppercase tracking-[0.2em] text-white/40">
-            Campaign
-          </p>
-          <h1 className="text-2xl font-semibold tracking-tight text-[#00C2CB]">
-            Campaign overview
-          </h1>
-          {campaign?.meta_source === "meta" ? (
-            <div className="inline-flex items-center gap-2 rounded-full border border-[#00C2CB40] bg-[#00C2CB1A] px-3 py-1 text-[11px] text-[#00C2CB]">
-              META AD • Paid Campaign
-            </div>
-          ) : (
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/5 px-3 py-1 text-[11px] text-white/70">
-              ORGANIC • Live Tracking
-            </div>
-          )}
-          <p className="text-sm text-white/70">
-            See how this campaign is set up, who is running it, and control its
-            status.
-          </p>
+        <header className="space-y-3">
+          <SectionHeader
+            eyebrow="Campaign"
+            title="Campaign overview"
+            description="See how this campaign is set up, who is running it, and control its status."
+          />
+          <Badge
+            variant={campaign?.meta_source === "meta" ? "primary" : "muted"}
+          >
+            {campaign?.meta_source === "meta"
+              ? "META AD • Paid Campaign"
+              : "ORGANIC • Live Tracking"}
+          </Badge>
         </header>
 
         {loading ? (
-          <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 sm:px-6 py-5 text-sm text-white/70">
+          <Card className="px-4 py-5 text-sm text-[var(--muted-foreground)] sm:px-6">
             Loading campaign…
-          </div>
+          </Card>
         ) : !campaign ? (
-          <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 sm:px-6 py-5 text-sm text-red-100">
+          <ReadinessBanner tone="danger" title="Campaign not found">
             Campaign not found for this business.
-          </div>
+          </ReadinessBanner>
         ) : (
           <div className="space-y-6">
             {/* Layout for preview / stats */}
@@ -665,7 +690,7 @@ export default function BusinessCampaignDetailPage() {
 
               <div className="grid gap-4 md:gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1.3fr)]">
                 {/* LEFT: creative preview with iPhone mockup */}
-                <div className="rounded-3xl border border-white/10 bg-white/[0.02] px-4 sm:px-6 py-5 flex flex-col order-2 lg:order-1">
+                <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] px-4 py-5 shadow-sm sm:px-6 flex flex-col order-2 lg:order-1">
                   <div className="flex items-center justify-between mb-3">
                     <h2 className="text-sm font-semibold flex items-center gap-2">
                       <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#00C2CB]/10 text-[#00C2CB]">
@@ -674,7 +699,7 @@ export default function BusinessCampaignDetailPage() {
                       Creative preview
                     </h2>
                     {campaign.platform && (
-                      <span className="rounded-full border border-white/10 bg-black/30 px-3 py-1 text-[10px] uppercase tracking-[0.16em] text:white/50">
+                      <span className="rounded-full border border-white/10 bg-black/30 px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-white/50">
                         {campaign.platform}
                       </span>
                     )}
@@ -742,7 +767,7 @@ export default function BusinessCampaignDetailPage() {
                     // NO MEDIA + NO CAPTION
                     if (!url && !caption) {
                       return (
-                        <div className="mt-4 flex flex-col items-center justify-center rounded-2xl border border-dashed border:white/15 bg-black/40 px-6 py-10 text-center text-xs text-white/50">
+                        <div className="mt-4 flex flex-col items-center justify-center rounded-2xl border border-dashed border-white/15 bg-black/40 px-6 py-10 text-center text-xs text-white/50">
                           <PhotoIcon className="h-8 w-8 mb-3 text-white/30" />
                           No media attached to this campaign yet.
                         </div>
@@ -808,9 +833,9 @@ export default function BusinessCampaignDetailPage() {
                 </div>
 
                 {/* RIGHT: performance stats */}
-                <div className="rounded-3xl border border-white/10 bg-white/[0.02] px-4 sm:px-6 py-5 flex flex-col order-1 lg:order-2">
+                <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] px-4 py-5 shadow-sm sm:px-6 flex flex-col order-1 lg:order-2">
                   <div className="flex items-center justify-between mb-3">
-                    <h2 className="text-sm font-semibold flex items:center gap-2">
+                    <h2 className="text-sm font-semibold flex items-center gap-2">
                       <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-300">
                         <CursorArrowRaysIcon className="h-4 w-4" />
                       </span>
@@ -818,11 +843,12 @@ export default function BusinessCampaignDetailPage() {
                     </h2>
                     <div className="flex items-center gap-2">
                       {campaign.meta_source === "meta" && (
-                        <button
+                        <Button
                           type="button"
+                          variant="outline"
+                          size="sm"
                           onClick={handleSyncSpend}
                           disabled={syncingSpend}
-                          className="inline-flex items-center gap-2 rounded-full border border-[#00C2CB40] bg-[#00C2CB14] px-3 py-1 text-[10px] font-semibold text-[#00C2CB] hover:bg-[#00C2CB1F] disabled:opacity-60"
                           title="Fetch latest spend/clicks from Meta insights"
                         >
                           {syncingSpend ? (
@@ -831,7 +857,7 @@ export default function BusinessCampaignDetailPage() {
                             <span className="text-[12px] leading-none">↻</span>
                           )}
                           Sync spend
-                        </button>
+                        </Button>
                       )}
 
                       <span className="rounded-full bg-black/40 px-3 py-1 text-[10px] text-white/50 uppercase tracking-[0.16em]">
@@ -858,51 +884,32 @@ export default function BusinessCampaignDetailPage() {
                     <>
                       <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
                         {/* Clicks / Page views */}
-                        <div className="rounded-2xl border border-white/10 bg-black/40 px-3 sm:px-4 py-3 flex flex-col justify-between">
-                          <div className="flex items-center justify-between">
-                            <p className="text-[11px] text-white/60">
-                              {campaign.meta_source === "meta"
-                                ? "Clicks"
-                                : "Page views"}
-                            </p>
-                            <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/5">
-                              <CursorArrowRaysIcon className="h-4 w-4 text-[#00C2CB]" />
-                            </span>
-                          </div>
-                          <p className="mt-2 text-xl font-semibold">
-                            {stats.pageViews}
-                          </p>
-                        </div>
+                        <StatCard
+                          label={
+                            campaign.meta_source === "meta"
+                              ? "Clicks"
+                              : "Page views"
+                          }
+                          value={stats.pageViews}
+                          tone="primary"
+                          icon={<CursorArrowRaysIcon className="h-5 w-5" />}
+                        />
 
                         {/* Add to carts */}
-                        <div className="rounded-2xl border border-white/10 bg-black/40 px-3 sm:px-4 py-3 flex flex-col justify-between">
-                          <div className="flex items-center justify-between">
-                            <p className="text-[11px] text-white/60">
-                              Add to carts
-                            </p>
-                            <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/5">
-                              <ShoppingCartIcon className="h-4 w-4 text-[#00C2CB]" />
-                            </span>
-                          </div>
-                          <p className="mt-2 text-xl font-semibold">
-                            {stats.addToCarts}
-                          </p>
-                        </div>
+                        <StatCard
+                          label="Add to carts"
+                          value={stats.addToCarts}
+                          tone="primary"
+                          icon={<ShoppingCartIcon className="h-5 w-5" />}
+                        />
 
                         {/* Conversions */}
-                        <div className="rounded-2xl border border-white/10 bg-black/40 px-3 sm:px-4 py-3 flex flex-col justify-between">
-                          <div className="flex items-center justify-between">
-                            <p className="text-[11px] text-white/60">
-                              Conversions
-                            </p>
-                            <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg:white/5">
-                              <CurrencyDollarIcon className="h-4 w-4 text-[#00C2CB]" />
-                            </span>
-                          </div>
-                          <p className="mt-2 text-xl font-semibold">
-                            {stats.conversions}
-                          </p>
-                        </div>
+                        <StatCard
+                          label="Conversions"
+                          value={stats.conversions}
+                          tone="primary"
+                          icon={<CurrencyDollarIcon className="h-5 w-5" />}
+                        />
 
                         {/* For Meta campaigns, show Spend as 4th tile */}
                         {campaign.meta_source === "meta" && (
@@ -968,7 +975,7 @@ export default function BusinessCampaignDetailPage() {
                       </p>
 
                       {series.labels.length > 0 && (
-                        <div className="mt-4 rounded-2xl border border:white/10 bg-black/30 px-3 sm:px-4 py-3">
+                        <div className="mt-4 rounded-2xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-3 sm:px-4">
                           <Line
                             data={{
                               labels: series.labels,
@@ -1056,7 +1063,7 @@ export default function BusinessCampaignDetailPage() {
             </section>
 
             {/* Top summary card */}
-            <section className="rounded-3xl border border:white/10 bg-white/[0.02] px-4 sm:px-6 py-5 shadow-[0_0_40px_rgba(0,0,0,0.6)] flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] px-4 py-5 shadow-sm sm:px-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center gap-3">
                   <span
@@ -1085,16 +1092,23 @@ export default function BusinessCampaignDetailPage() {
                   </span>
                 </p>
 
-                <p className="text-xs text:white/60">
+                <p className="text-xs text-white/60">
                   Started: {formatDate(campaign.created_at)}
                 </p>
               </div>
 
               <div className="flex flex-col items-end gap-2">
-                <button
+                <Button
+                  type="button"
+                  variant="danger"
+                  size="sm"
                   onClick={handleToggleStatus}
-                  disabled={updating || isBusinessStopped || (!(campaign.status || '').toLowerCase().includes('live') && !(campaign.status || '').toLowerCase().includes('active'))}
-                  className="rounded-full bg-[#00C2CB] px-5 py-2 text-xs font-semibold text-black shadow hover:bg-[#00b0b8] disabled:opacity-60"
+                  disabled={
+                    updating ||
+                    isBusinessStopped ||
+                    (!(campaign.status || "").toLowerCase().includes("live") &&
+                      !(campaign.status || "").toLowerCase().includes("active"))
+                  }
                 >
                   {updating
                     ? "Updating…"
@@ -1104,14 +1118,19 @@ export default function BusinessCampaignDetailPage() {
                           (campaign.status || "").toLowerCase() === "active"
                         ? "Pause campaign"
                         : "Paused"}
-                </button>
+                </Button>
                 {isBusinessStopped ? (
                   <div className="mt-2 max-w-sm rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-[11px] text-red-100 text-right shadow-[0_0_20px_rgba(239,68,68,0.15)]">
-                    <span className="font-semibold">Campaign stopped by business.</span> Affiliates cannot turn this back on from Nettmark.
+                    <span className="font-semibold">
+                      Campaign stopped by business.
+                    </span>{" "}
+                    Affiliates cannot turn this back on from Nettmark.
                   </div>
                 ) : (campaign.status || "").toLowerCase() === "paused" ? (
                   <div className="mt-2 max-w-sm rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-[11px] text-amber-100 text-right shadow-[0_0_20px_rgba(245,158,11,0.15)]">
-                    <span className="font-semibold">Campaign paused.</span> This placement is off and stays off until you deliberately relaunch it elsewhere.
+                    <span className="font-semibold">Campaign paused.</span> This
+                    placement is off and stays off until you deliberately
+                    relaunch it elsewhere.
                   </div>
                 ) : (
                   <div className="mt-2 max-w-sm rounded-xl border border-[#00C2CB40] bg-[#00C2CB14] px-4 py-3 text-[11px] text-white/80 text-right shadow-[0_0_20px_rgba(0,194,203,0.15)]">

@@ -63,7 +63,9 @@ export default function BusinessSidebar() {
           <div className="relative">
             <ul className="mt-2 space-y-1">
               {links.map((link) => {
-                const active = pathname === link.href;
+                const active =
+                  pathname === link.href ||
+                  pathname.startsWith(`${link.href}/`);
                 const Icon = link.icon;
                 return (
                   <li key={link.href} className="relative">
