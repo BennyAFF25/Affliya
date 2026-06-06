@@ -146,7 +146,10 @@ export default function StorylaneLandingPage({
               </div>
             </div>
             <div className="absolute -inset-5 rounded-[2rem] bg-[radial-gradient(circle,rgba(0,194,203,0.2),transparent_65%)] blur-2xl" />
-            <div className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.03] p-3 shadow-[0_30px_100px_-30px_rgba(0,0,0,0.85)] sm:p-4">
+            <div
+              id="interactive-demo"
+              className="relative scroll-mt-6 overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.03] p-3 shadow-[0_30px_100px_-30px_rgba(0,0,0,0.85)] sm:p-4"
+            >
               <StorylaneEmbed
                 desktopHref={demoHref}
                 desktopPadding={demoPadding}

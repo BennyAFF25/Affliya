@@ -6,7 +6,7 @@ import Link from "next/link";
 import MarketingHeader from "@/components/marketing/MarketingHeader";
 
 const startHref = "/pricing";
-const demoHref = "/lp/partner-demo";
+const demoHref = "/lp/partner-demo#interactive-demo";
 
 const reasons = [
   {
