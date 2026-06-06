@@ -90,11 +90,11 @@ export default function ForPartnersPage() {
           <h1 className="mt-4 max-w-3xl text-4xl font-extrabold tracking-tight sm:text-5xl lg:text-6xl">
             Run ads for businesses and earn commissions.
           </h1>
-          <p className="mt-4 max-w-2xl text-lg leading-relaxed text-gray-200">
+          <p className="mt-4 max-w-2xl text-lg font-bold leading-relaxed text-white">
             Browse offers, get approved by businesses, launch campaigns, track
             results, and get paid when sales happen.
           </p>
-          <p className="mt-3 max-w-2xl text-sm leading-6 text-gray-300">
+          <p className="mt-3 max-w-2xl text-sm font-bold leading-6 text-white">
             See exactly how Nettmark works before creating an account with our
             short interactive demo.
           </p>
@@ -121,7 +121,7 @@ export default function ForPartnersPage() {
           <h2 className="text-2xl font-bold md:text-3xl">
             Most affiliate platforms stop at the link.
           </h2>
-          <p className="mt-3 text-lg leading-relaxed text-gray-300">
+          <p className="mt-3 text-lg font-bold leading-relaxed text-white">
             Nettmark gives approved affiliates more ways to promote.
           </p>
         </div>
@@ -135,7 +135,7 @@ export default function ForPartnersPage() {
                 <span className="inline-block h-2 w-2 rounded-full bg-[#00C2CB]" />
                 <h3 className="font-semibold">{item.title}</h3>
               </div>
-              <p className="text-sm leading-6 text-gray-300">{item.desc}</p>
+              <p className="text-sm font-bold leading-6 text-white">{item.desc}</p>
             </div>
           ))}
         </div>
@@ -154,7 +154,7 @@ export default function ForPartnersPage() {
                 {item.step}
               </div>
               <h3 className="text-lg font-semibold">{item.title}</h3>
-              <p className="mt-2 text-sm leading-6 text-gray-300">
+              <p className="mt-2 text-sm font-bold leading-6 text-white">
                 {item.desc}
               </p>
             </div>
@@ -178,7 +178,7 @@ export default function ForPartnersPage() {
               <h2 className="text-2xl font-bold md:text-3xl">
                 See the platform before signing up
               </h2>
-              <p className="mt-3 text-lg leading-relaxed text-gray-300">
+              <p className="mt-3 text-lg font-bold leading-relaxed text-white">
                 Take the 3-minute walkthrough and see exactly what affiliates
                 experience inside Nettmark.
               </p>
@@ -205,7 +205,7 @@ export default function ForPartnersPage() {
               <h3 className="text-lg font-semibold text-[#7ff5fb]">
                 {faq.q}
               </h3>
-              <p className="mt-3 text-sm leading-6 text-gray-300">{faq.a}</p>
+              <p className="mt-3 text-sm font-bold leading-6 text-white">{faq.a}</p>
             </div>
           ))}
         </div>
@@ -219,7 +219,7 @@ export default function ForPartnersPage() {
               <h2 className="text-2xl font-extrabold tracking-tight md:text-3xl">
                 Ready to start promoting offers?
               </h2>
-              <p className="mt-3 text-lg leading-relaxed text-gray-300">
+              <p className="mt-3 text-lg font-bold leading-relaxed text-white">
                 Create an account, browse live offers, and start building
                 campaigns with full tracking and commission reporting.
               </p>
