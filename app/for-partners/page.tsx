@@ -1,10 +1,69 @@
 // app/for-partners/page.tsx
-// app/for-partners/page.tsx
 "use client";
+
 import React from "react";
 import Link from "next/link";
-import Script from "next/script";
 import MarketingHeader from "@/components/marketing/MarketingHeader";
+
+const startHref = "/pricing";
+const demoHref = "/lp/partner-demo";
+
+const reasons = [
+  {
+    title: "Organic Promotion",
+    desc: "Promote offers using content, social media, and your audience.",
+  },
+  {
+    title: "Paid Campaigns",
+    desc: "Request and launch campaigns through businesses that support paid advertising.",
+  },
+  {
+    title: "Live Tracking",
+    desc: "See clicks, conversions, commissions, and campaign performance in one place.",
+  },
+  {
+    title: "Automated Payouts",
+    desc: "When commissions are approved, earnings can be withdrawn directly through Stripe.",
+  },
+];
+
+const steps = [
+  {
+    step: "1",
+    title: "Find an offer",
+    desc: "Browse businesses and choose products or services you want to promote.",
+  },
+  {
+    step: "2",
+    title: "Get approved",
+    desc: "Businesses review requests and approve affiliates that fit their offer.",
+  },
+  {
+    step: "3",
+    title: "Promote",
+    desc: "Use organic promotion or launch approved campaigns.",
+  },
+  {
+    step: "4",
+    title: "Earn commissions",
+    desc: "Sales are tracked automatically and commissions are recorded inside your account.",
+  },
+];
+
+const faqs = [
+  {
+    q: "Do I need a Stripe account?",
+    a: "No. You only need to connect Stripe when you have earnings ready to withdraw.",
+  },
+  {
+    q: "Do I need a Facebook ad account?",
+    a: "Not always. Some businesses support paid campaign requests through Nettmark while others focus on organic promotion.",
+  },
+  {
+    q: "Can I browse offers before committing?",
+    a: "Yes. You can explore the platform and understand how it works before deciding to participate.",
+  },
+];
 
 export default function ForPartnersPage() {
   return (
@@ -15,7 +74,7 @@ export default function ForPartnersPage() {
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 -z-10">
           <div
-            className="absolute left-1/2 top-[-10%] h-[60vh] w-[80vw] -translate-x-1/2 rounded-full blur-3xl opacity-30"
+            className="absolute left-1/2 top-[-10%] h-[60vh] w-[80vw] -translate-x-1/2 rounded-full opacity-30 blur-3xl"
             style={{
               background:
                 "radial-gradient(45% 60% at 50% 40%, rgba(0,194,203,0.25), rgba(0,0,0,0))",
@@ -23,140 +82,89 @@ export default function ForPartnersPage() {
           />
         </div>
 
-        <div className="mx-auto max-w-7xl px-6 pt-16 pb-10 md:pt-24 md:pb-14">
-          <span className="inline-flex items-center gap-2 rounded-full border border-[#1e3a3b] bg-[#082123] px-3 py-1 text-xs text-[#7ff5fb] shadow-[0_0_30px_rgba(0,194,203,0.15)]">
-            Performance with control
+        <div className="mx-auto max-w-7xl px-6 pb-10 pt-16 md:pb-14 md:pt-24">
+          <span className="inline-flex items-center gap-2 rounded-full border border-[#1e3a3b] bg-[#082123] px-3 py-1 text-xs font-semibold uppercase tracking-wide text-[#7ff5fb] shadow-[0_0_30px_rgba(0,194,203,0.15)]">
+            FOR AFFILIATES
             <span className="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-[#00C2CB]" />
           </span>
-          <h1 className="mt-4 text-4xl font-extrabold tracking-tight sm:text-5xl lg:text-6xl">
-            Bring the growth.{" "}
-            <span className="text-[#7ff5fb]">Own the craft.</span>
+          <h1 className="mt-4 max-w-3xl text-4xl font-extrabold tracking-tight sm:text-5xl lg:text-6xl">
+            Run ads for businesses and earn commissions.
           </h1>
-          <p className="mt-4 max-w-2xl text-lg text-gray-300">
-            Find offers, submit creatives for approval, and promote brands using
-            paid or organic campaigns. You can start with zero ad spend using
-            your existing audience or socials, then when you’re ready to scale
-            you can fund campaigns from your Nettmark wallet and get paid
-            automatically on verified conversions.
+          <p className="mt-4 max-w-2xl text-lg leading-relaxed text-gray-200">
+            Browse offers, get approved by businesses, launch campaigns, track
+            results, and get paid when sales happen.
           </p>
-          <p className="mt-2 max-w-2xl text-sm text-gray-400">
-            No need to connect Stripe until you make your first sale.
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-gray-300">
+            See exactly how Nettmark works before creating an account with our
+            short interactive demo.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link
-              href="/pricing"
-              className="rounded-xl bg-[#00C2CB] px-5 py-3 font-semibold text-black hover:bg-[#00b0b8]"
+              href={startHref}
+              className="rounded-xl bg-[#00C2CB] px-5 py-3 font-semibold text-black transition-colors hover:bg-[#00b0b8]"
             >
-              Browse Offers
+              Start Free
+            </Link>
+            <Link
+              href={demoHref}
+              className="rounded-xl border border-[#1e3a3b] bg-[#0f1516] px-5 py-3 font-semibold text-white transition-colors hover:border-[#00C2CB]/50 hover:bg-[#122223]"
+            >
+              Watch Demo
             </Link>
           </div>
         </div>
       </section>
 
-      {/* VALUE CARDS (back to basics) */}
+      {/* WHY PEOPLE USE NETTMARK */}
       <section className="mx-auto max-w-7xl px-6 pb-8 md:pb-12">
+        <div className="mb-6 max-w-2xl">
+          <h2 className="text-2xl font-bold md:text-3xl">
+            Most affiliate platforms stop at the link.
+          </h2>
+          <p className="mt-3 text-lg leading-relaxed text-gray-300">
+            Nettmark gives approved affiliates more ways to promote.
+          </p>
+        </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {[
-            {
-              title: "Wallet‑funded spend (on your terms)",
-              desc: "Top up a Nettmark wallet when it suits you. No card sharing — clean accounting and hard caps by design.",
-            },
-            {
-              title: "Organic or paid, your call",
-              desc: "Build with organic posts, community and existing audiences first. Layer in paid media via brand accounts only when it makes sense.",
-            },
-            {
-              title: "Fast approvals",
-              desc: "Submit creative & targeting for review. Go live as soon as the brand approves.",
-            },
-            {
-              title: "Auto payouts",
-              desc: "Commissions paid via Stripe on verified conversions — no screenshots or chasing.",
-            },
-          ].map((i) => (
+          {reasons.map((item) => (
             <div
-              key={i.title}
+              key={item.title}
               className="rounded-2xl border border-[#1b3132] bg-[#0f1516] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
             >
               <div className="mb-3 flex items-center gap-2 text-[#7ff5fb]">
                 <span className="inline-block h-2 w-2 rounded-full bg-[#00C2CB]" />
-                <h3 className="font-semibold">{i.title}</h3>
+                <h3 className="font-semibold">{item.title}</h3>
               </div>
-              <p className="text-sm text-gray-300">{i.desc}</p>
+              <p className="text-sm leading-6 text-gray-300">{item.desc}</p>
             </div>
           ))}
         </div>
       </section>
 
-      {/* HOW IT WORKS (simple 4 steps) */}
+      {/* HOW IT WORKS */}
       <section className="mx-auto max-w-7xl px-6 pb-12">
-        <h2 className="text-2xl font-bold">How it works</h2>
+        <h2 className="text-2xl font-bold md:text-3xl">How Nettmark works</h2>
         <div className="mt-6 grid gap-6 lg:grid-cols-4">
-          {[
-            {
-              step: "1",
-              title: "Join Nettmark",
-              desc: "Create your account and set up your profile. Top up your wallet later, when you’re ready to launch.",
-            },
-            {
-              step: "2",
-              title: "Pick an offer",
-              desc: "Review brand rules & commission. Submit your creative plan.",
-            },
-            {
-              step: "3",
-              title: "Get approved",
-              desc: "Your ads or organic posts run via the brand’s account or your own channels once approved.",
-            },
-            {
-              step: "4",
-              title: "Earn automatically",
-              desc: "Stripe pays out commissions on verified conversions.",
-            },
-          ].map((s) => (
+          {steps.map((item) => (
             <div
-              key={s.step}
+              key={item.step}
               className="rounded-2xl border border-[#1b3132] bg-[#0f1516] p-6"
             >
               <div className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-full border border-[#26494b] bg-[#0c1e1f] text-[#7ff5fb]">
-                {s.step}
+                {item.step}
               </div>
-              <h3 className="text-lg font-semibold">{s.title}</h3>
-              <p className="mt-2 text-sm text-gray-300">{s.desc}</p>
+              <h3 className="text-lg font-semibold">{item.title}</h3>
+              <p className="mt-2 text-sm leading-6 text-gray-300">
+                {item.desc}
+              </p>
             </div>
           ))}
         </div>
       </section>
 
-      {/* TRUSTED STRIP (animated) */}
-      <section className="mx-auto max-w-7xl px-6 pb-16">
-        <div className="rounded-3xl border border-[#142526] bg-[#0c1213] p-3 overflow-hidden">
-          <div className="animate-marquee whitespace-nowrap">
-            <span className="mx-2 inline-flex items-center gap-2 rounded-full border border-[#1b3132] bg-[#0f1516] px-4 py-2 text-sm text-gray-200">
-              Teams we power
-            </span>
-            {[
-              "UGC Pros",
-              "Media Buyers",
-              "Email/SMS",
-              "Community",
-              "Creators",
-            ].map((t) => (
-              <span
-                key={t}
-                className="mx-2 inline-flex items-center gap-2 rounded-full border border-[#1b3132] bg-[#0f1516] px-4 py-2 text-sm text-gray-200"
-              >
-                {t}
-              </span>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* PARTNER EARNINGS ESTIMATOR */}
-      <section className="mx-auto max-w-7xl px-6 pb-24">
+      {/* INTERACTIVE DEMO */}
+      <section className="mx-auto max-w-7xl px-6 pb-12">
         <div className="relative overflow-hidden rounded-3xl border border-[#142526] bg-[#0b1112] p-6 md:p-10">
-          {/* soft glow */}
           <div
             aria-hidden
             className="pointer-events-none absolute inset-0 -z-10 opacity-30 blur-3xl"
@@ -165,177 +173,66 @@ export default function ForPartnersPage() {
                 "radial-gradient(60% 50% at 60% 0%, rgba(0,194,203,0.22) 0%, rgba(0,0,0,0) 70%)",
             }}
           />
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-8">
-            <div className="max-w-xl">
-              <span className="inline-flex items-center gap-2 rounded-full border border-[#1e3a3b] bg-[#082123] px-3 py-1 text-xs text-[#7ff5fb] shadow-[0_0_30px_rgba(0,194,203,0.15)]">
-                Quick calc
-                <span className="ml-1 inline-block h-1.5 w-1.5 rounded-full bg-[#00C2CB]" />
-              </span>
-              <h3 className="mt-3 text-2xl md:text-3xl font-extrabold tracking-tight">
-                See what you’d make per sale
-              </h3>
-              <p className="mt-2 text-gray-300">
-                Choose a product price and your commission rate. We’ll estimate
-                your cut on each verified conversion.
+          <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+            <div className="max-w-2xl">
+              <h2 className="text-2xl font-bold md:text-3xl">
+                See the platform before signing up
+              </h2>
+              <p className="mt-3 text-lg leading-relaxed text-gray-300">
+                Take the 3-minute walkthrough and see exactly what affiliates
+                experience inside Nettmark.
               </p>
             </div>
-
-            <div className="w-full md:max-w-lg">
-              <div className="rounded-2xl border border-[#1b3132] bg-[#0f1516] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-                <div className="grid gap-5">
-                  {/* Product price */}
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <label
-                        htmlFor="pp_price"
-                        className="text-sm text-gray-300"
-                      >
-                        Product price
-                      </label>
-                      <output
-                        id="pp_price_out"
-                        className="text-sm font-semibold text-white"
-                      >
-                        $120.00
-                      </output>
-                    </div>
-                    <input
-                      id="pp_price"
-                      type="range"
-                      min="10"
-                      max="1000"
-                      defaultValue="120"
-                      step="1"
-                      className="mt-2 w-full accent-[#00C2CB]"
-                    />
-                  </div>
-
-                  {/* Commission */}
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <label
-                        htmlFor="pp_comm"
-                        className="text-sm text-gray-300"
-                      >
-                        Commission
-                      </label>
-                      <output
-                        id="pp_comm_out"
-                        className="text-sm font-semibold text-white"
-                      >
-                        25%
-                      </output>
-                    </div>
-                    <input
-                      id="pp_comm"
-                      type="range"
-                      min="1"
-                      max="80"
-                      defaultValue="25"
-                      step="1"
-                      className="mt-2 w-full accent-[#00C2CB]"
-                    />
-                  </div>
-
-                  {/* Payout type */}
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <label
-                        htmlFor="pp_type"
-                        className="text-sm text-gray-300"
-                      >
-                        Payout type
-                      </label>
-                    </div>
-                    <select
-                      id="pp_type"
-                      className="mt-2 w-full rounded-md border border-[#1b3132] bg-[#0b1112] px-3 py-2 text-sm text-gray-100"
-                      defaultValue="one-time"
-                    >
-                      <option value="one-time">One-time commission</option>
-                      <option value="recurring">
-                        Recurring (subscription)
-                      </option>
-                    </select>
-                    <p
-                      id="pp_type_help"
-                      className="mt-1 text-[11px] text-gray-500"
-                    >
-                      Each sale pays a one-time commission on the product price.
-                    </p>
-                  </div>
-
-                  {/* Estimated sales per month */}
-                  <div>
-                    <div className="flex items-center justify-between">
-                      <label
-                        htmlFor="pp_sales"
-                        className="text-sm text-gray-300"
-                      >
-                        Estimated sales per month
-                      </label>
-                      <output
-                        id="pp_sales_out"
-                        className="text-sm font-semibold text-white"
-                      >
-                        20
-                      </output>
-                    </div>
-                    <input
-                      id="pp_sales"
-                      type="range"
-                      min="0"
-                      max="500"
-                      defaultValue="20"
-                      step="1"
-                      className="mt-2 w-full accent-[#00C2CB]"
-                    />
-                  </div>
-
-                  {/* Earnings */}
-                  <div className="mt-2 rounded-xl border border-[#24484a] bg-[#0d1c1d] p-4 text-center">
-                    <div className="text-xs uppercase tracking-wide text-[#7ff5fb]">
-                      Your cut per sale
-                    </div>
-                    <div
-                      id="pp_earn"
-                      className="mt-1 text-3xl md:text-4xl font-extrabold text-white"
-                    >
-                      $30.00
-                    </div>
-                    <div className="mt-1 text-[11px] text-gray-400">
-                      Paid automatically via Stripe on verified conversions.
-                    </div>
-
-                    <div className="mt-3 grid gap-1 text-xs text-gray-300 text-left">
-                      <div className="flex items-center justify-between">
-                        <span>Est. monthly earnings</span>
-                        <span id="pp_month_out">$600.00</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span>Est. yearly earnings</span>
-                        <span id="pp_year_out">$7,200.00</span>
-                      </div>
-                    </div>
-
-                    <p
-                      id="pp_note"
-                      className="mt-2 text-[11px] text-gray-500 text-left"
-                    >
-                      Yearly estimate assumes a consistent number of new sales
-                      each month at this commission.
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <Link
+              href={demoHref}
+              className="inline-flex justify-center rounded-xl bg-[#00C2CB] px-5 py-3 font-semibold text-black transition-colors hover:bg-[#00b0b8]"
+            >
+              Start Interactive Demo
+            </Link>
           </div>
         </div>
       </section>
 
-      {/* Vanilla JS island for the estimator.
-          Using next/script ensures it runs reliably on client navigations too. */}
-      <Script src="/partner-estimator.js" strategy="afterInteractive" />
+      {/* FAQ */}
+      <section className="mx-auto max-w-7xl px-6 pb-12">
+        <h2 className="text-2xl font-bold md:text-3xl">Questions affiliates ask</h2>
+        <div className="mt-6 grid gap-4 md:grid-cols-3">
+          {faqs.map((faq) => (
+            <div
+              key={faq.q}
+              className="rounded-2xl border border-[#1b3132] bg-[#0f1516] p-6"
+            >
+              <h3 className="text-lg font-semibold text-[#7ff5fb]">
+                {faq.q}
+              </h3>
+              <p className="mt-3 text-sm leading-6 text-gray-300">{faq.a}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* FINAL CTA */}
+      <section className="mx-auto max-w-7xl px-6 pb-24">
+        <div className="rounded-3xl border border-[#142526] bg-[#0c1213] p-6 md:p-10">
+          <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
+            <div className="max-w-2xl">
+              <h2 className="text-2xl font-extrabold tracking-tight md:text-3xl">
+                Ready to start promoting offers?
+              </h2>
+              <p className="mt-3 text-lg leading-relaxed text-gray-300">
+                Create an account, browse live offers, and start building
+                campaigns with full tracking and commission reporting.
+              </p>
+            </div>
+            <Link
+              href={startHref}
+              className="inline-flex justify-center rounded-xl bg-[#00C2CB] px-5 py-3 font-semibold text-black transition-colors hover:bg-[#00b0b8]"
+            >
+              Start Free
+            </Link>
+          </div>
+        </div>
+      </section>
     </main>
   );
 }
