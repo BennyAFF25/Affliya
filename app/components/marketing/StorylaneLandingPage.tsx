@@ -80,13 +80,13 @@ export default function StorylaneLandingPage({
 
         <section className="grid gap-10 lg:grid-cols-[0.9fr,1.1fr] lg:items-center">
           <div className="max-w-xl">
-            <p className="text-xs font-semibold uppercase tracking-[0.35em] text-white/45">
+            <p className="text-xs font-semibold uppercase tracking-[0.35em] text-white/70">
               {audienceLabel}
             </p>
             <h1 className="mt-4 text-4xl font-extrabold leading-tight sm:text-5xl lg:text-6xl">
               {title}
             </h1>
-            <p className="mt-5 text-base leading-7 text-white/70 sm:text-lg">
+            <p className="mt-5 text-base leading-7 text-white/85 sm:text-lg">
               {subtitle}
             </p>
 
@@ -105,7 +105,7 @@ export default function StorylaneLandingPage({
               </Link>
             </div>
 
-            <div className="mt-5 text-sm leading-6 text-white/55">
+            <div className="mt-5 text-sm leading-6 text-white/75">
               Watch the demo first, then start only if the flow makes sense.
             </div>
 
@@ -116,7 +116,7 @@ export default function StorylaneLandingPage({
                   className="flex items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3"
                 >
                   <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#7ff5fb]" />
-                  <p className="text-sm leading-6 text-white/72">{bullet}</p>
+                  <p className="text-sm leading-6 text-white/85">{bullet}</p>
                 </div>
               ))}
             </div>
@@ -128,14 +128,14 @@ export default function StorylaneLandingPage({
                 <PlayCircle className="h-4 w-4" />
                 {demoIntroTitle}
               </div>
-              <p className="mt-2 text-sm leading-6 text-white/70">
+              <p className="mt-2 text-sm leading-6 text-white/85">
                 {demoIntroCopy}
               </p>
               <div className="mt-3 grid gap-2 sm:grid-cols-3">
                 {demoSteps.map((step, index) => (
                   <div
                     key={step}
-                    className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-xs leading-5 text-white/70"
+                    className="rounded-xl border border-white/10 bg-black/20 px-3 py-2 text-xs leading-5 text-white/85"
                   >
                     <span className="mr-2 font-bold text-[#00C2CB]">
                       {index + 1}.
@@ -161,7 +161,7 @@ export default function StorylaneLandingPage({
                 <div className="text-sm font-semibold text-white">
                   Like what you saw?
                 </div>
-                <div className="text-xs leading-5 text-white/55">
+                <div className="text-xs leading-5 text-white/75">
                   Create an account and pick up from the flow shown in the demo.
                 </div>
               </div>
@@ -178,7 +178,7 @@ export default function StorylaneLandingPage({
 
         <section className="mt-10 grid gap-4 md:grid-cols-3">
           <div className="rounded-[1.5rem] border border-white/10 bg-white/[0.04] p-5 md:col-span-3">
-            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-white/40">
+            <p className="text-xs font-semibold uppercase tracking-[0.3em] text-white/65">
               Before you start
             </p>
             <h2 className="mt-2 text-2xl font-bold text-white">
@@ -193,7 +193,7 @@ export default function StorylaneLandingPage({
               <h3 className="text-base font-semibold text-[#7ff5fb]">
                 {card.title}
               </h3>
-              <p className="mt-2 text-sm leading-6 text-white/65">
+              <p className="mt-2 text-sm leading-6 text-white/82">
                 {card.copy}
               </p>
             </div>
@@ -203,13 +203,13 @@ export default function StorylaneLandingPage({
         <section className="mt-10 rounded-[2rem] border border-white/10 bg-white/[0.03] px-5 py-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)] sm:px-8 sm:py-8">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
             <div className="max-w-2xl">
-              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-white/40">
+              <p className="text-xs font-semibold uppercase tracking-[0.3em] text-white/65">
                 Next step
               </p>
               <h2 className="mt-2 text-2xl font-bold text-white sm:text-3xl">
                 {footerTitle}
               </h2>
-              <p className="mt-3 text-sm leading-6 text-white/65 sm:text-base">
+              <p className="mt-3 text-sm leading-6 text-white/82 sm:text-base">
                 {footerCopy}
               </p>
             </div>
