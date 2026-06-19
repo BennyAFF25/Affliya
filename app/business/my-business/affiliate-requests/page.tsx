@@ -13,7 +13,6 @@ import {
   StatCard,
   StatusBadge,
 } from "@/../components/ui";
-import { createInboxMessage } from "@/../utils/inboxMessages";
 
 interface AffiliateRequest {
   id: string;
@@ -316,26 +315,13 @@ export default function AffiliateRequestsPage() {
     setLaunchInviteStatus((prev) => ({ ...prev, [request.id]: "sending" }));
 
     try {
-      await createInboxMessage({
-        sender_email: businessEmail,
-        sender_role: "business",
-        recipient_email: request.affiliate_email,
-        recipient_role: "affiliate",
-        message_type: "launch_invite",
-        title: `You're invited to launch ${request.offer?.title || "this offer"}`,
-        body: "Your promotion request was approved. Open the offer to create a paid ad or organic campaign and start promoting.",
-        preview: `Launch your first campaign for ${request.offer?.title || "this approved offer"}.`,
-        offer_id: offerId,
-        affiliate_request_id: request.id,
-        cta_label: "Launch Campaign",
-        cta_url: `/affiliate/dashboard/promote/${offerId}`,
-        metadata: { source: "affiliate_requests" },
-        suppressEmail: true,
-      });
-
+      const accessToken = session?.access_token;
       const emailRes = await fetch("/api/emails/affiliate-launch-invite", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
         body: JSON.stringify({
           to: request.affiliate_email,
           affiliateEmail: request.affiliate_email,

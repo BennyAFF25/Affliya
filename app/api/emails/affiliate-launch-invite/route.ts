@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
+import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { Resend } from "resend";
 import { renderNettmarkEmail } from "../../../../utils/email/renderNettmarkEmail";
@@ -21,12 +22,102 @@ function getAppUrl() {
   ).replace(/\/$/, "");
 }
 
+function getSupabaseUrl() {
+  return process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+}
+
+function getBearerToken(req: Request) {
+  const header = req.headers.get("authorization") || "";
+  const match = header.match(/^Bearer\s+(.+)$/i);
+  return match?.[1] || null;
+}
+
+async function getRequestUser(req: Request) {
+  const cookieSupabase = createRouteHandlerClient({ cookies });
+  const cookieResult = await cookieSupabase.auth.getUser();
+
+  if (cookieResult.data.user?.email) {
+    return {
+      user: cookieResult.data.user,
+      error: null,
+    };
+  }
+
+  const token = getBearerToken(req);
+  const supabaseUrl = getSupabaseUrl();
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+  if (!token || !supabaseUrl || !anonKey) {
+    return {
+      user: null,
+      error: cookieResult.error || new Error("auth_required"),
+    };
+  }
+
+  const bearerSupabase = createClient(supabaseUrl, anonKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+
+  const bearerResult = await bearerSupabase.auth.getUser(token);
+  return {
+    user: bearerResult.data.user,
+    error: bearerResult.error,
+  };
+}
+
+async function createLaunchInboxInvite(args: {
+  businessEmail: string;
+  affiliateEmail: string;
+  offerId: string;
+  offerTitle: string;
+  requestId: string | null;
+}) {
+  const supabaseUrl = getSupabaseUrl();
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    console.warn("[affiliate-launch-invite] inbox insert skipped: missing service role config");
+    return null;
+  }
+
+  const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+
+  const { data, error } = await supabaseAdmin
+    .from("inbox_messages")
+    .insert([
+      {
+        sender_email: args.businessEmail,
+        sender_role: "business",
+        sender_name: null,
+        recipient_email: args.affiliateEmail,
+        recipient_role: "affiliate",
+        message_type: "launch_invite",
+        title: `You're invited to launch ${args.offerTitle}`,
+        body: "Your promotion request was approved. Open the offer to create a paid ad or organic campaign and start promoting.",
+        preview: `Launch your first campaign for ${args.offerTitle}.`,
+        offer_id: args.offerId,
+        campaign_id: null,
+        affiliate_request_id: args.requestId,
+        cta_label: "Launch Campaign",
+        cta_url: `/affiliate/dashboard/promote/${args.offerId}`,
+        metadata: { source: "affiliate_requests" },
+      },
+    ])
+    .select("id")
+    .single();
+
+  if (error) {
+    console.error("[affiliate-launch-invite] inbox insert failed", error);
+    return null;
+  }
+
+  return data?.id || null;
+}
+
 export async function POST(req: Request) {
-  const supabase = createRouteHandlerClient({ cookies });
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
+  const { user, error: userError } = await getRequestUser(req);
 
   if (userError || !user?.email) {
     return NextResponse.json({ error: "auth_required" }, { status: 401 });
@@ -89,6 +180,14 @@ export async function POST(req: Request) {
       "If you are not logged in, Nettmark will take you to the affiliate login page first and then return you to this launch page.",
   });
 
+  const inboxMessageId = await createLaunchInboxInvite({
+    businessEmail,
+    affiliateEmail,
+    offerId,
+    offerTitle,
+    requestId,
+  });
+
   const resend = new Resend(process.env.RESEND_API_KEY);
   const { data, error } = await resend.emails.send({
     from: `${fromName} <${fromEmail}>`,
@@ -102,5 +201,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "send_failed" }, { status: 502 });
   }
 
-  return NextResponse.json({ ok: true, id: (data as { id?: string } | null)?.id || null });
+  return NextResponse.json({
+    ok: true,
+    id: (data as { id?: string } | null)?.id || null,
+    inboxMessageId,
+  });
 }
