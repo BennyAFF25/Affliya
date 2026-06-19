@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import AffiliateSidebar from "./AffiliateSidebar";
 import Topbar from "@/components/Topbar";
 import {
@@ -16,7 +16,7 @@ import {
   Settings,
   LifeBuoy,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Toast } from "@/components/Toast";
 import { useInboxNotifier } from "../../utils/hooks/useInboxNotifier";
 
@@ -32,8 +32,33 @@ function AffiliateLayoutShell({ children }: { children: React.ReactNode }) {
   const session = useSession();
   const userEmail = session?.user?.email || "";
   const router = useRouter();
+  const pathname = usePathname();
   const { toast, setToast, unreadCount } = useInboxNotifier(userEmail);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+
+  useEffect(() => {
+    if (session !== null) return;
+
+    const queryString = window.location.search;
+    const next = `${pathname}${queryString}`;
+    router.replace(`/login/affiliate?next=${encodeURIComponent(next)}`);
+  }, [session, pathname, router]);
+
+  if (session === undefined) {
+    return (
+      <div className="trial-theme flex min-h-screen items-center justify-center bg-[var(--background)] text-[var(--foreground)]">
+        Loading…
+      </div>
+    );
+  }
+
+  if (session === null) {
+    return (
+      <div className="trial-theme flex min-h-screen items-center justify-center bg-[var(--background)] text-[var(--foreground)]">
+        Redirecting to affiliate login…
+      </div>
+    );
+  }
 
   const closeMobileNav = () => setMobileNavOpen(false);
 

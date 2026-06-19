@@ -165,7 +165,7 @@ function AffiliateDashboardContent() {
     if (isLoading) return; // wait for session resolution
     if (session === null) {
       const next = encodeURIComponent("/affiliate/dashboard");
-      router.replace(`/login?role=affiliate&next=${next}`);
+      router.replace(`/login/affiliate?next=${next}`);
       return;
     }
   }, [session, isLoading, router]);

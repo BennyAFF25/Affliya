@@ -25,9 +25,9 @@ export default function AffiliateSidebar() {
 
   useEffect(() => {
     if (!isLoading && !session) {
-      router.push("/");
+      router.replace(`/login/affiliate?next=${encodeURIComponent(pathname)}`);
     }
-  }, [isLoading, session, router]);
+  }, [isLoading, pathname, session, router]);
 
   const user = session?.user;
 

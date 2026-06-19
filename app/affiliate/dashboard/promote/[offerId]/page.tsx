@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { nmToast } from "@/components/ui/toast";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useParams, usePathname } from "next/navigation";
 import { useSession } from "@supabase/auth-helpers-react";
 import { supabase } from "@/../utils/supabase/pages-client";
 import { calculateWalletBalance } from "@/../utils/wallet/balance";
@@ -31,6 +31,7 @@ export default function PromoteOfferPage() {
   // Removed loading states
   const router = useRouter();
   const params = useParams();
+  const pathname = usePathname();
   const offerId = params.offerId as string;
 
   const session = useSession();
@@ -97,8 +98,10 @@ export default function PromoteOfferPage() {
   // ─────────────────────────────
   useEffect(() => {
     if (session === undefined) return;
-    if (session === null) router.push("/");
-  }, [session, router]);
+    if (session === null) {
+      router.replace(`/login/affiliate?next=${encodeURIComponent(pathname)}`);
+    }
+  }, [session, pathname, router]);
 
   // ─────────────────────────────
   // Derived tracking link

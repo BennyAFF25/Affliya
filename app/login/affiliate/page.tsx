@@ -50,7 +50,15 @@ export default function AffiliateLogin() {
         return;
       }
 
-      router.push("/auth-redirect");
+      const next = new URLSearchParams(window.location.search).get("next");
+      const safeNext =
+        next &&
+        (next === "/affiliate/dashboard" || next.startsWith("/affiliate/")) &&
+        !next.startsWith("//")
+          ? next
+          : null;
+
+      router.push(safeNext || "/auth-redirect");
     } catch (err: any) {
       console.error("[Affiliate login] unexpected error", err);
       setError("Login failed. Please try again.");
