@@ -32,38 +32,47 @@ export default function ResetPasswordRequestPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#040509] text-white">
-      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/[0.04] p-6 shadow-[0_0_60px_rgba(0,194,203,0.15)]">
-        <h1 className="text-xl font-semibold mb-2 text-[#00C2CB]">
-          Reset your password
-        </h1>
-        <p className="text-xs text-white/70 mb-4">
-          Enter the email you use for Nettmark and we&apos;ll send you a secure reset link.
-        </p>
+    <div className="min-h-dvh flex items-center justify-center bg-[#040509] px-4 py-8 text-white sm:px-6">
+      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-white/[0.04] p-5 shadow-[0_0_60px_rgba(0,194,203,0.15)] sm:p-6">
+        <div className="mb-5">
+          <div className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#00C2CB]/35 bg-[#00C2CB]/10 text-[#7ff5fb]">
+            ✉️
+          </div>
+          <h1 className="text-2xl font-semibold tracking-tight text-[#00C2CB]">
+            Reset your password
+          </h1>
+          <p className="mt-2 text-sm leading-6 text-white/70">
+            Enter the email you use for Nettmark and we&apos;ll send you a secure reset link.
+          </p>
+        </div>
 
-        <form onSubmit={handleSubmit} className="space-y-3">
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-[11px] text-white/60 mb-1">Email</label>
+            <label className="mb-1.5 block text-xs font-medium text-white/65">
+              Email
+            </label>
             <input
               type="email"
               required
+              autoComplete="email"
+              inputMode="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-lg bg-black/40 border border-white/15 px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-[#00C2CB]"
+              className="w-full rounded-xl border border-white/15 bg-black/40 px-3 py-3 text-base text-white placeholder-white/40 outline-none focus:border-[#00C2CB] focus:ring-1 focus:ring-[#00C2CB]"
               placeholder="you@example.com"
             />
           </div>
           <button
             type="submit"
             disabled={sending}
-            className="w-full rounded-full bg-[#00C2CB] px-4 py-2 text-sm font-medium text-black hover:bg-[#00b0b8] disabled:opacity-60"
+            className="w-full rounded-full bg-[#00C2CB] px-4 py-3 text-base font-semibold text-black shadow-[0_0_20px_#00C2CB40] transition hover:bg-[#00b0b8] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {sending ? 'Sending link…' : 'Send reset link'}
           </button>
         </form>
 
         {message && (
-          <p className="mt-3 text-[11px] text-white/70">
+          <p className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-sm leading-6 text-white/75">
             {message}
           </p>
         )}
