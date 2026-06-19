@@ -22,6 +22,7 @@ export type CreateInboxMessagePayload = {
   campaign_id?: string | null;
   affiliate_request_id?: string | null;
   metadata?: Record<string, unknown>;
+  suppressEmail?: boolean;
 };
 
 export async function createInboxMessage(payload: CreateInboxMessagePayload) {

@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import {
   maskEmail,
   sendInboxNotificationEmail,
-} from "@/../utils/email/sendInboxNotificationEmail";
+} from "../../../utils/email/sendInboxNotificationEmail";
 
 const REQUIRED_FIELDS = [
   "sender_email",
@@ -24,6 +24,23 @@ const MESSAGE_TYPES = new Set([
   "question",
   "system_nudge",
 ]);
+
+type InboxInsertClient = {
+  from: (table: string) => {
+    insert: (rows: unknown[]) => {
+      select: (columns: string) => {
+        single: () => Promise<{
+          data: { id?: string } | null;
+          error: { message?: string } | null;
+        }>;
+      };
+    };
+  };
+};
+
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : String(error);
+}
 
 export async function POST(request: Request) {
   const supabase = createRouteHandlerClient({ cookies });
@@ -85,7 +102,8 @@ export async function POST(request: Request) {
     metadata: body.metadata || {},
   };
 
-  const { data, error } = await (supabase as any)
+  const inboxDb = supabase as unknown as InboxInsertClient;
+  const { data, error } = await inboxDb
     .from("inbox_messages")
     .insert([row])
     .select("id")
@@ -96,25 +114,27 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "insert_failed" }, { status: 400 });
   }
 
-  try {
-    const emailResult = await sendInboxNotificationEmail({
-      to: row.recipient_email,
-      title: row.title,
-      body: row.preview || row.body,
-      linkUrl: row.cta_url || null,
-    });
+  if (!body.suppressEmail) {
+    try {
+      const emailResult = await sendInboxNotificationEmail({
+        to: row.recipient_email,
+        title: row.title,
+        body: row.preview || row.body,
+        linkUrl: row.cta_url || null,
+      });
 
-    if (emailResult.ok && "skipped" in emailResult && emailResult.skipped) {
-      console.warn("[inbox-messages] email notification skipped", {
+      if (emailResult.ok && "skipped" in emailResult && emailResult.skipped) {
+        console.warn("[inbox-messages] email notification skipped", {
+          recipient: maskEmail(row.recipient_email),
+          reason: emailResult.reason,
+        });
+      }
+    } catch (emailError: unknown) {
+      console.warn("[inbox-messages] email notification failed", {
         recipient: maskEmail(row.recipient_email),
-        reason: emailResult.reason,
+        message: errorMessage(emailError),
       });
     }
-  } catch (emailError: any) {
-    console.warn("[inbox-messages] email notification failed", {
-      recipient: maskEmail(row.recipient_email),
-      message: emailError?.message || String(emailError),
-    });
   }
 
   return NextResponse.json({ ok: true, id: data?.id || null });

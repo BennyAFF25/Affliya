@@ -330,7 +330,26 @@ export default function AffiliateRequestsPage() {
         cta_label: "Launch Campaign",
         cta_url: `/affiliate/dashboard/promote/${offerId}`,
         metadata: { source: "affiliate_requests" },
+        suppressEmail: true,
       });
+
+      const emailRes = await fetch("/api/emails/affiliate-launch-invite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: request.affiliate_email,
+          affiliateEmail: request.affiliate_email,
+          businessEmail,
+          offerId,
+          offerTitle: request.offer?.title || "this offer",
+          requestId: request.id,
+        }),
+      });
+
+      if (!emailRes.ok) {
+        const text = await emailRes.text().catch(() => "");
+        throw new Error(`Launch invite email failed: ${emailRes.status} ${text}`);
+      }
 
       setLaunchInviteStatus((prev) => ({ ...prev, [request.id]: "sent" }));
     } catch (err) {
