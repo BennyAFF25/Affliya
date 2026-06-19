@@ -169,12 +169,7 @@ export async function POST(req: Request) {
     heading: `You're invited to promote ${offerTitle}`,
     body:
       "Good news — the business has approved your promotion request and invited you to launch. Open the offer in Nettmark to create a paid ad or organic campaign and start promoting.",
-    rows: [
-      { label: "Offer", value: offerTitle },
-      { label: "Business", value: businessEmail },
-      { label: "Affiliate", value: affiliateEmail },
-      ...(requestId ? [{ label: "Request ID", value: requestId }] : []),
-    ],
+    rows: [{ label: "Offer", value: offerTitle }],
     cta: { label: "Launch campaign", href: launchUrl },
     footerNote:
       "If you are not logged in, Nettmark will take you to the affiliate login page first and then return you to this launch page.",

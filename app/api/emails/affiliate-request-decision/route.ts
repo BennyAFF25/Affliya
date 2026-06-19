@@ -15,7 +15,7 @@ function escapeHtml(input: any) {
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));
-    const { to, affiliateEmail, businessEmail, offerTitle, decision, note } = body || {};
+    const { to, affiliateEmail, businessEmail, offerTitle, decision } = body || {};
 
     if (!process.env.RESEND_API_KEY) {
       return NextResponse.json({ ok: false, error: "Missing RESEND_API_KEY" }, { status: 500 });
@@ -32,11 +32,8 @@ export async function POST(req: Request) {
     const fromEmail = process.env.RESEND_FROM_EMAIL || "no-reply@nettmark.com";
     const fromName = process.env.RESEND_FROM_NAME || "Nettmark";
 
-    const safeAffiliate = escapeHtml(affiliateEmail);
-    const safeBusiness = escapeHtml(businessEmail);
     const safeOffer = escapeHtml(offerTitle);
     const safeDecision = String(decision).toLowerCase() === "approved" ? "APPROVED" : "REJECTED";
-    const safeNote = escapeHtml(note);
 
     const appUrl =
       (process.env.NEXT_PUBLIC_APP_URL ||
@@ -76,7 +73,7 @@ export async function POST(req: Request) {
                   </td>
                   <td style="font-family:Arial,Helvetica,sans-serif;">
                     <div style="font-size:18px;font-weight:700;color:#0b0b0b;line-height:1;">Nettmark</div>
-                    <div style="font-size:12px;color:#6b7280;margin-top:3px;">Business notifications</div>
+                    <div style="font-size:12px;color:#6b7280;margin-top:3px;">Affiliate notifications</div>
                   </td>
                 </tr>
               </table>
@@ -100,10 +97,7 @@ export async function POST(req: Request) {
                         Request details
                       </div>
                       <div style="margin-top:8px;font-size:14px;line-height:1.6;color:#111827;">
-                        <div><b>Affiliate:</b> ${safeAffiliate}</div>
-                        <div><b>Business:</b> ${safeBusiness}</div>
                         <div><b>Offer:</b> ${safeOffer}</div>
-                        ${safeNote ? `<div><b>Note:</b> ${safeNote}</div>` : ""}
                       </div>
                     </div>
 
