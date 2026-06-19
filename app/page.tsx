@@ -175,6 +175,14 @@ export default function Home() {
   ];
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("code");
+
+    if (code) {
+      router.replace(`/auth/update-password?${params.toString()}`);
+      return;
+    }
+
     const initSession = async () => {
       const { data } = await supabaseClient.auth.getSession();
       setSession(data.session);
@@ -192,7 +200,7 @@ export default function Home() {
     return () => {
       subscription.unsubscribe();
     };
-  }, [supabaseClient]);
+  }, [router, supabaseClient]);
 
   const handleLogin = (type: "business" | "affiliate") => {
     setUserType(type);

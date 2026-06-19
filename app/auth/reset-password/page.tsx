@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, FormEvent } from 'react';
-import { supabase } from 'utils/supabase/pages-client';
 import toast from 'react-hot-toast';
 
 export default function ResetPasswordRequestPage() {
@@ -14,22 +13,19 @@ export default function ResetPasswordRequestPage() {
     setSending(true);
     setMessage(null);
 
-    const appOrigin =
-      process.env.NEXT_PUBLIC_APP_URL ||
-      process.env.NEXT_PUBLIC_SITE_URL ||
-      process.env.NEXT_PUBLIC_BASE_URL ||
-      window.location.origin;
+    try {
+      await fetch('/api/auth/send-password-reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
 
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${appOrigin.replace(/\/$/, '')}/auth/update-password`,
-    });
-
-    if (error) {
-      toast.error(error.message || 'Failed to send reset link');
-      setMessage(error.message);
-    } else {
       toast.success('Reset link sent');
-      setMessage('Check your email for a password reset link.');
+      setMessage('If an account exists for that email, a reset link has been sent.');
+    } catch (error) {
+      console.error('[reset-password] request failed', error);
+      toast.error('Failed to send reset link');
+      setMessage('Failed to send reset link. Please try again.');
     }
 
     setSending(false);

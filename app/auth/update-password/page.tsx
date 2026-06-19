@@ -16,8 +16,17 @@ export default function UpdatePasswordPage() {
     const prepareRecoverySession = async () => {
       const params = new URLSearchParams(window.location.search);
       const code = params.get('code');
+      const tokenHash = params.get('token_hash');
+      const type = params.get('type');
 
-      if (code) {
+      if (tokenHash && type === 'recovery') {
+        await supabase.auth.verifyOtp({
+          token_hash: tokenHash,
+          type: 'recovery',
+        }).catch((err) => {
+          console.warn('[update-password] recovery token verification failed', err);
+        });
+      } else if (code) {
         await supabase.auth.exchangeCodeForSession(code).catch((err) => {
           console.warn('[update-password] recovery code exchange failed', err);
         });

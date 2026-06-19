@@ -137,22 +137,19 @@ export default function BusinessSettingsPage() {
     setResetSending(true);
     setResetMsg(null);
 
-    const appOrigin =
-      process.env.NEXT_PUBLIC_APP_URL ||
-      process.env.NEXT_PUBLIC_SITE_URL ||
-      process.env.NEXT_PUBLIC_BASE_URL ||
-      window.location.origin;
+    try {
+      await fetch('/api/auth/send-password-reset', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: user.email }),
+      });
 
-    const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
-      redirectTo: `${appOrigin.replace(/\/$/, '')}/auth/update-password`,
-    });
-
-    if (error) {
-      setResetMsg(error.message);
-      toast.error(error.message || "Failed to send reset link");
-    } else {
       setResetMsg("Reset link sent. Check your email.");
       toast.success("Password reset link sent");
+    } catch (error) {
+      console.error('[business settings] reset request failed', error);
+      setResetMsg("Failed to send reset link. Please try again.");
+      toast.error("Failed to send reset link");
     }
 
     setResetSending(false);
