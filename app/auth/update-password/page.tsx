@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, FormEvent } from 'react';
+import { useEffect, useState, FormEvent } from 'react';
 import { supabase } from 'utils/supabase/pages-client';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
@@ -9,7 +9,25 @@ export default function UpdatePasswordPage() {
   const [password, setPassword] = useState('');
   const [confirm, setConfirm] = useState('');
   const [saving, setSaving] = useState(false);
+  const [ready, setReady] = useState(false);
   const router = useRouter();
+
+  useEffect(() => {
+    const prepareRecoverySession = async () => {
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get('code');
+
+      if (code) {
+        await supabase.auth.exchangeCodeForSession(code).catch((err) => {
+          console.warn('[update-password] recovery code exchange failed', err);
+        });
+      }
+
+      setReady(true);
+    };
+
+    void prepareRecoverySession();
+  }, []);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -72,10 +90,10 @@ export default function UpdatePasswordPage() {
           </div>
           <button
             type="submit"
-            disabled={saving}
+            disabled={saving || !ready}
             className="w-full rounded-full bg-[#00C2CB] px-4 py-2 text-sm font-medium text-black hover:bg-[#00b0b8] disabled:opacity-60"
           >
-            {saving ? 'Updating…' : 'Update password'}
+            {!ready ? 'Preparing secure link…' : saving ? 'Updating…' : 'Update password'}
           </button>
         </form>
       </div>

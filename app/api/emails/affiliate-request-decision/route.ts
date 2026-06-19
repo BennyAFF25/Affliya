@@ -8,7 +8,7 @@ function escapeHtml(input: any) {
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
-    .replace(/\"/g, "&quot;")
+    .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
 }
 
@@ -38,9 +38,18 @@ export async function POST(req: Request) {
     const safeDecision = String(decision).toLowerCase() === "approved" ? "APPROVED" : "REJECTED";
     const safeNote = escapeHtml(note);
 
-    const LOGO_URL = "https://www.nettmark.com/icon.png";
+    const appUrl =
+      (process.env.NEXT_PUBLIC_APP_URL ||
+        process.env.NEXT_PUBLIC_SITE_URL ||
+        process.env.NEXT_PUBLIC_BASE_URL ||
+        "https://www.nettmark.com").replace(/\/$/, "");
+    const LOGO_URL = `${appUrl}/icon.png`;
     const subject = `Affiliate request ${safeDecision}`;
-    const ctaUrl = "https://www.nettmark.com/business/affiliate-requests";
+    const ctaPath =
+      safeDecision === "APPROVED" && body?.offerId
+        ? `/affiliate/dashboard/promote/${encodeURIComponent(String(body.offerId))}`
+        : "/affiliate/dashboard";
+    const ctaUrl = `${appUrl}${ctaPath}`;
     const helpEmail = "support@nettmark.com";
 
     const html = `

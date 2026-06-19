@@ -206,8 +206,14 @@ export default function AffiliateSettingsPage() {
     setResetSending(true);
     setResetMsg(null);
 
+    const appOrigin =
+      process.env.NEXT_PUBLIC_APP_URL ||
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      process.env.NEXT_PUBLIC_BASE_URL ||
+      window.location.origin;
+
     const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
-      redirectTo: `${window.location.origin}/auth/update-password`,
+      redirectTo: `${appOrigin.replace(/\/$/, '')}/auth/update-password`,
     });
 
     if (error) {
