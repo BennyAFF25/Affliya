@@ -42,9 +42,9 @@ export default function Home() {
   >("business");
 
   const trustBadges = [
-    "DTC brands",
-    "Marketplaces",
-    "SaaS",
+    "Online stores",
+    "Product brands",
+    "SaaS companies",
     "Agencies",
     "Creators",
     "Apps",
@@ -52,51 +52,51 @@ export default function Home() {
 
   const brandFlow = [
     {
-      title: "Publish an offer",
-      copy: "Define payouts, creatives, and guardrails once. Nettmark keeps every partner inside those rails.",
+      title: "Create a commission offer",
+      copy: "Choose what marketers can promote, how much they earn, and the campaign rules they need to follow.",
     },
     {
-      title: "Approve partners + budgets",
-      copy: "Review requests, wallet top-ups, and creative submissions before anything goes live.",
+      title: "Approve the right marketers",
+      copy: "Review who wants to promote your brand before they run Facebook ads or publish organic content.",
     },
     {
-      title: "Track & settle automatically",
-      copy: "Clicks, carts, and conversions flow into one ledger so payouts hit Stripe without spreadsheets.",
+      title: "Track sales and pay automatically",
+      copy: "Nettmark tracks clicks, sales, and commissions so you can pay for real results without spreadsheets.",
     },
   ];
 
   const partnerFlow = [
     {
-      title: "Pick ready-to-run offers",
-      copy: "Apply to vetted brands with creative packs, tracking links, and policy guardrails baked in.",
+      title: "Find products to promote",
+      copy: "Browse brand offers, apply for the ones you like, and get the approved links and assets you need.",
     },
     {
-      title: "Launch paid or organic",
-      copy: "Run campaigns from your own ad accounts or organic channels while Nettmark logs every event.",
+      title: "Run ads or organic campaigns",
+      copy: "Promote through Facebook ads, content, email, or your own audience while Nettmark tracks the results.",
     },
     {
-      title: "Get paid on proof",
-      copy: "Wallet-funded spend and automated payouts mean no more chasing screenshots or invoices.",
+      title: "Earn commissions automatically",
+      copy: "When your campaigns drive approved sales, Nettmark calculates your commission and handles payout.",
     },
   ];
 
   const productSnapshots = [
     {
-      title: "Wallet & payout timeline",
-      copy: "Instant view of top-ups, reserved ad spend, and cleared payouts so finance isn’t guessing.",
-      stat: "$42.4K in-clearing",
+      title: "Sales and payout timeline",
+      copy: "See which campaigns drove sales, which commissions are pending, and what has already been paid.",
+      stat: "$42.4K pending",
       icon: Wallet,
     },
     {
-      title: "Policy-first approvals",
-      copy: "Inbox highlights what changed, who approved, and which rules each creative references.",
-      stat: "7 partners waiting",
+      title: "Marketer approvals",
+      copy: "Review marketer applications and campaign requests before anyone promotes your brand.",
+      stat: "7 marketers waiting",
       icon: MessageSquare,
     },
     {
-      title: "Ad spend → business charges",
-      copy: "Meta spend sync plus automated chargebacks keep every dollar reconciled before payouts fire.",
-      stat: "$3.9K synced today",
+      title: "Campaign tracking",
+      copy: "Connect campaign activity to clicks, carts, and sales so both sides know what worked.",
+      stat: "$3.9K tracked today",
       icon: BarChart2,
     },
   ];
@@ -105,72 +105,72 @@ export default function Home() {
     {
       id: "business",
       title: "For Brands",
-      priceNow: "Fee-based pricing",
-      priceLater: "Pay based on performance, not a monthly seat",
+      priceNow: "Pay for results",
+      priceLater: "Create offers and pay commissions when approved sales happen",
       bullets: [
-        "Publish offers, approvals, and guardrails",
-        "Wallet-funded partner spend + meta sync",
-        "Automated Stripe payouts + ledger",
+        "Create commission offers for marketers",
+        "Approve who can run campaigns",
+        "Track sales and automate payouts",
       ],
       cta: "Start as a brand",
       href: "/for-businesses",
     },
     {
       id: "affiliate",
-      title: "For Partners",
-      priceNow: "Fee-based pricing",
-      priceLater: "Built for performance, not recurring subscriptions",
+      title: "For Marketers",
+      priceNow: "Earn commissions",
+      priceLater: "Find products to promote and get paid when your campaigns convert",
       bullets: [
-        "Access vetted offers + policy packs",
-        "Submit creatives, track clicks & carts",
-        "Wallet + automated payouts in one place",
+        "Browse approved brand offers",
+        "Promote with ads or organic content",
+        "Track results and payouts in one place",
       ],
-      cta: "Start as a partner",
+      cta: "Start as a marketer",
       href: "/for-partners",
     },
   ];
 
   const onboardingSteps = [
-    "Connect Stripe payouts",
-    "Add a billing method (wallet top-ups)",
-    "Launch your first offer",
-    "Invite partners or share application link",
+    "Connect payouts",
+    "Add a billing method",
+    "Create your first commission offer",
+    "Invite marketers or share your application link",
   ];
 
   const featureBlocks = [
     {
-      title: "Compliance & control",
-      copy: "Offer guardrails, approval queues, and audit trails keep brands protected while partners move fast.",
+      title: "You stay in control",
+      copy: "Approve marketers, campaign ideas, and brand rules before campaigns go live.",
       icon: ShieldCheck,
     },
     {
-      title: "Automation & reconciliation",
-      copy: "Wallet reservations, ad-spend syncing, refunds, and payouts are all ledgered before Stripe moves a dollar.",
+      title: "Less admin after every sale",
+      copy: "Sales tracking, commission calculations, refunds, and payouts are handled in the platform.",
       icon: ClipboardCheck,
     },
     {
-      title: "Human support",
-      copy: "Founders + ops team are in the loop for onboarding, migrations, and escalations — not just a help center.",
+      title: "Real people to help",
+      copy: "Our team helps with setup, migration, and questions when you need more than a help article.",
       icon: LifeBuoy,
     },
   ];
 
   const faqs = [
     {
-      q: "How do payouts get funded?",
-      a: "Brands top up their Nettmark wallet (via card or bank). Funds are reserved the moment a partner drives qualified spend and released to Stripe payouts once conversions clear.",
+      q: "What is Nettmark?",
+      a: "Nettmark is a marketplace where brands create commission-based offers and marketers promote them through Facebook ads, organic content, or their own audiences.",
     },
     {
-      q: "How long does onboarding take?",
-      a: "Early access teams typically connect Stripe payouts, add billing, and publish their first offer in under 15 minutes with the guided checklist.",
+      q: "How do marketers get approved?",
+      a: "Marketers apply to promote a brand's offer. The brand reviews the request and approves who can promote before campaigns go live.",
     },
     {
-      q: "What if Stripe onboarding isn’t finished?",
-      a: "We surface a guided checklist (connect payouts, billing, first offer). You can invite partners but money won’t move until payouts + billing are verified.",
+      q: "How are commissions tracked?",
+      a: "Nettmark tracks clicks, carts, sales, and approved conversions automatically, then calculates the commission owed to the marketer.",
     },
     {
       q: "Is there a long-term contract?",
-      a: "No. Nettmark is fee-based, not a locked monthly subscription. You can use it without being tied into a long-term contract.",
+      a: "No. Nettmark is built so you can start with one offer, prove it works, and grow from there.",
     },
   ];
 
@@ -229,13 +229,13 @@ export default function Home() {
                   Early access is live
                 </div>
                 <h1 className="text-[2.25rem] leading-tight sm:text-5xl lg:text-6xl font-extrabold">
-                  Performance partners on tap.
-                  <br className="hidden sm:block" /> Pay only when you win.
+                  Connect with marketers who promote your brand for commission.
+                  <br className="hidden sm:block" /> Track every sale automatically.
                 </h1>
                 <p className="text-base sm:text-lg text-white/70 max-w-2xl">
-                  Wallet-funded ad spend, automated payouts, and a single ledger
-                  for brands and affiliates. Nettmark replaces the patchwork of
-                  spreadsheets, DMs, and screenshots.
+                  Nettmark is a marketplace where brands create offers, approve
+                  marketers, track sales, and pay commissions automatically.
+                  Marketers can promote through Facebook ads or organic content.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-3">
                   <Link
@@ -248,7 +248,7 @@ export default function Home() {
                     href="/for-partners"
                     className="inline-flex items-center justify-center rounded-full border border-white/15 px-6 py-3 text-sm font-semibold text-white hover:bg-white/5"
                   >
-                    Start as a partner
+                    Start as a marketer
                   </Link>
                   <Link
                     href="/pricing"
@@ -283,7 +283,7 @@ export default function Home() {
 
         <section className="mx-auto mb-16 max-w-7xl overflow-hidden px-4 sm:px-6">
           <p className="mb-6 text-center text-xs uppercase tracking-[0.35em] text-white/45">
-            Trusted by teams across
+            Built for teams selling through
           </p>
 
           <div className="trust-carousel-mask relative">
@@ -304,10 +304,10 @@ export default function Home() {
         <section className="mx-auto max-w-7xl px-4 sm:px-6 mb-20">
           <div className="text-center mb-10">
             <p className="text-xs uppercase tracking-[0.4em] text-white/40">
-              Guided flow
+              Who it is for
             </p>
             <h2 className="mt-2 text-3xl font-bold">
-              Built for both sides of the table
+              Brands create offers. Marketers drive sales.
             </h2>
           </div>
           <div className="grid gap-6 lg:grid-cols-2">
@@ -321,7 +321,7 @@ export default function Home() {
                     For brands
                   </p>
                   <h3 className="text-xl font-semibold">
-                    Spin up a partner channel in minutes
+                    Launch a commission-based offer in minutes
                   </h3>
                 </div>
               </div>
@@ -344,10 +344,10 @@ export default function Home() {
                 </span>
                 <div>
                   <p className="text-xs uppercase tracking-[0.3em] text-white/40">
-                    For partners
+                    For marketers
                   </p>
                   <h3 className="text-xl font-semibold">
-                    Promote products without chaos
+                    Find products to promote and get paid
                   </h3>
                 </div>
               </div>
@@ -374,7 +374,7 @@ export default function Home() {
                   How it works
                 </p>
                 <h2 className="mt-3 text-3xl font-bold sm:text-4xl">
-                  See the Nettmark flow before you even sign in
+                  See how brands and marketers use Nettmark
                 </h2>
               </div>
 
@@ -389,7 +389,7 @@ export default function Home() {
                         : "text-white/75 hover:text-white"
                     }`}
                   >
-                    Business
+                    Brand
                   </button>
                   <button
                     type="button"
@@ -400,7 +400,7 @@ export default function Home() {
                         : "text-white/55 hover:text-white/75"
                     }`}
                   >
-                    Partner
+                    Marketer
                   </button>
                 </div>
 
@@ -424,7 +424,7 @@ export default function Home() {
                   <span>
                     {walkthroughAudience === "business"
                       ? "Business flow"
-                      : "Partner flow"}
+                      : "Marketer flow"}
                   </span>
                 </div>
                 {walkthroughAudience === "business" ? (
@@ -440,10 +440,10 @@ export default function Home() {
                   <StorylaneEmbed
                     desktopHref="https://app.storylane.io/demo/p83vbgruopoj?embed=inline"
                     desktopPadding="calc(65.41% + 25px)"
-                    title="Nettmark partner walkthrough"
+                    title="Nettmark marketer walkthrough"
                     mobileHref="https://app.storylane.io/demo/vql4sszz4w7m?embed=inline"
                     mobilePadding="calc(217.27% + 25px)"
-                    mobileTitle="Nettmark partner mobile walkthrough"
+                    mobileTitle="Nettmark marketer mobile walkthrough"
                   />
                 )}
               </div>
@@ -457,8 +457,8 @@ export default function Home() {
                       1
                     </div>
                     <p>
-                      Watch the business setup journey in order, exactly how a
-                      new brand would experience it.
+                      See how a brand creates an offer, connects tracking, and
+                      prepares to approve marketers.
                     </p>
                   </div>
                   <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
@@ -466,8 +466,8 @@ export default function Home() {
                       2
                     </div>
                     <p>
-                      Show the core path clearly: create offer, install
-                      tracking, and get ready for partner traffic.
+                      Follow the core path: create the offer, set the campaign
+                      rules, and get ready for marketer traffic.
                     </p>
                   </div>
                   <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
@@ -475,8 +475,8 @@ export default function Home() {
                       3
                     </div>
                     <p>
-                      We can swap or refine the Storylane later without
-                      rebuilding the homepage section.
+                      Understand the setup before you sign up, without booking a
+                      call or reading a long guide.
                     </p>
                   </div>
                 </>
@@ -487,8 +487,8 @@ export default function Home() {
                       1
                     </div>
                     <p>
-                      Walk partners through finding offers, launching campaigns,
-                      and grabbing their tracking links without extra setup.
+                      Walk marketers through finding offers, getting approved,
+                      and launching campaigns with tracking already connected.
                     </p>
                   </div>
                   <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
@@ -496,8 +496,8 @@ export default function Home() {
                       2
                     </div>
                     <p>
-                      Show the operator view clearly: marketplace, promotion
-                      flow, and campaign management in one pass.
+                      See the marketer view clearly: offers, promotion options,
+                      campaign links, and results in one place.
                     </p>
                   </div>
                   <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
@@ -505,8 +505,8 @@ export default function Home() {
                       3
                     </div>
                     <p>
-                      Both sides now have live demos, so visitors can self-qualify
-                      before they ever sign up.
+                      Both sides can see how Nettmark works before creating an
+                      account.
                     </p>
                   </div>
                 </>
@@ -518,10 +518,10 @@ export default function Home() {
         <section className="mx-auto max-w-7xl px-4 sm:px-6 mb-20">
           <div className="text-center mb-10">
             <p className="text-xs uppercase tracking-[0.4em] text-white/40">
-              Live snapshot
+              What Nettmark tracks
             </p>
             <h2 className="mt-2 text-3xl font-bold">
-              Everything that moves money shows up here
+              Sales, commissions, and payouts stay connected
             </h2>
           </div>
           <div className="grid gap-6 md:grid-cols-3">
@@ -557,14 +557,14 @@ export default function Home() {
             </div>
             <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6">
               <p className="text-xs uppercase tracking-[0.3em] text-white/35">
-                Onboarding checklist
+                Launch checklist
               </p>
               <h3 className="mt-2 text-2xl font-semibold">
-                4 steps to go live — no agencies required
+                4 steps to launch your first offer
               </h3>
               <p className="mt-3 text-sm text-white/70">
-                We keep payouts blocked until the essentials are connected, so
-                finance and compliance can relax.
+                Nettmark guides you through the basics so your first marketers
+                can apply, promote, and get paid correctly.
               </p>
               <ol className="mt-5 space-y-3 text-sm text-white/80">
                 {onboardingSteps.map((step, idx) => (
@@ -583,10 +583,10 @@ export default function Home() {
         <section className="mx-auto max-w-7xl px-4 sm:px-6 mb-20">
           <div className="text-center mb-10">
             <p className="text-xs uppercase tracking-[0.4em] text-white/40">
-              Proof over promises
+              Why users trust it
             </p>
             <h2 className="mt-2 text-3xl font-bold">
-              Built-in guardrails, automation, and humans
+              Control, tracking, and support without extra tools
             </h2>
           </div>
           <div className="grid gap-6 md:grid-cols-3">
@@ -633,11 +633,10 @@ export default function Home() {
             What is <span className="text-[#00C2CB]">Nettmark</span>?
           </h3>
           <p className="mt-3 text-white/70 max-w-3xl mx-auto">
-            Nettmark is a performance platform that connects brands with trusted
-            promoters under a single shared system for tracking, policy
-            guardrails, and payouts. It makes growth predictable and
-            safe—without the usual mess of spreadsheets, ad-hoc links, or blind
-            spend.
+            Nettmark is a marketplace where brands create commission-based
+            offers and marketers promote them. Brands approve who can promote,
+            marketers run paid or organic campaigns, and Nettmark tracks the
+            sales and payouts automatically.
           </p>
         </div>
 
@@ -647,30 +646,30 @@ export default function Home() {
             <div className="text-xs uppercase tracking-widest text-white/50">
               Pillar 01
             </div>
-            <h4 className="mt-1 font-semibold text-lg">Brand-Safe Growth</h4>
+            <h4 className="mt-1 font-semibold text-lg">Approved promotion</h4>
             <p className="mt-2 text-sm text-white/70">
-              Clear rules and built-in guardrails ensure promotions stay
-              on-brand and within policy—whether paid or organic.
+              Brands set the rules and approve marketers before paid ads or
+              organic campaigns go live.
             </p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-6 shadow-md">
             <div className="text-xs uppercase tracking-widest text-white/50">
               Pillar 02
             </div>
-            <h4 className="mt-1 font-semibold text-lg">Unified Tracking</h4>
+            <h4 className="mt-1 font-semibold text-lg">Automatic sales tracking</h4>
             <p className="mt-2 text-sm text-white/70">
-              One source of truth for clicks, carts, and conversions. Real-time
-              visibility replaces random links and screenshots.
+              Clicks, carts, and sales are tracked in one place, so no one has
+              to rely on random links or screenshots.
             </p>
           </div>
           <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-6 shadow-md">
             <div className="text-xs uppercase tracking-widest text-white/50">
               Pillar 03
             </div>
-            <h4 className="mt-1 font-semibold text-lg">Performance Payouts</h4>
+            <h4 className="mt-1 font-semibold text-lg">Commission payouts</h4>
             <p className="mt-2 text-sm text-white/70">
-              Pay for outcomes, not promises. Nettmark automates earnings so
-              incentives are aligned and transparent.
+              Brands pay commissions on approved results, and marketers can see
+              what they earned.
             </p>
           </div>
         </div>
@@ -683,19 +682,19 @@ export default function Home() {
                 <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#00C2CB1f] text-[#00C2CB]">
                   <ShieldCheck className="w-4 h-4" />
                 </span>
-                <span>Brand‑safe guardrails</span>
+                <span>Campaign rules</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#00C2CB1f] text-[#00C2CB]">
                   <Cpu className="w-4 h-4" />
                 </span>
-                <span>Unified tracking &amp; routing</span>
+                <span>Sales tracking</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[#00C2CB1f] text-[#00C2CB]">
                   <Wallet className="w-4 h-4" />
                 </span>
-                <span>Automated Stripe payouts</span>
+                <span>Automated payouts</span>
               </div>
             </div>
           </div>
@@ -708,17 +707,17 @@ export default function Home() {
           <div className="grid gap-8 md:grid-cols-[1.2fr,1fr] items-start">
             <div>
               <p className="text-xs font-semibold tracking-[0.25em] text-[#7ff5fb] uppercase mb-3">
-                Why Nettmark works
+                Why it is different
               </p>
               <h3 className="text-2xl sm:text-3xl md:text-4xl font-extrabold tracking-tight">
-                One bridge between{" "}
-                <span className="text-[#7ff5fb]">brands</span> and{" "}
-                <span className="text-[#7ff5fb]">partners</span>.
+                One place for <span className="text-[#7ff5fb]">brands</span>
+                and <span className="text-[#7ff5fb]">marketers</span> to run
+                commission campaigns.
               </h3>
               <p className="mt-4 text-sm sm:text-base text-white/70 max-w-2xl">
-                We take care of tracking, routing, and payouts so both sides can
-                focus on what they&apos;re good at: brands building great
-                products, and partners driving attention.
+                Nettmark connects the pieces that usually sit in separate tools:
+                offer approvals, Facebook ad or organic promotion, sales
+                tracking, commission calculation, and payout.
               </p>
 
               <div className="mt-6 grid gap-4 sm:grid-cols-2">
@@ -735,22 +734,21 @@ export default function Home() {
                     <li className="flex gap-2">
                       <ShieldCheck className="w-4 h-4 mt-[3px] text-[#7ff5fb]" />
                       <span>
-                        Run performance campaigns without handing out ad account
-                        logins.
+                        Approve marketers before they run paid or organic
+                        campaigns for your brand.
                       </span>
                     </li>
                     <li className="flex gap-2">
                       <Link2 className="w-4 h-4 mt-[3px] text-[#7ff5fb]" />
                       <span>
-                        Unified links and tracking across paid, organic, and
-                        UGC.
+                        Track sales from Facebook ads, content, email, and other
+                        marketer traffic.
                       </span>
                     </li>
                     <li className="flex gap-2">
                       <Wallet className="w-4 h-4 mt-[3px] text-[#7ff5fb]" />
                       <span>
-                        Only pay on verified conversions via automated Stripe
-                        payouts.
+                        Pay commissions only when approved sales are tracked.
                       </span>
                     </li>
                   </ul>
@@ -762,29 +760,29 @@ export default function Home() {
                       <Users className="w-4 h-4" />
                     </span>
                     <p className="text-xs font-semibold tracking-[0.22em] uppercase text-white/60">
-                      For partners
+                      For marketers
                     </p>
                   </div>
                   <ul className="space-y-2 text-sm text-white/75">
                     <li className="flex gap-2">
                       <Cpu className="w-4 h-4 mt-[3px] text-[#7ff5fb]" />
                       <span>
-                        Ready-to-run offers with creatives, tracking links, and
-                        guardrails built in.
+                        Find brand offers with approved assets, links, and clear
+                        campaign rules.
                       </span>
                     </li>
                     <li className="flex gap-2">
                       <Wallet className="w-4 h-4 mt-[3px] text-[#7ff5fb]" />
                       <span>
-                        Wallet-funded ad spend and automated payouts on approved
-                        sales.
+                        Run Facebook ads or organic campaigns and see results as
+                        they happen.
                       </span>
                     </li>
                     <li className="flex gap-2">
                       <ArrowRight className="w-4 h-4 mt-[3px] text-[#7ff5fb]" />
                       <span>
-                        Focus on performance instead of chasing screenshots and
-                        invoices.
+                        Get commissions calculated and paid without chasing
+                        screenshots or invoices.
                       </span>
                     </li>
                   </ul>
@@ -794,7 +792,7 @@ export default function Home() {
 
             <div className="rounded-2xl border border-[#00C2CB33] bg-black/60 px-4 py-5 sm:px-5 sm:py-6">
               <p className="text-xs font-semibold tracking-[0.24em] text-[#7ff5fb] uppercase mb-2">
-                A simple shared flow
+                How the marketplace works
               </p>
               <ol className="space-y-3 text-sm text-white/80">
                 <li className="flex gap-3">
@@ -802,8 +800,8 @@ export default function Home() {
                     1
                   </span>
                   <span>
-                    Brands publish offers and set the rules once inside
-                    Nettmark.
+                    Brands create commission-based offers and set the campaign
+                    rules.
                   </span>
                 </li>
                 <li className="flex gap-3">
@@ -811,7 +809,7 @@ export default function Home() {
                     2
                   </span>
                   <span>
-                    Partners request access, submit creatives, and launch ads or
+                    Marketers apply, get approved, and launch Facebook ads or
                     organic posts.
                   </span>
                 </li>
@@ -820,8 +818,7 @@ export default function Home() {
                     3
                   </span>
                   <span>
-                    Nettmark tracks every click, cart, and conversion through a
-                    single pipeline.
+                    Nettmark tracks clicks, carts, and sales automatically.
                   </span>
                 </li>
                 <li className="flex gap-3">
@@ -829,8 +826,8 @@ export default function Home() {
                     4
                   </span>
                   <span>
-                    Approved revenue auto-pays to partners and reconciles back
-                    to the brand.
+                    Commissions are calculated and payouts are handled
+                    automatically.
                   </span>
                 </li>
               </ol>
@@ -839,12 +836,12 @@ export default function Home() {
                   href="/pricing"
                   className="inline-flex items-center justify-center gap-2 rounded-full bg-[#00C2CB] px-4 py-2.5 text-sm font-semibold text-black hover:bg-[#00b0b8] transition-colors"
                 >
-                  See plans &amp; payouts
+                  See pricing
                   <ArrowRight className="w-4 h-4" />
                 </Link>
                 <p className="text-[11px] text-white/50">
-                  No long-term lock-ins. Start with a single offer, add more as
-                  your performance pipeline scales.
+                  Start with one offer, approve your first marketers, and grow
+                  from there.
                 </p>
               </div>
             </div>
@@ -852,7 +849,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* HOW NETTMARK FEELS TO USE */}
+      {/* HOW NETTMARK WORKS DAY TO DAY */}
       <section className="relative mx-auto max-w-7xl px-4 sm:px-6 mb-16 md:mb-24">
         <div className="grid gap-6 md:grid-cols-3">
           <div className="rounded-2xl border border-white/10 bg-white/[0.03] px-5 py-5">
@@ -861,13 +858,12 @@ export default function Home() {
                 <ShieldCheck className="w-4 h-4" />
               </span>
               <h4 className="font-semibold text-sm tracking-wide uppercase text-white/80">
-                Policy guardrails
+                Campaign rules
               </h4>
             </div>
             <p className="text-sm text-white/70">
-              Approvals, rules, and brand guidelines live alongside each offer.
-              Partners know exactly what&apos;s allowed, and brands see a clean
-              audit trail.
+              Approvals, campaign rules, and brand guidelines live with each
+              offer. Marketers know what&apos;s allowed before they promote.
             </p>
           </div>
 
@@ -877,12 +873,12 @@ export default function Home() {
                 <Cpu className="w-4 h-4" />
               </span>
               <h4 className="font-semibold text-sm tracking-wide uppercase text-white/80">
-                Everything in one pane
+                Everything connected
               </h4>
             </div>
             <p className="text-sm text-white/70">
-              Offers, creatives, tracking, wallets, and payouts all live in one
-              UI — no more hopping between spreadsheets, ad accounts, and DMs.
+              Offers, campaign assets, tracking links, sales, and payouts stay
+              in one place instead of across spreadsheets, ad accounts, and DMs.
             </p>
           </div>
 
@@ -892,12 +888,12 @@ export default function Home() {
                 <Wallet className="w-4 h-4" />
               </span>
               <h4 className="font-semibold text-sm tracking-wide uppercase text-white/80">
-                Clean money movement
+                Clear commission payments
               </h4>
             </div>
             <p className="text-sm text-white/70">
-              Wallet-funded spend, refunds, and performance payouts are handled
-              by Nettmark + Stripe. Everyone sees exactly what moved and why.
+              Commissions, refunds, and payouts are handled through Nettmark and
+              Stripe so both sides can see what was paid and why.
             </p>
           </div>
         </div>
@@ -911,12 +907,11 @@ export default function Home() {
               Ready when you are
             </p>
             <h3 className="text-xl sm:text-2xl font-bold">
-              Start with one offer. Grow into a full partner-powered channel.
+              Start with one offer. Let approved marketers bring you sales.
             </h3>
             <p className="mt-2 text-sm text-white/70 max-w-xl">
-              Whether you&apos;re a solo creator, an agency, or an in-house
-              growth team, Nettmark is built so both sides win on the same
-              numbers.
+              Create a commission offer, approve marketers, track every sale,
+              and pay automatically when campaigns work.
             </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
@@ -930,7 +925,7 @@ export default function Home() {
               href="/for-partners"
               className="flex-1 inline-flex items-center justify-center rounded-full border border-white/20 px-6 py-3 text-sm font-semibold text-white hover:bg-white/5 transition-colors"
             >
-              I&apos;m a partner
+              I&apos;m a marketer
             </Link>
           </div>
         </div>
@@ -942,8 +937,8 @@ export default function Home() {
           {/* Top row */}
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <p className="text-xs text-white/50">
-              © {new Date().getFullYear()} Nettmark. Built for performance teams
-              and partners.
+              © {new Date().getFullYear()} Nettmark. Built for brands and
+              marketers.
             </p>
 
             <div className="flex items-center gap-4 text-white/60">
