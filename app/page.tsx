@@ -229,8 +229,8 @@ export default function Home() {
                   Early access is live
                 </div>
                 <h1 className="text-[2.25rem] leading-tight sm:text-5xl lg:text-6xl font-extrabold">
-                  Connect with marketers who promote your brand for commission.
-                  <br className="hidden sm:block" /> Track every sale automatically.
+                  A marketplace for businesses and marketers.
+                  <br className="hidden sm:block" /> Create offers. Promote products. Track sales.
                 </h1>
                 <p className="text-base sm:text-lg text-white/70 max-w-2xl">
                   Nettmark is a marketplace where brands create offers, approve
