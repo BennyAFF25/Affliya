@@ -3,7 +3,7 @@
 import { useSessionContext } from "@supabase/auth-helpers-react";
 import { RocketLaunchIcon } from "@heroicons/react/24/outline";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { supabase } from "utils/supabase/pages-client";
 import Link from "next/link";
 import {
@@ -16,6 +16,10 @@ import {
   CreditCard,
   Store,
   CheckCircle2,
+  ListChecks,
+  ChevronDown,
+  ChevronUp,
+  MessageCircle,
 } from "lucide-react";
 import DashboardCard from "@/components/DashboardCard";
 import {
@@ -291,6 +295,17 @@ function AffiliateDashboardContent() {
         error: any;
       };
 
+      const { data: allRequests, error: requestErr } = await supabase
+        .from("affiliate_requests")
+        .select("id")
+        .eq("affiliate_email", session.user?.email || "");
+
+      if (requestErr) {
+        console.error("[❌ Failed to fetch affiliate requests]", requestErr);
+      } else {
+        setRequestCount((allRequests || []).length);
+      }
+
       if (approvedError) {
         console.error("[❌ Failed to fetch approved requests]", approvedError);
       } else {
@@ -391,6 +406,18 @@ function AffiliateDashboardContent() {
         .eq("affiliate_id", session.user?.email || "")
         .in("event_type", ["conversion", "purchase", "order", "checkout_completed"]);
 
+      const { data: clickEvents, error: clickErr } = await supabase
+        .from("campaign_tracking_events")
+        .select("id")
+        .eq("affiliate_id", session.user?.email || "")
+        .in("event_type", ["click", "landing_view", "page_view"]);
+
+      if (clickErr) {
+        console.error("[❌ Failed to fetch click events]", clickErr);
+      } else {
+        setClickCount((clickEvents || []).length);
+      }
+
       if (convFromIso) {
         convQuery = convQuery.gte("created_at", convFromIso);
       }
@@ -469,6 +496,9 @@ function AffiliateDashboardContent() {
   });
   const [checklistDismissed, setChecklistDismissed] = useState(false);
   const [checklistCompletionSent, setChecklistCompletionSent] = useState(false);
+  const [requestCount, setRequestCount] = useState(0);
+  const [clickCount, setClickCount] = useState(0);
+  const [showActivationDetails, setShowActivationDetails] = useState(true);
   const checklistStorageKey = user ? `affiliate-checklist-${user.id}` : null;
   const checklistDismissedStorageKey = user
     ? `affiliate-checklist-dismissed-${user.id}`
@@ -669,79 +699,66 @@ function AffiliateDashboardContent() {
     },
   ];
 
-  const shouldShowChecklist =
-    !profile?.onboarding_completed && !checklistAllDone && !checklistDismissed;
+  const activationTasks = [
+    {
+      key: "payouts",
+      title: "Connect payouts",
+      description: "Add Stripe before your first withdrawal so commissions can be paid automatically.",
+      href: "/affiliate/settings#withdrawals",
+      done: checklistState.payouts,
+      icon: CreditCard,
+    },
+    {
+      key: "request",
+      title: "Request an offer",
+      description: "Choose a business offer and ask to promote it.",
+      href: "/affiliate/marketplace",
+      done: requestCount > 0,
+      icon: Store,
+    },
+    {
+      key: "launch",
+      title: "Launch your first campaign",
+      description: "Submit an organic post or paid campaign once approved.",
+      href: "/affiliate/dashboard",
+      done: activeCampaignCount > 0,
+      icon: RocketLaunchIcon,
+    },
+    {
+      key: "traffic",
+      title: "Get first traffic",
+      description: "Watch for your first tracked click or conversion event.",
+      href: "/affiliate/dashboard/manage-campaigns",
+      done: clickCount > 0,
+      icon: TrendingUp,
+    },
+  ];
 
-  if (shouldShowChecklist) {
-    return (
-      <div className="affiliate-dashboard-theme min-h-screen bg-[var(--background)] text-[var(--foreground)]">
-        <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-10">
-          <div>
-            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#00C2CB]/20 bg-[#00C2CB]/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.24em] text-[#7ff5fb]">
-              <Sparkles className="h-3.5 w-3.5" />
-              Workspace overview
-            </div>
-            <h1 className="text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
-              Affiliate Dashboard
-            </h1>
-            <p className="mt-3 text-sm text-white/60 sm:text-base">
-              Connect payouts and choose an offer to unlock your dashboard.
-            </p>
-          </div>
-          <div className="space-y-4">
-            {checklistTasks.map((task) => {
-              const Icon = task.icon;
-              const completed = checklistState[task.key];
-              return (
-                <div
-                  key={task.key}
-                  className={`flex flex-col gap-4 rounded-2xl border ${completed ? "border-emerald-400/30 bg-[#111b15]" : "border-white/12 bg-[#111317]"} p-5 transition`}
-                >
-                  <div className="flex items-start gap-4">
-                    <span className="rounded-2xl border border-white/10 bg-[#15191c] p-3">
-                      <Icon className="h-5 w-5 text-white" />
-                    </span>
-                    <div>
-                      <p className="text-base font-semibold text-white">
-                        {task.title}
-                      </p>
-                      <p className="text-sm text-white/60">
-                        {task.description}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    {completed ? (
-                      <div className="flex items-center gap-2 text-sm font-semibold text-[#00C2CB]">
-                        <CheckCircle2 className="h-4 w-4" /> Done
-                      </div>
-                    ) : (
-                      <button
-                        onClick={() =>
-                          handleChecklistAction(task.key, task.href)
-                        }
-                        className="rounded-full border border-[#00C2CB]/30 bg-[#00C2CB]/10 px-4 py-2 text-sm font-semibold text-[#00C2CB] hover:bg-[#00C2CB]/20"
-                      >
-                        {task.cta}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-xs text-white/60">
-            <button
-              onClick={() => setChecklistDismissed(true)}
-              className="inline-flex items-center justify-center rounded-full border border-white/12 px-4 py-1 text-white/70 transition hover:bg-[#15191c]"
-            >
-              Skip for now
-            </button>
-            <p>If you change your mind, you can finish these steps anytime.</p>
-          </div>
-        </div>
-      </div>
-    );
+  const completedActivationSteps = activationTasks.filter((t) => t.done).length;
+  const activationProgress = Math.round(
+    (completedActivationSteps / activationTasks.length) * 100,
+  );
+  const remainingActivationTasks = activationTasks.filter((t) => !t.done);
+
+  function handleOpenAssistant() {
+    if (typeof window === "undefined") return;
+
+    const chatbase = (
+      window as Window & {
+        chatbase?: ((command: string, ...args: unknown[]) => unknown) & {
+          open?: () => unknown;
+        };
+      }
+    ).chatbase;
+
+    if (typeof chatbase?.open === "function") {
+      chatbase.open();
+      return;
+    }
+
+    if (typeof chatbase === "function") {
+      chatbase("open");
+    }
   }
 
   return (
@@ -750,7 +767,6 @@ function AffiliateDashboardContent() {
         <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0a1719] via-[#0b0f10] to-black p-6 md:p-8 mb-8 shadow-[0_24px_60px_rgba(0,0,0,0.45)]">
           <div className="pointer-events-none absolute -top-16 right-0 h-44 w-44 rounded-full bg-[#00C2CB]/12 blur-3xl" />
           <div className="pointer-events-none absolute -bottom-24 -left-24 h-40 w-40 rounded-full bg-[#00C2CB]/4 blur-3xl" />
-          <div className="pointer-events-none absolute inset-y-0 left-0 w-[48%] bg-gradient-to-r from-black/28 via-black/8 to-transparent" />
 
           <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
             <div>
@@ -782,6 +798,128 @@ function AffiliateDashboardContent() {
               </Link>
             </div>
           </div>
+        </section>
+
+        <section className="mb-7 rounded-2xl border border-white/12 bg-[#111317] p-4 md:p-5">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 rounded-xl border border-white/12 bg-[#15191c] p-2">
+                <ListChecks className="h-4 w-4 text-white" />
+              </span>
+              <div>
+                <p className="text-sm font-semibold text-white">Affiliate launch path</p>
+                <p className="text-xs text-white/60">
+                  {completedActivationSteps} of {activationTasks.length} steps complete · start with payouts or jump into the marketplace
+                </p>
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={handleOpenAssistant}
+                className="inline-flex items-center gap-2 rounded-lg border border-[#00C2CB]/25 bg-[#00C2CB]/10 px-3 py-2 text-xs font-semibold text-[#7ff5fb] transition hover:bg-[#00C2CB]/15"
+              >
+                <MessageCircle className="h-4 w-4" />
+                Stuck? Talk to the Nettmark bot
+              </button>
+              <button
+                onClick={() => setShowActivationDetails((prev) => !prev)}
+                className="inline-flex items-center gap-2 rounded-lg border border-white/12 px-3 py-2 text-xs font-semibold text-white/80 transition hover:bg-[#15191c]"
+              >
+                {showActivationDetails ? "Hide steps" : "Show steps"}
+                {showActivationDetails ? (
+                  <ChevronUp className="h-4 w-4" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-[#1b2026]">
+            <div
+              className="h-full rounded-full bg-[#00C2CB] transition-all duration-500"
+              style={{ width: `${activationProgress}%` }}
+            />
+          </div>
+
+          {showActivationDetails && (
+            <div className="mt-5 space-y-3">
+              {activationTasks.map((task, idx) => {
+                const Icon = task.icon;
+                const priorComplete = activationTasks
+                  .slice(0, idx)
+                  .every((priorTask) => priorTask.done);
+                const isCurrent = !task.done && priorComplete;
+                const isUpcoming = !task.done && !priorComplete;
+
+                return (
+                  <div key={task.key} className="relative flex gap-3">
+                    {idx < activationTasks.length - 1 && (
+                      <span className="absolute left-4 top-9 h-[calc(100%-1rem)] w-px bg-white/10" />
+                    )}
+                    <div
+                      className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-xs font-bold ${
+                        task.done
+                          ? "border-[#00C2CB]/45 bg-[#00C2CB]/15 text-[#7ff5fb]"
+                          : isCurrent
+                            ? "border-[#00C2CB] bg-[#00C2CB] text-black"
+                            : "border-white/12 bg-[#15191c] text-white/45"
+                      }`}
+                    >
+                      {task.done ? <CheckCircle2 className="h-4 w-4" /> : idx + 1}
+                    </div>
+                    <div
+                      className={`flex flex-1 flex-col gap-3 rounded-2xl border px-4 py-3 sm:flex-row sm:items-center sm:justify-between ${
+                        task.done
+                          ? "border-[#00C2CB]/20 bg-[#00C2CB]/5"
+                          : isCurrent
+                            ? "border-[#00C2CB]/35 bg-[#00C2CB]/10"
+                            : "border-white/10 bg-[#15191c] opacity-75"
+                      }`}
+                    >
+                      <div className="flex min-w-0 items-start gap-2">
+                        <Icon className="mt-0.5 h-4 w-4 shrink-0 text-white/80" />
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-sm font-medium text-white">{task.title}</p>
+                            <span className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/48">
+                              {task.done ? "Complete" : isCurrent ? "Current" : "Later"}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-xs leading-5 text-white/55">{task.description}</p>
+                          {isUpcoming && (
+                            <p className="mt-1 text-[11px] text-white/38">
+                              Finish the earlier step first so this makes sense.
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      {task.done ? (
+                        <span className="shrink-0 text-xs font-semibold text-[#7ff5fb]">
+                          Done
+                        </span>
+                      ) : (
+                        <Link
+                          href={task.href}
+                          className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                            isCurrent
+                              ? "bg-[#00C2CB] text-black hover:bg-[#00b0b8]"
+                              : "border border-white/12 text-white/62 hover:border-[#00C2CB]/40 hover:text-white"
+                          }`}
+                        >
+                          Open
+                        </Link>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+              {remainingActivationTasks.length === 0 && (
+                <p className="text-xs text-white/60">All activation steps are complete.</p>
+              )}
+            </div>
+          )}
         </section>
 
         <section className="mb-7">
@@ -882,7 +1020,7 @@ function AffiliateDashboardContent() {
           </p>
         </section>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
-          {chartConfigs.map((chart, i) => {
+          {chartConfigs.map((chart) => {
             const isSpendChart = chart.id === "spend";
             const tf = isSpendChart ? spendTimeframe : convTimeframe;
             const setTf = isSpendChart ? setSpendTimeframe : setConvTimeframe;

@@ -570,7 +570,7 @@ export default function BusinessCampaignDetailPage() {
 
   return (
     <div className="business-campaign-detail-theme min-h-screen bg-[var(--background)] text-[var(--foreground)]">
-      <div className="mx-auto max-w-5xl px-4 sm:px-8 py-4 space-y-4">
+      <div className="mx-auto max-w-6xl space-y-5 px-4 py-5 sm:px-8">
         {/* Back link */}
         <button
           type="button"
@@ -584,11 +584,11 @@ export default function BusinessCampaignDetailPage() {
         </button>
 
         {/* Header */}
-        <header className="space-y-2">
+        <header className="rounded-3xl border border-white/10 bg-white/[0.03] px-5 py-5 shadow-[0_18px_50px_rgba(0,0,0,0.28)] space-y-3">
           <p className="text-xs font-medium uppercase tracking-[0.2em] text-white/40">
             Campaign
           </p>
-          <h1 className="text-2xl font-semibold tracking-tight text-[#00C2CB]">
+          <h1 className="text-2xl font-semibold tracking-tight text-white sm:text-[1.9rem]">
             Campaign overview
           </h1>
           {campaign?.meta_source === "meta" ? (
@@ -600,7 +600,7 @@ export default function BusinessCampaignDetailPage() {
               ORGANIC • Live Tracking
             </div>
           )}
-          <p className="text-sm text-white/70">
+          <p className="max-w-3xl text-sm text-white/70">
             See how this campaign is set up, who is running it, and control its
             status.
           </p>
@@ -646,7 +646,7 @@ export default function BusinessCampaignDetailPage() {
                       Creative preview
                     </h2>
                     {campaign.platform && (
-                      <span className="rounded-full border border-white/10 bg-black/30 px-3 py-1 text-[10px] uppercase tracking-[0.16em] text:white/50">
+                      <span className="rounded-full border border-white/10 bg-black/30 px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-white/50">
                         {campaign.platform}
                       </span>
                     )}
@@ -714,7 +714,7 @@ export default function BusinessCampaignDetailPage() {
                     // NO MEDIA + NO CAPTION
                     if (!url && !caption) {
                       return (
-                        <div className="mt-4 flex flex-col items-center justify-center rounded-2xl border border-dashed border:white/15 bg-black/40 px-6 py-10 text-center text-xs text-white/50">
+                        <div className="mt-4 flex flex-col items-center justify-center rounded-2xl border border-dashed border-white/15 bg-black/40 px-6 py-10 text-center text-xs text-white/50">
                           <PhotoIcon className="h-8 w-8 mb-3 text-white/30" />
                           No media attached to this campaign yet.
                         </div>
@@ -867,7 +867,7 @@ export default function BusinessCampaignDetailPage() {
                             <p className="text-[11px] text-white/60">
                               Conversions
                             </p>
-                            <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg:white/5">
+                            <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/5">
                               <CurrencyDollarIcon className="h-4 w-4 text-[#00C2CB]" />
                             </span>
                           </div>
@@ -940,7 +940,7 @@ export default function BusinessCampaignDetailPage() {
                       </p>
 
                       {series.labels.length > 0 && (
-                        <div className="mt-4 rounded-2xl border border:white/10 bg-black/30 px-3 sm:px-4 py-3">
+                        <div className="mt-4 rounded-2xl border border-white/10 bg-black/30 px-3 py-3 sm:px-4">
                           <Line
                             data={{
                               labels: series.labels,
@@ -1028,7 +1028,7 @@ export default function BusinessCampaignDetailPage() {
             </section>
 
             {/* Top summary card */}
-            <section className="rounded-3xl border border:white/10 bg-white/[0.02] px-4 sm:px-6 py-5 shadow-[0_0_40px_rgba(0,0,0,0.6)] flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <section className="flex flex-col gap-4 rounded-3xl border border-white/10 bg-white/[0.02] px-4 py-5 shadow-[0_0_40px_rgba(0,0,0,0.6)] sm:flex-row sm:items-start sm:justify-between sm:px-6">
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center gap-3">
                   <span
@@ -1057,12 +1057,15 @@ export default function BusinessCampaignDetailPage() {
                   </span>
                 </p>
 
-                <p className="text-xs text:white/60">
+                <p className="text-xs text-white/60">
                   Started: {formatDate(campaign.created_at)}
                 </p>
               </div>
 
-              <div className="flex flex-col items-end gap-2">
+              <div className="flex flex-col items-start gap-2 sm:items-end">
+                <p className="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-white/40">
+                  Campaign controls
+                </p>
                 <button
                   onClick={handleToggleStatus}
                   disabled={updating}
@@ -1076,13 +1079,13 @@ export default function BusinessCampaignDetailPage() {
                       : "Activate campaign"}
                 </button>
                 {(campaign.status || "").toLowerCase() === "paused" ? (
-                  <div className="mt-2 max-w-sm rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-[11px] text-amber-100 text-right shadow-[0_0_20px_rgba(245,158,11,0.15)]">
+                  <div className="mt-2 max-w-sm rounded-2xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-[11px] text-amber-100 shadow-[0_0_20px_rgba(245,158,11,0.15)] sm:text-right">
                     <span className="font-semibold">Campaign paused.</span> The
                     tracking link is temporarily disabled and affiliates cannot
                     send traffic until you reactivate it.
                   </div>
                 ) : (
-                  <div className="mt-2 max-w-sm rounded-xl border border-[#00C2CB40] bg-[#00C2CB14] px-4 py-3 text-[11px] text-white/80 text-right shadow-[0_0_20px_rgba(0,194,203,0.15)]">
+                  <div className="mt-2 max-w-sm rounded-2xl border border-[#00C2CB40] bg-[#00C2CB14] px-4 py-3 text-[11px] text-white/80 shadow-[0_0_20px_rgba(0,194,203,0.15)] sm:text-right">
                     <span className="font-semibold">Pausing this campaign</span>{" "}
                     will temporarily disable the tracking link and notify the
                     affiliate. Use this only if there is a genuine issue with
@@ -1090,7 +1093,7 @@ export default function BusinessCampaignDetailPage() {
                   </div>
                 )}
                 <Link href="/business/manage-campaigns">
-                  <span className="text-[11px] text-white/60 hover:text-white cursor-pointer">
+                  <span className="cursor-pointer text-[11px] text-white/60 hover:text-white">
                     Back to campaign list
                   </span>
                 </Link>

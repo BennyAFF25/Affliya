@@ -24,7 +24,7 @@ function CreateAccountInner() {
   const role: 'business' | 'affiliate' = normalizedRole ?? 'business';
 
   const onboardingPath =
-    role === 'affiliate' ? '/onboarding/for-partners' : '/onboarding/for-business';
+    role === 'affiliate' ? '/onboarding/for-partners-v1' : '/onboarding/for-business';
 
   useEffect(() => {
     try {

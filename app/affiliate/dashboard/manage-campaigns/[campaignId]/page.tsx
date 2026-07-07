@@ -631,53 +631,82 @@ export default function ManageCampaignPage() {
       )}
 
       {/* Meta / campaign status + control (for paid Meta campaigns) */}
-      <div className="max-w-6xl mx-auto mb-4">
-        <div className="flex flex-wrap items-center justify-between gap-3 text-xs md:text-sm">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center rounded-full border border-[#00C2CB]/30 bg-[#00C2CB]/10 px-2.5 py-0.5 text-[0.65rem] md:text-[0.7rem] font-semibold uppercase tracking-wide text-[#00C2CB]">
-              {isOrganic ? 'ORGANIC CAMPAIGN' : 'META AD • PAID CAMPAIGN'}
-            </span>
-            <span
-              className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-[0.65rem] md:text-[0.7rem] font-medium border ${
-                isPaused || isTerminatedByBusiness
-                  ? 'border-amber-500/40 bg-amber-500/10 text-amber-200'
-                  : 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200'
-              }`}
-            >
-              {isTerminatedByBusiness
-                ? 'Off (Stopped by Business)'
-                : isPaused
-                ? 'Off (Paused)'
-                : 'On (Active)'}
-            </span>
-          </div>
+      <div className="mx-auto mb-5 max-w-6xl">
+        <div className="rounded-3xl border border-white/10 bg-white/[0.03] px-4 py-4 shadow-[0_18px_50px_rgba(0,0,0,0.28)] sm:px-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="min-w-0 space-y-3">
+              <div className="flex flex-wrap items-center gap-2 text-xs md:text-sm">
+                <span className="inline-flex items-center rounded-full border border-[#00C2CB]/30 bg-[#00C2CB]/10 px-2.5 py-0.5 text-[0.65rem] font-semibold uppercase tracking-wide text-[#00C2CB] md:text-[0.7rem]">
+                  {isOrganic ? 'ORGANIC CAMPAIGN' : 'META AD • PAID CAMPAIGN'}
+                </span>
+                <span
+                  className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-[0.65rem] font-medium md:text-[0.7rem] ${
+                    isPaused || isTerminatedByBusiness
+                      ? 'border-amber-500/40 bg-amber-500/10 text-amber-200'
+                      : 'border-emerald-500/40 bg-emerald-500/10 text-emerald-200'
+                  }`}
+                >
+                  {isTerminatedByBusiness
+                    ? 'Off (Stopped by Business)'
+                    : isPaused
+                    ? 'Off (Paused)'
+                    : 'On (Active)'}
+                </span>
+              </div>
 
-          {/* Affiliates can soft-control Meta (pause / resume), but not if business hard-stopped */}
-          {canAffiliateControlMeta && (
-            <button
-              onClick={() => handleMetaControl(isPaused ? 'RESUME' : 'PAUSE')}
-              disabled={metaControlLoading}
-              className="inline-flex items-center rounded-full bg-white/10 hover:bg-white/20 border border-white/15 px-3 py-1.5 text-[0.7rem] md:text-xs font-semibold text-white transition disabled:opacity-60 disabled:cursor-not-allowed"
-            >
-              {metaControlLoading
-                ? 'Updating...'
-                : isPaused
-                ? 'Activate campaign'
-                : 'Pause campaign'}
-            </button>
-          )}
+              <div>
+                <p className="text-[0.7rem] uppercase tracking-[0.22em] text-white/40">
+                  Campaign detail
+                </p>
+                <h1 className="mt-2 break-words text-2xl font-semibold text-white sm:text-[1.9rem]">
+                  {campaignTitle}
+                </h1>
+                <p className="mt-2 max-w-3xl text-sm text-white/60">
+                  Performance, tracking, and creative for this campaign in one place.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-2 text-[11px] text-white/55">
+                <span className="rounded-full border border-white/10 bg-black/30 px-3 py-1">
+                  Offer: <span className="text-white">{offer?.title || 'No linked offer'}</span>
+                </span>
+                <span className="rounded-full border border-white/10 bg-black/30 px-3 py-1">
+                  Platform: <span className="text-white">{campaign?.platform || 'Not set'}</span>
+                </span>
+                <span className="rounded-full border border-white/10 bg-black/30 px-3 py-1">
+                  Status: <span className="text-white">{campaign?.status || 'Unknown'}</span>
+                </span>
+              </div>
+            </div>
+
+            <div className="flex flex-col items-start gap-3 lg:items-end">
+              {canAffiliateControlMeta && (
+                <button
+                  onClick={() => handleMetaControl(isPaused ? 'RESUME' : 'PAUSE')}
+                  disabled={metaControlLoading}
+                  className="inline-flex items-center rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs font-semibold text-white transition hover:bg-white/15 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {metaControlLoading
+                    ? 'Updating...'
+                    : isPaused
+                    ? 'Activate campaign'
+                    : 'Pause campaign'}
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Main layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-[340px,minmax(0,1fr)] gap-8 items-start justify-center max-w-6xl mx-auto">
+      <div className="mx-auto grid max-w-6xl grid-cols-1 items-start gap-6 lg:grid-cols-[340px,minmax(0,1fr)]">
         {/* Left side: media / email preview */}
-        <div className="w-full flex justify-center items-start">
+        <div className="flex w-full items-start justify-center">
           {campaign.platform && String(campaign.platform).toLowerCase() === 'email' ? (
-            <div className="bg-gradient-to-b from-[#181d22] to-[#101214] rounded-2xl border border-[#232931] shadow-xl w-full max-w-lg min-h-[340px] flex flex-col justify-between p-12 relative drop-shadow-[0_0_16px_rgba(0,194,203,0.11)]">
+            <div className="relative flex min-h-[340px] w-full max-w-lg flex-col justify-between rounded-3xl border border-[#232931] bg-gradient-to-b from-[#181d22] to-[#101214] p-8 shadow-xl drop-shadow-[0_0_16px_rgba(0,194,203,0.11)]">
               <div>
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="bg-[#222B34] w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold text-[#00C2CB] border border-[#28303a]">
+                <div className="mb-4 flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full border border-[#28303a] bg-[#222B34] text-lg font-bold text-[#00C2CB]">
                     N
                   </div>
                   <div>
@@ -689,37 +718,37 @@ export default function ManageCampaignPage() {
                     </div>
                   </div>
                 </div>
-                <h2 className="text-[1.2rem] font-bold text-[#00C2CB] mb-2 leading-snug truncate">
+                <h2 className="mb-2 truncate text-[1.2rem] font-bold leading-snug text-[#00C2CB]">
                   {campaign.caption?.split('\n')[0] || '[No Subject]'}
                 </h2>
               </div>
               <div className="flex-1 overflow-y-auto">
                 <div
-                  className="text-gray-300 text-[0.97rem] whitespace-pre-line leading-relaxed px-1 mb-4"
+                  className="mb-4 whitespace-pre-line px-1 text-[0.97rem] leading-relaxed text-gray-300"
                   style={{ maxHeight: 170, minHeight: 64 }}
                 >
                   {campaign.caption || 'No content available.'}
                 </div>
               </div>
               <button
-                className="mt-2 w-fit px-4 py-2 rounded-lg border border-[#00C2CB] text-[#00C2CB] font-medium hover:bg-[#00c2cb22] transition"
+                className="mt-2 w-fit rounded-full border border-[#00C2CB]/40 px-4 py-2 text-sm font-medium text-[#00C2CB] transition hover:bg-[#00c2cb22]"
                 onClick={() => setShowEmailModal(true)}
               >
                 Open Full Email
               </button>
             </div>
           ) : campaign.media_url ? (
-            <div className="bg-black rounded-[2rem] border-[3px] border-[#2D2D2D] w-[320px] h-[640px] overflow-hidden shadow-lg relative">
-              <div className="bg-[#111111] flex items-center justify-center px-4 py-2 border-b border-gray-700">
+            <div className="relative h-[640px] w-[320px] overflow-hidden rounded-[2rem] border-[3px] border-[#2D2D2D] bg-black shadow-lg">
+              <div className="flex items-center justify-center border-b border-gray-700 bg-[#111111] px-4 py-2">
                 <img
                   src="/nettmark-logo.png"
                   alt="Nettmark Logo"
-                  className="h-10 w-auto opacity-95 transform scale-125"
+                  className="h-10 w-auto scale-125 transform opacity-95"
                 />
               </div>
               <div className="h-[calc(100%-48px)] overflow-hidden">
                 {String(campaign.media_url).match(/\.(mp4|mov)$/i) ? (
-                  <video controls className="w-full h-full object-cover bg-black">
+                  <video controls className="h-full w-full object-cover bg-black">
                     <source src={String(campaign.media_url)} type="video/mp4" />
                     Your browser does not support the video tag.
                   </video>
@@ -727,7 +756,7 @@ export default function ManageCampaignPage() {
                   <img
                     src={String(campaign.media_url)}
                     alt="Ad Preview"
-                    className="w-full h-full object-cover bg-black"
+                    className="h-full w-full object-cover bg-black"
                   />
                 ) : (
                   <div className="p-8 text-center text-gray-500">Unsupported media format</div>
@@ -735,15 +764,15 @@ export default function ManageCampaignPage() {
               </div>
             </div>
           ) : (
-            <div className="bg-[#1A1A1A] w-[90%] max-w-md rounded-xl border border-[#2A2A2A] p-8 shadow-lg flex items-center justify-center">
+            <div className="flex w-[90%] max-w-md items-center justify-center rounded-2xl border border-[#2A2A2A] bg-[#1A1A1A] p-8 shadow-lg">
               <span className="text-gray-500 text-center">No content available for this campaign type</span>
             </div>
           )}
         </div>
 
         {/* Right side: summary + stats */}
-        <div className="w-full min-w-0 flex flex-col gap-6">
-          <div className="bg-[#171717] rounded-2xl border border-[#2A2A2A] shadow-md p-5 space-y-4 drop-shadow-[0_0_10px_rgba(0,194,203,0.10)]">
+        <div className="flex w-full min-w-0 flex-col gap-5">
+          <div className="rounded-3xl border border-[#2A2A2A] bg-[#171717] p-5 shadow-md drop-shadow-[0_0_10px_rgba(0,194,203,0.10)]">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
               <div className="min-w-0">
                 <p className="text-[0.65rem] uppercase tracking-[0.2em] text-[#00C2CB]">Campaign Summary</p>
@@ -764,14 +793,14 @@ export default function ManageCampaignPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3 min-w-[220px] lg:min-w-[260px]">
-                <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+              <div className="grid min-w-[220px] grid-cols-2 gap-3 lg:min-w-[260px]">
+                <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
                   <p className="text-[0.65rem] uppercase tracking-wide text-gray-500">Pending payout</p>
                   <p className="mt-2 text-lg font-semibold text-white">
                     {pendingPayout > 0 ? `$${pendingPayout.toFixed(2)}` : '$0.00'}
                   </p>
                 </div>
-                <div className="rounded-xl border border-white/10 bg-black/20 p-3">
+                <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
                   <p className="text-[0.65rem] uppercase tracking-wide text-gray-500">Commission</p>
                   <p className="mt-2 text-lg font-semibold text-white">
                     {offer?.commission ? `${offer.commission}%` : '—'}
@@ -780,7 +809,7 @@ export default function ManageCampaignPage() {
               </div>
             </div>
 
-            <div className="rounded-xl border border-[#00C2CB]/20 bg-[#0F0F0F] p-4">
+            <div className="mt-4 rounded-2xl border border-[#00C2CB]/20 bg-[#0F0F0F] p-4">
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div className="min-w-0">
                   <p className="text-[0.65rem] uppercase tracking-wide text-gray-500">Tracking Link</p>
@@ -799,7 +828,7 @@ export default function ManageCampaignPage() {
                   <button
                     type="button"
                     onClick={handleCopyTrackingLink}
-                    className="px-3 py-2 rounded-lg bg-[#00C2CB] hover:bg-[#00b0b8] text-white text-xs font-semibold disabled:opacity-60"
+                    className="rounded-full bg-[#00C2CB] px-3 py-2 text-xs font-semibold text-white hover:bg-[#00b0b8] disabled:opacity-60"
                     disabled={!trackingUrl || isPaused || isTerminatedByBusiness}
                   >
                     {copyState === 'copied' ? 'Copied' : isPaused || isTerminatedByBusiness ? 'Copy (inactive)' : 'Copy Link'}
@@ -823,10 +852,10 @@ export default function ManageCampaignPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 flex-none">
+          <div className="grid flex-none grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {/* Spend (Meta) - Paid only */}
             {isMetaPaid && (
-              <div className="bg-[#171717] hover:bg-[#1C1C1C] transition-all duration-300 p-4 rounded-2xl shadow-md flex items-center justify-between h-24 border border-[#2A2A2A] drop-shadow-[0_0_10px_rgba(0,194,203,0.12)]">
+              <div className="flex h-28 items-center justify-between rounded-2xl border border-[#2A2A2A] bg-[#171717] p-4 shadow-md transition-all duration-300 hover:bg-[#1C1C1C] drop-shadow-[0_0_10px_rgba(0,194,203,0.12)]">
                 <div>
                   <h2 className="text-gray-300 text-sm font-medium mb-1 tracking-wide uppercase">
                     Spend (Meta)
@@ -850,9 +879,9 @@ export default function ManageCampaignPage() {
             )}
 
             {/* Clicks (Nettmark tracking) */}
-            <div className="bg-[#171717] hover:bg-[#1C1C1C] transition-all duration-300 p-4 rounded-2xl shadow-md flex items-center justify-between h-24 border border-[#2A2A2A] drop-shadow-[0_0_10px_rgba(0,194,203,0.12)]">
+            <div className="flex h-28 items-center justify-between rounded-2xl border border-[#2A2A2A] bg-[#171717] p-4 shadow-md transition-all duration-300 hover:bg-[#1C1C1C] drop-shadow-[0_0_10px_rgba(0,194,203,0.12)]">
               <div>
-                <h2 className="text-gray-300 text-sm font-medium mb-1 tracking-wide uppercase">
+                <h2 className="mb-1 text-sm font-medium uppercase tracking-wide text-gray-300">
                   Clicks {loadingStats && <span className="text-xs text-gray-500">•</span>}
                 </h2>
                 <p className="text-2xl font-semibold text-white">
@@ -866,9 +895,9 @@ export default function ManageCampaignPage() {
             </div>
 
             {/* Add to carts */}
-            <div className="bg-[#171717] hover:bg-[#1C1C1C] transition-all duration-300 p-4 rounded-2xl shadow-md flex items-center justify-between h-24 border border-[#2A2A2A] drop-shadow-[0_0_10px_rgba(0,194,203,0.12)]">
+            <div className="flex h-28 items-center justify-between rounded-2xl border border-[#2A2A2A] bg-[#171717] p-4 shadow-md transition-all duration-300 hover:bg-[#1C1C1C] drop-shadow-[0_0_10px_rgba(0,194,203,0.12)]">
               <div>
-                <h2 className="text-gray-300 text-sm font-medium mb-1 tracking-wide uppercase">
+                <h2 className="mb-1 text-sm font-medium uppercase tracking-wide text-gray-300">
                   Add to Carts {loadingStats && <span className="text-xs text-gray-500">•</span>}
                 </h2>
                 <p className="text-2xl font-semibold text-white">
@@ -881,9 +910,9 @@ export default function ManageCampaignPage() {
             </div>
 
             {/* Conversions */}
-            <div className="bg-[#171717] hover:bg-[#1C1C1C] transition-all duration-300 p-4 rounded-2xl shadow-md flex items-center justify-between h-24 border border-[#2A2A2A] drop-shadow-[0_0_10px_rgba(0,194,203,0.12)]">
+            <div className="flex h-28 items-center justify-between rounded-2xl border border-[#2A2A2A] bg-[#171717] p-4 shadow-md transition-all duration-300 hover:bg-[#1C1C1C] drop-shadow-[0_0_10px_rgba(0,194,203,0.12)]">
               <div>
-                <h2 className="text-gray-300 text-sm font-medium mb-1 tracking-wide uppercase">
+                <h2 className="mb-1 text-sm font-medium uppercase tracking-wide text-gray-300">
                   Conversions {loadingStats && <span className="text-xs text-gray-500">•</span>}
                 </h2>
                 <p className="text-2xl font-semibold text-white">
@@ -898,7 +927,7 @@ export default function ManageCampaignPage() {
           </div>
 
           {/* Line chart */}
-          <div className="bg-[#171717] rounded-2xl border border-[#2A2A2A] shadow-md p-4 flex-1 min-h-[200px]">
+          <div className="min-h-[220px] flex-1 rounded-3xl border border-[#2A2A2A] bg-[#171717] p-4 shadow-md">
             <h3 className="text-gray-300 text-sm font-medium mb-3 tracking-wide uppercase">
               Performance Overview
             </h3>
@@ -980,10 +1009,10 @@ export default function ManageCampaignPage() {
       </div>
 
       {/* Campaign Details */}
-      <div className="flex justify-center w-full mt-16 mb-6">
+      <div className="mt-12 mb-6 flex w-full justify-center">
         <div className="w-[92%] max-w-6xl">
-          <details className="group bg-[#171717] rounded-2xl border border-[#2A2A2A] shadow-md overflow-hidden transition-all duration-300 drop-shadow-[0_0_12px_rgba(0,194,203,0.15)]">
-            <summary className="cursor-pointer select-none px-5 py-3 text-gray-300 text-xs md:text-sm tracking-wide uppercase bg-[#1C1C1C] hover:bg-[#1F1F1F] transition-all duration-300 flex justify-between items-center">
+          <details className="group overflow-hidden rounded-3xl border border-[#2A2A2A] bg-[#171717] shadow-md transition-all duration-300 drop-shadow-[0_0_12px_rgba(0,194,203,0.15)]">
+            <summary className="flex cursor-pointer items-center justify-between bg-[#1C1C1C] px-5 py-3 text-xs uppercase tracking-wide text-gray-300 transition-all duration-300 hover:bg-[#1F1F1F] md:text-sm">
               <div className="flex items-center">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -1031,10 +1060,10 @@ export default function ManageCampaignPage() {
       </div>
 
       {/* Affiliate Guide */}
-      <div className="flex justify-center w-full mt-6">
+      <div className="mt-6 flex w-full justify-center">
         <div className="w-[92%] max-w-6xl">
-          <details className="group bg-[#171717] rounded-2xl border border-[#2A2A2A] shadow-md overflow-hidden transition-all duration-300 drop-shadow-[0_0_12px_rgba(0,194,203,0.15)]">
-            <summary className="cursor-pointer select-none px-5 py-3 text-gray-300 text-xs md:text-sm tracking-wide uppercase bg-[#1C1C1C] hover:bg-[#1F1F1F] transition-all duration-300 flex justify-between items-center">
+          <details className="group overflow-hidden rounded-3xl border border-[#2A2A2A] bg-[#171717] shadow-md transition-all duration-300 drop-shadow-[0_0_12px_rgba(0,194,203,0.15)]">
+            <summary className="flex cursor-pointer items-center justify-between bg-[#1C1C1C] px-5 py-3 text-xs uppercase tracking-wide text-gray-300 transition-all duration-300 hover:bg-[#1F1F1F] md:text-sm">
               <div className="flex items-center">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
@@ -1096,32 +1125,40 @@ export default function ManageCampaignPage() {
 
       {/* Delete Campaign – affiliates can only fully delete ORGANIC campaigns here */}
       {isOrganic && (
-        <div className="max-w-5xl mx-auto mt-10 text-center">
-          <button
-            onClick={async () => {
-              const confirmDelete = window.confirm(
-                `Permanently delete this organic campaign?\n\nThis action cannot be undone.`
-              );
-              if (!confirmDelete) return;
+        <div className="mx-auto mt-10 max-w-5xl">
+          <div className="rounded-3xl border border-red-500/30 bg-red-500/5 px-6 py-5 text-center shadow-[0_0_20px_rgba(255,0,0,0.04)]">
+            <p className="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-red-300">
+              Dangerous action
+            </p>
+            <p className="mt-2 text-sm text-red-100/80">
+              Deleting an organic campaign permanently removes its live campaign record and linked data.
+            </p>
+            <button
+              onClick={async () => {
+                const confirmDelete = window.confirm(
+                  `Permanently delete this organic campaign?\n\nThis action cannot be undone.`
+                );
+                if (!confirmDelete) return;
 
-              const { error: delErr } = await supabase.from('live_campaigns').delete().eq('id', campaign.id);
-              if (delErr) {
-                console.error('❌ Delete error:', delErr);
-                alert('Error deleting campaign.');
-              } else {
-                alert('Campaign deleted.');
-                router.replace('/affiliate/dashboard/manage-campaigns');
-              }
-            }}
-            className="relative inline-flex items-center px-6 py-2.5 bg-[#1A1A1A] hover:bg-[#2A2A2A] border border-red-500/40 hover:border-red-500/70 text-red-400 hover:text-red-300 rounded-xl font-medium transition-all duration-300 group shadow-[0_0_10px_rgba(255,0,0,0.05)]"
-          >
-            <TrashIcon className="w-5 h-5 mr-2 text-red-400 group-hover:text-red-300 transition" />
-            Delete Campaign
-            <span className="absolute inset-0 rounded-xl bg-red-500/10 opacity-0 group-hover:opacity-100 transition" />
-          </button>
-          <p className="text-xs text-gray-500 mt-2">
-            This will permanently remove all data linked to this organic campaign.
-          </p>
+                const { error: delErr } = await supabase.from('live_campaigns').delete().eq('id', campaign.id);
+                if (delErr) {
+                  console.error('❌ Delete error:', delErr);
+                  alert('Error deleting campaign.');
+                } else {
+                  alert('Campaign deleted.');
+                  router.replace('/affiliate/dashboard/manage-campaigns');
+                }
+              }}
+              className="group relative mt-4 inline-flex items-center rounded-2xl border border-red-500/40 bg-[#1A1A1A] px-6 py-2.5 font-medium text-red-400 shadow-[0_0_10px_rgba(255,0,0,0.05)] transition-all duration-300 hover:border-red-500/70 hover:bg-[#2A2A2A] hover:text-red-300"
+            >
+              <TrashIcon className="w-5 h-5 mr-2 text-red-400 group-hover:text-red-300 transition" />
+              Delete Campaign
+              <span className="absolute inset-0 rounded-xl bg-red-500/10 opacity-0 group-hover:opacity-100 transition" />
+            </button>
+            <p className="mt-2 text-xs text-gray-500">
+              This will permanently remove all data linked to this organic campaign.
+            </p>
+          </div>
         </div>
       )}
 

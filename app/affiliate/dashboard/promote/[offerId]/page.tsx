@@ -24,7 +24,7 @@ function friendlyObjective(objective?: string): string {
 import { useState, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { nmToast } from "@/components/ui/toast";
 import { FaSpinner } from "react-icons/fa";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { useSession } from "@supabase/auth-helpers-react";
 import { supabase } from "@/../utils/supabase/pages-client";
 import { fetchReachEstimate } from "@/../utils/meta/fetchReachEstimate";
@@ -65,6 +65,7 @@ export default function PromoteOfferPage() {
   // Removed loading states
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const offerId = params.offerId as string;
 
   const session = useSession();
@@ -74,6 +75,12 @@ export default function PromoteOfferPage() {
   // Organic flow state (non-invasive)
   // ─────────────────────────────
   const [mode, setMode] = useState<"ad" | "organic">("ad");
+
+  useEffect(() => {
+    const requestedMode = (searchParams.get("mode") || "").toLowerCase();
+    if (requestedMode === "organic") setMode("organic");
+    if (requestedMode === "ad") setMode("ad");
+  }, [searchParams]);
 
   // Wallet balance state (real-time gating)
   const [walletBalance, setWalletBalance] = useState<number>(0);

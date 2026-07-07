@@ -4,7 +4,7 @@ import "@/globals.css";
 import AcceptTermsModal from "@/../app/components/AcceptTermsModal";
 import Link from "next/link";
 import Script from "next/script";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useSession } from "@supabase/auth-helpers-react";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import toast from "react-hot-toast";
@@ -133,6 +133,22 @@ const IconSpinner = (props: React.SVGProps<SVGSVGElement>) => (
       strokeLinejoin="round"
       d="M21 12a9 9 0 11-6.219-8.56"
     />
+  </svg>
+);
+const IconChat = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.8"
+    {...props}
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M5 18.5A7.5 7.5 0 117.5 21L4 22l1-3.5z"
+    />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h8M8 14h5" />
   </svg>
 );
 const IconStorefront = (props: React.SVGProps<SVGSVGElement>) => (
@@ -527,6 +543,176 @@ export default function MyBusinessPage() {
   // For now, allow creating offers even if payouts/billing aren't connected when gate is bypassed
   const canCreateOffer = ignoreOnboardingGate ? true : readyForOffer;
 
+  type LaunchStepStatus = "complete" | "active" | "available" | "locked";
+
+  const launchSteps: {
+    step: number;
+    title: string;
+    description: string;
+    status: LaunchStepStatus;
+    ctaLabel?: string;
+    href?: string;
+    onClick?: () => void;
+    disabled?: boolean;
+    secondaryCtaLabel?: string;
+    secondaryOnClick?: () => void;
+    secondaryDisabled?: boolean;
+    helper?: string;
+  }[] = [
+    {
+      step: 1,
+      title: "Connect payouts",
+      description:
+        "Set up Stripe Connect so partner commissions can be paid cleanly once sales come in.",
+      status: payoutsReady ? "complete" : "active",
+      ctaLabel: payoutsReady
+        ? undefined
+        : isEnablingPayouts
+          ? "Opening Stripe…"
+          : "Connect payouts",
+      onClick: payoutsReady ? undefined : handleEnablePayouts,
+      disabled: isEnablingPayouts,
+      secondaryCtaLabel:
+        businessAccountId && !onboardingComplete ? "Refresh status" : undefined,
+      secondaryOnClick:
+        businessAccountId && !onboardingComplete
+          ? handleRefreshPayoutStatus
+          : undefined,
+      helper: payoutsReady
+        ? "Payouts are enabled."
+        : "You can come back here after Stripe redirects you.",
+    },
+    {
+      step: 2,
+      title: "Connect billing",
+      description:
+        "Add a business payment method before approved partners start promoting properly.",
+      status: billingReady ? "complete" : payoutsReady ? "active" : "locked",
+      ctaLabel: billingReady
+        ? undefined
+        : !businessCustomerId
+          ? "Connect billing"
+          : loadingPaymentForm
+            ? "Loading…"
+            : "Add card",
+      onClick: billingReady
+        ? undefined
+        : !businessCustomerId
+          ? handleConnectBilling
+          : handleAddPaymentMethod,
+      disabled: !payoutsReady || loadingPaymentForm,
+      helper: billingReady
+        ? "Billing is ready."
+        : payoutsReady
+          ? "Nettmark uses this for commissions and ad spend transfers."
+          : "Finish payouts first so money movement stays connected.",
+    },
+    {
+      step: 3,
+      title: "Create your first offer",
+      description:
+        "List what partners can promote, the commission, payout rules, and any Meta assets tied to the offer.",
+      status: hasAnyOffer ? "complete" : canCreateOffer ? "active" : "locked",
+      ctaLabel: hasAnyOffer ? "View offers" : "Create offer",
+      href: hasAnyOffer
+        ? "/business/my-business#offers"
+        : "/business/my-business/create-offer?onboard=1",
+      disabled: !canCreateOffer && !hasAnyOffer,
+      helper: hasAnyOffer
+        ? `${offers.length} offer${offers.length === 1 ? "" : "s"} created.`
+        : canCreateOffer
+          ? "This is the listing affiliates see in the marketplace."
+          : "Complete payouts and billing first.",
+    },
+    {
+      step: 4,
+      title: "Install and verify tracking",
+      description:
+        "Add tracking so Nettmark can attribute clicks, conversions, revenue, and payouts to the right partner.",
+      status: hasAnyOffer ? "active" : "locked",
+      ctaLabel: "Set up tracking",
+      href: "/business/setup-tracking?onboard=1",
+      disabled: !hasAnyOffer,
+      helper: hasAnyOffer
+        ? "Tracking attaches to an offer, so do this after your first listing exists."
+        : "Create an offer first so tracking has something to attach to.",
+    },
+    {
+      step: 5,
+      title: "Review affiliate requests",
+      description:
+        "Approve the partners you trust to promote your offer and keep the marketplace controlled.",
+      status: hasAnyOffer ? "available" : "locked",
+      ctaLabel: "Review requests",
+      href: "/business/my-business/affiliate-requests",
+      disabled: !hasAnyOffer,
+      helper: hasAnyOffer
+        ? "New applications will appear here."
+        : "Requests start once your offer is live.",
+    },
+    {
+      step: 6,
+      title: "Approve posts or campaigns",
+      description:
+        "Review organic post ideas and paid ad ideas before partners publish or launch anything.",
+      status: hasAnyOffer ? "available" : "locked",
+      ctaLabel: "Review ideas",
+      href: hasPendingAdIdeas
+        ? "/business/my-business/ad-ideas"
+        : "/business/my-business/post-ideas",
+      disabled: !hasAnyOffer,
+      helper:
+        hasPendingPostIdeas || hasPendingAdIdeas
+          ? "You have partner ideas waiting for review."
+          : "Ideas appear after approved partners submit them.",
+    },
+    {
+      step: 7,
+      title: "Track results",
+      description:
+        "Monitor clicks, conversions, revenue, campaign status, and payouts from the dashboard.",
+      status: hasAnyOffer ? "available" : "locked",
+      ctaLabel: "Open dashboard",
+      href: "/business/dashboard",
+      disabled: !hasAnyOffer,
+      helper: hasAnyOffer
+        ? "Your reporting fills in as traffic and sales happen."
+        : "Results appear after offers and tracking are live.",
+    },
+  ];
+
+  const completedLaunchSteps = launchSteps.filter(
+    (step) => step.status === "complete",
+  ).length;
+  const activeLaunchStep = launchSteps.find((step) => step.status === "active");
+  const launchProgress = Math.round(
+    (completedLaunchSteps / launchSteps.length) * 100,
+  );
+
+  function handleOpenAssistant() {
+    if (typeof window === "undefined") return;
+
+    const chatbase = (
+      window as Window & {
+        chatbase?: ((command: string, ...args: unknown[]) => unknown) & {
+          open?: () => unknown;
+        };
+      }
+    ).chatbase;
+
+    if (typeof chatbase?.open === "function") {
+      chatbase.open();
+      return;
+    }
+
+    if (typeof chatbase === "function") {
+      chatbase("open");
+      return;
+    }
+
+    window.location.href = "/business/support";
+  }
+
   const handleDelete = async (id: string) => {
     console.log("[🗑 Attempting to delete offer]", id);
     setLoadingDeleteId(id);
@@ -701,13 +887,15 @@ export default function MyBusinessPage() {
               ? `nm_has_card_${businessCustomerId}`
               : null;
             if (cust) localStorage.setItem(cust, "true");
-          } catch (_) {}
+          } catch (storageErr) {
+            console.warn("[billing] could not cache card status", storageErr);
+          }
           setHasCard(true);
           onComplete();
         }
-      } catch (err: any) {
+      } catch (err) {
         console.error("[confirmSetup error]", err);
-        toast.error(err?.message || "Stripe error");
+        toast.error(err instanceof Error ? err.message : "Stripe error");
       } finally {
         setSubmitting(false);
       }
@@ -720,7 +908,7 @@ export default function MyBusinessPage() {
       >
         <div className="mb-4">
           <PaymentElement
-            onLoaderror={(event) => {
+            onLoadError={(event) => {
               console.error("[Stripe PaymentElement loaderror]", event);
               toast.error("Stripe card form failed to load. Please retry.");
             }}
@@ -816,204 +1004,178 @@ export default function MyBusinessPage() {
           </details>
         </div>
 
-        {/* ===== Onboarding Checklist (stays until payouts + billing + at least one offer) ===== */}
+        {/* ===== Business launch progress ===== */}
         {showOnboardingChecklist && (
-          <div className="max-w-5xl mx-auto mb-8 rounded-2xl border border-[#00C2CB]/20 bg-[#101314] p-5">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-lg font-semibold text-white">
-                  Finish setting up your account
-                </h2>
-                <p className="text-sm text-gray-400">
-                  Work through the core setup in order: Stripe first, then Meta, then create your first offer, then install tracking against that offer.
-                </p>
-              </div>
-              <div className="text-xs px-3 py-1 rounded-full bg-[#00C2CB]/15 text-[#7ff5fb] border border-[#00C2CB]/25">
-                Guided setup
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              {/* Payouts item */}
-              <div className="flex items-center justify-between rounded-xl border border-[#1f2a2b] bg-[#0e1112] px-4 py-3">
-                <div className="flex items-center gap-3">
-                  <span
-                    className={`inline-block w-3 h-3 rounded-full ${payoutsReady ? "bg-green-500" : "bg-[#334649]"}`}
-                  />
-                  <div>
-                    <div className="text-white font-medium">
-                      Connect payouts
-                    </div>
-                    <div className="text-xs text-gray-400">
-                      Secure Stripe Connect so affiliates can be paid.
-                    </div>
+          <div className="mx-auto mb-8 max-w-6xl overflow-hidden rounded-[2rem] border border-[#00C2CB]/20 bg-[#071011] shadow-[0_24px_80px_rgba(0,0,0,0.28)]">
+            <div className="relative border-b border-white/10 bg-gradient-to-br from-[#102124] via-[#0a1416] to-[#050708] px-5 py-6 sm:px-7">
+              <div className="pointer-events-none absolute right-0 top-0 h-36 w-36 rounded-full bg-[#00C2CB]/10 blur-3xl" />
+              <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+                <div className="max-w-2xl">
+                  <p className="inline-flex rounded-full border border-[#00C2CB]/25 bg-[#00C2CB]/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#7ff5fb]">
+                    Guided launch path
+                  </p>
+                  <h2 className="mt-3 text-2xl font-semibold tracking-tight text-white sm:text-3xl">
+                    Get your business ready for partners
+                  </h2>
+                  <p className="mt-2 text-sm leading-6 text-white/68">
+                    Nettmark lets businesses list offers that approved partners can promote. Start by creating an offer, then complete the setup steps needed to make it ready for promotion.
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-black/30 p-4 text-sm text-white/72 lg:min-w-[280px]">
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="font-medium text-white">Launch progress</span>
+                    <span className="text-[#7ff5fb]">{completedLaunchSteps}/{launchSteps.length}</span>
                   </div>
-                </div>
-                <div className="flex gap-2">
-                  {!payoutsReady && (
-                    <>
-                      <button
-                        onClick={handleEnablePayouts}
-                        disabled={isEnablingPayouts}
-                        className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-[#00C2CB] text-black text-sm hover:bg-[#00b0b8] disabled:cursor-not-allowed disabled:opacity-70"
-                      >
-                        {isEnablingPayouts && (
-                          <IconSpinner className="h-4 w-4 animate-spin" />
-                        )}
-                        {isEnablingPayouts ? "Opening Stripe…" : "Connect"}
-                      </button>
-                      {businessAccountId && !onboardingComplete && (
-                        <button
-                          onClick={handleRefreshPayoutStatus}
-                          className="px-3 py-2 rounded-md border border-[#00C2CB]/40 text-white text-sm hover:bg-[#0f1415]"
-                        >
-                          Refresh
-                        </button>
-                      )}
-                    </>
-                  )}
-                  {payoutsReady && (
-                    <span className="text-green-400 text-sm">Enabled</span>
-                  )}
-                </div>
-              </div>
-
-              {/* Billing item */}
-              <div className="flex items-center justify-between rounded-xl border border-[#1f2a2b] bg-[#0e1112] px-4 py-3">
-                <div className="flex items-center gap-3">
-                  <span
-                    className={`inline-block w-3 h-3 rounded-full ${billingReady ? "bg-green-500" : "bg-[#334649]"}`}
-                  />
-                  <div>
-                    <div className="text-white font-medium">
-                      Add a payment method
-                    </div>
-                    <div className="text-xs text-gray-400">
-                      Create a Stripe Customer and save a card for commissions
-                      &amp; ad spend transfers.
-                    </div>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  {!businessCustomerId && (
-                    <button
-                      onClick={handleConnectBilling}
-                      className="px-3 py-2 rounded-md bg-[#00C2CB] text-black text-sm hover:bg-[#00b0b8]"
-                    >
-                      Connect billing
-                    </button>
-                  )}
-                  {businessCustomerId && !hasCard && (
-                    <button
-                      onClick={handleAddPaymentMethod}
-                      disabled={loadingPaymentForm}
-                      className="px-3 py-2 rounded-md border border-[#00C2CB]/40 text-white text-sm hover:bg-[#0f1415] disabled:opacity-60"
-                    >
-                      {loadingPaymentForm ? "Loading…" : "Add card"}
-                    </button>
-                  )}
-                  {billingReady && (
-                    <span className="text-green-400 text-sm">Ready</span>
-                  )}
-                </div>
-              </div>
-
-              {businessCustomerId && showPaymentForm && setupClientSecret && (
-                <div className="mt-4">
-                  <Elements
-                    key={setupClientSecret}
-                    stripe={stripePromise}
-                    options={{ clientSecret: setupClientSecret }}
-                  >
-                    <AddCardForm
-                      onComplete={() => {
-                        setShowPaymentForm(false);
-                      }}
+                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-white/10">
+                    <div
+                      className="h-full rounded-full bg-[#00C2CB] transition-all duration-500"
+                      style={{ width: `${launchProgress}%` }}
                     />
-                  </Elements>
-                </div>
-              )}
-
-              {/* Meta step */}
-              <div className="flex items-center justify-between rounded-xl border border-[#1f2a2b] bg-[#0e1112] px-4 py-3">
-                <div className="flex items-center gap-3">
-                  <span className="inline-block w-3 h-3 rounded-full bg-[#334649]" />
-                  <div>
-                    <div className="text-white font-medium">
-                      Connect Meta ads <span className="text-gray-500">(optional)</span>
-                    </div>
-                    <div className="text-xs text-gray-400">
-                      Connect Meta here if affiliates should be able to run paid ads for your offers. Skip it if you only want organic promotion for now.
-                    </div>
                   </div>
-                </div>
-                <Link
-                  href="/business/my-business/connect-meta?onboard=1"
-                  prefetch={false}
-                  className="px-3 py-2 rounded-md border border-[#00C2CB]/40 text-white text-sm hover:bg-[#0f1415]"
-                >
-                  Continue
-                </Link>
-              </div>
-
-              <div className="flex items-center justify-between rounded-xl border border-[#1f2a2b] bg-[#0e1112] px-4 py-3">
-                <div className="flex items-center gap-3">
-                  <span className="inline-block w-3 h-3 rounded-full bg-[#334649]" />
-                  <div>
-                    <div className="text-white font-medium">Create your first offer</div>
-                    <div className="text-xs text-gray-400">
-                      When you get here, you’ll choose which connected Meta page and ad account this offer should use.
-                    </div>
-                  </div>
-                </div>
-                {canCreateOffer ? (
-                  <Link
-                    href="/business/my-business/create-offer?onboard=1"
-                    prefetch={false}
-                    className="px-3 py-2 rounded-md border border-[#00C2CB]/40 text-white text-sm hover:bg-[#0f1415]"
-                  >
-                    Continue
-                  </Link>
-                ) : (
+                  <p className="mt-3 text-xs text-white/55">
+                    {activeLaunchStep
+                      ? `Current step: ${activeLaunchStep.title}`
+                      : "Launch path complete — keep monitoring results."}
+                  </p>
                   <button
-                    disabled
-                    className="px-3 py-2 rounded-md border border-[#00C2CB]/15 text-gray-500 text-sm cursor-not-allowed bg-transparent"
+                    type="button"
+                    onClick={handleOpenAssistant}
+                    className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-full border border-[#00C2CB]/30 bg-[#00C2CB]/10 px-4 py-2 text-xs font-semibold text-[#7ff5fb] transition hover:bg-[#00C2CB]/15"
                   >
-                    Continue
+                    <IconChat className="h-4 w-4" />
+                    Stuck? Talk to the Nettmark bot
                   </button>
-                )}
-              </div>
-
-              {/* Tracking step */}
-              <div className="flex items-center justify-between rounded-xl border border-[#1f2a2b] bg-[#0e1112] px-4 py-3">
-                <div className="flex items-center gap-3">
-                  <span className="inline-block w-3 h-3 rounded-full bg-[#334649]" />
-                  <div>
-                    <div className="text-white font-medium">
-                      Install &amp; verify tracking
-                    </div>
-                    <div className="text-xs text-gray-400">
-                      Tracking needs an offer to attach to, so do this right after your first offer is live.
-                    </div>
-                  </div>
                 </div>
-                {canCreateOffer ? (
-                  <Link
-                    href="/business/setup-tracking?onboard=1"
-                    className="px-3 py-2 rounded-md border border-[#00C2CB]/40 text-white text-sm hover:bg-[#0f1415]"
-                  >
-                    Continue
-                  </Link>
-                ) : (
-                  <button
-                    disabled
-                    className="px-3 py-2 rounded-md border border-[#00C2CB]/15 text-gray-500 text-sm cursor-not-allowed bg-transparent"
-                  >
-                    Continue
-                  </button>
-                )}
               </div>
             </div>
+
+            <div className="bg-[#091113] px-4 py-5 sm:px-6">
+              <div className="relative space-y-3 before:absolute before:bottom-7 before:left-[1.65rem] before:top-7 before:w-px before:bg-white/10 sm:before:left-[1.9rem]">
+                {launchSteps.map((item) => {
+                  const isComplete = item.status === "complete";
+                  const isActive = item.status === "active";
+                  const isAvailable = item.status === "available";
+                  const badgeClass = isComplete
+                    ? "border-emerald-400/40 bg-emerald-400/15 text-emerald-200"
+                    : isActive
+                      ? "border-[#00C2CB]/50 bg-[#00C2CB]/15 text-[#7ff5fb] shadow-[0_0_24px_rgba(0,194,203,0.16)]"
+                      : isAvailable
+                        ? "border-sky-400/25 bg-sky-400/10 text-sky-100"
+                        : "border-white/10 bg-white/[0.03] text-white/38";
+                  const cardClass = isActive
+                    ? "border-[#00C2CB]/35 bg-[#0d1b1d] ring-1 ring-[#00C2CB]/15"
+                    : isComplete
+                      ? "border-emerald-400/20 bg-[#0c1714]"
+                      : isAvailable
+                        ? "border-sky-400/15 bg-[#0b1317]"
+                        : "border-white/10 bg-[#0b0f11]";
+
+                  const content = (
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="text-base font-semibold text-white">
+                            {item.title}
+                          </h3>
+                          <span
+                            className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] ${badgeClass}`}
+                          >
+                            {isComplete
+                              ? "Complete"
+                              : isActive
+                                ? "Current"
+                                : isAvailable
+                                  ? "Available"
+                                  : "Locked"}
+                          </span>
+                        </div>
+                        <p className="mt-1 max-w-2xl text-sm leading-6 text-white/65">
+                          {item.description}
+                        </p>
+                        {item.helper && (
+                          <p className="mt-2 text-xs text-white/42">{item.helper}</p>
+                        )}
+                      </div>
+
+                      <div className="flex shrink-0 flex-wrap gap-2 sm:justify-end">
+                        {item.ctaLabel && item.href && (
+                          <Link
+                            href={item.href}
+                            prefetch={false}
+                            aria-disabled={item.disabled}
+                            className={`inline-flex items-center justify-center rounded-full px-4 py-2 text-sm font-semibold transition ${
+                              item.disabled
+                                ? "pointer-events-none border border-white/10 text-white/32"
+                                : isActive
+                                  ? "bg-[#00C2CB] text-black hover:bg-[#00b0b8]"
+                                  : "border border-white/12 text-white/78 hover:border-[#00C2CB]/40 hover:text-white"
+                            }`}
+                          >
+                            {item.ctaLabel}
+                          </Link>
+                        )}
+                        {item.ctaLabel && item.onClick && (
+                          <button
+                            type="button"
+                            onClick={item.onClick}
+                            disabled={item.disabled}
+                            className={`inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                              isActive
+                                ? "bg-[#00C2CB] text-black hover:bg-[#00b0b8]"
+                                : "border border-white/12 text-white/78 hover:border-[#00C2CB]/40 hover:text-white"
+                            }`}
+                          >
+                            {isEnablingPayouts && item.step === 1 && (
+                              <IconSpinner className="h-4 w-4 animate-spin" />
+                            )}
+                            {item.ctaLabel}
+                          </button>
+                        )}
+                        {item.secondaryCtaLabel && item.secondaryOnClick && (
+                          <button
+                            type="button"
+                            onClick={item.secondaryOnClick}
+                            disabled={item.secondaryDisabled}
+                            className="inline-flex items-center justify-center rounded-full border border-white/12 px-4 py-2 text-sm font-semibold text-white/78 transition hover:border-[#00C2CB]/40 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {item.secondaryCtaLabel}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+
+                  return (
+                    <div key={item.step} className="relative flex gap-4 sm:gap-5">
+                      <div
+                        className={`relative z-10 mt-4 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-sm font-bold ${badgeClass}`}
+                      >
+                        {isComplete ? <IconCheck className="h-4 w-4" /> : item.step}
+                      </div>
+                      <div className={`flex-1 rounded-2xl border px-4 py-4 transition ${cardClass}`}>
+                        {content}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {businessCustomerId && showPaymentForm && setupClientSecret && (
+              <div className="border-t border-white/10 bg-[#071011] px-5 py-5 sm:px-7">
+                <Elements
+                  key={setupClientSecret}
+                  stripe={stripePromise}
+                  options={{ clientSecret: setupClientSecret }}
+                >
+                  <AddCardForm
+                    onComplete={() => {
+                      setShowPaymentForm(false);
+                    }}
+                  />
+                </Elements>
+              </div>
+            )}
           </div>
         )}
 
@@ -1201,7 +1363,7 @@ export default function MyBusinessPage() {
         </div>
 
         {/* ===== Offers ===== */}
-        <div className="mt-6 mb-12 max-w-6xl mx-auto">
+        <div id="offers" className="mt-6 mb-12 max-w-6xl mx-auto">
           <div className="flex flex-col items-center gap-3 mb-6">
             <div className="flex items-center gap-2 text-[#00C2CB]">
               <IconStorefront className="w-5 h-5" />
@@ -1236,7 +1398,7 @@ export default function MyBusinessPage() {
             </p>
           ) : offers.length === 0 ? (
             <p className="text-gray-400 text-center">
-              You haven't uploaded any offers yet.
+              You haven&apos;t uploaded any offers yet.
             </p>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">

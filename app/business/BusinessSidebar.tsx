@@ -52,6 +52,11 @@ export default function BusinessSidebar() {
     { name: "Support", href: "/business/support", icon: LifeBuoy },
   ];
 
+  const isActive = (href: string) => {
+    if (pathname === href) return true;
+    return pathname.startsWith(`${href}/`);
+  };
+
   return (
     <>
       {/* Desktop sidebar wrapper now takes full height */}
@@ -63,7 +68,7 @@ export default function BusinessSidebar() {
           <div className="relative">
             <ul className="mt-2 space-y-1">
               {links.map((link) => {
-                const active = pathname === link.href;
+                const active = isActive(link.href);
                 const Icon = link.icon;
                 return (
                   <li key={link.href} className="relative">
@@ -113,48 +118,24 @@ export default function BusinessSidebar() {
 
       {/* Mobile pill slider nav */}
       <div className="flex gap-3 overflow-x-auto border-b border-[var(--border)] bg-[var(--card)] px-4 py-3 md:hidden">
-        <Link
-          href="/business/dashboard"
-          className="whitespace-nowrap rounded-full border border-[var(--primary)]/35 bg-[var(--primary)]/20 px-4 py-2 text-sm text-[var(--primary)]"
-        >
-          Dashboard
-        </Link>
-        <Link
-          href="/business/my-business"
-          className="whitespace-nowrap rounded-full border border-[var(--primary)]/35 bg-[var(--primary)]/20 px-4 py-2 text-sm text-[var(--primary)]"
-        >
-          My Business
-        </Link>
-        <Link
-          href="/business/marketplace"
-          className="whitespace-nowrap rounded-full border border-[var(--primary)]/35 bg-[var(--primary)]/20 px-4 py-2 text-sm text-[var(--primary)]"
-        >
-          Marketplace
-        </Link>
-        <Link
-          href="/business/manage-campaigns"
-          className="whitespace-nowrap rounded-full border border-[var(--primary)]/35 bg-[var(--primary)]/20 px-4 py-2 text-sm text-[var(--primary)]"
-        >
-          Campaigns
-        </Link>
-        <Link
-          href="/business/inbox"
-          className="whitespace-nowrap rounded-full border border-[var(--primary)]/35 bg-[var(--primary)]/20 px-4 py-2 text-sm text-[var(--primary)]"
-        >
-          Inbox
-        </Link>
-        <Link
-          href="/business/settings"
-          className="whitespace-nowrap rounded-full border border-[var(--primary)]/35 bg-[var(--primary)]/20 px-4 py-2 text-sm text-[var(--primary)]"
-        >
-          Settings
-        </Link>
-        <Link
-          href="/business/support"
-          className="whitespace-nowrap rounded-full border border-[var(--primary)]/35 bg-[var(--primary)]/20 px-4 py-2 text-sm text-[var(--primary)]"
-        >
-          Support
-        </Link>
+        {links.map((link) => {
+          const active = isActive(link.href);
+
+          return (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={[
+                "whitespace-nowrap rounded-full border px-4 py-2 text-sm transition-colors",
+                active
+                  ? "border-[var(--primary)]/35 bg-[var(--primary)]/20 text-[var(--primary)]"
+                  : "border-[var(--border)] bg-transparent text-[var(--muted-foreground)] hover:border-[var(--primary)]/20 hover:text-[var(--foreground)]",
+              ].join(" ")}
+            >
+              {link.name === "Manage Campaigns" ? "Campaigns" : link.name}
+            </Link>
+          );
+        })}
       </div>
     </>
   );
