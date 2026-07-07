@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSessionContext } from "@supabase/auth-helpers-react";
 import {
@@ -12,6 +12,7 @@ import {
   BadgeDollarSign,
   Tag,
   LayoutGrid,
+  MessageCircle,
 } from "lucide-react";
 import { supabase } from "utils/supabase/pages-client";
 
@@ -25,12 +26,19 @@ type Offer = {
 };
 
 const channels = [
-  "Facebook Ads",
-  "TikTok Content",
-  "Instagram Content",
+  "Paid ads",
+  "Organic posts",
+  "TikTok content",
+  "Instagram content",
   "YouTube",
-  "Email Marketing",
-  "Not Sure Yet",
+  "Not sure yet",
+];
+
+const onboardingSteps = [
+  "Browse offers",
+  "Request approval",
+  "Promote after approval",
+  "Track results",
 ];
 
 export default function PartnerOnboardingPage() {
@@ -56,6 +64,7 @@ export default function PartnerOnboardingPage() {
     if (!session?.user) return;
     const loadOffers = async () => {
       setLoadingOffers(true);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await (supabase as any)
         .from("offers")
         .select("id,title,commission,type,logo_url,business_email")
@@ -79,6 +88,27 @@ export default function PartnerOnboardingPage() {
     return `Step ${step} of 4`;
   }, [step]);
 
+  function handleOpenAssistant() {
+    if (typeof window === "undefined") return;
+
+    const chatbase = (
+      window as Window & {
+        chatbase?: ((command: string, ...args: unknown[]) => unknown) & {
+          open?: () => unknown;
+        };
+      }
+    ).chatbase;
+
+    if (typeof chatbase?.open === "function") {
+      chatbase.open();
+      return;
+    }
+
+    if (typeof chatbase === "function") {
+      chatbase("open");
+    }
+  }
+
   const toggleChannel = (channel: string) => {
     setSelectedChannels((prev) =>
       prev.includes(channel)
@@ -95,6 +125,7 @@ export default function PartnerOnboardingPage() {
 
     try {
       const email = session.user.email;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data: existing } = await (supabase as any)
         .from("affiliate_requests")
         .select("id")
@@ -104,7 +135,13 @@ export default function PartnerOnboardingPage() {
         .maybeSingle();
 
       if (!existing?.id) {
-        const payload: any = {
+        const payload: {
+          offer_id: string;
+          affiliate_email: string;
+          business_email?: string;
+          status: "pending";
+          notes: string | null;
+        } = {
           offer_id: offer.id,
           affiliate_email: email,
           status: "pending",
@@ -115,6 +152,7 @@ export default function PartnerOnboardingPage() {
 
         if (offer.business_email) payload.business_email = offer.business_email;
 
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { error } = await (supabase as any)
           .from("affiliate_requests")
           .insert(payload);
@@ -129,8 +167,8 @@ export default function PartnerOnboardingPage() {
       );
 
       setStep(4);
-    } catch (err: any) {
-      setRequestError(err?.message || "Could not submit request.");
+    } catch (err) {
+      setRequestError(err instanceof Error ? err.message : "Could not submit request.");
     } finally {
       setSubmittingOfferId(null);
     }
@@ -140,22 +178,63 @@ export default function PartnerOnboardingPage() {
     <main className="min-h-screen bg-[#05080b] px-4 py-8 text-white sm:px-6 md:flex md:items-center md:justify-center md:py-12">
       <div className="mx-auto w-full max-w-4xl rounded-[28px] border border-[var(--border)] bg-[#1a1a1a] p-7 shadow-[0_30px_90px_rgba(0,0,0,0.5)] md:p-10">
         <div className="rounded-2xl border border-[var(--border)] bg-[#1a1a1a] p-4 md:p-5">
-          <p className="text-xs uppercase tracking-[0.28em] text-white/50">{progressLabel}</p>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-xs uppercase tracking-[0.28em] text-white/50">{progressLabel}</p>
+              <h1 className="mt-3 text-3xl font-bold sm:text-4xl">Start promoting with Nettmark</h1>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-white/68">
+                Choose an offer from the marketplace, request approval, then promote it through paid ads or organic content once approved.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleOpenAssistant}
+              className="inline-flex items-center justify-center gap-2 rounded-xl border border-[#00C2CB]/25 bg-[#00C2CB]/10 px-4 py-2 text-sm font-semibold text-[#7ff5fb] transition hover:bg-[#00C2CB]/15"
+            >
+              <MessageCircle className="h-4 w-4" />
+              Stuck? Talk to the Nettmark bot
+            </button>
+          </div>
+          <div className="mt-5 grid gap-2 sm:grid-cols-4">
+            {onboardingSteps.map((label, idx) => (
+              <div
+                key={label}
+                className={`rounded-2xl border px-3 py-3 text-xs ${
+                  idx + 1 <= step
+                    ? "border-[#00C2CB]/30 bg-[#00C2CB]/10 text-[#d8fdff]"
+                    : "border-white/10 bg-white/[0.03] text-white/45"
+                }`}
+              >
+                <span className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.18em] text-white/40">
+                  Step {idx + 1}
+                </span>
+                {label}
+              </div>
+            ))}
+          </div>
 
         {step === 1 && (
           <section className="mt-8 md:mt-10">
-            <h1 className="text-3xl font-bold sm:text-4xl">Welcome to Nettmark</h1>
-            <p className="mt-3 max-w-2xl text-sm text-white/70 sm:text-base">
-              Earn commissions by promoting products and software brands.
-            </p>
-            <p className="mt-2 max-w-2xl text-sm text-white/65 sm:text-base">
-              Choose how you want to promote offers and we will help you get started.
-            </p>
+            <h2 className="text-2xl font-bold sm:text-3xl">How Nettmark works</h2>
+            <div className="mt-5 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                <p className="text-sm font-semibold text-white">1. Browse offers</p>
+                <p className="mt-2 text-sm text-white/60">Find a business you want to promote.</p>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                <p className="text-sm font-semibold text-white">2. Request approval</p>
+                <p className="mt-2 text-sm text-white/60">The business must approve you before you promote.</p>
+              </div>
+              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                <p className="text-sm font-semibold text-white">3. Promote and track</p>
+                <p className="mt-2 text-sm text-white/60">Use paid ads or organic content, then track clicks and commissions.</p>
+              </div>
+            </div>
             <button
               onClick={() => setStep(2)}
               className="mt-8 inline-flex items-center gap-2 rounded-xl bg-[#00C2CB] px-5 py-3 text-sm font-semibold text-black transition hover:bg-[#28d3da]"
             >
-              Get Started <ChevronRight className="h-4 w-4" />
+              Get started <ChevronRight className="h-4 w-4" />
             </button>
           </section>
         )}
@@ -163,7 +242,7 @@ export default function PartnerOnboardingPage() {
         {step === 2 && (
           <section className="mt-8 md:mt-10">
             <h2 className="text-2xl font-bold">How do you want to promote?</h2>
-            <p className="mt-2 text-sm text-white/65">Personalization only.</p>
+            <p className="mt-2 text-sm text-white/65">Pick what fits you. You can change this later.</p>
             <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
               {channels.map((channel) => {
                 const checked = selectedChannels.includes(channel);
@@ -194,7 +273,7 @@ export default function PartnerOnboardingPage() {
         {step === 3 && (
           <section className="mt-8 md:mt-10">
             <h2 className="text-2xl font-bold">Choose your first offer</h2>
-            <p className="mt-2 text-sm text-white/65">Request promotion to start onboarding completion.</p>
+            <p className="mt-2 text-sm text-white/65">Browse offers, choose one you understand, and request approval before promoting it.</p>
             {requestError && <p className="mt-3 text-sm text-red-400">{requestError}</p>}
 
             {loadingOffers ? (
@@ -246,7 +325,7 @@ export default function PartnerOnboardingPage() {
                           onClick={() => setPreviewOffer(offer)}
                           className="inline-flex items-center justify-center gap-2 rounded-xl border border-[var(--border)] bg-[#1a1a1a] px-3 py-2.5 text-sm font-semibold text-white/90 transition hover:bg-[#202020]"
                         >
-                          <Eye className="h-4 w-4" /> View Offer
+                          <Eye className="h-4 w-4" /> View offer
                         </button>
                         <button
                           onClick={() => submitFirstRequest(offer)}
@@ -255,7 +334,7 @@ export default function PartnerOnboardingPage() {
                         >
                           {submittingOfferId === offer.id
                             ? "Submitting..."
-                            : "Request Promotion"}
+                            : "Request approval"}
                         </button>
                       </div>
                     </article>
@@ -271,18 +350,21 @@ export default function PartnerOnboardingPage() {
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-[#00C2CB]/40 bg-[#00C2CB]/10">
               <CheckCircle2 className="h-7 w-7 text-[#7ff5fb]" />
             </div>
-            <h2 className="mt-4 text-3xl font-bold">Request Sent</h2>
+            <h2 className="mt-4 text-3xl font-bold">Request sent</h2>
             <p className="mt-2 text-sm text-white/70">The business will review your request.</p>
-            <div className="mx-auto mt-5 max-w-md space-y-2 text-left text-sm text-white/75">
-              <p>Browse more offers</p>
-              <p>Learn campaign creation</p>
-              <p>Explore organic promotion</p>
+            <div className="mx-auto mt-5 max-w-md rounded-2xl border border-white/12 bg-white/[0.03] p-4 text-left text-sm text-white/75">
+              <p className="font-medium text-white">What happens next:</p>
+              <ul className="mt-2 list-disc space-y-1 pl-5">
+                <li>The business approves or declines your request.</li>
+                <li>If approved, the offer appears in your dashboard.</li>
+                <li>Then you can submit a paid ad or organic post for review.</li>
+              </ul>
             </div>
             <button
               onClick={() => router.replace("/affiliate/dashboard")}
               className="mt-6 rounded-xl bg-[#00C2CB] px-5 py-3 text-sm font-semibold text-black transition hover:bg-[#28d3da]"
             >
-              Go To Dashboard
+              Go to dashboard
             </button>
           </section>
         )}
@@ -316,7 +398,7 @@ export default function PartnerOnboardingPage() {
                 }}
                 className="mt-4 w-full rounded-xl bg-[#00C2CB] px-4 py-2.5 text-sm font-semibold text-black transition hover:bg-[#28d3da]"
               >
-                Request Promotion
+                Request approval
               </button>
             </div>
           </div>

@@ -3,7 +3,7 @@
 import { useSessionContext } from "@supabase/auth-helpers-react";
 import { RocketLaunchIcon } from "@heroicons/react/24/outline";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { supabase } from "utils/supabase/pages-client";
 import Link from "next/link";
 import {
@@ -20,6 +20,7 @@ import {
   ChevronDown,
   ChevronUp,
   Circle,
+  MessageCircle,
 } from "lucide-react";
 import DashboardCard from "@/components/DashboardCard";
 import { Button, SectionHeader, StatCard } from "@/../components/ui";
@@ -703,15 +704,60 @@ function AffiliateDashboardContent() {
   ];
 
   const activationItems = [
-    { label: "Create Account", done: true, href: "/create-account?role=affiliate" },
-    { label: "Request First Offer", done: requestCount > 0, href: "/affiliate/marketplace" },
-    { label: "Get Approved", done: approvedRequestCount > 0, href: "/affiliate/inbox" },
-    { label: "Launch First Campaign", done: activeCampaignCount > 0, href: "/affiliate/dashboard" },
-    { label: "Generate First Click", done: clickCount > 0, href: "/affiliate/dashboard/manage-campaigns" },
-    { label: "Earn First Commission", done: pendingPayoutTotal > 0, href: "/affiliate/wallet" },
+    {
+      label: "Browse offers",
+      description: "Choose an offer from the marketplace.",
+      done: requestCount > 0,
+      href: "/affiliate/marketplace",
+    },
+    {
+      label: "Request approval",
+      description: "Ask the business to approve you before promoting.",
+      done: requestCount > 0,
+      href: "/affiliate/marketplace",
+    },
+    {
+      label: "Get approved",
+      description: "Approved offers unlock paid ads and organic promotion.",
+      done: approvedRequestCount > 0,
+      href: "/affiliate/inbox",
+    },
+    {
+      label: "Promote the offer",
+      description: "Submit paid ads or organic content for review.",
+      done: activeCampaignCount > 0,
+      href: "/affiliate/dashboard",
+    },
+    {
+      label: "Track results",
+      description: "Watch clicks, conversions, and commissions.",
+      done: clickCount > 0 || pendingPayoutTotal > 0,
+      href: "/affiliate/dashboard/manage-campaigns",
+    },
   ];
   const activationDoneCount = activationItems.filter((item) => item.done).length;
   const activationProgress = Math.round((activationDoneCount / activationItems.length) * 100);
+
+  function handleOpenAssistant() {
+    if (typeof window === "undefined") return;
+
+    const chatbase = (
+      window as Window & {
+        chatbase?: ((command: string, ...args: unknown[]) => unknown) & {
+          open?: () => unknown;
+        };
+      }
+    ).chatbase;
+
+    if (typeof chatbase?.open === "function") {
+      chatbase.open();
+      return;
+    }
+
+    if (typeof chatbase === "function") {
+      chatbase("open");
+    }
+  }
 
   return (
     <div className="affiliate-dashboard-theme min-h-screen bg-[var(--background)] text-[var(--foreground)]">
@@ -760,23 +806,33 @@ function AffiliateDashboardContent() {
                 <ListChecks className="h-4 w-4 text-white/85" />
               </span>
               <div>
-                <p className="text-sm font-semibold text-white">Activation checklist</p>
+                <p className="text-sm font-semibold text-white">Affiliate launch path</p>
                 <p className="text-xs text-white/60">
-                  {activationDoneCount} of {activationItems.length} complete
+                  Choose an offer, request approval, then promote it through paid ads or organic content.
                 </p>
               </div>
             </div>
-            <button
-              onClick={() => setShowChecklistDetails((prev) => !prev)}
-              className="inline-flex items-center gap-1 rounded-lg border border-white/12 px-3 py-2 text-xs font-semibold text-white/75 transition hover:bg-[#15191c]"
-            >
-              Steps left
-              {showChecklistDetails ? (
-                <ChevronUp className="h-4 w-4" />
-              ) : (
-                <ChevronDown className="h-4 w-4" />
-              )}
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={handleOpenAssistant}
+                className="inline-flex items-center gap-2 rounded-lg border border-[#00C2CB]/25 bg-[#00C2CB]/10 px-3 py-2 text-xs font-semibold text-[#7ff5fb] transition hover:bg-[#00C2CB]/15"
+              >
+                <MessageCircle className="h-4 w-4" />
+                Stuck? Talk to the Nettmark bot
+              </button>
+              <button
+                onClick={() => setShowChecklistDetails((prev) => !prev)}
+                className="inline-flex items-center gap-1 rounded-lg border border-white/12 px-3 py-2 text-xs font-semibold text-white/75 transition hover:bg-[#15191c]"
+              >
+                {showChecklistDetails ? "Hide steps" : "Show steps"}
+                {showChecklistDetails ? (
+                  <ChevronUp className="h-4 w-4" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
+                )}
+              </button>
+            </div>
           </div>
 
           <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-[#1b2026]">
@@ -792,13 +848,18 @@ function AffiliateDashboardContent() {
                 <Link
                   key={item.label}
                   href={item.href}
-                  className="flex items-center justify-between rounded-xl border border-white/10 bg-[#15191c] px-3 py-2"
+                  className="flex items-start justify-between gap-3 rounded-xl border border-white/10 bg-[#15191c] px-3 py-3"
                 >
-                  <span className="text-sm text-white/85">{item.label}</span>
+                  <span>
+                    <span className="block text-sm font-medium text-white/90">{item.label}</span>
+                    <span className="mt-1 block text-xs leading-5 text-white/55">
+                      {item.description}
+                    </span>
+                  </span>
                   {item.done ? (
-                    <CheckCircle2 className="h-4 w-4 text-[#7ff5fb]" />
+                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#7ff5fb]" />
                   ) : (
-                    <Circle className="h-4 w-4 text-white/40" />
+                    <Circle className="mt-0.5 h-4 w-4 shrink-0 text-white/40" />
                   )}
                 </Link>
               ))}
@@ -858,7 +919,7 @@ function AffiliateDashboardContent() {
 
         <SectionHeader eyebrow="Performance" title="Performance trends" className="mb-4" />
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
-          {chartConfigs.map((chart, i) => {
+          {chartConfigs.map((chart) => {
             const isSpendChart = chart.id === "spend";
             const tf = isSpendChart ? spendTimeframe : convTimeframe;
             const setTf = isSpendChart ? setSpendTimeframe : setConvTimeframe;

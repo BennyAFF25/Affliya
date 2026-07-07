@@ -4,7 +4,7 @@ import "@/globals.css";
 import AcceptTermsModal from "@/../app/components/AcceptTermsModal";
 import Link from "next/link";
 import Script from "next/script";
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useSession } from "@supabase/auth-helpers-react";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import toast from "react-hot-toast";
@@ -133,6 +133,22 @@ const IconSpinner = (props: React.SVGProps<SVGSVGElement>) => (
       strokeLinejoin="round"
       d="M21 12a9 9 0 11-6.219-8.56"
     />
+  </svg>
+);
+const IconChat = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.8"
+    {...props}
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      d="M5 18.5A7.5 7.5 0 117.5 21L4 22l1-3.5z"
+    />
+    <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h8M8 14h5" />
   </svg>
 );
 const IconStorefront = (props: React.SVGProps<SVGSVGElement>) => (
@@ -741,6 +757,27 @@ export default function MyBusinessPage() {
   const launchDoneCount = launchSteps.filter((s) => s.done).length;
   const launchProgress = Math.round((launchDoneCount / launchSteps.length) * 100);
 
+  function handleOpenAssistant() {
+    if (typeof window === "undefined") return;
+
+    const chatbase = (
+      window as Window & {
+        chatbase?: ((command: string, ...args: unknown[]) => unknown) & {
+          open?: () => unknown;
+        };
+      }
+    ).chatbase;
+
+    if (typeof chatbase?.open === "function") {
+      chatbase.open();
+      return;
+    }
+
+    if (typeof chatbase === "function") {
+      chatbase("open");
+    }
+  }
+
   // Guided setup removed: keep core sections visible and allow offers anytime
   const showOnboardingChecklist = false;
   const showBillingCard = true;
@@ -922,13 +959,15 @@ export default function MyBusinessPage() {
               ? `nm_has_card_${businessCustomerId}`
               : null;
             if (cust) localStorage.setItem(cust, "true");
-          } catch (_) {}
+          } catch (storageErr) {
+            console.warn("[billing] could not cache card status", storageErr);
+          }
           setHasCard(true);
           onComplete();
         }
-      } catch (err: any) {
+      } catch (err) {
         console.error("[confirmSetup error]", err);
-        toast.error(err?.message || "Stripe error");
+        toast.error(err instanceof Error ? err.message : "Stripe error");
       } finally {
         setSubmitting(false);
       }
@@ -941,7 +980,7 @@ export default function MyBusinessPage() {
       >
         <div className="mb-4">
           <PaymentElement
-            onLoaderror={(event) => {
+            onLoadError={(event) => {
               console.error("[Stripe PaymentElement loaderror]", event);
               toast.error("Stripe card form failed to load. Please retry.");
             }}
@@ -1259,19 +1298,29 @@ export default function MyBusinessPage() {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-lg font-semibold text-white">Launch progress</h2>
-              <p className="text-sm text-gray-400">
+              <p className="max-w-2xl text-sm text-gray-400">
                 {offersLoading
                   ? "Loading progress…"
-                  : `${launchDoneCount} of ${launchSteps.length} complete · clear next step guidance.`}
+                  : `Nettmark lets businesses list offers that approved partners can promote. Start by creating an offer, then complete the setup steps needed to make it ready for promotion. ${launchDoneCount} of ${launchSteps.length} complete.`}
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => setShowLaunchSteps((prev) => !prev)}
-              className="rounded-md border border-[#00C2CB]/45 bg-[#00C2CB]/10 px-3 py-2 text-xs font-semibold text-[#7ff5fb] hover:bg-[#00C2CB]/15"
-            >
-              {showLaunchSteps ? "Hide steps" : "Show steps"}
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={handleOpenAssistant}
+                className="inline-flex items-center gap-2 rounded-md border border-[#00C2CB]/45 bg-[#00C2CB]/10 px-3 py-2 text-xs font-semibold text-[#7ff5fb] hover:bg-[#00C2CB]/15"
+              >
+                <IconChat className="h-4 w-4" />
+                Stuck? Talk to the Nettmark bot
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowLaunchSteps((prev) => !prev)}
+                className="rounded-md border border-[#00C2CB]/45 bg-[#00C2CB]/10 px-3 py-2 text-xs font-semibold text-[#7ff5fb] hover:bg-[#00C2CB]/15"
+              >
+                {showLaunchSteps ? "Hide steps" : "Show steps"}
+              </button>
+            </div>
           </div>
 
           <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-black/30">
@@ -1511,7 +1560,7 @@ export default function MyBusinessPage() {
             </p>
           ) : offers.length === 0 ? (
             <p className="text-gray-400 text-center">
-              You haven't uploaded any offers yet.
+              You haven&apos;t uploaded any offers yet.
             </p>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
