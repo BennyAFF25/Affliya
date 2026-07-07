@@ -782,7 +782,7 @@ function AffiliateDashboardContent() {
               <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
                 Affiliate Dashboard
               </h1>
-              <p className="mt-3 max-w-2xl text-sm text-white/82 sm:text-base">
+              <p className="mt-3 max-w-2xl text-sm text-white sm:text-base">
                 Welcome back, {firstName}. Track campaign performance, monitor
                 spend, and launch approved offers faster.
               </p>
@@ -803,11 +803,11 @@ function AffiliateDashboardContent() {
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div className="flex items-start gap-3">
               <span className="rounded-xl border border-white/12 bg-[#15191c] p-2">
-                <ListChecks className="h-4 w-4 text-white/85" />
+                <ListChecks className="h-4 w-4 text-white" />
               </span>
               <div>
                 <p className="text-sm font-semibold text-white">Affiliate launch path</p>
-                <p className="text-xs text-white/60">
+                <p className="text-xs text-white">
                   Choose an offer, request approval, then promote it through paid ads or organic content.
                 </p>
               </div>
@@ -823,7 +823,7 @@ function AffiliateDashboardContent() {
               </button>
               <button
                 onClick={() => setShowChecklistDetails((prev) => !prev)}
-                className="inline-flex items-center gap-1 rounded-lg border border-white/12 px-3 py-2 text-xs font-semibold text-white/75 transition hover:bg-[#15191c]"
+                className="inline-flex items-center gap-1 rounded-lg border border-white/12 px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#15191c]"
               >
                 {showChecklistDetails ? "Hide steps" : "Show steps"}
                 {showChecklistDetails ? (
@@ -851,15 +851,15 @@ function AffiliateDashboardContent() {
                   className="flex items-start justify-between gap-3 rounded-xl border border-white/10 bg-[#15191c] px-3 py-3"
                 >
                   <span>
-                    <span className="block text-sm font-medium text-white/90">{item.label}</span>
-                    <span className="mt-1 block text-xs leading-5 text-white/55">
+                    <span className="block text-sm font-medium text-white">{item.label}</span>
+                    <span className="mt-1 block text-xs leading-5 text-white">
                       {item.description}
                     </span>
                   </span>
                   {item.done ? (
                     <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#7ff5fb]" />
                   ) : (
-                    <Circle className="mt-0.5 h-4 w-4 shrink-0 text-white/40" />
+                    <Circle className="mt-0.5 h-4 w-4 shrink-0 text-white" />
                   )}
                 </Link>
               ))}
@@ -884,7 +884,7 @@ function AffiliateDashboardContent() {
               </Link>
               <Link
                 href={`/affiliate/dashboard/promote/${approvedOffers[0].id}?mode=organic`}
-                className="rounded-lg border border-white/12 bg-[#15191c] px-4 py-2 text-sm font-semibold text-white/85 transition hover:bg-[#1a2026]"
+                className="rounded-lg border border-white/12 bg-[#15191c] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#1a2026]"
               >
                 Promote Organically
               </Link>
@@ -893,7 +893,7 @@ function AffiliateDashboardContent() {
         )}
 
         <section className="mb-7">
-          <p className="mb-3 text-xs uppercase tracking-[0.2em] text-white/45">
+          <p className="mb-3 text-xs uppercase tracking-[0.2em] text-white">
             Quick actions
           </p>
           <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -901,7 +901,7 @@ function AffiliateDashboardContent() {
               <Link
                 key={action.href}
                 href={action.href}
-                className="shrink-0 rounded-full border border-white/10 bg-[#111317] px-4 py-2 text-sm font-medium text-white/80 transition hover:bg-[#15191c]"
+                className="shrink-0 rounded-full border border-white/10 bg-[#111317] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#15191c]"
               >
                 {action.label}
               </Link>
@@ -1238,7 +1238,7 @@ function AffiliateDashboardContent() {
         </div>
 
         <section className="mb-4">
-          <p className="text-xs uppercase tracking-[0.2em] text-white/45">
+          <p className="text-xs uppercase tracking-[0.2em] text-white">
             Action queue
           </p>
         </section>
@@ -1250,17 +1250,17 @@ function AffiliateDashboardContent() {
                 Active Campaigns
               </h2>
               {activeCampaigns.length === 0 ? (
-                <div className="rounded-xl border border-white/12 bg-[#15191c] p-6 text-center text-white/70">
-                  <p className="font-medium text-white/85">
+                <div className="rounded-xl border border-white/12 bg-[#15191c] p-6 text-center text-white">
+                  <p className="font-medium text-white">
                     No active campaigns yet.
                   </p>
-                  <p className="mt-1 text-sm text-white/60">
+                  <p className="mt-1 text-sm text-white">
                     Start by promoting an approved offer and launch your first
                     campaign.
                   </p>
                   <Link
                     href="/affiliate/marketplace"
-                    className="mt-4 inline-flex items-center gap-2 rounded-lg border border-white/10 bg-[#111317] px-3.5 py-2 text-sm font-semibold text-white/80 transition hover:bg-[#15191c]"
+                    className="mt-4 inline-flex items-center gap-2 rounded-lg border border-white/10 bg-[#111317] px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-[#15191c]"
                   >
                     Start first campaign <ArrowRight className="h-4 w-4" />
                   </Link>
@@ -1278,14 +1278,14 @@ function AffiliateDashboardContent() {
                         </p>
                         <div className="flex items-center">
                           <RocketLaunchIcon className="w-5 h-5 text-[#00C2CB] mr-2" />
-                          <span className="truncate text-sm text-white/70">
+                          <span className="truncate text-sm text-white">
                             Campaign: {offer.ideaId?.slice(0, 8)}...
                           </span>
                         </div>
                       </div>
                       <Link
                         href={`/affiliate/dashboard/manage-campaigns/${offer.ideaId}`}
-                        className="text-sm px-3 py-1 rounded-lg border border-white/10 bg-[#111317] text-white/80 transition hover:bg-[#15191c]"
+                        className="text-sm px-3 py-1 rounded-lg border border-white/10 bg-[#111317] text-white transition hover:bg-[#15191c]"
                       >
                         View
                       </Link>
@@ -1313,17 +1313,17 @@ function AffiliateDashboardContent() {
                 Approved Offers
               </h2>
               {approvedOffers.length === 0 ? (
-                <div className="rounded-xl border border-white/12 bg-[#15191c] p-6 text-center text-white/70">
-                  <p className="font-medium text-white/85">
+                <div className="rounded-xl border border-white/12 bg-[#15191c] p-6 text-center text-white">
+                  <p className="font-medium text-white">
                     No approved offers yet.
                   </p>
-                  <p className="mt-1 text-sm text-white/60">
+                  <p className="mt-1 text-sm text-white">
                     Browse the marketplace and request offers to unlock your
                     promotion queue.
                   </p>
                   <Link
                     href="/affiliate/marketplace"
-                    className="mt-4 inline-flex items-center gap-2 rounded-lg border border-white/10 bg-[#111317] px-3.5 py-2 text-sm font-semibold text-white/80 transition hover:bg-[#15191c]"
+                    className="mt-4 inline-flex items-center gap-2 rounded-lg border border-white/10 bg-[#111317] px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-[#15191c]"
                   >
                     Browse marketplace <ArrowRight className="h-4 w-4" />
                   </Link>
@@ -1341,7 +1341,7 @@ function AffiliateDashboardContent() {
                         </p>
                         <div className="flex items-center">
                           <RocketLaunchIcon className="w-5 h-5 text-[#00C2CB] mr-2" />
-                          <span className="truncate text-sm text-white/70">
+                          <span className="truncate text-sm text-white">
                             Commission: {offer.commission}% | Type:{" "}
                             {offer.payoutType}
                           </span>
@@ -1349,7 +1349,7 @@ function AffiliateDashboardContent() {
                       </div>
                       <Link
                         href={`/affiliate/dashboard/promote/${offer.id}`}
-                        className="text-sm px-3 py-1 rounded-lg border border-white/10 bg-[#111317] text-white/80 transition hover:bg-[#15191c]"
+                        className="text-sm px-3 py-1 rounded-lg border border-white/10 bg-[#111317] text-white transition hover:bg-[#15191c]"
                       >
                         Promote
                       </Link>

@@ -180,9 +180,9 @@ export default function PartnerOnboardingPage() {
         <div className="rounded-2xl border border-[var(--border)] bg-[#1a1a1a] p-4 md:p-5">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <p className="text-xs uppercase tracking-[0.28em] text-white/50">{progressLabel}</p>
+              <p className="text-xs uppercase tracking-[0.28em] text-white">{progressLabel}</p>
               <h1 className="mt-3 text-3xl font-bold sm:text-4xl">Start promoting with Nettmark</h1>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-white/68">
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-white">
                 Choose an offer from the marketplace, request approval, then promote it through paid ads or organic content once approved.
               </p>
             </div>
@@ -202,10 +202,10 @@ export default function PartnerOnboardingPage() {
                 className={`rounded-2xl border px-3 py-3 text-xs ${
                   idx + 1 <= step
                     ? "border-[#00C2CB]/30 bg-[#00C2CB]/10 text-[#d8fdff]"
-                    : "border-white/10 bg-white/[0.03] text-white/45"
+                    : "border-white/10 bg-white/[0.03] text-white"
                 }`}
               >
-                <span className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.18em] text-white/40">
+                <span className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.18em] text-white">
                   Step {idx + 1}
                 </span>
                 {label}
@@ -219,15 +219,15 @@ export default function PartnerOnboardingPage() {
             <div className="mt-5 grid gap-3 sm:grid-cols-3">
               <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
                 <p className="text-sm font-semibold text-white">1. Browse offers</p>
-                <p className="mt-2 text-sm text-white/60">Find a business you want to promote.</p>
+                <p className="mt-2 text-sm text-white">Find a business you want to promote.</p>
               </div>
               <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
                 <p className="text-sm font-semibold text-white">2. Request approval</p>
-                <p className="mt-2 text-sm text-white/60">The business must approve you before you promote.</p>
+                <p className="mt-2 text-sm text-white">The business must approve you before you promote.</p>
               </div>
               <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
                 <p className="text-sm font-semibold text-white">3. Promote and track</p>
-                <p className="mt-2 text-sm text-white/60">Use paid ads or organic content, then track clicks and commissions.</p>
+                <p className="mt-2 text-sm text-white">Use paid ads or organic content, then track clicks and commissions.</p>
               </div>
             </div>
             <button
@@ -242,7 +242,7 @@ export default function PartnerOnboardingPage() {
         {step === 2 && (
           <section className="mt-8 md:mt-10">
             <h2 className="text-2xl font-bold">How do you want to promote?</h2>
-            <p className="mt-2 text-sm text-white/65">Pick what fits you. You can change this later.</p>
+            <p className="mt-2 text-sm text-white">Pick what fits you. You can change this later.</p>
             <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
               {channels.map((channel) => {
                 const checked = selectedChannels.includes(channel);
@@ -253,7 +253,7 @@ export default function PartnerOnboardingPage() {
                     className={`rounded-xl border px-4 py-3 text-left text-sm transition ${
                       checked
                         ? "border-[#00C2CB]/60 bg-[#00C2CB]/12 text-white"
-                        : "border-[var(--border)] bg-[#1a1a1a] text-white/80 hover:bg-[#202020]"
+                        : "border-[var(--border)] bg-[#1a1a1a] text-white hover:bg-[#202020]"
                     }`}
                   >
                     {channel}
@@ -263,7 +263,7 @@ export default function PartnerOnboardingPage() {
             </div>
             <button
               onClick={() => setStep(3)}
-              className="mt-6 rounded-xl border border-[var(--border)] bg-[#1a1a1a] px-5 py-3 text-sm font-semibold text-white/90 transition hover:bg-[#202020]"
+              className="mt-6 rounded-xl border border-[var(--border)] bg-[#1a1a1a] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#202020]"
             >
               Continue
             </button>
@@ -273,26 +273,26 @@ export default function PartnerOnboardingPage() {
         {step === 3 && (
           <section className="mt-8 md:mt-10">
             <h2 className="text-2xl font-bold">Choose your first offer</h2>
-            <p className="mt-2 text-sm text-white/65">Browse offers, choose one you understand, and request approval before promoting it.</p>
+            <p className="mt-2 text-sm text-white">Browse offers, choose one you understand, and request approval before promoting it.</p>
             {requestError && <p className="mt-3 text-sm text-red-400">{requestError}</p>}
 
             {loadingOffers ? (
-              <div className="mt-6 flex items-center gap-2 text-white/70">
+              <div className="mt-6 flex items-center gap-2 text-white">
                 <Loader2 className="h-4 w-4 animate-spin" /> Loading offers...
               </div>
             ) : offers.length === 0 ? (
-              <div className="mt-6 rounded-2xl border border-[var(--border)] bg-[#1a1a1a] p-5 text-sm text-white/75">
+              <div className="mt-6 rounded-2xl border border-[var(--border)] bg-[#1a1a1a] p-5 text-sm text-white">
                 No offers are available right now. Please try again in a minute.
                 <div className="mt-4 flex gap-2">
                   <button
                     onClick={() => window.location.reload()}
-                    className="rounded-lg border border-[var(--border)] bg-[#1a1a1a] px-3 py-2 text-xs font-semibold text-white/85"
+                    className="rounded-lg border border-[var(--border)] bg-[#1a1a1a] px-3 py-2 text-xs font-semibold text-white"
                   >
                     Reload offers
                   </button>
                   <button
                     onClick={() => router.push('/affiliate/marketplace')}
-                    className="rounded-lg border border-[var(--border)] bg-[#1a1a1a] px-3 py-2 text-xs font-semibold text-white/85"
+                    className="rounded-lg border border-[var(--border)] bg-[#1a1a1a] px-3 py-2 text-xs font-semibold text-white"
                   >
                     Open marketplace
                   </button>
@@ -315,7 +315,7 @@ export default function PartnerOnboardingPage() {
                       />
                       <h3 className="mt-3 text-base font-semibold text-white">{offer.title}</h3>
                       <p className="mt-1 text-sm text-[#7ff5fb]">Earn up to ${estimated} per sale</p>
-                      <div className="mt-3 space-y-1.5 text-xs text-white/70">
+                      <div className="mt-3 space-y-1.5 text-xs text-white">
                         <p className="flex items-center gap-1.5"><BadgeDollarSign className="h-3.5 w-3.5" />Commission: ${Number(offer.commission || 0)}</p>
                         <p className="flex items-center gap-1.5"><Tag className="h-3.5 w-3.5" />Category: {offer.type || "General"}</p>
                         <p className="flex items-center gap-1.5"><LayoutGrid className="h-3.5 w-3.5" />Estimated payout: ${estimated}</p>
@@ -323,7 +323,7 @@ export default function PartnerOnboardingPage() {
                       <div className="mt-4 flex flex-col gap-2">
                         <button
                           onClick={() => setPreviewOffer(offer)}
-                          className="inline-flex items-center justify-center gap-2 rounded-xl border border-[var(--border)] bg-[#1a1a1a] px-3 py-2.5 text-sm font-semibold text-white/90 transition hover:bg-[#202020]"
+                          className="inline-flex items-center justify-center gap-2 rounded-xl border border-[var(--border)] bg-[#1a1a1a] px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-[#202020]"
                         >
                           <Eye className="h-4 w-4" /> View offer
                         </button>
@@ -351,8 +351,8 @@ export default function PartnerOnboardingPage() {
               <CheckCircle2 className="h-7 w-7 text-[#7ff5fb]" />
             </div>
             <h2 className="mt-4 text-3xl font-bold">Request sent</h2>
-            <p className="mt-2 text-sm text-white/70">The business will review your request.</p>
-            <div className="mx-auto mt-5 max-w-md rounded-2xl border border-white/12 bg-white/[0.03] p-4 text-left text-sm text-white/75">
+            <p className="mt-2 text-sm text-white">The business will review your request.</p>
+            <div className="mx-auto mt-5 max-w-md rounded-2xl border border-white/12 bg-white/[0.03] p-4 text-left text-sm text-white">
               <p className="font-medium text-white">What happens next:</p>
               <ul className="mt-2 list-disc space-y-1 pl-5">
                 <li>The business approves or declines your request.</li>
@@ -376,7 +376,7 @@ export default function PartnerOnboardingPage() {
                 <h3 className="text-lg font-semibold text-white">{previewOffer.title}</h3>
                 <button
                   onClick={() => setPreviewOffer(null)}
-                  className="rounded-lg border border-[var(--border)] bg-[#1a1a1a] p-1.5 text-white/80"
+                  className="rounded-lg border border-[var(--border)] bg-[#1a1a1a] p-1.5 text-white"
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -386,7 +386,7 @@ export default function PartnerOnboardingPage() {
                 alt={previewOffer.title}
                 className="mt-3 h-40 w-full rounded-xl border border-white/10 object-cover"
               />
-              <div className="mt-3 space-y-2 text-sm text-white/75">
+              <div className="mt-3 space-y-2 text-sm text-white">
                 <p className="flex items-center gap-2"><BadgeDollarSign className="h-4 w-4" />Commission: ${Number(previewOffer.commission || 0)}</p>
                 <p className="flex items-center gap-2"><Tag className="h-4 w-4" />Category: {previewOffer.type || "General"}</p>
                 <p className="flex items-center gap-2"><LayoutGrid className="h-4 w-4" />Estimated payout: ${Math.round(Number(previewOffer.commission || 0))}</p>

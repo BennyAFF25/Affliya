@@ -325,7 +325,7 @@ function getOfferMetaStatus(offer: Offer) {
 
   return {
     label: "Organic only",
-    tone: "bg-white/5 text-white/70 border border-white/10",
+    tone: "bg-white/5 text-white border border-white/10",
     helper: "This offer can be listed in the marketplace, but affiliates can only promote it organically until Meta is connected.",
     needsSetup: true,
     actionLabel: "Connect Meta assets",
@@ -1084,7 +1084,7 @@ export default function MyBusinessPage() {
                 <h2 className="text-lg font-semibold text-white">
                   Finish setting up your account
                 </h2>
-                <p className="text-sm text-gray-400">
+                <p className="text-sm text-white">
                   Work through the core setup in order: Stripe first, then Meta, then create your first offer, then install tracking against that offer.
                 </p>
               </div>
@@ -1104,7 +1104,7 @@ export default function MyBusinessPage() {
                     <div className="text-white font-medium">
                       Connect payouts
                     </div>
-                    <div className="text-xs text-gray-400">
+                    <div className="text-xs text-white">
                       Secure Stripe Connect so affiliates can be paid.
                     </div>
                   </div>
@@ -1148,7 +1148,7 @@ export default function MyBusinessPage() {
                     <div className="text-white font-medium">
                       Add a payment method
                     </div>
-                    <div className="text-xs text-gray-400">
+                    <div className="text-xs text-white">
                       Create a Stripe Customer and save a card for commissions
                       &amp; ad spend transfers.
                     </div>
@@ -1203,7 +1203,7 @@ export default function MyBusinessPage() {
                       <div className="text-white font-medium">
                         Connect Meta now or later <span className="text-gray-500">(optional)</span>
                       </div>
-                      <div className="text-xs text-gray-400">
+                      <div className="text-xs text-white">
                         Meta is only required for paid campaigns. Organic marketplace promotion can start without it.
                       </div>
                     </div>
@@ -1226,7 +1226,7 @@ export default function MyBusinessPage() {
                 </button>
 
                 {showMetaOptionalWhy && (
-                  <div className="mt-3 space-y-2 text-xs text-gray-400">
+                  <div className="mt-3 space-y-2 text-xs text-white">
                     <p>Connecting Meta unlocks paid ad workflows (page, ad account, and pixel-linked launches).</p>
                     <p>You can connect later when you’re ready to run paid traffic or after your first affiliate request needs paid ads.</p>
                   </div>
@@ -1238,7 +1238,7 @@ export default function MyBusinessPage() {
                   <span className="inline-block w-3 h-3 rounded-full bg-[#334649]" />
                   <div>
                     <div className="text-white font-medium">Create your first offer</div>
-                    <div className="text-xs text-gray-400">
+                    <div className="text-xs text-white">
                       When you get here, you’ll choose which connected Meta page and ad account this offer should use.
                     </div>
                   </div>
@@ -1269,7 +1269,7 @@ export default function MyBusinessPage() {
                     <div className="text-white font-medium">
                       Install &amp; verify tracking
                     </div>
-                    <div className="text-xs text-gray-400">
+                    <div className="text-xs text-white">
                       Tracking needs an offer to attach to, so do this right after your first offer is live.
                     </div>
                   </div>
@@ -1298,7 +1298,7 @@ export default function MyBusinessPage() {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-lg font-semibold text-white">Launch progress</h2>
-              <p className="max-w-2xl text-sm text-gray-400">
+              <p className="max-w-2xl text-sm text-white">
                 {offersLoading
                   ? "Loading progress…"
                   : `Nettmark lets businesses list offers that approved partners can promote. Start by creating an offer, then complete the setup steps needed to make it ready for promotion. ${launchDoneCount} of ${launchSteps.length} complete.`}
@@ -1347,7 +1347,7 @@ export default function MyBusinessPage() {
                       </span>
                     </div>
                   </div>
-                  <p className="mt-1 text-xs text-gray-400">{step.desc}</p>
+                  <p className="mt-1 text-xs text-white">{step.desc}</p>
                 </Link>
               ))}
             </div>
@@ -1363,7 +1363,7 @@ export default function MyBusinessPage() {
               icon={<IconUsers className="w-4 h-4" />}
             >
               <div className="space-y-4">
-                <p className="text-xs text-white/70">
+                <p className="text-xs text-white">
                   Approve partners, review post ideas, and keep an eye on what
                   affiliates are planning to run.
                 </p>
@@ -1415,7 +1415,7 @@ export default function MyBusinessPage() {
               icon={<IconPuzzle className="w-4 h-4" />}
             >
               <div className="space-y-4">
-                <p className="text-xs text-white/70">
+                <p className="text-xs text-white">
                   Connect your Meta assets and keep tracking + creatives aligned
                   with your Nettmark offers.
                 </p>
@@ -1458,7 +1458,7 @@ export default function MyBusinessPage() {
               icon={<IconCreditCard className="w-4 h-4" />}
             >
               <div className="space-y-4">
-                <p className="text-xs text-white/70">
+                <p className="text-xs text-white">
                   Billing and payouts are handled via Stripe. Once connected,
                   affiliates are paid automatically.
                 </p>
@@ -1504,7 +1504,7 @@ export default function MyBusinessPage() {
                       className={`flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-medium border ${
                         billingReady
                           ? "border-emerald-400/60 text-emerald-300 bg-emerald-500/10"
-                          : "border-white/10 text-white/70 bg-white/5"
+                          : "border-white/10 text-white bg-white/5"
                       }`}
                     >
                       <IconCreditCard className="w-4 h-4" />
@@ -1520,7 +1520,7 @@ export default function MyBusinessPage() {
                       className={`flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-medium border ${
                         payoutsReady
                           ? "border-emerald-400/60 text-emerald-300 bg-emerald-500/10"
-                          : "border-white/10 text-white/70 bg-white/5"
+                          : "border-white/10 text-white bg-white/5"
                       }`}
                     >
                       <IconBank className="w-4 h-4" />
@@ -1555,11 +1555,11 @@ export default function MyBusinessPage() {
           </div>
 
           {offersLoading ? (
-            <p className="text-gray-400 text-center text-sm">
+            <p className="text-white text-center text-sm">
               Loading your offers…
             </p>
           ) : offers.length === 0 ? (
-            <p className="text-gray-400 text-center">
+            <p className="text-white text-center">
               You haven&apos;t uploaded any offers yet.
             </p>
           ) : (
@@ -1613,7 +1613,7 @@ export default function MyBusinessPage() {
                         <h2 className="text-xl font-semibold tracking-tight text-[#7ff5fb]">
                           {offer.title}
                         </h2>
-                        <p className="mt-0.5 text-xs uppercase tracking-[0.16em] text-white/40">
+                        <p className="mt-0.5 text-xs uppercase tracking-[0.16em] text-white">
                           {offer.type === "recurring"
                             ? "Recurring offer"
                             : "One-time offer"}
@@ -1622,14 +1622,14 @@ export default function MyBusinessPage() {
                     </div>
 
                     <div className="flex flex-col items-end gap-1">
-                      <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-white/40">
+                      <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-white">
                         Commission
                       </span>
                       <div className="flex items-baseline gap-1">
                         <span className="text-2xl font-semibold text-white">
                           {offer.commission}
                         </span>
-                        <span className="text-sm font-medium text-white/60">
+                        <span className="text-sm font-medium text-white">
                           %
                         </span>
                       </div>
@@ -1645,13 +1645,13 @@ export default function MyBusinessPage() {
                     </div>
                   </div>
 
-                  <p className="relative mt-4 text-sm text-white/70">
+                  <p className="relative mt-4 text-sm text-white">
                     {offer.description}
                   </p>
 
                   <div className="relative mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-white/50">
+                      <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-white">
                         Offer status
                       </span>
                       <span className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium ${trackingReady ? "bg-emerald-500/15 text-emerald-200 border border-emerald-400/40" : "bg-amber-500/15 text-amber-200 border border-amber-400/40"}`}>

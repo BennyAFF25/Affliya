@@ -136,7 +136,7 @@ export function AffiliateOnboardingQuickstart({
               <h2 className="mt-2 text-2xl font-semibold tracking-tight text-white sm:text-3xl">
                 {current.title}
               </h2>
-              <p className="mt-3 text-sm leading-6 text-white/72">
+              <p className="mt-3 text-sm leading-6 text-white">
                 {current.body}
               </p>
             </div>
@@ -144,7 +144,7 @@ export function AffiliateOnboardingQuickstart({
         </div>
 
         <div className="p-6 sm:p-7">
-          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-white/62">
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-white">
             {current.helper}
           </div>
 
@@ -165,7 +165,7 @@ export function AffiliateOnboardingQuickstart({
                 className={`inline-flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold transition ${
                   action.primary
                     ? "bg-[#00C2CB] text-black hover:bg-[#00b0b8]"
-                    : "border border-white/12 text-white/78 hover:border-[#00C2CB]/40 hover:text-white"
+                    : "border border-white/12 text-white hover:border-[#00C2CB]/40 hover:text-white"
                 }`}
                 onMouseEnter={() => router.prefetch(action.href)}
               >
@@ -178,7 +178,7 @@ export function AffiliateOnboardingQuickstart({
           <div className="mt-7 flex items-center justify-between gap-4">
             <button
               onClick={onFinish}
-              className="text-xs font-medium text-white/55 hover:text-white"
+              className="text-xs font-medium text-white hover:text-white"
             >
               Skip for now
             </button>
