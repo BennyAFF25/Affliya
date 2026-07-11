@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import {
+  assertOfferTrackingReady,
+  type QueryClient,
+} from "@/../utils/approvals/enforcement";
 
 const supabaseUrl = process.env.SUPABASE_URL!;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -17,24 +21,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ verifiedOfferIds: [] });
     }
 
-    const { data, error } = await supabase
-      .from("campaign_tracking_events")
-      .select("offer_id")
-      .in("offer_id", offerIds)
-      .eq("event_type", "test_pixel");
+    const verifiedOfferIds: string[] = [];
 
-    if (error) {
-      console.error("[tracking-readiness] query failed", error);
-      return NextResponse.json({ error: "query_failed" }, { status: 500 });
+    for (const offerId of offerIds) {
+      const readiness = await assertOfferTrackingReady(
+        supabase as unknown as QueryClient,
+        offerId,
+      );
+      if (readiness.ok) verifiedOfferIds.push(offerId);
     }
-
-    const verifiedOfferIds = Array.from(
-      new Set(
-        (data || [])
-          .map((row: { offer_id?: string | null }) => row.offer_id)
-          .filter((id): id is string => Boolean(id)),
-      ),
-    );
 
     return NextResponse.json({ verifiedOfferIds });
   } catch (error) {

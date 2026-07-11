@@ -5,11 +5,17 @@ if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
   );
 }
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "crypto";
 import { Resend } from "resend";
-import { assertAdIdeaLaunchApproved } from "@/../utils/approvals/enforcement";
+import {
+  assertAdIdeaLaunchApproved,
+  assertOfferTrackingReady,
+  type QueryClient,
+} from "@/../utils/approvals/enforcement";
 import { buildTrackingUrl } from "@/../utils/tracking/buildTrackingUrl";
 
 const supabase = createClient(
@@ -130,6 +136,21 @@ export async function POST(req: Request) {
       return NextResponse.json(
         { success: false, error: "Offer lookup failed" },
         { status: 400 },
+      );
+    }
+
+    const trackingReady = await assertOfferTrackingReady(
+      supabase as unknown as QueryClient,
+      offerId,
+    );
+    if (!trackingReady.ok) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: trackingReady.error,
+          message: trackingReady.message,
+        },
+        { status: trackingReady.status },
       );
     }
 

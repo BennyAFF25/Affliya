@@ -5,11 +5,13 @@ type QueryResponse = {
 
 type QueryBuilder = PromiseLike<QueryResponse> & {
   select: (columns: string) => QueryBuilder;
-  eq: (column: string, value: string) => QueryBuilder;
+  eq: (column: string, value: string | boolean | null) => QueryBuilder;
+  is: (column: string, value: null) => QueryBuilder;
+  limit: (count: number) => QueryBuilder;
   maybeSingle: () => Promise<QueryResponse>;
 };
 
-type QueryClient = {
+export type QueryClient = {
   from: (table: string) => QueryBuilder;
 };
 
@@ -21,6 +23,92 @@ export type ApprovalEnforcementResult = {
   error: string;
   message: string;
 };
+
+export const TRACKING_NOT_READY_MESSAGE =
+  'Tracking is not connected for this offer yet. Ask the business to open Setup tracking, install the Nettmark pixel, and run the test before launching campaigns.';
+
+export async function assertOfferTrackingReady(
+  supabase: QueryClient,
+  offerId: string,
+): Promise<ApprovalEnforcementResult> {
+  const { data: offer, error: offerError } = await supabase
+    .from('offers')
+    .select('id, business_email')
+    .eq('id', offerId)
+    .maybeSingle();
+
+  if (offerError) {
+    throw new Error(`Failed to verify offer tracking readiness: ${offerError.message || offerError}`);
+  }
+
+  const offerRow = offer as { business_email?: string | null } | null;
+  if (!offerRow) {
+    return {
+      ok: false,
+      status: 404,
+      error: 'OFFER_NOT_FOUND',
+      message: 'Offer not found.',
+    };
+  }
+
+  const { data: offerProgress, error: offerProgressError } = await supabase
+    .from('business_onboarding_progress')
+    .select('tracking_connected')
+    .eq('offer_id', offerId)
+    .eq('tracking_connected', true)
+    .limit(1)
+    .maybeSingle();
+
+  if (offerProgressError) {
+    throw new Error(`Failed to verify offer tracking status: ${offerProgressError.message || offerProgressError}`);
+  }
+
+  if ((offerProgress as { tracking_connected?: boolean } | null)?.tracking_connected) {
+    return { ok: true };
+  }
+
+  if (offerRow.business_email) {
+    const { data: businessProgress, error: businessProgressError } = await supabase
+      .from('business_onboarding_progress')
+      .select('tracking_connected')
+      .eq('business_email', offerRow.business_email)
+      .is('offer_id', null)
+      .eq('tracking_connected', true)
+      .limit(1)
+      .maybeSingle();
+
+    if (businessProgressError) {
+      throw new Error(`Failed to verify business tracking status: ${businessProgressError.message || businessProgressError}`);
+    }
+
+    if ((businessProgress as { tracking_connected?: boolean } | null)?.tracking_connected) {
+      return { ok: true };
+    }
+  }
+
+  const { data: testPixel, error: testPixelError } = await supabase
+    .from('campaign_tracking_events')
+    .select('id')
+    .eq('offer_id', offerId)
+    .eq('event_type', 'test_pixel')
+    .limit(1)
+    .maybeSingle();
+
+  if (testPixelError) {
+    throw new Error(`Failed to verify tracking test event: ${testPixelError.message || testPixelError}`);
+  }
+
+  if (testPixel) {
+    return { ok: true };
+  }
+
+  return {
+    ok: false,
+    status: 409,
+    error: 'OFFER_TRACKING_NOT_READY',
+    message: TRACKING_NOT_READY_MESSAGE,
+  };
+}
 
 export async function assertAffiliateOfferApproved(
   supabase: QueryClient,

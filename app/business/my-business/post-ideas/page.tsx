@@ -5,6 +5,7 @@
 import React, { useEffect, useState } from "react";
 import { useSession } from "@supabase/auth-helpers-react";
 import { supabase } from "@/../utils/supabase/pages-client";
+import { TRACKING_NOT_READY_MESSAGE } from "@/../utils/approvals/enforcement";
 import { Button, EmptyState, StatCard, StatusBadge } from "@/../components/ui";
 
 interface OfferRow {
@@ -205,6 +206,24 @@ export default function PostIdeasPage() {
     post: PostIdea,
   ) => {
     try {
+      if (newStatus === "approved") {
+        const readinessRes = await fetch("/api/business/tracking-readiness", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ offerIds: [post.offer_id] }),
+        });
+        const readinessJson = await readinessRes.json().catch(() => null);
+        const trackingReady =
+          readinessRes.ok &&
+          Array.isArray(readinessJson?.verifiedOfferIds) &&
+          readinessJson.verifiedOfferIds.includes(post.offer_id);
+
+        if (!trackingReady) {
+          window.alert(TRACKING_NOT_READY_MESSAGE);
+          return;
+        }
+      }
+
       const { error: updateError } = await (supabase as any)
         .from("organic_posts")
         .update({ status: newStatus })
@@ -218,28 +237,34 @@ export default function PostIdeasPage() {
         const media_url = post.video_url || post.image_url;
         const correctOfferId = post.offer_id;
 
-        const { data: insertedCampaign, error: insertError } = await (supabase as any)
-          .from("live_campaigns")
-          .insert([
-            {
-              type: "organic",
-              offer_id: correctOfferId,
-              business_email: post.business_email,
-              affiliate_email: post.affiliate_email,
-              media_url,
-              caption: post.caption,
-              platform: post.platform,
-              created_from: "post-ideas",
-              status: "live",
-            },
-          ] as any[])
-          .select("id")
-          .single();
+        const campaignRes = await fetch("/api/business/organic-campaigns", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json",
+            ...(session?.access_token
+              ? { authorization: `Bearer ${session.access_token}` }
+              : {}),
+          },
+          body: JSON.stringify({
+            offerId: correctOfferId,
+            businessEmail: post.business_email,
+            affiliateEmail: post.affiliate_email,
+            mediaUrl: media_url,
+            caption: post.caption,
+            platform: post.platform,
+          }),
+        });
+        const campaignJson = await campaignRes.json().catch(() => null);
 
-        if (insertError) throw insertError;
+        if (!campaignRes.ok || !campaignJson?.success) {
+          throw new Error(
+            campaignJson?.message ||
+              "Failed to create the organic campaign after approval.",
+          );
+        }
 
-        if (insertedCampaign?.id) {
-          notificationLink = `/affiliate/dashboard/manage-campaigns/${insertedCampaign.id}`;
+        if (campaignJson?.campaignId) {
+          notificationLink = `/affiliate/dashboard/manage-campaigns/${campaignJson.campaignId}`;
         }
       } else if (post.offer_id) {
         notificationLink = `/affiliate/dashboard/promote/${post.offer_id}`;

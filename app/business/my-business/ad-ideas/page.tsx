@@ -1,10 +1,13 @@
 "use client";
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import { useSession } from "@supabase/auth-helpers-react";
 import React, { useEffect, useState } from "react";
 import { supabase } from "utils/supabase/pages-client";
 import { useRouter } from "next/navigation";
 import { nmToast } from "@/components/ui/toast";
+import { assertAffiliateOfferApproved } from "@/../utils/approvals/enforcement";
 import { ActionBar, Badge, Button, EmptyState, ReviewCard, ReviewMetaItem, ReviewQueue, StatCard, StatusBadge } from "@/../components/ui";
 
 // Email notifications (client -> server)
@@ -207,6 +210,42 @@ export default function AdIdeasPage() {
       updateData.rejection_reason = rejectionReason;
     }
 
+    if (newStatus === "approved") {
+      let idea = ideas.find((item) => item.id === id);
+
+      if (!idea) {
+        const { data: ideaRow, error: ideaFetchError } = await (supabase as any)
+          .from("ad_ideas")
+          .select("id, offer_id, affiliate_email")
+          .eq("id", id)
+          .eq("business_email", user.email)
+          .maybeSingle();
+
+        if (ideaFetchError) {
+          console.error("[❌ Ad idea approval context fetch failed]", ideaFetchError.message);
+          nmToast.error("Failed to verify affiliate approval for this ad idea");
+          return false;
+        }
+
+        idea = ideaRow as any;
+      }
+
+      const affiliateApproval = idea?.offer_id && idea?.affiliate_email
+        ? await assertAffiliateOfferApproved(supabase as any, {
+            offerId: idea.offer_id,
+            affiliateEmail: idea.affiliate_email,
+          })
+        : { ok: false, message: "Missing ad idea approval context." };
+
+      if (!affiliateApproval.ok) {
+        nmToast.error(
+          affiliateApproval.message ||
+            "Cannot approve this ad idea because the affiliate is not approved for this offer.",
+        );
+        return false;
+      }
+    }
+
     const { error } = await (supabase as any)
       .from("ad_ideas")
       .update(updateData)
@@ -361,7 +400,7 @@ export default function AdIdeasPage() {
 
       if (!response.ok) {
         console.error("[❌ Meta Upload Failed]", data);
-        nmToast.error("Meta upload failed");
+        nmToast.error(data?.message || data?.error || "Meta upload failed");
         return;
       }
 
@@ -400,7 +439,7 @@ export default function AdIdeasPage() {
       // Redirect business to Manage Campaigns (live_ads record is created server-side)
       try {
         router.push("/business/manage-campaigns");
-      } catch (e) {
+      } catch {
         // ignore
       }
 
