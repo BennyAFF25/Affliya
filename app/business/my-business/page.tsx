@@ -721,7 +721,7 @@ export default function MyBusinessPage() {
     {
       key: "tracking",
       label: "Connect tracking",
-      desc: "Required to enable affiliate requests (Coming soon → Requests open).",
+      desc: "Affiliates can request approval while setup is pending; tracking is required later before campaign launch.",
       done: hasTrackingConnected,
       optional: false,
       href: "/business/setup-tracking",
@@ -1655,7 +1655,7 @@ export default function MyBusinessPage() {
                         Offer status
                       </span>
                       <span className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium ${trackingReady ? "bg-emerald-500/15 text-emerald-200 border border-emerald-400/40" : "bg-amber-500/15 text-amber-200 border border-amber-400/40"}`}>
-                        {trackingReady ? "Requests open" : "Coming soon"}
+                        {trackingReady ? "Tracking ready" : "Marketplace live"}
                       </span>
                       <span className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium ${metaStatus.tone}`}>
                         {metaStatus.label}
@@ -1663,8 +1663,8 @@ export default function MyBusinessPage() {
                     </div>
                     <p className="mt-2 text-sm text-white">
                       {trackingReady
-                        ? "Tracking is connected, so affiliates can request this offer from the marketplace."
-                        : "To push your offer to marketplace, setup tracking. Until then it appears as Coming soon and affiliates cannot request to promote."}
+                        ? "Tracking is connected. Approved affiliates can launch campaigns with Nettmark attribution in place."
+                        : "This offer is live in the marketplace and affiliates can request approval now. Tracking is only required later before approving ad ideas or organic posts for launch."}
                     </p>
                     <p className="mt-2 text-sm text-white">{metaStatus.helper}</p>
                   </div>
@@ -1680,11 +1680,11 @@ export default function MyBusinessPage() {
 
                     {!trackingReady ? (
                       <Link
-                        href="/business/setup-tracking"
+                        href="/business/my-business/affiliate-requests"
                         prefetch={false}
-                        className="inline-flex min-h-[46px] w-full items-center justify-center rounded-xl border border-amber-400/40 bg-amber-500/10 px-4 py-2.5 text-sm font-semibold text-amber-200 hover:bg-amber-500/15"
+                        className="inline-flex min-h-[46px] w-full items-center justify-center rounded-xl border border-white/15 bg-white/[0.04] px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/10"
                       >
-                        Connect tracking
+                        View affiliate requests
                       </Link>
                     ) : metaStatus.needsSetup ? (
                       <Link
