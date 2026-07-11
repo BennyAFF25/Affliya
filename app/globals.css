@@ -162,6 +162,7 @@
 @layer base {
   * {
     border-color: var(--border);
+    outline-color: var(--ring);
     outline-color: color-mix(in oklab, var(--ring) 50%, transparent);
   }
 
@@ -244,13 +245,23 @@ html,
 body {
   margin: 0;
   padding: 0;
-  color-scheme: light dark;
+  color-scheme: dark;
   background:
     radial-gradient(circle at top, rgba(255, 255, 255, 0.02), transparent 45%),
     linear-gradient(180deg, var(--background) 0%, var(--sidebar) 100%);
   min-height: 100%;
   width: 100%;
   color: var(--foreground);
+}
+
+html.light,
+body.light {
+  color-scheme: light;
+}
+
+html.dark,
+body.dark {
+  color-scheme: dark;
 }
 
 /* Light theme overrides for legacy white utility classes */
@@ -480,6 +491,7 @@ body {
   background-color: var(--card) !important;
 }
 .light [class*="bg-white/5"] {
+  background-color: rgba(var(--foreground-rgb), 0.05) !important;
   background-color: color-mix(
     in srgb,
     var(--foreground) 5%,
@@ -489,6 +501,7 @@ body {
 .light [class*="bg-black/40"],
 .light [class*="bg-black/30"],
 .light [class*="bg-black/20"] {
+  background-color: rgba(var(--foreground-rgb), 0.06) !important;
   background-color: color-mix(
     in srgb,
     var(--foreground) 6%,
@@ -499,6 +512,7 @@ body {
   background-color: var(--card) !important;
 }
 .light [class*="bg-\[#00C2CB\]/10"] {
+  background-color: rgba(0, 194, 203, 0.12) !important;
   background-color: color-mix(
     in srgb,
     var(--primary) 12%,

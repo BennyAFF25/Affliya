@@ -1,21 +1,20 @@
 import './globals.css';
+import React from 'react';
 import Providers from './Providers';
 import ThemeWrapper from '@/components/ThemeWrapper';
 import { Toaster } from 'react-hot-toast';
 import Script from 'next/script';
-import { Analytics } from "@vercel/analytics/next"
 import { META_PIXEL_ID } from '@/../utils/marketing/metaPixel';
 
 const themeInitScript = `
 (function () {
   try {
     var storedTheme = window.localStorage.getItem('nettmark.theme');
+    var storedThemeSource = window.localStorage.getItem('nettmark.themeSource');
     var theme =
-      storedTheme === 'light' || storedTheme === 'dark'
+      storedThemeSource === 'manual' && (storedTheme === 'light' || storedTheme === 'dark')
         ? storedTheme
-        : window.matchMedia('(prefers-color-scheme: dark)').matches
-          ? 'dark'
-          : 'light';
+        : 'dark';
     var root = document.documentElement;
     var body = document.body;
 
@@ -64,8 +63,8 @@ export const metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="bg-[#0b0b0b] text-white" suppressHydrationWarning>
-      <body className="min-h-screen bg-gradient-to-b from-[#0b0b0b] to-[#0e0e0e] antialiased">
+    <html lang="en" className="dark bg-[#0b0b0b] text-white" suppressHydrationWarning>
+      <body className="dark min-h-screen bg-gradient-to-b from-[#0b0b0b] to-[#0e0e0e] antialiased">
         <script id="theme-init" dangerouslySetInnerHTML={{ __html: themeInitScript }} />
         <Providers>
           <ThemeWrapper>

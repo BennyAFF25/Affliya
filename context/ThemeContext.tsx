@@ -1,5 +1,5 @@
 "use client";
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useContext, useState } from "react";
 
 type Theme = "light" | "dark";
 
@@ -13,12 +13,26 @@ const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
 function getInitialTheme(): Theme {
   if (typeof window === "undefined") return "dark";
-  const stored = window.localStorage.getItem("nettmark.theme") as Theme | null;
-  if (stored === "light" || stored === "dark") {
-    return stored;
+  try {
+    const stored = window.localStorage.getItem("nettmark.theme") as Theme | null;
+    const storedSource = window.localStorage.getItem("nettmark.themeSource");
+    if (storedSource === "manual" && (stored === "light" || stored === "dark")) {
+      return stored;
+    }
+  } catch {
+    // Some in-app browsers can deny storage access. Nettmark is dark-first,
+    // so fail closed to the contrast-safe dark theme.
   }
-  const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-  return prefersDark ? "dark" : "light";
+  return "dark";
+}
+
+function persistManualTheme(theme: Theme) {
+  try {
+    window.localStorage.setItem("nettmark.theme", theme);
+    window.localStorage.setItem("nettmark.themeSource", "manual");
+  } catch {
+    // Ignore storage failures; ThemeWrapper still applies the active theme.
+  }
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
@@ -31,16 +45,17 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     return getInitialTheme();
   });
 
-  useEffect(() => {
-    window.localStorage.setItem("nettmark.theme", theme);
-  }, [theme]);
-
   const setTheme = (next: Theme) => {
     setThemeState(next);
+    persistManualTheme(next);
   };
 
   const toggleTheme = () => {
-    setThemeState((prev) => (prev === "dark" ? "light" : "dark"));
+    setThemeState((prev) => {
+      const next = prev === "dark" ? "light" : "dark";
+      persistManualTheme(next);
+      return next;
+    });
   };
 
   return (

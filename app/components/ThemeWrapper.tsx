@@ -19,6 +19,8 @@ export default function ThemeWrapper({
 
     root.classList.add(theme);
     body.classList.add(theme);
+    root.style.colorScheme = theme;
+    body.style.colorScheme = theme;
   }, [theme]);
 
   return <>{children}</>;
