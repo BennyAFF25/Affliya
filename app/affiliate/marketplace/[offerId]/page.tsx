@@ -1,5 +1,7 @@
 'use client';
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/../utils/supabase/pages-client';
@@ -71,7 +73,7 @@ export default function AffiliateOfferProfilePage() {
       : [];
   const promotionMode = getPromotionMode(offer);
   const trackingReady = Boolean(offer?.tracking_connected) || Boolean(offer?.site_host);
-  const comingSoon = !trackingReady;
+  const trackingSetupPending = !trackingReady;
 
   // Load current user email
   useEffect(() => {
@@ -549,9 +551,9 @@ export default function AffiliateOfferProfilePage() {
 
             {/* Request to promote */}
             <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 space-y-4">
-              {comingSoon && (
+              {trackingSetupPending && (
                 <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-100">
-                  Coming soon: this offer is visible in the marketplace now, but request-to-promote unlocks after the business completes tracking setup.
+                  Tracking setup is pending, but you can still request approval to promote this offer. The business will connect tracking before approving campaign launch.
                 </div>
               )}
               <div className="flex items-center justify-between gap-3">
@@ -575,7 +577,7 @@ export default function AffiliateOfferProfilePage() {
                   rows={4}
                   value={requestNotes}
                   onChange={(e) => setRequestNotes(e.target.value)}
-                  disabled={requested || comingSoon}
+                  disabled={requested}
                   className="w-full rounded-xl border border-white/15 bg-black/50 px-3 py-2 text-sm text-white/80 placeholder:text-white/40 focus:outline-none focus:ring-1 focus:ring-[#00C2CB] disabled:opacity-60"
                   placeholder="Share how you plan to promote, your audience, or any results you’ve had before."
                 />
@@ -588,10 +590,10 @@ export default function AffiliateOfferProfilePage() {
                 <button
                   type="button"
                   onClick={handleRequestToPromote}
-                  disabled={requestLoading || requested || !userEmail || comingSoon}
+                  disabled={requestLoading || requested || !userEmail}
                   className="inline-flex items-center rounded-full bg-[#00C2CB] hover:bg-[#00b0b8] text-black text-xs font-medium px-5 py-2 disabled:opacity-60"
                 >
-                  {comingSoon ? 'Coming soon' : requested ? 'Request sent' : requestLoading ? 'Sending…' : 'Request to promote'}
+                  {requested ? 'Request sent' : requestLoading ? 'Sending…' : 'Request to promote'}
                 </button>
                 {!userEmail && (
                   <p className="text-[11px] text-red-300">

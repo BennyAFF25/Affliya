@@ -89,12 +89,12 @@ export default function OfferCard({
   const [requested, setRequested] = useState(alreadyRequested);
   const promotionMode = getPromotionMode(offer);
   const trackingReady = Boolean(offer.tracking_connected) || Boolean(offer.site_host);
-  const comingSoon = !trackingReady;
+  const trackingSetupPending = !trackingReady;
   const offerTags = useMemo(() => getOfferTags(offer), [offer]);
   const formattedPrice = offer.price ? formatMoney(offer.price, offer.currency) : null;
   const estimatedPayout = offer.commissionValue ?? (offer.price ? (offer.price * offer.commission) / 100 : null);
   const payoutLabel = offer.type === 'recurring' ? 'Recurring payout' : 'Est. payout per sale';
-  const approvalLabel = comingSoon ? 'Coming soon' : offer.meta_pixel_id ? 'Review ready' : 'Manual review';
+  const approvalLabel = offer.meta_pixel_id ? 'Review ready' : 'Manual review';
   const fitSummary = offer.meta_page_id && offer.meta_ad_account_id
     ? 'Built for both organic placements and paid Meta campaigns.'
     : 'Best suited to organic content, link-in-bio placements, and creator-led promotion.';
@@ -266,9 +266,9 @@ export default function OfferCard({
         <Badge variant={promotionMode.badgeVariant} className="normal-case tracking-normal">
           {promotionMode.label}
         </Badge>
-        {comingSoon && (
+        {trackingSetupPending && (
           <Badge variant="warning" className="normal-case tracking-normal">
-            Coming soon
+            Tracking setup pending
           </Badge>
         )}
         {offerTags.map((tag) => (
@@ -320,7 +320,7 @@ export default function OfferCard({
       </div>
 
       {/* Affiliate note */}
-      {role === 'affiliate' && !requested && !comingSoon && (
+      {role === 'affiliate' && !requested && (
         <Textarea
           placeholder="Write a note for the business..."
           value={notes}
@@ -344,12 +344,12 @@ export default function OfferCard({
             </Button>
             <Button
               onClick={handleRequest}
-              disabled={requested || comingSoon}
-              variant={requested || comingSoon ? "secondary" : "primary"}
+              disabled={requested}
+              variant={requested ? "secondary" : "primary"}
               size="sm"
               className="flex-1"
             >
-              {comingSoon ? 'Coming Soon' : requested ? 'Request Sent' : 'Request to Promote'}
+              {requested ? 'Request Sent' : 'Request to Promote'}
             </Button>
           </>
         ) : (
@@ -358,9 +358,9 @@ export default function OfferCard({
           </Button>
         )}
       </div>
-      {role === 'affiliate' && comingSoon && (
+      {role === 'affiliate' && trackingSetupPending && (
         <p className="mt-3 text-xs text-amber-200/90">
-          This offer is visible in the marketplace, but requests unlock after tracking is set up by the business.
+          Tracking setup is pending, but you can still request approval to promote this offer.
         </p>
       )}
     </Card>
