@@ -73,13 +73,7 @@ export default function BusinessMarketplace() {
     const fetchOffers = async () => {
       setLoading(true);
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      const currentBusinessEmail = user?.email ?? null;
-
-      let offersQuery = supabase.from("offers").select(`
+      const offersQuery = supabase.from("offers").select(`
           id,
           title,
           business_email,
@@ -90,9 +84,6 @@ export default function BusinessMarketplace() {
           created_at
         `);
 
-      if (currentBusinessEmail) {
-        offersQuery = offersQuery.neq("business_email", currentBusinessEmail);
-      }
 
       const { data, error } = await offersQuery;
 
@@ -112,9 +103,7 @@ export default function BusinessMarketplace() {
         const fallbackQuery = supabase
           .from("offers")
           .select("id,title,business_email,description,commission,type,website");
-        const { data: fallbackData, error: fallbackError } = currentBusinessEmail
-          ? await fallbackQuery.neq("business_email", currentBusinessEmail)
-          : await fallbackQuery;
+        const { data: fallbackData, error: fallbackError } = await fallbackQuery;
 
         if (fallbackError) {
           console.error("[❌ Fallback offers fetch failed]", fallbackError.message);
