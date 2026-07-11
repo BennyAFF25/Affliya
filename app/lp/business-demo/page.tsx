@@ -11,7 +11,7 @@ const businessMobileDemoPadding =
 
 export const metadata: Metadata = {
   title: "Nettmark for Brands Demo",
-  description: "Interactive Nettmark demo for businesses evaluating the platform.",
+  description: "A short demo that shows businesses how Nettmark works.",
   robots: {
     index: false,
     follow: false,
@@ -25,10 +25,10 @@ export default function BusinessDemoLandingPage() {
       audience="business"
       audienceLabel="For brands"
       badge="Private demo page"
-      title="See how Nettmark works for your business before you sign up"
-      subtitle="This is a short interactive walkthrough built for paid traffic — jump straight into the product, see the operator flow, and decide fast whether it fits your brand."
+      title="See how your business can work with affiliates on Nettmark"
+      subtitle="This short demo shows how to create an offer, approve the right people, review their ads or content, and track the sales they bring in."
       primaryCta={{
-        label: "Start as a brand",
+        label: "Start as a business",
         href: "/for-businesses",
       }}
       secondaryCta={{
@@ -37,39 +37,39 @@ export default function BusinessDemoLandingPage() {
       }}
       demoHref="https://app.storylane.io/demo/qdg9lyyhmgmv?embed=inline"
       demoPadding="calc(65.19% + 25px)"
-      demoTitle="Nettmark business short demo"
+      demoTitle="Nettmark business demo"
       mobileDemoHref={businessMobileDemoHref}
       mobileDemoPadding={businessMobileDemoPadding}
       mobileDemoTitle="Nettmark business mobile demo"
       bullets={[
-        "Launch partner offers without giving up approval control.",
-        "Keep paid campaign requests, tracking, billing, and payouts in one workflow.",
-        "Only move forward after seeing the exact brand-side flow.",
+        "Create an offer for the product or service you want promoted.",
+        "Approve affiliates before they promote your business.",
+        "Review ads or content before they go live.",
       ]}
-      demoIntroTitle="A 3-minute brand-side walkthrough"
-      demoIntroCopy="See how a business publishes an offer, reviews partner activity, and keeps campaign approvals tight before spend goes live."
+      demoIntroTitle="A 3-minute business walkthrough"
+      demoIntroCopy="See how a business sets up an offer, reviews affiliate requests, and checks campaigns before anything goes live."
       demoSteps={[
-        "Create the offer",
-        "Review partners",
-        "Track sales and payouts",
+        "Set up your offer",
+        "Approve affiliates",
+        "Track sales and commissions",
       ]}
-      objectionTitle="Built for brands that want growth without losing control"
+      objectionTitle="Made for businesses that want control before anything goes live"
       objectionCards={[
         {
-          title: "Approve before paid spend",
-          copy: "Partners can request paid campaigns, but the business stays in control before anything launches through Meta.",
+          title: "You approve who promotes you",
+          copy: "Affiliates can ask to work with your business. You choose who gets approved.",
         },
         {
-          title: "Commission-first economics",
-          copy: "Use tracked sales and automated payout flows so partner growth is tied back to measurable outcomes.",
+          title: "You choose the commission",
+          copy: "Set the offer and commission yourself. Affiliates earn from sales Nettmark tracks.",
         },
         {
-          title: "No generic agency funnel",
-          copy: "The demo shows the actual product flow, not a vague pitch deck or long discovery-call promise.",
+          title: "You see the real flow",
+          copy: "The demo shows the product steps, not a pitch deck or a long sales call.",
         },
       ]}
-      footerTitle="Ready to turn paid traffic into a controlled partner channel?"
-      footerCopy="Create your brand account, connect billing and payouts, and launch your first offer without sending traffic back through a generic homepage funnel."
+      footerTitle="Ready to create your first offer?"
+      footerCopy="Start a business account, add your offer, and choose who can promote it. Nettmark handles tracking and commission records from there."
     />
   );
 }
