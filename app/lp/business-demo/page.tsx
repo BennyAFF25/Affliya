@@ -43,14 +43,14 @@ export default function BusinessDemoLandingPage() {
       mobileDemoTitle="Nettmark business mobile demo"
       bullets={[
         "Create an offer for the product or service you want promoted.",
-        "Approve affiliates before they promote your business.",
-        "Review ads or content before they go live.",
+        "Approve affiliates before they run campaigns for your business.",
+        "Affiliates fund the ad spend, and you review campaigns before they go live.",
       ]}
       demoIntroTitle="A 3-minute business walkthrough"
-      demoIntroCopy="See how a business sets up an offer, reviews affiliate requests, and checks campaigns before anything goes live."
+      demoIntroCopy="See how a business sets up an offer, reviews affiliate requests, and checks ads before they run through the business's connected Facebook account."
       demoSteps={[
         "Set up your offer",
-        "Approve affiliates",
+        "Review funded campaigns",
         "Track sales and commissions",
       ]}
       objectionTitle="Made for businesses that want control before anything goes live"
@@ -64,12 +64,12 @@ export default function BusinessDemoLandingPage() {
           copy: "Set the offer and commission yourself. Affiliates earn from sales Nettmark tracks.",
         },
         {
-          title: "You see the real flow",
-          copy: "The demo shows the product steps, not a pitch deck or a long sales call.",
+          title: "Affiliates take the ad risk",
+          copy: "Affiliates create and fund campaigns. Approved ads can run on your connected Facebook account, and ad spend is settled back to your business.",
         },
       ]}
       footerTitle="Ready to create your first offer?"
-      footerCopy="Start a business account, add your offer, and choose who can promote it. Nettmark handles tracking and commission records from there."
+      footerCopy="Start a business account, add your offer, and choose who can promote it. Nettmark handles tracking, commissions, and ad spend settlement from there."
     />
   );
 }
