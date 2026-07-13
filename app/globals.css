@@ -1337,22 +1337,6 @@ body.dark {
 }
 
 
-@keyframes hero-float {
-  0% {
-    transform: translateY(0px);
-  }
-  50% {
-    transform: translateY(-8px);
-  }
-  100% {
-    transform: translateY(0px);
-  }
-}
-
-.animate-hero-float {
-  animation: hero-float 8s ease-in-out infinite;
-}
-
 .badge-shimmer {
   position: relative;
   overflow: hidden;

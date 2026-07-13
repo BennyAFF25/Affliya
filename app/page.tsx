@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSessionContext } from "@supabase/auth-helpers-react";
 import Link from "next/link";
-import ConnectionEngineHero from "../components/landing/ConnectionEngineHero";
+import TwoSidedManifestoHero from "../components/landing/TwoSidedManifestoHero";
 import MarketingHeader from "@/components/marketing/MarketingHeader";
 import MarketingPageTracker from "@/components/marketing/MarketingPageTracker";
 import StorylaneEmbed from "@/components/marketing/StorylaneEmbed";
@@ -19,7 +19,6 @@ import {
   Facebook,
   Instagram,
   Mail,
-  Sparkles,
   BarChart2,
   MessageSquare,
   ClipboardCheck,
@@ -217,53 +216,7 @@ export default function Home() {
       <MarketingHeader />
 
       <main className="flex-1">
-        <section className="relative overflow-hidden">
-          <div className="absolute inset-0 pointer-events-none [mask-image:linear-gradient(to_bottom,black,transparent_90%)]">
-            <div className="mx-auto max-w-7xl h-[420px] blur-3xl opacity-40 bg-gradient-to-r from-[#00C2CB] via-[#7ff5fb] to-transparent" />
-          </div>
-          <div className="relative mx-auto max-w-7xl px-4 sm:px-6 pt-16 pb-16 lg:pt-20 lg:pb-24">
-            <div className="grid min-w-0 grid-cols-1 gap-12 lg:grid-cols-[0.98fr,1.02fr] items-center">
-              <div className="min-w-0 space-y-6">
-                <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.3em] text-white/60">
-                  <Sparkles className="h-3.5 w-3.5 text-[#00C2CB]" />
-                  Early access is live
-                </div>
-                <h1 className="text-[2rem] leading-[1.16] sm:text-5xl sm:leading-tight lg:text-6xl font-extrabold">
-                  A marketplace for businesses and marketers.
-                  <br className="hidden sm:block" /> Create offers. Promote products. Track sales.
-                </h1>
-                <p className="text-[0.95rem] leading-6 sm:text-lg text-white/70 max-w-2xl">
-                  Nettmark is a marketplace where brands create offers, approve
-                  marketers, track sales, and pay commissions automatically.
-                  Marketers can promote through Facebook ads or organic content.
-                </p>
-                <div className="flex flex-col sm:flex-row gap-3">
-                  <Link
-                    href="/for-businesses"
-                    className="inline-flex items-center justify-center rounded-full bg-[#00C2CB] px-6 py-3 text-sm font-semibold text-black shadow-[0_0_30px_rgba(0,194,203,0.35)] transition hover:bg-[#00b0b8]"
-                  >
-                    Start as a brand
-                  </Link>
-                  <Link
-                    href="/for-partners"
-                    className="inline-flex items-center justify-center rounded-full border border-white/15 px-6 py-3 text-sm font-semibold text-white hover:bg-white/5"
-                  >
-                    Start as a marketer
-                  </Link>
-                  <Link
-                    href="/pricing"
-                    className="inline-flex items-center justify-center rounded-full border border-white/10 px-6 py-3 text-sm font-semibold text-white/80 hover:text-white"
-                  >
-                    View pricing →
-                  </Link>
-                </div>
-              </div>
-              <div className="min-w-0 max-w-full lg:scale-[1.08] lg:origin-center">
-                <ConnectionEngineHero />
-              </div>
-            </div>
-          </div>
-        </section>
+        <TwoSidedManifestoHero />
 
         <section className="mx-auto mb-16 max-w-7xl overflow-hidden px-4 sm:px-6">
           <p className="mb-6 text-center text-xs uppercase tracking-[0.35em] text-white/45">
