@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSessionContext } from "@supabase/auth-helpers-react";
 import Link from "next/link";
-import Image from "next/image";
+import ConnectionEngineHero from "../components/landing/ConnectionEngineHero";
 import MarketingHeader from "@/components/marketing/MarketingHeader";
 import MarketingPageTracker from "@/components/marketing/MarketingPageTracker";
 import StorylaneEmbed from "@/components/marketing/StorylaneEmbed";
@@ -222,17 +222,17 @@ export default function Home() {
             <div className="mx-auto max-w-7xl h-[420px] blur-3xl opacity-40 bg-gradient-to-r from-[#00C2CB] via-[#7ff5fb] to-transparent" />
           </div>
           <div className="relative mx-auto max-w-7xl px-4 sm:px-6 pt-16 pb-16 lg:pt-20 lg:pb-24">
-            <div className="grid grid-cols-1 gap-12 lg:grid-cols-[0.98fr,1.02fr] items-center">
-              <div className="space-y-6">
+            <div className="grid min-w-0 grid-cols-1 gap-12 lg:grid-cols-[0.98fr,1.02fr] items-center">
+              <div className="min-w-0 space-y-6">
                 <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] uppercase tracking-[0.3em] text-white/60">
                   <Sparkles className="h-3.5 w-3.5 text-[#00C2CB]" />
                   Early access is live
                 </div>
-                <h1 className="text-[2.25rem] leading-tight sm:text-5xl lg:text-6xl font-extrabold">
+                <h1 className="text-[2rem] leading-[1.16] sm:text-5xl sm:leading-tight lg:text-6xl font-extrabold">
                   A marketplace for businesses and marketers.
                   <br className="hidden sm:block" /> Create offers. Promote products. Track sales.
                 </h1>
-                <p className="text-base sm:text-lg text-white/70 max-w-2xl">
+                <p className="text-[0.95rem] leading-6 sm:text-lg text-white/70 max-w-2xl">
                   Nettmark is a marketplace where brands create offers, approve
                   marketers, track sales, and pay commissions automatically.
                   Marketers can promote through Facebook ads or organic content.
@@ -258,24 +258,8 @@ export default function Home() {
                   </Link>
                 </div>
               </div>
-              <div className="relative lg:scale-[1.12] lg:origin-center">
-                <div className="absolute -inset-6 rounded-3xl bg-[radial-gradient(60%_60%_at_60%_40%,#00C2CB33,transparent_60%)] blur-2xl opacity-70" />
-                <div className="relative overflow-hidden rounded-3xl border border-white/10 bg-gradient-to-b from-white/5 to-white/[0.02] shadow-[0_25px_80px_-20px_rgba(0,0,0,0.6),0_0_60px_0_rgba(0,194,203,0.12)] animate-hero-float">
-                  <div
-                    className="relative w-full bg-black/70"
-                    style={{ aspectRatio: "1280 / 671" }}
-                  >
-                    <div className="absolute inset-0 flex items-center justify-center px-1 py-1 sm:px-2 sm:py-2">
-                      <img
-                        src="/home-hero-dashboard.jpg"
-                        alt="Nettmark dashboard preview"
-                        className="h-auto w-full object-contain object-center drop-shadow-[0_20px_60px_rgba(0,0,0,0.45)]"
-                        loading="lazy"
-                      />
-                    </div>
-                  </div>
-                  <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.08),transparent_35%)]" />
-                </div>
+              <div className="min-w-0 max-w-full lg:scale-[1.08] lg:origin-center">
+                <ConnectionEngineHero />
               </div>
             </div>
           </div>
