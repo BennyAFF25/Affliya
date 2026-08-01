@@ -33,7 +33,7 @@ export async function assertOfferTrackingReady(
 ): Promise<ApprovalEnforcementResult> {
   const { data: offer, error: offerError } = await supabase
     .from('offers')
-    .select('id, business_email, tracking_connected, site_host, meta_pixel_id')
+    .select('id, business_email, site_host, meta_pixel_id')
     .eq('id', offerId)
     .maybeSingle();
 
@@ -43,7 +43,6 @@ export async function assertOfferTrackingReady(
 
   const offerRow = offer as {
     business_email?: string | null;
-    tracking_connected?: boolean | null;
     site_host?: string | null;
     meta_pixel_id?: string | null;
   } | null;
@@ -56,7 +55,7 @@ export async function assertOfferTrackingReady(
     };
   }
 
-  if (offerRow.tracking_connected || offerRow.site_host || offerRow.meta_pixel_id) {
+  if (offerRow.site_host || offerRow.meta_pixel_id) {
     return { ok: true };
   }
 

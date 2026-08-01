@@ -25,7 +25,6 @@ type OfferRow = {
   meta_page_id?: string | null;
   meta_ad_account_id?: string | null;
   meta_pixel_id?: string | null;
-  tracking_connected?: boolean | null;
   site_host?: string | null;
 };
 
@@ -289,7 +288,7 @@ export default function PromoteOfferPage() {
       const { data: offer, error: offerErr } = await (supabase as any)
         .from("offers")
         .select(
-          "title, logo_url, business_email, website, meta_page_id, meta_ad_account_id, meta_pixel_id, tracking_connected, site_host",
+          "title, logo_url, business_email, website, meta_page_id, meta_ad_account_id, meta_pixel_id, site_host",
         )
         .eq("id", offerId)
         .single();
@@ -304,7 +303,7 @@ export default function PromoteOfferPage() {
       setBrandLogoUrl(offer?.logo_url || null);
       const offerRow = offer as OfferRow | null;
       const offerLevelTrackingReady = Boolean(
-        offerRow?.tracking_connected || offerRow?.site_host || offerRow?.meta_pixel_id,
+        offerRow?.site_host || offerRow?.meta_pixel_id,
       );
 
       setOfferMetaState({

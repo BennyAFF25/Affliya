@@ -113,8 +113,9 @@ async function run() {
   }
 
   // Launch enforcement must agree with the business offer card readiness badges.
-  assert.match(approvalEnforcement, /tracking_connected, site_host, meta_pixel_id/);
-  assert.match(approvalEnforcement, /offerRow\.tracking_connected \|\| offerRow\.site_host \|\| offerRow\.meta_pixel_id/);
+  assert.doesNotMatch(approvalEnforcement, /select\('id, business_email, tracking_connected/);
+  assert.match(approvalEnforcement, /site_host, meta_pixel_id/);
+  assert.match(approvalEnforcement, /offerRow\.site_host \|\| offerRow\.meta_pixel_id/);
 
   // Review pages allow free businesses to inspect submissions before approval/launch.
   assert.match(postIdeasPage + adIdeasPage + affiliateRequestsPage, /campaign_received_by_business/);
