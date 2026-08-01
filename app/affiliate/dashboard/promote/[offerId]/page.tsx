@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { nmToast } from "@/components/ui/toast";
 import { useRouter, useParams, usePathname } from "next/navigation";
 import { useSession } from "@supabase/auth-helpers-react";
 import { supabase } from "@/../utils/supabase/pages-client";
 import { calculateWalletBalance } from "@/../utils/wallet/balance";
+import { assertAffiliateOfferApproved, assertOfferTrackingReady } from "@/../utils/approvals/enforcement";
 import { Badge, Card, ModeSelector, PreviewPanel, ReadinessBanner } from "@/../components/ui";
 
 import { AdFormState, GenderOpt, PlacementKey } from "../types";
@@ -24,6 +25,15 @@ type OfferRow = {
   meta_page_id?: string | null;
   meta_ad_account_id?: string | null;
   meta_pixel_id?: string | null;
+};
+
+type LaunchFundAllocation = {
+  id: string;
+  amount: number;
+  currency: string;
+  status: string;
+  expires_at: string;
+  allocated_for_offer_id?: string | null;
 };
 
 export default function PromoteOfferPage() {
@@ -45,6 +55,8 @@ export default function PromoteOfferPage() {
   // Wallet balance state (real-time gating)
   const [walletBalance, setWalletBalance] = useState<number>(0);
   const [walletLoading, setWalletLoading] = useState<boolean>(true);
+  const [launchFundAllocation, setLaunchFundAllocation] = useState<LaunchFundAllocation | null>(null);
+  const [launchFundLoading, setLaunchFundLoading] = useState<boolean>(false);
   // ─────────────────────────────
   // Wallet balance loader
   // ─────────────────────────────
@@ -82,6 +94,33 @@ export default function PromoteOfferPage() {
 
     loadWallet();
   }, [userEmail]);
+
+  useEffect(() => {
+    if (!userEmail || !offerId) return;
+
+    const loadLaunchFund = async () => {
+      setLaunchFundLoading(true);
+      try {
+        const res = await fetch(`/api/launch-fund/offer?offerId=${encodeURIComponent(offerId)}`, {
+          method: "GET",
+          credentials: "same-origin",
+        });
+        if (!res.ok) {
+          setLaunchFundAllocation(null);
+          return;
+        }
+        const json = await res.json();
+        setLaunchFundAllocation(json?.allocation || null);
+      } catch (err) {
+        console.warn("[launch fund load error]", err);
+        setLaunchFundAllocation(null);
+      } finally {
+        setLaunchFundLoading(false);
+      }
+    };
+
+    loadLaunchFund();
+  }, [userEmail, offerId]);
 
   // Organic method + fields
   const [ogMethod, setOgMethod] = useState<
@@ -162,8 +201,10 @@ export default function PromoteOfferPage() {
   // Wallet gating derived values (safe – after form init)
   // ─────────────────────────────
   const requiredBudget = Number(form?.budget_amount_dollars || 0);
-  const walletDeficit = Math.max(0, requiredBudget - walletBalance);
-  const canRunWithWallet = walletBalance >= requiredBudget;
+  const launchFundBalance = Number(launchFundAllocation?.amount || 0);
+  const totalPaidCampaignBalance = walletBalance + launchFundBalance;
+  const walletDeficit = Math.max(0, requiredBudget - totalPaidCampaignBalance);
+  const canRunWithWallet = totalPaidCampaignBalance >= requiredBudget;
 
   // Media
   const [videoFile, setVideoFile] = useState<File | null>(null);
@@ -221,6 +262,12 @@ export default function PromoteOfferPage() {
   });
   const [businessPaymentReady, setBusinessPaymentReady] = useState<boolean>(false);
   const [businessPaymentResolved, setBusinessPaymentResolved] = useState<boolean>(false);
+  const [trackingReady, setTrackingReady] = useState<boolean>(false);
+  const [trackingResolved, setTrackingResolved] = useState<boolean>(false);
+  const [approvalResolved, setApprovalResolved] = useState<boolean>(false);
+  const [offerApproved, setOfferApproved] = useState<boolean>(false);
+  const approvalClient = supabase as unknown as Parameters<typeof assertAffiliateOfferApproved>[0];
+  const trackingClient = supabase as unknown as Parameters<typeof assertOfferTrackingReady>[0];
 
   // Local preview URLs for selected files
   const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
@@ -267,7 +314,19 @@ export default function PromoteOfferPage() {
         }));
       }
 
-      // 2) Check business payment readiness for paid campaigns
+      // 2) Check tracking readiness. Offer visibility/request approval is allowed while pending;
+      // campaign launch stays gated until tracking is ready.
+      try {
+        const tracking = await assertOfferTrackingReady(trackingClient, offerId);
+        setTrackingReady(tracking.ok);
+      } catch (e) {
+        console.warn("[tracking readiness check failed]", e);
+        setTrackingReady(false);
+      } finally {
+        setTrackingResolved(true);
+      }
+
+      // 3) Check business payment readiness for paid campaigns
       try {
         const res = await fetch(
           `/api/business/payment-readiness?offerId=${encodeURIComponent(offerId)}`,
@@ -284,7 +343,7 @@ export default function PromoteOfferPage() {
     };
 
     go();
-  }, [offerId, session]);
+  }, [offerId, session, trackingClient]);
 
   // ─────────────────────────────
   // Local planning assumptions only. Meta reach is unavailable pre-approval
@@ -321,14 +380,59 @@ export default function PromoteOfferPage() {
   const showSalesPixelWarning = offerMetaResolved && offerHasMetaLaunchSetup && needsSalesPixel && !offerHasSalesPixel;
   const showBusinessPaymentWarning =
     businessPaymentResolved && !businessPaymentReady;
+  const showTrackingWarning = trackingResolved && !trackingReady;
   const canLaunchPaidCampaign =
-    offerHasMetaLaunchSetup && (!needsSalesPixel || offerHasSalesPixel) && businessPaymentReady;
+    trackingReady && offerHasMetaLaunchSetup && (!needsSalesPixel || offerHasSalesPixel) && businessPaymentReady;
+
+  const verifyAffiliateOfferApproval = useCallback(async () => {
+    if (!offerId || !userEmail) return false;
+
+    const approval = await assertAffiliateOfferApproved(approvalClient, {
+      offerId,
+      affiliateEmail: userEmail,
+    });
+
+    return approval.ok;
+  }, [approvalClient, offerId, userEmail]);
 
   useEffect(() => {
-    if ((isOrganicOnlyOffer || showBusinessPaymentWarning) && mode === "ad") {
+    let cancelled = false;
+
+    const checkApproval = async () => {
+      if (session === undefined) return;
+
+      if (session === null || !userEmail || !offerId) {
+        if (!cancelled) {
+          setOfferApproved(false);
+          setApprovalResolved(true);
+        }
+        return;
+      }
+
+      setApprovalResolved(false);
+      try {
+        const approved = await verifyAffiliateOfferApproval();
+        if (!cancelled) setOfferApproved(approved);
+      } catch (e) {
+        console.error("[approval check failed]", e);
+        if (!cancelled) setOfferApproved(false);
+      } finally {
+        if (!cancelled) setApprovalResolved(true);
+      }
+    };
+
+    void checkApproval();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [offerId, session, userEmail, verifyAffiliateOfferApproval]);
+
+  useEffect(() => {
+    if ((showTrackingWarning || isOrganicOnlyOffer || showBusinessPaymentWarning) && mode === "ad") {
       setMode("organic");
     }
-  }, [isOrganicOnlyOffer, mode, showBusinessPaymentWarning]);
+  }, [isOrganicOnlyOffer, mode, showBusinessPaymentWarning, showTrackingWarning]);
 
   // ─────────────────────────────
   // Helpers
@@ -404,6 +508,14 @@ export default function PromoteOfferPage() {
       }
       if (!userId) {
         nmToast.error("Missing user session.");
+        return;
+      }
+
+      const isApproved = await verifyAffiliateOfferApproval();
+      if (!isApproved) {
+        nmToast.error("You must be approved for this offer before submitting organic posts.");
+        setOfferApproved(false);
+        setApprovalResolved(true);
         return;
       }
 
@@ -513,6 +625,34 @@ export default function PromoteOfferPage() {
   const handleAdSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
     try {
+      if (!userEmail) {
+        nmToast.error("You must be signed in.");
+        return;
+      }
+
+      const isApproved = await verifyAffiliateOfferApproval();
+      if (!isApproved) {
+        nmToast.error("You must be approved for this offer before submitting ad ideas.");
+        setOfferApproved(false);
+        setApprovalResolved(true);
+        return;
+      }
+
+      const tracking = await assertOfferTrackingReady(trackingClient, offerId);
+      if (!tracking.ok) {
+        nmToast.error("Tracking setup is required before paid campaign launch.");
+        setTrackingReady(false);
+        setTrackingResolved(true);
+        return;
+      }
+      setTrackingReady(true);
+      setTrackingResolved(true);
+
+      if (!businessPaymentReady) {
+        nmToast.error("The business needs a payment method before paid campaigns can launch.");
+        return;
+      }
+
       // UI-side safety: if Bid Cap selected, require a value
       if (form.bid_strategy === "BID_CAP") {
         const cap = Number(form.bid_cap_dollars);
@@ -739,10 +879,22 @@ export default function PromoteOfferPage() {
         bid_cap_saved_to_db: insertPayload.bid_cap,
       });
 
-      const { error: insertErr } = await (
+      const { data: insertedAdIdeas, error: insertErr } = await (
         supabase.from("ad_ideas") as any
-      ).insert([insertPayload as any]);
+      ).insert([insertPayload as any]).select("id");
       if (insertErr) throw insertErr;
+
+      if (launchFundAllocation?.id) {
+        fetch("/api/launch-fund/campaign-started", {
+          method: "POST",
+          credentials: "same-origin",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            offerId,
+            adIdeaId: insertedAdIdeas?.[0]?.id || null,
+          }),
+        }).catch((err) => console.warn("[launch fund campaign_started tracking error]", err));
+      }
 
       nmToast.success("Ad idea submitted for review");
       router.push("/affiliate/dashboard"); // back to dashboard after submit
@@ -752,6 +904,38 @@ export default function PromoteOfferPage() {
     }
   };
 
+
+  if (session !== undefined && session !== null && !approvalResolved) {
+    return (
+      <div className="promote-theme flex min-h-screen items-center justify-center bg-[var(--background)] px-4 py-6 text-[var(--foreground)]">
+        <Card className="max-w-lg p-6 text-center" variant="elevated">
+          <Badge variant="muted">Checking access</Badge>
+          <p className="mt-4 text-sm text-[var(--muted-foreground)]">Verifying your approval for this offer…</p>
+        </Card>
+      </div>
+    );
+  }
+
+  if (approvalResolved && !offerApproved) {
+    return (
+      <div className="promote-theme flex min-h-screen items-center justify-center bg-[var(--background)] px-4 py-6 text-[var(--foreground)]">
+        <Card className="max-w-lg p-6 text-center" variant="elevated">
+          <Badge variant="warning">Approval required</Badge>
+          <h1 className="mt-4 text-2xl font-semibold text-white">This offer is not unlocked yet.</h1>
+          <p className="mt-3 text-sm text-[var(--muted-foreground)]">
+            The business must approve your request before you can submit organic posts or paid ad ideas for this offer.
+          </p>
+          <button
+            type="button"
+            onClick={() => router.replace(`/affiliate/marketplace/${offerId}`)}
+            className="mt-5 rounded-full bg-[#00C2CB] px-5 py-2 text-sm font-semibold text-black hover:bg-[#7ff5fb]"
+          >
+            View offer request
+          </button>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="promote-theme min-h-screen bg-[var(--background)] px-4 py-6 text-[var(--foreground)] sm:px-6 lg:py-8">
@@ -801,6 +985,17 @@ export default function PromoteOfferPage() {
                 <div className="text-[11px] uppercase tracking-[0.16em] text-[var(--muted-foreground)]">Budget</div>
                 <div className="mt-1 font-semibold text-white">${requiredBudget.toFixed(2)}</div>
               </div>
+              {launchFundAllocation && (
+                <div className="col-span-2 rounded-2xl border border-emerald-400/25 bg-emerald-400/10 px-4 py-3">
+                  <div className="text-[11px] uppercase tracking-[0.16em] text-emerald-200/80">Launch Fund</div>
+                  <div className="mt-1 text-sm font-semibold text-emerald-100">
+                    ${launchFundBalance.toFixed(2)} promotional ad credit available for this offer
+                  </div>
+                  <p className="mt-1 text-xs text-emerald-100/75">
+                    Non-withdrawable, tied to eligible paid campaign activity, expires {new Date(launchFundAllocation.expires_at).toLocaleDateString()}.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         </Card>
@@ -812,9 +1007,11 @@ export default function PromoteOfferPage() {
             options={[
               {
                 value: "ad",
-                label: isOrganicOnlyOffer || showBusinessPaymentWarning ? "Ads unavailable" : "Paid ad campaign",
-                description: "Create a Meta-ready campaign idea with budget, targeting, creative, and uploads.",
-                disabled: isOrganicOnlyOffer || showBusinessPaymentWarning,
+                label: showTrackingWarning || isOrganicOnlyOffer || showBusinessPaymentWarning ? "Ads unavailable" : "Paid ad campaign",
+                description: showTrackingWarning
+                  ? "Tracking is required before paid campaign launch."
+                  : "Create a Meta-ready campaign idea with budget, targeting, creative, and uploads.",
+                disabled: showTrackingWarning || isOrganicOnlyOffer || showBusinessPaymentWarning,
                 badge: <Badge variant={mode === "ad" ? "primary" : "muted"}>Paid</Badge>,
               },
               {
@@ -827,6 +1024,12 @@ export default function PromoteOfferPage() {
           />
 
           <div className="grid gap-3 md:grid-cols-2">
+            {showTrackingWarning && (
+              <ReadinessBanner tone="warning" title="Tracking setup pending">
+                Campaign launch is available after the business completes tracking setup. You can keep preparing an organic submission while tracking is pending.
+              </ReadinessBanner>
+            )}
+
             {showMetaSetupWarning && (
               <ReadinessBanner tone="warning" title="Connect Meta to allow affiliates to launch campaigns.">
                 This offer can still be promoted organically while Meta setup is pending.
@@ -845,9 +1048,15 @@ export default function PromoteOfferPage() {
               </ReadinessBanner>
             )}
 
-            {!walletLoading && mode === "ad" && !canRunWithWallet && (
-              <ReadinessBanner tone="danger" title={`Wallet top-up needed: $${walletDeficit.toFixed(2)}`}>
-                Your paid campaign budget is higher than the available wallet balance. The existing submit gate will route you to top up.
+            {launchFundAllocation && mode === "ad" && (
+              <ReadinessBanner tone="success" title="This offer qualifies for a $10 Nettmark Launch Fund.">
+                Use it to launch an eligible paid campaign before {new Date(launchFundAllocation.expires_at).toLocaleDateString()}. It is promotional ad credit, cannot be withdrawn or transferred, expires, and is tied to eligible campaign activity.
+              </ReadinessBanner>
+            )}
+
+            {!walletLoading && !launchFundLoading && mode === "ad" && !canRunWithWallet && (
+              <ReadinessBanner tone="danger" title={`Top-up needed: $${walletDeficit.toFixed(2)}`}>
+                Your paid campaign budget is higher than your available cash plus any allocated Launch Fund credit for this offer.
               </ReadinessBanner>
             )}
 
@@ -869,9 +1078,11 @@ export default function PromoteOfferPage() {
                 onPlacementToggle={onPlacementToggle}
                 applyEstimatorPreset={applyEstimatorPreset}
                 walletBalance={walletBalance}
-                walletLoading={walletLoading}
+                walletLoading={walletLoading || launchFundLoading}
                 canRunWithWallet={canRunWithWallet}
                 walletDeficit={walletDeficit}
+                launchFundBalance={launchFundBalance}
+                launchFundExpiresAt={launchFundAllocation?.expires_at || null}
                 incBudget={incBudget}
                 setStartIn15m={setStartIn15m}
                 setEndIn7d={setEndIn7d}
@@ -890,8 +1101,8 @@ export default function PromoteOfferPage() {
                 onNavigateToWallet={() => router.push("/affiliate/wallet")}
               />
             ) : (
-              <ReadinessBanner tone="warning" title="Paid launch is temporarily locked.">
-                You can continue with organic promotion now.
+              <ReadinessBanner tone="warning" title="Tracking and launch prerequisites are still pending.">
+                Campaign launch becomes available after tracking, Meta, billing, and wallet requirements are ready. You can continue with organic promotion now.
               </ReadinessBanner>
             )
           )}
@@ -926,6 +1137,7 @@ export default function PromoteOfferPage() {
             brandLogoUrl={brandLogoUrl}
             videoPreviewUrl={videoPreviewUrl}
             thumbPreviewUrl={thumbPreviewUrl}
+            creativeKind={videoFile ? "video" : imageFile ? "image" : null}
             form={form}
             ogMethod={ogMethod}
             ogFile={ogFile}

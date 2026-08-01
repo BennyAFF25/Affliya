@@ -7,8 +7,8 @@ import React, { useEffect, useState } from "react";
 import { supabase } from "utils/supabase/pages-client";
 import { useRouter } from "next/navigation";
 import { nmToast } from "@/components/ui/toast";
-import { assertAffiliateOfferApproved } from "@/../utils/approvals/enforcement";
 import { ActionBar, Badge, Button, EmptyState, ReviewCard, ReviewMetaItem, ReviewQueue, StatCard, StatusBadge } from "@/../components/ui";
+import { BusinessSubscriptionActivationModal, readSubscriptionIntentFromResponse, trackBusinessSubscriptionClientEvent } from "@/../components/business/BusinessSubscriptionActivationModal";
 
 // Email notifications (client -> server)
 async function postJson(url: string, body: any) {
@@ -124,6 +124,8 @@ export default function AdIdeasPage() {
   const [customReason, setCustomReason] = useState<string>("");
   const [showRecent, setShowRecent] = useState(false);
   const [, setShowTargetingDetails] = useState(false);
+  const [businessId, setBusinessId] = useState<string | null>(null);
+  const [subscriptionIntent, setSubscriptionIntent] = useState<ReturnType<typeof readSubscriptionIntentFromResponse>>(null);
   const session = useSession();
   const user = session?.user;
   const router = useRouter();
@@ -141,10 +143,19 @@ export default function AdIdeasPage() {
     const loadOffersMap = async () => {
       if (!user?.email) return;
 
-      const { data, error } = await supabase
-        .from("offers")
-        .select("id, title")
-        .eq("business_email", user.email);
+      const [{ data, error }, { data: profile }] = await Promise.all([
+        supabase
+          .from("offers")
+          .select("id, title")
+          .eq("business_email", user.email),
+        (supabase as any)
+          .from("business_profiles")
+          .select("id")
+          .eq("business_email", user.email)
+          .maybeSingle(),
+      ]);
+
+      setBusinessId((profile as { id?: string | null } | null)?.id || null);
 
       if (error) {
         console.error("[❌ Supabase Fetch Offers Error]", error.message);
@@ -188,7 +199,27 @@ export default function AdIdeasPage() {
       if (error) {
         console.error("Error fetching ad ideas:", error.message);
       } else {
-        setIdeas(data || []);
+        const typedIdeas = (data || []) as AdIdea[];
+        setIdeas(typedIdeas);
+
+        typedIdeas.filter((idea) => idea.status === "pending").forEach((idea) => {
+          const dedupeKey = `nettmark:analytics:campaign_received_by_business:${idea.id}`;
+          if (typeof window !== "undefined" && window.sessionStorage.getItem(dedupeKey)) return;
+          if (typeof window !== "undefined") window.sessionStorage.setItem(dedupeKey, "1");
+          void trackBusinessSubscriptionClientEvent("campaign_received_by_business", {
+            businessId,
+            campaignId: idea.id,
+            submissionId: idea.id,
+            intendedAction: "approve_ad_idea",
+            returnTo: "/business/my-business/ad-ideas",
+            attribution: {
+              source: "ad_ideas_page",
+              offerId: idea.offer_id,
+              affiliateEmail: idea.affiliate_email,
+              campaignType: "paid_meta",
+            },
+          });
+        });
       }
     };
 
@@ -205,56 +236,21 @@ export default function AdIdeasPage() {
   ): Promise<boolean> => {
     if (!user?.email) return false;
 
-    const updateData: any = { status: newStatus };
-    if (newStatus === "rejected" && rejectionReason) {
-      updateData.rejection_reason = rejectionReason;
-    }
+    const res = await fetch("/api/business/ad-ideas/update-status", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ adIdeaId: id, status: newStatus, rejectionReason }),
+    });
+    const json = await res.json().catch(() => null);
 
-    if (newStatus === "approved") {
-      let idea = ideas.find((item) => item.id === id);
-
-      if (!idea) {
-        const { data: ideaRow, error: ideaFetchError } = await (supabase as any)
-          .from("ad_ideas")
-          .select("id, offer_id, affiliate_email")
-          .eq("id", id)
-          .eq("business_email", user.email)
-          .maybeSingle();
-
-        if (ideaFetchError) {
-          console.error("[❌ Ad idea approval context fetch failed]", ideaFetchError.message);
-          nmToast.error("Failed to verify affiliate approval for this ad idea");
-          return false;
-        }
-
-        idea = ideaRow as any;
-      }
-
-      const affiliateApproval = idea?.offer_id && idea?.affiliate_email
-        ? await assertAffiliateOfferApproved(supabase as any, {
-            offerId: idea.offer_id,
-            affiliateEmail: idea.affiliate_email,
-          })
-        : { ok: false, message: "Missing ad idea approval context." };
-
-      if (!affiliateApproval.ok) {
-        nmToast.error(
-          affiliateApproval.message ||
-            "Cannot approve this ad idea because the affiliate is not approved for this offer.",
-        );
+    if (!res.ok || !json?.success) {
+      const intent = readSubscriptionIntentFromResponse(json);
+      if (intent) {
+        setSubscriptionIntent({ ...intent, businessId: intent.businessId || businessId });
         return false;
       }
-    }
-
-    const { error } = await (supabase as any)
-      .from("ad_ideas")
-      .update(updateData)
-      .eq("id", id)
-      .eq("business_email", user.email);
-
-    if (error) {
-      console.error("[❌ Ad idea status update failed]", error.message);
-      nmToast.error("Failed to update ad status");
+      console.error("[❌ Ad idea status update failed]", json?.message || json?.error || res.status);
+      nmToast.error(json?.message || "Failed to update ad status");
       return false;
     }
 
@@ -400,6 +396,11 @@ export default function AdIdeasPage() {
 
       if (!response.ok) {
         console.error("[❌ Meta Upload Failed]", data);
+        const intent = readSubscriptionIntentFromResponse(data);
+        if (intent) {
+          setSubscriptionIntent({ ...intent, businessId: intent.businessId || businessId });
+          return;
+        }
         nmToast.error(data?.message || data?.error || "Meta upload failed");
         return;
       }
@@ -456,7 +457,13 @@ export default function AdIdeasPage() {
   };
 
   return (
-    <div className="ad-ideas-theme min-h-screen bg-[var(--background)] px-4 py-8 md:px-10 md:py-10">
+    <>
+      <BusinessSubscriptionActivationModal
+        open={Boolean(subscriptionIntent)}
+        intent={subscriptionIntent ? { ...subscriptionIntent, businessId: subscriptionIntent.businessId || businessId } : null}
+        onClose={() => setSubscriptionIntent(null)}
+      />
+      <div className="ad-ideas-theme min-h-screen bg-[var(--background)] px-4 py-8 md:px-10 md:py-10">
       <div className="max-w-4xl mx-auto">
         <div className="mb-8 rounded-[28px] border border-[var(--border)] bg-[radial-gradient(circle_at_top_right,rgba(0,194,203,0.16),transparent_32%),var(--card)] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.28)] md:p-7">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
@@ -527,6 +534,19 @@ export default function AdIdeasPage() {
                               variant="secondary"
                               className="w-full"
                               onClick={() => {
+                                void trackBusinessSubscriptionClientEvent("campaign_review_opened", {
+                                  businessId,
+                                  campaignId: idea.id,
+                                  submissionId: idea.id,
+                                  intendedAction: "approve_ad_idea",
+                                  returnTo: "/business/my-business/ad-ideas",
+                                  attribution: {
+                                    source: "ad_ideas_page",
+                                    offerId: idea.offer_id,
+                                    affiliateEmail: idea.affiliate_email,
+                                    campaignType: "paid_meta",
+                                  },
+                                });
                                 setSelectedIdea(idea);
                                 setShowTargetingDetails(false);
                               }}
@@ -658,6 +678,19 @@ export default function AdIdeasPage() {
                                 variant="secondary"
                                 className="w-full"
                                 onClick={() => {
+                                  void trackBusinessSubscriptionClientEvent("campaign_review_opened", {
+                                    businessId,
+                                    campaignId: idea.id,
+                                    submissionId: idea.id,
+                                    intendedAction: "approve_ad_idea",
+                                    returnTo: "/business/my-business/ad-ideas",
+                                    attribution: {
+                                      source: "ad_ideas_recent_page",
+                                      offerId: idea.offer_id,
+                                      affiliateEmail: idea.affiliate_email,
+                                      campaignType: "paid_meta",
+                                    },
+                                  });
                                   setSelectedIdea(idea);
                                   setShowTargetingDetails(false);
                                 }}
@@ -812,6 +845,7 @@ export default function AdIdeasPage() {
           </div>
         )}
       </div>
-    </div>
+      </div>
+    </>
   );
 }

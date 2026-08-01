@@ -17,6 +17,9 @@ import {
   type QueryClient,
 } from "@/../utils/approvals/enforcement";
 import { buildTrackingUrl } from "@/../utils/tracking/buildTrackingUrl";
+import { requireBusinessCampaignLaunchEntitlement, isSubscriptionRequiredError, buildSubscriptionRequiredResponse } from "@/../utils/businessSubscriptionGate";
+import { trackBusinessSubscriptionAnalytics } from "@/../utils/businessSubscriptionAnalytics";
+import { markLaunchFundCampaignWentLive } from "@/../utils/launchFund";
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -138,6 +141,22 @@ export async function POST(req: Request) {
         { status: 400 },
       );
     }
+
+    const gate = await requireBusinessCampaignLaunchEntitlement({
+      supabase: supabase as never,
+      businessEmail: (offer as any).business_email,
+      returnTo: "/business/my-business/ad-ideas",
+      intendedAction: "launch_paid_meta_ad",
+      campaignId: adIdeaId,
+      submissionId: adIdeaId,
+      attribution: {
+        source: "meta_upload_route",
+        offerId,
+        affiliateEmail,
+        campaignType: "paid_meta",
+      },
+    });
+    if (!gate.ok) return NextResponse.json(gate.body, { status: gate.status });
 
     const trackingReady = await assertOfferTrackingReady(
       supabase as unknown as QueryClient,
@@ -863,6 +882,19 @@ export async function POST(req: Request) {
 
           if (liveAdErr) {
             console.error("[❌ live_ads insert error]", liveAdErr);
+            if (isSubscriptionRequiredError(liveAdErr)) {
+              return NextResponse.json(
+                buildSubscriptionRequiredResponse({
+                  entitlement: null,
+                  returnTo: "/business/my-business/ad-ideas",
+                  intendedAction: "launch_paid_meta_ad",
+                  campaignId: adIdeaId,
+                  submissionId: adIdeaId,
+                  attribution: { source: "meta_upload_db_backstop" },
+                }),
+                { status: 402 },
+              );
+            }
           } else if (insertedLiveAdRow?.id) {
             console.log("[live_ads] insert success", insertedLiveAdRow);
 
@@ -889,6 +921,35 @@ export async function POST(req: Request) {
             }
 
             liveAdRow = insertedLiveAdRow;
+
+            if (affiliateEmail && prefer(offerId, adIdea?.offer_id, null)) {
+              await markLaunchFundCampaignWentLive({
+                supabase: supabase as never,
+                affiliateEmail,
+                offerId: String(prefer(offerId, adIdea?.offer_id, null)),
+                liveAdId: insertedLiveAdRow.id,
+              }).catch((err) => console.warn("[launch fund campaign_went_live tracking failed]", err));
+            }
+
+            if (gate.entitlement?.hasActiveSubscription && !gate.entitlement.isGrandfathered) {
+              await trackBusinessSubscriptionAnalytics({
+                supabase: supabase as never,
+                eventType: "campaign_approved_after_subscription",
+                businessId: gate.entitlement.businessId,
+                businessEmail: (offer as any).business_email,
+                campaignId: insertedLiveAdRow.id,
+                intendedAction: "launch_paid_meta_ad",
+                submissionId: adIdeaId,
+                returnTo: "/business/my-business/ad-ideas",
+                attribution: {
+                  source: "meta_upload_route",
+                  offerId,
+                  affiliateEmail,
+                  metaCampaignId: campaignData.id,
+                  metaAdId: adRes.id,
+                },
+              });
+            }
 
             const offerTitle = (offer as any)?.title || "your offer";
             if (affiliateEmail) {

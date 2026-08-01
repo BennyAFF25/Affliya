@@ -182,6 +182,14 @@ export default function Home() {
       return;
     }
 
+    const creatorRef = params.get("ref");
+    if (creatorRef) {
+      fetch(`/api/creator-referrals/capture?ref=${encodeURIComponent(creatorRef)}&path=${encodeURIComponent(window.location.pathname + window.location.search)}`, {
+        method: "GET",
+        keepalive: true,
+      }).catch(() => null);
+    }
+
     const initSession = async () => {
       const { data } = await supabaseClient.auth.getSession();
       setSession(data.session);

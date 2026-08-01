@@ -210,6 +210,16 @@ function CreateAccountInner() {
         );
       }
 
+      if (role === 'business') {
+        try {
+          await postJson('/api/creator-referrals/attribute', {
+            businessEmail: trimmedEmail,
+          });
+        } catch (creatorReferralErr) {
+          console.warn('[SIGNUP] creator referral attribution deferred/failed:', creatorReferralErr);
+        }
+      }
+
       trackMetaStandardEvent('CompleteRegistration', {
         role,
         signup_method: 'email',

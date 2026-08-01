@@ -7,6 +7,7 @@ import { useSession } from "@supabase/auth-helpers-react";
 import { supabase } from "@/../utils/supabase/pages-client";
 import { TRACKING_NOT_READY_MESSAGE } from "@/../utils/approvals/enforcement";
 import { Button, EmptyState, StatCard, StatusBadge } from "@/../components/ui";
+import { BusinessSubscriptionActivationModal, readSubscriptionIntentFromResponse, trackBusinessSubscriptionClientEvent } from "@/../components/business/BusinessSubscriptionActivationModal";
 
 interface OfferRow {
   id: string;
@@ -116,6 +117,8 @@ export default function PostIdeasPage() {
   const [selectedPost, setSelectedPost] = useState<PostIdea | null>(null);
   const [showRecent, setShowRecent] = useState(false);
   const [showContextDetails, setShowContextDetails] = useState(false);
+  const [businessId, setBusinessId] = useState<string | null>(null);
+  const [subscriptionIntent, setSubscriptionIntent] = useState<ReturnType<typeof readSubscriptionIntentFromResponse>>(null);
   const session = useSession();
   const user = session?.user;
 
@@ -123,10 +126,19 @@ export default function PostIdeasPage() {
     const fetchOffers = async () => {
       if (!user?.email) return;
 
-      const { data, error } = await supabase
-        .from("offers")
-        .select("id, title, business_email")
-        .eq("business_email", user.email);
+      const [{ data, error }, { data: profile }] = await Promise.all([
+        supabase
+          .from("offers")
+          .select("id, title, business_email")
+          .eq("business_email", user.email),
+        (supabase as any)
+          .from("business_profiles")
+          .select("id")
+          .eq("business_email", user.email)
+          .maybeSingle(),
+      ]);
+
+      setBusinessId((profile as { id?: string | null } | null)?.id || null);
 
       const offers = data as OfferRow[];
 
@@ -166,6 +178,25 @@ export default function PostIdeasPage() {
 
         const typedData = (data || []) as PostIdea[];
         setPosts(typedData);
+
+        typedData.filter((post) => post.status === "pending").forEach((post) => {
+          const dedupeKey = `nettmark:analytics:campaign_received_by_business:${post.id}`;
+          if (typeof window !== "undefined" && window.sessionStorage.getItem(dedupeKey)) return;
+          if (typeof window !== "undefined") window.sessionStorage.setItem(dedupeKey, "1");
+          void trackBusinessSubscriptionClientEvent("campaign_received_by_business", {
+            businessId,
+            campaignId: post.id,
+            submissionId: post.id,
+            intendedAction: "approve_organic_post",
+            returnTo: "/business/my-business/post-ideas",
+            attribution: {
+              source: "post_ideas_page",
+              offerId: post.offer_id,
+              affiliateEmail: post.affiliate_email,
+              platform: post.platform,
+            },
+          });
+        });
 
         const uniqueEmails = Array.from(
           new Set(
@@ -252,11 +283,17 @@ export default function PostIdeasPage() {
             mediaUrl: media_url,
             caption: post.caption,
             platform: post.platform,
+            submissionId: postId,
           }),
         });
         const campaignJson = await campaignRes.json().catch(() => null);
 
         if (!campaignRes.ok || !campaignJson?.success) {
+          const intent = readSubscriptionIntentFromResponse(campaignJson);
+          if (intent) {
+            setSubscriptionIntent({ ...intent, businessId: intent.businessId || businessId });
+            return;
+          }
           throw new Error(
             campaignJson?.message ||
               "Failed to create the organic campaign after approval.",
@@ -318,7 +355,13 @@ export default function PostIdeasPage() {
     : null;
 
   return (
-    <div className="post-ideas-theme min-h-screen bg-[var(--background)] px-4 py-8 text-[var(--foreground)] sm:px-8 lg:px-10">
+    <>
+      <BusinessSubscriptionActivationModal
+        open={Boolean(subscriptionIntent)}
+        intent={subscriptionIntent ? { ...subscriptionIntent, businessId: subscriptionIntent.businessId || businessId } : null}
+        onClose={() => setSubscriptionIntent(null)}
+      />
+      <div className="post-ideas-theme min-h-screen bg-[var(--background)] px-4 py-8 text-[var(--foreground)] sm:px-8 lg:px-10">
       <div className="mx-auto max-w-6xl">
         <div className="mb-8 rounded-[28px] border border-white/10 bg-[radial-gradient(circle_at_top_right,rgba(0,194,203,0.18),transparent_32%),linear-gradient(135deg,#11181a_0%,#0c1011_52%,#070808_100%)] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.32)] md:p-8">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
@@ -415,6 +458,19 @@ export default function PostIdeasPage() {
                             type="button"
                             variant="secondary"
                             onClick={() => {
+                              void trackBusinessSubscriptionClientEvent("campaign_review_opened", {
+                                businessId,
+                                campaignId: post.id,
+                                submissionId: post.id,
+                                intendedAction: "approve_organic_post",
+                                returnTo: "/business/my-business/post-ideas",
+                                attribution: {
+                                  source: "post_ideas_page",
+                                  offerId: post.offer_id,
+                                  affiliateEmail: post.affiliate_email,
+                                  platform: post.platform,
+                                },
+                              });
                               setSelectedPost(post);
                               setShowContextDetails(false);
                             }}
@@ -479,6 +535,19 @@ export default function PostIdeasPage() {
                             type="button"
                             variant="secondary"
                             onClick={() => {
+                              void trackBusinessSubscriptionClientEvent("campaign_review_opened", {
+                                businessId,
+                                campaignId: post.id,
+                                submissionId: post.id,
+                                intendedAction: "approve_organic_post",
+                                returnTo: "/business/my-business/post-ideas",
+                                attribution: {
+                                  source: "post_ideas_recent_page",
+                                  offerId: post.offer_id,
+                                  affiliateEmail: post.affiliate_email,
+                                  platform: post.platform,
+                                },
+                              });
                               setSelectedPost(post);
                               setShowContextDetails(false);
                             }}
@@ -713,6 +782,7 @@ export default function PostIdeasPage() {
           </div>
         )}
       </div>
-    </div>
+      </div>
+    </>
   );
 }

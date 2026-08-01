@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { buildNettmarkStripeMetadata, createStripeClient, getPlatformBalanceSnapshot } from "@/../utils/stripe";
 import { getWalletBalanceSnapshot } from "@/../utils/wallet/balance";
+import { computeLaunchFundSpendSplit, redeemLaunchFundForSettlement } from "@/../utils/launchFund";
 
 const stripe = createStripeClient(process.env.STRIPE_SECRET_KEY || "");
 
@@ -10,7 +11,7 @@ const DEFAULT_BATCH_MAX_ROWS = 50;
 
 type JsonRecord = Record<string, unknown>;
 
-type QueryResult = Promise<{ data: unknown; error: { message?: string; code?: string } | null }>;
+type QueryResult = Promise<{ data: any; error: { message?: string; code?: string } | null }>;
 
 type QueryBuilder = QueryResult & {
   select: (columns: string) => QueryBuilder;
@@ -83,6 +84,9 @@ export type AdSpendSettlementLedgerResult = {
   unpaidBefore: number;
   unpaidAfter: number;
   chargedAmount: number;
+  cashAmount?: number;
+  promotionalAmount?: number;
+  launchFundAllocationId?: string | null;
   wallet?: {
     totalTopups?: number;
     totalDeductions?: number;
@@ -232,7 +236,7 @@ export function getSettlementFundingState(params: {
 async function findExistingSettlementByKey(supabase: SupabaseLike, settlementKey: string) {
   const { data, error } = await supabase
     .from("ad_spend_settlements")
-    .select("id, status, amount, live_ad_id, affiliate_email, business_email, offer_id, spend, transferred_before, transferred_after, unpaid_before, unpaid_after")
+    .select("id, status, amount, live_ad_id, affiliate_email, business_email, offer_id, spend, transferred_before, transferred_after, unpaid_before, unpaid_after, metadata")
     .eq("settlement_key", settlementKey)
     .maybeSingle();
 
@@ -318,32 +322,25 @@ export async function settleAdSpendLedger(params: {
   const walletSnapshot = await getWalletBalanceSnapshot(supabase as never, affiliateEmail);
   const availableBalanceBefore = roundMoney(walletSnapshot.availableBalance);
 
-  if (availableBalanceBefore <= 0) {
-    return {
-      success: false,
-      error: "INSUFFICIENT_WALLET_BALANCE",
-      liveAdId,
-      affiliateEmail,
-      businessEmail,
-      offerId,
-      spend,
-      transferredBefore,
-      transferredAfter: transferredBefore,
-      unpaidBefore,
-      unpaidAfter: unpaidBefore,
-      chargedAmount: 0,
-      availableBalanceBefore,
-      message: "Affiliate wallet cannot cover current unpaid spend. Campaign should be paused and topped up.",
-    };
-  }
-
-  const chargedAmount = roundMoney(
+  const requestedSettlementAmount = roundMoney(
     Math.min(
       unpaidBefore,
       requestedChunk != null && requestedChunk > 0 ? requestedChunk : unpaidBefore,
-      availableBalanceBefore,
     ),
   );
+
+  const launchFundSplit = await computeLaunchFundSpendSplit({
+    supabase,
+    affiliateEmail,
+    offerId,
+    liveAdId,
+    requestedAmount: requestedSettlementAmount,
+    cashAvailable: availableBalanceBefore,
+  });
+
+  const chargedAmount = roundMoney(launchFundSplit.totalCoveredAmount);
+  const promotionalAmount = roundMoney(launchFundSplit.promotionalAmount);
+  const cashAmount = roundMoney(launchFundSplit.cashAmount);
 
   if (chargedAmount <= 0) {
     return {
@@ -360,7 +357,7 @@ export async function settleAdSpendLedger(params: {
       unpaidAfter: unpaidBefore,
       chargedAmount: 0,
       availableBalanceBefore,
-      message: "No wallet capacity available for settlement.",
+      message: "No cash or eligible Launch Fund capacity available for settlement.",
     };
   }
 
@@ -384,6 +381,9 @@ export async function settleAdSpendLedger(params: {
       unpaidBefore,
       unpaidAfter: Number(existingSettlement.unpaid_after ?? unpaidAfter),
       chargedAmount: Number(existingSettlement.amount ?? chargedAmount),
+      cashAmount: Number((existingSettlement as any)?.metadata?.cashAmount ?? cashAmount),
+      promotionalAmount: Number((existingSettlement as any)?.metadata?.promotionalAmount ?? promotionalAmount),
+      launchFundAllocationId: ((existingSettlement as any)?.metadata?.launchFundAllocationId as string | null) || launchFundSplit.allocationId,
       availableBalanceBefore,
       transferStatus: existingSettlement.status === "transfer_succeeded" ? "not_required" : "transfer_pending",
       message: "Settlement already recorded (idempotent).",
@@ -433,25 +433,39 @@ export async function settleAdSpendLedger(params: {
     };
   }
 
-  const walletDeductionPayload = {
-    affiliate_email: affiliateEmail,
-    business_email: businessEmail,
-    offer_id: offerId,
-    ad_id: liveAdId,
-    amount: chargedAmount,
-    description: "Meta ad spend settlement",
-    settlement_key: settlementKey,
-    business_id: typeof liveAd.business_id === "string" ? liveAd.business_id : null,
-    affiliate_user_id: typeof liveAd.affiliate_user_id === "string" ? liveAd.affiliate_user_id : null,
-  };
+  if (cashAmount > 0) {
+    const walletDeductionPayload = {
+      affiliate_email: affiliateEmail,
+      business_email: businessEmail,
+      offer_id: offerId,
+      ad_id: liveAdId,
+      amount: cashAmount,
+      description: promotionalAmount > 0 ? "Meta ad spend settlement (cash portion after Launch Fund)" : "Meta ad spend settlement",
+      settlement_key: settlementKey,
+      business_id: typeof liveAd.business_id === "string" ? liveAd.business_id : null,
+      affiliate_user_id: typeof liveAd.affiliate_user_id === "string" ? liveAd.affiliate_user_id : null,
+    };
 
-  const { error: deductionErr } = await supabase
-    .from("wallet_deductions")
-    .insert(walletDeductionPayload);
+    const { error: deductionErr } = await supabase
+      .from("wallet_deductions")
+      .insert(walletDeductionPayload);
 
-  if (deductionErr && !isUniqueViolation(deductionErr)) {
-    await supabase.from("live_ads").update({ spend_transferred: transferredBefore }).eq("id", liveAdId).eq("spend_transferred", transferredAfter);
-    throw new Error(`wallet_deductions insert failed: ${deductionErr.message}`);
+    if (deductionErr && !isUniqueViolation(deductionErr)) {
+      await supabase.from("live_ads").update({ spend_transferred: transferredBefore }).eq("id", liveAdId).eq("spend_transferred", transferredAfter);
+      throw new Error(`wallet_deductions insert failed: ${deductionErr.message}`);
+    }
+  }
+
+  if (promotionalAmount > 0) {
+    await redeemLaunchFundForSettlement({
+      supabase,
+      allocationId: launchFundSplit.allocationId,
+      affiliateEmail,
+      offerId,
+      liveAdId,
+      amount: promotionalAmount,
+      settlementKey,
+    });
   }
 
   const settlementPayload = {
@@ -470,7 +484,14 @@ export async function settleAdSpendLedger(params: {
     unpaid_after: unpaidAfter,
     status: chargedAmount > 0 ? "pending_funds" : "transfer_succeeded",
     next_retry_at: new Date().toISOString(),
-    metadata: { source: "app/api/ad-spend/settle/route.ts" },
+    metadata: {
+      source: "app/api/ad-spend/settle/route.ts",
+      cashAmount,
+      promotionalAmount,
+      launchFundAllocationId: launchFundSplit.allocationId,
+      consumptionOrder: "launch_fund_then_cash",
+      launchFundPromoAvailableBefore: launchFundSplit.promoAvailableBefore,
+    },
   } satisfies JsonRecord;
 
   const { data: insertedSettlement, error: settlementErr } = await supabase
@@ -499,11 +520,14 @@ export async function settleAdSpendLedger(params: {
     unpaidBefore,
     unpaidAfter,
     chargedAmount,
+    cashAmount,
+    promotionalAmount,
+    launchFundAllocationId: launchFundSplit.allocationId,
     wallet: {
       totalTopups: walletSnapshot.totalTopupsNetAvailable,
-      totalDeductions: roundMoney(walletSnapshot.totalDeductions + chargedAmount),
+      totalDeductions: roundMoney(walletSnapshot.totalDeductions + cashAmount),
       availableBalanceBefore,
-      availableBalanceAfter: roundMoney(availableBalanceBefore - chargedAmount),
+      availableBalanceAfter: roundMoney(availableBalanceBefore - cashAmount),
     },
     availableBalanceBefore,
     transferStatus: chargedAmount > 0 ? "transfer_pending" : "not_required",

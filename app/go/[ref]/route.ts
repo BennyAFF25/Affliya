@@ -2,6 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { buildTrackingUrl } from "@/../utils/tracking/buildTrackingUrl";
+import { assertAffiliateOfferApproved } from "@/../utils/approvals/enforcement";
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -52,12 +53,13 @@ export async function GET(request: NextRequest, context: any) {
   let status: string | null = null;
   let sourceTable: SourceTable = null;
   let canonicalCampaignId: string | null = null;
+  let resolvedAffiliateEmail: string | null = affiliateId || null;
 
   // 2.1 – Organic / live_campaigns
   try {
     const { data, error } = await supabaseAdmin
       .from("live_campaigns")
-      .select("id,offer_id,status")
+      .select("id,offer_id,status,affiliate_email")
       .eq("id", campaignId)
       .maybeSingle();
 
@@ -65,6 +67,7 @@ export async function GET(request: NextRequest, context: any) {
       offerId = data.offer_id as string;
       status = (data as any).status ?? null;
       canonicalCampaignId = data.id as string;
+      resolvedAffiliateEmail = (data as any).affiliate_email || resolvedAffiliateEmail;
       sourceTable = "live_campaigns";
       console.log("[go/ref] Matched live_campaigns:", { offerId, status });
     } else if (error) {
@@ -87,6 +90,7 @@ export async function GET(request: NextRequest, context: any) {
         offerId = data.offer_id as string;
         status = (data as any).status ?? null;
         canonicalCampaignId = data.id as string;
+        resolvedAffiliateEmail = (data as any).affiliate_email || resolvedAffiliateEmail;
         sourceTable = "ad_ideas";
         console.log("[go/ref] Matched ad_ideas:", { offerId, status });
       } else if (error) {
@@ -110,6 +114,7 @@ export async function GET(request: NextRequest, context: any) {
         offerId = data.offer_id as string;
         status = (data as any).status ?? null;
         canonicalCampaignId = data.id as string;
+        resolvedAffiliateEmail = (data as any).affiliate_email || resolvedAffiliateEmail;
         sourceTable = "live_ads";
         console.log("[go/ref] Matched live_ads:", { offerId, status });
       } else if (error) {
@@ -131,7 +136,7 @@ export async function GET(request: NextRequest, context: any) {
         .order("created_at", { ascending: false })
         .limit(10);
 
-      const rows = (data || []) as Array<{ id: string; offer_id: string; status?: string | null }>;
+      const rows = (data || []) as Array<{ id: string; offer_id: string; status?: string | null; affiliate_email?: string | null }>;
       const chosen =
         rows.find((row) => {
           const s = String(row.status || '').toLowerCase();
@@ -142,6 +147,7 @@ export async function GET(request: NextRequest, context: any) {
         offerId = chosen.offer_id as string;
         status = chosen.status ?? null;
         canonicalCampaignId = chosen.id as string;
+        resolvedAffiliateEmail = chosen.affiliate_email || resolvedAffiliateEmail;
         sourceTable = "live_ads";
         console.log("[go/ref] Legacy live_ads offer ref canonicalized:", {
           offerId,
@@ -197,6 +203,31 @@ export async function GET(request: NextRequest, context: any) {
   }
 
   console.log("[go/ref] Resolved offer:", { offerId, sourceTable, status });
+
+  if (!resolvedAffiliateEmail) {
+    return new NextResponse(
+      `<html><body style="font-family:sans-serif;text-align:center;margin-top:100px">
+        <h2>Invalid tracking link</h2>
+        <p>This tracking link is missing affiliate approval context.</p>
+      </body></html>`,
+      { status: 400, headers: { "Content-Type": "text/html" } },
+    );
+  }
+
+  const approval = await assertAffiliateOfferApproved(supabaseAdmin as any, {
+    offerId,
+    affiliateEmail: resolvedAffiliateEmail,
+  });
+
+  if (!approval.ok) {
+    return new NextResponse(
+      `<html><body style="font-family:sans-serif;text-align:center;margin-top:100px">
+        <h2>Tracking link unavailable</h2>
+        <p>This affiliate is not currently approved to promote this offer.</p>
+      </body></html>`,
+      { status: approval.status, headers: { "Content-Type": "text/html" } },
+    );
+  }
 
   // Hard stop for paused campaigns
   const campaignStatus = status ? String(status).toUpperCase() : "";

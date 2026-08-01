@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useSession } from "@supabase/auth-helpers-react";
 import { supabase } from "@/../utils/supabase/pages-client";
+import { BusinessSubscriptionActivationModal, readSubscriptionIntentFromResponse, trackBusinessSubscriptionClientEvent } from "@/../components/business/BusinessSubscriptionActivationModal";
 import {
   ActionBar,
   Badge,
@@ -83,6 +84,8 @@ export default function AffiliateRequestsPage() {
   const [launchInviteStatus, setLaunchInviteStatus] = useState<
     Record<string, "sent" | "sending" | "error">
   >({});
+  const [businessId, setBusinessId] = useState<string | null>(null);
+  const [subscriptionIntent, setSubscriptionIntent] = useState<ReturnType<typeof readSubscriptionIntentFromResponse>>(null);
 
   useEffect(() => {
     if (!session) return;
@@ -119,7 +122,27 @@ export default function AffiliateRequestsPage() {
           error.message,
         );
       } else {
-        setRequests(data as AffiliateRequest[]);
+        const typedRequests = data as AffiliateRequest[];
+        setRequests(typedRequests);
+
+        typedRequests.filter((request) => request.status === "pending").forEach((request) => {
+          const dedupeKey = `nettmark:analytics:campaign_received_by_business:${request.id}`;
+          if (typeof window !== "undefined" && window.sessionStorage.getItem(dedupeKey)) return;
+          if (typeof window !== "undefined") window.sessionStorage.setItem(dedupeKey, "1");
+          void trackBusinessSubscriptionClientEvent("campaign_received_by_business", {
+            businessId,
+            campaignId: request.id,
+            submissionId: request.id,
+            intendedAction: "approve_affiliate_request",
+            returnTo: "/business/my-business/affiliate-requests",
+            attribution: {
+              source: "affiliate_requests_page",
+              offerId: request.offer?.id,
+              affiliateEmail: request.affiliate_email,
+              campaignType: "affiliate_request",
+            },
+          });
+        });
       }
 
       const { data: progressRows, error: progressError } = await supabase
@@ -154,7 +177,7 @@ export default function AffiliateRequestsPage() {
         await supabase
           .from("business_profiles")
           .select(
-            "stripe_customer_id, stripe_account_id, stripe_onboarding_complete",
+            "id, stripe_customer_id, stripe_account_id, stripe_onboarding_complete",
           )
           .eq("business_email", userEmail)
           .single();
@@ -166,11 +189,13 @@ export default function AffiliateRequestsPage() {
         );
       } else {
         const profile = businessProfile as {
+          id?: string | null;
           stripe_customer_id?: string | null;
           stripe_account_id?: string | null;
           stripe_onboarding_complete?: boolean | null;
         } | null;
 
+        setBusinessId(profile?.id || null);
         derivedPayoutsReady = Boolean(profile?.stripe_onboarding_complete);
 
         if (profile?.stripe_customer_id) {
@@ -244,15 +269,22 @@ export default function AffiliateRequestsPage() {
     const currentOfferTitle = current?.offer?.title || "Your offer";
     const currentBusinessEmail = session?.user?.email;
 
-    const { error } = await supabase
-      .from("affiliate_requests")
-      .update({ status: newStatus } as never)
-      .eq("id", requestId);
+    const response = await fetch("/api/business/affiliate-requests/update-status", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ requestId, status: newStatus }),
+    });
+    const responseJson = await parseJsonSafe(response);
 
-    if (error) {
+    if (!response.ok || !responseJson?.success) {
+      const intent = readSubscriptionIntentFromResponse(responseJson);
+      if (intent) {
+        setSubscriptionIntent({ ...intent, businessId: intent.businessId || businessId });
+        return;
+      }
       console.error(
         "[affiliate-requests] Error updating status:",
-        error.message,
+        responseJson?.message || responseJson?.error || response.status,
       );
       return;
     }
@@ -378,7 +410,13 @@ export default function AffiliateRequestsPage() {
   const shopPending = shopRequests.filter((r) => r.status === "pending");
 
   return (
-    <div className="min-h-screen w-full bg-[var(--background)] px-5 py-6 text-[var(--foreground)]">
+    <>
+      <BusinessSubscriptionActivationModal
+        open={Boolean(subscriptionIntent)}
+        intent={subscriptionIntent ? { ...subscriptionIntent, businessId: subscriptionIntent.businessId || businessId } : null}
+        onClose={() => setSubscriptionIntent(null)}
+      />
+      <div className="min-h-screen w-full bg-[var(--background)] px-5 py-6 text-[var(--foreground)]">
       <div className="mx-auto max-w-6xl">
         <div className="relative mb-8 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-[0_0_0_1px_rgba(0,0,0,0.35),0_8px_30px_rgba(0,0,0,0.28)]">
           <div className="pointer-events-none absolute inset-0">
@@ -704,6 +742,7 @@ export default function AffiliateRequestsPage() {
           </section>
         )}
       </div>
-    </div>
+      </div>
+    </>
   );
 }

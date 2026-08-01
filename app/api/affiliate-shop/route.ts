@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { cookies } from "next/headers";
+import { assertAffiliateOfferApproved } from "@/../utils/approvals/enforcement";
 
 export async function POST(request: Request) {
   const supabase = createRouteHandlerClient({ cookies });
@@ -39,6 +40,26 @@ export async function POST(request: Request) {
 
   try {
     if (Array.isArray(items) && items.length > 0) {
+      const offerIds = Array.from(new Set(items.map((item) => item.offer_id).filter(Boolean)));
+      for (const offerId of offerIds) {
+        const approval = await assertAffiliateOfferApproved(supabase as any, {
+          offerId,
+          affiliateEmail: user.email,
+        });
+
+        if (!approval.ok) {
+          return NextResponse.json(
+            {
+              error: approval.error,
+              message:
+                approval.message ||
+                "You must be approved for this offer before adding it to your shop.",
+            },
+            { status: approval.status },
+          );
+        }
+      }
+
       const upserts = items.map((item) => ({
         affiliate_email: user.email,
         offer_id: item.offer_id,
