@@ -59,6 +59,10 @@ const affiliateRequestsPage = fs.readFileSync(
   path.join(root, 'app/business/my-business/affiliate-requests/page.tsx'),
   'utf8',
 );
+const approvalEnforcement = fs.readFileSync(
+  path.join(root, 'utils/approvals/enforcement.ts'),
+  'utf8',
+);
 
 async function run() {
   // Gate is independently staged and defaults off.
@@ -107,6 +111,10 @@ async function run() {
     assert.match(source, /requireBusinessCampaignLaunchEntitlement/);
     assert.match(source, /BUSINESS_SUBSCRIPTION_REQUIRED|subscriptionRequired|buildSubscriptionRequiredResponse/);
   }
+
+  // Launch enforcement must agree with the business offer card readiness badges.
+  assert.match(approvalEnforcement, /tracking_connected, site_host, meta_pixel_id/);
+  assert.match(approvalEnforcement, /offerRow\.tracking_connected \|\| offerRow\.site_host \|\| offerRow\.meta_pixel_id/);
 
   // Review pages allow free businesses to inspect submissions before approval/launch.
   assert.match(postIdeasPage + adIdeasPage + affiliateRequestsPage, /campaign_received_by_business/);

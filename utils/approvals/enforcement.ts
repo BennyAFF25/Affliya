@@ -33,7 +33,7 @@ export async function assertOfferTrackingReady(
 ): Promise<ApprovalEnforcementResult> {
   const { data: offer, error: offerError } = await supabase
     .from('offers')
-    .select('id, business_email')
+    .select('id, business_email, tracking_connected, site_host, meta_pixel_id')
     .eq('id', offerId)
     .maybeSingle();
 
@@ -41,7 +41,12 @@ export async function assertOfferTrackingReady(
     throw new Error(`Failed to verify offer tracking readiness: ${offerError.message || offerError}`);
   }
 
-  const offerRow = offer as { business_email?: string | null } | null;
+  const offerRow = offer as {
+    business_email?: string | null;
+    tracking_connected?: boolean | null;
+    site_host?: string | null;
+    meta_pixel_id?: string | null;
+  } | null;
   if (!offerRow) {
     return {
       ok: false,
@@ -49,6 +54,10 @@ export async function assertOfferTrackingReady(
       error: 'OFFER_NOT_FOUND',
       message: 'Offer not found.',
     };
+  }
+
+  if (offerRow.tracking_connected || offerRow.site_host || offerRow.meta_pixel_id) {
+    return { ok: true };
   }
 
   const { data: offerProgress, error: offerProgressError } = await supabase
