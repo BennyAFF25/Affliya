@@ -25,6 +25,8 @@ type OfferRow = {
   meta_page_id?: string | null;
   meta_ad_account_id?: string | null;
   meta_pixel_id?: string | null;
+  tracking_connected?: boolean | null;
+  site_host?: string | null;
 };
 
 type LaunchFundAllocation = {
@@ -287,7 +289,7 @@ export default function PromoteOfferPage() {
       const { data: offer, error: offerErr } = await (supabase as any)
         .from("offers")
         .select(
-          "title, logo_url, business_email, website, meta_page_id, meta_ad_account_id, meta_pixel_id",
+          "title, logo_url, business_email, website, meta_page_id, meta_ad_account_id, meta_pixel_id, tracking_connected, site_host",
         )
         .eq("id", offerId)
         .single();
@@ -300,12 +302,21 @@ export default function PromoteOfferPage() {
       // Preview title + logo
       setBrandName(offer?.title || "Your Brand Name");
       setBrandLogoUrl(offer?.logo_url || null);
+      const offerRow = offer as OfferRow | null;
+      const offerLevelTrackingReady = Boolean(
+        offerRow?.tracking_connected || offerRow?.site_host || offerRow?.meta_pixel_id,
+      );
+
       setOfferMetaState({
-        hasPage: !!offer?.meta_page_id,
-        hasAdAccount: !!(offer as OfferRow | null)?.meta_ad_account_id,
-        hasPixel: !!(offer as OfferRow | null)?.meta_pixel_id,
+        hasPage: !!offerRow?.meta_page_id,
+        hasAdAccount: !!offerRow?.meta_ad_account_id,
+        hasPixel: !!offerRow?.meta_pixel_id,
       });
       setOfferMetaResolved(true);
+      if (offerLevelTrackingReady) {
+        setTrackingReady(true);
+        setTrackingResolved(true);
+      }
       // Pre-fill Destination URL with the business website if available
       if (offer?.website) {
         setForm((p) => ({
@@ -317,11 +328,13 @@ export default function PromoteOfferPage() {
       // 2) Check tracking readiness. Offer visibility/request approval is allowed while pending;
       // campaign launch stays gated until tracking is ready.
       try {
-        const tracking = await assertOfferTrackingReady(trackingClient, offerId);
+        const tracking = offerLevelTrackingReady
+          ? { ok: true as const }
+          : await assertOfferTrackingReady(trackingClient, offerId);
         setTrackingReady(tracking.ok);
       } catch (e) {
         console.warn("[tracking readiness check failed]", e);
-        setTrackingReady(false);
+        setTrackingReady(offerLevelTrackingReady);
       } finally {
         setTrackingResolved(true);
       }
