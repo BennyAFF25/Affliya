@@ -3,6 +3,7 @@
 import { useSession } from "@supabase/auth-helpers-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import toast from "react-hot-toast";
 import {
   AreaChart,
   Area,
@@ -60,6 +61,16 @@ const formatCurrency = (val: number) => {
   if (!val || Number.isNaN(val)) return "$0.00";
   return "$" + val.toFixed(2);
 };
+
+async function parseJsonSafe(res: Response) {
+  const text = await res.text();
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+}
 
 const filterSeriesByRange = (series: any[], range: Timeframe) => {
   if (!series || series.length === 0 || range === "all") return series;
@@ -173,6 +184,7 @@ export default function BusinessDashboard() {
   const [showBillingWhy, setShowBillingWhy] = useState(false);
   const [showMetaWhy, setShowMetaWhy] = useState(false);
   const [requestActionBusyId, setRequestActionBusyId] = useState<string | null>(null);
+  const [isOpeningStripeOnboarding, setIsOpeningStripeOnboarding] = useState(false);
 
   // simple dynamic goal line for sales
   const salesGoal =
@@ -552,6 +564,37 @@ export default function BusinessDashboard() {
     }
   }, [session, router, user]);
 
+  async function handleOpenStripeOnboarding() {
+    if (isOpeningStripeOnboarding) return;
+
+    try {
+      setIsOpeningStripeOnboarding(true);
+
+      const email = user?.email;
+      if (!email) throw new Error("Missing business email");
+
+      const res = await fetch("/api/stripe/create-account", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          role: "business",
+          email,
+        }),
+      });
+
+      const data = await parseJsonSafe(res);
+      if (!res.ok || !data?.url) {
+        throw new Error(data?.error || "Failed to start Stripe onboarding");
+      }
+
+      window.location.href = data.url;
+    } catch (e: any) {
+      console.error("[Dashboard Stripe onboarding error]", e);
+      toast.error(e?.message || "Stripe error");
+      setIsOpeningStripeOnboarding(false);
+    }
+  }
+
   const activationItems = [
     { label: "Create Account", done: true, href: "/create-account?role=business" },
     {
@@ -575,7 +618,8 @@ export default function BusinessDashboard() {
     {
       label: "Connect billing to launch your first campaign",
       done: onboardingProgressFlags.billing_connected || hasBillingConnected,
-      href: "/business/payouts",
+      href: "/business/my-business",
+      onClick: handleOpenStripeOnboarding,
     },
     {
       label: "Connect meta to get paid campaigns",
@@ -655,7 +699,13 @@ export default function BusinessDashboard() {
             {activationItems.map((item) => (
               <button
                 key={item.label}
-                onClick={() => router.push(item.href)}
+                onClick={() => {
+                  if (item.onClick && !item.done) {
+                    item.onClick();
+                    return;
+                  }
+                  router.push(item.href);
+                }}
                 className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-left"
               >
                 <span className="text-sm text-[var(--foreground)]">{item.label}</span>
@@ -688,10 +738,11 @@ export default function BusinessDashboard() {
                 <p>You can connect billing now, or wait until your first affiliate request for a paid ad comes through.</p>
                 {!hasBillingConnected && (
                   <button
-                    onClick={() => router.push("/business/payouts")}
-                    className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs font-semibold text-[var(--foreground)]"
+                    onClick={handleOpenStripeOnboarding}
+                    disabled={isOpeningStripeOnboarding}
+                    className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs font-semibold text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    Connect billing
+                    {isOpeningStripeOnboarding ? "Opening Stripe…" : "Connect billing"}
                   </button>
                 )}
               </div>
@@ -739,16 +790,18 @@ export default function BusinessDashboard() {
               Connect billing and enable payouts to approve affiliate requests.
               <div className="mt-2 flex flex-wrap gap-2">
                 <button
-                  onClick={() => router.push("/business/payouts")}
-                  className="rounded-lg border border-red-300/40 bg-red-500/15 px-3 py-1.5 text-xs font-semibold text-red-100"
+                  onClick={handleOpenStripeOnboarding}
+                  disabled={isOpeningStripeOnboarding}
+                  className="rounded-lg border border-red-300/40 bg-red-500/15 px-3 py-1.5 text-xs font-semibold text-red-100 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Connect billing
+                  {isOpeningStripeOnboarding ? "Opening Stripe…" : "Connect billing"}
                 </button>
                 <button
-                  onClick={() => router.push("/business/payouts")}
-                  className="rounded-lg border border-red-300/40 bg-red-500/15 px-3 py-1.5 text-xs font-semibold text-red-100"
+                  onClick={handleOpenStripeOnboarding}
+                  disabled={isOpeningStripeOnboarding}
+                  className="rounded-lg border border-red-300/40 bg-red-500/15 px-3 py-1.5 text-xs font-semibold text-red-100 disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Enable payouts
+                  {isOpeningStripeOnboarding ? "Opening Stripe…" : "Enable payouts"}
                 </button>
               </div>
             </div>
