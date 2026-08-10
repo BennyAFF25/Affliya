@@ -35,6 +35,10 @@ import {
 } from "lucide-react";
 import { supabase } from "utils/supabase/pages-client";
 import { SectionHeader, StatCard } from "@/../components/ui";
+import {
+  BusinessSubscriptionActivationModal,
+  readSubscriptionIntentFromResponse,
+} from "@/../components/business/BusinessSubscriptionActivationModal";
 
 interface Profile {
   id: string;
@@ -185,6 +189,7 @@ export default function BusinessDashboard() {
   const [showMetaWhy, setShowMetaWhy] = useState(false);
   const [requestActionBusyId, setRequestActionBusyId] = useState<string | null>(null);
   const [isOpeningStripeOnboarding, setIsOpeningStripeOnboarding] = useState(false);
+  const [subscriptionIntent, setSubscriptionIntent] = useState<ReturnType<typeof readSubscriptionIntentFromResponse>>(null);
 
   // simple dynamic goal line for sales
   const salesGoal =
@@ -642,18 +647,25 @@ export default function BusinessDashboard() {
     newStatus: "approved" | "rejected",
   ) => {
     if (!requestId) return;
-    if (newStatus === "approved" && !canApproveAffiliates) {
-      return;
-    }
     setRequestActionBusyId(requestId);
     try {
-      const { error } = await (supabase as any)
-        .from("affiliate_requests")
-        .update({ status: newStatus })
-        .eq("id", requestId);
+      const response = await fetch("/api/business/affiliate-requests/update-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requestId, status: newStatus }),
+      });
+      const responseJson = await parseJsonSafe(response);
 
-      if (error) {
-        console.error("[❌ Failed to update affiliate request status]", error);
+      if (!response.ok || !responseJson?.success) {
+        const intent = readSubscriptionIntentFromResponse(responseJson);
+        if (intent) {
+          setSubscriptionIntent(intent);
+          return;
+        }
+        console.error(
+          "[❌ Failed to update affiliate request status]",
+          responseJson?.message || responseJson?.error || response.status,
+        );
         return;
       }
 
@@ -670,7 +682,13 @@ export default function BusinessDashboard() {
   };
 
   return (
-    <div className="business-dashboard-theme min-h-screen w-full bg-[var(--background)] text-[var(--foreground)] px-4 py-4 sm:px-5 sm:py-6">
+    <>
+      <BusinessSubscriptionActivationModal
+        open={Boolean(subscriptionIntent)}
+        intent={subscriptionIntent}
+        onClose={() => setSubscriptionIntent(null)}
+      />
+      <div className="business-dashboard-theme min-h-screen w-full bg-[var(--background)] text-[var(--foreground)] px-4 py-4 sm:px-5 sm:py-6">
       <section className="mb-6 rounded-2xl border border-[var(--border)] bg-[var(--card)] p-4 sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-3">
@@ -786,24 +804,8 @@ export default function BusinessDashboard() {
             {firstPendingRequest.affiliate_email} requested to promote {offerLookup[firstPendingRequest.offer_id] || "your offer"}.
           </p>
           {!canApproveAffiliates && (
-            <div className="mt-3 rounded-xl border border-red-400/35 bg-red-500/10 p-3 text-sm text-red-200">
-              Connect billing and enable payouts to approve affiliate requests.
-              <div className="mt-2 flex flex-wrap gap-2">
-                <button
-                  onClick={handleOpenStripeOnboarding}
-                  disabled={isOpeningStripeOnboarding}
-                  className="rounded-lg border border-red-300/40 bg-red-500/15 px-3 py-1.5 text-xs font-semibold text-red-100 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {isOpeningStripeOnboarding ? "Opening Stripe…" : "Connect billing"}
-                </button>
-                <button
-                  onClick={handleOpenStripeOnboarding}
-                  disabled={isOpeningStripeOnboarding}
-                  className="rounded-lg border border-red-300/40 bg-red-500/15 px-3 py-1.5 text-xs font-semibold text-red-100 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {isOpeningStripeOnboarding ? "Opening Stripe…" : "Enable payouts"}
-                </button>
-              </div>
+            <div className="mt-3 rounded-xl border border-[#00C2CB]/25 bg-[#00C2CB]/10 p-3 text-sm text-[#d8fbfd]">
+              You can approve this request now. If this action requires Nettmark Business activation, checkout will open during approval.
             </div>
           )}
           <div className="mt-4 flex flex-wrap gap-2">
@@ -815,10 +817,10 @@ export default function BusinessDashboard() {
             </button>
             <button
               onClick={() => handleRequestDecision(firstPendingRequest.id, "approved")}
-              disabled={requestActionBusyId === firstPendingRequest.id || !canApproveAffiliates}
+              disabled={requestActionBusyId === firstPendingRequest.id}
               className="rounded-lg bg-[#00C2CB] px-4 py-2 text-sm font-semibold text-black disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {canApproveAffiliates ? "Approve" : "Approve (blocked)"}
+              {requestActionBusyId === firstPendingRequest.id ? "Approving…" : "Approve"}
             </button>
             <button
               onClick={() => handleRequestDecision(firstPendingRequest.id, "rejected")}
@@ -1484,6 +1486,7 @@ export default function BusinessDashboard() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 }

@@ -257,12 +257,6 @@ export default function AffiliateRequestsPage() {
   }, [session]);
 
   const handleUpdateStatus = async (requestId: string, newStatus: string) => {
-    if (newStatus === "approved" && !canApproveAffiliates) {
-      console.warn(
-        "[affiliate-requests] approve blocked: billing/payouts missing",
-      );
-      return;
-    }
     const current = requests.find((r) => r.id === requestId);
     const currentAffiliateEmail = current?.affiliate_email;
     const currentOfferId = current?.offer?.id;
@@ -467,18 +461,8 @@ export default function AffiliateRequestsPage() {
           className="mb-10"
         >
           {!canApproveAffiliates && pending.length > 0 && (
-            <div className="mb-4 rounded-xl border border-red-400/35 bg-red-500/10 px-4 py-3 text-sm text-red-200">
-              Connect billing and enable payouts to approve affiliate requests.
-              <div className="mt-2">
-                <Button
-                  href="/business/payouts"
-                  variant="outline"
-                  size="sm"
-                  className="border-red-300/40 bg-red-500/15 text-red-100 hover:bg-red-500/20"
-                >
-                  Go to billing & payouts
-                </Button>
-              </div>
+            <div className="mb-4 rounded-xl border border-[#00C2CB]/25 bg-[#00C2CB]/10 px-4 py-3 text-sm text-[#d8fbfd]">
+              You can review affiliate requests now. If approval needs Nettmark Business activation, the subscription checkout will open at approval time.
             </div>
           )}
 
@@ -543,12 +527,9 @@ export default function AffiliateRequestsPage() {
                         <Button
                           type="button"
                           onClick={() => handleUpdateStatus(req.id, "approved")}
-                          disabled={!canApproveAffiliates}
-                          className="w-full disabled:cursor-not-allowed"
+                          className="w-full"
                         >
-                          {canApproveAffiliates
-                            ? "Approve"
-                            : "Approve (blocked)"}
+                          Approve
                         </Button>
                       </ActionBar>
                     }
