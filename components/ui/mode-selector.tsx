@@ -7,6 +7,7 @@ type ModeOption = {
   description?: string;
   disabled?: boolean;
   badge?: React.ReactNode;
+  activeClassName?: string;
 };
 
 export type ModeSelectorProps = React.HTMLAttributes<HTMLDivElement> & {
@@ -34,7 +35,7 @@ export function ModeSelector({ value, options, onChange, className, ...props }: 
             className={cn(
               "rounded-xl border p-4 text-left transition duration-200 disabled:cursor-not-allowed disabled:opacity-50",
               active
-                ? "border-[#00C2CB]/70 bg-[#00C2CB]/12 shadow-[0_14px_34px_rgba(0,194,203,0.12)]"
+                ? option.activeClassName || "border-[#00C2CB]/70 bg-[#00C2CB]/12 shadow-[0_14px_34px_rgba(0,194,203,0.12)]"
                 : "border-transparent bg-transparent hover:border-[var(--border)] hover:bg-[var(--secondary)]/60",
             )}
           >

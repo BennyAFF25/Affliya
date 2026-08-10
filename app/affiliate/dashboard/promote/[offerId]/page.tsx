@@ -1024,13 +1024,29 @@ export default function PromoteOfferPage() {
                   ? "Tracking is required before paid campaign launch."
                   : "Create a Meta-ready campaign idea with budget, targeting, creative, and uploads.",
                 disabled: showTrackingWarning || isOrganicOnlyOffer || showBusinessPaymentWarning,
-                badge: <Badge variant={mode === "ad" ? "primary" : "muted"}>Paid</Badge>,
+                activeClassName: "border-[#00C2CB]/70 bg-[#00C2CB]/12 shadow-[0_14px_34px_rgba(0,194,203,0.12)]",
+                badge: (
+                  <Badge
+                    variant={mode === "ad" ? "primary" : "muted"}
+                    className={mode === "ad" ? "border-[#00C2CB]/45 bg-[#00C2CB]/15 text-[#7ff5fb]" : undefined}
+                  >
+                    Paid
+                  </Badge>
+                ),
               },
               {
                 value: "organic",
                 label: "Organic submission",
                 description: "Submit social, email, forum, or other non-paid promotion ideas for approval.",
-                badge: <Badge variant={mode === "organic" ? "primary" : "muted"}>No spend</Badge>,
+                activeClassName: "border-emerald-400/60 bg-emerald-500/12 shadow-[0_14px_34px_rgba(52,211,153,0.12)]",
+                badge: (
+                  <Badge
+                    variant={mode === "organic" ? "success" : "muted"}
+                    className={mode === "organic" ? "border-emerald-300/45 bg-emerald-400/15 text-emerald-200" : undefined}
+                  >
+                    No spend
+                  </Badge>
+                ),
               },
             ]}
           />
