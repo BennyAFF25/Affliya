@@ -1025,6 +1025,10 @@ export default function PromoteOfferPage() {
                   : "Create a Meta-ready campaign idea with budget, targeting, creative, and uploads.",
                 disabled: showTrackingWarning || isOrganicOnlyOffer || showBusinessPaymentWarning,
                 activeClassName: "border-[#00C2CB]/70 bg-[#00C2CB]/12 shadow-[0_14px_34px_rgba(0,194,203,0.12)]",
+                activeLabelClassName: "text-white",
+                inactiveLabelClassName: "text-white",
+                activeDescriptionClassName: "text-slate-200/80",
+                inactiveDescriptionClassName: "text-slate-400",
                 badge: (
                   <Badge
                     variant={mode === "ad" ? "primary" : "muted"}
@@ -1039,6 +1043,10 @@ export default function PromoteOfferPage() {
                 label: "Organic submission",
                 description: "Submit social, email, forum, or other non-paid promotion ideas for approval.",
                 activeClassName: "border-emerald-400/60 bg-emerald-500/12 shadow-[0_14px_34px_rgba(52,211,153,0.12)]",
+                activeLabelClassName: "text-white",
+                inactiveLabelClassName: "text-white",
+                activeDescriptionClassName: "text-slate-200/80",
+                inactiveDescriptionClassName: "text-slate-400",
                 badge: (
                   <Badge
                     variant={mode === "organic" ? "success" : "muted"}

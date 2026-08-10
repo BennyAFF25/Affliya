@@ -8,6 +8,10 @@ type ModeOption = {
   disabled?: boolean;
   badge?: React.ReactNode;
   activeClassName?: string;
+  activeLabelClassName?: string;
+  inactiveLabelClassName?: string;
+  activeDescriptionClassName?: string;
+  inactiveDescriptionClassName?: string;
 };
 
 export type ModeSelectorProps = React.HTMLAttributes<HTMLDivElement> & {
@@ -41,9 +45,27 @@ export function ModeSelector({ value, options, onChange, className, ...props }: 
           >
             <span className="flex items-start justify-between gap-3">
               <span>
-                <span className={cn("block text-sm font-semibold", active ? "text-[#7ff5fb]" : "text-[var(--foreground)]")}>{option.label}</span>
+                <span
+                  className={cn(
+                    "block text-sm font-semibold",
+                    active
+                      ? option.activeLabelClassName || "text-[#7ff5fb]"
+                      : option.inactiveLabelClassName || "text-[var(--foreground)]",
+                  )}
+                >
+                  {option.label}
+                </span>
                 {option.description && (
-                  <span className="mt-1 block text-xs leading-5 text-[var(--muted-foreground)]">{option.description}</span>
+                  <span
+                    className={cn(
+                      "mt-1 block text-xs leading-5",
+                      active
+                        ? option.activeDescriptionClassName || "text-[var(--muted-foreground)]"
+                        : option.inactiveDescriptionClassName || "text-[var(--muted-foreground)]",
+                    )}
+                  >
+                    {option.description}
+                  </span>
                 )}
               </span>
               {option.badge}
