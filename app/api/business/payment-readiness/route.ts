@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { createStripeClient } from "@/../utils/stripe";
+import { getBusinessPaymentReadiness } from "@/../utils/businessPaymentReadiness";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -29,45 +29,12 @@ export async function GET(request: Request) {
       );
     }
 
-    const { data: biz, error: bizErr } = await supabase
-      .from("business_profiles")
-      .select("stripe_customer_id")
-      .eq("business_email", offer.business_email)
-      .maybeSingle();
-
-    if (bizErr || !biz?.stripe_customer_id) {
-      return NextResponse.json(
-        { hasPaymentMethod: false, reason: "missing_customer" },
-        { status: 200 },
-      );
-    }
-
-    const stripe = createStripeClient();
-    const customerId = biz.stripe_customer_id as string;
-
-    const customer = await stripe.customers.retrieve(customerId, {
-      expand: ["invoice_settings.default_payment_method"],
+    const readiness = await getBusinessPaymentReadiness({
+      supabase,
+      businessEmail: offer.business_email,
     });
 
-    const defaultPm =
-      typeof customer === "object" && "invoice_settings" in customer
-        ? customer.invoice_settings?.default_payment_method
-        : null;
-
-    if (defaultPm) {
-      return NextResponse.json({ hasPaymentMethod: true }, { status: 200 });
-    }
-
-    const paymentMethods = await stripe.paymentMethods.list({
-      customer: customerId,
-      type: "card",
-      limit: 1,
-    });
-
-    return NextResponse.json(
-      { hasPaymentMethod: (paymentMethods.data?.length || 0) > 0 },
-      { status: 200 },
-    );
+    return NextResponse.json(readiness, { status: 200 });
   } catch (err: unknown) {
     console.error("[business/payment-readiness]", err);
     return NextResponse.json(

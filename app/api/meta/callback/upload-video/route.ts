@@ -20,6 +20,7 @@ import { buildTrackingUrl } from "@/../utils/tracking/buildTrackingUrl";
 import { requireBusinessCampaignLaunchEntitlement, isSubscriptionRequiredError, buildSubscriptionRequiredResponse } from "@/../utils/businessSubscriptionGate";
 import { trackBusinessSubscriptionAnalytics } from "@/../utils/businessSubscriptionAnalytics";
 import { markLaunchFundCampaignWentLive } from "@/../utils/launchFund";
+import { assertBusinessPaymentReadyForCommission } from "@/../utils/businessPaymentReadiness";
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -174,6 +175,22 @@ export async function POST(req: Request) {
     }
 
     const businessEmail = (offer as any).business_email;
+    const paymentReady = await assertBusinessPaymentReadyForCommission({
+      supabase: supabase as never,
+      businessEmail,
+    });
+    if (!paymentReady.ok) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: paymentReady.error,
+          message: paymentReady.message,
+          reason: paymentReady.reason,
+        },
+        { status: paymentReady.status },
+      );
+    }
+
     const offerWebsite = (offer as any)?.website || null;
     const offerPixelId = (offer as any)?.meta_pixel_id || null;
 

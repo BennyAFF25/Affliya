@@ -7,6 +7,7 @@ import {
 } from "@/../utils/approvals/enforcement";
 import { requireBusinessCampaignLaunchEntitlement, isSubscriptionRequiredError, buildSubscriptionRequiredResponse } from "@/../utils/businessSubscriptionGate";
 import { trackBusinessSubscriptionAnalytics } from "@/../utils/businessSubscriptionAnalytics";
+import { assertBusinessPaymentReadyForCommission } from "@/../utils/businessPaymentReadiness";
 
 const supabaseUrl = process.env.SUPABASE_URL!;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -145,6 +146,22 @@ export async function POST(req: NextRequest) {
       },
     });
     if (!gate.ok) return NextResponse.json(gate.body, { status: gate.status });
+
+    const paymentReady = await assertBusinessPaymentReadyForCommission({
+      supabase: supabase as never,
+      businessEmail,
+    });
+    if (!paymentReady.ok) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: paymentReady.error,
+          message: paymentReady.message,
+          reason: paymentReady.reason,
+        },
+        { status: paymentReady.status },
+      );
+    }
 
     const { data: insertedCampaign, error: insertError } = await supabase
       .from("live_campaigns")
