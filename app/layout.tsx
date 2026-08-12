@@ -160,6 +160,7 @@ fbq('track', 'PageView');
             />
           </ThemeWrapper>
         </Providers>
+        <Analytics />
       </body>
     </html>
   );
