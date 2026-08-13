@@ -8,9 +8,24 @@ const META_APP_ID = process.env.NEXT_PUBLIC_META_APP_ID!
 const META_APP_SECRET = process.env.META_APP_SECRET!
 const REDIRECT_URI = `${process.env.NEXT_PUBLIC_BASE_URL}/api/meta/callback`
 
+function safeRedirectFromState(state: string | null) {
+  if (!state) return '/business/my-business/connect-meta?connected=1'
+
+  try {
+    const decoded = Buffer.from(state, 'base64').toString('utf8')
+    if (decoded.startsWith('/business/') && !decoded.startsWith('//')) return decoded
+  } catch {
+    // Ignore malformed state and use the safe default below.
+  }
+
+  if (state.startsWith('/business/') && !state.startsWith('//')) return state
+  return '/business/my-business/connect-meta?connected=1'
+}
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const code = searchParams.get('code')
+  const state = searchParams.get('state')
 
   if (!code) {
     return NextResponse.json({ error: 'Missing code' }, { status: 400 })
@@ -122,7 +137,7 @@ export async function GET(req: NextRequest) {
     }
 
     return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_BASE_URL}/business/my-business`
+      `${process.env.NEXT_PUBLIC_BASE_URL}${safeRedirectFromState(state)}`
     )
   } catch (err: any) {
     console.error('[❌ Meta callback error]', err)
