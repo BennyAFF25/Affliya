@@ -572,20 +572,21 @@ export default function MyBusinessPage() {
   useEffect(() => {
     if (!session || !user?.email) return;
     const loadStripeCustomerId = async () => {
-      const { data, error } = await supabase
-        .from("business_profiles")
-        .select(
-          "stripe_customer_id, stripe_account_id, stripe_onboarding_complete",
-        )
-        .eq("business_email", user.email)
-        .single();
-      if (error) {
+      const res = await fetch("/api/stripe/business-billing-profile", {
+        method: "GET",
+        cache: "no-store",
+      });
+      const json = await parseJsonSafe(res);
+      const data = json?.profile;
+
+      if (!res.ok || !json?.success) {
         console.log(
           "[ℹ️ No business profile yet or error loading stripe_customer_id]",
-          error.message,
+          json?.message || json?.error || res.status,
         );
         return;
       }
+
       if (data?.stripe_customer_id) {
         const customerId = data.stripe_customer_id as string;
         setBusinessCustomerId(customerId);
@@ -618,7 +619,7 @@ export default function MyBusinessPage() {
       }
     };
     loadStripeCustomerId();
-  }, [session, user, supabase]);
+  }, [session, user]);
 
   useEffect(() => {
     if (showPaymentForm && businessCustomerId && !setupClientSecret) {
@@ -814,41 +815,19 @@ export default function MyBusinessPage() {
       setIsSubmitting(true);
       const email = user?.email;
       if (!email) throw new Error("Missing business email");
-      const name = "Business";
-      const res = await fetch("/api/stripe/create-customer", {
+      const res = await fetch("/api/stripe/business-billing-profile", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email, name }),
       });
       const data = await parseJsonSafe(res);
       if (!res.ok || !data?.customerId)
-        throw new Error(data?.error || "Failed to create Stripe customer");
-
-      const { data: updRows, error: upErr } = await supabase
-        .from("business_profiles")
-        .update({ stripe_customer_id: data.customerId })
-        .eq("business_email", email)
-        .select("id");
-
-      if (upErr)
-        throw new Error(upErr.message || "Failed to save Stripe customer ID");
-
-      if (!updRows || updRows.length === 0) {
-        const { error: insErr } = await supabase
-          .from("business_profiles")
-          .insert({
-            business_email: email,
-            stripe_customer_id: data.customerId,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          });
-        if (insErr)
-          throw new Error(
-            insErr.message || "Failed to create business profile",
-          );
-      }
+        throw new Error(data?.message || data?.error || "Failed to create Stripe customer");
 
       setBusinessCustomerId(data.customerId);
+      if (data?.profile?.stripe_account_id) setBusinessAccountId(data.profile.stripe_account_id as string);
+      if (typeof data?.profile?.stripe_onboarding_complete === "boolean") {
+        setOnboardingComplete(Boolean(data.profile.stripe_onboarding_complete));
+      }
       toast.success("Billing connected (Stripe Customer created)");
     } catch (e: any) {
       console.error("[Connect billing error]", e);
@@ -946,10 +925,13 @@ export default function MyBusinessPage() {
     if (businessCustomerId && !hasCard) {
       setBillingPromptHandled(true);
       void handleAddPaymentMethod();
+    } else if (!businessCustomerId && !isSubmitting) {
+      setBillingPromptHandled(true);
+      void handleConnectBilling();
     } else if (hasCard) {
       setBillingPromptHandled(true);
     }
-  }, [businessCustomerId, hasCard, billingPromptHandled]);
+  }, [businessCustomerId, hasCard, billingPromptHandled, isSubmitting]);
 
   function AddCardForm({ onComplete }: { onComplete: () => void }) {
     const stripe = useStripe();
