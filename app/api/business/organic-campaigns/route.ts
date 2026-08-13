@@ -5,8 +5,7 @@ import {
   assertOfferTrackingReady,
   type QueryClient,
 } from "@/../utils/approvals/enforcement";
-import { requireBusinessCampaignLaunchEntitlement, isSubscriptionRequiredError, buildSubscriptionRequiredResponse } from "@/../utils/businessSubscriptionGate";
-import { trackBusinessSubscriptionAnalytics } from "@/../utils/businessSubscriptionAnalytics";
+import { isSubscriptionRequiredError } from "@/../utils/businessSubscriptionGate";
 import { assertBusinessPaymentReadyForCommission } from "@/../utils/businessPaymentReadiness";
 
 const supabaseUrl = process.env.SUPABASE_URL!;
@@ -131,22 +130,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const gate = await requireBusinessCampaignLaunchEntitlement({
-      supabase: supabase as never,
-      businessEmail,
-      returnTo: "/business/my-business/post-ideas",
-      intendedAction: "approve_organic_post",
-      campaignId: body?.submissionId || null,
-      submissionId: body?.submissionId || null,
-      attribution: {
-        source: "organic_campaigns_route",
-        offerId,
-        affiliateEmail,
-        platform: body?.platform || null,
-      },
-    });
-    if (!gate.ok) return NextResponse.json(gate.body, { status: gate.status });
-
     const paymentReady = await assertBusinessPaymentReadyForCommission({
       supabase: supabase as never,
       businessEmail,
@@ -185,15 +168,12 @@ export async function POST(req: NextRequest) {
       console.error("[organic-campaigns] insert failed", insertError);
       if (isSubscriptionRequiredError(insertError)) {
         return NextResponse.json(
-          buildSubscriptionRequiredResponse({
-            entitlement: null,
-            returnTo: "/business/my-business/post-ideas",
-            intendedAction: "approve_organic_post",
-            campaignId: body?.submissionId || null,
-            submissionId: body?.submissionId || null,
-            attribution: { source: "organic_campaigns_db_backstop" },
-          }),
-          { status: 402 },
+          {
+            success: false,
+            error: "ORGANIC_GATE_MISCONFIGURED",
+            message: "Organic campaign launch is incorrectly blocked by the subscription gate. Apply the paid-ad-only gate migration.",
+          },
+          { status: 500 },
         );
       }
       return NextResponse.json(
@@ -204,25 +184,6 @@ export async function POST(req: NextRequest) {
         },
         { status: 500 },
       );
-    }
-
-    if (gate.entitlement?.hasActiveSubscription && !gate.entitlement.isGrandfathered) {
-      await trackBusinessSubscriptionAnalytics({
-        supabase: supabase as never,
-        eventType: "campaign_approved_after_subscription",
-        businessId: gate.entitlement.businessId,
-        businessEmail,
-        campaignId: insertedCampaign?.id || body?.submissionId || null,
-        intendedAction: "approve_organic_post",
-        submissionId: body?.submissionId || null,
-        returnTo: "/business/my-business/post-ideas",
-        attribution: {
-          source: "organic_campaigns_route",
-          offerId,
-          affiliateEmail,
-          platform: body?.platform || null,
-        },
-      });
     }
 
     return NextResponse.json({ success: true, campaignId: insertedCampaign?.id });

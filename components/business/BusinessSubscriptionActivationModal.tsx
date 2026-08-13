@@ -107,15 +107,23 @@ export function BusinessSubscriptionActivationModal({
           returnTo: intent.returnTo || window.location.pathname,
           intendedAction: intent.intendedAction || null,
           submissionId: intent.submissionId || null,
+          campaignId: intent.campaignId || intent.submissionId || null,
+          attribution: intent.attribution || {},
         }),
       });
       const json = await res.json().catch(() => null);
 
-      if (!res.ok || !json?.url) {
-        throw new Error(json?.message || json?.error || "Unable to start subscription checkout.");
+      if (res.ok && json?.url) {
+        window.location.assign(json.url);
+        return;
       }
 
-      window.location.href = json.url;
+      if (res.ok && (json?.status === "already_subscribed" || json?.status === "grandfathered")) {
+        window.location.assign(intent.returnTo || window.location.pathname);
+        return;
+      }
+
+      throw new Error(json?.message || json?.error || "Unable to start subscription checkout.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to start checkout.");
       void trackBusinessSubscriptionClientEvent("subscription_checkout_cancelled", intent, {
@@ -131,9 +139,9 @@ export function BusinessSubscriptionActivationModal({
         <div className="mb-4 inline-flex rounded-full border border-[#00C2CB]/25 bg-[#00C2CB]/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#7ff5fb]">
           Nettmark Business
         </div>
-        <h2 className="text-2xl font-semibold tracking-tight">Launch your affiliate campaign</h2>
+        <h2 className="text-2xl font-semibold tracking-tight">Launch your paid affiliate ad</h2>
         <p className="mt-3 text-sm leading-6 text-white/70">
-          An affiliate has prepared a campaign for your business. Activate Nettmark Business to approve and launch affiliate campaigns.
+          An affiliate has submitted a paid ad idea for your business. Activate Nettmark Business to approve and launch paid affiliate ads.
         </p>
 
         <div className="mt-5 rounded-2xl border border-[#00C2CB]/20 bg-[#00C2CB]/10 p-4">
@@ -142,8 +150,8 @@ export function BusinessSubscriptionActivationModal({
         </div>
 
         <ul className="mt-5 space-y-2 text-sm text-white/75">
-          <li>✓ Receive and approve affiliate campaigns</li>
-          <li>✓ Manage live campaigns through Nettmark</li>
+          <li>✓ Receive affiliate ad ideas for free</li>
+          <li>✓ Approve and launch paid ads through Nettmark</li>
           <li>✓ Access marketplace campaign tools</li>
           <li>✓ Cancel through billing settings</li>
         </ul>

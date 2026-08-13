@@ -2,8 +2,6 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { createServerSupabaseClient } from "../../../../../utils/businessSubscriptions";
-import { requireBusinessCampaignLaunchEntitlement, isSubscriptionRequiredError, buildSubscriptionRequiredResponse } from "../../../../../utils/businessSubscriptionGate";
-import { trackBusinessSubscriptionAnalytics } from "../../../../../utils/businessSubscriptionAnalytics";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -37,25 +35,6 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: "UNAUTHORIZED", message: "Only the offer business can update this request." }, { status: 403 });
     }
 
-    let approvedEntitlement = null;
-    if (status === "approved") {
-      const gate = await requireBusinessCampaignLaunchEntitlement({
-        supabase: admin,
-        businessEmail: request.business_email,
-        returnTo: "/business/my-business/affiliate-requests",
-        intendedAction: "approve_affiliate_request",
-        campaignId: request.id,
-        submissionId: request.id,
-        attribution: {
-          source: "affiliate_request_status_route",
-          offerId: request.offer_id,
-          affiliateEmail: request.affiliate_email,
-        },
-      });
-      if (!gate.ok) return NextResponse.json(gate.body, { status: gate.status });
-      approvedEntitlement = gate.entitlement;
-    }
-
     const { data: updated, error: updateError } = await admin
       .from("affiliate_requests")
       .update({ status })
@@ -65,39 +44,7 @@ export async function POST(req: Request) {
       .single();
 
     if (updateError) {
-      if (isSubscriptionRequiredError(updateError)) {
-        return NextResponse.json(
-          buildSubscriptionRequiredResponse({
-            entitlement: null,
-            businessId: null,
-            returnTo: "/business/my-business/affiliate-requests",
-            intendedAction: "approve_affiliate_request",
-            campaignId: requestId,
-            submissionId: requestId,
-            attribution: { source: "affiliate_request_status_db_backstop" },
-          }),
-          { status: 402 },
-        );
-      }
       throw new Error(`Failed to update affiliate request: ${updateError.message}`);
-    }
-
-    if (status === "approved" && approvedEntitlement?.hasActiveSubscription && !approvedEntitlement.isGrandfathered) {
-      await trackBusinessSubscriptionAnalytics({
-        supabase: admin,
-        eventType: "campaign_approved_after_subscription",
-        businessId: approvedEntitlement.businessId,
-        businessEmail: request.business_email,
-        campaignId: request.id,
-        intendedAction: "approve_affiliate_request",
-        submissionId: request.id,
-        returnTo: "/business/my-business/affiliate-requests",
-        attribution: {
-          source: "affiliate_request_status_route",
-          offerId: request.offer_id,
-          affiliateEmail: request.affiliate_email,
-        },
-      });
     }
 
     return NextResponse.json({ success: true, request: updated });

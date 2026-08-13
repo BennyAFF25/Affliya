@@ -7,8 +7,12 @@ import {
 } from '../utils/businessEntitlements';
 
 const root = process.cwd();
-const migrationSql = fs.readFileSync(
-  path.join(root, 'supabase/migrations/20260721101000_business_subscription_gate.sql'),
+const migrationSql = [
+  'supabase/migrations/20260721101000_business_subscription_gate.sql',
+  'supabase/migrations/20260813090000_paid_ad_only_business_subscription_gate.sql',
+].map((file) => fs.readFileSync(path.join(root, file), 'utf8')).join('\n');
+const paidAdOnlyMigrationSql = fs.readFileSync(
+  path.join(root, 'supabase/migrations/20260813090000_paid_ad_only_business_subscription_gate.sql'),
   'utf8',
 );
 const modal = fs.readFileSync(
@@ -72,12 +76,14 @@ async function run() {
   assert.match(migrationSql, /VALUES \('campaign_activation', false\)/);
   assert.match(migrationSql, /business_subscription_gate_settings/);
 
-  // Database backstop protects approval and live campaign inserts once enabled.
-  assert.match(migrationSql, /BEFORE UPDATE ON public\.affiliate_requests/);
-  assert.match(migrationSql, /BEFORE UPDATE ON public\.ad_ideas/);
-  assert.match(migrationSql, /BEFORE INSERT ON public\.live_campaigns/);
-  assert.match(migrationSql, /BEFORE INSERT ON public\.live_ads/);
-  assert.match(migrationSql, /BUSINESS_SUBSCRIPTION_REQUIRED/);
+  // Database backstop protects only paid ad idea approval and paid live_ad inserts once enabled.
+  assert.match(paidAdOnlyMigrationSql, /DROP TRIGGER IF EXISTS enforce_business_subscription_affiliate_requests/);
+  assert.match(paidAdOnlyMigrationSql, /DROP TRIGGER IF EXISTS enforce_business_subscription_live_campaigns/);
+  assert.match(paidAdOnlyMigrationSql, /BEFORE UPDATE ON public\.ad_ideas/);
+  assert.match(paidAdOnlyMigrationSql, /BEFORE INSERT ON public\.live_ads/);
+  assert.doesNotMatch(paidAdOnlyMigrationSql, /CREATE TRIGGER enforce_business_subscription_affiliate_requests/);
+  assert.doesNotMatch(paidAdOnlyMigrationSql, /CREATE TRIGGER enforce_business_subscription_live_campaigns/);
+  assert.match(paidAdOnlyMigrationSql, /BUSINESS_SUBSCRIPTION_REQUIRED/);
 
   // Analytics uses the exact Rollout 3 event names and carries safe campaign/business/attribution context.
   for (const eventName of [
@@ -97,7 +103,7 @@ async function run() {
   assert.match(migrationSql + analyticsHelper + analyticsRoute, /attribution/);
 
   // User-facing modal has the required copy and preserves intent.
-  assert.match(modal, /Launch your affiliate campaign/);
+  assert.match(modal, /Launch your paid affiliate ad/);
   assert.match(modal, /\$49 AUD/);
   assert.match(modal, /nettmark:business-subscription-intent/);
   assert.match(modal, /submissionId/);
@@ -106,8 +112,10 @@ async function run() {
   assert.match(modal, /max-w-lg rounded-t-\[28px\]/, 'Mobile modal should render bottom-sheet style before centering on larger screens');
   assert.match(modal, /subscription_checkout_cancelled/);
 
-  // Server-side routes return structured subscription_required responses.
-  for (const source of [affiliateRoute, adIdeaRoute, organicRoute, metaRoute]) {
+  // Server-side gate opens only for paid ad approval/launch, not ordinary affiliate or organic flows.
+  assert.doesNotMatch(affiliateRoute, /requireBusinessCampaignLaunchEntitlement/);
+  assert.doesNotMatch(organicRoute, /requireBusinessCampaignLaunchEntitlement/);
+  for (const source of [adIdeaRoute, metaRoute]) {
     assert.match(source, /requireBusinessCampaignLaunchEntitlement/);
     assert.match(source, /BUSINESS_SUBSCRIPTION_REQUIRED|subscriptionRequired|buildSubscriptionRequiredResponse/);
   }
@@ -128,7 +136,7 @@ async function run() {
   assert.match(checkoutRoute, /subscription_checkout_started/);
   assert.match(checkoutRoute, /campaignId/);
   assert.match(webhookRoute, /subscription_activated/);
-  assert.match(affiliateRoute + adIdeaRoute + organicRoute + metaRoute, /campaign_approved_after_subscription/);
+  assert.match(adIdeaRoute + metaRoute, /campaign_approved_after_subscription/);
 
   // Entitlement gate allows grandfathered / active subscribers and blocks free businesses only when both flags are enabled.
   process.env.BUSINESS_SUBSCRIPTIONS_ENABLED = 'true';
@@ -228,12 +236,13 @@ async function run() {
   });
   assert.equal(flagOff.ok, true, '12. Turning off the gate feature flag restores the old workflow.');
 
-  assert.match(affiliateRoute + adIdeaRoute + organicRoute + metaRoute, /status: 402/, '5. Direct API attempt is blocked.');
+  assert.match(adIdeaRoute + metaRoute, /status: 402/, '5. Direct paid-ad API attempt is blocked.');
+  assert.doesNotMatch(affiliateRoute + organicRoute, /status: 402/, '5a. Affiliate request and organic flows do not open the subscription gate.');
   assert.match(checkoutRoute, /getOwnedBusinessForUser/, '6. Checkout begins from the correct business and campaign.');
   assert.match(modal + checkoutRoute, /subscription=cancelled/, '7. Cancelled Checkout returns safely.');
   assert.match(webhookRoute, /syncBusinessEntitlementFromStripeSubscription/, '8. Successful webhook activation unlocks the campaign.');
   assert.match(modal + checkoutRoute, /nettmark:business-subscription-intent|submissionId/, '9. Intended campaign remains available after activation.');
-  assert.match(migrationSql, /BEFORE INSERT ON public\.live_campaigns/, '11. Existing live campaigns remain unaffected because trigger is insert-only and gate defaults off.');
+  assert.doesNotMatch(paidAdOnlyMigrationSql, /CREATE TRIGGER enforce_business_subscription_live_campaigns/, '11. Organic live campaigns are not subscription-gated.');
 
   console.log('business subscription gate tests passed');
 }
