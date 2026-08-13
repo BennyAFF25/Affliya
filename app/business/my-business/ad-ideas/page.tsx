@@ -152,6 +152,25 @@ function RequirementCard({
   );
 }
 
+function formatBudgetLabel(idea: Pick<AdIdea, "daily_budget" | "budget_amount" | "budget_type">) {
+  const rawAmount = typeof idea.budget_amount === "number" && idea.budget_amount > 0
+    ? idea.budget_amount / 100
+    : typeof idea.daily_budget === "number" && idea.daily_budget > 0
+      ? idea.daily_budget
+      : null;
+
+  if (!rawAmount) return null;
+
+  const budgetType = String(idea.budget_type || "DAILY").toUpperCase() === "LIFETIME"
+    ? "lifetime"
+    : "daily";
+
+  return `${budgetType} $${rawAmount.toLocaleString("en-AU", {
+    minimumFractionDigits: rawAmount % 1 === 0 ? 0 : 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
+
 function formatIdeaDate(value?: string) {
   if (!value) return "Unknown time";
   const date = new Date(value);
@@ -658,8 +677,8 @@ export default function AdIdeasPage() {
                           <>
                             <StatusBadge status={idea.status} />
                             <Badge variant="muted">Paid ad</Badge>
-                            {idea.daily_budget || idea.budget_amount ? (
-                              <Badge variant="primary">Budget ${idea.daily_budget || idea.budget_amount}</Badge>
+                            {formatBudgetLabel(idea) ? (
+                              <Badge variant="primary">Budget {formatBudgetLabel(idea)}</Badge>
                             ) : null}
                           </>
                         )}
