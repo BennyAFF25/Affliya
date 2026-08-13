@@ -281,43 +281,58 @@ function ConnectMetaPageInner() {
     setError(null);
     setNotice(null);
 
-    const { error: updateError } = await (supabase as any)
-      .from("offers")
-      .update({
-        meta_page_id: draft.pageId,
-        meta_page_name: selectedPage?.page_name || null,
-        meta_ad_account_id: draft.adAccountId,
-        meta_ad_account_name: selectedAdAccount?.ad_account_name || null,
-        meta_pixel_id: draft.pixelId || null,
-        meta_pixel_name: selectedPixel?.name || null,
-      })
-      .eq("id", offer.id)
-      .eq("business_email", user.email as string);
+    try {
+      const res = await fetch(`/api/business/offers/${encodeURIComponent(offer.id)}/meta-assets`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          metaPageId: draft.pageId,
+          metaPageName: selectedPage?.page_name || null,
+          metaAdAccountId: draft.adAccountId,
+          metaAdAccountName: selectedAdAccount?.ad_account_name || null,
+          metaPixelId: draft.pixelId || null,
+          metaPixelName: selectedPixel?.name || null,
+        }),
+      });
+      const json = await res.json().catch(() => null);
 
-    setSavingByOffer((current) => ({ ...current, [offer.id]: false }));
+      if (!res.ok || !json?.saved || !json?.offer) {
+        console.error("[connect-meta] failed to save offer assets", json);
+        setError(json?.message || "Could not save Meta assets for this offer right now.");
+        return;
+      }
 
-    if (updateError) {
-      console.error("[connect-meta] failed to save offer assets", updateError);
+      const savedOffer = json.offer as Offer;
+      setOffers((current) =>
+        current.map((item) =>
+          item.id === offer.id
+            ? {
+                ...item,
+                meta_page_id: savedOffer.meta_page_id || null,
+                meta_page_name: savedOffer.meta_page_name || null,
+                meta_ad_account_id: savedOffer.meta_ad_account_id || null,
+                meta_ad_account_name: savedOffer.meta_ad_account_name || null,
+                meta_pixel_id: savedOffer.meta_pixel_id || null,
+                meta_pixel_name: savedOffer.meta_pixel_name || null,
+              }
+            : item,
+        ),
+      );
+      setDrafts((current) => ({
+        ...current,
+        [offer.id]: {
+          pageId: savedOffer.meta_page_id || "",
+          adAccountId: savedOffer.meta_ad_account_id || "",
+          pixelId: savedOffer.meta_pixel_id || "",
+        },
+      }));
+      setNotice(`Meta assets saved to DB for ${offer.title || "offer"}.`);
+    } catch (err) {
+      console.error("[connect-meta] failed to save offer assets", err);
       setError("Could not save Meta assets for this offer right now.");
-      return;
+    } finally {
+      setSavingByOffer((current) => ({ ...current, [offer.id]: false }));
     }
-
-    setOffers((current) =>
-      current.map((item) =>
-        item.id === offer.id
-          ? {
-              ...item,
-              meta_page_id: draft.pageId,
-              meta_page_name: selectedPage?.page_name || null,
-              meta_ad_account_id: draft.adAccountId,
-              meta_ad_account_name: selectedAdAccount?.ad_account_name || null,
-              meta_pixel_id: draft.pixelId || null,
-              meta_pixel_name: selectedPixel?.name || null,
-            }
-          : item,
-      ),
-    );
-    setNotice(`Meta assets attached to ${offer.title || "offer"}.`);
   };
 
   return (

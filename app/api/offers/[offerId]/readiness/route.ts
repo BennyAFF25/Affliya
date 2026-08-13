@@ -17,6 +17,18 @@ export async function GET(
   try {
     const { offerId } = await params;
     const readiness = await resolveOfferPaidReadiness({ supabase, offerId });
+    console.log("[offers/readiness] resolved", {
+      offerId,
+      businessEmail: readiness.businessEmail,
+      metaReady: readiness.metaReady,
+      metaReason: readiness.metaReason,
+      metaSource: readiness.metaSource,
+      trackingReady: readiness.trackingReady,
+      pageId: readiness.resolvedMeta.pageId,
+      adAccountId: readiness.resolvedMeta.adAccountId,
+      pixelId: readiness.resolvedMeta.pixelId,
+      counts: readiness.counts,
+    });
     return NextResponse.json({ success: true, readiness });
   } catch (error) {
     console.error("[offers/readiness]", error);
