@@ -35,10 +35,6 @@ import {
 } from "lucide-react";
 import { supabase } from "utils/supabase/pages-client";
 import { SectionHeader, StatCard } from "@/../components/ui";
-import {
-  BusinessSubscriptionActivationModal,
-  readSubscriptionIntentFromResponse,
-} from "@/../components/business/BusinessSubscriptionActivationModal";
 
 interface Profile {
   id: string;
@@ -188,8 +184,6 @@ export default function BusinessDashboard() {
   const [showBillingWhy, setShowBillingWhy] = useState(false);
   const [showMetaWhy, setShowMetaWhy] = useState(false);
   const [requestActionBusyId, setRequestActionBusyId] = useState<string | null>(null);
-  const [isOpeningStripeOnboarding, setIsOpeningStripeOnboarding] = useState(false);
-  const [subscriptionIntent, setSubscriptionIntent] = useState<ReturnType<typeof readSubscriptionIntentFromResponse>>(null);
 
   // simple dynamic goal line for sales
   const salesGoal =
@@ -569,37 +563,6 @@ export default function BusinessDashboard() {
     }
   }, [session, router, user]);
 
-  async function handleOpenStripeOnboarding() {
-    if (isOpeningStripeOnboarding) return;
-
-    try {
-      setIsOpeningStripeOnboarding(true);
-
-      const email = user?.email;
-      if (!email) throw new Error("Missing business email");
-
-      const res = await fetch("/api/stripe/create-account", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          role: "business",
-          email,
-        }),
-      });
-
-      const data = await parseJsonSafe(res);
-      if (!res.ok || !data?.url) {
-        throw new Error(data?.error || "Failed to start Stripe onboarding");
-      }
-
-      window.location.href = data.url;
-    } catch (e: any) {
-      console.error("[Dashboard Stripe onboarding error]", e);
-      toast.error(e?.message || "Stripe error");
-      setIsOpeningStripeOnboarding(false);
-    }
-  }
-
   const activationItems = [
     { label: "Create Account", done: true, href: "/create-account?role=business" },
     {
@@ -621,10 +584,9 @@ export default function BusinessDashboard() {
     },
     { label: "Approve First Affiliate", done: approved.length > 0, href: "/business/inbox" },
     {
-      label: "Connect billing to launch your first campaign",
+      label: "Billing setup available later",
       done: onboardingProgressFlags.billing_connected || hasBillingConnected,
-      href: "/business/my-business",
-      onClick: handleOpenStripeOnboarding,
+      href: "/business/settings",
     },
     {
       label: "Connect meta to get paid campaigns",
@@ -657,15 +619,9 @@ export default function BusinessDashboard() {
       const responseJson = await parseJsonSafe(response);
 
       if (!response.ok || !responseJson?.success) {
-        const intent = readSubscriptionIntentFromResponse(responseJson);
-        if (intent) {
-          setSubscriptionIntent(intent);
-          return;
-        }
-        console.error(
-          "[❌ Failed to update affiliate request status]",
-          responseJson?.message || responseJson?.error || response.status,
-        );
+        const message = responseJson?.message || responseJson?.error || "Failed to update affiliate request.";
+        console.error("[❌ Failed to update affiliate request status]", message || response.status);
+        toast.error(message);
         return;
       }
 
@@ -675,6 +631,9 @@ export default function BusinessDashboard() {
         if (approvedRow) {
           setApprovedAffiliates((prev) => [approvedRow, ...prev]);
         }
+        toast.success("Affiliate approved.");
+      } else {
+        toast.success("Affiliate request rejected.");
       }
     } finally {
       setRequestActionBusyId(null);
@@ -683,11 +642,6 @@ export default function BusinessDashboard() {
 
   return (
     <>
-      <BusinessSubscriptionActivationModal
-        open={Boolean(subscriptionIntent)}
-        intent={subscriptionIntent}
-        onClose={() => setSubscriptionIntent(null)}
-      />
       <div className="business-dashboard-theme min-h-screen w-full bg-[var(--background)] text-[var(--foreground)] px-4 py-4 sm:px-5 sm:py-6">
       <section className="mb-6 rounded-2xl border border-[var(--border)] bg-[var(--card)] p-4 sm:p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -744,25 +698,16 @@ export default function BusinessDashboard() {
               onClick={() => setShowBillingWhy((prev) => !prev)}
               className="flex w-full items-center justify-between text-left"
             >
-              <span className="text-sm font-semibold text-[var(--foreground)]">Connect billing now or later</span>
+              <span className="text-sm font-semibold text-[var(--foreground)]">Billing stays optional</span>
               {showBillingWhy ? <ChevronUp className="h-4 w-4 text-[var(--muted-foreground)]" /> : <ChevronDown className="h-4 w-4 text-[var(--muted-foreground)]" />}
             </button>
             <p className="mt-1 text-xs text-[var(--muted-foreground)]">
-              {hasBillingConnected ? "Billing connected" : "Optional for now"}
+              {hasBillingConnected ? "Billing connected" : "No action needed yet"}
             </p>
             {showBillingWhy && (
               <div className="mt-2 space-y-2 text-xs text-[var(--muted-foreground)]">
-                <p>Billing is used to settle commissions for paid promotion workflows.</p>
-                <p>You can connect billing now, or wait until your first affiliate request for a paid ad comes through.</p>
-                {!hasBillingConnected && (
-                  <button
-                    onClick={handleOpenStripeOnboarding}
-                    disabled={isOpeningStripeOnboarding}
-                    className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs font-semibold text-[var(--foreground)] disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {isOpeningStripeOnboarding ? "Opening Stripe…" : "Connect billing"}
-                  </button>
-                )}
+                <p>Billing stays optional while you set up the business, publish offers, and review affiliate requests.</p>
+                <p>Nettmark Business subscription checkout appears only when approving a paid ad idea from Ad Ideas.</p>
               </div>
             )}
           </div>
@@ -805,7 +750,7 @@ export default function BusinessDashboard() {
           </p>
           {!canApproveAffiliates && (
             <div className="mt-3 rounded-xl border border-[#00C2CB]/25 bg-[#00C2CB]/10 p-3 text-sm text-[#d8fbfd]">
-              You can approve this request now. If this action requires Nettmark Business activation, checkout will open during approval.
+              You can approve affiliate requests for free. Paid ad approval happens later from Ad Ideas.
             </div>
           )}
           <div className="mt-4 flex flex-wrap gap-2">

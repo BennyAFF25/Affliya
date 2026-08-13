@@ -63,6 +63,10 @@ const affiliateRequestsPage = fs.readFileSync(
   path.join(root, 'app/business/my-business/affiliate-requests/page.tsx'),
   'utf8',
 );
+const businessDashboardPage = fs.readFileSync(
+  path.join(root, 'app/business/dashboard/page.tsx'),
+  'utf8',
+);
 const approvalEnforcement = fs.readFileSync(
   path.join(root, 'utils/approvals/enforcement.ts'),
   'utf8',
@@ -128,6 +132,11 @@ async function run() {
   // Review pages allow free businesses to inspect submissions before approval/launch.
   assert.match(postIdeasPage + adIdeasPage + affiliateRequestsPage, /campaign_received_by_business/);
   assert.match(postIdeasPage + adIdeasPage, /campaign_review_opened/);
+
+  // The Nettmark Business checkout modal is available only from paid Ad Ideas.
+  assert.match(adIdeasPage, /<BusinessSubscriptionActivationModal/);
+  assert.doesNotMatch(businessDashboardPage + affiliateRequestsPage + postIdeasPage, /<BusinessSubscriptionActivationModal/);
+  assert.doesNotMatch(businessDashboardPage + affiliateRequestsPage + postIdeasPage, /readSubscriptionIntentFromResponse/);
 
   // Checkout preserves the return route instead of granting entitlement in-browser.
   assert.match(checkoutRoute, /safeReturnPath/);

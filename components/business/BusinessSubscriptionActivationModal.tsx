@@ -48,6 +48,7 @@ export function BusinessSubscriptionActivationModal({
 }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (open && intent) void trackBusinessSubscriptionClientEvent("subscription_gate_viewed", intent);
@@ -81,6 +82,7 @@ export function BusinessSubscriptionActivationModal({
 
     setLoading(true);
     setError(null);
+    setCheckoutUrl(null);
     void trackBusinessSubscriptionClientEvent("subscription_checkout_started", intent);
 
     try {
@@ -114,7 +116,12 @@ export function BusinessSubscriptionActivationModal({
       const json = await res.json().catch(() => null);
 
       if (res.ok && json?.url) {
+        setCheckoutUrl(json.url);
         window.location.assign(json.url);
+        window.setTimeout(() => {
+          setLoading(false);
+          setError("Stripe Checkout did not open automatically. Use the checkout link below.");
+        }, 2500);
         return;
       }
 
@@ -159,6 +166,14 @@ export function BusinessSubscriptionActivationModal({
         {error && (
           <div className="mt-4 rounded-xl border border-red-400/35 bg-red-500/10 px-4 py-3 text-sm text-red-100">
             {error}
+            {checkoutUrl && (
+              <a
+                href={checkoutUrl}
+                className="mt-2 block font-semibold text-white underline underline-offset-4"
+              >
+                Open Stripe Checkout
+              </a>
+            )}
           </div>
         )}
 

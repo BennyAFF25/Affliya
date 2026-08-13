@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useSession } from "@supabase/auth-helpers-react";
 import { supabase } from "@/../utils/supabase/pages-client";
-import { BusinessSubscriptionActivationModal, readSubscriptionIntentFromResponse, trackBusinessSubscriptionClientEvent } from "@/../components/business/BusinessSubscriptionActivationModal";
+import { trackBusinessSubscriptionClientEvent } from "@/../components/business/BusinessSubscriptionActivationModal";
 import {
   ActionBar,
   Badge,
@@ -85,7 +85,6 @@ export default function AffiliateRequestsPage() {
     Record<string, "sent" | "sending" | "error">
   >({});
   const [businessId, setBusinessId] = useState<string | null>(null);
-  const [subscriptionIntent, setSubscriptionIntent] = useState<ReturnType<typeof readSubscriptionIntentFromResponse>>(null);
 
   useEffect(() => {
     if (!session) return;
@@ -271,11 +270,6 @@ export default function AffiliateRequestsPage() {
     const responseJson = await parseJsonSafe(response);
 
     if (!response.ok || !responseJson?.success) {
-      const intent = readSubscriptionIntentFromResponse(responseJson);
-      if (intent) {
-        setSubscriptionIntent({ ...intent, businessId: intent.businessId || businessId });
-        return;
-      }
       console.error(
         "[affiliate-requests] Error updating status:",
         responseJson?.message || responseJson?.error || response.status,
@@ -405,11 +399,6 @@ export default function AffiliateRequestsPage() {
 
   return (
     <>
-      <BusinessSubscriptionActivationModal
-        open={Boolean(subscriptionIntent)}
-        intent={subscriptionIntent ? { ...subscriptionIntent, businessId: subscriptionIntent.businessId || businessId } : null}
-        onClose={() => setSubscriptionIntent(null)}
-      />
       <div className="min-h-screen w-full bg-[var(--background)] px-5 py-6 text-[var(--foreground)]">
       <div className="mx-auto max-w-6xl">
         <div className="relative mb-8 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-[0_0_0_1px_rgba(0,0,0,0.35),0_8px_30px_rgba(0,0,0,0.28)]">
@@ -462,7 +451,7 @@ export default function AffiliateRequestsPage() {
         >
           {!canApproveAffiliates && pending.length > 0 && (
             <div className="mb-4 rounded-xl border border-[#00C2CB]/25 bg-[#00C2CB]/10 px-4 py-3 text-sm text-[#d8fbfd]">
-              You can review affiliate requests now. If approval needs Nettmark Business activation, the subscription checkout will open at approval time.
+              You can review and approve affiliate requests for free. Paid ad approval happens later from Ad Ideas.
             </div>
           )}
 
