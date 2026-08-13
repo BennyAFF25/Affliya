@@ -12,6 +12,7 @@
     "test:business-entitlements": "tsx scripts/business-entitlements.test.ts",
     "test:business-subscriptions": "tsx scripts/business-subscriptions.test.ts",
     "test:business-subscription-gate": "tsx scripts/business-subscription-gate.test.ts",
+    "test:offer-readiness": "tsx scripts/offer-readiness.test.ts",
     "test:creator-referrals": "tsx scripts/creator-referrals.test.ts",
     "test:launch-fund": "tsx scripts/launch-fund.test.ts",
     "codemod:insert-header": "tsx scripts/codemods/insertMarketingHeader.ts"

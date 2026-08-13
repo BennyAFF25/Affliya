@@ -21,6 +21,7 @@ import { requireBusinessCampaignLaunchEntitlement, isSubscriptionRequiredError, 
 import { trackBusinessSubscriptionAnalytics } from "@/../utils/businessSubscriptionAnalytics";
 import { markLaunchFundCampaignWentLive } from "@/../utils/launchFund";
 import { assertBusinessPaymentReadyForCommission } from "@/../utils/businessPaymentReadiness";
+import { resolveOfferPaidReadiness } from "@/../utils/offerReadiness";
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -192,44 +193,67 @@ export async function POST(req: Request) {
     }
 
     const offerWebsite = (offer as any)?.website || null;
-    const offerPixelId = (offer as any)?.meta_pixel_id || null;
+    const paidReadiness = await resolveOfferPaidReadiness({
+      supabase: supabase as never,
+      offerId,
+    });
+    const offerPixelId = paidReadiness.resolvedMeta.pixelId || null;
 
     console.log("[meta-upload] business_email", businessEmail);
     console.log("[meta-upload] offer_website", offerWebsite);
-    console.log("[meta-upload] offer_meta_pixel_id", offerPixelId);
+    console.log("[meta-upload] resolved_meta_pixel_id", offerPixelId);
 
-    const selectedPageId = (offer as any)?.meta_page_id || null;
-    const selectedAdAccountId = (offer as any)?.meta_ad_account_id || null;
+    const selectedPageId = paidReadiness.resolvedMeta.pageId;
+    const selectedAdAccountId = paidReadiness.resolvedMeta.adAccountId;
 
     if (!selectedPageId || !selectedAdAccountId) {
       console.error("[❌ Offer missing Meta selections]", {
         selectedPageId,
         selectedAdAccountId,
+        reason: paidReadiness.metaReason,
+        counts: paidReadiness.counts,
       });
       return NextResponse.json(
         {
           success: false,
           error:
-            "This offer is organic-only right now. Attach a Meta Page and Ad Account on the offer before launching paid ads.",
+            paidReadiness.metaReason === "needs_offer_selection"
+              ? "Meta is connected, but this offer needs a selected Page and Ad Account before launching paid ads."
+              : "This offer is organic-only right now. Attach a Meta Page and Ad Account on the offer before launching paid ads.",
         },
         { status: 400 },
       );
     }
 
-    console.log("[✅ Selected Meta IDs from Offer]", {
+    console.log("[✅ Resolved Meta IDs]", {
       meta_page_id: selectedPageId,
       meta_ad_account_id: selectedAdAccountId,
       meta_pixel_id: offerPixelId,
+      source: paidReadiness.metaSource,
     });
 
-    // 2. Lookup access_token from meta_connections (IDs come from the offer)
-    const { data: connection, error: connectionError } = await supabase
+    // 2. Lookup access_token from the matching Meta connection first; fallback to latest.
+    let { data: connection, error: connectionError } = await supabase
       .from("meta_connections")
       .select("access_token, created_at")
       .eq("business_email", businessEmail)
+      .eq("page_id", selectedPageId)
+      .eq("ad_account_id", selectedAdAccountId)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
+
+    if (!connection && !connectionError) {
+      const fallback = await supabase
+        .from("meta_connections")
+        .select("access_token, created_at")
+        .eq("business_email", businessEmail)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      connection = fallback.data;
+      connectionError = fallback.error;
+    }
 
     if (connectionError || !connection) {
       console.error(

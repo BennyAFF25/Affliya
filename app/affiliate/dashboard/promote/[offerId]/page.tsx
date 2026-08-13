@@ -6,7 +6,7 @@ import { useRouter, useParams, usePathname } from "next/navigation";
 import { useSession } from "@supabase/auth-helpers-react";
 import { supabase } from "@/../utils/supabase/pages-client";
 import { calculateWalletBalance } from "@/../utils/wallet/balance";
-import { assertAffiliateOfferApproved, assertOfferTrackingReady } from "@/../utils/approvals/enforcement";
+import { assertAffiliateOfferApproved } from "@/../utils/approvals/enforcement";
 import { Badge, Card, ModeSelector, PreviewPanel, ReadinessBanner } from "@/../components/ui";
 
 import { AdFormState, GenderOpt, PlacementKey } from "../types";
@@ -256,10 +256,16 @@ export default function PromoteOfferPage() {
     hasPage: boolean;
     hasAdAccount: boolean;
     hasPixel: boolean;
+    connected: boolean;
+    reason: string | null;
+    source: "offer" | "meta_connections" | null;
   }>({
     hasPage: false,
     hasAdAccount: false,
     hasPixel: false,
+    connected: false,
+    reason: null,
+    source: null,
   });
   const [businessPaymentReady, setBusinessPaymentReady] = useState<boolean>(false);
   const [businessPaymentResolved, setBusinessPaymentResolved] = useState<boolean>(false);
@@ -268,7 +274,6 @@ export default function PromoteOfferPage() {
   const [approvalResolved, setApprovalResolved] = useState<boolean>(false);
   const [offerApproved, setOfferApproved] = useState<boolean>(false);
   const approvalClient = supabase as unknown as Parameters<typeof assertAffiliateOfferApproved>[0];
-  const trackingClient = supabase as unknown as Parameters<typeof assertOfferTrackingReady>[0];
 
   // Local preview URLs for selected files
   const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
@@ -302,20 +307,7 @@ export default function PromoteOfferPage() {
       setBrandName(offer?.title || "Your Brand Name");
       setBrandLogoUrl(offer?.logo_url || null);
       const offerRow = offer as OfferRow | null;
-      const offerLevelTrackingReady = Boolean(
-        offerRow?.site_host || offerRow?.meta_pixel_id,
-      );
 
-      setOfferMetaState({
-        hasPage: !!offerRow?.meta_page_id,
-        hasAdAccount: !!offerRow?.meta_ad_account_id,
-        hasPixel: !!offerRow?.meta_pixel_id,
-      });
-      setOfferMetaResolved(true);
-      if (offerLevelTrackingReady) {
-        setTrackingReady(true);
-        setTrackingResolved(true);
-      }
       // Pre-fill Destination URL with the business website if available
       if (offer?.website) {
         setForm((p) => ({
@@ -324,16 +316,40 @@ export default function PromoteOfferPage() {
         }));
       }
 
-      // 2) Check tracking readiness. Offer visibility/request approval is allowed while pending;
-      // campaign launch stays gated until tracking is ready.
+      // 2) Resolve paid readiness. This accepts offer-level Meta selections, but also
+      // falls back to meta_connections when the business has one clear Page/Ad Account.
       try {
-        const tracking = offerLevelTrackingReady
-          ? { ok: true as const }
-          : await assertOfferTrackingReady(trackingClient, offerId);
-        setTrackingReady(tracking.ok);
+        const readinessRes = await fetch(`/api/offers/${encodeURIComponent(offerId)}/readiness`, {
+          cache: "no-store",
+        });
+        const readinessJson = await readinessRes.json().catch(() => null);
+        const readiness = readinessJson?.readiness;
+
+        if (!readinessRes.ok || !readiness) throw new Error(readinessJson?.message || "Readiness lookup failed");
+
+        setOfferMetaState({
+          hasPage: Boolean(readiness.resolvedMeta?.pageId),
+          hasAdAccount: Boolean(readiness.resolvedMeta?.adAccountId),
+          hasPixel: Boolean(readiness.resolvedMeta?.pixelId),
+          connected: Boolean(readiness.metaConnected),
+          reason: readiness.metaReason || null,
+          source: readiness.metaSource || null,
+        });
+        setOfferMetaResolved(true);
+        setTrackingReady(Boolean(readiness.trackingReady));
       } catch (e) {
-        console.warn("[tracking readiness check failed]", e);
-        setTrackingReady(offerLevelTrackingReady);
+        console.warn("[paid readiness check failed]", e);
+        const fallbackTrackingReady = Boolean(offerRow?.site_host || offerRow?.meta_pixel_id);
+        setOfferMetaState({
+          hasPage: Boolean(offerRow?.meta_page_id),
+          hasAdAccount: Boolean(offerRow?.meta_ad_account_id),
+          hasPixel: Boolean(offerRow?.meta_pixel_id),
+          connected: Boolean(offerRow?.meta_page_id || offerRow?.meta_ad_account_id),
+          reason: "lookup_failed",
+          source: null,
+        });
+        setOfferMetaResolved(true);
+        setTrackingReady(fallbackTrackingReady);
       } finally {
         setTrackingResolved(true);
       }
@@ -355,7 +371,7 @@ export default function PromoteOfferPage() {
     };
 
     go();
-  }, [offerId, session, trackingClient]);
+  }, [offerId, session]);
 
   // ─────────────────────────────
   // Local planning assumptions only. Meta reach is unavailable pre-approval
@@ -387,6 +403,7 @@ export default function PromoteOfferPage() {
     offerMetaState.hasPage && offerMetaState.hasAdAccount;
   const offerHasSalesPixel = offerMetaState.hasPixel;
   const needsSalesPixel = form.objective === "OUTCOME_SALES";
+  const needsOfferMetaSelection = offerMetaResolved && offerMetaState.reason === "needs_offer_selection";
   const isOrganicOnlyOffer = offerMetaResolved && !offerHasMetaLaunchSetup;
   const showMetaSetupWarning = offerMetaResolved && !offerHasMetaLaunchSetup;
   const showSalesPixelWarning = offerMetaResolved && offerHasMetaLaunchSetup && needsSalesPixel && !offerHasSalesPixel;
@@ -650,15 +667,47 @@ export default function PromoteOfferPage() {
         return;
       }
 
-      const tracking = await assertOfferTrackingReady(trackingClient, offerId);
-      if (!tracking.ok) {
-        nmToast.error("Tracking setup is required before paid campaign launch.");
-        setTrackingReady(false);
-        setTrackingResolved(true);
+      const readinessRes = await fetch(`/api/offers/${encodeURIComponent(offerId)}/readiness`, {
+        cache: "no-store",
+      });
+      const readinessJson = await readinessRes.json().catch(() => null);
+      const readiness = readinessJson?.readiness;
+
+      if (!readinessRes.ok || !readiness) {
+        nmToast.error(readinessJson?.message || "Could not verify offer readiness.");
         return;
       }
-      setTrackingReady(true);
+
+      setTrackingReady(Boolean(readiness.trackingReady));
       setTrackingResolved(true);
+      setOfferMetaState({
+        hasPage: Boolean(readiness.resolvedMeta?.pageId),
+        hasAdAccount: Boolean(readiness.resolvedMeta?.adAccountId),
+        hasPixel: Boolean(readiness.resolvedMeta?.pixelId),
+        connected: Boolean(readiness.metaConnected),
+        reason: readiness.metaReason || null,
+        source: readiness.metaSource || null,
+      });
+      setOfferMetaResolved(true);
+
+      if (!readiness.trackingReady) {
+        nmToast.error("Tracking setup is required before paid campaign launch.");
+        return;
+      }
+
+      if (!readiness.resolvedMeta?.pageId || !readiness.resolvedMeta?.adAccountId) {
+        nmToast.error(
+          readiness.metaReason === "needs_offer_selection"
+            ? "Meta is connected, but this offer needs a selected Page and Ad Account before paid ads can launch."
+            : "Meta must be connected before paid ads can launch.",
+        );
+        return;
+      }
+
+      if (form.objective === "OUTCOME_SALES" && !readiness.resolvedMeta?.pixelId) {
+        nmToast.error("Sales campaigns need a selected Meta pixel before launch.");
+        return;
+      }
 
       if (!businessPaymentReady) {
         nmToast.error("The business needs a payment method before paid campaigns can launch.");
@@ -1067,8 +1116,13 @@ export default function PromoteOfferPage() {
             )}
 
             {showMetaSetupWarning && (
-              <ReadinessBanner tone="warning" title="Connect Meta to allow affiliates to launch campaigns.">
-                This offer can still be promoted organically while Meta setup is pending.
+              <ReadinessBanner
+                tone="warning"
+                title={needsOfferMetaSelection ? "Attach Meta assets to this offer." : "Connect Meta to allow affiliates to launch campaigns."}
+              >
+                {needsOfferMetaSelection
+                  ? "The business has Meta connected, but this offer needs a selected Page and Ad Account before paid ads can launch."
+                  : "This offer can still be promoted organically while Meta setup is pending."}
               </ReadinessBanner>
             )}
 
@@ -1098,7 +1152,9 @@ export default function PromoteOfferPage() {
 
             {isOrganicOnlyOffer && mode === "organic" && (
               <ReadinessBanner tone="info" title="Organic-only offer">
-                This offer is live in the marketplace, but paid ads are locked until the business connects Meta for it.
+                {needsOfferMetaSelection
+                  ? "This offer is live in the marketplace, but paid ads are locked until the business attaches a Meta Page and Ad Account to this offer."
+                  : "This offer is live in the marketplace, but paid ads are locked until the business connects Meta for it."}
               </ReadinessBanner>
             )}
           </div>

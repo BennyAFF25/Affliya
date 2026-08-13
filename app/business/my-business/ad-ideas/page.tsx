@@ -316,29 +316,23 @@ export default function AdIdeasPage() {
 
       console.log("[🔍 Fetching Offer Details for Ad Idea]", adIdea.offer_id);
 
-      // Pull offer details from Supabase
-      const { data: offerData, error: offerError } = await supabase
-        .from("offers")
-        .select("meta_ad_account_id, meta_page_id, meta_pixel_id")
-        .eq("id", adIdea.offer_id)
-        .single();
+      const readinessRes = await fetch(`/api/offers/${encodeURIComponent(adIdea.offer_id)}/readiness`, {
+        cache: "no-store",
+      });
+      const readinessJson = await readinessRes.json().catch(() => null);
+      const readiness = readinessJson?.readiness;
 
-      const offer = offerData as {
-        meta_ad_account_id: string;
-        meta_page_id: string;
-        meta_pixel_id: string | null;
-      } | null;
-
-      if (offerError || !offer) {
-        console.error("[❌ Fetch Offer Error]", offerError?.message);
+      if (!readinessRes.ok || !readiness) {
+        console.error("[❌ Offer readiness fetch error]", readinessJson);
+        nmToast.error(readinessJson?.message || "Could not verify offer readiness.");
         return;
-      } else {
-        console.log("[✅ Offer Details Fetched]", offer);
       }
 
-      if (!offer.meta_page_id || !offer.meta_ad_account_id) {
+      if (!readiness.resolvedMeta?.pageId || !readiness.resolvedMeta?.adAccountId) {
         nmToast.error(
-          "This offer is currently organic-only. Connect a Meta page and ad account on the offer before launching paid ads.",
+          readiness.metaReason === "needs_offer_selection"
+            ? "Meta is connected, but this offer needs a selected Page and Ad Account before launching paid ads."
+            : "This offer is currently organic-only. Connect a Meta page and ad account before launching paid ads.",
         );
         return;
       }
@@ -346,7 +340,7 @@ export default function AdIdeasPage() {
       const isSalesObjective =
         String(adIdea.objective || "").trim() === "OUTCOME_SALES";
 
-      if (isSalesObjective && !offer.meta_pixel_id) {
+      if (isSalesObjective && !readiness.resolvedMeta?.pixelId) {
         nmToast.error(
           "This offer still needs a Meta pixel before Sales campaigns can launch.",
         );
@@ -369,8 +363,9 @@ export default function AdIdeasPage() {
         gender: adIdea.gender,
         interests: adIdea.interests,
         display_link: `https://www.nettmark.com/go/${adIdea.offer_id}___${adIdea.affiliate_email}`,
-        metaPageId: offer.meta_page_id,
-        metaAdAccountId: offer.meta_ad_account_id,
+        metaPageId: readiness.resolvedMeta.pageId,
+        metaAdAccountId: readiness.resolvedMeta.adAccountId,
+        metaPixelId: readiness.resolvedMeta.pixelId || null,
         thumbnail_url: adIdea.thumbnail_url,
       };
 
