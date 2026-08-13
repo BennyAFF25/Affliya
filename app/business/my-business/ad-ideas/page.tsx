@@ -70,6 +70,21 @@ async function notifyAdApproved(params: {
   }
 }
 
+type ReviewReadiness = {
+  billing: {
+    ready: boolean;
+    reason?: string | null;
+    customerId?: string | null;
+  };
+  subscription: {
+    ready: boolean;
+    required: boolean;
+    grandfathered: boolean;
+    status: string;
+    businessId?: string | null;
+  };
+};
+
 interface AdIdea {
   meta_ad_id?: string;
   id: string;
@@ -101,6 +116,42 @@ interface AdIdea {
   performance_goal?: string;
 }
 
+function RequirementCard({
+  title,
+  body,
+  ready,
+  cta,
+}: {
+  title: string;
+  body: string;
+  ready: boolean;
+  cta?: React.ReactNode;
+}) {
+  return (
+    <div
+      className={`rounded-3xl border p-4 shadow-sm ${
+        ready
+          ? "border-emerald-400/25 bg-emerald-400/10"
+          : "border-amber-400/30 bg-amber-400/10"
+      }`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className={`h-2.5 w-2.5 rounded-full ${ready ? "bg-emerald-400" : "bg-amber-300"}`} />
+            <h3 className="text-sm font-bold text-white">{title}</h3>
+          </div>
+          <p className="mt-2 text-sm leading-6 text-slate-300">{body}</p>
+        </div>
+        <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${ready ? "bg-emerald-400/15 text-emerald-200" : "bg-amber-300/15 text-amber-100"}`}>
+          {ready ? "Ready" : "Required"}
+        </span>
+      </div>
+      {!ready && cta ? <div className="mt-4">{cta}</div> : null}
+    </div>
+  );
+}
+
 function formatIdeaDate(value?: string) {
   if (!value) return "Unknown time";
   const date = new Date(value);
@@ -125,6 +176,8 @@ export default function AdIdeasPage() {
   const [showRecent, setShowRecent] = useState(false);
   const [, setShowTargetingDetails] = useState(false);
   const [businessId, setBusinessId] = useState<string | null>(null);
+  const [reviewReadiness, setReviewReadiness] = useState<ReviewReadiness | null>(null);
+  const [reviewReadinessLoading, setReviewReadinessLoading] = useState(false);
   const [subscriptionIntent, setSubscriptionIntent] = useState<ReturnType<typeof readSubscriptionIntentFromResponse>>(null);
   const session = useSession();
   const user = session?.user;
@@ -132,6 +185,24 @@ export default function AdIdeasPage() {
   const pendingIdeas = ideas.filter((i) => i.status === "pending");
   const reviewedIdeas = ideas.filter((i) => i.status !== "pending");
   const approvedCount = ideas.filter((i) => i.status === "approved").length;
+  const billingReady = Boolean(reviewReadiness?.billing.ready);
+  const subscriptionReady = Boolean(reviewReadiness?.subscription.ready);
+  const subscriptionRequired = reviewReadiness?.subscription.required !== false;
+  const launchRequirementsReady = billingReady && (subscriptionReady || !subscriptionRequired);
+
+  const buildSubscriptionIntent = (idea?: AdIdea | null) => ({
+    businessId: reviewReadiness?.subscription.businessId || businessId,
+    campaignId: idea?.id || null,
+    submissionId: idea?.id || null,
+    intendedAction: "approve_ad_idea",
+    returnTo: "/business/my-business/ad-ideas",
+    attribution: {
+      source: "ad_ideas_requirements_panel",
+      offerId: idea?.offer_id || null,
+      affiliateEmail: idea?.affiliate_email || null,
+      campaignType: "paid_meta",
+    },
+  });
 
   useEffect(() => {
     if (session === undefined) return;
@@ -174,6 +245,37 @@ export default function AdIdeasPage() {
       loadOffersMap();
     }
   }, [session, user, router]);
+
+  useEffect(() => {
+    if (session === undefined) return;
+    if (session === null) return;
+    if (!user?.email) return;
+
+    const loadReviewReadiness = async () => {
+      setReviewReadinessLoading(true);
+      try {
+        const res = await fetch("/api/business/ad-ideas/review-readiness", {
+          cache: "no-store",
+        });
+        const json = await res.json().catch(() => null);
+        if (res.ok && json?.success) {
+          setReviewReadiness({
+            billing: json.billing,
+            subscription: json.subscription,
+          });
+          if (json.subscription?.businessId) setBusinessId(json.subscription.businessId);
+        } else {
+          console.warn("[ad-ideas] review readiness failed", json);
+        }
+      } catch (error) {
+        console.warn("[ad-ideas] review readiness error", error);
+      } finally {
+        setReviewReadinessLoading(false);
+      }
+    };
+
+    void loadReviewReadiness();
+  }, [session, user?.email]);
 
   useEffect(() => {
     if (session === undefined) return;
@@ -463,28 +565,69 @@ export default function AdIdeasPage() {
         intent={subscriptionIntent ? { ...subscriptionIntent, businessId: subscriptionIntent.businessId || businessId } : null}
         onClose={() => setSubscriptionIntent(null)}
       />
-      <div className="ad-ideas-theme min-h-screen bg-[var(--background)] px-4 py-8 md:px-10 md:py-10">
-      <div className="max-w-4xl mx-auto">
-        <div className="mb-8 rounded-[28px] border border-[var(--border)] bg-[radial-gradient(circle_at_top_right,rgba(0,194,203,0.16),transparent_32%),var(--card)] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.28)] md:p-7">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--muted-foreground)]">
-                Review queue
-              </p>
-              <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#00C2CB]">
-                Affiliate Promotion Requests
+      <div className="ad-ideas-theme min-h-screen bg-[#05080b] px-4 py-8 text-white md:px-10 md:py-10">
+      <div className="mx-auto max-w-6xl space-y-6">
+        <div className="overflow-hidden rounded-[32px] border border-white/10 bg-[radial-gradient(circle_at_top_right,rgba(0,194,203,0.22),transparent_34%),linear-gradient(135deg,#111819,#080b0d)] p-6 shadow-[0_28px_90px_rgba(0,0,0,0.45)] md:p-8">
+          <div className="flex flex-col gap-7 xl:flex-row xl:items-end xl:justify-between">
+            <div className="max-w-3xl">
+              <div className="inline-flex rounded-full border border-[#00C2CB]/25 bg-[#00C2CB]/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] text-[#7ff5fb]">
+                Paid launch review
+              </div>
+              <h1 className="mt-4 text-3xl font-black tracking-tight text-white md:text-5xl">
+                Affiliate ad ideas
               </h1>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted-foreground)]">
-                Review paid ad ideas, inspect targeting details, and approve only the campaigns ready to launch.
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300 md:text-base">
+                Review paid campaign submissions from approved affiliates. Billing and Nettmark Business activate only when you approve real paid campaign activity.
               </p>
             </div>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              <StatCard label="Pending" value={pendingIdeas.length} tone="warning" />
-              <StatCard label="Approved" value={approvedCount} tone="success" />
-              <StatCard label="Reviewed" value={reviewedIdeas.length} tone="muted" className="col-span-2 sm:col-span-1" />
+            <div className="grid grid-cols-3 gap-3 xl:min-w-[420px]">
+              <StatCard label="Pending" value={pendingIdeas.length} tone="warning" className="border-white/10 bg-white/[0.04]" />
+              <StatCard label="Approved" value={approvedCount} tone="success" className="border-white/10 bg-white/[0.04]" />
+              <StatCard label="Reviewed" value={reviewedIdeas.length} tone="muted" className="border-white/10 bg-white/[0.04]" />
             </div>
           </div>
         </div>
+
+        {pendingIdeas.length > 0 && (
+          <section className="grid gap-4 lg:grid-cols-2">
+            <RequirementCard
+              title="Commission/ad-spend billing"
+              ready={billingReady}
+              body={billingReady
+                ? "Payment method is connected for tracked affiliate commissions and campaign charges."
+                : "Required before you approve. This is the existing commission/ad-spend billing path — not the Nettmark subscription."}
+              cta={(
+                <Button href="/business/my-business?billing=required&returnTo=/business/my-business/ad-ideas" className="w-full justify-center">
+                  Connect billing
+                </Button>
+              )}
+            />
+            <RequirementCard
+              title="Nettmark Business subscription"
+              ready={subscriptionReady || !subscriptionRequired}
+              body={!subscriptionRequired
+                ? "This business is grandfathered or subscription is not required."
+                : subscriptionReady
+                  ? "Nettmark Business is active for paid affiliate ad approvals."
+                  : "Required only when approving paid affiliate ad activity. Starts at $49 AUD/month."}
+              cta={(
+                <Button
+                  type="button"
+                  className="w-full justify-center"
+                  onClick={() => setSubscriptionIntent(buildSubscriptionIntent(pendingIdeas[0]))}
+                  disabled={!businessId && !reviewReadiness?.subscription.businessId}
+                >
+                  Start subscription
+                </Button>
+              )}
+            />
+            {reviewReadinessLoading && (
+              <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-4 text-sm text-slate-300 lg:col-span-2">
+                Checking launch requirements…
+              </div>
+            )}
+          </section>
+        )}
 
         {ideas.length === 0 ? (
           <EmptyState
@@ -494,9 +637,10 @@ export default function AdIdeasPage() {
         ) : (
           <>
             <ReviewQueue
-              title="Pending ad ideas"
-              description="New paid ad ideas waiting for a business decision."
+              title={<span className="text-white">Pending ad ideas</span>}
+              description={<span className="text-slate-400">New paid ad ideas waiting for a business decision.</span>}
               actions={<StatusBadge status="pending" label={`${pendingIdeas.length} pending`} />}
+              className="rounded-[28px] border border-white/10 bg-white/[0.03] p-5 shadow-[0_20px_70px_rgba(0,0,0,0.25)]"
             >
               {pendingIdeas.length === 0 ? (
                 <EmptyState
@@ -509,6 +653,7 @@ export default function AdIdeasPage() {
                   {pendingIdeas.map((idea) => (
                     <li key={idea.id}>
                       <ReviewCard
+                        className="border-white/10 bg-[linear-gradient(135deg,rgba(255,255,255,0.06),rgba(0,194,203,0.05))] p-5 shadow-[0_18px_60px_rgba(0,0,0,0.28)]"
                         header={(
                           <>
                             <StatusBadge status={idea.status} />
@@ -518,8 +663,8 @@ export default function AdIdeasPage() {
                             ) : null}
                           </>
                         )}
-                        title={offersMap[idea.offer_id] || "Unknown Offer"}
-                        description={`${idea.audience || "Audience not set"} · ${idea.location || "Location not set"}`}
+                        title={<span className="text-xl text-white">{offersMap[idea.offer_id] || "Unknown Offer"}</span>}
+                        description={<span className="text-slate-300">{`${idea.audience || "Audience not set"} · ${idea.location || "Location not set"}`}</span>}
                         meta={(
                           <>
                             <ReviewMetaItem label="Affiliate">{idea.affiliate_email}</ReviewMetaItem>
@@ -553,9 +698,15 @@ export default function AdIdeasPage() {
                             >
                               View details
                             </Button>
+                            {(!billingReady || (!subscriptionReady && subscriptionRequired)) && (
+                              <div className="rounded-xl border border-amber-300/25 bg-amber-300/10 px-3 py-2 text-xs leading-5 text-amber-100">
+                                Finish billing and subscription above before this can launch.
+                              </div>
+                            )}
                             <Button
                               type="button"
                               className="w-full"
+                              disabled={!launchRequirementsReady}
                               onClick={async () => {
                                 const ok = await handleStatusChange(
                                   idea.id,
@@ -632,12 +783,12 @@ export default function AdIdeasPage() {
               )}
             </ReviewQueue>
 
-            <div className="mt-8">
+            <div className="mt-6">
               <Button
                 type="button"
                 onClick={() => setShowRecent((prev) => !prev)}
-                variant="secondary"
-                className="w-full justify-center"
+                variant="outline"
+                className="w-full justify-center border-white/10 bg-white/[0.03] text-slate-200 hover:bg-white/[0.06]"
               >
                 {showRecent ? "Hide recent ads" : `Show recent ads (${reviewedIdeas.length})`}
               </Button>

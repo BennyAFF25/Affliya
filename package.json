@@ -16,6 +16,7 @@
     "test:connect-meta-asset-mapping": "tsx scripts/connect-meta-asset-mapping.test.ts",
     "test:business-payment-gate-placement": "tsx scripts/business-payment-gate-placement.test.ts",
     "test:business-billing-profile": "tsx scripts/business-billing-profile.test.ts",
+    "test:ad-ideas-review-ui": "tsx scripts/ad-ideas-review-ui.test.ts",
     "test:creator-referrals": "tsx scripts/creator-referrals.test.ts",
     "test:launch-fund": "tsx scripts/launch-fund.test.ts",
     "codemod:insert-header": "tsx scripts/codemods/insertMarketingHeader.ts"
