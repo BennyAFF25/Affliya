@@ -3,6 +3,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useSession } from "@supabase/auth-helpers-react";
 import { supabase } from "@/../utils/supabase/pages-client";
 import { TRACKING_NOT_READY_MESSAGE } from "@/../utils/approvals/enforcement";
@@ -120,6 +121,7 @@ export default function PostIdeasPage() {
   const [businessId, setBusinessId] = useState<string | null>(null);
   const session = useSession();
   const user = session?.user;
+  const router = useRouter();
 
   useEffect(() => {
     const fetchOffers = async () => {
@@ -288,6 +290,11 @@ export default function PostIdeasPage() {
         const campaignJson = await campaignRes.json().catch(() => null);
 
         if (!campaignRes.ok || !campaignJson?.success) {
+          if (campaignJson?.error === "BUSINESS_PAYMENT_METHOD_REQUIRED") {
+            window.alert(campaignJson?.message || "Add business billing before approving this organic post.");
+            router.push("/business/my-business?billing=required&returnTo=/business/my-business/post-ideas");
+            return;
+          }
           throw new Error(
             campaignJson?.message ||
               "Failed to create the organic campaign after approval.",

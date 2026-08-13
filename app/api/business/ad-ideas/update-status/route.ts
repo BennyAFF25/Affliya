@@ -5,6 +5,7 @@ import { createServerSupabaseClient } from "../../../../../utils/businessSubscri
 import { assertAffiliateOfferApproved, type QueryClient } from "../../../../../utils/approvals/enforcement";
 import { requireBusinessCampaignLaunchEntitlement, isSubscriptionRequiredError, buildSubscriptionRequiredResponse } from "../../../../../utils/businessSubscriptionGate";
 import { trackBusinessSubscriptionAnalytics } from "../../../../../utils/businessSubscriptionAnalytics";
+import { assertBusinessPaymentReadyForCommission } from "../../../../../utils/businessPaymentReadiness";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -47,6 +48,25 @@ export async function POST(req: Request) {
       });
       if (affiliateApproval.ok === false) {
         return NextResponse.json({ success: false, error: affiliateApproval.error, message: affiliateApproval.message }, { status: affiliateApproval.status });
+      }
+
+      const paymentReady = await assertBusinessPaymentReadyForCommission({
+        supabase: admin as never,
+        businessEmail: idea.business_email,
+      });
+      if (!paymentReady.ok) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: paymentReady.error,
+            message: "Add a business payment method before approving this paid ad idea. Affiliate commissions are only charged when tracked sales occur.",
+            reason: paymentReady.reason,
+            customerId: paymentReady.customerId,
+            source: paymentReady.source,
+            action: "connect_business_billing",
+          },
+          { status: paymentReady.status },
+        );
       }
 
       const gate = await requireBusinessCampaignLaunchEntitlement({

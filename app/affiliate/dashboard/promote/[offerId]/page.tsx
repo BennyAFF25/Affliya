@@ -267,8 +267,6 @@ export default function PromoteOfferPage() {
     reason: null,
     source: null,
   });
-  const [businessPaymentReady, setBusinessPaymentReady] = useState<boolean>(false);
-  const [businessPaymentResolved, setBusinessPaymentResolved] = useState<boolean>(false);
   const [trackingReady, setTrackingReady] = useState<boolean>(false);
   const [trackingResolved, setTrackingResolved] = useState<boolean>(false);
   const [approvalResolved, setApprovalResolved] = useState<boolean>(false);
@@ -354,20 +352,6 @@ export default function PromoteOfferPage() {
         setTrackingResolved(true);
       }
 
-      // 3) Check business payment readiness for paid campaigns
-      try {
-        const res = await fetch(
-          `/api/business/payment-readiness?offerId=${encodeURIComponent(offerId)}`,
-          { cache: "no-store" },
-        );
-        const json = await res.json().catch(() => ({}));
-        setBusinessPaymentReady(Boolean(json?.hasPaymentMethod));
-      } catch (e) {
-        console.warn("[payment readiness check failed]", e);
-        setBusinessPaymentReady(false);
-      } finally {
-        setBusinessPaymentResolved(true);
-      }
     };
 
     go();
@@ -407,11 +391,9 @@ export default function PromoteOfferPage() {
   const isOrganicOnlyOffer = offerMetaResolved && !offerHasMetaLaunchSetup;
   const showMetaSetupWarning = offerMetaResolved && !offerHasMetaLaunchSetup;
   const showSalesPixelWarning = offerMetaResolved && offerHasMetaLaunchSetup && needsSalesPixel && !offerHasSalesPixel;
-  const showBusinessPaymentWarning =
-    businessPaymentResolved && !businessPaymentReady;
   const showTrackingWarning = trackingResolved && !trackingReady;
   const canLaunchPaidCampaign =
-    trackingReady && offerHasMetaLaunchSetup && (!needsSalesPixel || offerHasSalesPixel) && businessPaymentReady;
+    trackingReady && offerHasMetaLaunchSetup && (!needsSalesPixel || offerHasSalesPixel);
 
   const verifyAffiliateOfferApproval = useCallback(async () => {
     if (!offerId || !userEmail) return false;
@@ -706,11 +688,6 @@ export default function PromoteOfferPage() {
 
       if (form.objective === "OUTCOME_SALES" && !readiness.resolvedMeta?.pixelId) {
         nmToast.error("Sales campaigns need a selected Meta pixel before launch.");
-        return;
-      }
-
-      if (!businessPaymentReady) {
-        nmToast.error("The business needs a payment method before paid campaigns can launch.");
         return;
       }
 
@@ -1129,12 +1106,6 @@ export default function PromoteOfferPage() {
             {showSalesPixelWarning && (
               <ReadinessBanner tone="info" title="Sales campaigns still need a Meta pixel">
                 This offer is Meta-ready for traffic and engagement, but Sales requires a selected Meta pixel on the offer first.
-              </ReadinessBanner>
-            )}
-
-            {showBusinessPaymentWarning && (
-              <ReadinessBanner tone="warning" title="A payment method is required before paid campaigns can launch.">
-                Affiliate commissions are charged only when a tracked sale occurs.
               </ReadinessBanner>
             )}
 

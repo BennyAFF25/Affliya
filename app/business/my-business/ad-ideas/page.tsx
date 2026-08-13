@@ -250,6 +250,11 @@ export default function AdIdeasPage() {
         return false;
       }
       console.error("[❌ Ad idea status update failed]", json?.message || json?.error || res.status);
+      if (json?.error === "BUSINESS_PAYMENT_METHOD_REQUIRED" || json?.action === "connect_business_billing") {
+        nmToast.error(json?.message || "Add business billing before approving this paid ad idea.");
+        router.push("/business/my-business?billing=required&returnTo=/business/my-business/ad-ideas");
+        return false;
+      }
       nmToast.error(json?.message || "Failed to update ad status");
       return false;
     }

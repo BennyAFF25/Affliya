@@ -360,6 +360,8 @@ export default function MyBusinessPage() {
     null,
   );
   const [showPaymentForm, setShowPaymentForm] = useState(false);
+  const [billingRequiredPrompt, setBillingRequiredPrompt] = useState(false);
+  const [billingPromptHandled, setBillingPromptHandled] = useState(false);
   const [businessAccountId, setBusinessAccountId] = useState<string | null>(
     null,
   );
@@ -933,6 +935,22 @@ export default function MyBusinessPage() {
     }
   }
 
+  useEffect(() => {
+    if (typeof window === "undefined" || billingPromptHandled) return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("billing") !== "required") return;
+
+    setBillingRequiredPrompt(true);
+    toast("Add a payment method to approve this campaign. You are only charged when tracked commission/ad spend is due.", { icon: "💳" });
+
+    if (businessCustomerId && !hasCard) {
+      setBillingPromptHandled(true);
+      void handleAddPaymentMethod();
+    } else if (hasCard) {
+      setBillingPromptHandled(true);
+    }
+  }, [businessCustomerId, hasCard, billingPromptHandled]);
+
   function AddCardForm({ onComplete }: { onComplete: () => void }) {
     const stripe = useStripe();
     const elements = useElements();
@@ -1139,7 +1157,12 @@ export default function MyBusinessPage() {
               </div>
 
               {/* Billing item */}
-              <div className="flex items-center justify-between rounded-xl border border-[#1f2a2b] bg-[#0e1112] px-4 py-3">
+              {billingRequiredPrompt && !billingReady && (
+                <div className="rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
+                  Add a business payment method before approving this campaign. This is for tracked affiliate commission/ad-spend billing, not a Nettmark subscription.
+                </div>
+              )}
+              <div className={`flex items-center justify-between rounded-xl border px-4 py-3 ${billingRequiredPrompt && !billingReady ? "border-amber-400/40 bg-amber-400/10" : "border-[#1f2a2b] bg-[#0e1112]"}`}>
                 <div className="flex items-center gap-3">
                   <span
                     className={`inline-block w-3 h-3 rounded-full ${billingReady ? "bg-green-500" : "bg-[#334649]"}`}
