@@ -440,10 +440,10 @@ export default function PromoteOfferPage() {
   }, [offerId, session, userEmail, verifyAffiliateOfferApproval]);
 
   useEffect(() => {
-    if ((showTrackingWarning || isOrganicOnlyOffer || showBusinessPaymentWarning) && mode === "ad") {
+    if ((showTrackingWarning || isOrganicOnlyOffer) && mode === "ad") {
       setMode("organic");
     }
-  }, [isOrganicOnlyOffer, mode, showBusinessPaymentWarning, showTrackingWarning]);
+  }, [isOrganicOnlyOffer, mode, showTrackingWarning]);
 
   // ─────────────────────────────
   // Helpers
@@ -1045,11 +1045,11 @@ export default function PromoteOfferPage() {
             options={[
               {
                 value: "ad",
-                label: showTrackingWarning || isOrganicOnlyOffer || showBusinessPaymentWarning ? "Ads unavailable" : "Paid ad campaign",
+                label: showTrackingWarning || isOrganicOnlyOffer ? "Ads unavailable" : "Paid ad campaign",
                 description: showTrackingWarning
                   ? "Tracking is required before paid campaign launch."
                   : "Create a Meta-ready campaign idea with budget, targeting, creative, and uploads.",
-                disabled: showTrackingWarning || isOrganicOnlyOffer || showBusinessPaymentWarning,
+                disabled: showTrackingWarning || isOrganicOnlyOffer,
                 activeClassName: "border-[#00C2CB]/70 bg-[#00C2CB]/12 shadow-[0_14px_34px_rgba(0,194,203,0.12)]",
                 activeLabelClassName: "text-white",
                 inactiveLabelClassName: "text-white",
