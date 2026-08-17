@@ -6,6 +6,39 @@ import { Sparkles } from "lucide-react";
 import { supabase } from "utils/supabase/pages-client";
 import toast from "react-hot-toast";
 
+type SubscriptionState = {
+  status: string | null;
+  currentPeriodEnd: string | null;
+  subscriptionId: string | null;
+  customerId: string | null;
+};
+
+function formatSubscriptionStatus(status: string | null) {
+  const normalized = String(status || "").toLowerCase();
+
+  if (!normalized) return "Not started";
+  if (normalized === "trialing") return "Trial active";
+  if (normalized === "active") return "Active";
+  if (normalized === "past_due") return "Past due";
+  if (normalized === "canceled") return "Canceled";
+  if (normalized === "incomplete") return "Incomplete";
+
+  return normalized.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function formatSubscriptionDate(value: string | null) {
+  if (!value) return null;
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+
+  return date.toLocaleDateString(undefined, {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
 export default function BusinessSettingsPage() {
   const user = useUser();
 
@@ -19,20 +52,38 @@ export default function BusinessSettingsPage() {
 
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
-
+  const [loadingSubscription, setLoadingSubscription] = useState(true);
+  const [managingSubscription, setManagingSubscription] = useState(false);
+  const [subscription, setSubscription] = useState<SubscriptionState>({
+    status: null,
+    currentPeriodEnd: null,
+    subscriptionId: null,
+    customerId: null,
+  });
 
   useEffect(() => {
     if (!user?.email) return;
 
     const loadProfile = async () => {
       setLoadingProfile(true);
+      setLoadingSubscription(true);
 
-      const { data, error } = await (supabase as any)
-        .from("business_profiles")
-        .select("business_name, billing_email, avatar_url")
-        .eq("business_email", user.email as string)
-        .single();
+      const [businessProfileResult, subscriptionResult] = await Promise.all([
+        (supabase as any)
+          .from("business_profiles")
+          .select("business_name, billing_email, avatar_url")
+          .eq("business_email", user.email as string)
+          .single(),
+        (supabase as any)
+          .from("profiles")
+          .select(
+            "revenue_subscription_status, revenue_current_period_end, revenue_stripe_subscription_id, revenue_stripe_customer_id",
+          )
+          .eq("email", user.email as string)
+          .maybeSingle(),
+      ]);
 
+      const { data, error } = businessProfileResult;
       if (!error && data) {
         const row = data as any;
         setBusinessName(row.business_name ?? "");
@@ -40,7 +91,26 @@ export default function BusinessSettingsPage() {
         setAvatarUrl(row.avatar_url ?? null);
       }
 
+      const { data: subscriptionData, error: subscriptionError } = subscriptionResult;
+      if (!subscriptionError && subscriptionData) {
+        const row = subscriptionData as any;
+        setSubscription({
+          status: row.revenue_subscription_status ?? null,
+          currentPeriodEnd: row.revenue_current_period_end ?? null,
+          subscriptionId: row.revenue_stripe_subscription_id ?? null,
+          customerId: row.revenue_stripe_customer_id ?? null,
+        });
+      } else {
+        setSubscription({
+          status: null,
+          currentPeriodEnd: null,
+          subscriptionId: null,
+          customerId: null,
+        });
+      }
+
       setLoadingProfile(false);
+      setLoadingSubscription(false);
     };
 
     void loadProfile();
@@ -154,6 +224,40 @@ export default function BusinessSettingsPage() {
 
     setResetSending(false);
   };
+
+  const handleManageSubscription = async () => {
+    if (!user?.email) return;
+
+    try {
+      setManagingSubscription(true);
+
+      const res = await fetch("/api/stripe-app/create-portal-session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ accountType: "business" }),
+      });
+
+      const json = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(json.error || "Failed to open billing portal");
+      }
+
+      if (!json.url) {
+        throw new Error("Stripe billing portal URL missing");
+      }
+
+      window.location.href = json.url;
+    } catch (err: any) {
+      toast.error(err.message || "Failed to open billing portal");
+    } finally {
+      setManagingSubscription(false);
+    }
+  };
+
+  const subscriptionStatusLabel = formatSubscriptionStatus(subscription.status);
+  const subscriptionDateLabel = formatSubscriptionDate(subscription.currentPeriodEnd);
+  const hasPortalAccess = !!subscription.customerId || !!subscription.subscriptionId;
 
   const initials = businessName?.trim()
     ? businessName
@@ -302,6 +406,73 @@ export default function BusinessSettingsPage() {
                 </button>
               </form>
             )}
+          </section>
+        )}
+
+        {user && (
+          <section className="relative rounded-3xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-[0_0_60px_0_rgba(0,0,0,0.10)]">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <h2 className="mb-2 text-sm font-semibold text-[var(--primary)]">
+                  Subscription & billing
+                </h2>
+                <p className="text-xs text-[var(--muted-foreground)]">
+                  Manage your Nettmark Business plan, payment method, and cancel a
+                  free trial from the Stripe billing portal.
+                </p>
+              </div>
+
+              <span className="inline-flex w-fit items-center rounded-full border border-[var(--primary)]/20 bg-[var(--primary)]/10 px-3 py-1 text-[11px] font-medium text-[var(--primary)]">
+                {loadingSubscription ? "Checking…" : subscriptionStatusLabel}
+              </span>
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-[var(--border)] bg-[var(--background)]/50 p-4">
+              {loadingSubscription ? (
+                <p className="text-xs text-[var(--muted-foreground)]">
+                  Loading subscription status…
+                </p>
+              ) : (
+                <>
+                  <p className="text-sm text-[var(--foreground)]">
+                    {subscription.status === "trialing"
+                      ? `Trial ends ${subscriptionDateLabel ?? "soon"}.`
+                      : subscription.status === "active"
+                        ? `Subscription renews ${subscriptionDateLabel ?? "automatically"}.`
+                        : subscription.status === "canceled"
+                          ? "This subscription has been canceled."
+                          : hasPortalAccess
+                            ? "Open the billing portal to manage this subscription."
+                            : "No business subscription is linked yet. Complete checkout first, then come back here to manage it."}
+                  </p>
+
+                  <p className="mt-2 text-[11px] text-[var(--muted-foreground)]">
+                    Trial cancellations and payment-method changes happen in Stripe so billing stays clean and self-serve.
+                  </p>
+                </>
+              )}
+            </div>
+
+            <div className="mt-4 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={handleManageSubscription}
+                disabled={managingSubscription || loadingSubscription || !hasPortalAccess}
+                className="inline-flex items-center rounded-full bg-[var(--primary)] px-4 py-2 text-xs font-medium text-[var(--primary-foreground)] hover:brightness-110 disabled:opacity-60"
+              >
+                {managingSubscription
+                  ? "Opening portal…"
+                  : subscription.status === "trialing"
+                    ? "Manage or cancel trial"
+                    : "Manage subscription"}
+              </button>
+
+              {!hasPortalAccess && !loadingSubscription ? (
+                <span className="inline-flex items-center rounded-full border border-[var(--border)] px-3 py-2 text-[11px] text-[var(--muted-foreground)]">
+                  Available after the first subscription checkout
+                </span>
+              ) : null}
+            </div>
           </section>
         )}
 
