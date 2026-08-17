@@ -1,9 +1,9 @@
 "use client";
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 import "@/globals.css";
 import AcceptTermsModal from "@/../app/components/AcceptTermsModal";
 import Link from "next/link";
-import Script from "next/script";
 import React, { useEffect, useState } from "react";
 import { useSession } from "@supabase/auth-helpers-react";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
@@ -71,33 +71,6 @@ const IconBolt = (props: React.SVGProps<SVGSVGElement>) => (
     />
   </svg>
 );
-const IconCreditCard = (props: React.SVGProps<SVGSVGElement>) => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.8"
-    {...props}
-  >
-    <rect x="3" y="4" width="18" height="16" rx="3" />
-    <path d="M3 9h18" />
-  </svg>
-);
-const IconBank = (props: React.SVGProps<SVGSVGElement>) => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.8"
-    {...props}
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      d="M3 10l9-6 9 6M4 10h16v8H4zM2 18h20"
-    />
-  </svg>
-);
 const IconPlus = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
     viewBox="0 0 24 24"
@@ -118,21 +91,6 @@ const IconCheck = (props: React.SVGProps<SVGSVGElement>) => (
     {...props}
   >
     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-  </svg>
-);
-const IconSpinner = (props: React.SVGProps<SVGSVGElement>) => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    {...props}
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      d="M21 12a9 9 0 11-6.219-8.56"
-    />
   </svg>
 );
 const IconChat = (props: React.SVGProps<SVGSVGElement>) => (
@@ -187,87 +145,6 @@ const IconPost = (props: React.SVGProps<SVGSVGElement>) => (
     <path d="M15 3l5 5" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
-
-// New icon: Simple megaphone / speaker
-const IconMegaphone = (props: React.SVGProps<SVGSVGElement>) => (
-  <svg
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.8"
-    {...props}
-  >
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      d="M3 11v2a2 2 0 002 2h2l7 4v-16l-7 4H5a2 2 0 00-2 2z"
-    />
-    <path
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      d="M16 8.5a4 4 0 010 7"
-    />
-  </svg>
-);
-
-// ---- Small UI helpers ----
-function SectionCard({
-  title,
-  icon,
-  children,
-}: {
-  title: string;
-  icon: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--card)] shadow-[0_0_40px_rgba(0,0,0,0.12)]">
-      <div className="flex items-center justify-between gap-3 border-b border-[var(--border)] px-5 py-4">
-        <div className="flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--primary)]/15 text-[var(--primary)]">
-            {icon}
-          </div>
-          <h3 className="text-sm font-semibold text-[var(--foreground)]">
-            {title}
-          </h3>
-        </div>
-      </div>
-      <div className="p-5 pt-4">{children}</div>
-    </div>
-  );
-}
-function ActionButton({
-  children,
-  onClick,
-  disabled,
-  secondary,
-  size = "md",
-}: {
-  children: React.ReactNode;
-  onClick?: () => void;
-  disabled?: boolean;
-  secondary?: boolean;
-  size?: "sm" | "md";
-}) {
-  const base =
-    "w-full inline-flex items-center justify-center rounded-full font-medium transition will-change-transform hover:-translate-y-[1px]";
-  const styles = secondary
-    ? "border border-[var(--primary)]/30 bg-transparent text-[var(--foreground)] hover:bg-[var(--card)]"
-    : "bg-[var(--primary)] text-[var(--primary-foreground)] hover:brightness-110";
-  const sizeCls =
-    size === "sm"
-      ? "min-h-[40px] text-sm px-5 py-2 gap-2"
-      : "min-h-[56px] text-base px-6 py-3 gap-3";
-  return (
-    <button
-      onClick={onClick}
-      disabled={disabled}
-      className={`${base} ${styles} ${sizeCls} disabled:opacity-50 whitespace-nowrap`}
-    >
-      {children}
-    </button>
-  );
-}
 
 interface OnboardingProgressRow {
   business_email: string;
@@ -332,16 +209,6 @@ function getOfferMetaStatus(offer: Offer) {
   };
 }
 
-// ---- Pending Notification Dot ----
-const PendingDot = () => (
-  <span
-    className="ml-2 inline-block h-2 w-2 rounded-full bg-[var(--primary)]"
-    style={{
-      boxShadow: "0 0 6px color-mix(in oklab, var(--primary) 70%, transparent)",
-    }}
-  />
-);
-
 export default function MyBusinessPage() {
   const [offers, setOffers] = useState<Offer[]>([]);
   const [trackingVerifiedOfferIds, setTrackingVerifiedOfferIds] = useState<Set<string>>(new Set());
@@ -362,19 +229,15 @@ export default function MyBusinessPage() {
   const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [billingRequiredPrompt, setBillingRequiredPrompt] = useState(false);
   const [billingPromptHandled, setBillingPromptHandled] = useState(false);
-  const [businessAccountId, setBusinessAccountId] = useState<string | null>(
-    null,
-  );
+  const [, setBusinessAccountId] = useState<string | null>(null);
   const [onboardingComplete, setOnboardingComplete] = useState<boolean>(false);
   const [hasCard, setHasCard] = useState<boolean>(false);
 
-  const [hasPendingPostIdeas, setHasPendingPostIdeas] = useState(false);
-  const [hasPendingAdIdeas, setHasPendingAdIdeas] = useState(false);
+  const [pendingPostIdeaCount, setPendingPostIdeaCount] = useState(0);
+  const [pendingAdIdeaCount, setPendingAdIdeaCount] = useState(0);
+  const [affiliateRequestCount, setAffiliateRequestCount] = useState(0);
 
   const [showAcceptTerms, setShowAcceptTerms] = useState(false);
-  const [showMetaOptionalWhy, setShowMetaOptionalWhy] = useState(false);
-  const [showLaunchSteps, setShowLaunchSteps] = useState(false);
-
   const session = useSession();
   const user = session?.user;
   const supabase = createClientComponentClient();
@@ -398,8 +261,8 @@ export default function MyBusinessPage() {
           .eq("status", "pending"),
       ]);
 
-      setHasPendingPostIdeas(!!postIdeas?.length);
-      setHasPendingAdIdeas(!!adIdeas?.length);
+      setPendingPostIdeaCount(postIdeas?.length || 0);
+      setPendingAdIdeaCount(adIdeas?.length || 0);
     };
 
     checkPending();
@@ -499,16 +362,18 @@ export default function MyBusinessPage() {
 
       const { data, error } = await supabase
         .from("affiliate_requests")
-        .select("id")
-        .eq("business_email", businessEmail)
-        .limit(1);
+        .select("id,status")
+        .eq("business_email", businessEmail);
 
       if (error) {
         console.error("[affiliate requests check failed]", error.message);
         setHasAffiliateRequests(false);
+        setAffiliateRequestCount(0);
         return;
       }
 
+      const pendingRequests = (data || []).filter((row: any) => row.status === "pending").length;
+      setAffiliateRequestCount(pendingRequests);
       setHasAffiliateRequests((data?.length || 0) > 0);
     };
 
@@ -712,54 +577,6 @@ export default function MyBusinessPage() {
     supabase,
   ]);
 
-  const launchSteps = [
-    {
-      key: "offer",
-      label: "Create your first offer",
-      desc: "Required to appear in marketplace.",
-      done: hasAnyOffer,
-      optional: false,
-      href: "/business/my-business/create-offer",
-    },
-    {
-      key: "tracking",
-      label: "Connect tracking",
-      desc: "Affiliates can request approval while setup is pending; tracking is required later before campaign launch.",
-      done: hasTrackingConnected,
-      optional: false,
-      href: "/business/setup-tracking",
-    },
-    {
-      key: "payouts",
-      label: "Enable payouts",
-      desc: payoutsRequiredNow
-        ? "Required now because at least one affiliate request exists."
-        : "Optional for now. Becomes required when your first affiliate request arrives.",
-      done: payoutsReady,
-      optional: !payoutsRequiredNow,
-      href: "/business/payouts",
-    },
-    {
-      key: "billing",
-      label: "Connect billing",
-      desc: "Optional now. Required before paid affiliate/ad workflows.",
-      done: billingReady,
-      optional: true,
-      href: "/business/payouts",
-    },
-    {
-      key: "meta",
-      label: "Connect Meta",
-      desc: "Optional. Needed for paid campaigns.",
-      done: hasMetaConnected,
-      optional: true,
-      href: "/business/my-business/connect-meta",
-    },
-  ];
-
-  const launchDoneCount = launchSteps.filter((s) => s.done).length;
-  const launchProgress = Math.round((launchDoneCount / launchSteps.length) * 100);
-
   function handleOpenAssistant() {
     if (typeof window === "undefined") return;
 
@@ -781,12 +598,7 @@ export default function MyBusinessPage() {
     }
   }
 
-  // Guided setup removed: keep core sections visible and allow offers anytime
-  const showOnboardingChecklist = false;
-  const showBillingCard = true;
-  const showMetaCard = true;
-  const showAffiliatesCard = true;
-  const canCreateOffer = true;
+  // Guided setup UI removed: core financial/integration handlers stay available for contextual approval flows.
 
   const handleDelete = async (id: string) => {
     console.log("[🗑 Attempting to delete offer]", id);
@@ -997,6 +809,50 @@ export default function MyBusinessPage() {
     );
   }
 
+  // Kept intentionally: these existing Stripe payout handlers are no longer promoted as upfront dashboard setup,
+  // but remain in this page module so contextual flows can re-surface them if needed without backend rewrites.
+  void handleEnablePayouts;
+  void handleRefreshPayoutStatus;
+
+  const pendingSubmissionCount = pendingPostIdeaCount + pendingAdIdeaCount + affiliateRequestCount;
+  const activeOfferCount = offers.length;
+  const profileComplete = Boolean(user?.email);
+  const brandAssetsAvailable = hasTrackingConnected || hasMetaConnected || offers.some((offer) => Boolean(offer.meta_page_id) || Boolean(offer.site_host));
+  const liveOfferLabel = offersLoading ? "Loading…" : `${activeOfferCount}`;
+
+  const readinessState = billingRequiredPrompt && !billingReady
+    ? {
+        title: "Setup required for this approval",
+        desc: "A saved business payment method is needed for the campaign approval you just opened. Complete it here, then return to the approval flow.",
+        tone: "border-amber-400/35 bg-amber-400/10 text-amber-100",
+      }
+    : pendingSubmissionCount > 0
+      ? {
+          title: "Review pending submissions first",
+          desc: "No general setup is required from this dashboard. If an approval needs billing, Meta, tracking, or payout setup, Nettmark will prompt you at that point.",
+          tone: "border-[#00C2CB]/35 bg-[#00C2CB]/10 text-[#7ff5fb]",
+        }
+      : {
+          title: "Nothing required right now",
+          desc: "Create offers and review incoming content. Billing and integrations stay contextual and appear only when a launch needs them.",
+          tone: "border-emerald-400/35 bg-emerald-500/10 text-emerald-100",
+        };
+
+  const recentActivity = [
+    ...(affiliateRequestCount > 0
+      ? [{ title: "Affiliate requests waiting", details: `${affiliateRequestCount} partner request${affiliateRequestCount === 1 ? "" : "s"} ready to review.`, href: "/business/my-business/affiliate-requests" }]
+      : []),
+    ...(pendingAdIdeaCount > 0
+      ? [{ title: "Paid ad ideas submitted", details: `${pendingAdIdeaCount} paid ad idea${pendingAdIdeaCount === 1 ? "" : "s"} pending approval.`, href: "/business/my-business/ad-ideas" }]
+      : []),
+    ...(pendingPostIdeaCount > 0
+      ? [{ title: "Organic post ideas submitted", details: `${pendingPostIdeaCount} organic post idea${pendingPostIdeaCount === 1 ? "" : "s"} pending approval.`, href: "/business/my-business/post-ideas" }]
+      : []),
+    ...(offers.length > 0
+      ? [{ title: "Offers available", details: `${offers.length} marketplace offer${offers.length === 1 ? "" : "s"} available for affiliates.`, href: "/business/my-business" }]
+      : []),
+  ].slice(0, 4);
+
   return (
     <>
       {showAcceptTerms && user?.id && (
@@ -1005,735 +861,323 @@ export default function MyBusinessPage() {
           onAccepted={() => setShowAcceptTerms(false)}
         />
       )}
-      {console.log("MyBusinessPage mounted")}
-      <div className="my-business-theme min-h-screen bg-[var(--background)] px-6 py-10 text-[var(--foreground)]">
-        {/* Header */}
-        <div className="max-w-6xl mx-auto mb-10 rounded-3xl border border-[var(--border)] bg-[var(--card)] px-6 py-8 shadow-[0_20px_60px_rgba(0,0,0,0.08)]">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-            <div className="max-w-3xl">
-              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#00C2CB]/20 bg-[#00C2CB]/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.24em] text-[#7ff5fb]">
-                <IconBolt className="w-3.5 h-3.5" />
-                Workspace overview
-              </div>
-              <h1 className="text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
-                My Business
-              </h1>
-              <p className="mt-3 max-w-2xl text-sm text-[var(--muted-foreground)] sm:text-base">
-                Manage affiliates, Meta integration, billing, and marketplace
-                offers for your Nettmark business from one control surface.
-              </p>
-            </div>
-          </div>
 
-          <details className="mt-6 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--background)]/60 group">
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 text-left marker:content-none">
-              <div>
-                <p className="text-sm font-semibold text-[var(--foreground)]">
-                  Full platform walkthrough
-                </p>
-                <p className="mt-1 text-xs text-[var(--muted-foreground)] sm:text-sm">
-                  Open the complete Storylane flow for the business side of Nettmark.
-                </p>
-              </div>
-              <span className="text-xs font-semibold uppercase tracking-[0.2em] text-[#00C2CB] transition group-open:rotate-45">
-                +
-              </span>
-            </summary>
-
-            <div className="border-t border-[var(--border)] px-4 py-4 sm:px-5 sm:py-5">
-              <Script
-                src="https://js.storylane.io/js/v2/storylane.js"
-                strategy="afterInteractive"
-                data-verify-origin=""
-              />
-              <div
-                className="sl-embed relative w-full overflow-hidden rounded-[1.2rem] bg-black"
-                style={{
-                  paddingBottom: "calc(65.19% + 25px)",
-                  height: 0,
-                  transform: "scale(1)",
-                }}
-              >
-                <iframe
-                  title="Nettmark full business walkthrough"
-                  loading="lazy"
-                  className="sl-demo absolute left-0 top-0 h-full w-full"
-                  src="https://app.storylane.io/demo/1yizhs85qivn?embed=inline"
-                  name="sl-embed"
-                  allow="fullscreen"
-                  allowFullScreen
-                  style={{
-                    border: "1px solid rgba(63,95,172,0.35)",
-                    boxShadow: "0px 0px 18px rgba(26, 19, 72, 0.15)",
-                    borderRadius: "10px",
-                    boxSizing: "border-box",
-                    width: "100%",
-                    height: "100%",
-                  }}
-                />
-              </div>
-            </div>
-          </details>
-        </div>
-
-        {/* ===== Onboarding Checklist (stays until payouts + billing + at least one offer) ===== */}
-        {showOnboardingChecklist && (
-          <div className="max-w-5xl mx-auto mb-8 rounded-2xl border border-[#00C2CB]/20 bg-[#101314] p-5">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="text-lg font-semibold text-white">
-                  Finish setting up your account
-                </h2>
-                <p className="text-sm text-white">
-                  Work through the core setup in order: Stripe first, then Meta, then create your first offer, then install tracking against that offer.
-                </p>
-              </div>
-              <div className="text-xs px-3 py-1 rounded-full bg-[#00C2CB]/15 text-[#7ff5fb] border border-[#00C2CB]/25">
-                Guided setup
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              {/* Payouts item */}
-              <div className="flex items-center justify-between rounded-xl border border-[#1f2a2b] bg-[#0e1112] px-4 py-3">
-                <div className="flex items-center gap-3">
-                  <span
-                    className={`inline-block w-3 h-3 rounded-full ${payoutsReady ? "bg-green-500" : "bg-[#334649]"}`}
-                  />
-                  <div>
-                    <div className="text-white font-medium">
-                      Connect payouts
-                    </div>
-                    <div className="text-xs text-white">
-                      Secure Stripe Connect so affiliates can be paid.
-                    </div>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  {!payoutsReady && (
-                    <>
-                      <button
-                        onClick={handleEnablePayouts}
-                        disabled={isEnablingPayouts}
-                        className="inline-flex items-center justify-center gap-2 px-3 py-2 rounded-md bg-[#00C2CB] text-black text-sm hover:bg-[#00b0b8] disabled:cursor-not-allowed disabled:opacity-70"
-                      >
-                        {isEnablingPayouts && (
-                          <IconSpinner className="h-4 w-4 animate-spin" />
-                        )}
-                        {isEnablingPayouts ? "Opening Stripe…" : "Connect"}
-                      </button>
-                      {businessAccountId && !onboardingComplete && (
-                        <button
-                          onClick={handleRefreshPayoutStatus}
-                          className="px-3 py-2 rounded-md border border-[#00C2CB]/40 text-white text-sm hover:bg-[#0f1415]"
-                        >
-                          Refresh
-                        </button>
-                      )}
-                    </>
-                  )}
-                  {payoutsReady && (
-                    <span className="text-green-400 text-sm">Enabled</span>
-                  )}
-                </div>
+      <div className="my-business-theme min-h-screen bg-[#090b0c] px-4 py-6 text-white sm:px-6 lg:px-10 lg:py-8">
+        <div className="mx-auto grid w-full max-w-[1500px] gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="space-y-6">
+            <section className="overflow-hidden rounded-[24px] border border-white/[0.09] bg-[#17191a] p-5 shadow-2xl shadow-black/20 sm:p-7">
+              <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-[#00C2CB] px-4 py-2 text-[10px] font-black uppercase tracking-[0.28em] text-black">
+                <IconBolt className="h-3.5 w-3.5" />
+                Business Overview
               </div>
 
-              {/* Billing item */}
-              {billingRequiredPrompt && !billingReady && (
-                <div className="rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
-                  Add a business payment method before approving this campaign. This is for tracked affiliate commission/ad-spend billing, not a Nettmark subscription.
-                </div>
-              )}
-              <div className={`flex items-center justify-between rounded-xl border px-4 py-3 ${billingRequiredPrompt && !billingReady ? "border-amber-400/40 bg-amber-400/10" : "border-[#1f2a2b] bg-[#0e1112]"}`}>
-                <div className="flex items-center gap-3">
-                  <span
-                    className={`inline-block w-3 h-3 rounded-full ${billingReady ? "bg-green-500" : "bg-[#334649]"}`}
-                  />
-                  <div>
-                    <div className="text-white font-medium">
-                      Add a payment method
-                    </div>
-                    <div className="text-xs text-white">
-                      Create a Stripe Customer and save a card for commissions
-                      &amp; ad spend transfers.
-                    </div>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  {!businessCustomerId && (
-                    <button
-                      onClick={handleConnectBilling}
-                      className="px-3 py-2 rounded-md bg-[#00C2CB] text-black text-sm hover:bg-[#00b0b8]"
-                    >
-                      Connect billing
-                    </button>
-                  )}
-                  {businessCustomerId && !hasCard && (
-                    <button
-                      onClick={handleAddPaymentMethod}
-                      disabled={loadingPaymentForm}
-                      className="px-3 py-2 rounded-md border border-[#00C2CB]/40 text-white text-sm hover:bg-[#0f1415] disabled:opacity-60"
-                    >
-                      {loadingPaymentForm ? "Loading…" : "Add card"}
-                    </button>
-                  )}
-                  {billingReady && (
-                    <span className="text-green-400 text-sm">Ready</span>
-                  )}
-                </div>
-              </div>
-
-              {businessCustomerId && showPaymentForm && setupClientSecret && (
-                <div className="mt-4">
-                  <Elements
-                    key={setupClientSecret}
-                    stripe={stripePromise}
-                    options={{ clientSecret: setupClientSecret }}
-                  >
-                    <AddCardForm
-                      onComplete={() => {
-                        setShowPaymentForm(false);
-                      }}
-                    />
-                  </Elements>
-                </div>
-              )}
-
-              {/* Meta step */}
-              <div className="rounded-xl border border-[#1f2a2b] bg-[#0e1112] px-4 py-3">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <span className="inline-block w-3 h-3 rounded-full bg-[#334649]" />
-                    <div>
-                      <div className="text-white font-medium">
-                        Connect Meta now or later <span className="text-gray-500">(optional)</span>
-                      </div>
-                      <div className="text-xs text-white">
-                        Meta is only required for paid campaigns. Organic marketplace promotion can start without it.
-                      </div>
-                    </div>
-                  </div>
-                  <Link
-                    href="/business/my-business/connect-meta?onboard=1"
-                    prefetch={false}
-                    className="px-3 py-2 rounded-md border border-[#00C2CB]/40 text-white text-sm hover:bg-[#0f1415]"
-                  >
-                    Connect Meta
-                  </Link>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setShowMetaOptionalWhy((prev) => !prev)}
-                  className="mt-3 inline-flex items-center rounded-md border border-[#1f2a2b] px-3 py-1.5 text-xs text-gray-300 hover:bg-[#101416]"
-                >
-                  {showMetaOptionalWhy ? "Hide why" : "Why connect Meta?"}
-                </button>
-
-                {showMetaOptionalWhy && (
-                  <div className="mt-3 space-y-2 text-xs text-white">
-                    <p>Connecting Meta unlocks paid ad workflows (page, ad account, and pixel-linked launches).</p>
-                    <p>You can connect later when you’re ready to run paid traffic or after your first affiliate request needs paid ads.</p>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex items-center justify-between rounded-xl border border-[#1f2a2b] bg-[#0e1112] px-4 py-3">
-                <div className="flex items-center gap-3">
-                  <span className="inline-block w-3 h-3 rounded-full bg-[#334649]" />
-                  <div>
-                    <div className="text-white font-medium">Create your first offer</div>
-                    <div className="text-xs text-white">
-                      When you get here, you’ll choose which connected Meta page and ad account this offer should use.
-                    </div>
-                  </div>
-                </div>
-                {canCreateOffer ? (
-                  <Link
-                    href="/business/my-business/create-offer?onboard=1"
-                    prefetch={false}
-                    className="px-3 py-2 rounded-md border border-[#00C2CB]/40 text-white text-sm hover:bg-[#0f1415]"
-                  >
-                    Continue
-                  </Link>
-                ) : (
-                  <button
-                    disabled
-                    className="px-3 py-2 rounded-md border border-[#00C2CB]/15 text-gray-500 text-sm cursor-not-allowed bg-transparent"
-                  >
-                    Continue
-                  </button>
-                )}
-              </div>
-
-              {/* Tracking step */}
-              <div className="flex items-center justify-between rounded-xl border border-[#1f2a2b] bg-[#0e1112] px-4 py-3">
-                <div className="flex items-center gap-3">
-                  <span className="inline-block w-3 h-3 rounded-full bg-[#334649]" />
-                  <div>
-                    <div className="text-white font-medium">
-                      Install &amp; verify tracking
-                    </div>
-                    <div className="text-xs text-white">
-                      Tracking needs an offer to attach to, so do this right after your first offer is live.
-                    </div>
-                  </div>
-                </div>
-                {canCreateOffer ? (
-                  <Link
-                    href="/business/setup-tracking?onboard=1"
-                    className="px-3 py-2 rounded-md border border-[#00C2CB]/40 text-white text-sm hover:bg-[#0f1415]"
-                  >
-                    Continue
-                  </Link>
-                ) : (
-                  <button
-                    disabled
-                    className="px-3 py-2 rounded-md border border-[#00C2CB]/15 text-gray-500 text-sm cursor-not-allowed bg-transparent"
-                  >
-                    Continue
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="max-w-6xl mx-auto mb-8 rounded-2xl border border-[#00C2CB]/35 bg-[#0d1316] p-5 shadow-[0_0_30px_rgba(0,194,203,0.12)]">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-white">Launch progress</h2>
-              <p className="max-w-2xl text-sm text-white">
-                {offersLoading
-                  ? "Loading progress…"
-                  : `Nettmark lets businesses list offers that approved partners can promote. Start by creating an offer, then complete the setup steps needed to make it ready for promotion. ${launchDoneCount} of ${launchSteps.length} complete.`}
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={handleOpenAssistant}
-                className="inline-flex items-center gap-2 rounded-md border border-[#00C2CB]/45 bg-[#00C2CB]/10 px-3 py-2 text-xs font-semibold text-[#7ff5fb] hover:bg-[#00C2CB]/15"
-              >
-                <IconChat className="h-4 w-4" />
-                Stuck? Talk to the Nettmark bot
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowLaunchSteps((prev) => !prev)}
-                className="rounded-md border border-[#00C2CB]/45 bg-[#00C2CB]/10 px-3 py-2 text-xs font-semibold text-[#7ff5fb] hover:bg-[#00C2CB]/15"
-              >
-                {showLaunchSteps ? "Hide steps" : "Show steps"}
-              </button>
-            </div>
-          </div>
-
-          <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-black/30">
-            <div className="h-full rounded-full bg-[#00C2CB]" style={{ width: `${offersLoading ? 0 : launchProgress}%` }} />
-          </div>
-
-          {showLaunchSteps && (
-            <div className="mt-4 grid gap-2 md:grid-cols-2">
-              {launchSteps.map((step) => (
-                <Link
-                  key={step.key}
-                  href={step.href}
-                  prefetch={false}
-                  className="block rounded-xl border border-[#00C2CB]/25 bg-[#0e1112] p-3 text-left hover:border-[#00C2CB]/45 hover:bg-[#10181b]"
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <span className="text-sm font-medium text-white">{step.label}</span>
-                    <div className="flex items-center gap-2">
-                      <span className={`text-[11px] rounded-full px-2 py-0.5 border ${step.done ? "border-emerald-400/40 bg-emerald-500/10 text-emerald-200" : step.optional ? "border-[#00C2CB]/35 bg-[#00C2CB]/10 text-[#7ff5fb]" : "border-red-400/45 bg-red-500/10 text-red-200"}`}>
-                        {step.done ? "Done" : step.optional ? "Optional" : "Required"}
-                      </span>
-                      <span className="text-[11px] rounded-full border border-[#00C2CB]/35 bg-[#00C2CB]/10 px-2 py-0.5 text-[#7ff5fb]">
-                        Open
-                      </span>
-                    </div>
-                  </div>
-                  <p className="mt-1 text-xs text-white">{step.desc}</p>
-                </Link>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* ===== Action sections (grouped) ===== */}
-        <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-          {/* Affiliates */}
-          {showAffiliatesCard && (
-            <SectionCard
-              title="Affiliates"
-              icon={<IconUsers className="w-4 h-4" />}
-            >
-              <div className="space-y-4">
-                <p className="text-xs text-white">
-                  Approve partners, review post ideas, and keep an eye on what
-                  affiliates are planning to run.
-                </p>
-
-                <div className="space-y-3">
-                  <Link
-                    href="/business/my-business/affiliate-requests"
-                    prefetch={false}
-                  >
-                    <ActionButton size="sm">
-                      <IconUsers className="w-5 h-5 shrink-0" />
-                      <span>Affiliate requests</span>
-                    </ActionButton>
-                  </Link>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <Link
-                      href="/business/my-business/post-ideas/"
-                      prefetch={false}
-                    >
-                      <ActionButton size="sm" secondary>
-                        <span className="flex items-center gap-1">
-                          View post ideas
-                          {hasPendingPostIdeas && <PendingDot />}
-                        </span>
-                      </ActionButton>
-                    </Link>
-                    <Link
-                      href="/business/my-business/ad-ideas/"
-                      prefetch={false}
-                    >
-                      <ActionButton size="sm" secondary>
-                        <span className="flex items-center gap-1">
-                          View ad ideas
-                          {hasPendingAdIdeas && <PendingDot />}
-                        </span>
-                      </ActionButton>
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            </SectionCard>
-          )}
-
-          {/* Meta Integration */}
-          {showMetaCard && (
-            <SectionCard
-              title="Meta Integration"
-              icon={<IconPuzzle className="w-4 h-4" />}
-            >
-              <div className="space-y-4">
-                <p className="text-xs text-white">
-                  Connect your Meta assets and keep tracking + creatives aligned
-                  with your Nettmark offers.
-                </p>
-
-                <div className="space-y-3">
-                  <Link
-                    href="/business/my-business/connect-meta/"
-                    prefetch={false}
-                  >
-                    <ActionButton size="sm">
-                      <IconBolt className="w-5 h-5 shrink-0" />
-                      <span>Connect Meta ads</span>
-                    </ActionButton>
-                  </Link>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <Link href="/business/setup-tracking">
-                      <ActionButton size="sm" secondary>
-                        Setup tracking
-                      </ActionButton>
-                    </Link>
-                    <Link
-                      href="/business/my-business/publish-creatives/"
-                      prefetch={false}
-                    >
-                      <ActionButton size="sm" secondary>
-                        Publish creatives
-                      </ActionButton>
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            </SectionCard>
-          )}
-
-          {/* Billing */}
-          {showBillingCard && (
-            <SectionCard
-              title="Billing"
-              icon={<IconCreditCard className="w-4 h-4" />}
-            >
-              <div className="space-y-4">
-                <p className="text-xs text-white">
-                  Billing and payouts are handled via Stripe. Once connected,
-                  affiliates are paid automatically.
-                </p>
-
-                <div className="flex flex-col gap-3">
-                  {!businessCustomerId && (
-                    <button
-                      onClick={handleConnectBilling}
-                      className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-[#00C2CB] text-black font-semibold px-6 py-3 text-sm hover:bg-[#00b0b8] transition-all shadow-[0_0_25px_rgba(0,194,203,0.45)]"
-                    >
-                      <IconCreditCard className="w-4 h-4" />
-                      Connect Billing
-                    </button>
-                  )}
-
-                  {businessCustomerId && !hasCard && (
-                    <button
-                      onClick={handleAddPaymentMethod}
-                      className="w-full inline-flex items-center justify-center gap-2 rounded-full border border-[#00C2CB]/40 text-white font-semibold px-6 py-3 text-sm hover:bg-[#0f1415] transition-all"
-                    >
-                      <IconCreditCard className="w-4 h-4" />
-                      Add Card
-                    </button>
-                  )}
-
-                  <button
-                    onClick={handleEnablePayouts}
-                    disabled={isEnablingPayouts}
-                    className="w-full inline-flex items-center justify-center gap-2 rounded-full bg-[#00C2CB] text-black font-semibold px-6 py-3 text-sm hover:bg-[#00b0b8] transition-all shadow-[0_0_25px_rgba(0,194,203,0.45)] disabled:cursor-not-allowed disabled:opacity-70"
-                  >
-                    {isEnablingPayouts ? (
-                      <IconSpinner className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <IconBank className="w-4 h-4" />
-                    )}
-                    {isEnablingPayouts ? "Opening Stripe…" : "Enable Payouts"}
-                  </button>
-                </div>
-
-                <div className="flex flex-col items-center gap-3 mt-4">
-                  <div className="w-full max-w-xs">
-                    <div
-                      className={`flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-medium border ${
-                        billingReady
-                          ? "border-emerald-400/60 text-emerald-300 bg-emerald-500/10"
-                          : "border-white/10 text-white bg-white/5"
-                      }`}
-                    >
-                      <IconCreditCard className="w-4 h-4" />
-                      <span>
-                        {billingReady
-                          ? "Billing connected"
-                          : "Billing not connected"}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="w-full max-w-xs">
-                    <div
-                      className={`flex items-center justify-center gap-2 rounded-full px-5 py-3 text-sm font-medium border ${
-                        payoutsReady
-                          ? "border-emerald-400/60 text-emerald-300 bg-emerald-500/10"
-                          : "border-white/10 text-white bg-white/5"
-                      }`}
-                    >
-                      <IconBank className="w-4 h-4" />
-                      <span>
-                        {payoutsReady
-                          ? "Payouts enabled"
-                          : "Payouts not enabled"}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </SectionCard>
-          )}
-        </div>
-
-        {/* ===== Offers ===== */}
-        <div className="mt-6 mb-12 max-w-6xl mx-auto">
-          <div className="flex flex-col items-center gap-3 mb-6">
-            <div className="flex items-center gap-2 text-[#00C2CB]">
-              <IconStorefront className="w-5 h-5" />
-              <h2 className="text-base sm:text-lg font-medium text-[#00C2CB] text-center">
-                Manage your marketplace offers
-              </h2>
-            </div>
-            <Link href="/business/my-business/create-offer/" prefetch={false}>
-              <ActionButton size="sm">
-                <IconPlus className="w-4 h-4" />
-                <span>New offer</span>
-              </ActionButton>
-            </Link>
-          </div>
-
-          {offersLoading ? (
-            <p className="text-white text-center text-sm">
-              Loading your offers…
-            </p>
-          ) : offers.length === 0 ? (
-            <p className="text-white text-center">
-              You haven&apos;t uploaded any offers yet.
-            </p>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              {offers.map((offer) => (
-                <div
-                  key={offer.id}
-                  className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] p-5 shadow-[0_18px_45px_rgba(0,0,0,0.7)] transition hover:border-[#00C2CB]/60 hover:shadow-[0_22px_60px_rgba(0,0,0,0.95)]"
-                >
-                  {(() => {
-                    const metaStatus = getOfferMetaStatus(offer);
-                    const onboardingTrackingReady = onboardingProgressRows.some(
-                      (row) => row.offer_id === offer.id && row.tracking_connected,
-                    );
-                    const derivedTrackingReady =
-                      Boolean(offer.site_host) &&
-                      (!trackingReadinessResolved ||
-                        trackingVerifiedOfferIds.size === 0 ||
-                        trackingVerifiedOfferIds.has(offer.id));
-                    const trackingReady = onboardingTrackingReady || derivedTrackingReady;
-                    return (
-                      <>
-                  {/* Soft glow accent */}
-                  <div
-                    className="pointer-events-none absolute inset-x-0 -top-16 h-24 opacity-40 blur-3xl"
-                    style={{
-                      background:
-                        "radial-gradient(40% 80% at 10% 0%, rgba(0,194,203,0.35), transparent 60%), radial-gradient(40% 80% at 90% 0%, rgba(127,245,251,0.18), transparent 60%)",
-                    }}
-                  />
-
-                  <div className="relative flex items-start justify-between gap-4">
-                    <div className="flex items-start gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#00C2CB1a] text-[#7ff5fb]">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          className="w-5 h-5"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          strokeWidth={1.8}
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M3 7v13h18V7M5 10h14M10 21V3h4v18"
-                          />
-                        </svg>
-                      </div>
-                      <div>
-                        <h2 className="text-xl font-semibold tracking-tight text-[#7ff5fb]">
-                          {offer.title}
-                        </h2>
-                        <p className="mt-0.5 text-xs uppercase tracking-[0.16em] text-white">
-                          {offer.type === "recurring"
-                            ? "Recurring offer"
-                            : "One-time offer"}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col items-end gap-1">
-                      <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-white">
-                        Commission
-                      </span>
-                      <div className="flex items-baseline gap-1">
-                        <span className="text-2xl font-semibold text-white">
-                          {offer.commission}
-                        </span>
-                        <span className="text-sm font-medium text-white">
-                          %
-                        </span>
-                      </div>
-                      <span
-                        className={`mt-1 inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium ${
-                          offer.type === "recurring"
-                            ? "bg-emerald-500/15 text-emerald-300 border border-emerald-400/40"
-                            : "bg-amber-500/15 text-amber-200 border border-amber-400/40"
-                        }`}
-                      >
-                        {offer.type === "recurring" ? "Recurring" : "One-Time"}
-                      </span>
-                    </div>
-                  </div>
-
-                  <p className="relative mt-4 text-sm text-white">
-                    {offer.description}
+              <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
+                <div>
+                  <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
+                    My Business
+                  </h1>
+                  <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400 sm:text-base">
+                    Grow your brand with affiliates. Review and approve content, and complete required setup only when a campaign is ready to go live.
                   </p>
 
-                  <div className="relative mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-[11px] font-medium uppercase tracking-[0.18em] text-white">
-                        Offer status
-                      </span>
-                      <span className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium ${trackingReady ? "bg-emerald-500/15 text-emerald-200 border border-emerald-400/40" : "bg-amber-500/15 text-amber-200 border border-amber-400/40"}`}>
-                        {trackingReady ? "Tracking ready" : "Marketplace live"}
-                      </span>
-                      <span className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium ${metaStatus.tone}`}>
-                        {metaStatus.label}
-                      </span>
-                    </div>
-                    <p className="mt-2 text-sm text-white">
-                      {trackingReady
-                        ? "Tracking is connected. Approved affiliates can launch campaigns with Nettmark attribution in place."
-                        : "This offer is live in the marketplace and affiliates can request approval now. Tracking is only required later before approving ad ideas or organic posts for launch."}
-                    </p>
-                    <p className="mt-2 text-sm text-white">{metaStatus.helper}</p>
-                  </div>
-
-                  <div className="relative mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                  <div className="mt-7 grid gap-4 md:grid-cols-[270px_minmax(0,1fr)]">
                     <Link
-                      href={`/business/my-business/edit-offer/${offer.id}/`}
+                      href={pendingSubmissionCount > 0 ? "/business/my-business/ad-ideas" : "/business/my-business/affiliate-requests"}
                       prefetch={false}
-                      className="inline-flex min-h-[46px] w-full items-center justify-center rounded-xl bg-[#00C2CB] px-4 py-2.5 text-sm font-semibold text-black shadow-[0_0_25px_rgba(0,194,203,0.45)] hover:bg-[#00b0b8]"
+                      className="group rounded-2xl border border-white/[0.08] bg-black/10 p-5 text-left transition hover:border-[#00C2CB]/35"
                     >
-                      Edit offer
+                      <div className="text-sm font-semibold text-white">New affiliate submissions</div>
+                      <div className="mt-2 text-4xl font-light text-[#00C2CB]">{pendingSubmissionCount}</div>
+                      <div className="mt-5 flex items-center justify-between rounded-xl border border-white/[0.08] px-4 py-3 text-sm font-bold text-white transition group-hover:border-[#00C2CB]/35 group-hover:text-[#7ff5fb]">
+                        Review submissions
+                        <span aria-hidden="true">→</span>
+                      </div>
                     </Link>
 
-                    {!trackingReady ? (
-                      <Link
-                        href="/business/my-business/affiliate-requests"
-                        prefetch={false}
-                        className="inline-flex min-h-[46px] w-full items-center justify-center rounded-xl border border-white/15 bg-white/[0.04] px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/10"
-                      >
-                        View affiliate requests
-                      </Link>
-                    ) : metaStatus.needsSetup ? (
-                      <Link
-                        href={`/business/my-business/edit-offer/${offer.id}/#meta-setup`}
-                        prefetch={false}
-                        className="inline-flex min-h-[46px] w-full items-center justify-center rounded-xl border border-[#00C2CB]/30 bg-[#00C2CB]/10 px-4 py-2.5 text-sm font-semibold text-[#7ff5fb] hover:bg-[#00C2CB]/15"
-                      >
-                        {metaStatus.actionLabel}
-                      </Link>
-                    ) : (
-                      <Link
-                        href="/business/my-business/affiliate-requests"
-                        prefetch={false}
-                        className="inline-flex min-h-[46px] w-full items-center justify-center rounded-xl border border-white/15 bg-white/[0.04] px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/10"
-                      >
-                        View affiliate requests
-                      </Link>
-                    )}
-
-                    {metaStatus.needsSetup && !trackingReady && (
-                      <Link
-                        href={`/business/my-business/edit-offer/${offer.id}/#meta-setup`}
-                        prefetch={false}
-                        className="inline-flex min-h-[46px] w-full items-center justify-center rounded-xl border border-[#00C2CB]/30 bg-[#00C2CB]/10 px-4 py-2.5 text-sm font-semibold text-[#7ff5fb] hover:bg-[#00C2CB]/15"
-                      >
-                        {metaStatus.actionLabel}
-                      </Link>
-                    )}
-
-                    <button
-                      onClick={() => handleDelete(offer.id)}
-                      disabled={loadingDeleteId === offer.id}
-                      className="inline-flex min-h-[46px] w-full items-center justify-center rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-2.5 text-sm font-semibold text-red-200 hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {loadingDeleteId === offer.id ? "Deleting…" : "Delete offer"}
-                    </button>
+                    <div className="rounded-2xl border border-white/[0.08] bg-black/10 p-5">
+                      <div className="mb-4 flex items-center gap-2 text-sm font-semibold text-white">
+                        <IconPuzzle className="h-4 w-4 text-[#00C2CB]" />
+                        How Nettmark works
+                      </div>
+                      <div className="space-y-3">
+                        {[
+                          "Create offers that affiliates can promote.",
+                          "Affiliates submit paid ad or organic post ideas.",
+                          "You approve the best content and complete setup only when needed.",
+                        ].map((step, index) => (
+                          <div key={step} className="flex gap-3 text-sm text-slate-300">
+                            <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[#00C2CB] text-xs font-black text-black">
+                              {index + 1}
+                            </span>
+                            <span>{step}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <p className="mt-4 text-xs text-slate-500">
+                        Billing, payout, Meta, and tracking prompts appear contextually at approval or launch time.
+                      </p>
+                    </div>
                   </div>
-                      </>
-                    );
-                  })()}
                 </div>
-              ))}
+
+                <div className="hidden items-center justify-center xl:flex">
+                  <div className="relative flex h-[220px] w-full items-center justify-center rounded-3xl border border-[#00C2CB]/25 bg-black/20">
+                    <div className="absolute inset-x-8 top-10 rounded-xl border border-[#00C2CB]/40 bg-[#101415] p-5">
+                      <div className="flex items-center gap-4">
+                        <div className="grid h-14 w-14 place-items-center rounded-2xl border border-[#00C2CB]/30 bg-[#00C2CB]/10 text-[#7ff5fb]">
+                          <IconStorefront className="h-6 w-6" />
+                        </div>
+                        <div className="flex-1 space-y-3">
+                          <div className="h-2 rounded-full bg-white/20" />
+                          <div className="h-2 w-4/5 rounded-full bg-white/10" />
+                          <div className="h-2 w-3/5 rounded-full bg-white/10" />
+                        </div>
+                      </div>
+                    </div>
+                    <div className="absolute bottom-6 flex gap-8">
+                      {[1, 2, 3, 4].map((item) => (
+                        <div key={item} className="grid h-9 w-9 place-items-center rounded-full border border-[#00C2CB]/30 bg-[#00C2CB]/10 text-[#7ff5fb]">
+                          <IconUsers className="h-4 w-4" />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section className="grid gap-5 lg:grid-cols-3">
+              <div className="rounded-[22px] border border-white/[0.08] bg-[#151718] p-5 shadow-2xl shadow-black/20">
+                <div className="mb-5 flex items-center gap-3">
+                  <span className="grid h-10 w-10 place-items-center rounded-full bg-[#00C2CB]/10 text-[#7ff5fb]"><IconStorefront className="h-5 w-5" /></span>
+                  <div>
+                    <h2 className="text-lg font-bold">Offers</h2>
+                    <p className="text-xs text-slate-500">Create and manage marketplace offers.</p>
+                  </div>
+                </div>
+                <p className="min-h-[44px] text-sm leading-6 text-slate-400">Create offers for affiliates to promote, then manage commission, tracking, and Meta assets per offer.</p>
+                <div className="mt-5 space-y-3">
+                  <Link href="/business/my-business/create-offer" prefetch={false} className="inline-flex min-h-[42px] w-full items-center justify-center gap-2 rounded-full bg-[#00C2CB] px-4 text-sm font-black text-black shadow-[0_12px_28px_rgba(0,194,203,0.2)] hover:bg-[#14d5de]">
+                    <IconPlus className="h-4 w-4" /> Create new offer
+                  </Link>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Link href="/business/my-business" prefetch={false} className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-2 text-center text-xs font-semibold text-slate-200 hover:border-[#00C2CB]/35">View offers</Link>
+                    <Link href="/business/manage-campaigns" prefetch={false} className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-2 text-center text-xs font-semibold text-slate-200 hover:border-[#00C2CB]/35">Performance</Link>
+                  </div>
+                </div>
+                <div className="mt-5 flex items-center justify-between border-t border-white/[0.07] pt-4 text-sm">
+                  <span className="text-slate-500">Active offers</span>
+                  <span className="font-bold text-white">{liveOfferLabel} →</span>
+                </div>
+              </div>
+
+              <div className="rounded-[22px] border border-white/[0.08] bg-[#151718] p-5 shadow-2xl shadow-black/20">
+                <div className="mb-5 flex items-center gap-3">
+                  <span className="grid h-10 w-10 place-items-center rounded-full bg-[#00C2CB]/10 text-[#7ff5fb]"><IconPost className="h-5 w-5" /></span>
+                  <div>
+                    <h2 className="text-lg font-bold">Submissions</h2>
+                    <p className="text-xs text-slate-500">Review partner requests and content ideas.</p>
+                  </div>
+                </div>
+                <p className="min-h-[44px] text-sm leading-6 text-slate-400">Surface pending paid ad ideas, organic post ideas, and affiliate requests without creating a duplicate submission system.</p>
+                <div className="mt-5 space-y-3">
+                  <Link href={pendingAdIdeaCount > 0 ? "/business/my-business/ad-ideas" : pendingPostIdeaCount > 0 ? "/business/my-business/post-ideas" : "/business/my-business/affiliate-requests"} prefetch={false} className="inline-flex min-h-[42px] w-full items-center justify-center gap-2 rounded-full bg-[#00C2CB] px-4 text-sm font-black text-black shadow-[0_12px_28px_rgba(0,194,203,0.2)] hover:bg-[#14d5de]">
+                    Review submissions
+                    {pendingSubmissionCount > 0 && <span className="grid h-5 min-w-5 place-items-center rounded-full bg-black px-1 text-[10px] text-[#7ff5fb]">{pendingSubmissionCount}</span>}
+                  </Link>
+                  <div className="grid grid-cols-3 gap-2">
+                    <Link href="/business/my-business/affiliate-requests" prefetch={false} className="rounded-full border border-white/10 bg-white/[0.03] px-2 py-2 text-center text-[11px] font-semibold text-slate-200 hover:border-[#00C2CB]/35">Requests {affiliateRequestCount}</Link>
+                    <Link href="/business/my-business/ad-ideas" prefetch={false} className="rounded-full border border-white/10 bg-white/[0.03] px-2 py-2 text-center text-[11px] font-semibold text-slate-200 hover:border-[#00C2CB]/35">Ads {pendingAdIdeaCount}</Link>
+                    <Link href="/business/my-business/post-ideas" prefetch={false} className="rounded-full border border-white/10 bg-white/[0.03] px-2 py-2 text-center text-[11px] font-semibold text-slate-200 hover:border-[#00C2CB]/35">Organic {pendingPostIdeaCount}</Link>
+                  </div>
+                </div>
+                <div className="mt-5 flex items-center justify-between border-t border-white/[0.07] pt-4 text-sm">
+                  <span className="text-slate-500">Pending review</span>
+                  <span className="font-bold text-white">{pendingSubmissionCount} →</span>
+                </div>
+              </div>
+
+              <div className="rounded-[22px] border border-white/[0.08] bg-[#151718] p-5 shadow-2xl shadow-black/20">
+                <div className="mb-5 flex items-center gap-3">
+                  <span className="grid h-10 w-10 place-items-center rounded-full bg-[#00C2CB]/10 text-[#7ff5fb]"><IconBolt className="h-5 w-5" /></span>
+                  <div>
+                    <h2 className="text-lg font-bold">Launch readiness</h2>
+                    <p className="text-xs text-slate-500">Contextual setup only.</p>
+                  </div>
+                </div>
+                <p className="text-sm leading-6 text-slate-400">This is not an onboarding checklist. Nettmark only asks for billing, payouts, Meta, or tracking when an approved launch actually needs it.</p>
+                <div className={`mt-5 rounded-2xl border p-4 ${readinessState.tone}`}>
+                  <div className="font-semibold">{readinessState.title}</div>
+                  <p className="mt-1 text-xs leading-5 opacity-90">{readinessState.desc}</p>
+                </div>
+                {billingRequiredPrompt && !billingReady && (
+                  <div className="mt-4 space-y-3">
+                    {!businessCustomerId && (
+                      <button onClick={handleConnectBilling} disabled={isSubmitting} className="inline-flex min-h-[40px] w-full items-center justify-center rounded-full bg-[#00C2CB] px-4 text-sm font-bold text-black disabled:opacity-60">
+                        {isSubmitting ? "Connecting…" : "Connect billing for this approval"}
+                      </button>
+                    )}
+                    {businessCustomerId && !hasCard && (
+                      <button onClick={handleAddPaymentMethod} disabled={loadingPaymentForm} className="inline-flex min-h-[40px] w-full items-center justify-center rounded-full border border-[#00C2CB]/40 px-4 text-sm font-bold text-white disabled:opacity-60">
+                        {loadingPaymentForm ? "Loading…" : "Add card for this approval"}
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            </section>
+
+            {businessCustomerId && showPaymentForm && setupClientSecret && (
+              <div className="rounded-[22px] border border-[#00C2CB]/25 bg-[#111314] p-5">
+                <h2 className="text-lg font-semibold text-white">Secure payment method</h2>
+                <p className="mt-1 text-sm text-slate-400">This appears because the current approval flow requires billing readiness.</p>
+                <Elements key={setupClientSecret} stripe={stripePromise} options={{ clientSecret: setupClientSecret }}>
+                  <AddCardForm onComplete={() => setShowPaymentForm(false)} />
+                </Elements>
+              </div>
+            )}
+
+            <section className="rounded-[22px] border border-white/[0.08] bg-[#151718] p-5 shadow-2xl shadow-black/20 sm:p-6">
+              <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="text-lg font-bold text-white">Recent activity</h2>
+                  <p className="text-sm text-slate-500">Stay up to date with what is happening.</p>
+                </div>
+                <Link href="/business/manage-campaigns" prefetch={false} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-4 py-2 text-xs font-bold text-slate-200 hover:border-[#00C2CB]/35">
+                  View campaigns →
+                </Link>
+              </div>
+
+              {recentActivity.length === 0 ? (
+                <div className="rounded-2xl border border-white/[0.07] bg-black/10 p-5 text-sm text-slate-400">
+                  No recent submission activity yet. Create an offer and new affiliate activity will appear here when it arrives.
+                </div>
+              ) : (
+                <div className="overflow-hidden rounded-2xl border border-white/[0.07]">
+                  {recentActivity.map((item, index) => (
+                    <Link key={`${item.title}-${index}`} href={item.href} prefetch={false} className="grid gap-2 border-b border-white/[0.07] bg-black/10 p-4 text-sm transition last:border-b-0 hover:bg-white/[0.03] md:grid-cols-[210px_minmax(0,1fr)_30px] md:items-center">
+                      <div className="flex items-center gap-3 font-semibold text-white">
+                        <span className="h-2.5 w-2.5 rounded-full bg-[#00C2CB] shadow-[0_0_14px_rgba(0,194,203,0.65)]" />
+                        {item.title}
+                      </div>
+                      <div className="text-slate-400">{item.details}</div>
+                      <div className="text-right text-[#7ff5fb]">→</div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section className="rounded-[22px] border border-white/[0.08] bg-[#151718] p-5 shadow-2xl shadow-black/20 sm:p-6">
+              <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="text-lg font-bold text-white">Marketplace offers</h2>
+                  <p className="text-sm text-slate-500">Real offers from your Nettmark business account.</p>
+                </div>
+                <Link href="/business/my-business/create-offer" prefetch={false} className="inline-flex items-center justify-center gap-2 rounded-full bg-[#00C2CB] px-4 py-2 text-sm font-black text-black hover:bg-[#14d5de]">
+                  <IconPlus className="h-4 w-4" /> New offer
+                </Link>
+              </div>
+
+              {offersLoading ? (
+                <p className="rounded-2xl border border-white/[0.07] bg-black/10 p-5 text-sm text-slate-400">Loading your offers…</p>
+              ) : offers.length === 0 ? (
+                <div className="rounded-2xl border border-white/[0.07] bg-black/10 p-5 text-sm text-slate-400">
+                  You haven&apos;t uploaded any offers yet. Create your first offer so affiliates have something to promote.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                  {offers.map((offer) => {
+                    const metaStatus = getOfferMetaStatus(offer);
+                    const onboardingTrackingReady = onboardingProgressRows.some((row) => row.offer_id === offer.id && row.tracking_connected);
+                    const derivedTrackingReady = Boolean(offer.site_host) && (!trackingReadinessResolved || trackingVerifiedOfferIds.size === 0 || trackingVerifiedOfferIds.has(offer.id));
+                    const trackingReady = onboardingTrackingReady || derivedTrackingReady;
+
+                    return (
+                      <div key={offer.id} className="group relative overflow-hidden rounded-[22px] border border-white/10 bg-white/[0.035] p-5 shadow-[0_18px_45px_rgba(0,0,0,0.55)] transition hover:border-[#00C2CB]/50">
+                        <div className="pointer-events-none absolute inset-x-0 -top-16 h-24 opacity-40 blur-3xl" style={{ background: "radial-gradient(40% 80% at 10% 0%, rgba(0,194,203,0.32), transparent 60%), radial-gradient(40% 80% at 90% 0%, rgba(127,245,251,0.14), transparent 60%)" }} />
+                        <div className="relative flex items-start justify-between gap-4">
+                          <div className="flex items-start gap-3">
+                            <div className="grid h-10 w-10 place-items-center rounded-full bg-[#00C2CB]/10 text-[#7ff5fb]"><IconStorefront className="h-5 w-5" /></div>
+                            <div>
+                              <h3 className="text-lg font-semibold tracking-tight text-white">{offer.title}</h3>
+                              <p className="mt-0.5 text-xs uppercase tracking-[0.16em] text-slate-500">{offer.type === "recurring" ? "Recurring offer" : "One-time offer"}</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-500">Commission</p>
+                            <p className="text-2xl font-semibold text-[#7ff5fb]">{offer.commission}<span className="text-sm">%</span></p>
+                          </div>
+                        </div>
+
+                        <p className="relative mt-4 line-clamp-3 text-sm leading-6 text-slate-400">{offer.description}</p>
+
+                        <div className="relative mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium ${trackingReady ? "border border-emerald-400/40 bg-emerald-500/15 text-emerald-200" : "border border-amber-400/40 bg-amber-500/15 text-amber-200"}`}>
+                              {trackingReady ? "Tracking ready" : "Marketplace live"}
+                            </span>
+                            <span className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium ${metaStatus.tone}`}>{metaStatus.label}</span>
+                          </div>
+                          <p className="mt-2 text-xs leading-5 text-slate-400">
+                            {trackingReady ? "Tracking is connected for approved launches." : "Affiliates can request approval now. Tracking is handled contextually before launch when required."}
+                          </p>
+                        </div>
+
+                        <div className="relative mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                          <Link href={`/business/my-business/edit-offer/${offer.id}/`} prefetch={false} className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-[#00C2CB] px-4 py-2.5 text-sm font-semibold text-black hover:bg-[#14d5de]">Edit offer</Link>
+                          <Link href="/business/my-business/affiliate-requests" prefetch={false} className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-white/15 bg-white/[0.04] px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/10">View requests</Link>
+                          {metaStatus.needsSetup && trackingReady && (
+                            <Link href={`/business/my-business/edit-offer/${offer.id}/#meta-setup`} prefetch={false} className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-[#00C2CB]/30 bg-[#00C2CB]/10 px-4 py-2.5 text-sm font-semibold text-[#7ff5fb] hover:bg-[#00C2CB]/15">{metaStatus.actionLabel}</Link>
+                          )}
+                          <button onClick={() => handleDelete(offer.id)} disabled={loadingDeleteId === offer.id} className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-2.5 text-sm font-semibold text-red-200 hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-50">
+                            {loadingDeleteId === offer.id ? "Deleting…" : "Delete offer"}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          </div>
+
+          <aside className="space-y-5 xl:sticky xl:top-24 xl:self-start">
+            <div className="rounded-[22px] border border-white/[0.08] bg-[#151718] p-5 shadow-2xl shadow-black/20">
+              <h2 className="text-lg font-bold text-white">Business status</h2>
+              <p className="mt-1 text-sm text-slate-500">
+                {hasAnyOffer ? "Your business is ready to receive affiliate activity." : "Create an offer to start receiving affiliate activity."}
+              </p>
+              <div className="my-5 h-px bg-white/[0.07]" />
+              <div className="space-y-3">
+                {[
+                  { label: "Business profile available", done: profileComplete },
+                  { label: "Brand or tracking assets available", done: brandAssetsAvailable },
+                  { label: "One or more offers created", done: activeOfferCount > 0 },
+                ].map((item) => (
+                  <div key={item.label} className="flex items-center gap-3 text-sm">
+                    <span className={`grid h-5 w-5 place-items-center rounded-full text-[11px] ${item.done ? "bg-[#00C2CB] text-black" : "border border-white/15 text-slate-500"}`}>
+                      {item.done ? <IconCheck className="h-3.5 w-3.5" /> : ""}
+                    </span>
+                    <span className={item.done ? "text-slate-200" : "text-slate-500"}>{item.label}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-          )}
+
+            <div className="rounded-[22px] border border-white/[0.08] bg-[#151718] p-5 shadow-2xl shadow-black/20">
+              <h2 className="text-lg font-bold text-white">Need help?</h2>
+              <p className="mt-2 text-sm leading-6 text-slate-400">Our team is here to help you grow with affiliates.</p>
+              <div className="mt-5 space-y-3">
+                <button type="button" onClick={handleOpenAssistant} className="inline-flex min-h-[42px] w-full items-center justify-center gap-2 rounded-full bg-[#00C2CB] px-4 text-sm font-black text-black hover:bg-[#14d5de]">
+                  <IconChat className="h-4 w-4" /> Chat with support
+                </button>
+                <Link href="/business/support" prefetch={false} className="inline-flex min-h-[42px] w-full items-center justify-center rounded-full border border-white/10 bg-white/[0.03] px-4 text-sm font-bold text-slate-200 hover:border-[#00C2CB]/35">
+                  View help center
+                </Link>
+              </div>
+            </div>
+          </aside>
         </div>
       </div>
     </>
