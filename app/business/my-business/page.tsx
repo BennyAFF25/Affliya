@@ -229,7 +229,7 @@ export default function MyBusinessPage() {
   const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [billingRequiredPrompt, setBillingRequiredPrompt] = useState(false);
   const [billingPromptHandled, setBillingPromptHandled] = useState(false);
-  const [, setBusinessAccountId] = useState<string | null>(null);
+  const [businessAccountId, setBusinessAccountId] = useState<string | null>(null);
   const [onboardingComplete, setOnboardingComplete] = useState<boolean>(false);
   const [hasCard, setHasCard] = useState<boolean>(false);
 
@@ -809,16 +809,13 @@ export default function MyBusinessPage() {
     );
   }
 
-  // Kept intentionally: these existing Stripe payout handlers are no longer promoted as upfront dashboard setup,
-  // but remain in this page module so contextual flows can re-surface them if needed without backend rewrites.
-  void handleEnablePayouts;
-  void handleRefreshPayoutStatus;
-
   const pendingSubmissionCount = pendingPostIdeaCount + pendingAdIdeaCount + affiliateRequestCount;
   const activeOfferCount = offers.length;
   const profileComplete = Boolean(user?.email);
   const brandAssetsAvailable = hasTrackingConnected || hasMetaConnected || offers.some((offer) => Boolean(offer.meta_page_id) || Boolean(offer.site_host));
   const liveOfferLabel = offersLoading ? "Loading…" : `${activeOfferCount}`;
+
+  const setupReadyCount = [hasAnyOffer, hasTrackingConnected, billingReady, payoutsReady, hasMetaConnected].filter(Boolean).length;
 
   const readinessState = billingRequiredPrompt && !billingReady
     ? {
@@ -1024,6 +1021,156 @@ export default function MyBusinessPage() {
                     )}
                   </div>
                 )}
+              </div>
+            </section>
+
+            <section className="rounded-[22px] border border-white/[0.08] bg-[#151718] p-5 shadow-2xl shadow-black/20 sm:p-6">
+              <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[#00C2CB]/25 bg-[#00C2CB]/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.22em] text-[#7ff5fb]">
+                    Setup access
+                  </div>
+                  <h2 className="text-xl font-bold text-white">Readiness checklist</h2>
+                  <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-400">
+                    These tools are available whenever you want them. They are not blockers for creating offers or reviewing submissions — Nettmark will still prompt for the right setup at approval or launch time.
+                  </p>
+                </div>
+                <div className="rounded-full border border-white/10 bg-black/20 px-4 py-2 text-sm font-bold text-white">
+                  {setupReadyCount}/5 ready
+                </div>
+              </div>
+
+              <div className="grid gap-3 lg:grid-cols-2">
+                <div className="rounded-2xl border border-white/[0.08] bg-black/10 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex gap-3">
+                      <span className={`mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full ${hasAnyOffer ? "bg-[#00C2CB] text-black" : "border border-white/15 text-slate-500"}`}>
+                        {hasAnyOffer ? <IconCheck className="h-4 w-4" /> : "1"}
+                      </span>
+                      <div>
+                        <h3 className="text-sm font-bold text-white">Offers</h3>
+                        <p className="mt-1 text-xs leading-5 text-slate-400">Create and manage offers affiliates can promote.</p>
+                      </div>
+                    </div>
+                    <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${hasAnyOffer ? "border-emerald-400/35 bg-emerald-500/10 text-emerald-200" : "border-white/10 bg-white/[0.03] text-slate-400"}`}>
+                      {hasAnyOffer ? "Ready" : "Available"}
+                    </span>
+                  </div>
+                  <Link href="/business/my-business/create-offer" prefetch={false} className="mt-4 inline-flex min-h-[38px] w-full items-center justify-center rounded-full border border-white/10 bg-white/[0.03] px-4 text-xs font-bold text-slate-200 hover:border-[#00C2CB]/35">
+                    Open offers
+                  </Link>
+                </div>
+
+                <div className="rounded-2xl border border-white/[0.08] bg-black/10 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex gap-3">
+                      <span className={`mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full ${hasTrackingConnected ? "bg-[#00C2CB] text-black" : "border border-white/15 text-slate-500"}`}>
+                        {hasTrackingConnected ? <IconCheck className="h-4 w-4" /> : "2"}
+                      </span>
+                      <div>
+                        <h3 className="text-sm font-bold text-white">Tracking</h3>
+                        <p className="mt-1 text-xs leading-5 text-slate-400">Install or verify tracking for launch attribution when campaigns need it.</p>
+                      </div>
+                    </div>
+                    <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${hasTrackingConnected ? "border-emerald-400/35 bg-emerald-500/10 text-emerald-200" : "border-[#00C2CB]/25 bg-[#00C2CB]/10 text-[#7ff5fb]"}`}>
+                      {hasTrackingConnected ? "Ready" : "Optional now"}
+                    </span>
+                  </div>
+                  <Link href="/business/setup-tracking" prefetch={false} className="mt-4 inline-flex min-h-[38px] w-full items-center justify-center rounded-full border border-[#00C2CB]/30 bg-[#00C2CB]/10 px-4 text-xs font-bold text-[#7ff5fb] hover:bg-[#00C2CB]/15">
+                    Open tracking setup
+                  </Link>
+                </div>
+
+                <div className="rounded-2xl border border-white/[0.08] bg-black/10 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex gap-3">
+                      <span className={`mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full ${hasMetaConnected ? "bg-[#00C2CB] text-black" : "border border-white/15 text-slate-500"}`}>
+                        {hasMetaConnected ? <IconCheck className="h-4 w-4" /> : "3"}
+                      </span>
+                      <div>
+                        <h3 className="text-sm font-bold text-white">Meta connection</h3>
+                        <p className="mt-1 text-xs leading-5 text-slate-400">Connect pages, ad accounts, and pixels for paid campaign launches.</p>
+                      </div>
+                    </div>
+                    <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${hasMetaConnected ? "border-emerald-400/35 bg-emerald-500/10 text-emerald-200" : "border-[#00C2CB]/25 bg-[#00C2CB]/10 text-[#7ff5fb]"}`}>
+                      {hasMetaConnected ? "Connected" : "Optional now"}
+                    </span>
+                  </div>
+                  <Link href="/business/my-business/connect-meta" prefetch={false} className="mt-4 inline-flex min-h-[38px] w-full items-center justify-center rounded-full border border-[#00C2CB]/30 bg-[#00C2CB]/10 px-4 text-xs font-bold text-[#7ff5fb] hover:bg-[#00C2CB]/15">
+                    Open Meta setup
+                  </Link>
+                </div>
+
+                <div className="rounded-2xl border border-white/[0.08] bg-black/10 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex gap-3">
+                      <span className={`mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full ${billingReady ? "bg-[#00C2CB] text-black" : "border border-white/15 text-slate-500"}`}>
+                        {billingReady ? <IconCheck className="h-4 w-4" /> : "4"}
+                      </span>
+                      <div>
+                        <h3 className="text-sm font-bold text-white">Billing</h3>
+                        <p className="mt-1 text-xs leading-5 text-slate-400">Save a payment method for campaign approvals that require billing readiness.</p>
+                      </div>
+                    </div>
+                    <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${billingReady ? "border-emerald-400/35 bg-emerald-500/10 text-emerald-200" : "border-[#00C2CB]/25 bg-[#00C2CB]/10 text-[#7ff5fb]"}`}>
+                      {billingReady ? "Ready" : "Available"}
+                    </span>
+                  </div>
+                  <div className="mt-4 grid gap-2 sm:grid-cols-2">
+                    {!businessCustomerId ? (
+                      <button onClick={handleConnectBilling} disabled={isSubmitting} className="inline-flex min-h-[38px] items-center justify-center rounded-full bg-[#00C2CB] px-4 text-xs font-black text-black hover:bg-[#14d5de] disabled:opacity-60">
+                        {isSubmitting ? "Connecting…" : "Connect billing"}
+                      </button>
+                    ) : !hasCard ? (
+                      <button onClick={handleAddPaymentMethod} disabled={loadingPaymentForm} className="inline-flex min-h-[38px] items-center justify-center rounded-full bg-[#00C2CB] px-4 text-xs font-black text-black hover:bg-[#14d5de] disabled:opacity-60">
+                        {loadingPaymentForm ? "Loading…" : "Add card"}
+                      </button>
+                    ) : (
+                      <Link href="/business/payouts" prefetch={false} className="inline-flex min-h-[38px] items-center justify-center rounded-full border border-emerald-400/30 bg-emerald-500/10 px-4 text-xs font-bold text-emerald-200">
+                        Billing ready
+                      </Link>
+                    )}
+                    <Link href="/business/payouts" prefetch={false} className="inline-flex min-h-[38px] items-center justify-center rounded-full border border-white/10 bg-white/[0.03] px-4 text-xs font-bold text-slate-200 hover:border-[#00C2CB]/35">
+                      Payment settings
+                    </Link>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-white/[0.08] bg-black/10 p-4 lg:col-span-2">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex gap-3">
+                      <span className={`mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full ${payoutsReady ? "bg-[#00C2CB] text-black" : "border border-white/15 text-slate-500"}`}>
+                        {payoutsReady ? <IconCheck className="h-4 w-4" /> : "5"}
+                      </span>
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="text-sm font-bold text-white">Payouts</h3>
+                          <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${payoutsReady ? "border-emerald-400/35 bg-emerald-500/10 text-emerald-200" : payoutsRequiredNow ? "border-amber-400/35 bg-amber-400/10 text-amber-100" : "border-[#00C2CB]/25 bg-[#00C2CB]/10 text-[#7ff5fb]"}`}>
+                            {payoutsReady ? "Enabled" : payoutsRequiredNow ? "May be needed soon" : "Available"}
+                          </span>
+                        </div>
+                        <p className="mt-1 max-w-2xl text-xs leading-5 text-slate-400">
+                          Stripe payout access remains available here, but affiliates and businesses can still work through offers and reviews before this is required.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="grid min-w-[220px] gap-2 sm:grid-cols-1">
+                      {!payoutsReady && (
+                        <button onClick={handleEnablePayouts} disabled={isEnablingPayouts} className="inline-flex min-h-[38px] items-center justify-center rounded-full bg-[#00C2CB] px-4 text-xs font-black text-black hover:bg-[#14d5de] disabled:opacity-60">
+                          {isEnablingPayouts ? "Opening Stripe…" : businessAccountId ? "Continue Stripe setup" : "Enable payouts"}
+                        </button>
+                      )}
+                      {businessAccountId && !payoutsReady && (
+                        <button onClick={handleRefreshPayoutStatus} className="inline-flex min-h-[38px] items-center justify-center rounded-full border border-white/10 bg-white/[0.03] px-4 text-xs font-bold text-slate-200 hover:border-[#00C2CB]/35">
+                          Refresh payout status
+                        </button>
+                      )}
+                      <Link href="/business/payouts" prefetch={false} className="inline-flex min-h-[38px] items-center justify-center rounded-full border border-white/10 bg-white/[0.03] px-4 text-xs font-bold text-slate-200 hover:border-[#00C2CB]/35">
+                        Open payouts page
+                      </Link>
+                    </div>
+                  </div>
+                </div>
               </div>
             </section>
 
