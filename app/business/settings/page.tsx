@@ -1,6 +1,7 @@
 "use client";
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { useEffect, useState, type FormEvent, type ChangeEvent } from "react";
+import React, { useEffect, useState, type FormEvent, type ChangeEvent } from "react";
 import { useUser } from "@supabase/auth-helpers-react";
 import { Sparkles } from "lucide-react";
 import { supabase } from "utils/supabase/pages-client";
@@ -11,17 +12,21 @@ type SubscriptionState = {
   currentPeriodEnd: string | null;
   subscriptionId: string | null;
   customerId: string | null;
+  isGrandfathered: boolean;
+  subscriptionRequired: boolean;
 };
 
 function formatSubscriptionStatus(status: string | null) {
   const normalized = String(status || "").toLowerCase();
 
   if (!normalized) return "Not started";
-  if (normalized === "trialing") return "Trial active";
-  if (normalized === "active") return "Active";
-  if (normalized === "past_due") return "Past due";
-  if (normalized === "canceled") return "Canceled";
-  if (normalized === "incomplete") return "Incomplete";
+  if (normalized === "grandfathered") return "Grandfathered";
+  if (normalized === "trialing" || normalized === "subscription_trialing") return "Trial active";
+  if (normalized === "active" || normalized === "subscription_active") return "Active";
+  if (normalized === "past_due" || normalized === "subscription_past_due") return "Past due";
+  if (normalized === "canceled" || normalized === "cancelled" || normalized === "subscription_cancelled") return "Canceled";
+  if (normalized === "incomplete" || normalized === "subscription_incomplete") return "Incomplete";
+  if (normalized === "subscription_required") return "Subscription required";
 
   return normalized.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
 }
@@ -42,6 +47,7 @@ function formatSubscriptionDate(value: string | null) {
 export default function BusinessSettingsPage() {
   const user = useUser();
 
+  const [businessId, setBusinessId] = useState<string | null>(null);
   const [businessName, setBusinessName] = useState("");
   const [billingEmail, setBillingEmail] = useState("");
   const [loadingProfile, setLoadingProfile] = useState(true);
@@ -59,6 +65,8 @@ export default function BusinessSettingsPage() {
     currentPeriodEnd: null,
     subscriptionId: null,
     customerId: null,
+    isGrandfathered: false,
+    subscriptionRequired: false,
   });
 
   useEffect(() => {
@@ -68,44 +76,59 @@ export default function BusinessSettingsPage() {
       setLoadingProfile(true);
       setLoadingSubscription(true);
 
-      const [businessProfileResult, subscriptionResult] = await Promise.all([
-        (supabase as any)
-          .from("business_profiles")
-          .select("business_name, billing_email, avatar_url")
-          .eq("business_email", user.email as string)
-          .single(),
-        (supabase as any)
-          .from("profiles")
-          .select(
-            "revenue_subscription_status, revenue_current_period_end, revenue_stripe_subscription_id, revenue_stripe_customer_id",
-          )
-          .eq("email", user.email as string)
-          .maybeSingle(),
-      ]);
+      const { data, error } = await (supabase as any)
+        .from("business_profiles")
+        .select("id, business_name, billing_email, avatar_url")
+        .eq("business_email", user.email as string)
+        .single();
 
-      const { data, error } = businessProfileResult;
-      if (!error && data) {
-        const row = data as any;
-        setBusinessName(row.business_name ?? "");
-        setBillingEmail(row.billing_email ?? "");
-        setAvatarUrl(row.avatar_url ?? null);
+      const profileRow = !error && data ? (data as any) : null;
+      const resolvedBusinessId = profileRow?.id ?? null;
+      setBusinessId(resolvedBusinessId);
+
+      if (profileRow) {
+        setBusinessName(profileRow.business_name ?? "");
+        setBillingEmail(profileRow.billing_email ?? "");
+        setAvatarUrl(profileRow.avatar_url ?? null);
       }
 
-      const { data: subscriptionData, error: subscriptionError } = subscriptionResult;
-      if (!subscriptionError && subscriptionData) {
-        const row = subscriptionData as any;
-        setSubscription({
-          status: row.revenue_subscription_status ?? null,
-          currentPeriodEnd: row.revenue_current_period_end ?? null,
-          subscriptionId: row.revenue_stripe_subscription_id ?? null,
-          customerId: row.revenue_stripe_customer_id ?? null,
-        });
+      if (resolvedBusinessId) {
+        const { data: entitlementData, error: entitlementError } = await (supabase as any)
+          .from("business_entitlements")
+          .select(
+            "billing_status, is_grandfathered, subscription_required, subscription_current_period_end, stripe_subscription_id, subscription_stripe_customer_id",
+          )
+          .eq("business_id", resolvedBusinessId)
+          .maybeSingle();
+
+        if (!entitlementError && entitlementData) {
+          const row = entitlementData as any;
+          setSubscription({
+            status: row.is_grandfathered ? "grandfathered" : row.billing_status ?? null,
+            currentPeriodEnd: row.subscription_current_period_end ?? null,
+            subscriptionId: row.stripe_subscription_id ?? null,
+            customerId: row.subscription_stripe_customer_id ?? null,
+            isGrandfathered: Boolean(row.is_grandfathered),
+            subscriptionRequired: Boolean(row.subscription_required),
+          });
+        } else {
+          setSubscription({
+            status: null,
+            currentPeriodEnd: null,
+            subscriptionId: null,
+            customerId: null,
+            isGrandfathered: false,
+            subscriptionRequired: false,
+          });
+        }
       } else {
         setSubscription({
           status: null,
           currentPeriodEnd: null,
           subscriptionId: null,
           customerId: null,
+          isGrandfathered: false,
+          subscriptionRequired: false,
         });
       }
 
@@ -226,15 +249,15 @@ export default function BusinessSettingsPage() {
   };
 
   const handleManageSubscription = async () => {
-    if (!user?.email) return;
+    if (!user?.email || !businessId) return;
 
     try {
       setManagingSubscription(true);
 
-      const res = await fetch("/api/stripe-app/create-portal-session", {
+      const res = await fetch("/api/business-subscription/create-portal-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ accountType: "business" }),
+        body: JSON.stringify({ businessId }),
       });
 
       const json = await res.json().catch(() => ({}));
@@ -257,7 +280,7 @@ export default function BusinessSettingsPage() {
 
   const subscriptionStatusLabel = formatSubscriptionStatus(subscription.status);
   const subscriptionDateLabel = formatSubscriptionDate(subscription.currentPeriodEnd);
-  const hasPortalAccess = !!subscription.customerId || !!subscription.subscriptionId;
+  const hasPortalAccess = !subscription.isGrandfathered && (!!subscription.customerId || !!subscription.subscriptionId);
 
   const initials = businessName?.trim()
     ? businessName
@@ -417,8 +440,8 @@ export default function BusinessSettingsPage() {
                   Subscription & billing
                 </h2>
                 <p className="text-xs text-[var(--muted-foreground)]">
-                  Manage your Nettmark Business plan, payment method, and cancel a
-                  free trial from the Stripe billing portal.
+                  Manage the $49/month Nettmark Business subscription, invoices,
+                  payment method, and cancellation from the Stripe billing portal.
                 </p>
               </div>
 
@@ -435,15 +458,19 @@ export default function BusinessSettingsPage() {
               ) : (
                 <>
                   <p className="text-sm text-[var(--foreground)]">
-                    {subscription.status === "trialing"
-                      ? `Trial ends ${subscriptionDateLabel ?? "soon"}.`
-                      : subscription.status === "active"
-                        ? `Subscription renews ${subscriptionDateLabel ?? "automatically"}.`
-                        : subscription.status === "canceled"
-                          ? "This subscription has been canceled."
-                          : hasPortalAccess
-                            ? "Open the billing portal to manage this subscription."
-                            : "No business subscription is linked yet. Complete checkout first, then come back here to manage it."}
+                    {subscription.isGrandfathered
+                      ? "This existing business is grandfathered and does not need the $49/month Nettmark Business subscription."
+                      : subscription.status === "subscription_trialing" || subscription.status === "trialing"
+                        ? `Trial ends ${subscriptionDateLabel ?? "soon"}.`
+                        : subscription.status === "subscription_active" || subscription.status === "active"
+                          ? `Your $49/month Nettmark Business subscription renews ${subscriptionDateLabel ?? "automatically"}.`
+                          : subscription.status === "subscription_cancelled" || subscription.status === "canceled"
+                            ? "This Nettmark Business subscription has been canceled."
+                            : hasPortalAccess
+                              ? "Open the billing portal to manage this Nettmark Business subscription."
+                              : subscription.subscriptionRequired
+                                ? "A Nettmark Business subscription is required before this business can approve or launch paid affiliate campaign activity. Complete checkout from the approval flow, then come back here to manage it."
+                                : "No Nettmark Business subscription is linked yet. You can keep creating offers and reviewing activity; checkout appears when a paid campaign approval or launch requires it."}
                   </p>
 
                   <p className="mt-2 text-[11px] text-[var(--muted-foreground)]">

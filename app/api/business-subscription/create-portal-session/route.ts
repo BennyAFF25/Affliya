@@ -45,7 +45,7 @@ export async function POST(req: Request) {
     const entitlement = await getEntitlementOrThrow({ supabase: admin, businessId: business.id });
     const customerId = entitlement.subscriptionStripeCustomerId;
 
-    if (!customerId || (!entitlementAllowsBillingAccess(entitlement) && entitlement.isGrandfathered)) {
+    if (!customerId || entitlement.isGrandfathered || !entitlementAllowsBillingAccess(entitlement)) {
       return NextResponse.json(
         {
           error: "No business subscription billing portal is available for this business.",
