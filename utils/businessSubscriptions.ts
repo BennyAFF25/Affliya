@@ -217,15 +217,19 @@ export async function ensureSubscriptionCustomer(params: {
   entitlement: BusinessEntitlement;
   userId: string;
 }) {
-  const existingCustomerId =
-    params.entitlement.subscriptionStripeCustomerId || params.business.stripe_customer_id || null;
+  const existingSubscriptionCustomerId = params.entitlement.subscriptionStripeCustomerId || null;
 
-  if (existingCustomerId) {
-    await params.supabase
-      .from("business_entitlements")
-      .update({ subscription_stripe_customer_id: existingCustomerId })
-      .eq("business_id", params.business.id);
-    return existingCustomerId;
+  if (existingSubscriptionCustomerId) {
+    try {
+      const customer = await params.stripe.customers.retrieve(existingSubscriptionCustomerId);
+      if (!customer.deleted) return existingSubscriptionCustomerId;
+    } catch (err) {
+      console.warn("[business-subscription] stored subscription customer not found in subscription Stripe account; creating a fresh subscription customer", {
+        businessId: params.business.id,
+        storedCustomerId: existingSubscriptionCustomerId,
+        message: err instanceof Error ? err.message : "Unknown Stripe customer lookup error",
+      });
+    }
   }
 
   const email = params.business.billing_email || params.business.business_email;

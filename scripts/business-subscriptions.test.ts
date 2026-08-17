@@ -39,8 +39,10 @@ function run() {
   assert.match(checkoutRoute, /mode:\s*"subscription"/);
   assert.match(checkoutRoute, /STRIPE_NETTMARK_BUSINESS_MONTHLY_PRICE_ID|BusinessSubscriptionPriceId/);
 
-  // 2. Existing Stripe Customer is reused.
-  assert.match(helper, /entitlement\.subscriptionStripeCustomerId \|\| params\.business\.stripe_customer_id/);
+  // 2. Subscription checkout keeps the revenue Stripe customer separate from the transactions Stripe customer.
+  assert.match(helper, /existingSubscriptionCustomerId = params\.entitlement\.subscriptionStripeCustomerId/);
+  assert.doesNotMatch(helper, /entitlement\.subscriptionStripeCustomerId \|\| params\.business\.stripe_customer_id/);
+  assert.match(helper, /customers\.retrieve\(existingSubscriptionCustomerId\)/);
   assert.match(helper, /customers\.search/);
 
   // 3. Grandfathered business does not get charged.
