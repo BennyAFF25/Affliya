@@ -1051,6 +1051,12 @@ export default function Home() {
             >
               Commission Ads
             </Link>
+            <Link
+              href="/partner-program"
+              className="hover:text-[#00C2CB] transition-colors"
+            >
+              Partner Program
+            </Link>
           </div>
         </div>
       </footer>
