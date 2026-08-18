@@ -1,10 +1,9 @@
 'use client';
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/../utils/supabase/pages-client';
+import { getActivationSubsidyBadgeLabel, getActivationSubsidyRemaining } from '@/../utils/activationSubsidies';
 
 type Offer = {
   id: string;
@@ -22,8 +21,6 @@ type Offer = {
   meta_page_id?: string | null;
   meta_ad_account_id?: string | null;
   meta_pixel_id?: string | null;
-  site_host?: string | null;
-  tracking_connected?: boolean;
 };
 
 function getPromotionMode(offer: Offer | null) {
@@ -60,6 +57,8 @@ export default function AffiliateOfferProfilePage() {
   const [requestLoading, setRequestLoading] = useState(false);
   const [requestError, setRequestError] = useState<string | null>(null);
   const [requestSuccess, setRequestSuccess] = useState<string | null>(null);
+  const [starterSpendLabel, setStarterSpendLabel] = useState<string | null>(null);
+  const [starterSpendRemaining, setStarterSpendRemaining] = useState<number>(0);
 
   // Image carousel
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -72,8 +71,6 @@ export default function AffiliateOfferProfilePage() {
         : []
       : [];
   const promotionMode = getPromotionMode(offer);
-  const trackingReady = Boolean(offer?.tracking_connected) || Boolean(offer?.site_host);
-  const trackingSetupPending = !trackingReady;
 
   // Load current user email
   useEffect(() => {
@@ -111,61 +108,43 @@ export default function AffiliateOfferProfilePage() {
         setLoadError(error.message || 'Failed to load offer.');
         setOffer(null);
       } else {
-        const row = data as Offer & { business_email?: string | null };
-        const { data: offerOnboardingRow, error: offerOnboardingError } = await (supabase as any)
-          .from('business_onboarding_progress')
-          .select('tracking_connected')
-          .eq('offer_id', row.id)
-          .maybeSingle();
-
-        if (offerOnboardingError && offerOnboardingError.code !== 'PGRST116') {
-          console.error('[Error fetching offer tracking status]', offerOnboardingError);
-        }
-
-        let businessTrackingConnected = false;
-        if (row.business_email) {
-          const { data: businessOnboardingRow, error: businessOnboardingError } = await (supabase as any)
-            .from('business_onboarding_progress')
-            .select('tracking_connected')
-            .eq('business_email', row.business_email)
-            .is('offer_id', null)
-            .maybeSingle();
-
-          if (businessOnboardingError && businessOnboardingError.code !== 'PGRST116') {
-            console.error('[Error fetching business tracking status]', businessOnboardingError);
-          }
-
-          businessTrackingConnected = Boolean(businessOnboardingRow?.tracking_connected);
-        }
-
-        let verifiedTrackingConnected = false;
-        try {
-          const readinessRes = await fetch('/api/business/tracking-readiness', {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ offerIds: [row.id] }),
-          });
-          const readinessJson = await readinessRes.json().catch(() => null);
-          verifiedTrackingConnected =
-            readinessRes.ok &&
-            Array.isArray(readinessJson?.verifiedOfferIds) &&
-            readinessJson.verifiedOfferIds.includes(row.id);
-        } catch (readinessError) {
-          console.error('[Tracking readiness request failed]', readinessError);
-        }
-
-        setOffer({
-          ...row,
-          tracking_connected:
-            Boolean(offerOnboardingRow?.tracking_connected) ||
-            businessTrackingConnected ||
-            verifiedTrackingConnected,
-        });
+        setOffer(data as Offer);
       }
       setLoading(false);
     };
 
     void fetchOffer();
+    return () => {
+      cancelled = true;
+    };
+  }, [offerId]);
+
+  useEffect(() => {
+    if (!offerId) return;
+    let cancelled = false;
+
+    const loadStarterSpend = async () => {
+      const { data, error } = await (supabase as any)
+        .from('business_activation_subsidies')
+        .select('id, status, subsidy_amount, consumed_amount')
+        .eq('offer_id', offerId)
+        .eq('status', 'available')
+        .limit(1)
+        .maybeSingle();
+
+      if (cancelled) return;
+
+      if (error && error.code !== 'PGRST116') {
+        console.warn('[starter spend offer load warn]', error);
+        return;
+      }
+
+      const remaining = getActivationSubsidyRemaining(data ?? null);
+      setStarterSpendRemaining(remaining);
+      setStarterSpendLabel(getActivationSubsidyBadgeLabel(data ?? null));
+    };
+
+    void loadStarterSpend();
     return () => {
       cancelled = true;
     };
@@ -511,6 +490,11 @@ export default function AffiliateOfferProfilePage() {
                 <span className={`inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-medium ${promotionMode.tone}`}>
                   {promotionMode.label}
                 </span>
+                {starterSpendLabel ? (
+                  <span className="inline-flex items-center rounded-full border border-[#00C2CB]/30 bg-[#00C2CB]/10 px-3 py-1 text-[11px] font-medium text-[#7ff5fb]">
+                    {starterSpendLabel}
+                  </span>
+                ) : null}
                 <span className="text-[11px] text-white/45">{promotionMode.helper}</span>
               </div>
               <h2 className="text-sm font-semibold text-[#00C2CB] mb-1">
@@ -519,7 +503,8 @@ export default function AffiliateOfferProfilePage() {
               <p className="text-sm text-white/70 leading-relaxed whitespace-pre-line">
                 {offer.profile_bio ||
                   offer.description ||
-                  'This business hasn’t added a full story yet. You can request once tracking is set up and requests are unlocked.'}
+                  'This business hasn’t added a full story yet, but you can still request to promote and chat through details once approved.'}
+                {starterSpendRemaining > 0 ? ` First approved affiliates can launch with $${starterSpendRemaining.toFixed(0)} of starter ad spend once the business subscription is active.` : ''}
               </p>
             </div>
 
@@ -551,11 +536,6 @@ export default function AffiliateOfferProfilePage() {
 
             {/* Request to promote */}
             <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 space-y-4">
-              {trackingSetupPending && (
-                <div className="rounded-2xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-100">
-                  Tracking setup is pending, but you can still request approval to promote this offer. The business will connect tracking before approving campaign launch.
-                </div>
-              )}
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <h3 className="text-sm font-semibold text-[#00C2CB]">Request to promote</h3>

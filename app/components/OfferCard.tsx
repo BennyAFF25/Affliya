@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
 import { useSession } from '@supabase/auth-helpers-react';
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import Link from 'next/link';
+import { useMemo, useState } from 'react';
 import { BadgeDollarSign, ShoppingBag, TrendingUp, Globe, ArrowUpRight } from 'lucide-react';
-import { Badge, Button, Card, Textarea } from '@/../components/ui';
 
 interface Offer {
   id: string;
@@ -23,8 +23,7 @@ interface Offer {
   meta_page_id?: string | null;
   meta_ad_account_id?: string | null;
   meta_pixel_id?: string | null;
-  site_host?: string | null;
-  tracking_connected?: boolean;
+  starterCreditAmount?: number;
 }
 
 function getPromotionMode(offer: Offer) {
@@ -32,14 +31,14 @@ function getPromotionMode(offer: Offer) {
   if (adsEnabled) {
     return {
       label: "Ads enabled",
-      badgeVariant: "success" as const,
+      tone: "bg-emerald-500/15 text-emerald-300 border border-emerald-400/40",
       helper: "Organic + paid ads available",
     };
   }
 
   return {
     label: "Organic only",
-    badgeVariant: "muted" as const,
+    tone: "bg-white/5 text-white/75 border border-white/10",
     helper: "Paid ads unlock once Meta is connected",
   };
 }
@@ -88,8 +87,6 @@ export default function OfferCard({
   const [notes, setNotes] = useState('');
   const [requested, setRequested] = useState(alreadyRequested);
   const promotionMode = getPromotionMode(offer);
-  const trackingReady = Boolean(offer.tracking_connected) || Boolean(offer.site_host);
-  const trackingSetupPending = !trackingReady;
   const offerTags = useMemo(() => getOfferTags(offer), [offer]);
   const formattedPrice = offer.price ? formatMoney(offer.price, offer.currency) : null;
   const estimatedPayout = offer.commissionValue ?? (offer.price ? (offer.price * offer.commission) / 100 : null);
@@ -99,7 +96,7 @@ export default function OfferCard({
     ? 'Built for both organic placements and paid Meta campaigns.'
     : 'Best suited to organic content, link-in-bio placements, and creator-led promotion.';
 
-  const sendEmail = async (endpoint: string, payload: Record<string, unknown>) => {
+  const sendEmail = async (endpoint: string, payload: any) => {
     try {
       // Fire-and-forget email trigger (should never block UX)
       const res = await fetch(endpoint, {
@@ -195,14 +192,14 @@ export default function OfferCard({
   };
 
   return (
-    <Card variant="dark" interactive className="relative flex h-full flex-col overflow-hidden p-5">
+    <div className="relative flex h-full flex-col overflow-hidden rounded-[24px] border border-[#1f2937] bg-[#101010] px-5 py-5 shadow-md transition-all duration-200 hover:border-[#00C2CB]/80 hover:shadow-[0_0_35px_rgba(0,194,203,0.18)]">
       {offer.currency && (
-        <Badge variant="primary" className="absolute right-4 top-4">
+        <div className="absolute right-4 top-4 rounded-full border border-[#00C2CB]/40 bg-[#0b1726] px-3 py-1 text-[11px] font-medium text-[#00C2CB]">
           {offer.currency}
-        </Badge>
+        </div>
       )}
 
-      <div className="mb-4 flex items-start justify-between gap-3 pr-16">
+      <div className="mb-5 flex items-start justify-between gap-3 pr-16">
         <div className="flex items-start gap-3">
           {offer.logoUrl ? (
             <div className="flex h-12 w-12 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-black/20">
@@ -218,32 +215,32 @@ export default function OfferCard({
             </div>
           )}
           <div>
-            <p className="text-[11px] uppercase tracking-[0.18em] text-white/40">Offer</p>
-            <h2 className="mt-1 text-base font-semibold text-white">
+            <p className="text-[11px] uppercase tracking-[0.18em] text-gray-500">Offer</p>
+            <h2 className="mt-1 text-lg font-semibold text-white">
               {offer.businessName}
             </h2>
-            <p className="mt-1 text-xs text-white/45">Built for affiliate growth</p>
+            <p className="mt-1 text-xs text-gray-500">Built for affiliate growth</p>
           </div>
         </div>
 
         <div className="flex flex-col items-end gap-1.5">
-          <Badge variant="success" className="normal-case tracking-normal">
+          <span className="inline-flex items-center rounded-full bg-emerald-900/40 px-2 py-0.5 text-[11px] text-emerald-300">
             ● Verified
-          </Badge>
+          </span>
           {offer.isTopCommission && (
-            <Badge variant="warning" className="gap-1 normal-case tracking-normal">
+            <div className="inline-flex items-center gap-1 rounded-full border border-amber-400/60 px-2 py-0.5 text-[11px] text-amber-200">
               <TrendingUp className="h-3.5 w-3.5" />
               Top payout
-            </Badge>
+            </div>
           )}
         </div>
       </div>
 
-      <div className="mb-4 rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(0,194,203,0.10),rgba(255,255,255,0.02))] p-4">
+      <div className="mb-5 rounded-2xl border border-white/10 bg-[linear-gradient(180deg,rgba(0,194,203,0.10),rgba(255,255,255,0.02))] p-4">
         <p className="text-[11px] uppercase tracking-[0.18em] text-[#7ff5fb]/80">Primary payout</p>
         <div className="mt-2 flex items-end justify-between gap-3">
           <div>
-            <p className="text-2xl font-bold tracking-tight text-[#7ff5fb]">{offer.commission}%</p>
+            <p className="text-3xl font-bold tracking-tight text-[#7ff5fb]">{offer.commission}%</p>
             <p className="mt-1 text-sm text-white/75">{offer.type === 'recurring' ? 'Recurring commission' : 'Commission per conversion'}</p>
           </div>
           {estimatedPayout ? (
@@ -258,23 +255,26 @@ export default function OfferCard({
         ) : null}
       </div>
 
-      <p className="mb-4 line-clamp-3 text-sm leading-6 text-white/60">
+      <p className="mb-4 line-clamp-3 text-sm leading-6 text-gray-400">
         {offer.description}
       </p>
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <Badge variant={promotionMode.badgeVariant} className="normal-case tracking-normal">
+        <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium ${promotionMode.tone}`}>
           {promotionMode.label}
-        </Badge>
-        {trackingSetupPending && (
-          <Badge variant="warning" className="normal-case tracking-normal">
-            Tracking setup pending
-          </Badge>
-        )}
+        </span>
+        {offer.starterCreditAmount ? (
+          <span className="inline-flex items-center rounded-full border border-[#00C2CB]/30 bg-[#00C2CB]/10 px-2.5 py-1 text-[11px] font-medium text-[#7ff5fb]">
+            Includes ${offer.starterCreditAmount.toFixed(0)} starter ad spend
+          </span>
+        ) : null}
         {offerTags.map((tag) => (
-          <Badge key={tag} variant="muted" className="normal-case tracking-normal">
+          <span
+            key={tag}
+            className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] font-medium text-white/70"
+          >
             {tag}
-          </Badge>
+          </span>
         ))}
       </div>
 
@@ -321,11 +321,11 @@ export default function OfferCard({
 
       {/* Affiliate note */}
       {role === 'affiliate' && !requested && (
-        <Textarea
+        <textarea
           placeholder="Write a note for the business..."
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          className="mt-2 min-h-20 border-white/10 bg-black/30 text-gray-100 placeholder:text-gray-500"
+          className="w-full mt-2 p-2 rounded-lg text-sm bg-black border border-[#0d0d0d] text-gray-100 placeholder:text-gray-500 focus:outline-none focus:border-[#00C2CB] focus:ring-0"
           rows={2}
         />
       )}
@@ -334,35 +334,32 @@ export default function OfferCard({
       <div className="mt-5 flex gap-3">
         {role === 'affiliate' ? (
           <>
-            <Button
+            <Link
               href={`/affiliate/marketplace/${offer.id}`}
-              variant="outline"
-              size="sm"
-              className="flex-1"
+              className="flex-1 text-center rounded-lg border border-[#00C2CB] px-4 py-2 text-xs sm:text-sm font-medium text-[#00C2CB] hover:bg-[#00C2CB]/10 transition-colors"
             >
               View offer
-            </Button>
-            <Button
+            </Link>
+            <button
               onClick={handleRequest}
               disabled={requested}
-              variant={requested ? "secondary" : "primary"}
-              size="sm"
-              className="flex-1"
+              className={`flex-1 font-semibold px-4 py-2 rounded-lg text-xs sm:text-sm transition-colors ${
+                requested
+                  ? 'bg-zinc-700 text-gray-400 cursor-not-allowed'
+                  : 'bg-[#00C2CB] hover:bg-[#00b0b8] text-black'
+              }`}
             >
               {requested ? 'Request Sent' : 'Request to Promote'}
-            </Button>
+            </button>
           </>
         ) : (
-          <Button href={`/business/my-business/edit-offer/${offer.id}`} size="sm" className="w-full">
+          <Link href={`/business/my-business/edit-offer/${offer.id}`}>
+            <button className="w-full bg-[#00C2CB] hover:bg-[#00b0b8] text-black px-4 py-2 rounded-lg font-semibold text-xs sm:text-sm transition-colors">
               View Details
-          </Button>
+            </button>
+          </Link>
         )}
       </div>
-      {role === 'affiliate' && trackingSetupPending && (
-        <p className="mt-3 text-xs text-amber-200/90">
-          Tracking setup is pending, but you can still request approval to promote this offer.
-        </p>
-      )}
-    </Card>
+    </div>
   );
 }

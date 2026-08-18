@@ -1,35 +1,10 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import AcceptTermsModal from "@/../app/components/AcceptTermsModal";
 import OfferCard from "@/components/OfferCard";
-import { Button, Card, EmptyState, Input, PageHeader, Select } from "@/../components/ui";
 import { supabase } from "../../../utils/supabase/pages-client";
-import { RefreshCw, Search, Sparkles } from "lucide-react";
-
-type SupabaseOffer = {
-  id: string;
-  title: string;
-  business_email?: string | null;
-  description?: string | null;
-  commission: number | null;
-  type: string;
-  currency?: string | null;
-  price?: number | null;
-  commission_value?: number | null;
-  logo_url?: string | null;
-  website?: string | null;
-  meta_page_id?: string | null;
-  meta_ad_account_id?: string | null;
-  meta_pixel_id?: string | null;
-  site_host?: string | null;
-};
-
-type OnboardingProgressRow = {
-  business_email?: string | null;
-  offer_id?: string | null;
-  tracking_connected?: boolean | null;
-};
+import { Search, Sparkles } from "lucide-react";
 
 interface Offer {
   id: string;
@@ -48,8 +23,7 @@ interface Offer {
   meta_page_id?: string | null;
   meta_ad_account_id?: string | null;
   meta_pixel_id?: string | null;
-  site_host?: string | null;
-  tracking_connected?: boolean;
+  starterCreditAmount?: number;
 }
 
 export default function AffiliateMarketplace() {
@@ -62,10 +36,6 @@ export default function AffiliateMarketplace() {
 
   const [showAcceptTerms, setShowAcceptTerms] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
-  const [refreshingOffers, setRefreshingOffers] = useState(false);
-  const [lastRefreshedAt, setLastRefreshedAt] = useState<Date | null>(null);
-  const pullStartYRef = useRef<number | null>(null);
-  const pullTriggeredRef = useRef(false);
   useEffect(() => {
     const checkTerms = async () => {
       const {
@@ -76,7 +46,7 @@ export default function AffiliateMarketplace() {
 
       setUserId(user.id);
 
-      const { data, error } = await supabase
+      const { data, error } = await (supabase as any)
         .from("profiles")
         .select("terms_accepted")
         .eq("id", user.id)
@@ -90,8 +60,27 @@ export default function AffiliateMarketplace() {
     checkTerms();
   }, []);
 
-  const fetchOffers = useCallback(async () => {
-      const { data, error } = await supabase.from("offers").select(`
+  useEffect(() => {
+    type SupabaseOffer = {
+      id: string;
+      title: string;
+      business_email?: string | null;
+      description?: string | null;
+      commission: number | null;
+      type: string;
+      currency?: string | null;
+      price?: number | null;
+      commission_value?: number | null;
+      logo_url?: string | null;
+      website?: string | null;
+      meta_page_id?: string | null;
+      meta_ad_account_id?: string | null;
+      meta_pixel_id?: string | null;
+    };
+
+    const fetchOffers = async () => {
+      const [{ data, error }, { data: subsidyRows, error: subsidyErr }] = await Promise.all([
+        supabase.from("offers").select(`
           id,
           title,
           business_email,
@@ -105,103 +94,37 @@ export default function AffiliateMarketplace() {
           website,
           meta_page_id,
           meta_ad_account_id,
-          meta_pixel_id,
-          site_host
-        `);
-
-      let typedData: SupabaseOffer[] = [];
+          meta_pixel_id
+        `),
+        supabase
+          .from("business_activation_subsidies")
+          .select("offer_id, subsidy_amount, consumed_amount")
+          .eq("status", "available"),
+      ]);
 
       if (error) {
         console.error("[❌ Error fetching offers]", error.message);
-        const { data: fallbackData, error: fallbackError } = await supabase
-          .from("offers")
-          .select("id,title,business_email,description,commission,type,logo_url,website");
-
-        if (fallbackError) {
-          console.error("[❌ Fallback offers fetch failed]", fallbackError.message);
-          setOffers([]);
-          return;
-        }
-
-        typedData = ((fallbackData || []) as SupabaseOffer[]).map((o) => ({
-          ...o,
-          currency: null,
-          price: null,
-          commission_value: null,
-          meta_page_id: null,
-          meta_ad_account_id: null,
-          meta_pixel_id: null,
-          site_host: null,
-        }));
-      } else if (data) {
-        typedData = data as SupabaseOffer[];
+        return;
       }
 
-      if (!typedData.length) {
+      if (!data) {
         setOffers([]);
         return;
       }
 
-      const offerIds = typedData.map((o) => o.id);
-      const businessEmails = Array.from(
-        new Set(
-          typedData
-            .map((o) => o.business_email)
-            .filter((email): email is string => Boolean(email)),
-        ),
-      );
-
-      const { data: offerOnboardingRows, error: offerOnboardingError } = await supabase
-        .from("business_onboarding_progress")
-        .select("business_email,offer_id,tracking_connected")
-        .in("offer_id", offerIds);
-
-      if (offerOnboardingError) {
-        console.error(
-          "[❌ Error fetching offer tracking status]",
-          offerOnboardingError.message,
-        );
+      if (subsidyErr) {
+        console.error("[❌ Error fetching starter spend rows]", subsidyErr.message);
       }
 
-      const { data: businessOnboardingRows, error: businessOnboardingError } = businessEmails.length
-        ? await supabase
-            .from("business_onboarding_progress")
-            .select("business_email,offer_id,tracking_connected")
-            .in("business_email", businessEmails)
-            .is("offer_id", null)
-        : { data: [], error: null };
-
-      if (businessOnboardingError) {
-        console.error(
-          "[❌ Error fetching business tracking status]",
-          businessOnboardingError.message,
-        );
+      const subsidyMap = new Map<string, number>();
+      for (const row of (subsidyRows || []) as any[]) {
+        const offerId = typeof row.offer_id === "string" ? row.offer_id : null;
+        if (!offerId) continue;
+        const remaining = Math.max(0, Number(row.subsidy_amount || 0) - Number(row.consumed_amount || 0));
+        if (remaining > 0) subsidyMap.set(offerId, remaining);
       }
 
-      const trackingMap = new Map<string, boolean>();
-      const businessTrackingMap = new Map<string, boolean>();
-      ([...(offerOnboardingRows || []), ...(businessOnboardingRows || [])] as OnboardingProgressRow[]).forEach((row) => {
-        if (!row?.tracking_connected) return;
-        if (row.offer_id) trackingMap.set(row.offer_id, true);
-        if (!row.offer_id && row.business_email) businessTrackingMap.set(row.business_email, true);
-      });
-
-      let verifiedTrackingIds = new Set<string>();
-      try {
-        const readinessRes = await fetch("/api/business/tracking-readiness", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ offerIds }),
-        });
-        const readinessJson = await readinessRes.json().catch(() => null);
-        if (readinessRes.ok && Array.isArray(readinessJson?.verifiedOfferIds)) {
-          verifiedTrackingIds = new Set(readinessJson.verifiedOfferIds as string[]);
-        } else if (!readinessRes.ok) {
-          console.error("[❌ Error fetching verified tracking readiness]", readinessJson);
-        }
-      } catch (readinessError) {
-        console.error("[❌ Tracking readiness request failed]", readinessError);
-      }
+      const typedData = data as SupabaseOffer[];
 
       const commissions = typedData.map((o) => o.commission ?? 0);
       const threshold = commissions.length ? Math.max(...commissions) * 0.9 : 0;
@@ -223,52 +146,14 @@ export default function AffiliateMarketplace() {
         meta_page_id: o.meta_page_id ?? null,
         meta_ad_account_id: o.meta_ad_account_id ?? null,
         meta_pixel_id: o.meta_pixel_id ?? null,
-        site_host: o.site_host ?? null,
-        tracking_connected:
-          trackingMap.get(o.id) ||
-          verifiedTrackingIds.has(o.id) ||
-          (o.business_email ? businessTrackingMap.get(o.business_email) : false) ||
-          false,
+        starterCreditAmount: subsidyMap.get(o.id) ?? undefined,
       }));
 
       setOffers(formatted);
-    }, []);
-
-  const refreshOffers = useCallback(async () => {
-    setRefreshingOffers(true);
-    try {
-      await fetchOffers();
-      setLastRefreshedAt(new Date());
-    } finally {
-      setRefreshingOffers(false);
-    }
-  }, [fetchOffers]);
-
-  useEffect(() => {
-    void refreshOffers();
-  }, [refreshOffers]);
-
-  useEffect(() => {
-    const refetchOffers = () => {
-      void refreshOffers();
     };
 
-    const refetchWhenVisible = () => {
-      if (document.visibilityState === "visible") {
-        refetchOffers();
-      }
-    };
-
-    window.addEventListener("focus", refetchOffers);
-    window.addEventListener("pageshow", refetchOffers);
-    document.addEventListener("visibilitychange", refetchWhenVisible);
-
-    return () => {
-      window.removeEventListener("focus", refetchOffers);
-      window.removeEventListener("pageshow", refetchOffers);
-      document.removeEventListener("visibilitychange", refetchWhenVisible);
-    };
-  }, [refreshOffers]);
+    fetchOffers();
+  }, []);
 
   useEffect(() => {
     type AffiliateRequestRow = {
@@ -279,6 +164,7 @@ export default function AffiliateMarketplace() {
     const fetchRequests = async () => {
       const {
         data: { user },
+        error,
       } = await supabase.auth.getUser();
       if (!user || !user.email) {
         console.warn("[❌ No email found in session]");
@@ -322,31 +208,6 @@ export default function AffiliateMarketplace() {
     return matchesSearch && matchesType;
   });
 
-  const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
-    if (window.scrollY > 0 || refreshingOffers) return;
-
-    pullStartYRef.current = event.touches[0]?.clientY ?? null;
-    pullTriggeredRef.current = false;
-  };
-
-  const handleTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
-    const startY = pullStartYRef.current;
-    const currentY = event.touches[0]?.clientY;
-
-    if (startY === null || currentY === undefined || pullTriggeredRef.current) return;
-    if (window.scrollY > 0) return;
-
-    if (currentY - startY > 90) {
-      pullTriggeredRef.current = true;
-      void refreshOffers();
-    }
-  };
-
-  const handleTouchEnd = () => {
-    pullStartYRef.current = null;
-    pullTriggeredRef.current = false;
-  };
-
   const sorted = [...filtered].sort((a, b) => {
     if (sortOrder === "Highest Commission") return b.commission - a.commission;
     if (sortOrder === "Business Name")
@@ -355,82 +216,67 @@ export default function AffiliateMarketplace() {
   });
 
   return (
-    <div
-      onTouchStart={handleTouchStart}
-      onTouchMove={handleTouchMove}
-      onTouchEnd={handleTouchEnd}
-      className="flex min-h-screen justify-center bg-[var(--background)] px-4 py-6 text-[var(--foreground)] sm:px-6 lg:py-8"
-    >
+    <div className="flex justify-center px-6 py-10 min-h-screen bg-[var(--background)] text-[var(--foreground)]">
       {showAcceptTerms && userId && (
         <AcceptTermsModal
           userId={userId}
           onAccepted={() => setShowAcceptTerms(false)}
         />
       )}
-      <div className="w-full max-w-7xl space-y-6">
-        <Card variant="elevated" className="px-5 py-6 sm:px-6">
-          <PageHeader
-            eyebrow="Workspace overview"
-            title="Affiliate Marketplace"
-            description="Choose offers aligned with your strengths and audience, and keep your next promotion lined up in one place."
-            actions={(
-              <Button
-              type="button"
-              onClick={() => void refreshOffers()}
-              disabled={refreshingOffers}
-                variant="outline"
-                size="md"
-            >
-              <RefreshCw className={`h-4 w-4 ${refreshingOffers ? "animate-spin" : ""}`} />
-              {refreshingOffers ? "Refreshing…" : "Refresh offers"}
-              </Button>
-            )}
-          />
-          <p className="mt-3 text-xs text-[var(--muted-foreground)] sm:hidden">
-            Pull down from the top or tap refresh to update offer status.
-          </p>
-          {lastRefreshedAt && (
-            <p className="mt-4 text-xs text-[var(--muted-foreground)]">
-              Last refreshed {lastRefreshedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-            </p>
-          )}
-        </Card>
+      <div className="w-full max-w-7xl space-y-8">
+        <header className="rounded-3xl border border-[var(--border)] bg-[var(--card)] px-6 py-8 shadow-[0_20px_60px_rgba(0,0,0,0.08)]">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-3xl">
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#00C2CB]/20 bg-[#00C2CB]/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.24em] text-[#7ff5fb]">
+                <Sparkles className="h-3.5 w-3.5" />
+                Workspace overview
+              </div>
+              <h1 className="text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
+                Affiliate Marketplace
+              </h1>
+              <p className="mt-3 max-w-2xl text-sm text-[var(--muted-foreground)] sm:text-base">
+                Choose offers aligned with your strengths and audience, and keep
+                your next promotion lined up in one place.
+              </p>
+            </div>
+          </div>
+        </header>
 
-        <Card className="flex flex-wrap items-center gap-3 p-4">
+        <div className="rounded-3xl border border-[var(--border)] bg-[var(--card)] px-6 py-6 flex flex-wrap justify-center items-center gap-4 shadow-[0_20px_60px_rgba(0,0,0,0.08)]">
           <div className="relative w-full sm:w-80">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted-foreground)]" />
-            <Input
+            <Search className="absolute top-3.5 left-3 text-[var(--muted-foreground)] w-5 h-5" />
+            <input
               type="text"
               placeholder="Search by business name..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-9"
+              className="pl-10 pr-4 py-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--input-background)] text-[var(--foreground)] placeholder-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
             />
           </div>
 
-          <Select
+          <select
             value={filterType}
             onChange={(e) => setFilterType(e.target.value)}
-            className="w-full sm:w-44"
+            className="p-2 rounded-2xl border border-[var(--border)] bg-[var(--input-background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
           >
             <option value="All">All</option>
             <option value="Recurring">Recurring</option>
             <option value="One-Time">One-Time</option>
-          </Select>
+          </select>
 
-          <Select
+          <select
             value={sortOrder}
             onChange={(e) => setSortOrder(e.target.value)}
-            className="w-full sm:w-56"
+            className="p-2 rounded-2xl border border-[var(--border)] bg-[var(--input-background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
           >
             <option value="None">None</option>
             <option value="Highest Commission">Highest Commission</option>
             <option value="Business Name">Business Name</option>
-          </Select>
-        </Card>
+          </select>
+        </div>
 
         {sorted.length > 0 ? (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {sorted.map((offer) => (
               <OfferCard
                 key={offer.id}
@@ -441,11 +287,9 @@ export default function AffiliateMarketplace() {
             ))}
           </div>
         ) : (
-          <EmptyState
-            icon={<Sparkles className="h-5 w-5" />}
-            title="No matching offers"
-            description="Try adjusting your filters or search to surface more opportunities."
-          />
+          <div className="text-center text-[var(--muted-foreground)] mt-20">
+            No matching offers. Try adjusting your filters or search.
+          </div>
         )}
       </div>
     </div>

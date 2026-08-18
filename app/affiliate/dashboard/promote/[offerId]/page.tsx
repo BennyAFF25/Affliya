@@ -1,16 +1,39 @@
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+// Helper: friendlyObjective
+function friendlyObjective(objective?: string): string {
+  switch (objective) {
+    case "OUTCOME_SALES":
+      return "Sales";
+    case "OUTCOME_LEADS":
+      return "Leads";
+    case "OUTCOME_ENGAGEMENT":
+      return "Engagement";
+    case "OUTCOME_VIDEO_VIEWS":
+      return "Video Views";
+    case "OUTCOME_REACH":
+      return "Reach";
+    case "OUTCOME_AWARENESS":
+      return "Awareness";
+    default:
+      return "Traffic";
+  }
+}
+// eslint-disable-next-line
+
+import { useState, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { nmToast } from "@/components/ui/toast";
-import { useRouter, useParams, usePathname } from "next/navigation";
+import { FaSpinner } from "react-icons/fa";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { useSession } from "@supabase/auth-helpers-react";
 import { supabase } from "@/../utils/supabase/pages-client";
+import { fetchReachEstimate } from "@/../utils/meta/fetchReachEstimate";
+import { getActivationSubsidyBadgeLabel, getActivationSubsidyRemaining } from "@/../utils/activationSubsidies";
 import { calculateWalletBalance } from "@/../utils/wallet/balance";
-import { assertAffiliateOfferApproved } from "@/../utils/approvals/enforcement";
-import { Badge, Card, ModeSelector, PreviewPanel, ReadinessBanner } from "@/../components/ui";
 
 import { AdFormState, GenderOpt, PlacementKey } from "../types";
 
+import { INPUT } from "../constants";
 
 import { AdCampaignWizard } from "../components/AdCampaignWizard";
 import { OrganicSubmissionForm } from "../components/OrganicSubmissionForm";
@@ -25,16 +48,17 @@ type OfferRow = {
   meta_page_id?: string | null;
   meta_ad_account_id?: string | null;
   meta_pixel_id?: string | null;
-  site_host?: string | null;
 };
 
-type LaunchFundAllocation = {
-  id: string;
-  amount: number;
-  currency: string;
-  status: string;
-  expires_at: string;
-  allocated_for_offer_id?: string | null;
+type OfferBusinessEmailRow = {
+  business_email: string | null;
+};
+
+type MetaConnectionRow = {
+  access_token?: string | null;
+  ad_account_id?: string | null;
+  page_id?: string | null;
+  updated_at?: string | null;
 };
 
 export default function PromoteOfferPage() {
@@ -42,7 +66,7 @@ export default function PromoteOfferPage() {
   // Removed loading states
   const router = useRouter();
   const params = useParams();
-  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const offerId = params.offerId as string;
 
   const session = useSession();
@@ -53,11 +77,17 @@ export default function PromoteOfferPage() {
   // ─────────────────────────────
   const [mode, setMode] = useState<"ad" | "organic">("ad");
 
+  useEffect(() => {
+    const requestedMode = (searchParams.get("mode") || "").toLowerCase();
+    if (requestedMode === "organic") setMode("organic");
+    if (requestedMode === "ad") setMode("ad");
+  }, [searchParams]);
+
   // Wallet balance state (real-time gating)
   const [walletBalance, setWalletBalance] = useState<number>(0);
   const [walletLoading, setWalletLoading] = useState<boolean>(true);
-  const [launchFundAllocation, setLaunchFundAllocation] = useState<LaunchFundAllocation | null>(null);
-  const [launchFundLoading, setLaunchFundLoading] = useState<boolean>(false);
+  const [starterSpendRemaining, setStarterSpendRemaining] = useState<number>(0);
+  const [starterSpendLabel, setStarterSpendLabel] = useState<string | null>(null);
   // ─────────────────────────────
   // Wallet balance loader
   // ─────────────────────────────
@@ -90,38 +120,31 @@ export default function PromoteOfferPage() {
         });
         setWalletBalance(snapshot.availableBalance);
       }
+
+      const { data: subsidyRows, error: subsidyErr } = await (supabase as any)
+        .from("business_activation_subsidies")
+        .select("id, status, subsidy_amount, consumed_amount, reserved_for_affiliate_email")
+        .eq("offer_id", offerId)
+        .eq("reserved_for_affiliate_email", userEmail)
+        .in("status", ["reserved", "partially_consumed"])
+        .limit(1);
+
+      if (subsidyErr) {
+        console.error("[starter spend load error]", subsidyErr);
+        setStarterSpendRemaining(0);
+        setStarterSpendLabel(null);
+      } else {
+        const subsidy = subsidyRows?.[0] ?? null;
+        const remaining = getActivationSubsidyRemaining(subsidy);
+        setStarterSpendRemaining(remaining);
+        setStarterSpendLabel(getActivationSubsidyBadgeLabel(subsidy));
+      }
+
       setWalletLoading(false);
     };
 
     loadWallet();
-  }, [userEmail]);
-
-  useEffect(() => {
-    if (!userEmail || !offerId) return;
-
-    const loadLaunchFund = async () => {
-      setLaunchFundLoading(true);
-      try {
-        const res = await fetch(`/api/launch-fund/offer?offerId=${encodeURIComponent(offerId)}`, {
-          method: "GET",
-          credentials: "same-origin",
-        });
-        if (!res.ok) {
-          setLaunchFundAllocation(null);
-          return;
-        }
-        const json = await res.json();
-        setLaunchFundAllocation(json?.allocation || null);
-      } catch (err) {
-        console.warn("[launch fund load error]", err);
-        setLaunchFundAllocation(null);
-      } finally {
-        setLaunchFundLoading(false);
-      }
-    };
-
-    loadLaunchFund();
-  }, [userEmail, offerId]);
+  }, [offerId, userEmail]);
 
   // Organic method + fields
   const [ogMethod, setOgMethod] = useState<
@@ -138,10 +161,8 @@ export default function PromoteOfferPage() {
   // ─────────────────────────────
   useEffect(() => {
     if (session === undefined) return;
-    if (session === null) {
-      router.replace(`/login/affiliate?next=${encodeURIComponent(pathname)}`);
-    }
-  }, [session, pathname, router]);
+    if (session === null) router.push("/");
+  }, [session, router]);
 
   // ─────────────────────────────
   // Derived tracking link
@@ -202,10 +223,9 @@ export default function PromoteOfferPage() {
   // Wallet gating derived values (safe – after form init)
   // ─────────────────────────────
   const requiredBudget = Number(form?.budget_amount_dollars || 0);
-  const launchFundBalance = Number(launchFundAllocation?.amount || 0);
-  const totalPaidCampaignBalance = walletBalance + launchFundBalance;
-  const walletDeficit = Math.max(0, requiredBudget - totalPaidCampaignBalance);
-  const canRunWithWallet = totalPaidCampaignBalance >= requiredBudget;
+  const effectiveLaunchBalance = walletBalance + starterSpendRemaining;
+  const walletDeficit = Math.max(0, requiredBudget - effectiveLaunchBalance);
+  const canRunWithWallet = effectiveLaunchBalance >= requiredBudget;
 
   // Media
   const [videoFile, setVideoFile] = useState<File | null>(null);
@@ -256,22 +276,11 @@ export default function PromoteOfferPage() {
     hasPage: boolean;
     hasAdAccount: boolean;
     hasPixel: boolean;
-    connected: boolean;
-    reason: string | null;
-    source: "offer" | "meta_connections" | null;
   }>({
     hasPage: false,
     hasAdAccount: false,
     hasPixel: false,
-    connected: false,
-    reason: null,
-    source: null,
   });
-  const [trackingReady, setTrackingReady] = useState<boolean>(false);
-  const [trackingResolved, setTrackingResolved] = useState<boolean>(false);
-  const [approvalResolved, setApprovalResolved] = useState<boolean>(false);
-  const [offerApproved, setOfferApproved] = useState<boolean>(false);
-  const approvalClient = supabase as unknown as Parameters<typeof assertAffiliateOfferApproved>[0];
 
   // Local preview URLs for selected files
   const [videoPreviewUrl, setVideoPreviewUrl] = useState<string | null>(null);
@@ -283,6 +292,12 @@ export default function PromoteOfferPage() {
     };
   }, [videoPreviewUrl, thumbPreviewUrl]);
 
+  // Meta business connection (for reach estimate)
+  const [biz, setBiz] = useState<{
+    access_token: string;
+    ad_account_id: string;
+  } | null>(null);
+
   useEffect(() => {
     if (session === undefined || session === null) return;
 
@@ -291,7 +306,7 @@ export default function PromoteOfferPage() {
       const { data: offer, error: offerErr } = await (supabase as any)
         .from("offers")
         .select(
-          "title, logo_url, business_email, website, meta_page_id, meta_ad_account_id, meta_pixel_id, site_host",
+          "title, logo_url, business_email, website, meta_page_id, meta_ad_account_id, meta_pixel_id",
         )
         .eq("id", offerId)
         .single();
@@ -304,8 +319,12 @@ export default function PromoteOfferPage() {
       // Preview title + logo
       setBrandName(offer?.title || "Your Brand Name");
       setBrandLogoUrl(offer?.logo_url || null);
-      const offerRow = offer as OfferRow | null;
-
+      setOfferMetaState({
+        hasPage: !!offer?.meta_page_id,
+        hasAdAccount: !!(offer as OfferRow | null)?.meta_ad_account_id,
+        hasPixel: !!(offer as OfferRow | null)?.meta_pixel_id,
+      });
+      setOfferMetaResolved(true);
       // Pre-fill Destination URL with the business website if available
       if (offer?.website) {
         setForm((p) => ({
@@ -314,53 +333,114 @@ export default function PromoteOfferPage() {
         }));
       }
 
-      // 2) Resolve paid readiness. This accepts offer-level Meta selections, but also
-      // falls back to meta_connections when the business has one clear Page/Ad Account.
-      try {
-        const readinessRes = await fetch(`/api/offers/${encodeURIComponent(offerId)}/readiness`, {
-          cache: "no-store",
-        });
-        const readinessJson = await readinessRes.json().catch(() => null);
-        const readiness = readinessJson?.readiness;
+      // 2) Meta creds by business_email (from meta_connections)
+      // AppleDash + similar cases can have multiple rows per business_email (different pages/ad accounts).
+      // Pick the row that matches offer.meta_page_id first, then fallback to most recent valid row.
+      setBiz(null);
+      if (offer?.business_email) {
+        const { data: mcRows, error: mcErr } = await (supabase as any)
+          .from("meta_connections")
+          .select("access_token, ad_account_id, page_id, updated_at")
+          .eq("business_email", offer.business_email as string)
+          .order("updated_at", { ascending: false });
 
-        if (!readinessRes.ok || !readiness) throw new Error(readinessJson?.message || "Readiness lookup failed");
+        if (mcErr) {
+          console.warn("[meta_connections fetch warn]", mcErr);
+        } else {
+          const rows = (mcRows || []) as MetaConnectionRow[];
+          const valid = rows.filter(
+            (r) => !!r?.access_token && !!r?.ad_account_id,
+          );
+          const offerPageId = String(
+            (offer as OfferRow)?.meta_page_id || "",
+          ).trim();
 
-        setOfferMetaState({
-          hasPage: Boolean(readiness.resolvedMeta?.pageId),
-          hasAdAccount: Boolean(readiness.resolvedMeta?.adAccountId),
-          hasPixel: Boolean(readiness.resolvedMeta?.pixelId),
-          connected: Boolean(readiness.metaConnected),
-          reason: readiness.metaReason || null,
-          source: readiness.metaSource || null,
-        });
-        setOfferMetaResolved(true);
-        setTrackingReady(Boolean(readiness.trackingReady));
-      } catch (e) {
-        console.warn("[paid readiness check failed]", e);
-        const fallbackTrackingReady = Boolean(offerRow?.site_host || offerRow?.meta_pixel_id);
-        setOfferMetaState({
-          hasPage: Boolean(offerRow?.meta_page_id),
-          hasAdAccount: Boolean(offerRow?.meta_ad_account_id),
-          hasPixel: Boolean(offerRow?.meta_pixel_id),
-          connected: Boolean(offerRow?.meta_page_id || offerRow?.meta_ad_account_id),
-          reason: "lookup_failed",
-          source: null,
-        });
-        setOfferMetaResolved(true);
-        setTrackingReady(fallbackTrackingReady);
-      } finally {
-        setTrackingResolved(true);
+          const matchedByPage = offerPageId
+            ? valid.find((r) => String(r.page_id || "").trim() === offerPageId)
+            : null;
+
+          const chosen = matchedByPage || valid[0] || null;
+
+          if (chosen?.access_token && chosen?.ad_account_id) {
+            setBiz({
+              access_token: chosen.access_token,
+              ad_account_id: chosen.ad_account_id,
+            });
+          }
+        }
       }
-
     };
 
     go();
   }, [offerId, session]);
 
+  // Debounce helper – prevents spamming Graph while typing
+  function useDebounce(fn: (...args: any[]) => void, delay = 600) {
+    const t = useRef<number | null>(null);
+    return (...args: any[]) => {
+      if (t.current) window.clearTimeout(t.current);
+      t.current = window.setTimeout(
+        () => fn(...args),
+        delay,
+      ) as unknown as number;
+    };
+  }
+
+  // Map our placements to Meta positions (publisher_platforms + *_positions)
+  function buildPlacementTargeting(placements: Record<PlacementKey, boolean>) {
+    const publisher_platforms: string[] = [];
+    const facebook_positions: string[] = [];
+    const instagram_positions: string[] = [];
+
+    if (placements.facebook_feed) {
+      if (!publisher_platforms.includes("facebook"))
+        publisher_platforms.push("facebook");
+      facebook_positions.push("feed");
+    }
+    if (placements.facebook_stories) {
+      if (!publisher_platforms.includes("facebook"))
+        publisher_platforms.push("facebook");
+      facebook_positions.push("story");
+    }
+    if (placements.facebook_reels) {
+      if (!publisher_platforms.includes("facebook"))
+        publisher_platforms.push("facebook");
+      facebook_positions.push("facebook_reels");
+    }
+
+    if (placements.instagram_feed) {
+      if (!publisher_platforms.includes("instagram"))
+        publisher_platforms.push("instagram");
+      instagram_positions.push("stream");
+    }
+    if (placements.instagram_stories) {
+      if (!publisher_platforms.includes("instagram"))
+        publisher_platforms.push("instagram");
+      instagram_positions.push("story");
+    }
+    if (placements.instagram_reels) {
+      if (!publisher_platforms.includes("instagram"))
+        publisher_platforms.push("instagram");
+      instagram_positions.push("reels");
+    }
+
+    const out: any = { publisher_platforms };
+    if (facebook_positions.length) out.facebook_positions = facebook_positions;
+    if (instagram_positions.length)
+      out.instagram_positions = instagram_positions;
+    return out;
+  }
+
   // ─────────────────────────────
-  // Local planning assumptions only. Meta reach is unavailable pre-approval
-  // because the campaign/ad set is not created until the business approves.
+  // Reach estimate (optional) - split daily/monthly
   // ─────────────────────────────
+  const [reachDaily, setReachDaily] = useState<number | null>(null);
+  const [reachMonthly, setReachMonthly] = useState<number | null>(null);
+  const [reachStatus, setReachStatus] = useState<
+    "idle" | "loading" | "ready" | "unavailable" | "error"
+  >("idle");
+  const [reachMessage, setReachMessage] = useState<string>("");
+  const [interestsIgnored, setInterestsIgnored] = useState(false);
   const [assumeCPM, setAssumeCPM] = useState<number>(10); // $10 CPM default
   const [assumeCTR, setAssumeCTR] = useState<number>(1); // 1% CTR default
   const [assumeCVR, setAssumeCVR] = useState<number>(3); // 3% CVR default
@@ -387,63 +467,173 @@ export default function PromoteOfferPage() {
     offerMetaState.hasPage && offerMetaState.hasAdAccount;
   const offerHasSalesPixel = offerMetaState.hasPixel;
   const needsSalesPixel = form.objective === "OUTCOME_SALES";
-  const needsOfferMetaSelection = offerMetaResolved && offerMetaState.reason === "needs_offer_selection";
   const isOrganicOnlyOffer = offerMetaResolved && !offerHasMetaLaunchSetup;
   const showMetaSetupWarning = offerMetaResolved && !offerHasMetaLaunchSetup;
   const showSalesPixelWarning = offerMetaResolved && offerHasMetaLaunchSetup && needsSalesPixel && !offerHasSalesPixel;
-  const showTrackingWarning = trackingResolved && !trackingReady;
-  const canLaunchPaidCampaign =
-    trackingReady && offerHasMetaLaunchSetup && (!needsSalesPixel || offerHasSalesPixel);
-
-  const verifyAffiliateOfferApproval = useCallback(async () => {
-    if (!offerId || !userEmail) return false;
-
-    const approval = await assertAffiliateOfferApproved(approvalClient, {
-      offerId,
-      affiliateEmail: userEmail,
-    });
-
-    return approval.ok;
-  }, [approvalClient, offerId, userEmail]);
 
   useEffect(() => {
-    let cancelled = false;
+    if (isOrganicOnlyOffer && mode === "ad") {
+      setMode("organic");
+    }
+  }, [isOrganicOnlyOffer, mode]);
 
-    const checkApproval = async () => {
-      if (session === undefined) return;
+  // Sparkline for 30-day projection (tiny sideways line chart)
+  function buildSparkPath(values: number[], w = 120, h = 36, pad = 2) {
+    const max = Math.max(1, ...values);
+    const n = values.length;
+    if (n === 0) return "";
+    const innerW = w - pad * 2;
+    const innerH = h - pad * 2;
+    return values
+      .map((val, i) => {
+        const x = pad + (i * innerW) / (n - 1 || 1);
+        const y = h - pad - (Math.max(0, val) / max) * innerH;
+        return `${i === 0 ? "M" : "L"}${x},${y}`;
+      })
+      .join(" ");
+  }
 
-      if (session === null || !userEmail || !offerId) {
-        if (!cancelled) {
-          setOfferApproved(false);
-          setApprovalResolved(true);
-        }
+  const sparkValues = useMemo(() => {
+    const v = Number.isFinite(dailyConversions)
+      ? Math.max(0, dailyConversions)
+      : 0;
+    // 30 points flat projection (daily × 30). Keep flat to avoid fake volatility.
+    return Array.from({ length: 30 }, () => v);
+  }, [dailyConversions]);
+
+  const sparkPath = useMemo(() => buildSparkPath(sparkValues), [sparkValues]);
+
+  const triggerReach = useDebounce(async () => {
+    try {
+      // We prefer client-resolved biz creds when available, but server can fallback via offer_id.
+      const numericAd = biz?.ad_account_id
+        ? String(biz.ad_account_id).replace(/^act_/, "")
+        : "";
+
+      const countries = form.location_countries
+        .split(",")
+        .map((c) => c.trim())
+        .filter(Boolean);
+      if (countries.length === 0) {
+        setReachStatus("idle");
+        setReachMessage("Select at least one country to estimate reach.");
+        setReachDaily(null);
+        setReachMonthly(null);
         return;
       }
 
-      setApprovalResolved(false);
-      try {
-        const approved = await verifyAffiliateOfferApproval();
-        if (!cancelled) setOfferApproved(approved);
-      } catch (e) {
-        console.error("[approval check failed]", e);
-        if (!cancelled) setOfferApproved(false);
-      } finally {
-        if (!cancelled) setApprovalResolved(true);
+      const age_min = Number(form.age_min || 18);
+      const age_max = Number(form.age_max || 65);
+      if (age_min < 13 || age_max < age_min) {
+        setReachStatus("idle");
+        setReachMessage("Adjust age range to continue estimating reach.");
+        setReachDaily(null);
+        setReachMonthly(null);
+        return;
       }
-    };
 
-    void checkApproval();
+      setReachStatus("loading");
+      setReachMessage("Loading estimate…");
 
-    return () => {
-      cancelled = true;
-    };
-  }, [offerId, session, userEmail, verifyAffiliateOfferApproval]);
+      const genders = form.gender === "" ? [] : [Number(form.gender)];
+
+      const interests = form.interests_csv
+        ? form.interests_csv
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean)
+            .map((i) => ({ id: i, name: i }))
+        : [];
+
+      // (Future) placements – server can merge into targeting_spec if supported
+      const placementSpec = buildPlacementTargeting(form.placements);
+
+      const est = await fetchReachEstimate({
+        access_token: biz?.access_token,
+        ad_account_id: numericAd,
+        offer_id: offerId,
+        countries,
+        age_min,
+        age_max,
+        genders,
+        interests,
+        optimization_goal: "REACH",
+        currency: "AUD", // ignored by server route
+        placementSpec, // ← added to send placements
+      } as any);
+
+      // Graph returns: { data: [{ estimate_dau, estimate_mau, estimate_ready, ... }] }
+      const first = Array.isArray(est?.data) ? est.data[0] : (null as any);
+      setInterestsIgnored(Boolean((est as any)?.meta?.interests_ignored));
+
+      function extractEstimate(val: any): number | null {
+        if (val == null) return null;
+        if (typeof val === "number" && isFinite(val)) return val;
+        if (typeof val === "object") {
+          // common shapes: { estimate }, { value }, { lower_bound, upper_bound }
+          if (typeof val.estimate === "number" && isFinite(val.estimate))
+            return val.estimate;
+          if (typeof val.value === "number" && isFinite(val.value))
+            return val.value;
+          if (
+            typeof val.lower_bound === "number" &&
+            typeof val.upper_bound === "number"
+          ) {
+            // pick midpoint when a range is provided
+            const mid = (val.lower_bound + val.upper_bound) / 2;
+            return isFinite(mid) ? mid : null;
+          }
+        }
+        return null;
+      }
+
+      const dau = extractEstimate(first?.estimate_dau);
+      const mau = extractEstimate(first?.estimate_mau);
+
+      setReachDaily(dau);
+      setReachMonthly(mau);
+
+      if (dau !== null || mau !== null) {
+        setReachStatus("ready");
+        setReachMessage("Estimate updated from Meta delivery data.");
+      } else {
+        setReachStatus("unavailable");
+        setReachMessage("Meta returned no estimate for this targeting.");
+      }
+    } catch (e: any) {
+      console.warn("[Reach Estimate Error]", e);
+      setReachDaily(null);
+      setReachMonthly(null);
+      setReachStatus("error");
+      const msg = e?.message?.toLowerCase?.() || "";
+      if (msg.includes("access token")) {
+        setReachMessage(
+          "Meta token expired or invalid. Reconnect Meta to restore estimates.",
+        );
+      } else {
+        setReachMessage("Could not load estimate right now. Please try again.");
+      }
+    }
+  }, 600);
 
   useEffect(() => {
-    if ((showTrackingWarning || isOrganicOnlyOffer) && mode === "ad") {
-      setMode("organic");
-    }
-  }, [isOrganicOnlyOffer, mode, showTrackingWarning]);
+    triggerReach();
+    // include placements so toggling them updates estimate
+  }, [
+    biz,
+    offerId,
+    form.location_countries,
+    form.age_min,
+    form.age_max,
+    form.gender,
+    form.interests_csv,
+    form.placements.facebook_feed,
+    form.placements.instagram_feed,
+    form.placements.instagram_reels,
+    form.placements.facebook_reels,
+    form.placements.facebook_stories,
+    form.placements.instagram_stories,
+  ]);
 
   // ─────────────────────────────
   // Helpers
@@ -522,14 +712,6 @@ export default function PromoteOfferPage() {
         return;
       }
 
-      const isApproved = await verifyAffiliateOfferApproval();
-      if (!isApproved) {
-        nmToast.error("You must be approved for this offer before submitting organic posts.");
-        setOfferApproved(false);
-        setApprovalResolved(true);
-        return;
-      }
-
       // Fetch business_email for this offer
       const { data: offerRow, error: offerErr } = await (supabase as any)
         .from("offers")
@@ -578,8 +760,8 @@ export default function PromoteOfferPage() {
 
       // Map fields by method
       let platform = ogPlatform;
-      const caption = ogCaption;
-      const content = ogContent;
+      let caption = ogCaption;
+      let content = ogContent;
 
       if (ogMethod === "email") {
         platform = "Email";
@@ -636,61 +818,6 @@ export default function PromoteOfferPage() {
   const handleAdSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
     try {
-      if (!userEmail) {
-        nmToast.error("You must be signed in.");
-        return;
-      }
-
-      const isApproved = await verifyAffiliateOfferApproval();
-      if (!isApproved) {
-        nmToast.error("You must be approved for this offer before submitting ad ideas.");
-        setOfferApproved(false);
-        setApprovalResolved(true);
-        return;
-      }
-
-      const readinessRes = await fetch(`/api/offers/${encodeURIComponent(offerId)}/readiness`, {
-        cache: "no-store",
-      });
-      const readinessJson = await readinessRes.json().catch(() => null);
-      const readiness = readinessJson?.readiness;
-
-      if (!readinessRes.ok || !readiness) {
-        nmToast.error(readinessJson?.message || "Could not verify offer readiness.");
-        return;
-      }
-
-      setTrackingReady(Boolean(readiness.trackingReady));
-      setTrackingResolved(true);
-      setOfferMetaState({
-        hasPage: Boolean(readiness.resolvedMeta?.pageId),
-        hasAdAccount: Boolean(readiness.resolvedMeta?.adAccountId),
-        hasPixel: Boolean(readiness.resolvedMeta?.pixelId),
-        connected: Boolean(readiness.metaConnected),
-        reason: readiness.metaReason || null,
-        source: readiness.metaSource || null,
-      });
-      setOfferMetaResolved(true);
-
-      if (!readiness.trackingReady) {
-        nmToast.error("Tracking setup is required before paid campaign launch.");
-        return;
-      }
-
-      if (!readiness.resolvedMeta?.pageId || !readiness.resolvedMeta?.adAccountId) {
-        nmToast.error(
-          readiness.metaReason === "needs_offer_selection"
-            ? "Meta is connected, but this offer needs a selected Page and Ad Account before paid ads can launch."
-            : "Meta must be connected before paid ads can launch.",
-        );
-        return;
-      }
-
-      if (form.objective === "OUTCOME_SALES" && !readiness.resolvedMeta?.pixelId) {
-        nmToast.error("Sales campaigns need a selected Meta pixel before launch.");
-        return;
-      }
-
       // UI-side safety: if Bid Cap selected, require a value
       if (form.bid_strategy === "BID_CAP") {
         const cap = Number(form.bid_cap_dollars);
@@ -752,9 +879,26 @@ export default function PromoteOfferPage() {
         deductions: deductionRows || [],
       }).availableBalance;
 
-      if (walletTotal < budgetDollars) {
+      const { data: subsidyRows, error: subsidyErr } = await (supabase as any)
+        .from("business_activation_subsidies")
+        .select("id, status, subsidy_amount, consumed_amount, reserved_for_affiliate_email")
+        .eq("offer_id", offerId)
+        .eq("reserved_for_affiliate_email", userEmail)
+        .in("status", ["reserved", "partially_consumed"])
+        .limit(1);
+
+      if (subsidyErr) {
+        console.error("[starter spend validation error]", subsidyErr);
+      }
+
+      const starterCoverage = getActivationSubsidyRemaining(subsidyRows?.[0] ?? null);
+      const effectiveFunding = walletTotal + starterCoverage;
+
+      if (effectiveFunding < budgetDollars) {
         nmToast.error(
-          `Daily budget ($${budgetDollars.toFixed(2)}) exceeds your available wallet balance ($${walletTotal.toFixed(2)}).`,
+          starterCoverage > 0
+            ? `Daily budget ($${budgetDollars.toFixed(2)}) exceeds your combined wallet + starter spend coverage ($${effectiveFunding.toFixed(2)}).`
+            : `Daily budget ($${budgetDollars.toFixed(2)}) exceeds your available wallet balance ($${walletTotal.toFixed(2)}).`,
         );
         return;
       }
@@ -917,22 +1061,10 @@ export default function PromoteOfferPage() {
         bid_cap_saved_to_db: insertPayload.bid_cap,
       });
 
-      const { data: insertedAdIdeas, error: insertErr } = await (
+      const { error: insertErr } = await (
         supabase.from("ad_ideas") as any
-      ).insert([insertPayload as any]).select("id");
+      ).insert([insertPayload as any]);
       if (insertErr) throw insertErr;
-
-      if (launchFundAllocation?.id) {
-        fetch("/api/launch-fund/campaign-started", {
-          method: "POST",
-          credentials: "same-origin",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            offerId,
-            adIdeaId: insertedAdIdeas?.[0]?.id || null,
-          }),
-        }).catch((err) => console.warn("[launch fund campaign_started tracking error]", err));
-      }
 
       nmToast.success("Ad idea submitted for review");
       router.push("/affiliate/dashboard"); // back to dashboard after submit
@@ -942,235 +1074,270 @@ export default function PromoteOfferPage() {
     }
   };
 
+  // ─────────────────────────────
+  // Placements – branded toggle cards
+  // ─────────────────────────────
+  const PLACEMENT_ORDER: PlacementKey[] = [
+    "facebook_feed",
+    "instagram_feed",
+    "instagram_reels",
+    "facebook_reels",
+    "facebook_stories",
+    "instagram_stories",
+  ];
 
-  if (session !== undefined && session !== null && !approvalResolved) {
-    return (
-      <div className="promote-theme flex min-h-screen items-center justify-center bg-[var(--background)] px-4 py-6 text-[var(--foreground)]">
-        <Card className="max-w-lg p-6 text-center" variant="elevated">
-          <Badge variant="muted">Checking access</Badge>
-          <p className="mt-4 text-sm text-[var(--muted-foreground)]">Verifying your approval for this offer…</p>
-        </Card>
-      </div>
-    );
-  }
+  const PLACEMENT_META: Record<
+    PlacementKey,
+    { label: string; sub?: string; icon: ReactNode }
+  > = {
+    facebook_feed: {
+      label: "Facebook Feed",
+      sub: "Main feed",
+      icon: (
+        <svg
+          viewBox="0 0 24 24"
+          className="h-5 w-5"
+          fill="currentColor"
+          aria-hidden
+        >
+          <path d="M22 12.073C22 6.505 17.523 2 12 2S2 6.505 2 12.073c0 4.999 3.657 9.144 8.438 9.878v-6.988H7.898v-2.89h2.54V9.845c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.242 0-1.63.772-1.63 1.562v1.875h2.773l-.443 2.889h-2.33v6.988C18.343 21.217 22 17.072 22 12.073z" />
+        </svg>
+      ),
+    },
+    instagram_feed: {
+      label: "Instagram Feed",
+      sub: "Main feed",
+      icon: (
+        <svg
+          viewBox="0 0 24 24"
+          className="h-5 w-5"
+          fill="currentColor"
+          aria-hidden
+        >
+          <path d="M7 2h10a5 5 0 0 1 5 5v10a5 5 0 0 1-5 5H7a5 5 0 0 1-5-5V7a5 5 0 0 1 5-5zm0 2a3 3 0 0 0-3 3v10a3 3 0 0 0 3 3h10a3 3 0 0 0 3-3V7a3 3 0 0 0-3-3H7zm5 3.5A5.5 5.5 0 1 1 6.5 13 5.5 5.5 0 0 1 12 7.5zm0 2A3.5 3.5 0 1 0 15.5 13 3.5 3.5 0 0 0 12 9.5zm5.25-3.25a1.25 1.25 0 1 1-1.25 1.25 1.25 1.25 0 0 1 1.25-1.25z" />
+        </svg>
+      ),
+    },
+    instagram_reels: {
+      label: "Instagram Reels",
+      sub: "Short video",
+      icon: (
+        <svg
+          viewBox="0 0 24 24"
+          className="h-5 w-5"
+          fill="currentColor"
+          aria-hidden
+        >
+          <path d="M4 3h16a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm2.5 1.5L10 8H7.5L5 4.5h1.5zm4 0L14 8h-2.5L8.5 4.5H10zm4 0L18 8h-2.5L12.5 4.5H14zM9 10.25v3.5a.75.75 0 0 0 1.125.654l3-1.75a.75.75 0 0 0 0-1.308l-3-1.75A.75.75 0 0 0 9 10.25z" />
+        </svg>
+      ),
+    },
+    facebook_reels: {
+      label: "Facebook Reels",
+      sub: "Short video",
+      icon: (
+        <svg
+          viewBox="0 0 24 24"
+          className="h-5 w-5"
+          fill="currentColor"
+          aria-hidden
+        >
+          <path d="M4 3h16a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm6 6.25v5.5a.75.75 0 0 0 1.125.654l4-2.25a.75.75 0 0 0 0-1.308l-4-2.25A.75.75 0 0 0 10 9.25zM6.5 4.5L9 8H7.5L5 4.5h1.5zM11 4.5L13.5 8H12L9.5 4.5H11zM15.5 4.5L18 8h-1.5L14 4.5h1.5z" />
+        </svg>
+      ),
+    },
+    facebook_stories: {
+      label: "Facebook Stories",
+      sub: "Vertical story",
+      icon: (
+        <svg
+          viewBox="0 0 24 24"
+          className="h-5 w-5"
+          fill="currentColor"
+          aria-hidden
+        >
+          <path d="M8 2.75A2.75 2.75 0 0 1 10.75 0h2.5A2.75 2.75 0 0 1 16 2.75v18.5A2.75 2.75 0 0 1 13.25 24h-2.5A2.75 2.75 0 0 1 8 21.25zM10 2.5h4v19h-4z" />
+        </svg>
+      ),
+    },
+    instagram_stories: {
+      label: "Instagram Stories",
+      sub: "Vertical story",
+      icon: (
+        <svg
+          viewBox="0 0 24 24"
+          className="h-5 w-5"
+          fill="currentColor"
+          aria-hidden
+        >
+          <path d="M6 1.75A2.75 2.75 0 0 1 8.75-1h6.5A2.75 2.75 0 0 1 18 1.75v20.5A2.75 2.75 0 0 1 15.25 25h-6.5A2.75 2.75 0 0 1 6 22.25zM8 3.5h8v18H8z" />
+        </svg>
+      ),
+    },
+  };
 
-  if (approvalResolved && !offerApproved) {
+  function PlacementCard({
+    k,
+    active,
+    onToggle,
+  }: {
+    k: PlacementKey;
+    active: boolean;
+    onToggle: () => void;
+  }) {
+    const meta = PLACEMENT_META[k];
     return (
-      <div className="promote-theme flex min-h-screen items-center justify-center bg-[var(--background)] px-4 py-6 text-[var(--foreground)]">
-        <Card className="max-w-lg p-6 text-center" variant="elevated">
-          <Badge variant="warning">Approval required</Badge>
-          <h1 className="mt-4 text-2xl font-semibold text-white">This offer is not unlocked yet.</h1>
-          <p className="mt-3 text-sm text-[var(--muted-foreground)]">
-            The business must approve your request before you can submit organic posts or paid ad ideas for this offer.
-          </p>
-          <button
-            type="button"
-            onClick={() => router.replace(`/affiliate/marketplace/${offerId}`)}
-            className="mt-5 rounded-full bg-[#00C2CB] px-5 py-2 text-sm font-semibold text-black hover:bg-[#7ff5fb]"
+      <button
+        type="button"
+        onClick={onToggle}
+        className={[
+          "group w-full text-left rounded-xl border transition relative overflow-hidden",
+          active
+            ? "border-[#00C2CB]/60 bg-gradient-to-br from-[#0d1f21] via-[#0f0f0f] to-[#0b0b0b] ring-1 ring-[#00C2CB]/40"
+            : "border-[#232323] hover:border-[#2f2f2f] bg-[#101010]",
+        ].join(" ")}
+      >
+        <div className="p-3 flex items-center gap-3">
+          <div
+            className={[
+              "h-9 w-9 rounded-lg flex items-center justify-center",
+              active
+                ? "bg-[#043a3d] text-[#7ff5fb]"
+                : "bg-[#171717] text-gray-300",
+              "border",
+              active ? "border-[#00C2CB]/50" : "border-[#2a2a2a]",
+            ].join(" ")}
           >
-            View offer request
-          </button>
-        </Card>
-      </div>
+            {meta.icon}
+          </div>
+          <div className="flex-1">
+            <div className="text-sm font-medium">{meta.label}</div>
+            <div className="text-[11px] text-gray-400">
+              {meta.sub || (active ? "Selected" : "Tap to include")}
+            </div>
+          </div>
+          {/* Toggle pill */}
+          <div
+            className={[
+              "ml-auto h-5 w-9 rounded-full relative transition",
+              active ? "bg-[#00C2CB]" : "bg-[#2a2a2a]",
+            ].join(" ")}
+          >
+            <span
+              className={[
+                "absolute top-0.5 h-4 w-4 rounded-full bg-black transition-all",
+                active ? "left-5" : "left-0.5",
+              ].join(" ")}
+            />
+          </div>
+        </div>
+      </button>
     );
   }
 
   return (
-    <div className="promote-theme min-h-screen bg-[var(--background)] px-4 py-6 text-[var(--foreground)] sm:px-6 lg:py-8">
-      <div className="mx-auto grid max-w-6xl gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
-        <Card className="lg:col-span-2 overflow-hidden border-[#00C2CB]/15 bg-[radial-gradient(circle_at_top_right,rgba(0,194,203,0.16),transparent_34%),var(--card)] p-5 sm:p-6" variant="elevated">
-          <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
-            <div className="flex min-w-0 items-start gap-4">
-              <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-[#00C2CB]/25 bg-[#00C2CB]/10 text-lg font-semibold text-[#7ff5fb]">
-                {brandLogoUrl ? (
-                  <img
-                    src={brandLogoUrl}
-                    alt={`${brandName} logo`}
-                    className="h-full w-full object-cover"
-                    referrerPolicy="no-referrer"
-                  />
-                ) : (
-                  brandName.charAt(0).toUpperCase()
-                )}
-              </div>
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant="primary">Promote offer</Badge>
-                  {canLaunchPaidCampaign ? (
-                    <Badge variant="success">Paid ready</Badge>
-                  ) : isOrganicOnlyOffer ? (
-                    <Badge variant="warning">Organic only</Badge>
-                  ) : (
-                    <Badge variant="muted">Readiness pending</Badge>
-                  )}
-                </div>
-                <h1 className="mt-3 truncate text-2xl font-semibold tracking-tight text-white sm:text-3xl">
-                  {brandName}
-                </h1>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted-foreground)]">
-                  Build a paid Meta campaign or submit an organic promotion for business review. Required uploads, wallet checks, and approvals remain enforced at submit.
+    <div className="promote-theme min-h-screen py-10 px-6 bg-[var(--background)] text-[var(--foreground)] pb-8">
+      <div className="max-w-6xl mx-auto grid lg:grid-cols-[1fr_360px] gap-8">
+        {/* Mode toggle (Ad vs Organic) */}
+        <div className="lg:col-span-2 -mb-2 flex items-center justify-between">
+          <div className="flex gap-2 overflow-x-auto">
+            <button
+              type="button"
+              onClick={() => {
+                if (!isOrganicOnlyOffer) setMode("ad");
+              }}
+              disabled={isOrganicOnlyOffer}
+              className={[
+                "px-4 py-2 rounded-lg border text-sm",
+                mode === "ad"
+                  ? "bg-[#00C2CB] text-black border-[#00C2CB]"
+                  : "border-[#2a2a2a] text-gray-300 hover:bg-[#151515]",
+                isOrganicOnlyOffer ? "cursor-not-allowed opacity-50 hover:bg-transparent" : "",
+              ].join(" ")}
+            >
+              {isOrganicOnlyOffer ? "Ads unavailable" : "Submit Ad"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("organic")}
+              className={[
+                "px-4 py-2 rounded-lg border text-sm",
+                mode === "organic"
+                  ? "bg-[#00C2CB] text-black border-[#00C2CB]"
+                  : "border-[#2a2a2a] text-gray-300 hover:bg-[#151515]",
+              ].join(" ")}
+            >
+              Submit Organic
+            </button>
+          </div>
+        </div>
+        {/* LEFT: single card wizard */}
+        {mode === "ad" && (
+          <div className="space-y-4">
+            {showMetaSetupWarning && (
+              <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-100">
+                <div className="font-semibold">This offer is organic-only right now</div>
+                <p className="mt-1 text-amber-100/85">
+                  The business has not connected the Meta page and ad account for this offer yet, so affiliates can only promote it organically for now.
                 </p>
               </div>
-            </div>
-            <div className="grid grid-cols-2 gap-2 text-sm md:min-w-[260px]">
-              <div className="rounded-2xl border border-[var(--border)] bg-black/20 px-4 py-3">
-                <div className="text-[11px] uppercase tracking-[0.16em] text-[var(--muted-foreground)]">Wallet</div>
-                <div className="mt-1 font-semibold text-white">
-                  {walletLoading ? "Checking…" : `$${walletBalance.toFixed(2)}`}
-                </div>
-              </div>
-              <div className="rounded-2xl border border-[var(--border)] bg-black/20 px-4 py-3">
-                <div className="text-[11px] uppercase tracking-[0.16em] text-[var(--muted-foreground)]">Budget</div>
-                <div className="mt-1 font-semibold text-white">${requiredBudget.toFixed(2)}</div>
-              </div>
-              {launchFundAllocation && (
-                <div className="col-span-2 rounded-2xl border border-emerald-400/25 bg-emerald-400/10 px-4 py-3">
-                  <div className="text-[11px] uppercase tracking-[0.16em] text-emerald-200/80">Launch Fund</div>
-                  <div className="mt-1 text-sm font-semibold text-emerald-100">
-                    ${launchFundBalance.toFixed(2)} promotional ad credit available for this offer
-                  </div>
-                  <p className="mt-1 text-xs text-emerald-100/75">
-                    Non-withdrawable, tied to eligible paid campaign activity, expires {new Date(launchFundAllocation.expires_at).toLocaleDateString()}.
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
-        </Card>
-
-        <div className="space-y-4 lg:col-span-2">
-          <ModeSelector
-            value={mode}
-            onChange={(value) => setMode(value as "ad" | "organic")}
-            options={[
-              {
-                value: "ad",
-                label: showTrackingWarning || isOrganicOnlyOffer ? "Ads unavailable" : "Paid ad campaign",
-                description: showTrackingWarning
-                  ? "Tracking is required before paid campaign launch."
-                  : "Create a Meta-ready campaign idea with budget, targeting, creative, and uploads.",
-                disabled: showTrackingWarning || isOrganicOnlyOffer,
-                activeClassName: "border-[#00C2CB]/70 bg-[#00C2CB]/12 shadow-[0_14px_34px_rgba(0,194,203,0.12)]",
-                activeLabelClassName: "text-white",
-                inactiveLabelClassName: "text-white",
-                activeDescriptionClassName: "text-slate-200/80",
-                inactiveDescriptionClassName: "text-slate-400",
-                badge: (
-                  <Badge
-                    variant={mode === "ad" ? "primary" : "muted"}
-                    className={mode === "ad" ? "border-[#00C2CB]/45 bg-[#00C2CB]/15 text-[#7ff5fb]" : undefined}
-                  >
-                    Paid
-                  </Badge>
-                ),
-              },
-              {
-                value: "organic",
-                label: "Organic submission",
-                description: "Submit social, email, forum, or other non-paid promotion ideas for approval.",
-                activeClassName: "border-emerald-400/60 bg-emerald-500/12 shadow-[0_14px_34px_rgba(52,211,153,0.12)]",
-                activeLabelClassName: "text-white",
-                inactiveLabelClassName: "text-white",
-                activeDescriptionClassName: "text-slate-200/80",
-                inactiveDescriptionClassName: "text-slate-400",
-                badge: (
-                  <Badge
-                    variant={mode === "organic" ? "success" : "muted"}
-                    className={mode === "organic" ? "border-emerald-300/45 bg-emerald-400/15 text-emerald-200" : undefined}
-                  >
-                    No spend
-                  </Badge>
-                ),
-              },
-            ]}
-          />
-
-          <div className="grid gap-3 md:grid-cols-2">
-            {showTrackingWarning && (
-              <ReadinessBanner tone="warning" title="Tracking setup pending">
-                Campaign launch is available after the business completes tracking setup. You can keep preparing an organic submission while tracking is pending.
-              </ReadinessBanner>
-            )}
-
-            {showMetaSetupWarning && (
-              <ReadinessBanner
-                tone="warning"
-                title={needsOfferMetaSelection ? "Attach Meta assets to this offer." : "Connect Meta to allow affiliates to launch campaigns."}
-              >
-                {needsOfferMetaSelection
-                  ? "The business has Meta connected, but this offer needs a selected Page and Ad Account before paid ads can launch."
-                  : "This offer can still be promoted organically while Meta setup is pending."}
-              </ReadinessBanner>
             )}
 
             {showSalesPixelWarning && (
-              <ReadinessBanner tone="info" title="Sales campaigns still need a Meta pixel">
-                This offer is Meta-ready for traffic and engagement, but Sales requires a selected Meta pixel on the offer first.
-              </ReadinessBanner>
+              <div className="rounded-2xl border border-cyan-500/30 bg-cyan-500/10 p-4 text-sm text-cyan-100">
+                <div className="font-semibold">Sales campaigns still need a Meta pixel</div>
+                <p className="mt-1 text-cyan-100/85">
+                  This offer is Meta-ready for traffic and engagement, but Sales requires a selected Meta pixel on the offer first.
+                </p>
+              </div>
             )}
 
-            {launchFundAllocation && mode === "ad" && (
-              <ReadinessBanner tone="success" title="This offer qualifies for a $10 Nettmark Launch Fund.">
-                Use it to launch an eligible paid campaign before {new Date(launchFundAllocation.expires_at).toLocaleDateString()}. It is promotional ad credit, cannot be withdrawn or transferred, expires, and is tied to eligible campaign activity.
-              </ReadinessBanner>
-            )}
-
-            {!walletLoading && !launchFundLoading && mode === "ad" && !canRunWithWallet && (
-              <ReadinessBanner tone="danger" title={`Top-up needed: $${walletDeficit.toFixed(2)}`}>
-                Your paid campaign budget is higher than your available cash plus any allocated Launch Fund credit for this offer.
-              </ReadinessBanner>
-            )}
-
-            {isOrganicOnlyOffer && mode === "organic" && (
-              <ReadinessBanner tone="info" title="Organic-only offer">
-                {needsOfferMetaSelection
-                  ? "This offer is live in the marketplace, but paid ads are locked until the business attaches a Meta Page and Ad Account to this offer."
-                  : "This offer is live in the marketplace, but paid ads are locked until the business connects Meta for it."}
-              </ReadinessBanner>
-            )}
+            <AdCampaignWizard
+              form={form}
+              setForm={setForm}
+              onInput={onInput}
+              onPlacementToggle={onPlacementToggle}
+              applyEstimatorPreset={applyEstimatorPreset}
+              walletBalance={walletBalance}
+              walletLoading={walletLoading}
+              canRunWithWallet={canRunWithWallet}
+              walletDeficit={walletDeficit}
+              starterSpendRemaining={starterSpendRemaining}
+              starterSpendLabel={starterSpendLabel}
+              incBudget={incBudget}
+              setStartIn15m={setStartIn15m}
+              setEndIn7d={setEndIn7d}
+              reachDaily={reachDaily}
+              reachMonthly={reachMonthly}
+              interestsIgnored={interestsIgnored}
+              videoFile={videoFile}
+              setVideoFile={setVideoFile}
+              imageFile={imageFile}
+              setImageFile={setImageFile}
+              thumbnailFile={thumbnailFile}
+              setThumbnailFile={setThumbnailFile}
+              thumbnailError={thumbnailError}
+              setThumbnailError={setThumbnailError}
+              validateThumbnailFile={validateThumbnailFile}
+              setVideoPreviewUrl={setVideoPreviewUrl}
+              setThumbPreviewUrl={setThumbPreviewUrl}
+              handleAdSubmit={handleAdSubmit}
+              onNavigateToWallet={() => router.push("/affiliate/wallet")}
+            />
           </div>
-        </div>
+        )}
 
-        <main className="min-w-0 space-y-4">
-          {mode === "ad" && (
-            canLaunchPaidCampaign ? (
-              <AdCampaignWizard
-                form={form}
-                setForm={setForm}
-                onInput={onInput}
-                onPlacementToggle={onPlacementToggle}
-                applyEstimatorPreset={applyEstimatorPreset}
-                walletBalance={walletBalance}
-                walletLoading={walletLoading || launchFundLoading}
-                canRunWithWallet={canRunWithWallet}
-                walletDeficit={walletDeficit}
-                launchFundBalance={launchFundBalance}
-                launchFundExpiresAt={launchFundAllocation?.expires_at || null}
-                incBudget={incBudget}
-                setStartIn15m={setStartIn15m}
-                setEndIn7d={setEndIn7d}
-                videoFile={videoFile}
-                setVideoFile={setVideoFile}
-                imageFile={imageFile}
-                setImageFile={setImageFile}
-                thumbnailFile={thumbnailFile}
-                setThumbnailFile={setThumbnailFile}
-                thumbnailError={thumbnailError}
-                setThumbnailError={setThumbnailError}
-                validateThumbnailFile={validateThumbnailFile}
-                setVideoPreviewUrl={setVideoPreviewUrl}
-                setThumbPreviewUrl={setThumbPreviewUrl}
-                handleAdSubmit={handleAdSubmit}
-                onNavigateToWallet={() => router.push("/affiliate/wallet")}
-              />
-            ) : (
-              <ReadinessBanner tone="warning" title="Tracking and launch prerequisites are still pending.">
-                Campaign launch becomes available after tracking, Meta, billing, and wallet requirements are ready. You can continue with organic promotion now.
-              </ReadinessBanner>
-            )
-          )}
+        {mode === "organic" && (
+          <div className="space-y-4">
+            {isOrganicOnlyOffer && (
+              <div className="rounded-2xl border border-cyan-500/25 bg-cyan-500/10 p-4 text-sm text-cyan-100">
+                <div className="font-semibold">Organic-only offer</div>
+                <p className="mt-1 text-cyan-100/85">
+                  This offer is live in the marketplace, but paid ads are locked until the business connects Meta for it.
+                </p>
+              </div>
+            )}
 
-          {mode === "organic" && (
             <OrganicSubmissionForm
               ogMethod={ogMethod}
               setOgMethod={setOgMethod}
@@ -1184,30 +1351,29 @@ export default function PromoteOfferPage() {
               setOgFile={setOgFile}
               handleOrganicSubmit={handleOrganicSubmit}
             />
-          )}
-        </main>
+          </div>
+        )}
 
-        <PreviewPanel
-          title="Preview & summary"
-          description="A live summary of the selected promotion mode and attached creative."
-          className="lg:sticky lg:top-6 lg:self-start"
-        >
-          <PreviewSidebar
-            mode={mode}
-            dailyConversions={dailyConversions}
-            monthlyConversions={monthlyConversions}
-            brandName={brandName}
-            brandLogoUrl={brandLogoUrl}
-            videoPreviewUrl={videoPreviewUrl}
-            thumbPreviewUrl={thumbPreviewUrl}
-            creativeKind={videoFile ? "video" : imageFile ? "image" : null}
-            form={form}
-            ogMethod={ogMethod}
-            ogFile={ogFile}
-            ogPlatform={ogPlatform}
-            ogCaption={ogCaption}
-          />
-        </PreviewPanel>
+        {/* RIGHT: Preview / Metrics */}
+        <PreviewSidebar
+          mode={mode}
+          reachDaily={reachDaily}
+          reachMonthly={reachMonthly}
+          reachStatus={reachStatus}
+          reachMessage={reachMessage}
+          interestsIgnored={interestsIgnored}
+          dailyConversions={dailyConversions}
+          monthlyConversions={monthlyConversions}
+          brandName={brandName}
+          brandLogoUrl={brandLogoUrl}
+          videoPreviewUrl={videoPreviewUrl}
+          thumbPreviewUrl={thumbPreviewUrl}
+          form={form}
+          ogMethod={ogMethod}
+          ogFile={ogFile}
+          ogPlatform={ogPlatform}
+          ogCaption={ogCaption}
+        />
       </div>
     </div>
   );

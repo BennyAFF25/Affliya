@@ -1,8 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import { useMemo, useState } from "react";
 import { nmToast } from "@/components/ui/toast";
-import { Badge, Button } from "@/../components/ui";
 import { AdFormState, PlacementKey } from "../types";
 import {
   CountryMultiSelect,
@@ -28,11 +27,14 @@ interface AdCampaignWizardProps {
   walletLoading: boolean;
   canRunWithWallet: boolean;
   walletDeficit: number;
-  launchFundBalance?: number;
-  launchFundExpiresAt?: string | null;
+  starterSpendRemaining: number;
+  starterSpendLabel: string | null;
   incBudget: (amt: number) => void;
   setStartIn15m: () => void;
   setEndIn7d: () => void;
+  reachDaily: number | null;
+  reachMonthly: number | null;
+  interestsIgnored: boolean;
   videoFile: File | null;
   setVideoFile: (file: File | null) => void;
   imageFile: File | null;
@@ -59,11 +61,14 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
     walletLoading,
     canRunWithWallet,
     walletDeficit,
-    launchFundBalance = 0,
-    launchFundExpiresAt = null,
+    starterSpendRemaining,
+    starterSpendLabel,
     incBudget,
     setStartIn15m,
     setEndIn7d,
+    reachDaily,
+    reachMonthly,
+    interestsIgnored,
     videoFile,
     setVideoFile,
     imageFile,
@@ -82,7 +87,6 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
   const [step, setStep] = useState(1);
   const [showAdvancedBidding, setShowAdvancedBidding] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [adStyle, setAdStyle] = useState<"" | "video" | "image">("");
 
   const steps = [
     { id: 1, label: "Campaign" },
@@ -106,8 +110,8 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
     }
 
     if (step === 3) {
-      if (adStyle === "video") return !!videoFile && !!thumbnailFile;
-      if (adStyle === "image") return !!imageFile;
+      if (videoFile) return !!thumbnailFile;
+      if (imageFile) return true;
       return false;
     }
 
@@ -134,28 +138,24 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
   };
 
   return (
-    <div className="relative mx-auto w-full max-w-full overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[0_18px_55px_rgba(0,0,0,0.22)]">
-      <div className="border-b border-[var(--border)] bg-gradient-to-r from-[#101616] to-[#121212] px-4 py-4 sm:px-5">
-        <div className="flex items-start justify-between gap-3">
+    <div className="relative bg-[#141414] border border-[#232323] rounded-2xl shadow-xl overflow-hidden w-full max-w-full mx-auto">
+      <div className="px-4 sm:px-8 py-5 border-b border-[#232323] bg-gradient-to-r from-[#101616] to-[#121212]">
+        <div className="flex items-start sm:items-center justify-between gap-3">
           <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="primary">Paid campaign</Badge>
-              <Badge variant="muted">Step {step} of 4</Badge>
-            </div>
-            <h1 className="mt-2 text-xl font-semibold text-[#00C2CB] sm:text-2xl">
+            <h1 className="text-xl sm:text-2xl font-bold text-[#00C2CB]">
               Create New Ad Campaign
             </h1>
-            <p className="mt-1 text-xs text-gray-400">
-              Budget, targeting, creative, then final review.
+            <p className="text-[11px] sm:text-xs text-gray-400 mt-1">
+              Step {step} of 4 · Mobile + desktop ready
             </p>
           </div>
-          <div className="hidden items-center gap-2 sm:flex">
+          <div className="hidden sm:flex items-center gap-2">
             {steps.map((s) => (
               <StepPill key={s.id} active={step >= s.id} />
             ))}
           </div>
         </div>
-        <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-[#1f1f1f]">
+        <div className="mt-3 h-1.5 w-full rounded-full bg-[#1f1f1f] overflow-hidden">
           <div
             className="h-full bg-gradient-to-r from-[#00C2CB] to-[#7ff5fb]"
             style={{ width: `${(step / 4) * 100}%` }}
@@ -163,7 +163,7 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
         </div>
       </div>
 
-      <div className="space-y-4 px-4 py-5 sm:px-5 sm:py-6">
+      <div className="px-4 sm:px-8 py-6 space-y-4 sm:space-y-6">
         <div className="flex justify-between gap-2 text-[11px] sm:text-sm overflow-x-auto pb-1">
           {steps.map((s) => {
             const active = step === s.id;
@@ -270,11 +270,17 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
                     </span>
                   ) : canRunWithWallet ? (
                     <span className="text-emerald-400">
-                      Cash: ${walletBalance.toFixed(2)}{launchFundBalance > 0 ? ` + Launch Fund: $${launchFundBalance.toFixed(2)}` : ""} — ready to run this ad
+                      Wallet balance: ${walletBalance.toFixed(2)}
+                      {starterSpendRemaining > 0
+                        ? ` + starter spend $${starterSpendRemaining.toFixed(2)} — ready to run this ad`
+                        : " — ready to run this ad"}
                     </span>
                   ) : (
                     <span className="text-red-400">
-                      Cash: ${walletBalance.toFixed(2)}{launchFundBalance > 0 ? ` + Launch Fund: $${launchFundBalance.toFixed(2)}` : ""}. You need $
+                      Wallet balance: ${walletBalance.toFixed(2)}
+                      {starterSpendRemaining > 0
+                        ? ` + starter spend $${starterSpendRemaining.toFixed(2)}`
+                        : ""}. You need $
                       {walletDeficit.toFixed(2)} more to run this ad.
                     </span>
                   )}
@@ -285,11 +291,11 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
                   </span>
                 )}
               </div>
-              {!walletLoading && launchFundBalance > 0 && (
-                <span className="block mt-2 text-xs text-emerald-200/80">
-                  Launch Fund credit is promotional ad credit only. It cannot be withdrawn or transferred{launchFundExpiresAt ? ` and expires ${new Date(launchFundExpiresAt).toLocaleDateString()}` : ""}.
+              {starterSpendLabel ? (
+                <span className="mt-2 inline-flex rounded-full border border-[#00C2CB]/30 bg-[#00C2CB]/10 px-2.5 py-1 text-[11px] text-[#7ff5fb]">
+                  {starterSpendLabel}
                 </span>
-              )}
+              ) : null}
               {!walletLoading && !canRunWithWallet && (
                 <span className="block mt-2 text-xs text-gray-400">
                   Top up your wallet before submitting this campaign.
@@ -646,6 +652,36 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
                 </div>
               )}
             </div>
+
+            {(reachDaily !== null || reachMonthly !== null) && (
+              <div className="mt-2 p-3 rounded-xl border border-[#2a2a2a] bg-[#0f0f0f]">
+                <div className="text-xs text-gray-400 mb-1">
+                  Estimated Reach (unique users)
+                </div>
+                <div className="flex items-center gap-6">
+                  <div>
+                    <div className="text-[11px] text-gray-400">Daily</div>
+                    <div className="text-lg font-bold text-[#00C2CB]">
+                      {reachDaily !== null ? reachDaily.toLocaleString() : "—"}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-[11px] text-gray-400">Monthly</div>
+                    <div className="text-lg font-bold text-[#00C2CB]">
+                      {reachMonthly !== null
+                        ? reachMonthly.toLocaleString()
+                        : "—"}
+                    </div>
+                  </div>
+                </div>
+                {interestsIgnored && (
+                  <span className="block mt-1 text-[11px] text-gray-500">
+                    Some typed interests were ignored because they didn’t match
+                    official Meta interest IDs.
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -703,114 +739,33 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
               </label>
             </div>
 
-            <label className="block">
-              <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">
-                Ad style
-              </span>
-              <select
-                className={`${INPUT} w-full text-base`}
-                value={adStyle}
-                onChange={(e) => {
-                  const nextStyle = e.target.value as "" | "video" | "image";
-                  setAdStyle(nextStyle);
-                  setThumbnailError(null);
-
-                  if (nextStyle === "video") {
-                    setImageFile(null);
-                    setThumbPreviewUrl(null);
-                    return;
-                  }
-
-                  if (nextStyle === "image") {
-                    setVideoFile(null);
-                    setThumbnailFile(null);
-                    setVideoPreviewUrl(null);
-                    setThumbPreviewUrl(null);
-                    return;
-                  }
-
-                  setVideoFile(null);
-                  setImageFile(null);
-                  setThumbnailFile(null);
-                  setVideoPreviewUrl(null);
-                  setThumbPreviewUrl(null);
-                }}
-              >
-                <option value="">Choose ad style</option>
-                <option value="video">Video ad</option>
-                <option value="image">Photo ad</option>
-              </select>
-              <p className="mt-2 text-xs text-gray-500">
-                Choose the format first so we only show the fields needed for that ad type.
-              </p>
-            </label>
-
-            {adStyle === "video" ? (
-              <div className="space-y-4">
-                <label className="block">
-                  <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">
-                    Upload Video
-                  </span>
-                  <input
-                    type="file"
-                    accept="video/*"
-                    className={`${INPUT} w-full text-base`}
-                    onChange={(e) => {
-                      const file = e.target.files?.[0] || null;
-                      setVideoFile(file);
-                      if (file) {
-                        setImageFile(null);
-                        const url = URL.createObjectURL(file);
-                        setVideoPreviewUrl(url);
-                        setThumbPreviewUrl(null);
-                      } else {
-                        setVideoPreviewUrl(null);
-                      }
-                    }}
-                  />
-                  <p className="mt-2 text-xs text-gray-500">
-                    Use video if you want reels/feed motion creative.
-                  </p>
-                </label>
-
-                <label className="block">
-                  <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">
-                    Video Thumbnail (required for video)
-                  </span>
-                  <input
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp"
-                    className={`${INPUT} w-full text-base`}
-                    onChange={(e) => {
-                      const file = e.target.files?.[0] || null;
-                      if (!file) {
-                        setThumbnailFile(null);
-                        setThumbPreviewUrl(null);
-                        setThumbnailError(null);
-                        return;
-                      }
-                      const err = validateThumbnailFile(file);
-                      if (err) {
-                        e.currentTarget.value = "";
-                        setThumbnailFile(null);
-                        setThumbnailError(err);
-                        nmToast.error(err);
-                        return;
-                      }
-                      setThumbnailError(null);
-                      setThumbnailFile(file);
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="block">
+                <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">
+                  Upload Video
+                </span>
+                <input
+                  type="file"
+                  accept="video/*"
+                  className={`${INPUT} w-full text-base`}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] || null;
+                    setVideoFile(file);
+                    if (file) {
+                      setImageFile(null);
                       const url = URL.createObjectURL(file);
-                      setThumbPreviewUrl(url);
-                    }}
-                  />
-                  <p className="mt-2 text-xs text-gray-500">
-                    Upload the thumbnail that should represent your video ad in placements where Meta shows a cover image.
-                  </p>
-                </label>
-              </div>
-            ) : null}
+                      setVideoPreviewUrl(url);
+                      setThumbPreviewUrl(null);
+                    } else {
+                      setVideoPreviewUrl(null);
+                    }
+                  }}
+                />
+                <p className="mt-2 text-xs text-gray-500">
+                  Use video if you want reels/feed motion creative.
+                </p>
+              </label>
 
-            {adStyle === "image" ? (
               <label className="block">
                 <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">
                   Upload Photo
@@ -823,7 +778,7 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
                     const file = e.target.files?.[0] || null;
                     if (!file) {
                       setImageFile(null);
-                      setThumbPreviewUrl(null);
+                      if (!videoFile) setThumbPreviewUrl(null);
                       return;
                     }
                     const err = validateThumbnailFile(file);
@@ -846,27 +801,48 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
                   Single-image ad creative for feed or story placements.
                 </p>
               </label>
-            ) : null}
+            </div>
 
-            {!adStyle ? (
+            <label className="block">
+              <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">
+                Video Thumbnail {videoFile ? "(required for video)" : "(not needed for photo ads)"}
+              </span>
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                className={`${INPUT} w-full text-base`}
+                disabled={!videoFile}
+                onChange={(e) => {
+                  const file = e.target.files?.[0] || null;
+                  if (!file) {
+                    setThumbnailFile(null);
+                    if (videoFile) setThumbPreviewUrl(null);
+                    setThumbnailError(null);
+                    return;
+                  }
+                  const err = validateThumbnailFile(file);
+                  if (err) {
+                    e.currentTarget.value = "";
+                    setThumbnailFile(null);
+                    setThumbnailError(err);
+                    nmToast.error(err);
+                    return;
+                  }
+                  setThumbnailError(null);
+                  setThumbnailFile(file);
+                  const url = URL.createObjectURL(file);
+                  setThumbPreviewUrl(url);
+                }}
+              />
+            </label>
+
+            {!videoFile && !imageFile ? (
               <div className="mt-3 rounded-md border border-[#00C2CB]/50 bg-[#001F20]/30 px-3 py-2 text-sm text-[#00C2CB]">
-                Choose an ad style to continue.
+                Please upload either a video or a photo before submitting.
               </div>
             ) : null}
 
-            {adStyle === "video" && !videoFile ? (
-              <div className="mt-3 rounded-md border border-[#00C2CB]/50 bg-[#001F20]/30 px-3 py-2 text-sm text-[#00C2CB]">
-                Please upload a video before submitting.
-              </div>
-            ) : null}
-
-            {adStyle === "image" && !imageFile ? (
-              <div className="mt-3 rounded-md border border-[#00C2CB]/50 bg-[#001F20]/30 px-3 py-2 text-sm text-[#00C2CB]">
-                Please upload a photo before submitting.
-              </div>
-            ) : null}
-
-            {adStyle === "video" && videoFile && (thumbnailError || !thumbnailFile) ? (
+            {videoFile && (thumbnailError || !thumbnailFile) ? (
               <div className="mt-3 rounded-md border border-[#00C2CB]/50 bg-[#001F20]/30 px-3 py-2 text-sm text-[#00C2CB]">
                 {thumbnailError
                   ? thumbnailError
@@ -1014,48 +990,55 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
       <div className="px-4 sm:px-8 py-5 border-t border-[#232323] bg-[#111111]">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           {step > 1 && (
-            <Button type="button" onClick={() => setStep(step - 1)} variant="secondary">
+            <button
+              onClick={() => setStep(step - 1)}
+              className="px-4 py-2 rounded-md border border-[#2a2a2a] text-gray-300 hover:bg-[#151515]"
+            >
               Back
-            </Button>
+            </button>
           )}
 
           {step < 4 && (
-            <Button
-              type="button"
+            <button
               disabled={!canProceed()}
               onClick={() => setStep(step + 1)}
-              className="w-full sm:ml-auto sm:w-auto"
+              className={`sm:ml-auto w-full sm:w-auto px-6 py-2 rounded-md transition ${
+                canProceed()
+                  ? "bg-[#00C2CB] text-black hover:bg-[#00b0b8]"
+                  : "bg-[#1a1a1a] text-gray-500 cursor-not-allowed"
+              }`}
             >
               Next
-            </Button>
+            </button>
           )}
 
           {step === 4 &&
             (canRunWithWallet ? (
-              <Button
-                type="button"
+              <button
                 onClick={onSubmitClick}
                 disabled={isSubmitting}
-                className="w-full gap-2 sm:ml-auto sm:w-auto"
+                className={`sm:ml-auto w-full sm:w-auto px-6 py-2 rounded-md transition flex items-center justify-center gap-2 ${
+                  isSubmitting
+                    ? "bg-[#1a1a1a] text-gray-400 cursor-not-allowed"
+                    : "bg-[#00C2CB] text-black hover:bg-[#00b0b8]"
+                }`}
               >
                 {isSubmitting ? (
                   <>
-                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-gray-500 border-t-[#00C2CB]" />
+                    <span className="h-4 w-4 rounded-full border-2 border-gray-500 border-t-[#00C2CB] animate-spin" />
                     Submitting…
                   </>
                 ) : (
                   "Submit Ad Idea"
                 )}
-              </Button>
+              </button>
             ) : (
-              <Button
-                type="button"
+              <button
                 onClick={onNavigateToWallet}
-                variant="outline"
-                className="w-full sm:ml-auto sm:w-auto"
+                className="sm:ml-auto w-full sm:w-auto px-6 py-2 rounded-md transition bg-[#1a1a1a] text-[#00C2CB] border border-[#00C2CB]/40 hover:bg-[#0f1f20]"
               >
                 Top Up Wallet
-              </Button>
+              </button>
             ))}
         </div>
       </div>

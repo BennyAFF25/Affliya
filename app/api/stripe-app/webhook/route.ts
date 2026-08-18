@@ -35,6 +35,39 @@ function getCurrentPeriodEnd(sub?: Stripe.Subscription | null): string | null {
   return toISO(seconds);
 }
 
+async function resolveBusinessEmail(inputEmail: string | null, customerId: string | null) {
+  if (inputEmail) return inputEmail;
+  if (!customerId) return null;
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("email")
+    .eq("revenue_stripe_customer_id", customerId)
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    log("activation subsidy resolve email error", { customerId, error });
+    return null;
+  }
+
+  return typeof data?.email === "string" ? data.email : null;
+}
+
+async function syncActivationSubsidy(email: string | null, subscriptionStatus: string | null, subscriptionId: string | null) {
+  if (!email) return;
+
+  const { error } = await supabase.rpc("sync_business_activation_subsidy_for_subscription", {
+    p_business_email: email,
+    p_subscription_status: subscriptionStatus,
+    p_subscription_id: subscriptionId,
+  });
+
+  if (error) {
+    log("activation subsidy sync error", { email, subscriptionStatus, error });
+  }
+}
+
 async function buffer(req: Request) {
   const arr = await req.arrayBuffer();
   return Buffer.from(arr);
@@ -140,6 +173,12 @@ export async function POST(req: Request) {
         log("profiles updated (checkout)");
       }
 
+      await syncActivationSubsidy(
+        await resolveBusinessEmail(email, customerId),
+        subscription?.status ?? "trialing",
+        subscriptionId,
+      );
+
       return NextResponse.json({ received: true });
     }
 
@@ -179,8 +218,9 @@ export async function POST(req: Request) {
       }
 
       // 2) Fallback to update profiles by email if no profile row updated by customer id
+      const email = await resolveBusinessEmail((sub.metadata as any)?.email ?? null, customerId);
+
       if (!subUpdate.data || subUpdate.data.length === 0) {
-        const email = (sub.metadata as any)?.email ?? null;
         if (email) {
           const emailUpdate = await supabase
             .from("profiles")
@@ -245,6 +285,8 @@ export async function POST(req: Request) {
         log("profiles updated (subscription)");
       }
 
+      await syncActivationSubsidy(email, sub.status, sub.id);
+
       return NextResponse.json({ received: true });
     }
 
@@ -268,6 +310,9 @@ export async function POST(req: Request) {
           })
           .eq("revenue_stripe_customer_id", customerId);
       }
+
+      const deletedEmail = await resolveBusinessEmail((sub.metadata as any)?.email ?? null, customerId);
+      await syncActivationSubsidy(deletedEmail, "canceled", sub.id);
 
       return NextResponse.json({ received: true });
     }

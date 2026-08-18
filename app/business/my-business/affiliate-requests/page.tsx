@@ -1,19 +1,8 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { useSession } from "@supabase/auth-helpers-react";
 import { supabase } from "@/../utils/supabase/pages-client";
-import { trackBusinessSubscriptionClientEvent } from "@/../components/business/BusinessSubscriptionActivationModal";
-import {
-  ActionBar,
-  Badge,
-  Button,
-  ReviewCard,
-  ReviewMetaItem,
-  ReviewQueue,
-  StatCard,
-  StatusBadge,
-} from "@/../components/ui";
 
 interface AffiliateRequest {
   id: string;
@@ -40,26 +29,28 @@ interface ShopRequest {
   created_at: string;
 }
 
-async function parseJsonSafe(res: Response) {
-  try {
-    return await res.json();
-  } catch {
-    return null;
-  }
-}
-
 function formatWhen(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Unknown time";
-  return date.toLocaleString("en-AU", {
-    day: "2-digit",
-    month: "short",
-    hour: "numeric",
-    minute: "2-digit",
-  });
+  return new Date(value).toLocaleString();
 }
 
-function EmptyState({ title, body }: { title: string; body: string }) {
+function statusBadge(status: string) {
+  const key = status.toLowerCase();
+  if (key === "approved") {
+    return "border-emerald-500/20 bg-emerald-500/10 text-emerald-300";
+  }
+  if (key === "rejected") {
+    return "border-rose-500/20 bg-rose-500/10 text-rose-300";
+  }
+  return "border-amber-500/20 bg-amber-500/10 text-amber-300";
+}
+
+function EmptyState({
+  title,
+  body,
+}: {
+  title: string;
+  body: string;
+}) {
   return (
     <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--card)]/70 px-6 py-10 text-center shadow-[0_0_0_1px_rgba(0,0,0,0.18)]">
       <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-[var(--primary)]/10 text-lg text-[var(--primary)]">
@@ -77,14 +68,7 @@ export default function AffiliateRequestsPage() {
   const session = useSession();
   const [requests, setRequests] = useState<AffiliateRequest[]>([]);
   const [shopRequests, setShopRequests] = useState<ShopRequest[]>([]);
-  const [approvalReadiness, setApprovalReadiness] = useState({
-    billing_connected: false,
-    payouts_enabled: false,
-  });
-  const [launchInviteStatus, setLaunchInviteStatus] = useState<
-    Record<string, "sent" | "sending" | "error">
-  >({});
-  const [businessId, setBusinessId] = useState<string | null>(null);
+  const [starterSpendByOfferId, setStarterSpendByOfferId] = useState<Record<string, { status: string; reservedForAffiliateEmail?: string | null }>>({});
 
   useEffect(() => {
     if (!session) return;
@@ -121,118 +105,40 @@ export default function AffiliateRequestsPage() {
           error.message,
         );
       } else {
-        const typedRequests = data as AffiliateRequest[];
-        setRequests(typedRequests);
+        const nextRequests = (data as AffiliateRequest[]) || [];
+        setRequests(nextRequests);
 
-        typedRequests.filter((request) => request.status === "pending").forEach((request) => {
-          const dedupeKey = `nettmark:analytics:campaign_received_by_business:${request.id}`;
-          if (typeof window !== "undefined" && window.sessionStorage.getItem(dedupeKey)) return;
-          if (typeof window !== "undefined") window.sessionStorage.setItem(dedupeKey, "1");
-          void trackBusinessSubscriptionClientEvent("campaign_received_by_business", {
-            businessId,
-            campaignId: request.id,
-            submissionId: request.id,
-            intendedAction: "approve_affiliate_request",
-            returnTo: "/business/my-business/affiliate-requests",
-            attribution: {
-              source: "affiliate_requests_page",
-              offerId: request.offer?.id,
-              affiliateEmail: request.affiliate_email,
-              campaignType: "affiliate_request",
-            },
-          });
-        });
-      }
+        const offerIds = nextRequests
+          .map((request) => request.offer?.id)
+          .filter((value): value is string => typeof value === "string" && value.length > 0);
 
-      const { data: progressRows, error: progressError } = await supabase
-        .from("business_onboarding_progress")
-        .select("billing_connected,payouts_enabled")
-        .eq("business_email", userEmail);
+        if (offerIds.length) {
+          const { data: subsidyRows, error: subsidyErr } = await supabase
+            .from("business_activation_subsidies")
+            .select("offer_id, status, reserved_for_affiliate_email")
+            .in("offer_id", offerIds);
 
-      const progressBillingReady =
-        !progressError && progressRows
-          ? progressRows.some((r: { billing_connected?: boolean | null }) =>
-              Boolean(r.billing_connected),
-            )
-          : false;
-      const progressPayoutsReady =
-        !progressError && progressRows
-          ? progressRows.some((r: { payouts_enabled?: boolean | null }) =>
-              Boolean(r.payouts_enabled),
-            )
-          : false;
-
-      if (progressError) {
-        console.error(
-          "[affiliate-requests] Error fetching approval readiness:",
-          progressError.message,
-        );
-      }
-
-      let derivedBillingReady = false;
-      let derivedPayoutsReady = false;
-
-      const { data: businessProfile, error: businessProfileError } =
-        await supabase
-          .from("business_profiles")
-          .select(
-            "id, stripe_customer_id, stripe_account_id, stripe_onboarding_complete",
-          )
-          .eq("business_email", userEmail)
-          .single();
-
-      if (businessProfileError) {
-        console.warn(
-          "[affiliate-requests] Business billing profile lookup failed:",
-          businessProfileError.message,
-        );
-      } else {
-        const profile = businessProfile as {
-          id?: string | null;
-          stripe_customer_id?: string | null;
-          stripe_account_id?: string | null;
-          stripe_onboarding_complete?: boolean | null;
-        } | null;
-
-        setBusinessId(profile?.id || null);
-        derivedPayoutsReady = Boolean(profile?.stripe_onboarding_complete);
-
-        if (profile?.stripe_customer_id) {
-          try {
-            const cardRes = await fetch("/api/stripe/check-customer-card", {
-              method: "POST",
-            });
-            const cardJson = await parseJsonSafe(cardRes);
-            derivedBillingReady = cardRes.ok && Boolean(cardJson?.hasCard);
-          } catch (billingErr) {
-            console.warn(
-              "[affiliate-requests] Customer card check failed:",
-              billingErr,
-            );
+          if (subsidyErr) {
+            console.error("[affiliate-requests] Error fetching starter spend rows:", subsidyErr.message);
+          } else {
+            const nextMap: Record<string, { status: string; reservedForAffiliateEmail?: string | null }> = {};
+            for (const row of (subsidyRows || []) as any[]) {
+              if (typeof row.offer_id === "string") {
+                nextMap[row.offer_id] = {
+                  status: String(row.status || ""),
+                  reservedForAffiliateEmail:
+                    typeof row.reserved_for_affiliate_email === "string"
+                      ? row.reserved_for_affiliate_email
+                      : null,
+                };
+              }
+            }
+            setStarterSpendByOfferId(nextMap);
           }
-        }
-
-        if (profile?.stripe_account_id && !derivedPayoutsReady) {
-          try {
-            const accountRes = await fetch("/api/stripe/check-account", {
-              method: "POST",
-            });
-            const accountJson = await parseJsonSafe(accountRes);
-            derivedPayoutsReady =
-              accountRes.ok && Boolean(accountJson?.onboardingComplete);
-          } catch (accountErr) {
-            console.warn(
-              "[affiliate-requests] Stripe account check failed:",
-              accountErr,
-            );
-          }
+        } else {
+          setStarterSpendByOfferId({});
         }
       }
-
-      setApprovalReadiness({
-        billing_connected: progressBillingReady || derivedBillingReady,
-        payouts_enabled: progressPayoutsReady || derivedPayoutsReady,
-      });
 
       const { data: shopData, error: shopError } = await supabase
         .from("affiliate_shop_requests")
@@ -258,21 +164,19 @@ export default function AffiliateRequestsPage() {
   const handleUpdateStatus = async (requestId: string, newStatus: string) => {
     const current = requests.find((r) => r.id === requestId);
     const currentAffiliateEmail = current?.affiliate_email;
-    const currentOfferId = current?.offer?.id;
-    const currentOfferTitle = current?.offer?.title || "Your offer";
+    const currentOfferId = (current as any)?.offer?.id;
+    const currentOfferTitle = (current as any)?.offer?.title || "Your offer";
     const currentBusinessEmail = session?.user?.email;
 
-    const response = await fetch("/api/business/affiliate-requests/update-status", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ requestId, status: newStatus }),
-    });
-    const responseJson = await parseJsonSafe(response);
+    const { error } = await supabase
+      .from("affiliate_requests")
+      .update({ status: newStatus } as never)
+      .eq("id", requestId);
 
-    if (!response.ok || !responseJson?.success) {
+    if (error) {
       console.error(
         "[affiliate-requests] Error updating status:",
-        responseJson?.message || responseJson?.error || response.status,
+        error.message,
       );
       return;
     }
@@ -327,43 +231,6 @@ export default function AffiliateRequestsPage() {
     }
   };
 
-  const handleInviteToLaunch = async (request: AffiliateRequest) => {
-    const businessEmail = session?.user?.email;
-    const offerId = request.offer?.id;
-    if (!businessEmail || !request.affiliate_email || !offerId) return;
-
-    setLaunchInviteStatus((prev) => ({ ...prev, [request.id]: "sending" }));
-
-    try {
-      const accessToken = session?.access_token;
-      const emailRes = await fetch("/api/emails/affiliate-launch-invite", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-        },
-        body: JSON.stringify({
-          to: request.affiliate_email,
-          affiliateEmail: request.affiliate_email,
-          businessEmail,
-          offerId,
-          offerTitle: request.offer?.title || "this offer",
-          requestId: request.id,
-        }),
-      });
-
-      if (!emailRes.ok) {
-        const text = await emailRes.text().catch(() => "");
-        throw new Error(`Launch invite email failed: ${emailRes.status} ${text}`);
-      }
-
-      setLaunchInviteStatus((prev) => ({ ...prev, [request.id]: "sent" }));
-    } catch (err) {
-      console.error("[affiliate-requests] launch inbox invite failed", err);
-      setLaunchInviteStatus((prev) => ({ ...prev, [request.id]: "error" }));
-    }
-  };
-
   const handleShopRequestDecision = async (
     requestId: string,
     newStatus: "approved" | "rejected",
@@ -391,15 +258,11 @@ export default function AffiliateRequestsPage() {
   };
 
   const pending = requests.filter((r) => r.status === "pending");
-  const approved = requests.filter((r) => r.status === "approved");
-  const canApproveAffiliates =
-    approvalReadiness.billing_connected && approvalReadiness.payouts_enabled;
   const rejected = requests.filter((r) => r.status === "rejected");
   const shopPending = shopRequests.filter((r) => r.status === "pending");
 
   return (
-    <>
-      <div className="min-h-screen w-full bg-[var(--background)] px-5 py-6 text-[var(--foreground)]">
+    <div className="min-h-screen w-full bg-[var(--background)] px-5 py-6 text-[var(--foreground)]">
       <div className="mx-auto max-w-6xl">
         <div className="relative mb-8 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-[0_0_0_1px_rgba(0,0,0,0.35),0_8px_30px_rgba(0,0,0,0.28)]">
           <div className="pointer-events-none absolute inset-0">
@@ -415,304 +278,285 @@ export default function AffiliateRequestsPage() {
                 Pending requests
               </h1>
               <p className="mt-2 max-w-2xl text-sm text-[var(--muted-foreground)]">
-                Review affiliates who want to promote your offer and decide who
-                gets storefront access. Everything waiting on you is grouped
-                here.
+                Review affiliates who want to promote your offer and decide who gets storefront access. Everything waiting on you is grouped here.
               </p>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-3">
-              <StatCard
-                label="Offer requests"
-                value={pending.length}
-                tone="warning"
-              />
-              <StatCard
-                label="Storefront requests"
-                value={shopPending.length}
-                tone="warning"
-              />
-              <StatCard
-                label="Rejected logged"
-                value={rejected.length}
-                tone="danger"
-              />
+              <div className="rounded-xl border border-[var(--border)] bg-[var(--secondary)]/60 px-4 py-3">
+                <div className="text-xs uppercase tracking-[0.16em] text-[var(--muted-foreground)]">
+                  Offer requests
+                </div>
+                <div className="mt-2 text-2xl font-semibold">{pending.length}</div>
+              </div>
+              <div className="rounded-xl border border-[var(--border)] bg-[var(--secondary)]/60 px-4 py-3">
+                <div className="text-xs uppercase tracking-[0.16em] text-[var(--muted-foreground)]">
+                  Storefront requests
+                </div>
+                <div className="mt-2 text-2xl font-semibold">{shopPending.length}</div>
+              </div>
+              <div className="rounded-xl border border-[var(--border)] bg-[var(--secondary)]/60 px-4 py-3">
+                <div className="text-xs uppercase tracking-[0.16em] text-[var(--muted-foreground)]">
+                  Rejected logged
+                </div>
+                <div className="mt-2 text-2xl font-semibold">{rejected.length}</div>
+              </div>
             </div>
           </div>
         </div>
 
-        <ReviewQueue
-          title="Promotion requests"
-          description="Affiliates waiting for approval to promote one of your offers."
-          actions={
-            <StatusBadge status="pending" label={`${pending.length} pending`} />
-          }
-          className="mb-10"
-        >
-          {!canApproveAffiliates && pending.length > 0 && (
-            <div className="mb-4 rounded-xl border border-[#00C2CB]/25 bg-[#00C2CB]/10 px-4 py-3 text-sm text-[#d8fbfd]">
-              You can review and approve affiliate requests for free. Paid ad approval happens later from Ad Ideas.
+        <section className="mb-10">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-semibold text-[var(--foreground)]">
+                Promotion requests
+              </h2>
+              <p className="text-sm text-[var(--muted-foreground)]">
+                Affiliates waiting for approval to promote one of your offers.
+              </p>
             </div>
-          )}
+            <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-300">
+              {pending.length} pending
+            </span>
+          </div>
 
-          {pending.length === 0 ? (
-            <EmptyState
-              title="No promotion requests waiting"
-              body="When affiliates apply to promote your offers, they’ll show up here with offer details, notes, and quick approve/reject actions."
-            />
-          ) : (
-            <ul className="space-y-4">
-              {pending.map((req) => (
-                <li key={req.id}>
-                  <ReviewCard
-                    header={
-                      <>
-                        <StatusBadge status={req.status} />
-                        <Badge variant="muted">
-                          {req.offer?.type === "recurring"
-                            ? "Recurring"
-                            : "One-time"}
-                        </Badge>
-                        <Badge variant="primary">
-                          {req.offer?.commission}% commission
-                        </Badge>
-                      </>
-                    }
-                    title={req.offer?.title}
-                    description={req.offer?.description}
-                    meta={
-                      <>
-                        <ReviewMetaItem label="Affiliate">
-                          {req.affiliate_email}
-                        </ReviewMetaItem>
-                        <ReviewMetaItem label="Requested">
-                          {formatWhen(req.created_at)}
-                        </ReviewMetaItem>
-                        <ReviewMetaItem label="Review status">
-                          Waiting on your decision
-                        </ReviewMetaItem>
-                        {req.notes && (
-                          <ReviewMetaItem
-                            label="Affiliate note"
-                            className="sm:col-span-2 xl:col-span-3"
-                          >
-                            <span className="italic text-[var(--muted-foreground)]">
-                              “{req.notes}”
-                            </span>
-                          </ReviewMetaItem>
-                        )}
-                      </>
-                    }
-                    actions={
-                      <ActionBar className="lg:flex-col">
-                        <Button
-                          type="button"
-                          onClick={() => handleUpdateStatus(req.id, "rejected")}
-                          variant="secondary"
-                          className="w-full"
-                        >
-                          Reject
-                        </Button>
-                        <Button
-                          type="button"
-                          onClick={() => handleUpdateStatus(req.id, "approved")}
-                          className="w-full"
-                        >
-                          Approve
-                        </Button>
-                      </ActionBar>
-                    }
-                  />
-                </li>
-              ))}
-            </ul>
-          )}
-        </ReviewQueue>
-
-        {approved.length > 0 && (
-          <ReviewQueue
-            title="Approved affiliates"
-            description="Invite approved partners to launch their first paid or organic campaign from their affiliate inbox."
-            actions={
-              <StatusBadge
-                status="approved"
-                label={`${approved.length} approved`}
-              />
-            }
-            className="mb-10"
-          >
-            <ul className="space-y-4">
-              {approved.map((req) => {
-                const inviteStatus = launchInviteStatus[req.id];
-                return (
-                  <li key={req.id}>
-                    <ReviewCard
-                      header={
-                        <>
-                          <StatusBadge status={req.status} />
-                          <Badge variant="muted">Launch ready</Badge>
-                          <Badge variant="primary">
-                            {req.offer?.commission}% commission
-                          </Badge>
-                        </>
-                      }
-                      title={req.offer?.title}
-                      description={req.offer?.description}
-                      meta={
-                        <>
-                          <ReviewMetaItem label="Affiliate">
-                            {req.affiliate_email}
-                          </ReviewMetaItem>
-                          <ReviewMetaItem label="Approved request">
-                            {formatWhen(req.created_at)}
-                          </ReviewMetaItem>
-                          <ReviewMetaItem label="Next step">
-                            Invite partner to launch
-                          </ReviewMetaItem>
-                        </>
-                      }
-                      actions={
-                        <ActionBar className="lg:flex-col">
-                          <Button
-                            type="button"
-                            onClick={() => handleInviteToLaunch(req)}
-                            disabled={
-                              inviteStatus === "sending" ||
-                              inviteStatus === "sent"
-                            }
-                            className="w-full disabled:cursor-not-allowed"
-                          >
-                            {inviteStatus === "sending"
-                              ? "Sending…"
-                              : inviteStatus === "sent"
-                                ? "Invite sent"
-                                : "Invite to Launch"}
-                          </Button>
-                          {inviteStatus === "error" && (
-                            <p className="text-xs text-red-300">
-                              Couldn’t create inbox invite. Try again.
-                            </p>
-                          )}
-                        </ActionBar>
-                      }
-                    />
-                  </li>
-                );
-              })}
-            </ul>
-          </ReviewQueue>
-        )}
-
-        <ReviewQueue
-          title="NettmarkShop access requests"
-          description="Affiliates requesting storefront access for organic campaigns and link-in-bio style promotion."
-          actions={
-            <StatusBadge
-              status="pending"
-              label={`${shopPending.length} pending`}
-            />
-          }
-        >
-          {shopPending.length === 0 ? (
-            <EmptyState
-              title="No storefront requests waiting"
-              body="Storefront access requests will appear here when an affiliate wants to feature your offer inside their NettmarkShop page."
-            />
-          ) : (
-            <ul className="space-y-4">
-              {shopPending.map((req) => (
-                <li key={req.id}>
-                  <ReviewCard
-                    header={
-                      <>
-                        <StatusBadge status={req.status} />
-                        <Badge variant="muted">Storefront access</Badge>
-                      </>
-                    }
-                    title="Storefront access request"
-                    meta={
-                      <>
-                        <ReviewMetaItem label="Affiliate">
-                          {req.affiliate_email}
-                        </ReviewMetaItem>
-                        <ReviewMetaItem label="Requested">
-                          {formatWhen(req.created_at)}
-                        </ReviewMetaItem>
-                        <ReviewMetaItem
-                          label="Request note"
-                          className="sm:col-span-2 xl:col-span-3"
-                        >
-                          {req.message ||
-                            "This affiliate is requesting a shop link that can display your offer alongside other partner offers on a storefront used for organic campaigns and social media links."}
-                        </ReviewMetaItem>
-                      </>
-                    }
-                    actions={
-                      <ActionBar className="lg:flex-col">
-                        <Button
-                          type="button"
-                          onClick={() =>
-                            handleShopRequestDecision(req.id, "rejected")
-                          }
-                          variant="secondary"
-                          className="w-full"
-                        >
-                          Reject
-                        </Button>
-                        <Button
-                          type="button"
-                          onClick={() =>
-                            handleShopRequestDecision(req.id, "approved")
-                          }
-                          className="w-full"
-                        >
-                          Approve storefront
-                        </Button>
-                      </ActionBar>
-                    }
-                  />
-                </li>
-              ))}
-            </ul>
-          )}
-        </ReviewQueue>
-
-        {rejected.length > 0 && (
-          <section className="mt-12">
-            <h2 className="mb-4 text-xl font-semibold text-rose-400">
-              Rejected Requests
-            </h2>
-            <ul className="space-y-4">
-              {rejected.map((req) => (
-                <li
-                  key={req.id}
-                  className="rounded-2xl border border-rose-500/20 bg-[var(--card)] p-6 shadow-[0_0_0_1px_rgba(0,0,0,0.18)]"
-                >
+      {pending.length === 0 ? (
+        <EmptyState
+          title="No promotion requests waiting"
+          body="When affiliates apply to promote your offers, they’ll show up here with offer details, notes, and quick approve/reject actions."
+        />
+      ) : (
+        <ul className="space-y-4">
+          {pending.map((req) => (
+            <li
+              key={req.id}
+              className="rounded-2xl border border-[var(--border)] bg-[var(--card)] px-6 py-5 text-[var(--foreground)] shadow-[0_0_0_1px_rgba(0,0,0,0.18),0_10px_28px_rgba(0,0,0,0.18)]"
+            >
+              <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                <div className="min-w-0 flex-1">
                   <div className="mb-3 flex flex-wrap items-center gap-2">
-                    <StatusBadge status={req.status} />
+                    <span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${statusBadge(req.status)}`}>
+                      {req.status}
+                    </span>
+                    <span className="rounded-full border border-[var(--border)] bg-[var(--secondary)]/60 px-2.5 py-1 text-xs text-[var(--muted-foreground)]">
+                      {req.offer?.type === "recurring" ? "Recurring" : "One-time"}
+                    </span>
                     <span className="rounded-full border border-[var(--border)] bg-[var(--secondary)]/60 px-2.5 py-1 text-xs text-[var(--muted-foreground)]">
                       {req.offer?.commission}% commission
                     </span>
+                    {req.offer?.id && starterSpendByOfferId[req.offer.id]?.status === "available" ? (
+                      <span className="rounded-full border border-[#00C2CB]/30 bg-[#00C2CB]/10 px-2.5 py-1 text-xs font-medium text-[#7ff5fb]">
+                        First approved affiliate gets $10 starter spend
+                      </span>
+                    ) : null}
+                    {req.offer?.id && starterSpendByOfferId[req.offer.id]?.status === "reserved" && starterSpendByOfferId[req.offer.id]?.reservedForAffiliateEmail === req.affiliate_email ? (
+                      <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1 text-xs font-medium text-emerald-300">
+                        This approval will claim the $10 starter spend
+                      </span>
+                    ) : null}
                   </div>
-                  <h3 className="mb-1 text-lg font-semibold text-rose-300">
+
+                  <h3 className="text-xl font-semibold text-[var(--foreground)]">
                     {req.offer?.title}
                   </h3>
-                  <p className="text-sm text-[var(--foreground)]">
+                  <p className="mt-1 text-sm text-[var(--muted-foreground)]">
                     {req.offer?.description}
                   </p>
-                  <div className="mt-3 grid gap-3 text-sm text-[var(--foreground)]/80 sm:grid-cols-3">
-                    <p>Type: {req.offer?.type}</p>
-                    <p>Affiliate: {req.affiliate_email}</p>
-                    <p>Requested: {formatWhen(req.created_at)}</p>
-                    {req.notes && <p className="italic">“{req.notes}”</p>}
+
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    <div className="rounded-xl border border-[var(--border)] bg-[var(--secondary)]/60 px-4 py-3">
+                      <div className="text-xs uppercase tracking-[0.16em] text-[var(--muted-foreground)]">
+                        Affiliate
+                      </div>
+                      <div className="mt-2 break-all text-sm font-medium text-[var(--foreground)]">
+                        {req.affiliate_email}
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-[var(--border)] bg-[var(--secondary)]/60 px-4 py-3">
+                      <div className="text-xs uppercase tracking-[0.16em] text-[var(--muted-foreground)]">
+                        Requested
+                      </div>
+                      <div className="mt-2 text-sm font-medium text-[var(--foreground)]">
+                        {formatWhen(req.created_at)}
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-[var(--border)] bg-[var(--secondary)]/60 px-4 py-3 sm:col-span-2 xl:col-span-1">
+                      <div className="text-xs uppercase tracking-[0.16em] text-[var(--muted-foreground)]">
+                        Review status
+                      </div>
+                      <div className="mt-2 text-sm font-medium text-[var(--foreground)]">
+                        Waiting on your decision
+                      </div>
+                    </div>
+                    {req.notes && (
+                      <div className="rounded-xl border border-[var(--border)] bg-[var(--secondary)]/60 px-4 py-3 sm:col-span-2 xl:col-span-3">
+                        <div className="text-xs uppercase tracking-[0.16em] text-[var(--muted-foreground)]">
+                          Affiliate note
+                        </div>
+                        <p className="mt-2 text-sm italic text-[var(--muted-foreground)]">
+                          “{req.notes}”
+                        </p>
+                      </div>
+                    )}
                   </div>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
+                </div>
+
+                <div className="flex w-full flex-col gap-2 lg:w-auto lg:min-w-[180px]">
+                  <button
+                    onClick={() => handleUpdateStatus(req.id, "rejected")}
+                    className="rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-4 py-2.5 text-sm text-[var(--muted-foreground)] transition hover:brightness-110"
+                  >
+                    Reject
+                  </button>
+                  <button
+                    onClick={() => handleUpdateStatus(req.id, "approved")}
+                    className="rounded-xl bg-[var(--primary)] px-4 py-2.5 text-sm font-semibold text-[var(--primary-foreground)] transition hover:brightness-110"
+                  >
+                    Approve
+                  </button>
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+        </section>
+
+        <section>
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-semibold text-[var(--foreground)]">
+                NettmarkShop access requests
+              </h2>
+              <p className="text-sm text-[var(--muted-foreground)]">
+                Affiliates requesting storefront access for organic campaigns and link-in-bio style promotion.
+              </p>
+            </div>
+            <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-300">
+              {shopPending.length} pending
+            </span>
+          </div>
+
+      {shopPending.length === 0 ? (
+        <EmptyState
+          title="No storefront requests waiting"
+          body="Storefront access requests will appear here when an affiliate wants to feature your offer inside their NettmarkShop page."
+        />
+      ) : (
+        <ul className="space-y-4">
+          {shopPending.map((req) => (
+            <li
+              key={req.id}
+              className="rounded-2xl border border-[var(--border)] bg-[var(--card)] px-6 py-5 text-[var(--foreground)] shadow-[0_0_0_1px_rgba(0,0,0,0.18),0_10px_28px_rgba(0,0,0,0.18)]"
+            >
+              <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                <div className="min-w-0 flex-1 space-y-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${statusBadge(req.status)}`}>
+                      {req.status}
+                    </span>
+                    <span className="rounded-full border border-[var(--border)] bg-[var(--secondary)]/60 px-2.5 py-1 text-xs text-[var(--muted-foreground)]">
+                      Storefront access
+                    </span>
+                  </div>
+
+                  <h3 className="text-xl font-semibold text-[var(--foreground)]">
+                    Storefront access request
+                  </h3>
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-xl border border-[var(--border)] bg-[var(--secondary)]/60 px-4 py-3">
+                      <div className="text-xs uppercase tracking-[0.16em] text-[var(--muted-foreground)]">
+                        Affiliate
+                      </div>
+                      <div className="mt-2 break-all text-sm font-medium text-[var(--foreground)]">
+                        {req.affiliate_email}
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-[var(--border)] bg-[var(--secondary)]/60 px-4 py-3">
+                      <div className="text-xs uppercase tracking-[0.16em] text-[var(--muted-foreground)]">
+                        Requested
+                      </div>
+                      <div className="mt-2 text-sm font-medium text-[var(--foreground)]">
+                        {formatWhen(req.created_at)}
+                      </div>
+                    </div>
+                    <div className="rounded-xl border border-[var(--border)] bg-[var(--secondary)]/60 px-4 py-3 sm:col-span-2">
+                      <div className="text-xs uppercase tracking-[0.16em] text-[var(--muted-foreground)]">
+                        Request note
+                      </div>
+                      <p className="mt-2 text-sm text-[var(--muted-foreground)]">
+                        {req.message ||
+                          "This affiliate is requesting a shop link that can display your offer alongside other partner offers on a storefront used for organic campaigns and social media links."}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex w-full flex-col gap-2 lg:w-auto lg:min-w-[200px]">
+                  <button
+                    onClick={() =>
+                      handleShopRequestDecision(req.id, "rejected")
+                    }
+                    className="rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-4 py-2.5 text-sm text-[var(--muted-foreground)] transition hover:brightness-110"
+                  >
+                    Reject
+                  </button>
+                  <button
+                    onClick={() =>
+                      handleShopRequestDecision(req.id, "approved")
+                    }
+                    className="rounded-xl bg-[var(--primary)] px-4 py-2.5 text-sm font-semibold text-[var(--primary-foreground)] transition hover:brightness-110"
+                  >
+                    Approve storefront
+                  </button>
+                </div>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+        </section>
+
+      {rejected.length > 0 && (
+        <section className="mt-12">
+          <h2 className="mb-4 text-xl font-semibold text-rose-400">
+            Rejected Requests
+          </h2>
+          <ul className="space-y-4">
+            {rejected.map((req) => (
+              <li
+                key={req.id}
+                className="rounded-2xl border border-rose-500/20 bg-[var(--card)] p-6 shadow-[0_0_0_1px_rgba(0,0,0,0.18)]"
+              >
+                <div className="mb-3 flex flex-wrap items-center gap-2">
+                  <span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${statusBadge(req.status)}`}>
+                    {req.status}
+                  </span>
+                  <span className="rounded-full border border-[var(--border)] bg-[var(--secondary)]/60 px-2.5 py-1 text-xs text-[var(--muted-foreground)]">
+                    {req.offer?.commission}% commission
+                  </span>
+                </div>
+                <h3 className="mb-1 text-lg font-semibold text-rose-300">
+                  {req.offer?.title}
+                </h3>
+                <p className="text-sm text-[var(--foreground)]">
+                  {req.offer?.description}
+                </p>
+                <div className="mt-3 grid gap-3 text-sm text-[var(--foreground)]/80 sm:grid-cols-3">
+                  <p>Type: {req.offer?.type}</p>
+                  <p>Affiliate: {req.affiliate_email}</p>
+                  <p>Requested: {formatWhen(req.created_at)}</p>
+                  {req.notes && <p className="italic">“{req.notes}”</p>}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
       </div>
-      </div>
-    </>
+    </div>
   );
 }
