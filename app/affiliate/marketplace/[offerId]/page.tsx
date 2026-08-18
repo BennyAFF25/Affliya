@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { supabase } from '@/../utils/supabase/pages-client';
-import { getActivationSubsidyBadgeLabel, getActivationSubsidyRemaining } from '@/../utils/activationSubsidies';
+import { supabase } from 'utils/supabase/pages-client';
+import { getActivationSubsidyBadgeLabel, getActivationSubsidyRemaining } from 'utils/activationSubsidies';
 
 type Offer = {
   id: string;
