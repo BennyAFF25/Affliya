@@ -62,7 +62,7 @@ export default function PartnerProgramPage() {
           </p>
           <p className="mt-3 max-w-3xl text-sm text-white/65 sm:text-base">
             Spots are limited while we build this out with the right partners.
-            Once you sign up, you&apos;ll use a normal affiliate account and gain
+            Once you sign up, you'll use a normal affiliate account and gain
             access to the Nettmark partner offer inside the marketplace, where
             you can run ads and promote Nettmark through the same performance
             rails as the rest of the platform.
@@ -128,7 +128,7 @@ export default function PartnerProgramPage() {
                 {
                   step: "2",
                   title: "Get access to the Nettmark partner offer",
-                  copy: "Once inside, you&apos;ll be able to access the dedicated Nettmark partner offer in the marketplace.",
+                  copy: "Once inside, you'll be able to access the dedicated Nettmark partner offer in the marketplace.",
                 },
                 {
                   step: "3",
@@ -156,7 +156,7 @@ export default function PartnerProgramPage() {
 
           <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 sm:p-8">
             <p className="text-xs uppercase tracking-[0.3em] text-white/50">
-              What we&apos;re looking for
+              What we're looking for
             </p>
             <ul className="mt-5 space-y-3 text-sm text-white/75">
               {[
@@ -172,9 +172,9 @@ export default function PartnerProgramPage() {
               ))}
             </ul>
 
-            <div className="mt-8 rounded-2xl border border-[#00C2CB]/20 bg-[#00C2CB]/8 p-5">
-              <p className="text-sm font-semibold text-white">Important</p>
-              <p className="mt-2 text-sm text-white/70">
+            <div className="mt-8 rounded-2xl border border-[#00C2CB]/35 bg-[#08191b] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
+              <p className="text-sm font-semibold text-[#7ff5fb]">Important</p>
+              <p className="mt-2 text-sm text-white/82 leading-6">
                 This program is being opened in limited spots. We want strong
                 partners who can bring in aligned businesses and grow with us
                 long term.
@@ -195,15 +195,15 @@ export default function PartnerProgramPage() {
               },
               {
                 q: "What happens after I sign up?",
-                a: "You&apos;ll be able to access the Nettmark partner offer in the marketplace and use the platform&apos;s normal promotion flows.",
+                a: "You'll be able to access the Nettmark partner offer in the marketplace and use the platform's normal promotion flows.",
               },
               {
                 q: "Can I run ads for the program?",
-                a: "Yes — that&apos;s part of the point. The partner offer will let you use Nettmark&apos;s normal affiliate promotion flow, including ads where appropriate.",
+                a: "Yes — that's part of the point. The partner offer will let you use Nettmark's normal affiliate promotion flow, including ads where appropriate.",
               },
               {
                 q: "Is everyone accepted?",
-                a: "No. We&apos;re keeping the program selective while spots are limited and we shape the right partner base.",
+                a: "No. We're keeping the program selective while spots are limited and we shape the right partner base.",
               },
             ].map((item) => (
               <div key={item.q} className="rounded-2xl border border-white/10 bg-black/20 p-5">
