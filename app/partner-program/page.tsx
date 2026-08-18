@@ -102,7 +102,7 @@ export default function PartnerProgramPage() {
     <div className="marketing-home-theme min-h-screen bg-[#05090c] text-white">
       <MarketingHeader />
 
-      <main className="mx-auto max-w-[1500px] px-6 pb-12 pt-8 lg:px-10">
+      <main className="mx-auto max-w-[1320px] px-5 pb-16 pt-6 sm:px-6 lg:px-8">
         <Hero />
         <HowItWorks />
         <LowerGrid />
@@ -119,7 +119,7 @@ export default function PartnerProgramPage() {
 
 function Hero() {
   return (
-    <section className="grid gap-10 py-10 xl:grid-cols-[1.1fr_0.9fr] xl:items-center">
+    <section className="grid gap-8 py-8 lg:py-10 xl:grid-cols-[minmax(0,1.05fr)_360px] xl:items-center xl:gap-10">
       <div>
         <div className="mb-5 text-xs font-semibold uppercase tracking-[0.26em] text-cyan-400">
           Partner Program
@@ -139,7 +139,7 @@ function Hero() {
           platform.
         </p>
 
-        <div className="mt-8 grid max-w-[760px] gap-5 sm:grid-cols-3">
+        <div className="mt-7 grid max-w-[760px] gap-4 sm:grid-cols-3">
           <MiniBenefit
             icon={<CircleDollarSign size={21} />}
             title="Earn on activation"
@@ -157,7 +157,7 @@ function Hero() {
           />
         </div>
 
-        <div className="mt-8 flex flex-wrap items-center gap-4">
+        <div className="mt-7 flex flex-wrap items-center gap-3.5">
           <Link
             href="/create-account?role=affiliate"
             className="flex items-center gap-2 rounded-xl bg-cyan-400 px-7 py-4 text-sm font-bold text-black shadow-lg shadow-cyan-500/10 transition hover:bg-cyan-300"
@@ -182,10 +182,10 @@ function Hero() {
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_300px] xl:grid-cols-[1fr_300px]">
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px] xl:items-center">
         <OrbitGraphic />
 
-        <div className="rounded-[24px] border border-cyan-400/30 bg-[#0c1115] p-6 shadow-2xl shadow-cyan-500/5">
+        <div className="rounded-[24px] border border-cyan-400/30 bg-[#0c1115] p-6 xl:p-7 shadow-2xl shadow-cyan-500/5">
           <div className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-400">
             Your impact. Your upside.
           </div>
@@ -232,7 +232,7 @@ function MiniBenefit({
   subtitle: string;
 }) {
   return (
-    <div className="flex items-start gap-3">
+    <div className="flex items-start gap-3 rounded-2xl border border-white/5 bg-white/[0.015] p-3">
       <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-cyan-400/40 text-cyan-400">
         {icon}
       </div>
@@ -246,7 +246,7 @@ function MiniBenefit({
 
 function OrbitGraphic() {
   return (
-    <div className="relative hidden min-h-[340px] items-center justify-center xl:flex">
+    <div className="relative hidden min-h-[320px] items-center justify-center xl:flex">
       <div className="absolute h-[330px] w-[330px] rounded-full border border-cyan-400/10" />
       <div className="absolute h-[250px] w-[250px] rounded-full border border-cyan-400/20" />
       <div className="absolute h-[170px] w-[170px] rounded-full border border-cyan-400/25" />
@@ -289,15 +289,15 @@ function HowItWorks() {
   return (
     <section
       id="how-it-works"
-      className="rounded-[24px] border border-white/10 bg-[#0b1014] p-6 lg:p-8"
+      className="mt-8 rounded-[24px] border border-white/10 bg-[#0b1014] p-6 lg:mt-10 lg:p-8"
     >
       <div className="mb-7 text-xs font-semibold uppercase tracking-[0.25em] text-cyan-400">
         How it works
       </div>
 
-      <div className="grid gap-8 xl:grid-cols-[repeat(4,1fr)_250px]">
+      <div className="grid gap-6 xl:grid-cols-[repeat(4,minmax(0,1fr))_240px] xl:gap-7">
         {steps.map((step, index) => (
-          <div key={step.title} className="relative">
+          <div key={step.title} className="relative rounded-2xl border border-white/6 bg-white/[0.015] p-4 xl:border-0 xl:bg-transparent xl:p-0">
             <div className="flex items-center gap-3">
               <div className="grid h-12 w-12 place-items-center rounded-full border border-cyan-400/40 text-cyan-400">
                 {step.icon}
@@ -340,13 +340,13 @@ function HowItWorks() {
 
 function LowerGrid() {
   return (
-    <section className="mt-6 grid gap-6 xl:grid-cols-[1.25fr_0.9fr_0.8fr]">
+    <section className="mt-8 grid gap-6 xl:mt-10 xl:grid-cols-[minmax(0,1.2fr)_minmax(300px,0.88fr)_minmax(300px,0.88fr)] xl:items-start">
       <div>
         <div className="mb-4 text-xs font-semibold uppercase tracking-[0.25em] text-cyan-400">
           More than just a referral link
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-4">
           <FeatureCard
             icon={<UsersRound size={23} />}
             title="Built for operators"
@@ -370,7 +370,7 @@ function LowerGrid() {
         </div>
       </div>
 
-      <div className="rounded-[24px] border border-cyan-400/20 bg-[linear-gradient(135deg,#09272b_0%,#0c1115_55%,#0c1115_100%)] p-6">
+      <div className="rounded-[24px] border border-cyan-400/20 bg-[linear-gradient(135deg,#09272b_0%,#0c1115_55%,#0c1115_100%)] p-6 xl:p-7">
         <div className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-400">
           Ready to make an impact?
         </div>
@@ -402,7 +402,7 @@ function LowerGrid() {
         </Link>
       </div>
 
-      <div className="rounded-[24px] border border-white/10 bg-[#0b1014] p-6">
+      <div className="rounded-[24px] border border-white/10 bg-[#0b1014] p-6 xl:p-7">
         <div className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-400">
           FAQ
         </div>
@@ -429,7 +429,7 @@ function FeatureCard({
   text: string;
 }) {
   return (
-    <div className="rounded-[22px] border border-white/10 bg-[#0b1014] p-5">
+    <div className="h-full rounded-[22px] border border-white/10 bg-[#0b1014] p-5 xl:p-6">
       <div className="grid h-12 w-12 place-items-center rounded-full border border-cyan-400/35 text-cyan-400">
         {icon}
       </div>
@@ -441,7 +441,7 @@ function FeatureCard({
 
 function FooterTrust() {
   return (
-    <section className="mt-6 rounded-[24px] border border-white/10 bg-[#0b1014] px-6 py-5">
+    <section className="mt-8 rounded-[24px] border border-white/10 bg-[#0b1014] px-6 py-5 xl:mt-10">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <div className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-400">
