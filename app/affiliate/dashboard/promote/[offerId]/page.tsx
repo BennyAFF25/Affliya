@@ -26,10 +26,10 @@ import { nmToast } from "@/components/ui/toast";
 import { FaSpinner } from "react-icons/fa";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { useSession } from "@supabase/auth-helpers-react";
-import { supabase } from "utils/supabase/pages-client";
-import { fetchReachEstimate } from "utils/meta/fetchReachEstimate";
-import { getActivationSubsidyBadgeLabel, getActivationSubsidyRemaining } from "utils/activationSubsidies";
-import { calculateWalletBalance } from "utils/wallet/balance";
+import { supabase } from "../../../../../utils/supabase/pages-client";
+import { fetchReachEstimate } from "../../../../../utils/meta/fetchReachEstimate";
+import { getActivationSubsidyBadgeLabel, getActivationSubsidyRemaining } from "../../../../../utils/activationSubsidies";
+import { calculateWalletBalance } from "../../../../../utils/wallet/balance";
 
 import { AdFormState, GenderOpt, PlacementKey } from "../types";
 
