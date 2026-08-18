@@ -103,6 +103,14 @@ BEGIN
     RETURN NEW;
   END IF;
 
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.business_activation_subsidies bas
+    WHERE bas.business_email = NEW.business_email
+  ) THEN
+    RETURN NEW;
+  END IF;
+
   SELECT p.revenue_subscription_status
     INTO v_subscription_status
   FROM public.profiles p
@@ -120,29 +128,18 @@ BEGIN
     ELSE 'awaiting_subscription'
   END;
 
-  INSERT INTO public.business_activation_subsidies (
-    business_id,
-    business_email,
-    offer_id,
-    status
-  )
-  VALUES (
-    v_business_id,
-    NEW.business_email,
-    NEW.id,
-    v_next_status
-  )
-  ON CONFLICT (business_email) DO UPDATE
-    SET business_id = COALESCE(EXCLUDED.business_id, public.business_activation_subsidies.business_id),
-        offer_id = COALESCE(public.business_activation_subsidies.offer_id, EXCLUDED.offer_id),
-        status = CASE
-          WHEN public.business_activation_subsidies.status IN ('reserved', 'partially_consumed', 'consumed', 'settled', 'expired', 'cancelled')
-            THEN public.business_activation_subsidies.status
-          WHEN public.business_activation_subsidies.offer_id IS NULL
-            THEN EXCLUDED.status
-          ELSE public.business_activation_subsidies.status
-        END,
-        updated_at = now();
+  UPDATE public.business_activation_subsidies bas
+  SET business_id = COALESCE(v_business_id, bas.business_id),
+      offer_id = COALESCE(bas.offer_id, NEW.id),
+      status = CASE
+        WHEN bas.status IN ('reserved', 'partially_consumed', 'consumed', 'settled', 'expired', 'cancelled')
+          THEN bas.status
+        WHEN bas.offer_id IS NULL
+          THEN v_next_status
+        ELSE bas.status
+      END,
+      updated_at = now()
+  WHERE bas.business_email = NEW.business_email;
 
   RETURN NEW;
 END;
@@ -250,43 +247,4 @@ CREATE POLICY business_activation_subsidies_affiliate_select
   USING (
     status = 'available'
     OR reserved_for_affiliate_email = auth.email()
-  );
-
-INSERT INTO public.business_activation_subsidies (
-  business_id,
-  business_email,
-  status
-)
-SELECT bp.id, bp.business_email, 'awaiting_subscription'
-FROM public.business_profiles bp
-WHERE bp.business_email IS NOT NULL
-  AND btrim(bp.business_email) <> ''
-ON CONFLICT (business_email) DO UPDATE
-SET business_id = COALESCE(public.business_activation_subsidies.business_id, EXCLUDED.business_id),
-    updated_at = now();
-
-UPDATE public.business_activation_subsidies bas
-SET offer_id = (
-      SELECT o.id
-      FROM public.offers o
-      WHERE o.business_email = bas.business_email
-      ORDER BY o.created_at ASC NULLS LAST, o.id ASC
-      LIMIT 1
-    ),
-    status = CASE
-      WHEN bas.status IN ('reserved', 'partially_consumed', 'consumed', 'settled', 'expired', 'cancelled') THEN bas.status
-      WHEN public.is_revenue_subscription_live((
-        SELECT p.revenue_subscription_status
-        FROM public.profiles p
-        WHERE p.email = bas.business_email
-        LIMIT 1
-      )) THEN 'available'
-      ELSE 'awaiting_subscription'
-    END,
-    updated_at = now()
-WHERE bas.offer_id IS NULL
-  AND EXISTS (
-    SELECT 1
-    FROM public.offers o
-    WHERE o.business_email = bas.business_email
   );
