@@ -6,6 +6,7 @@ import { useSession } from '@supabase/auth-helpers-react';
 import { useUserSettings } from '@/../utils/hooks/useUserSettings';
 import { calculateWalletBalance } from '@/../utils/wallet/balance';
 import { calculateRefundLockState, type RefundLockState } from '@/../utils/wallet/refundLock';
+import { describeAffiliatePayout, formatRecurringTermDetail } from '@/../utils/recurringTerms';
 
 type WalletTopup = {
   amount_gross?: number | null;
@@ -45,6 +46,11 @@ type WalletPayout = {
   available_at?: string | null;
   source_event_id?: string | null;
   stripe_transfer_id?: string | null;
+  cycle_number?: number | null;
+  is_recurring?: boolean | null;
+  recurring_term_months?: number | null;
+  recurring_payout_mode?: string | null;
+  recurring_payout_interval?: string | null;
 };
 
 type LedgerItem = {
@@ -146,10 +152,7 @@ function describeDeduction(item: WalletDeduction) {
 }
 
 function describePayout(item: WalletPayout) {
-  const status = String(item.status || 'pending').toLowerCase();
-  if (status === 'completed') return 'Affiliate payout received';
-  if (status === 'pending') return 'Affiliate payout scheduled';
-  return `Affiliate payout ${status}`;
+  return describeAffiliatePayout(item);
 }
 
 function badgeTone(status: string) {
@@ -289,7 +292,7 @@ export default function AffiliateWalletPage() {
         .order('created_at', { ascending: false }),
       supabase
         .from('wallet_payouts')
-        .select('id, amount, status, created_at, available_at, source_event_id, stripe_transfer_id')
+        .select('id, amount, status, created_at, available_at, source_event_id, stripe_transfer_id, cycle_number, is_recurring, recurring_term_months, recurring_payout_mode, recurring_payout_interval')
         .eq('affiliate_email', user.email)
         .order('created_at', { ascending: false }),
     ]);
@@ -473,7 +476,10 @@ export default function AffiliateWalletPage() {
       positive: true,
       status: item.status || 'pending',
       ref: item.stripe_transfer_id || item.source_event_id || item.id,
-      note: item.available_at ? `Available at ${new Date(item.available_at).toLocaleString()}` : undefined,
+      note: [
+        item.is_recurring ? formatRecurringTermDetail(null, item) : null,
+        item.available_at ? `Available at ${new Date(item.available_at).toLocaleString()}` : null,
+      ].filter(Boolean).join(' · ') || undefined,
     }));
 
     return [...topupItems, ...refundItems, ...deductionItems, ...payoutItems].sort(

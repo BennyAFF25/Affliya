@@ -16,6 +16,11 @@ interface Offer {
   price?: number | null;
   currency?: string | null;
   commission_value?: number | null;
+  payout_mode?: string | null;
+  payout_interval?: string | null;
+  payout_cycles?: number | null;
+  recurring_term_months?: number | null;
+  recurring_monthly_commission_value?: number | null;
   conversion_scope?: "store_wide" | "specific_products" | null;
   eligible_product_ids?: string[] | null;
   eligible_variant_ids?: string[] | null;
@@ -94,6 +99,9 @@ export default function EditOfferPage() {
   const [price, setPrice] = useState("");
   const [currency, setCurrency] = useState("USD");
   const [commissionValue, setCommissionValue] = useState("");
+  const [payoutMode, setPayoutMode] = useState<"upfront" | "spread">("upfront");
+  const [payoutInterval, setPayoutInterval] = useState<"monthly">("monthly");
+  const [recurringTermMonths, setRecurringTermMonths] = useState<number>(12);
   const [conversionScope, setConversionScope] = useState<
     "store_wide" | "specific_products"
   >("store_wide");
@@ -134,6 +142,14 @@ export default function EditOfferPage() {
   }, [metaConnections]);
 
   useEffect(() => {
+    const parsedPrice = parseFloat(price);
+    const parsedCommission = parseFloat(commission);
+    if (!Number.isNaN(parsedPrice) && !Number.isNaN(parsedCommission)) {
+      setCommissionValue(((parsedPrice * parsedCommission) / 100).toFixed(2));
+    }
+  }, [price, commission]);
+
+  useEffect(() => {
     const fetchOffer = async () => {
       if (!offerId || !user?.email) return;
 
@@ -143,7 +159,7 @@ export default function EditOfferPage() {
       const { data, error } = await (supabase as any)
         .from("offers")
         .select(
-          "id,business_email,title,description,commission,type,price,currency,commission_value,conversion_scope,eligible_product_ids,eligible_variant_ids,meta_page_id,meta_page_name,meta_ad_account_id,meta_ad_account_name,meta_pixel_id,meta_pixel_name",
+          "id,business_email,title,description,commission,type,price,currency,commission_value,payout_mode,payout_interval,payout_cycles,recurring_term_months,recurring_monthly_commission_value,conversion_scope,eligible_product_ids,eligible_variant_ids,meta_page_id,meta_page_name,meta_ad_account_id,meta_ad_account_name,meta_pixel_id,meta_pixel_name",
         )
         .eq("id", offerId as string)
         .eq("business_email", user.email as string)
@@ -164,8 +180,13 @@ export default function EditOfferPage() {
       setCurrency(data.currency || "USD");
       setType(data.type || "one-time");
       setCommissionValue(
-        data.commission_value != null ? data.commission_value.toString() : "",
+        (data.recurring_monthly_commission_value ?? data.commission_value) != null
+          ? String(data.recurring_monthly_commission_value ?? data.commission_value)
+          : "",
       );
+      setPayoutMode((data.payout_mode as "upfront" | "spread") || "upfront");
+      setPayoutInterval((data.payout_interval as "monthly") || "monthly");
+      setRecurringTermMonths(data.recurring_term_months ?? data.payout_cycles ?? 12);
       setConversionScope(data.conversion_scope || "store_wide");
       setEligibleProductIdsText((data.eligible_product_ids || []).join("\n"));
       setEligibleVariantIdsText((data.eligible_variant_ids || []).join("\n"));
@@ -293,6 +314,12 @@ export default function EditOfferPage() {
         price: price ? Number(price) : null,
         currency,
         commission_value: commissionValue ? Number(commissionValue) : null,
+        payout_mode: type === "recurring" ? payoutMode : "upfront",
+        payout_interval: type === "recurring" ? payoutInterval : "monthly",
+        payout_cycles: type === "recurring" ? recurringTermMonths : null,
+        recurring_term_months: type === "recurring" ? recurringTermMonths : null,
+        recurring_monthly_commission_value:
+          type === "recurring" && commissionValue ? Number(commissionValue) : null,
         conversion_scope: conversionScope,
         eligible_product_ids: parsedEligibleProductIds,
         eligible_variant_ids: parsedEligibleVariantIds,
@@ -496,6 +523,66 @@ export default function EditOfferPage() {
                 </>
               )}
             </div>
+
+            {type === "recurring" && (
+              <div className="rounded-xl border border-[var(--border)] bg-[var(--input-background)]/40 p-4 space-y-4">
+                <div>
+                  <label className="mb-1 block text-xs font-medium tracking-wide text-[var(--muted-foreground)]">
+                    Recurring commission payout mode
+                  </label>
+                  <select
+                    value={payoutMode}
+                    onChange={(e) => setPayoutMode(e.target.value as "upfront" | "spread")}
+                    className="w-full rounded-lg border border-[var(--border)] bg-[var(--input-background)] px-3 py-2 text-[var(--foreground)] focus:border-[var(--ring)] focus:outline-none"
+                  >
+                    <option value="upfront">Pay full recurring term upfront</option>
+                    <option value="spread">Pay monthly for a fixed term</option>
+                  </select>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label className="mb-1 block text-xs font-medium tracking-wide text-[var(--muted-foreground)]">
+                      Payout interval
+                    </label>
+                    <select
+                      value={payoutInterval}
+                      onChange={(e) => setPayoutInterval(e.target.value as "monthly")}
+                      className="w-full rounded-lg border border-[var(--border)] bg-[var(--input-background)] px-3 py-2 text-[var(--foreground)] focus:border-[var(--ring)] focus:outline-none"
+                    >
+                      <option value="monthly">Monthly</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-xs font-medium tracking-wide text-[var(--muted-foreground)]">
+                      Recurring term (months)
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={recurringTermMonths}
+                      onChange={(e) => setRecurringTermMonths(Number(e.target.value) || 1)}
+                      className="w-full rounded-lg border border-[var(--border)] bg-[var(--input-background)] px-3 py-2 text-[var(--foreground)] focus:border-[var(--ring)] focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div className="rounded-lg border border-[var(--primary)]/20 bg-[var(--primary)]/10 p-3 text-xs text-[var(--foreground)]/85 space-y-1">
+                  <div>
+                    Monthly commission amount: <strong>{commissionValue ? `${currency} ${Number(commissionValue).toFixed(2)}` : "—"}</strong>
+                  </div>
+                  <div>
+                    Total term commitment: <strong>{commissionValue ? `${currency} ${(Number(commissionValue) * recurringTermMonths).toFixed(2)}` : "—"}</strong>
+                  </div>
+                  <div>
+                    {payoutMode === "spread"
+                      ? `Future unpaid monthly cycles can be cancelled later from the payouts screen.`
+                      : `This will settle the full recurring term as one payout when the acquisition is approved for payment.`}
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div id="meta-setup" className="rounded-2xl border border-[var(--border)] bg-[var(--input-background)]/30 p-5 space-y-5 scroll-mt-24">
               <div>

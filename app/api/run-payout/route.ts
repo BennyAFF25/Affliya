@@ -209,6 +209,54 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "payout_not_found" }, { status: 404 });
     }
 
+    let recurringInstance: {
+      id: string;
+      status: string;
+      term_months: number | null;
+      payout_mode: string | null;
+    } | null = null;
+
+    if (payout.recurring_instance_id) {
+      const { data: instanceData, error: instanceError } = await supabase
+        .from("recurring_commission_instances")
+        .select("id, status, term_months, payout_mode")
+        .eq("id", payout.recurring_instance_id)
+        .maybeSingle();
+
+      if (instanceError) {
+        console.error("[RUN_PAYOUT] recurring_instance_lookup_failed", instanceError);
+      } else {
+        recurringInstance = (instanceData as {
+          id: string;
+          status: string;
+          term_months: number | null;
+          payout_mode: string | null;
+        } | null) ?? null;
+      }
+
+      if (recurringInstance?.status === "paused") {
+        return NextResponse.json(
+          {
+            error: "recurring_instance_paused",
+            message: "This recurring commission schedule is paused. Resume it before settling more cycles.",
+            recurring_instance_id: payout.recurring_instance_id,
+          },
+          { status: 409 },
+        );
+      }
+
+      if (recurringInstance?.status === "cancelled") {
+        return NextResponse.json(
+          {
+            error: "recurring_instance_cancelled",
+            message: "This recurring commission schedule has been cancelled.",
+            recurring_instance_id: payout.recurring_instance_id,
+          },
+          { status: 409 },
+        );
+      }
+    }
+
     if (payout.status === "completed") {
       if (!payout.stripe_payment_intent_id || !payout.stripe_transfer_id) {
         await tryWriteMoneyFlowAudit(supabase as never, {
@@ -654,6 +702,37 @@ export async function POST(req: Request) {
         transfer_key: transferIdempotencyKey,
       },
     });
+
+    if (payout.recurring_instance_id) {
+      const { data: relatedPayouts } = await supabase
+        .from("wallet_payouts")
+        .select("id, status, cycle_number, available_at")
+        .eq("recurring_instance_id", payout.recurring_instance_id)
+        .order("cycle_number", { ascending: true });
+
+      const rows = (relatedPayouts || []) as {
+        id: string;
+        status: string | null;
+        cycle_number: number | null;
+        available_at: string | null;
+      }[];
+
+      const completedCycles = rows.filter((row) => row.status === "completed" || row.status === "paid").length;
+      const nextPending = rows.find((row) => row.status === "pending");
+      const nonTerminalExists = rows.some((row) => {
+        const status = String(row.status || "pending").toLowerCase();
+        return status === "pending";
+      });
+
+      await supabase
+        .from("recurring_commission_instances")
+        .update({
+          current_cycle: completedCycles,
+          next_payout_at: nextPending?.available_at || null,
+          status: nonTerminalExists ? "active" : "completed",
+        })
+        .eq("id", payout.recurring_instance_id);
+    }
 
     return NextResponse.json({
       ok: true,

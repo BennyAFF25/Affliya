@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import { supabase } from "utils/supabase/pages-client";
 import { SectionHeader, StatCard } from "@/../components/ui";
+import { formatRecurringTermDetail } from "@/../utils/recurringTerms";
 
 interface Profile {
   id: string;
@@ -160,6 +161,7 @@ export default function BusinessDashboard() {
         payout_mode: string | null;
         payout_interval: string | null;
         payout_cycles: number | null;
+        recurring_term_months?: number | null;
       }
     >
   >({});
@@ -293,7 +295,7 @@ export default function BusinessDashboard() {
       const { data: offers, error: offersError } = await supabase
         .from("offers")
         .select(
-          "id, title, commission, payout_mode, payout_interval, payout_cycles, site_host, meta_page_id, meta_ad_account_id, meta_pixel_id",
+          "id, title, commission, payout_mode, payout_interval, payout_cycles, recurring_term_months, site_host, meta_page_id, meta_ad_account_id, meta_pixel_id",
         )
         .eq("business_email", businessEmail);
 
@@ -306,6 +308,7 @@ export default function BusinessDashboard() {
             payout_mode: string | null;
             payout_interval: string | null;
             payout_cycles: number | null;
+            recurring_term_months?: number | null;
           }
         > = {};
         offers.forEach((o: any) => {
@@ -317,6 +320,10 @@ export default function BusinessDashboard() {
               typeof o.payout_cycles === "number"
                 ? o.payout_cycles
                 : (o.payout_cycles ?? null),
+            recurring_term_months:
+              typeof o.recurring_term_months === "number"
+                ? o.recurring_term_months
+                : (o.recurring_term_months ?? null),
           };
         });
         setOfferLookup(lookup);
@@ -1255,23 +1262,13 @@ export default function BusinessDashboard() {
                   ? offerPayoutMeta[p.offer_id]
                   : undefined;
                 const isRecurring = !!p.is_recurring;
-                const cyclesTotal =
-                  meta && typeof meta.payout_cycles === "number"
-                    ? meta.payout_cycles
-                    : null;
-
-                let detailLine = "";
-                if (title) {
-                  if (isRecurring && p.cycle_number != null && cyclesTotal) {
-                    detailLine = `${title} · Cycle ${p.cycle_number}/${cyclesTotal}${
-                      meta?.payout_interval ? ` · ${meta.payout_interval}` : ""
-                    }`;
-                  } else if (meta?.payout_mode === "spread") {
-                    detailLine = `${title} · Spread payout`;
-                  } else {
-                    detailLine = `${title} · One-off payout`;
-                  }
-                }
+                const detailLine = formatRecurringTermDetail(title, {
+                  is_recurring: isRecurring,
+                  cycle_number: p.cycle_number,
+                  recurring_term_months: meta?.recurring_term_months ?? meta?.payout_cycles ?? null,
+                  recurring_payout_mode: meta?.payout_mode,
+                  recurring_payout_interval: meta?.payout_interval,
+                });
 
                 const statusBadgeClass =
                   p.status === "paid" || p.status === "completed"
@@ -1355,25 +1352,13 @@ export default function BusinessDashboard() {
                     ? offerPayoutMeta[p.offer_id]
                     : undefined;
                   const isRecurring = !!p.is_recurring;
-                  const cyclesTotal =
-                    meta && typeof meta.payout_cycles === "number"
-                      ? meta.payout_cycles
-                      : null;
-
-                  let detailLine = "";
-                  if (title) {
-                    if (isRecurring && p.cycle_number != null && cyclesTotal) {
-                      detailLine = `${title} · Cycle ${p.cycle_number}/${cyclesTotal}${
-                        meta?.payout_interval
-                          ? ` · ${meta.payout_interval}`
-                          : ""
-                      }`;
-                    } else if (meta?.payout_mode === "spread") {
-                      detailLine = `${title} · Spread payout`;
-                    } else {
-                      detailLine = `${title} · One-off payout`;
-                    }
-                  }
+                  const detailLine = formatRecurringTermDetail(title, {
+                    is_recurring: isRecurring,
+                    cycle_number: p.cycle_number,
+                    recurring_term_months: meta?.recurring_term_months ?? meta?.payout_cycles ?? null,
+                    recurring_payout_mode: meta?.payout_mode,
+                    recurring_payout_interval: meta?.payout_interval,
+                  });
 
                   const statusBadgeClass =
                     p.status === "paid" || p.status === "completed"

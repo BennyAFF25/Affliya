@@ -3,6 +3,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/../utils/supabase/pages-client";
+import { formatRecurringTermDetail } from "@/../utils/recurringTerms";
 
 // Types
 type WPayout = {
@@ -20,6 +21,28 @@ type WPayout = {
   available_at?: string | null;
   cycle_number?: number | null;
   is_recurring?: boolean | null;
+  recurring_instance_id?: string | null;
+  recurring_term_months?: number | null;
+  recurring_payout_mode?: string | null;
+  recurring_payout_interval?: string | null;
+};
+
+type RecurringInstance = {
+  id: string;
+  affiliate_email: string;
+  offer_id: string;
+  status: "active" | "paused" | "cancelled" | "completed" | string;
+  term_months: number;
+  monthly_commission_amount: number;
+  payout_mode: "upfront" | "spread" | string;
+  payout_interval: string | null;
+  current_cycle: number;
+  next_payout_at?: string | null;
+};
+
+type AffiliateStripeRow = {
+  email: string | null;
+  stripe_account_id: string | null;
 };
 
 function isSettledStatus(status: string) {
@@ -91,6 +114,8 @@ export default function BusinessPayoutsPage() {
     blocked: 0,
     failed: 0,
   });
+  const [recurringInstances, setRecurringInstances] = useState<RecurringInstance[]>([]);
+  const [managingRecurringId, setManagingRecurringId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<
     "all" | "pending" | "completed" | "failed"
   >("all");
@@ -144,6 +169,16 @@ export default function BusinessPayoutsPage() {
       const rows = (data || []) as unknown as WPayout[];
       setPayouts(rows);
 
+      const { data: recurringData, error: recurringError } = await supabase
+        .from("recurring_commission_instances")
+        .select("id, affiliate_email, offer_id, status, term_months, monthly_commission_amount, payout_mode, payout_interval, current_cycle, next_payout_at")
+        .eq("business_email", userEmail)
+        .order("created_at", { ascending: false });
+
+      if (!recurringError) {
+        setRecurringInstances((recurringData || []) as RecurringInstance[]);
+      }
+
       const affiliateEmails = Array.from(new Set(rows.map((r) => r.affiliate_email).filter(Boolean)));
       if (affiliateEmails.length) {
         const { data: affiliates } = await supabase
@@ -151,7 +186,7 @@ export default function BusinessPayoutsPage() {
           .select("email, stripe_account_id")
           .in("email", affiliateEmails);
         const stripeMap: Record<string, string | null> = {};
-        (affiliates || []).forEach((a: any) => {
+        ((affiliates || []) as AffiliateStripeRow[]).forEach((a) => {
           stripeMap[String(a.email)] = a.stripe_account_id || null;
         });
         setAffiliateStripeByEmail(stripeMap);
@@ -305,6 +340,14 @@ export default function BusinessPayoutsPage() {
         .eq("business_email", email!)
         .order("created_at", { ascending: false });
       setPayouts((data || []) as WPayout[]);
+
+      const { data: recurringData } = await supabase
+        .from("recurring_commission_instances")
+        .select("id, affiliate_email, offer_id, status, term_months, monthly_commission_amount, payout_mode, payout_interval, current_cycle, next_payout_at")
+        .eq("business_email", email!)
+        .order("created_at", { ascending: false });
+      setRecurringInstances((recurringData || []) as RecurringInstance[]);
+
       setSelected({});
 
       if (failures.length > 0) {
@@ -333,6 +376,62 @@ export default function BusinessPayoutsPage() {
       map[p.id] = v ? canSettle : false;
     });
     setSelected(map);
+  }
+
+  async function manageRecurringInstance(id: string, action: "pause" | "resume" | "cancel") {
+    setManagingRecurringId(id);
+    try {
+      const res = await fetch(`/api/business/recurring-commissions/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(payload.error || payload.message || `Failed to ${action} recurring schedule`);
+      }
+
+      setRecurringInstances((prev) =>
+        prev.map((item) =>
+          item.id === id
+            ? {
+                ...item,
+                status:
+                  action === "pause"
+                    ? "paused"
+                    : action === "resume"
+                      ? "active"
+                      : "cancelled",
+                next_payout_at: action === "cancel" ? null : item.next_payout_at,
+              }
+            : item,
+        ),
+      );
+
+      if (action === "cancel") {
+        setPayouts((prev) =>
+          prev.map((row) =>
+            row.recurring_instance_id === id && row.status === "pending"
+              ? { ...row, status: "cancelled" }
+              : row,
+          ),
+        );
+      }
+
+      setBanner(
+        action === "pause"
+          ? "Recurring commission schedule paused."
+          : action === "resume"
+            ? "Recurring commission schedule resumed."
+            : "Future unpaid recurring cycles cancelled.",
+      );
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : null;
+      setBanner(message || `Failed to ${action} recurring schedule.`);
+    } finally {
+      setManagingRecurringId(null);
+    }
   }
 
   // --- Render
@@ -433,6 +532,85 @@ export default function BusinessPayoutsPage() {
         {banner && (
           <div className="mb-6 rounded-md border border-[var(--primary)]/40 bg-[var(--card)] px-4 py-3 text-sm text-[var(--foreground)]">
             {banner}
+          </div>
+        )}
+
+        {recurringInstances.length > 0 && (
+          <div className="mb-6 rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-[0_0_0_1px_rgba(0,0,0,0.18)]">
+            <div className="mb-4">
+              <h2 className="text-lg font-semibold text-[var(--foreground)]">Recurring commission schedules</h2>
+              <p className="mt-1 text-sm text-[var(--muted-foreground)]">
+                Manage fixed-term recurring commitments created from verified acquisitions. Cancelling only affects future unpaid cycles.
+              </p>
+            </div>
+            <div className="space-y-3">
+              {recurringInstances.map((instance) => {
+                const offerTitle = offersById[instance.offer_id] || instance.offer_id;
+                const stateTone =
+                  instance.status === "active"
+                    ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-200"
+                    : instance.status === "paused"
+                      ? "border-amber-500/20 bg-amber-500/10 text-amber-200"
+                      : instance.status === "cancelled"
+                        ? "border-rose-500/20 bg-rose-500/10 text-rose-200"
+                        : "border-[var(--border)] bg-[var(--secondary)]/50 text-[var(--muted-foreground)]";
+
+                return (
+                  <div key={instance.id} className="rounded-xl border border-[var(--border)] bg-[var(--secondary)]/40 p-4">
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h3 className="font-medium text-[var(--foreground)]">{offerTitle}</h3>
+                          <span className={`rounded-full border px-2 py-1 text-[11px] uppercase tracking-wide ${stateTone}`}>
+                            {instance.status}
+                          </span>
+                        </div>
+                        <div className="mt-1 text-sm text-[var(--muted-foreground)]">
+                          {instance.affiliate_email} · {instance.payout_mode === "upfront" ? "Recurring term upfront" : "Recurring term spread"}
+                        </div>
+                        <div className="mt-2 text-xs text-[var(--muted-foreground)]">
+                          {instance.term_months} month term · {currencyFmt.format(Number(instance.monthly_commission_amount || 0))} per month · completed cycles {instance.current_cycle}/{instance.term_months}
+                          {instance.next_payout_at ? ` · next cycle ${new Date(instance.next_payout_at).toLocaleDateString()}` : ""}
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        {instance.status === "active" && instance.payout_mode !== "upfront" ? (
+                          <button
+                            type="button"
+                            onClick={() => manageRecurringInstance(instance.id, "pause")}
+                            disabled={managingRecurringId === instance.id}
+                            className="rounded-md border border-[var(--border)] px-3 py-2 text-xs text-[var(--foreground)] disabled:opacity-50"
+                          >
+                            Pause
+                          </button>
+                        ) : null}
+                        {instance.status === "paused" ? (
+                          <button
+                            type="button"
+                            onClick={() => manageRecurringInstance(instance.id, "resume")}
+                            disabled={managingRecurringId === instance.id}
+                            className="rounded-md border border-[var(--border)] px-3 py-2 text-xs text-[var(--foreground)] disabled:opacity-50"
+                          >
+                            Resume
+                          </button>
+                        ) : null}
+                        {instance.status !== "cancelled" && instance.status !== "completed" && instance.payout_mode !== "upfront" ? (
+                          <button
+                            type="button"
+                            onClick={() => manageRecurringInstance(instance.id, "cancel")}
+                            disabled={managingRecurringId === instance.id}
+                            className="rounded-md border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-xs text-rose-200 disabled:opacity-50"
+                          >
+                            Cancel future cycles
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
 
@@ -621,7 +799,14 @@ function Table({
                 {r.affiliate_email}
               </td>
               <td className="px-4 py-3">
-                {r.offer_id ? offersById[r.offer_id] || r.offer_id : "—"}
+                <div className="text-[var(--foreground)]">
+                  {r.offer_id ? offersById[r.offer_id] || r.offer_id : "—"}
+                </div>
+                {(r.is_recurring || r.recurring_instance_id) && (
+                  <div className="mt-1 text-xs text-[var(--muted-foreground)]">
+                    {formatRecurringTermDetail(null, r)}
+                  </div>
+                )}
               </td>
               <td className="px-4 py-3 text-[var(--foreground)]">
                 <div className="font-semibold">
@@ -706,6 +891,9 @@ function StatusPill({
       }
     }
     className = "bg-yellow-500/10 text-yellow-300";
+  } else if (status === "cancelled") {
+    label = "cancelled";
+    className = "bg-slate-500/10 text-slate-300";
   } else if (isSettledStatus(status)) {
     label = "completed";
     className = "bg-emerald-500/10 text-emerald-300";

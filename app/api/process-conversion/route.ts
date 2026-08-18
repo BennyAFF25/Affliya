@@ -12,12 +12,6 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
-function isRpcMissing(error: unknown) {
-  if (!error || typeof error !== 'object') return false;
-  const code = 'code' in error ? error.code : null;
-  return code === 'PGRST202';
-}
-
 async function createPayoutsForConversion(opts: {
   event: any;
   offer: any;
@@ -41,33 +35,12 @@ async function createPayoutsForConversion(opts: {
 
   const payoutMode: string = offer.payout_mode || 'upfront';
   const payoutInterval: string = offer.payout_interval || 'monthly';
-  const payoutCycles: number | null = offer.payout_cycles;
+  const payoutCycles: number | null = offer.recurring_term_months ?? offer.payout_cycles;
   const isRecurringOffer = offer.type === 'recurring';
-
-  const { data, error } = await supabase.rpc('create_wallet_payouts_for_conversion', {
-    p_source_event_id: event.id,
-    p_business_email: businessEmail,
-    p_affiliate_email: affiliateEmail,
-    p_offer_id: offer.id,
-    p_base_payout_amount: basePayoutAmount,
-    p_is_recurring: isRecurringOffer,
-    p_payout_mode: payoutMode,
-    p_payout_interval: payoutInterval,
-    p_payout_cycles: payoutCycles,
-    p_event_created_at: event.created_at || new Date().toISOString(),
-  });
-
-  if (error && !isRpcMissing(error)) {
-    throw error;
-  }
-
-  if (!error) {
-    return data;
-  }
 
   const { data: existing, error: existingError } = await supabase
     .from('wallet_payouts')
-    .select('id')
+    .select('id, recurring_instance_id')
     .eq('source_event_id', event.id)
     .limit(1);
 
@@ -81,17 +54,77 @@ async function createPayoutsForConversion(opts: {
     };
   }
 
+  const recurringTermMonths = Math.max(1, Number(payoutCycles || 1));
+  const recurringMonthlyCommissionAmount = Number(
+    offer.recurring_monthly_commission_value ?? offer.commission_value ?? basePayoutAmount,
+  );
+  const monthlyCommissionAmount =
+    Number.isFinite(recurringMonthlyCommissionAmount) && recurringMonthlyCommissionAmount > 0
+      ? recurringMonthlyCommissionAmount
+      : basePayoutAmount;
+
+  let recurringInstanceId: string | null = null;
+
+  if (isRecurringOffer) {
+    const firstAvailableAt = withAffiliateConnectWindow(event.created_at).toISOString();
+    const { data: existingInstance } = await supabase
+      .from('recurring_commission_instances')
+      .select('id')
+      .eq('source_event_id', event.id)
+      .maybeSingle();
+
+    if (existingInstance?.id) {
+      recurringInstanceId = existingInstance.id;
+    } else {
+      const { data: instance, error: instanceError } = await supabase
+        .from('recurring_commission_instances')
+        .insert({
+          source_event_id: event.id,
+          offer_id: offer.id,
+          business_email: businessEmail,
+          affiliate_email: affiliateEmail,
+          customer_reference:
+            event.customer_id || event.customer_email || event.order_id || event.checkout_id || null,
+          term_months: recurringTermMonths,
+          monthly_commission_amount: monthlyCommissionAmount,
+          payout_mode: payoutMode,
+          payout_interval: payoutInterval,
+          status: 'active',
+          current_cycle: 0,
+          next_payout_at: firstAvailableAt,
+        })
+        .select('id')
+        .single();
+
+      if (instanceError) {
+        throw instanceError;
+      }
+
+      recurringInstanceId = instance?.id ?? null;
+    }
+  }
+
   if (!isRecurringOffer || payoutMode === 'upfront' || !payoutCycles || payoutCycles <= 1) {
+    const payoutAmount = isRecurringOffer
+      ? payoutMode === 'upfront'
+        ? monthlyCommissionAmount * recurringTermMonths
+        : monthlyCommissionAmount
+      : basePayoutAmount;
+
     const { error: insertError } = await supabase.from('wallet_payouts').insert({
       business_email: businessEmail,
       affiliate_email: affiliateEmail,
       offer_id: offer.id,
-      amount: basePayoutAmount,
+      amount: payoutAmount,
       status: 'pending',
       source_event_id: event.id,
       cycle_number: 1,
       available_at: withAffiliateConnectWindow(event.created_at).toISOString(),
       is_recurring: isRecurringOffer,
+      recurring_instance_id: recurringInstanceId,
+      recurring_term_months: isRecurringOffer ? recurringTermMonths : null,
+      recurring_payout_mode: isRecurringOffer ? payoutMode : null,
+      recurring_payout_interval: isRecurringOffer ? payoutInterval : null,
     });
 
     if (insertError) {
@@ -107,14 +140,15 @@ async function createPayoutsForConversion(opts: {
     };
   }
 
-  const cycles = payoutCycles;
-  const perCycle = basePayoutAmount / cycles;
+  const cycles = recurringTermMonths;
+  const perCycle = monthlyCommissionAmount;
   const baseTime = event.created_at ? new Date(event.created_at) : new Date();
+  const firstAvailableAt = withAffiliateConnectWindow(baseTime.toISOString());
 
   const rows: any[] = [];
   for (let i = 1; i <= cycles; i++) {
-    const availableAt = withAffiliateConnectWindow(baseTime.toISOString());
-    availableAt.setMonth(availableAt.getMonth() + i);
+    const availableAt = new Date(firstAvailableAt);
+    availableAt.setMonth(availableAt.getMonth() + (i - 1));
 
     rows.push({
       business_email: businessEmail,
@@ -126,6 +160,10 @@ async function createPayoutsForConversion(opts: {
       cycle_number: i,
       available_at: availableAt.toISOString(),
       is_recurring: true,
+      recurring_instance_id: recurringInstanceId,
+      recurring_term_months: cycles,
+      recurring_payout_mode: payoutMode,
+      recurring_payout_interval: payoutInterval,
     });
   }
 
@@ -140,6 +178,7 @@ async function createPayoutsForConversion(opts: {
     insertedCount: rows.length,
     existingCount: 0,
     fallback: true,
+    recurringInstanceId,
   };
 }
 
@@ -313,7 +352,7 @@ export async function POST(req: NextRequest) {
 
     const { data: offer, error: offerErr } = await supabase
       .from('offers')
-      .select('id, commission, commission_value, business_email, type, payout_mode, payout_interval, payout_cycles, conversion_scope, eligible_product_ids, eligible_variant_ids')
+      .select('id, commission, commission_value, business_email, type, payout_mode, payout_interval, payout_cycles, recurring_term_months, recurring_monthly_commission_value, conversion_scope, eligible_product_ids, eligible_variant_ids')
       .eq('id', resolvedOfferId)
       .maybeSingle();
 

@@ -98,7 +98,7 @@ function CreateOfferPageInner() {
   // payout structure fields
   const [payoutMode, setPayoutMode] = useState<"upfront" | "spread">("upfront");
   const [payoutInterval, setPayoutInterval] = useState<"monthly">("monthly");
-  const [payoutCycles, setPayoutCycles] = useState<number>(12);
+  const [recurringTermMonths, setRecurringTermMonths] = useState<number>(12);
 
   const [step, setStep] = useState(1);
 
@@ -156,7 +156,7 @@ function CreateOfferPageInner() {
     const parsedCommission = parseFloat(commission);
     if (!isNaN(parsedPrice) && !isNaN(parsedCommission)) {
       const calculated = (parsedPrice * parsedCommission) / 100;
-      setCommissionValue(Math.round(calculated));
+      setCommissionValue(Math.round(calculated * 100) / 100);
     } else {
       setCommissionValue(0);
     }
@@ -416,8 +416,7 @@ function CreateOfferPageInner() {
     const finalPayoutMode = type === "recurring" ? payoutMode : "upfront";
     const finalPayoutInterval =
       type === "recurring" ? payoutInterval : "monthly";
-    const finalPayoutCycles =
-      type === "recurring" && payoutMode === "spread" ? payoutCycles : null;
+    const finalPayoutCycles = type === "recurring" ? recurringTermMonths : null;
 
     const newOffer = {
       id: uuidv4(),
@@ -451,6 +450,8 @@ function CreateOfferPageInner() {
       payout_mode: finalPayoutMode,
       payout_interval: finalPayoutInterval,
       payout_cycles: finalPayoutCycles,
+      recurring_term_months: type === "recurring" ? recurringTermMonths : null,
+      recurring_monthly_commission_value: type === "recurring" ? commissionValue : null,
     };
 
     const { error: insertError } = await supabase
@@ -519,7 +520,7 @@ function CreateOfferPageInner() {
 
     setPayoutMode("upfront");
     setPayoutInterval("monthly");
-    setPayoutCycles(12);
+    setRecurringTermMonths(12);
 
     setSelectedPage("");
     setSelectedAdAccount("");
@@ -853,7 +854,7 @@ function CreateOfferPageInner() {
                         rows={4}
                       />
                       <p className="mt-2 text-xs text-gray-400">
-                        Use the store's real product IDs. One per line or comma-separated is fine. Shopify numeric IDs and full <code>gid://</code> IDs both work.
+                        Use the store&apos;s real product IDs. One per line or comma-separated is fine. Shopify numeric IDs and full <code>gid://</code> IDs both work.
                       </p>
                     </div>
 
@@ -878,7 +879,7 @@ function CreateOfferPageInner() {
                     </div>
 
                     <p className="text-xs text-gray-400">
-                      For product-scoped offers, make sure your checkout tracking sends line items, product IDs, or variant IDs with the conversion event. That's what lets payout stay truthful.
+                      For product-scoped offers, make sure your checkout tracking sends line items, product IDs, or variant IDs with the conversion event. That&apos;s what lets payout stay truthful.
                     </p>
                   </>
                 )}
@@ -887,8 +888,12 @@ function CreateOfferPageInner() {
               {type === "recurring" && (
                 <div className="mt-4 space-y-4 border border-[#262626] rounded-lg p-4 bg-[#111111]">
                   <h3 className="text-sm font-semibold text-[#7ff5fb] uppercase tracking-wide">
-                    Recurring payout structure
+                    Recurring commission term
                   </h3>
+
+                  <p className="text-xs text-gray-400">
+                    Nettmark will treat the first verified acquisition as a recurring-term commission commitment for the number of months you choose. If the customer churns early, you can cancel future unpaid cycles later from payouts.
+                  </p>
 
                   <div>
                     <label className="block text-xs text-gray-400 mb-1">
@@ -899,63 +904,68 @@ function CreateOfferPageInner() {
                       onChange={(e) =>
                         setPayoutMode(e.target.value as "upfront" | "spread")
                       }
-
                     >
                       <option value="upfront">
-                        Pay full commission upfront
+                        Pay full recurring term upfront
                       </option>
                       <option value="spread">
-                        Spread commission over time
+                        Pay monthly for a fixed term
                       </option>
                     </Select>
                   </div>
 
-                  {payoutMode === "spread" && (
-                    <>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-xs text-gray-400 mb-1">
-                            Payout interval
-                          </label>
-                          <Select
-                            value={payoutInterval}
-                            onChange={(e) =>
-                              setPayoutInterval(e.target.value as "monthly")
-                            }
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs text-gray-400 mb-1">
+                        Payout interval
+                      </label>
+                      <Select
+                        value={payoutInterval}
+                        onChange={(e) =>
+                          setPayoutInterval(e.target.value as "monthly")
+                        }
+                      >
+                        <option value="monthly">Monthly</option>
+                      </Select>
+                    </div>
 
-                          >
-                            <option value="monthly">Monthly</option>
-                          </Select>
-                        </div>
+                    <div>
+                      <label className="block text-xs text-gray-400 mb-1">
+                        Recurring term (months)
+                      </label>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={recurringTermMonths}
+                        onChange={(e) => {
+                          const next = Number(e.target.value) || 1;
+                          setRecurringTermMonths(next);
+                        }}
+                      />
+                    </div>
+                  </div>
 
-                        <div>
-                          <label className="block text-xs text-gray-400 mb-1">
-                            Number of payout cycles
-                          </label>
-                          <Input
-                            type="number"
-                            min={1}
-                            value={payoutCycles}
-                            onChange={(e) =>
-                              setPayoutCycles(Number(e.target.value) || 1)
-                            }
-
-                          />
-                        </div>
-                      </div>
-
-                      <div className="text-xs text-gray-400 mt-2">
-                        Based on this offer and commission, each cycle would pay
-                        approximately{" "}
-                        <span className="text-[#7ff5fb] font-semibold">
-                          {commissionValue > 0 && payoutCycles > 0
-                            ? `${currency} $${(commissionValue / payoutCycles).toFixed(2)}`
-                            : "—"}
-                        </span>{" "}
-                        to the affiliate.
-                      </div>
-                    </>
-                  )}
+                  <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/10 p-3 text-xs text-cyan-100 space-y-1">
+                    <div>
+                      Monthly commission amount:{" "}
+                      <span className="font-semibold text-[#7ff5fb]">
+                        {commissionValue > 0 ? `${currency} $${commissionValue.toFixed(2)}` : "—"}
+                      </span>
+                    </div>
+                    <div>
+                      Total term commitment:{" "}
+                      <span className="font-semibold text-[#7ff5fb]">
+                        {commissionValue > 0 && recurringTermMonths > 0
+                          ? `${currency} $${(commissionValue * recurringTermMonths).toFixed(2)}`
+                          : "—"}
+                      </span>
+                    </div>
+                    <div>
+                      {payoutMode === "spread"
+                        ? `Nettmark will schedule ${recurringTermMonths} monthly commission cycle${recurringTermMonths === 1 ? "" : "s"}.`
+                        : `Nettmark will create one upfront payout covering the full ${recurringTermMonths}-month term.`}
+                    </div>
+                  </div>
                 </div>
               )}
             </>
