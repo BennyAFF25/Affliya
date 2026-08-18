@@ -68,6 +68,7 @@ export default function AffiliateRequestsPage() {
   const session = useSession();
   const [requests, setRequests] = useState<AffiliateRequest[]>([]);
   const [shopRequests, setShopRequests] = useState<ShopRequest[]>([]);
+  const [starterSpendByOfferId, setStarterSpendByOfferId] = useState<Record<string, { status: string; reservedForAffiliateEmail?: string | null }>>({});
 
   useEffect(() => {
     if (!session) return;
@@ -104,7 +105,39 @@ export default function AffiliateRequestsPage() {
           error.message,
         );
       } else {
-        setRequests(data as AffiliateRequest[]);
+        const nextRequests = (data as AffiliateRequest[]) || [];
+        setRequests(nextRequests);
+
+        const offerIds = nextRequests
+          .map((request) => request.offer?.id)
+          .filter((value): value is string => typeof value === "string" && value.length > 0);
+
+        if (offerIds.length) {
+          const { data: subsidyRows, error: subsidyErr } = await supabase
+            .from("business_activation_subsidies")
+            .select("offer_id, status, reserved_for_affiliate_email")
+            .in("offer_id", offerIds);
+
+          if (subsidyErr) {
+            console.error("[affiliate-requests] Error fetching starter spend rows:", subsidyErr.message);
+          } else {
+            const nextMap: Record<string, { status: string; reservedForAffiliateEmail?: string | null }> = {};
+            for (const row of (subsidyRows || []) as any[]) {
+              if (typeof row.offer_id === "string") {
+                nextMap[row.offer_id] = {
+                  status: String(row.status || ""),
+                  reservedForAffiliateEmail:
+                    typeof row.reserved_for_affiliate_email === "string"
+                      ? row.reserved_for_affiliate_email
+                      : null,
+                };
+              }
+            }
+            setStarterSpendByOfferId(nextMap);
+          }
+        } else {
+          setStarterSpendByOfferId({});
+        }
       }
 
       const { data: shopData, error: shopError } = await supabase
@@ -311,6 +344,16 @@ export default function AffiliateRequestsPage() {
                     <span className="rounded-full border border-[var(--border)] bg-[var(--secondary)]/60 px-2.5 py-1 text-xs text-[var(--muted-foreground)]">
                       {req.offer?.commission}% commission
                     </span>
+                    {req.offer?.id && starterSpendByOfferId[req.offer.id]?.status === "available" ? (
+                      <span className="rounded-full border border-[#00C2CB]/30 bg-[#00C2CB]/10 px-2.5 py-1 text-xs font-medium text-[#7ff5fb]">
+                        First approved affiliate gets $10 starter spend
+                      </span>
+                    ) : null}
+                    {req.offer?.id && starterSpendByOfferId[req.offer.id]?.status === "reserved" && starterSpendByOfferId[req.offer.id]?.reservedForAffiliateEmail === req.affiliate_email ? (
+                      <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2.5 py-1 text-xs font-medium text-emerald-300">
+                        This approval will claim the $10 starter spend
+                      </span>
+                    ) : null}
                   </div>
 
                   <h3 className="text-xl font-semibold text-[var(--foreground)]">

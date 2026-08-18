@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import { buildNettmarkStripeMetadata, createStripeClient, getPlatformBalanceSnapshot } from "@/../utils/stripe";
+import { getActivationSubsidyRemaining, toMoney, type ActivationSubsidyRow } from "@/../utils/activationSubsidies";
 import { getWalletBalanceSnapshot } from "@/../utils/wallet/balance";
 
 const stripe = createStripeClient(process.env.STRIPE_SECRET_KEY || "");
@@ -33,6 +34,30 @@ type SupabaseLike = {
 type TransferRetryRow = {
   id: string;
   transfer_retry_count: number | null;
+};
+
+type SubsidyClaim = ActivationSubsidyRow & {
+  consumed_amount: number | string | null;
+  subsidy_amount: number | string | null;
+};
+
+type LiveAdSettlementRow = {
+  id: string;
+  affiliate_email: string | null;
+  affiliate_user_id: string | null;
+  business_email: string | null;
+  business_id: string | null;
+  offer_id: string | null;
+  spend: number | string | null;
+  spend_transferred: number | string | null;
+};
+
+type ExistingSettlementRow = {
+  id: string;
+  status: string | null;
+  amount: number | string | null;
+  transferred_after: number | string | null;
+  unpaid_after: number | string | null;
 };
 
 export type AdSpendSettlementRow = {
@@ -156,7 +181,8 @@ async function resolveBusinessTransferDestination(supabase: SupabaseLike, busine
   if (error) {
     throw new Error(`business profile lookup failed: ${error.message}`);
   }
-  return (data?.stripe_account_id as string | undefined) || null;
+  const row = (data as { stripe_account_id?: string | null } | null) ?? null;
+  return row?.stripe_account_id || null;
 }
 
 export async function getTransferReadiness(destinationAcct: string) {
@@ -240,7 +266,28 @@ async function findExistingSettlementByKey(supabase: SupabaseLike, settlementKey
     throw new Error(`existing settlement lookup failed: ${error.message}`);
   }
 
-  return data;
+  return (data as ExistingSettlementRow | null) ?? null;
+}
+
+async function findReservedActivationSubsidy(supabase: SupabaseLike, params: {
+  offerId: string;
+  businessEmail: string;
+  affiliateEmail: string;
+}) {
+  const { data, error } = await supabase
+    .from("business_activation_subsidies")
+    .select("id, business_email, offer_id, status, subsidy_amount, consumed_amount, reserved_for_affiliate_email, consumed_by_affiliate_email, live_ad_id")
+    .eq("offer_id", params.offerId)
+    .eq("business_email", params.businessEmail)
+    .eq("reserved_for_affiliate_email", params.affiliateEmail)
+    .in("status", ["reserved", "partially_consumed"])
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`activation subsidy lookup failed: ${error.message}`);
+  }
+
+  return (data as SubsidyClaim | null) ?? null;
 }
 
 export async function settleAdSpendLedger(params: {
@@ -251,11 +298,13 @@ export async function settleAdSpendLedger(params: {
   const { supabase, liveAdId } = params;
   const requestedChunk = params.chunkAmount == null ? null : roundMoney(Math.max(0, params.chunkAmount));
 
-  const { data: liveAd, error: liveAdError } = await supabase
+  const { data: liveAdData, error: liveAdError } = await supabase
     .from("live_ads")
     .select("id, affiliate_email, affiliate_user_id, business_email, business_id, offer_id, spend, spend_transferred")
     .eq("id", liveAdId)
     .maybeSingle();
+
+  const liveAd = (liveAdData as LiveAdSettlementRow | null) ?? null;
 
   if (liveAdError || !liveAd) {
     return {
@@ -317,8 +366,15 @@ export async function settleAdSpendLedger(params: {
 
   const walletSnapshot = await getWalletBalanceSnapshot(supabase as never, affiliateEmail);
   const availableBalanceBefore = roundMoney(walletSnapshot.availableBalance);
+  const reservedSubsidy = await findReservedActivationSubsidy(supabase, {
+    offerId,
+    businessEmail,
+    affiliateEmail,
+  });
+  const subsidyRemaining = roundMoney(getActivationSubsidyRemaining(reservedSubsidy));
+  const effectiveFundingBefore = roundMoney(availableBalanceBefore + subsidyRemaining);
 
-  if (availableBalanceBefore <= 0) {
+  if (effectiveFundingBefore <= 0) {
     return {
       success: false,
       error: "INSUFFICIENT_WALLET_BALANCE",
@@ -333,7 +389,7 @@ export async function settleAdSpendLedger(params: {
       unpaidAfter: unpaidBefore,
       chargedAmount: 0,
       availableBalanceBefore,
-      message: "Affiliate wallet cannot cover current unpaid spend. Campaign should be paused and topped up.",
+      message: "Affiliate wallet and starter spend cannot cover current unpaid spend. Campaign should be paused and topped up.",
     };
   }
 
@@ -341,7 +397,7 @@ export async function settleAdSpendLedger(params: {
     Math.min(
       unpaidBefore,
       requestedChunk != null && requestedChunk > 0 ? requestedChunk : unpaidBefore,
-      availableBalanceBefore,
+      effectiveFundingBefore,
     ),
   );
 
@@ -360,9 +416,12 @@ export async function settleAdSpendLedger(params: {
       unpaidAfter: unpaidBefore,
       chargedAmount: 0,
       availableBalanceBefore,
-      message: "No wallet capacity available for settlement.",
+      message: "No wallet or starter spend capacity available for settlement.",
     };
   }
+
+  const subsidyAppliedAmount = roundMoney(Math.min(chargedAmount, subsidyRemaining));
+  const walletChargeAmount = roundMoney(Math.max(0, chargedAmount - subsidyAppliedAmount));
 
   const transferredAfter = roundMoney(transferredBefore + chargedAmount);
   const unpaidAfter = roundMoney(Math.max(0, spend - transferredAfter));
@@ -390,23 +449,27 @@ export async function settleAdSpendLedger(params: {
     };
   }
 
-  const { data: updatedRows, error: claimErr } = await supabase
+  const { data: updatedRowsData, error: claimErr } = await supabase
     .from("live_ads")
     .update({ spend_transferred: transferredAfter })
     .eq("id", liveAdId)
     .eq("spend_transferred", transferredBefore)
     .select("id");
 
+  const updatedRows = (updatedRowsData as { id: string }[] | null) ?? null;
+
   if (claimErr) {
     throw new Error(`live_ads claim update failed: ${claimErr.message}`);
   }
 
   if (!updatedRows || updatedRows.length === 0) {
-    const { data: latest, error: latestErr } = await supabase
+    const { data: latestData, error: latestErr } = await supabase
       .from("live_ads")
       .select("spend, spend_transferred")
       .eq("id", liveAdId)
       .maybeSingle();
+
+    const latest = (latestData as Pick<LiveAdSettlementRow, "spend" | "spend_transferred"> | null) ?? null;
 
     if (latestErr) {
       throw new Error(`live_ads refetch failed after claim miss: ${latestErr.message}`);
@@ -433,25 +496,77 @@ export async function settleAdSpendLedger(params: {
     };
   }
 
-  const walletDeductionPayload = {
-    affiliate_email: affiliateEmail,
-    business_email: businessEmail,
-    offer_id: offerId,
-    ad_id: liveAdId,
-    amount: chargedAmount,
-    description: "Meta ad spend settlement",
-    settlement_key: settlementKey,
-    business_id: typeof liveAd.business_id === "string" ? liveAd.business_id : null,
-    affiliate_user_id: typeof liveAd.affiliate_user_id === "string" ? liveAd.affiliate_user_id : null,
-  };
+  if (reservedSubsidy && subsidyAppliedAmount > 0) {
+    const consumedBefore = toMoney(reservedSubsidy.consumed_amount);
+    const consumedAfter = roundMoney(consumedBefore + subsidyAppliedAmount);
+    const subsidyStatus = consumedAfter >= toMoney(reservedSubsidy.subsidy_amount) ? "consumed" : "partially_consumed";
 
-  const { error: deductionErr } = await supabase
-    .from("wallet_deductions")
-    .insert(walletDeductionPayload);
+    const { data: subsidyRowsData, error: subsidyErr } = await supabase
+      .from("business_activation_subsidies")
+      .update({
+        consumed_amount: consumedAfter,
+        consumed_by_affiliate_email: affiliateEmail,
+        live_ad_id: liveAdId,
+        consumed_at: new Date().toISOString(),
+        status: subsidyStatus,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", reservedSubsidy.id)
+      .eq("consumed_amount", consumedBefore)
+      .select("id");
 
-  if (deductionErr && !isUniqueViolation(deductionErr)) {
-    await supabase.from("live_ads").update({ spend_transferred: transferredBefore }).eq("id", liveAdId).eq("spend_transferred", transferredAfter);
-    throw new Error(`wallet_deductions insert failed: ${deductionErr.message}`);
+    const subsidyRows = (subsidyRowsData as { id: string }[] | null) ?? null;
+
+    if (subsidyErr) {
+      await supabase.from("live_ads").update({ spend_transferred: transferredBefore }).eq("id", liveAdId).eq("spend_transferred", transferredAfter);
+      throw new Error(`activation subsidy update failed: ${subsidyErr.message}`);
+    }
+
+    if (!subsidyRows || subsidyRows.length === 0) {
+      await supabase.from("live_ads").update({ spend_transferred: transferredBefore }).eq("id", liveAdId).eq("spend_transferred", transferredAfter);
+      return {
+        success: false,
+        error: "ACTIVATION_SUBSIDY_RACE",
+        liveAdId,
+        affiliateEmail,
+        businessEmail,
+        offerId,
+        spend,
+        transferredBefore,
+        transferredAfter: transferredBefore,
+        unpaidBefore,
+        unpaidAfter: unpaidBefore,
+        chargedAmount: 0,
+        availableBalanceBefore,
+        message: "Starter spend changed while settling this ad. Please retry.",
+      };
+    }
+  }
+
+  if (walletChargeAmount > 0) {
+    const walletDeductionPayload = {
+      affiliate_email: affiliateEmail,
+      business_email: businessEmail,
+      offer_id: offerId,
+      ad_id: liveAdId,
+      amount: walletChargeAmount,
+      description:
+        subsidyAppliedAmount > 0
+          ? `Meta ad spend settlement (starter spend applied: $${subsidyAppliedAmount.toFixed(2)})`
+          : "Meta ad spend settlement",
+      settlement_key: settlementKey,
+      business_id: typeof liveAd.business_id === "string" ? liveAd.business_id : null,
+      affiliate_user_id: typeof liveAd.affiliate_user_id === "string" ? liveAd.affiliate_user_id : null,
+    };
+
+    const { error: deductionErr } = await supabase
+      .from("wallet_deductions")
+      .insert(walletDeductionPayload);
+
+    if (deductionErr && !isUniqueViolation(deductionErr)) {
+      await supabase.from("live_ads").update({ spend_transferred: transferredBefore }).eq("id", liveAdId).eq("spend_transferred", transferredAfter);
+      throw new Error(`wallet_deductions insert failed: ${deductionErr.message}`);
+    }
   }
 
   const settlementPayload = {
@@ -470,7 +585,12 @@ export async function settleAdSpendLedger(params: {
     unpaid_after: unpaidAfter,
     status: chargedAmount > 0 ? "pending_funds" : "transfer_succeeded",
     next_retry_at: new Date().toISOString(),
-    metadata: { source: "app/api/ad-spend/settle/route.ts" },
+    metadata: {
+      source: "app/api/ad-spend/settle/route.ts",
+      walletChargeAmount,
+      subsidyAppliedAmount,
+      activationSubsidyId: reservedSubsidy?.id ?? null,
+    },
   } satisfies JsonRecord;
 
   const { data: insertedSettlement, error: settlementErr } = await supabase
@@ -501,13 +621,18 @@ export async function settleAdSpendLedger(params: {
     chargedAmount,
     wallet: {
       totalTopups: walletSnapshot.totalTopupsNetAvailable,
-      totalDeductions: roundMoney(walletSnapshot.totalDeductions + chargedAmount),
+      totalDeductions: roundMoney(walletSnapshot.totalDeductions + walletChargeAmount),
       availableBalanceBefore,
-      availableBalanceAfter: roundMoney(availableBalanceBefore - chargedAmount),
+      availableBalanceAfter: roundMoney(availableBalanceBefore - walletChargeAmount),
     },
     availableBalanceBefore,
     transferStatus: chargedAmount > 0 ? "transfer_pending" : "not_required",
-    message: chargedAmount > 0 ? "Ad spend settlement ledger applied; Stripe transfer queued separately." : "No charge amount required.",
+    message:
+      subsidyAppliedAmount > 0
+        ? `Ad spend settlement ledger applied with $${subsidyAppliedAmount.toFixed(2)} starter spend; Stripe transfer queued separately.`
+        : chargedAmount > 0
+          ? "Ad spend settlement ledger applied; Stripe transfer queued separately."
+          : "No charge amount required.",
   };
 }
 

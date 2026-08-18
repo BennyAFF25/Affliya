@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/../utils/supabase/pages-client';
+import { getActivationSubsidyBadgeLabel, getActivationSubsidyRemaining } from '@/../utils/activationSubsidies';
 
 type Offer = {
   id: string;
@@ -56,6 +57,8 @@ export default function AffiliateOfferProfilePage() {
   const [requestLoading, setRequestLoading] = useState(false);
   const [requestError, setRequestError] = useState<string | null>(null);
   const [requestSuccess, setRequestSuccess] = useState<string | null>(null);
+  const [starterSpendLabel, setStarterSpendLabel] = useState<string | null>(null);
+  const [starterSpendRemaining, setStarterSpendRemaining] = useState<number>(0);
 
   // Image carousel
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -111,6 +114,37 @@ export default function AffiliateOfferProfilePage() {
     };
 
     void fetchOffer();
+    return () => {
+      cancelled = true;
+    };
+  }, [offerId]);
+
+  useEffect(() => {
+    if (!offerId) return;
+    let cancelled = false;
+
+    const loadStarterSpend = async () => {
+      const { data, error } = await (supabase as any)
+        .from('business_activation_subsidies')
+        .select('id, status, subsidy_amount, consumed_amount')
+        .eq('offer_id', offerId)
+        .eq('status', 'available')
+        .limit(1)
+        .maybeSingle();
+
+      if (cancelled) return;
+
+      if (error && error.code !== 'PGRST116') {
+        console.warn('[starter spend offer load warn]', error);
+        return;
+      }
+
+      const remaining = getActivationSubsidyRemaining(data ?? null);
+      setStarterSpendRemaining(remaining);
+      setStarterSpendLabel(getActivationSubsidyBadgeLabel(data ?? null));
+    };
+
+    void loadStarterSpend();
     return () => {
       cancelled = true;
     };
@@ -456,6 +490,11 @@ export default function AffiliateOfferProfilePage() {
                 <span className={`inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-medium ${promotionMode.tone}`}>
                   {promotionMode.label}
                 </span>
+                {starterSpendLabel ? (
+                  <span className="inline-flex items-center rounded-full border border-[#00C2CB]/30 bg-[#00C2CB]/10 px-3 py-1 text-[11px] font-medium text-[#7ff5fb]">
+                    {starterSpendLabel}
+                  </span>
+                ) : null}
                 <span className="text-[11px] text-white/45">{promotionMode.helper}</span>
               </div>
               <h2 className="text-sm font-semibold text-[#00C2CB] mb-1">
@@ -465,6 +504,7 @@ export default function AffiliateOfferProfilePage() {
                 {offer.profile_bio ||
                   offer.description ||
                   'This business hasn’t added a full story yet, but you can still request to promote and chat through details once approved.'}
+                {starterSpendRemaining > 0 ? ` First approved affiliates can launch with $${starterSpendRemaining.toFixed(0)} of starter ad spend once the business subscription is active.` : ''}
               </p>
             </div>
 

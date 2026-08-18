@@ -23,6 +23,7 @@ interface Offer {
   meta_page_id?: string | null;
   meta_ad_account_id?: string | null;
   meta_pixel_id?: string | null;
+  starterCreditAmount?: number;
 }
 
 function getPromotionMode(offer: Offer) {
@@ -262,6 +263,11 @@ export default function OfferCard({
         <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-medium ${promotionMode.tone}`}>
           {promotionMode.label}
         </span>
+        {offer.starterCreditAmount ? (
+          <span className="inline-flex items-center rounded-full border border-[#00C2CB]/30 bg-[#00C2CB]/10 px-2.5 py-1 text-[11px] font-medium text-[#7ff5fb]">
+            Includes ${offer.starterCreditAmount.toFixed(0)} starter ad spend
+          </span>
+        ) : null}
         {offerTags.map((tag) => (
           <span
             key={tag}

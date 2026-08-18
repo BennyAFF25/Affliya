@@ -23,6 +23,7 @@ interface Offer {
   meta_page_id?: string | null;
   meta_ad_account_id?: string | null;
   meta_pixel_id?: string | null;
+  starterCreditAmount?: number;
 }
 
 export default function AffiliateMarketplace() {
@@ -78,7 +79,8 @@ export default function AffiliateMarketplace() {
     };
 
     const fetchOffers = async () => {
-      const { data, error } = await supabase.from("offers").select(`
+      const [{ data, error }, { data: subsidyRows, error: subsidyErr }] = await Promise.all([
+        supabase.from("offers").select(`
           id,
           title,
           business_email,
@@ -93,7 +95,12 @@ export default function AffiliateMarketplace() {
           meta_page_id,
           meta_ad_account_id,
           meta_pixel_id
-        `);
+        `),
+        supabase
+          .from("business_activation_subsidies")
+          .select("offer_id, subsidy_amount, consumed_amount")
+          .eq("status", "available"),
+      ]);
 
       if (error) {
         console.error("[❌ Error fetching offers]", error.message);
@@ -103,6 +110,18 @@ export default function AffiliateMarketplace() {
       if (!data) {
         setOffers([]);
         return;
+      }
+
+      if (subsidyErr) {
+        console.error("[❌ Error fetching starter spend rows]", subsidyErr.message);
+      }
+
+      const subsidyMap = new Map<string, number>();
+      for (const row of (subsidyRows || []) as any[]) {
+        const offerId = typeof row.offer_id === "string" ? row.offer_id : null;
+        if (!offerId) continue;
+        const remaining = Math.max(0, Number(row.subsidy_amount || 0) - Number(row.consumed_amount || 0));
+        if (remaining > 0) subsidyMap.set(offerId, remaining);
       }
 
       const typedData = data as SupabaseOffer[];
@@ -127,6 +146,7 @@ export default function AffiliateMarketplace() {
         meta_page_id: o.meta_page_id ?? null,
         meta_ad_account_id: o.meta_ad_account_id ?? null,
         meta_pixel_id: o.meta_pixel_id ?? null,
+        starterCreditAmount: subsidyMap.get(o.id) ?? undefined,
       }));
 
       setOffers(formatted);

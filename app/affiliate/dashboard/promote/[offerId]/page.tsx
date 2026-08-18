@@ -28,6 +28,7 @@ import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { useSession } from "@supabase/auth-helpers-react";
 import { supabase } from "@/../utils/supabase/pages-client";
 import { fetchReachEstimate } from "@/../utils/meta/fetchReachEstimate";
+import { getActivationSubsidyBadgeLabel, getActivationSubsidyRemaining } from "@/../utils/activationSubsidies";
 import { calculateWalletBalance } from "@/../utils/wallet/balance";
 
 import { AdFormState, GenderOpt, PlacementKey } from "../types";
@@ -85,6 +86,8 @@ export default function PromoteOfferPage() {
   // Wallet balance state (real-time gating)
   const [walletBalance, setWalletBalance] = useState<number>(0);
   const [walletLoading, setWalletLoading] = useState<boolean>(true);
+  const [starterSpendRemaining, setStarterSpendRemaining] = useState<number>(0);
+  const [starterSpendLabel, setStarterSpendLabel] = useState<string | null>(null);
   // ─────────────────────────────
   // Wallet balance loader
   // ─────────────────────────────
@@ -117,11 +120,31 @@ export default function PromoteOfferPage() {
         });
         setWalletBalance(snapshot.availableBalance);
       }
+
+      const { data: subsidyRows, error: subsidyErr } = await (supabase as any)
+        .from("business_activation_subsidies")
+        .select("id, status, subsidy_amount, consumed_amount, reserved_for_affiliate_email")
+        .eq("offer_id", offerId)
+        .eq("reserved_for_affiliate_email", userEmail)
+        .in("status", ["reserved", "partially_consumed"])
+        .limit(1);
+
+      if (subsidyErr) {
+        console.error("[starter spend load error]", subsidyErr);
+        setStarterSpendRemaining(0);
+        setStarterSpendLabel(null);
+      } else {
+        const subsidy = subsidyRows?.[0] ?? null;
+        const remaining = getActivationSubsidyRemaining(subsidy);
+        setStarterSpendRemaining(remaining);
+        setStarterSpendLabel(getActivationSubsidyBadgeLabel(subsidy));
+      }
+
       setWalletLoading(false);
     };
 
     loadWallet();
-  }, [userEmail]);
+  }, [offerId, userEmail]);
 
   // Organic method + fields
   const [ogMethod, setOgMethod] = useState<
@@ -200,8 +223,9 @@ export default function PromoteOfferPage() {
   // Wallet gating derived values (safe – after form init)
   // ─────────────────────────────
   const requiredBudget = Number(form?.budget_amount_dollars || 0);
-  const walletDeficit = Math.max(0, requiredBudget - walletBalance);
-  const canRunWithWallet = walletBalance >= requiredBudget;
+  const effectiveLaunchBalance = walletBalance + starterSpendRemaining;
+  const walletDeficit = Math.max(0, requiredBudget - effectiveLaunchBalance);
+  const canRunWithWallet = effectiveLaunchBalance >= requiredBudget;
 
   // Media
   const [videoFile, setVideoFile] = useState<File | null>(null);
@@ -855,9 +879,26 @@ export default function PromoteOfferPage() {
         deductions: deductionRows || [],
       }).availableBalance;
 
-      if (walletTotal < budgetDollars) {
+      const { data: subsidyRows, error: subsidyErr } = await (supabase as any)
+        .from("business_activation_subsidies")
+        .select("id, status, subsidy_amount, consumed_amount, reserved_for_affiliate_email")
+        .eq("offer_id", offerId)
+        .eq("reserved_for_affiliate_email", userEmail)
+        .in("status", ["reserved", "partially_consumed"])
+        .limit(1);
+
+      if (subsidyErr) {
+        console.error("[starter spend validation error]", subsidyErr);
+      }
+
+      const starterCoverage = getActivationSubsidyRemaining(subsidyRows?.[0] ?? null);
+      const effectiveFunding = walletTotal + starterCoverage;
+
+      if (effectiveFunding < budgetDollars) {
         nmToast.error(
-          `Daily budget ($${budgetDollars.toFixed(2)}) exceeds your available wallet balance ($${walletTotal.toFixed(2)}).`,
+          starterCoverage > 0
+            ? `Daily budget ($${budgetDollars.toFixed(2)}) exceeds your combined wallet + starter spend coverage ($${effectiveFunding.toFixed(2)}).`
+            : `Daily budget ($${budgetDollars.toFixed(2)}) exceeds your available wallet balance ($${walletTotal.toFixed(2)}).`,
         );
         return;
       }
@@ -1261,6 +1302,8 @@ export default function PromoteOfferPage() {
               walletLoading={walletLoading}
               canRunWithWallet={canRunWithWallet}
               walletDeficit={walletDeficit}
+              starterSpendRemaining={starterSpendRemaining}
+              starterSpendLabel={starterSpendLabel}
               incBudget={incBudget}
               setStartIn15m={setStartIn15m}
               setEndIn7d={setEndIn7d}

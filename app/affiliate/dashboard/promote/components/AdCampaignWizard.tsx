@@ -27,6 +27,8 @@ interface AdCampaignWizardProps {
   walletLoading: boolean;
   canRunWithWallet: boolean;
   walletDeficit: number;
+  starterSpendRemaining: number;
+  starterSpendLabel: string | null;
   incBudget: (amt: number) => void;
   setStartIn15m: () => void;
   setEndIn7d: () => void;
@@ -59,6 +61,8 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
     walletLoading,
     canRunWithWallet,
     walletDeficit,
+    starterSpendRemaining,
+    starterSpendLabel,
     incBudget,
     setStartIn15m,
     setEndIn7d,
@@ -266,12 +270,17 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
                     </span>
                   ) : canRunWithWallet ? (
                     <span className="text-emerald-400">
-                      Wallet balance: ${walletBalance.toFixed(2)} — ready to run
-                      this ad
+                      Wallet balance: ${walletBalance.toFixed(2)}
+                      {starterSpendRemaining > 0
+                        ? ` + starter spend $${starterSpendRemaining.toFixed(2)} — ready to run this ad`
+                        : " — ready to run this ad"}
                     </span>
                   ) : (
                     <span className="text-red-400">
-                      Wallet balance: ${walletBalance.toFixed(2)}. You need $
+                      Wallet balance: ${walletBalance.toFixed(2)}
+                      {starterSpendRemaining > 0
+                        ? ` + starter spend $${starterSpendRemaining.toFixed(2)}`
+                        : ""}. You need $
                       {walletDeficit.toFixed(2)} more to run this ad.
                     </span>
                   )}
@@ -282,6 +291,11 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
                   </span>
                 )}
               </div>
+              {starterSpendLabel ? (
+                <span className="mt-2 inline-flex rounded-full border border-[#00C2CB]/30 bg-[#00C2CB]/10 px-2.5 py-1 text-[11px] text-[#7ff5fb]">
+                  {starterSpendLabel}
+                </span>
+              ) : null}
               {!walletLoading && !canRunWithWallet && (
                 <span className="block mt-2 text-xs text-gray-400">
                   Top up your wallet before submitting this campaign.
