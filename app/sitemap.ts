@@ -10,6 +10,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/for-partners",
     "/pricing",
     "/commission-ads",
+    "/partner-program",
     "/login",
     "/create-account",
   ];
