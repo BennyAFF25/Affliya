@@ -169,6 +169,13 @@ interface Offer {
   meta_pixel_id?: string | null;
 }
 
+interface ApprovedAffiliateRequest {
+  id: string;
+  offer_id: string;
+  affiliate_email: string;
+  created_at: string;
+}
+
 function getOfferMetaStatus(offer: Offer) {
   if (offer.meta_page_id && offer.meta_ad_account_id && offer.meta_pixel_id) {
     return {
@@ -236,6 +243,10 @@ export default function MyBusinessPage() {
   const [pendingPostIdeaCount, setPendingPostIdeaCount] = useState(0);
   const [pendingAdIdeaCount, setPendingAdIdeaCount] = useState(0);
   const [affiliateRequestCount, setAffiliateRequestCount] = useState(0);
+  const [approvedAffiliateRequestsByOffer, setApprovedAffiliateRequestsByOffer] = useState<Record<string, ApprovedAffiliateRequest[]>>({});
+  const [expandedInviteOfferId, setExpandedInviteOfferId] = useState<string | null>(null);
+  const [launchInviteTypeByOfferId, setLaunchInviteTypeByOfferId] = useState<Record<string, "paid" | "organic">>({});
+  const [launchInviteStatusByRequestId, setLaunchInviteStatusByRequestId] = useState<Record<string, "idle" | "sending" | "sent" | "error">>({});
 
   const [showAcceptTerms, setShowAcceptTerms] = useState(false);
   const session = useSession();
@@ -357,24 +368,59 @@ export default function MyBusinessPage() {
 
       if (!businessEmail) {
         setHasAffiliateRequests(false);
+        setApprovedAffiliateRequestsByOffer({});
         return;
       }
 
       const { data, error } = await supabase
         .from("affiliate_requests")
-        .select("id,status")
+        .select("id,status,offer_id,affiliate_email,created_at")
         .eq("business_email", businessEmail);
 
       if (error) {
         console.error("[affiliate requests check failed]", error.message);
         setHasAffiliateRequests(false);
         setAffiliateRequestCount(0);
+        setApprovedAffiliateRequestsByOffer({});
         return;
       }
 
-      const pendingRequests = (data || []).filter((row: any) => row.status === "pending").length;
+      const rows = (data || []) as Array<{
+        id: string;
+        status?: string | null;
+        offer_id?: string | null;
+        affiliate_email?: string | null;
+        created_at?: string | null;
+      }>;
+
+      const pendingRequests = rows.filter((row) => row.status === "pending").length;
+      const approvedByOffer = rows.reduce<Record<string, ApprovedAffiliateRequest[]>>((acc, row) => {
+        if (
+          row.status === "approved" &&
+          typeof row.offer_id === "string" &&
+          row.offer_id.length > 0 &&
+          typeof row.affiliate_email === "string" &&
+          row.affiliate_email.length > 0
+        ) {
+          const item: ApprovedAffiliateRequest = {
+            id: row.id,
+            offer_id: row.offer_id,
+            affiliate_email: row.affiliate_email,
+            created_at: row.created_at || new Date().toISOString(),
+          };
+          acc[row.offer_id] = acc[row.offer_id] || [];
+          acc[row.offer_id].push(item);
+        }
+        return acc;
+      }, {});
+
+      Object.values(approvedByOffer).forEach((group) => {
+        group.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      });
+
       setAffiliateRequestCount(pendingRequests);
-      setHasAffiliateRequests((data?.length || 0) > 0);
+      setHasAffiliateRequests(rows.length > 0);
+      setApprovedAffiliateRequestsByOffer(approvedByOffer);
     };
 
     fetchAffiliateRequests();
@@ -695,6 +741,59 @@ export default function MyBusinessPage() {
     } catch (e: any) {
       console.error("[Refresh payouts status error]", e);
       toast.error(e?.message || "Stripe error");
+    }
+  }
+
+  async function handleSendLaunchInvite(
+    offer: Offer,
+    request: ApprovedAffiliateRequest,
+    campaignType: "paid" | "organic",
+  ) {
+    if (!user?.email) {
+      toast.error("Sign in again before sending invites.");
+      return;
+    }
+
+    setLaunchInviteStatusByRequestId((prev) => ({
+      ...prev,
+      [request.id]: "sending",
+    }));
+
+    try {
+      const res = await fetch("/api/emails/affiliate-launch-invite", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          affiliateEmail: request.affiliate_email,
+          businessEmail: user.email,
+          offerId: offer.id,
+          offerTitle: offer.title,
+          requestId: request.id,
+          campaignType,
+        }),
+      });
+
+      const json = await parseJsonSafe(res);
+      if (!res.ok || !json?.ok) {
+        throw new Error(json?.error || "Failed to send launch invite");
+      }
+
+      setLaunchInviteStatusByRequestId((prev) => ({
+        ...prev,
+        [request.id]: "sent",
+      }));
+      toast.success(
+        campaignType === "paid"
+          ? `Paid launch invite sent to ${request.affiliate_email}`
+          : `Organic launch invite sent to ${request.affiliate_email}`,
+      );
+    } catch (error: any) {
+      console.error("[launch invite failed]", error);
+      setLaunchInviteStatusByRequestId((prev) => ({
+        ...prev,
+        [request.id]: "error",
+      }));
+      toast.error(error?.message || "Could not send launch invite");
     }
   }
 
@@ -1274,13 +1373,116 @@ export default function MyBusinessPage() {
                         <div className="relative mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2">
                           <Link href={`/business/my-business/edit-offer/${offer.id}/`} prefetch={false} className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-[#00C2CB] px-4 py-2.5 text-sm font-semibold text-black hover:bg-[#14d5de]">Edit offer</Link>
                           <Link href="/business/my-business/affiliate-requests" prefetch={false} className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-white/15 bg-white/[0.04] px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/10">View requests</Link>
-                          {metaStatus.needsSetup && trackingReady && (
-                            <Link href={`/business/my-business/edit-offer/${offer.id}/#meta-setup`} prefetch={false} className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-[#00C2CB]/30 bg-[#00C2CB]/10 px-4 py-2.5 text-sm font-semibold text-[#7ff5fb] hover:bg-[#00C2CB]/15">{metaStatus.actionLabel}</Link>
-                          )}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const approvedCount = approvedAffiliateRequestsByOffer[offer.id]?.length || 0;
+                              if (approvedCount === 0) return;
+                              setExpandedInviteOfferId((current) =>
+                                current === offer.id ? null : offer.id,
+                              );
+                              setLaunchInviteTypeByOfferId((prev) => ({
+                                ...prev,
+                                [offer.id]: prev[offer.id] || (metaStatus.label === "Ads enabled" ? "paid" : "organic"),
+                              }));
+                            }}
+                            disabled={(approvedAffiliateRequestsByOffer[offer.id]?.length || 0) === 0}
+                            className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-[#00C2CB]/30 bg-[#00C2CB]/10 px-4 py-2.5 text-sm font-semibold text-[#7ff5fb] hover:bg-[#00C2CB]/15 disabled:cursor-not-allowed disabled:border-white/10 disabled:bg-white/[0.04] disabled:text-white/40"
+                          >
+                            {(approvedAffiliateRequestsByOffer[offer.id]?.length || 0) > 0
+                              ? `Invite affiliates (${approvedAffiliateRequestsByOffer[offer.id].length})`
+                              : "No approved affiliates yet"}
+                          </button>
                           <button onClick={() => handleDelete(offer.id)} disabled={loadingDeleteId === offer.id} className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-2.5 text-sm font-semibold text-red-200 hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-50">
                             {loadingDeleteId === offer.id ? "Deleting…" : "Delete offer"}
                           </button>
+                          {metaStatus.needsSetup && trackingReady && (
+                            <Link href={`/business/my-business/edit-offer/${offer.id}/#meta-setup`} prefetch={false} className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-[#00C2CB]/30 bg-[#00C2CB]/10 px-4 py-2.5 text-sm font-semibold text-[#7ff5fb] hover:bg-[#00C2CB]/15 sm:col-span-2">{metaStatus.actionLabel}</Link>
+                          )}
                         </div>
+
+                        {expandedInviteOfferId === offer.id && (approvedAffiliateRequestsByOffer[offer.id]?.length || 0) > 0 && (
+                          <div className="relative mt-4 rounded-2xl border border-[#00C2CB]/20 bg-[#071113] p-4">
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                              <div>
+                                <p className="text-sm font-semibold text-white">Invite approved affiliates to launch</p>
+                                <p className="mt-1 text-xs leading-5 text-slate-400">
+                                  Send a direct Nettmark inbox + email invite for this offer. Choose whether you want them launching paid ads or an organic campaign.
+                                </p>
+                              </div>
+                              <div className="inline-flex rounded-full border border-white/10 bg-black/20 p-1 text-xs font-semibold">
+                                <button
+                                  type="button"
+                                  onClick={() => setLaunchInviteTypeByOfferId((prev) => ({ ...prev, [offer.id]: "organic" }))}
+                                  className={`rounded-full px-3 py-1.5 transition ${
+                                    (launchInviteTypeByOfferId[offer.id] || (metaStatus.label === "Ads enabled" ? "paid" : "organic")) === "organic"
+                                      ? "bg-white text-black"
+                                      : "text-white/70 hover:text-white"
+                                  }`}
+                                >
+                                  Organic
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (metaStatus.label !== "Ads enabled") return;
+                                    setLaunchInviteTypeByOfferId((prev) => ({ ...prev, [offer.id]: "paid" }));
+                                  }}
+                                  disabled={metaStatus.label !== "Ads enabled"}
+                                  className={`rounded-full px-3 py-1.5 transition ${
+                                    (launchInviteTypeByOfferId[offer.id] || (metaStatus.label === "Ads enabled" ? "paid" : "organic")) === "paid"
+                                      ? "bg-[#00C2CB] text-black"
+                                      : "text-white/70 hover:text-white"
+                                  } disabled:cursor-not-allowed disabled:opacity-40`}
+                                >
+                                  Paid ads
+                                </button>
+                              </div>
+                            </div>
+
+                            {metaStatus.label !== "Ads enabled" && (
+                              <p className="mt-3 rounded-xl border border-amber-400/25 bg-amber-500/10 px-3 py-2 text-xs text-amber-200">
+                                This offer is currently organic-only. Finish Meta setup first if you want to invite affiliates into paid launches.
+                              </p>
+                            )}
+
+                            <div className="mt-4 space-y-3">
+                              {approvedAffiliateRequestsByOffer[offer.id].map((request) => {
+                                const inviteType = launchInviteTypeByOfferId[offer.id] || (metaStatus.label === "Ads enabled" ? "paid" : "organic");
+                                const inviteStatus = launchInviteStatusByRequestId[request.id] || "idle";
+                                return (
+                                  <div key={request.id} className="flex flex-col gap-3 rounded-2xl border border-white/10 bg-black/20 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                                    <div>
+                                      <p className="text-sm font-medium text-white">{request.affiliate_email}</p>
+                                      <p className="mt-1 text-xs text-slate-500">
+                                        Approved {new Date(request.created_at).toLocaleDateString()}
+                                      </p>
+                                    </div>
+                                    <div className="flex flex-col items-stretch gap-2 sm:items-end">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleSendLaunchInvite(offer, request, inviteType)}
+                                        disabled={inviteStatus === "sending" || inviteStatus === "sent"}
+                                        className="inline-flex min-h-[40px] items-center justify-center rounded-xl bg-[#00C2CB] px-4 py-2 text-sm font-semibold text-black hover:bg-[#14d5de] disabled:cursor-not-allowed disabled:opacity-60"
+                                      >
+                                        {inviteStatus === "sending"
+                                          ? "Sending…"
+                                          : inviteStatus === "sent"
+                                            ? "Invite sent"
+                                            : inviteType === "paid"
+                                              ? "Send paid invite"
+                                              : "Send organic invite"}
+                                      </button>
+                                      {inviteStatus === "error" && (
+                                        <p className="text-xs text-rose-300">Couldn&apos;t send the invite. Try again.</p>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     );
                   })}

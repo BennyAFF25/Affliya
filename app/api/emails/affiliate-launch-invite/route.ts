@@ -65,12 +65,71 @@ async function getRequestUser(req: Request) {
   };
 }
 
+type CampaignInviteType = "paid" | "organic" | "either";
+
+function normalizeCampaignInviteType(value: unknown): CampaignInviteType {
+  if (value === "paid" || value === "organic") return value;
+  return "either";
+}
+
+function getLaunchInviteCopy(
+  offerTitle: string,
+  campaignType: CampaignInviteType,
+) {
+  if (campaignType === "paid") {
+    return {
+      subject: `You're invited to launch paid ads for ${offerTitle}`,
+      heading: `You're invited to launch paid ads for ${offerTitle}`,
+      previewText: `Your request was approved. Launch a paid campaign for ${offerTitle} in Nettmark.`,
+      body:
+        "Good news — the business has approved your promotion request and invited you to launch a paid campaign. Open the offer in Nettmark to build your ad and start promoting.",
+      badgeText: "Paid launch invite",
+      inboxTitle: `You're invited to launch paid ads for ${offerTitle}`,
+      inboxBody:
+        "Your promotion request was approved. Open the offer to create a paid ad campaign and start promoting.",
+      inboxPreview: `Launch a paid campaign for ${offerTitle}.`,
+      ctaLabel: "Launch paid campaign",
+    };
+  }
+
+  if (campaignType === "organic") {
+    return {
+      subject: `You're invited to launch an organic campaign for ${offerTitle}`,
+      heading: `You're invited to launch an organic campaign for ${offerTitle}`,
+      previewText: `Your request was approved. Launch an organic campaign for ${offerTitle} in Nettmark.`,
+      body:
+        "Good news — the business has approved your promotion request and invited you to launch an organic campaign. Open the offer in Nettmark to create your post flow and start promoting.",
+      badgeText: "Organic launch invite",
+      inboxTitle: `You're invited to launch an organic campaign for ${offerTitle}`,
+      inboxBody:
+        "Your promotion request was approved. Open the offer to create an organic campaign and start promoting.",
+      inboxPreview: `Launch an organic campaign for ${offerTitle}.`,
+      ctaLabel: "Launch organic campaign",
+    };
+  }
+
+  return {
+    subject: `You're invited to promote ${offerTitle}`,
+    heading: `You're invited to promote ${offerTitle}`,
+    previewText: `Your request was approved. Launch a campaign for ${offerTitle} in Nettmark.`,
+    body:
+      "Good news — the business has approved your promotion request and invited you to launch. Open the offer in Nettmark to create a paid ad or organic campaign and start promoting.",
+    badgeText: "Launch invite",
+    inboxTitle: `You're invited to launch ${offerTitle}`,
+    inboxBody:
+      "Your promotion request was approved. Open the offer to create a paid ad or organic campaign and start promoting.",
+    inboxPreview: `Launch your first campaign for ${offerTitle}.`,
+    ctaLabel: "Launch campaign",
+  };
+}
+
 async function createLaunchInboxInvite(args: {
   businessEmail: string;
   affiliateEmail: string;
   offerId: string;
   offerTitle: string;
   requestId: string | null;
+  campaignType: CampaignInviteType;
 }) {
   const supabaseUrl = getSupabaseUrl();
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -84,6 +143,8 @@ async function createLaunchInboxInvite(args: {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
+  const copy = getLaunchInviteCopy(args.offerTitle, args.campaignType);
+
   const { data, error } = await supabaseAdmin
     .from("inbox_messages")
     .insert([
@@ -94,15 +155,15 @@ async function createLaunchInboxInvite(args: {
         recipient_email: args.affiliateEmail,
         recipient_role: "affiliate",
         message_type: "launch_invite",
-        title: `You're invited to launch ${args.offerTitle}`,
-        body: "Your promotion request was approved. Open the offer to create a paid ad or organic campaign and start promoting.",
-        preview: `Launch your first campaign for ${args.offerTitle}.`,
+        title: copy.inboxTitle,
+        body: copy.inboxBody,
+        preview: copy.inboxPreview,
         offer_id: args.offerId,
         campaign_id: null,
         affiliate_request_id: args.requestId,
-        cta_label: "Launch Campaign",
+        cta_label: copy.ctaLabel,
         cta_url: `/affiliate/dashboard/promote/${args.offerId}`,
-        metadata: { source: "affiliate_requests" },
+        metadata: { source: "affiliate_requests", campaignType: args.campaignType },
       },
     ])
     .select("id")
@@ -129,6 +190,7 @@ export async function POST(req: Request) {
   const offerId = String(body?.offerId || "").trim();
   const offerTitle = String(body?.offerTitle || "this offer").trim();
   const requestId = body?.requestId ? String(body.requestId) : null;
+  const campaignType = normalizeCampaignInviteType(body?.campaignType);
 
   if (!affiliateEmail || !businessEmail || !offerId) {
     return NextResponse.json(
@@ -161,16 +223,15 @@ export async function POST(req: Request) {
     offerId,
   )}`;
   const fromName = process.env.RESEND_FROM_NAME || "Nettmark";
-  const subject = `You're invited to promote ${offerTitle}`;
+  const copy = getLaunchInviteCopy(offerTitle, campaignType);
 
   const html = renderNettmarkEmail({
-    previewText: `Your request was approved. Launch a campaign for ${offerTitle} in Nettmark.`,
-    badge: { text: "Launch invite", tone: "success" },
-    heading: `You're invited to promote ${offerTitle}`,
-    body:
-      "Good news — the business has approved your promotion request and invited you to launch. Open the offer in Nettmark to create a paid ad or organic campaign and start promoting.",
+    previewText: copy.previewText,
+    badge: { text: copy.badgeText, tone: "success" },
+    heading: copy.heading,
+    body: copy.body,
     rows: [{ label: "Offer", value: offerTitle }],
-    cta: { label: "Launch campaign", href: launchUrl },
+    cta: { label: copy.ctaLabel, href: launchUrl },
     footerNote:
       "If you are not logged in, Nettmark will take you to the affiliate login page first and then return you to this launch page.",
   });
@@ -181,13 +242,14 @@ export async function POST(req: Request) {
     offerId,
     offerTitle,
     requestId,
+    campaignType,
   });
 
   const resend = new Resend(process.env.RESEND_API_KEY);
   const { data, error } = await resend.emails.send({
     from: `${fromName} <${fromEmail}>`,
     to: [affiliateEmail],
-    subject,
+    subject: copy.subject,
     html,
   });
 
