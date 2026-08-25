@@ -46,6 +46,17 @@ interface AdCampaignWizardProps {
   validateThumbnailFile: (file: File) => string | null;
   setVideoPreviewUrl: (url: string | null) => void;
   setThumbPreviewUrl: (url: string | null) => void;
+  selectedBrandCreative?: {
+    id: string;
+    title?: string | null;
+    caption?: string | null;
+    media_url: string;
+    media_type: string;
+    thumbnail_url?: string | null;
+  } | null;
+  usingBrandContent?: boolean;
+  onSwitchToBrandContent?: () => void;
+  onSwitchToUploadOwn?: () => void;
   handleAdSubmit: () => Promise<void>;
   onNavigateToWallet: () => void;
 }
@@ -80,6 +91,10 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
     validateThumbnailFile,
     setVideoPreviewUrl,
     setThumbPreviewUrl,
+    selectedBrandCreative,
+    usingBrandContent,
+    onSwitchToBrandContent,
+    onSwitchToUploadOwn,
     handleAdSubmit,
     onNavigateToWallet,
   } = props;
@@ -110,6 +125,7 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
     }
 
     if (step === 3) {
+      if (usingBrandContent && selectedBrandCreative) return true;
       if (videoFile) return !!thumbnailFile;
       if (imageFile) return true;
       return false;
@@ -687,6 +703,49 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
 
         {step === 3 && (
           <div className="space-y-4 sm:space-y-6">
+            <div className="rounded-xl border border-[#232323] bg-[#101010] p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <div className="text-sm font-semibold text-white">Choose your creative</div>
+                  <div className="mt-1 text-xs text-gray-400">Use brand content to skip uploading media, or switch back and upload your own.</div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={onSwitchToBrandContent}
+                    className={`rounded-full px-3 py-2 text-xs font-medium ${usingBrandContent ? "bg-[#00C2CB] text-black" : "border border-[#2a2a2a] text-gray-300 hover:border-[#00C2CB]/40"}`}
+                  >
+                    Brand content
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onSwitchToUploadOwn}
+                    className={`rounded-full px-3 py-2 text-xs font-medium ${!usingBrandContent ? "bg-[#00C2CB] text-black" : "border border-[#2a2a2a] text-gray-300 hover:border-[#00C2CB]/40"}`}
+                  >
+                    Upload your own
+                  </button>
+                </div>
+              </div>
+
+              {usingBrandContent && selectedBrandCreative && (
+                <div className="mt-4 overflow-hidden rounded-2xl border border-[#2a2a2a] bg-[#141414]">
+                  <div className="aspect-[4/3] bg-black">
+                    {selectedBrandCreative.media_type === "video" ? (
+                      <video controls className="h-full w-full object-cover" poster={selectedBrandCreative.thumbnail_url || undefined}>
+                        <source src={selectedBrandCreative.media_url} />
+                      </video>
+                    ) : (
+                      <img src={selectedBrandCreative.media_url} alt={selectedBrandCreative.title || "Selected brand creative"} className="h-full w-full object-cover" />
+                    )}
+                  </div>
+                  <div className="p-4">
+                    <div className="text-sm font-semibold text-white">{selectedBrandCreative.title || "Selected brand creative"}</div>
+                    <div className="mt-1 text-xs text-gray-400">This media will be submitted through the normal ad idea + Meta launch flow.</div>
+                  </div>
+                </div>
+              )}
+            </div>
+
             <label className="block">
               <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">
                 Headline
@@ -747,6 +806,7 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
                 <input
                   type="file"
                   accept="video/*"
+                  disabled={usingBrandContent}
                   className={`${INPUT} w-full text-base`}
                   onChange={(e) => {
                     const file = e.target.files?.[0] || null;
@@ -762,7 +822,7 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
                   }}
                 />
                 <p className="mt-2 text-xs text-gray-500">
-                  Use video if you want reels/feed motion creative.
+                  {usingBrandContent ? "Brand content is selected, so direct upload is disabled." : "Use video if you want reels/feed motion creative."}
                 </p>
               </label>
 
@@ -773,6 +833,7 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
                 <input
                   type="file"
                   accept="image/png,image/jpeg,image/webp"
+                  disabled={usingBrandContent}
                   className={`${INPUT} w-full text-base`}
                   onChange={(e) => {
                     const file = e.target.files?.[0] || null;
@@ -798,7 +859,7 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
                   }}
                 />
                 <p className="mt-2 text-xs text-gray-500">
-                  Single-image ad creative for feed or story placements.
+                  {usingBrandContent ? "Brand content is selected, so direct upload is disabled." : "Single-image ad creative for feed or story placements."}
                 </p>
               </label>
             </div>
@@ -811,7 +872,7 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
                 type="file"
                 accept="image/png,image/jpeg,image/webp"
                 className={`${INPUT} w-full text-base`}
-                disabled={!videoFile}
+                disabled={!videoFile || usingBrandContent}
                 onChange={(e) => {
                   const file = e.target.files?.[0] || null;
                   if (!file) {
@@ -836,13 +897,13 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
               />
             </label>
 
-            {!videoFile && !imageFile ? (
+            {!usingBrandContent && !videoFile && !imageFile ? (
               <div className="mt-3 rounded-md border border-[#00C2CB]/50 bg-[#001F20]/30 px-3 py-2 text-sm text-[#00C2CB]">
                 Please upload either a video or a photo before submitting.
               </div>
             ) : null}
 
-            {videoFile && (thumbnailError || !thumbnailFile) ? (
+            {!usingBrandContent && videoFile && (thumbnailError || !thumbnailFile) ? (
               <div className="mt-3 rounded-md border border-[#00C2CB]/50 bg-[#001F20]/30 px-3 py-2 text-sm text-[#00C2CB]">
                 {thumbnailError
                   ? thumbnailError
@@ -958,6 +1019,11 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
                 <div className="text-xs uppercase text-gray-400 tracking-wide mb-1">
                   Creative
                 </div>
+                {usingBrandContent && selectedBrandCreative ? (
+                  <div className="mb-3 inline-flex rounded-full border border-[#00C2CB]/40 px-2.5 py-1 text-[11px] text-[#7ff5fb]">
+                    Using brand content
+                  </div>
+                ) : null}
                 <div className="text-lg font-semibold text-[#00C2CB]">
                   {form.headline || "No headline"}
                 </div>

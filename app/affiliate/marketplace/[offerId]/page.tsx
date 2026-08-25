@@ -21,6 +21,9 @@ type Offer = {
   meta_page_id?: string | null;
   meta_ad_account_id?: string | null;
   meta_pixel_id?: string | null;
+  readyCreativeCount?: number;
+  readyOrganicCreativeCount?: number;
+  readyPaidCreativeCount?: number;
 };
 
 function getPromotionMode(offer: Offer | null) {
@@ -71,6 +74,9 @@ export default function AffiliateOfferProfilePage() {
         : []
       : [];
   const promotionMode = getPromotionMode(offer);
+  const readyCreativeLabel = offer?.readyCreativeCount
+    ? `${offer.readyCreativeCount} ready-to-use creative${offer.readyCreativeCount === 1 ? '' : 's'}`
+    : null;
 
   // Load current user email
   useEffect(() => {
@@ -108,7 +114,20 @@ export default function AffiliateOfferProfilePage() {
         setLoadError(error.message || 'Failed to load offer.');
         setOffer(null);
       } else {
-        setOffer(data as Offer);
+        const nextOffer = data as Offer;
+        try {
+          const readinessRes = await fetch(`/api/offers/content-readiness?offerIds=${offerId}`, { cache: 'no-store' });
+          const readinessJson = await readinessRes.json().catch(() => null);
+          const readiness = readinessJson?.ok ? readinessJson.readiness?.[offerId] : null;
+          if (readiness) {
+            nextOffer.readyCreativeCount = Number(readiness.total || 0);
+            nextOffer.readyOrganicCreativeCount = Number(readiness.organic || 0);
+            nextOffer.readyPaidCreativeCount = Number(readiness.paid || 0);
+          }
+        } catch {
+          // best-effort only
+        }
+        setOffer(nextOffer);
       }
       setLoading(false);
     };
@@ -490,6 +509,11 @@ export default function AffiliateOfferProfilePage() {
                 <span className={`inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-medium ${promotionMode.tone}`}>
                   {promotionMode.label}
                 </span>
+                {readyCreativeLabel ? (
+                  <span className="inline-flex items-center rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3 py-1 text-[11px] font-medium text-emerald-200">
+                    {readyCreativeLabel}
+                  </span>
+                ) : null}
                 {starterSpendLabel ? (
                   <span className="inline-flex items-center rounded-full border border-[#00C2CB]/30 bg-[#00C2CB]/10 px-3 py-1 text-[11px] font-medium text-[#7ff5fb]">
                     {starterSpendLabel}
@@ -506,6 +530,11 @@ export default function AffiliateOfferProfilePage() {
                   'This business hasn’t added a full story yet, but you can still request to promote and chat through details once approved.'}
                 {starterSpendRemaining > 0 ? ` First approved affiliates can launch with $${starterSpendRemaining.toFixed(0)} of starter ad spend once the business subscription is active.` : ''}
               </p>
+              {readyCreativeLabel ? (
+                <p className="mt-3 text-sm leading-6 text-emerald-200/90">
+                  Affiliates can start fast here: {offer.readyPaidCreativeCount || 0} paid and {offer.readyOrganicCreativeCount || 0} organic brand assets are already loaded into the promote flow.
+                </p>
+              ) : null}
             </div>
 
             {/* Website CTA */}

@@ -24,6 +24,9 @@ interface Offer {
   meta_ad_account_id?: string | null;
   meta_pixel_id?: string | null;
   starterCreditAmount?: number;
+  readyCreativeCount?: number;
+  readyOrganicCreativeCount?: number;
+  readyPaidCreativeCount?: number;
 }
 
 export default function AffiliateMarketplace() {
@@ -148,6 +151,21 @@ export default function AffiliateMarketplace() {
         meta_pixel_id: o.meta_pixel_id ?? null,
         starterCreditAmount: subsidyMap.get(o.id) ?? undefined,
       }));
+
+      const readinessRes = await fetch(`/api/offers/content-readiness?offerIds=${formatted.map((offer) => offer.id).join(",")}`, {
+        cache: "no-store",
+      }).catch(() => null);
+
+      const readinessJson = readinessRes ? await readinessRes.json().catch(() => null) : null;
+      const readinessMap = readinessJson?.ok ? readinessJson.readiness || {} : {};
+
+      formatted.forEach((offer) => {
+        const readiness = readinessMap[offer.id];
+        if (!readiness) return;
+        offer.readyCreativeCount = Number(readiness.total || 0);
+        offer.readyOrganicCreativeCount = Number(readiness.organic || 0);
+        offer.readyPaidCreativeCount = Number(readiness.paid || 0);
+      });
 
       setOffers(formatted);
     };

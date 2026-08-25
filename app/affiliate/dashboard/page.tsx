@@ -22,6 +22,8 @@ import {
   MessageCircle,
 } from "lucide-react";
 import DashboardCard from "@/components/DashboardCard";
+import { buildTrackingUrl } from "@/../utils/tracking/buildTrackingUrl";
+import { isNettmarkPartnerProgrammeOffer } from "@/../utils/offers/firstPartyOffer";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -75,6 +77,15 @@ interface TrackingEventRow {
   created_at: string | null;
   event_type?: string | null;
   affiliate_id?: string | null;
+}
+
+interface FirstPromotionSnapshot {
+  offerTitle: string;
+  campaignId: string;
+  trackingLink: string;
+  clicks: number;
+  conversions: number;
+  earnings: number;
 }
 
 // (Not used on the dashboard right now, but keeping for future ad preview use)
@@ -498,6 +509,7 @@ function AffiliateDashboardContent() {
   const [checklistCompletionSent, setChecklistCompletionSent] = useState(false);
   const [requestCount, setRequestCount] = useState(0);
   const [clickCount, setClickCount] = useState(0);
+  const [firstPromotionSnapshot, setFirstPromotionSnapshot] = useState<FirstPromotionSnapshot | null>(null);
   const [showActivationDetails, setShowActivationDetails] = useState(true);
   const checklistStorageKey = user ? `affiliate-checklist-${user.id}` : null;
   const checklistDismissedStorageKey = user
@@ -506,6 +518,13 @@ function AffiliateDashboardContent() {
   const approvedOffers = offers.filter((offer) =>
     approvedIds.includes(offer.id),
   );
+  const partnerProgrammeOffer = offers.find((offer: any) =>
+    isNettmarkPartnerProgrammeOffer(offer),
+  ) as (Offer & { id: string }) | undefined;
+  const partnerProgrammeApproved = !!partnerProgrammeOffer && approvedIds.includes(partnerProgrammeOffer.id);
+  const firstPartnerCampaign = partnerProgrammeOffer
+    ? (liveCampaigns || []).find((campaign: any) => campaign.offer_id === partnerProgrammeOffer.id) || null
+    : null;
   const activeCampaigns = (liveCampaigns || [])
     .map((camp: any) => {
       const matchedOffer = offers.find((offer) => offer.id === camp.offer_id);
@@ -516,6 +535,58 @@ function AffiliateDashboardContent() {
   // Derived metrics for stat cards
   const activeCampaignCount =
     (activeCampaigns?.length || 0) + (liveAds?.length || 0);
+
+  useEffect(() => {
+    const loadFirstPromotionSnapshot = async () => {
+      if (!session?.user?.email || !partnerProgrammeOffer?.id || !firstPartnerCampaign?.id) {
+        setFirstPromotionSnapshot(null);
+        return;
+      }
+
+      const [{ data: clickRows }, { data: conversionRows }, { data: payoutRows, error: payoutError }] = await Promise.all([
+        supabase
+          .from("campaign_tracking_events")
+          .select("id")
+          .eq("affiliate_id", session.user.email)
+          .eq("campaign_id", firstPartnerCampaign.id)
+          .in("event_type", ["click", "landing_view", "page_view"]),
+        supabase
+          .from("campaign_tracking_events")
+          .select("id")
+          .eq("affiliate_id", session.user.email)
+          .eq("campaign_id", firstPartnerCampaign.id)
+          .in("event_type", ["conversion", "purchase", "order", "checkout_completed"]),
+        supabase
+          .from("wallet_payouts")
+          .select("amount")
+          .eq("affiliate_email", session.user.email)
+          .eq("offer_id", partnerProgrammeOffer.id),
+      ]);
+
+      if (payoutError) {
+        console.error("[❌ Failed to fetch first promotion payout snapshot]", payoutError);
+      }
+
+      const earnings = (payoutRows || []).reduce((sum: number, row: any) => {
+        const value = Number(row.amount || 0);
+        return sum + (Number.isFinite(value) ? value : 0);
+      }, 0);
+
+      setFirstPromotionSnapshot({
+        offerTitle: partnerProgrammeOffer.title,
+        campaignId: firstPartnerCampaign.id,
+        trackingLink: buildTrackingUrl({
+          campaignId: firstPartnerCampaign.id,
+          affiliateId: session.user.email,
+        }),
+        clicks: (clickRows || []).length,
+        conversions: (conversionRows || []).length,
+        earnings,
+      });
+    };
+
+    void loadFirstPromotionSnapshot();
+  }, [firstPartnerCampaign?.id, partnerProgrammeOffer?.id, partnerProgrammeOffer?.title, session?.user?.email]);
 
   const totalSpent = (liveAds || []).reduce((sum: number, ad: any) => {
     const val = Number(ad.spend || 0);
@@ -710,17 +781,17 @@ function AffiliateDashboardContent() {
     },
     {
       key: "request",
-      title: "Request an offer",
-      description: "Choose a business offer and ask to promote it.",
+      title: "Get your first offer",
+      description: "Activate the Nettmark Partner Programme or request a third-party offer.",
       href: "/affiliate/marketplace",
-      done: requestCount > 0,
+      done: approvedOffers.length > 0 || requestCount > 0,
       icon: Store,
     },
     {
       key: "launch",
-      title: "Launch your first campaign",
-      description: "Submit an organic post or paid campaign once approved.",
-      href: "/affiliate/dashboard",
+      title: "Make your first promotion ready",
+      description: "Choose a creative and get a live tracking link you can share right away.",
+      href: partnerProgrammeOffer ? `/affiliate/dashboard/promote/${partnerProgrammeOffer.id}?mode=organic` : "/affiliate/dashboard",
       done: activeCampaignCount > 0,
       icon: RocketLaunchIcon,
     },
@@ -739,6 +810,15 @@ function AffiliateDashboardContent() {
     (completedActivationSteps / activationTasks.length) * 100,
   );
   const remainingActivationTasks = activationTasks.filter((t) => !t.done);
+
+  async function handleCopyFirstPromotionLink() {
+    if (!firstPromotionSnapshot?.trackingLink) return;
+    try {
+      await navigator.clipboard.writeText(firstPromotionSnapshot.trackingLink);
+    } catch (err) {
+      console.warn("[Dashboard] Failed to copy first promotion link", err);
+    }
+  }
 
   function handleOpenAssistant() {
     if (typeof window === "undefined") return;
@@ -800,6 +880,68 @@ function AffiliateDashboardContent() {
           </div>
         </section>
 
+        {partnerProgrammeApproved && (
+          <section className="mb-7 overflow-hidden rounded-3xl border border-[#00C2CB]/18 bg-gradient-to-br from-[#0d1b1e] via-[#0f1318] to-[#0b0f10] p-5 md:p-6 shadow-[0_20px_50px_rgba(0,0,0,0.28)]">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <div className="inline-flex items-center gap-2 rounded-full border border-[#00C2CB]/20 bg-[#00C2CB]/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#7ff5fb]">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Nettmark Partner Programme
+                </div>
+                <h2 className="mt-3 text-2xl font-semibold text-white">
+                  {firstPromotionSnapshot ? "Your first promotion is ready" : "Your first Nettmark offer is approved"}
+                </h2>
+                <p className="mt-2 max-w-2xl text-sm text-white/70">
+                  {firstPromotionSnapshot
+                    ? "Share your first attributable Nettmark promotion now, then come back here to track clicks, conversions, and earnings."
+                    : "You already have approved access to the Nettmark Partner Programme. Pick a creative and get your first attributable promotion ready."}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-3">
+                {firstPromotionSnapshot?.trackingLink ? (
+                  <button
+                    type="button"
+                    onClick={handleCopyFirstPromotionLink}
+                    className="rounded-full bg-[#00C2CB] px-4 py-2.5 text-sm font-semibold text-black hover:bg-[#00b0b8]"
+                  >
+                    Copy link
+                  </button>
+                ) : null}
+                <Link
+                  href={partnerProgrammeOffer ? `/affiliate/dashboard/promote/${partnerProgrammeOffer.id}?mode=organic` : "/affiliate/marketplace"}
+                  className="rounded-full border border-white/10 bg-[#111317] px-4 py-2.5 text-sm font-semibold text-white/80 hover:bg-[#15191c]"
+                >
+                  Get more content
+                </Link>
+                <Link
+                  href="/affiliate/marketplace"
+                  className="rounded-full border border-white/10 bg-[#111317] px-4 py-2.5 text-sm font-semibold text-white/80 hover:bg-[#15191c]"
+                >
+                  Promote another offer
+                </Link>
+              </div>
+            </div>
+
+            {firstPromotionSnapshot && (
+              <div className="mt-5 grid gap-4 sm:grid-cols-3">
+                <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                  <p className="text-xs text-white/45">Clicks</p>
+                  <p className="mt-2 text-3xl font-bold text-white">{firstPromotionSnapshot.clicks}</p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                  <p className="text-xs text-white/45">Conversions</p>
+                  <p className="mt-2 text-3xl font-bold text-white">{firstPromotionSnapshot.conversions}</p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                  <p className="text-xs text-white/45">Earnings</p>
+                  <p className="mt-2 text-3xl font-bold text-white">{formatCurrency(firstPromotionSnapshot.earnings)}</p>
+                </div>
+              </div>
+            )}
+          </section>
+        )}
+
         <section className="mb-7 rounded-2xl border border-white/12 bg-[#111317] p-4 md:p-5">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div className="flex items-start gap-3">
@@ -809,7 +951,7 @@ function AffiliateDashboardContent() {
               <div>
                 <p className="text-sm font-semibold text-white">Affiliate launch path</p>
                 <p className="text-xs text-white/60">
-                  {completedActivationSteps} of {activationTasks.length} steps complete · start with payouts or jump into the marketplace
+                  {completedActivationSteps} of {activationTasks.length} steps complete · get your first promotion ready, then expand into the marketplace
                 </p>
               </div>
             </div>

@@ -1,266 +1,533 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useSession } from "@supabase/auth-helpers-react";
-import { v4 as uuidv4 } from "uuid";
-import { supabase } from "utils/supabase/pages-client";
 import {
-  FiZap,
-  FiBox,
+  FiArchive,
   FiEdit3,
-  FiUpload,
-  FiUsers,
-  FiMapPin,
+  FiFilm,
   FiFolder,
-  FiImage,
+  FiGlobe,
+  FiLayers,
+  FiPlus,
+  FiRefreshCw,
+  FiTrash2,
+  FiUpload,
+  FiX,
 } from "react-icons/fi";
+import { nmToast } from "@/components/ui/toast";
+import type { ContentLibraryAsset } from "@/../utils/contentLibrary";
+import { getApprovalLabel, getUsageScopeLabel } from "@/../utils/contentLibrary";
 
-const BusinessCreativesPage = () => {
+const FILTERS = ["all", "image", "video", "paid", "organic", "archived"] as const;
+type FilterKey = (typeof FILTERS)[number];
+
+type OfferOption = { id: string; title: string };
+
+type AssetFormState = {
+  id: string | null;
+  title: string;
+  caption: string;
+  offerId: string;
+  usageScope: "all" | "offer";
+  allowOrganic: boolean;
+  allowPaid: boolean;
+  organicPreapproved: boolean;
+  paidPreapproved: boolean;
+  isActive: boolean;
+  file: File | null;
+  thumbnail: File | null;
+  clearThumbnail: boolean;
+};
+
+const EMPTY_FORM: AssetFormState = {
+  id: null,
+  title: "",
+  caption: "",
+  offerId: "",
+  usageScope: "all",
+  allowOrganic: true,
+  allowPaid: false,
+  organicPreapproved: false,
+  paidPreapproved: false,
+  isActive: true,
+  file: null,
+  thumbnail: null,
+  clearThumbnail: false,
+};
+
+function StatBadge({ children, tone = "default" }: { children: ReactNode; tone?: "default" | "success" | "warning" }) {
+  const className =
+    tone === "success"
+      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
+      : tone === "warning"
+        ? "border-amber-500/30 bg-amber-500/10 text-amber-100"
+        : "border-[var(--border)] bg-[var(--secondary)] text-[var(--secondary-foreground)]";
+
+  return <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-medium ${className}`}>{children}</span>;
+}
+
+function buildFormData(form: AssetFormState) {
+  const fd = new FormData();
+  fd.set("title", form.title);
+  fd.set("caption", form.caption);
+  fd.set("offer_id", form.usageScope === "offer" ? form.offerId : "");
+  fd.set("allow_organic", String(form.allowOrganic));
+  fd.set("allow_paid", String(form.allowPaid));
+  fd.set("organic_preapproved", String(form.organicPreapproved));
+  fd.set("paid_preapproved", String(form.paidPreapproved));
+  fd.set("is_active", String(form.isActive));
+  fd.set("replace_thumbnail", String(form.clearThumbnail));
+  if (form.file) fd.set("file", form.file);
+  if (form.thumbnail) fd.set("thumbnail", form.thumbnail);
+  return fd;
+}
+
+function deriveFormState(asset: ContentLibraryAsset): AssetFormState {
+  return {
+    id: asset.id,
+    title: asset.title || "",
+    caption: asset.caption || "",
+    offerId: asset.offer_id || "",
+    usageScope: asset.offer_id ? "offer" : "all",
+    allowOrganic: !!asset.allow_organic,
+    allowPaid: !!asset.allow_paid,
+    organicPreapproved: !!asset.organic_preapproved,
+    paidPreapproved: !!asset.paid_preapproved,
+    isActive: !!asset.is_active,
+    file: null,
+    thumbnail: null,
+    clearThumbnail: false,
+  };
+}
+
+export default function BusinessCreativesPage() {
   const session = useSession();
   const user = session?.user;
-  const [caption, setCaption] = useState("");
-  const [audience, setAudience] = useState("");
-  const [location, setLocation] = useState("");
-  const [file, setFile] = useState<File | null>(null);
-  const [type, setType] = useState<"winning" | "suggested">("suggested");
-  const [uploading, setUploading] = useState(false);
-  const [creatives, setCreatives] = useState<any[]>([]);
-  const [offers, setOffers] = useState<any[]>([]);
-  const [selectedOfferId, setSelectedOfferId] = useState("");
+  const [assets, setAssets] = useState<ContentLibraryAsset[]>([]);
+  const [offers, setOffers] = useState<OfferOption[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [activeFilter, setActiveFilter] = useState<FilterKey>("all");
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [form, setForm] = useState<AssetFormState>(EMPTY_FORM);
+
+  const loadLibrary = async () => {
+    if (!user?.email) return;
+    setLoading(true);
+    try {
+      const res = await fetch("/api/business/content-library", { cache: "no-store" });
+      const json = await res.json();
+      if (!res.ok || !json?.ok) {
+        throw new Error(json?.error || "Failed to load content library");
+      }
+      setAssets(json.assets || []);
+      setOffers(json.offers || []);
+    } catch (error: any) {
+      console.error("[content-library] load error", error);
+      nmToast.error(error?.message || "Failed to load content library");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    if (!user) return;
+    if (!user?.email) return;
+    void loadLibrary();
+  }, [user?.email]);
 
-    const fetchCreatives = async () => {
-      const { data, error } = await supabase
-        .from("business_creatives")
-        .select("*")
-        .eq("business_email", user.email);
+  const filteredAssets = useMemo(() => {
+    return assets.filter((asset) => {
+      if (activeFilter === "all") return true;
+      if (activeFilter === "archived") return !asset.is_active;
+      if (activeFilter === "image") return asset.media_type === "image" && asset.is_active;
+      if (activeFilter === "video") return asset.media_type === "video" && asset.is_active;
+      if (activeFilter === "paid") return !!asset.allow_paid && asset.is_active;
+      if (activeFilter === "organic") return !!asset.allow_organic && asset.is_active;
+      return true;
+    });
+  }, [activeFilter, assets]);
 
-      if (!error && data) {
-        setCreatives(data);
-      }
-    };
+  const openCreate = () => {
+    setForm(EMPTY_FORM);
+    setIsEditorOpen(true);
+  };
 
-    const fetchData = async () => {
-      const { data: offersData } = await supabase
-        .from("offers")
-        .select("*")
-        .eq("business_email", user.email);
-      setOffers(offersData || []);
-    };
+  const openEdit = (asset: ContentLibraryAsset) => {
+    setForm(deriveFormState(asset));
+    setIsEditorOpen(true);
+  };
 
-    fetchCreatives();
-    fetchData();
-  }, [user]);
+  const closeEditor = () => {
+    setForm(EMPTY_FORM);
+    setIsEditorOpen(false);
+  };
 
-  const handleUpload = async () => {
-    if (!file || !user) return;
-
-    console.log("[📤 Starting Upload]");
-    setUploading(true);
-
-    const fileExt = file.name.split(".").pop();
-    const fileName = `${Date.now()}_${uuidv4()}.${fileExt}`;
-    const filePath = `${fileName}`;
-
-    const { error: uploadError } = await supabase.storage
-      .from("business-creatives")
-      .upload(filePath, file);
-
-    if (uploadError) {
-      console.error("[❌ Upload Error]", uploadError);
-      setUploading(false);
+  const handleSave = async () => {
+    if (!form.title.trim()) {
+      nmToast.error("Add a title so affiliates can recognize this creative.");
+      return;
+    }
+    if (!form.allowOrganic && !form.allowPaid) {
+      nmToast.error("Choose at least one usage mode.");
+      return;
+    }
+    if (form.usageScope === "offer" && !form.offerId) {
+      nmToast.error("Choose an offer or switch this asset to all offers.");
+      return;
+    }
+    if (!form.id && !form.file) {
+      nmToast.error("Upload an image or video to create the asset.");
       return;
     }
 
-    const { data: publicUrlData } = supabase.storage
-      .from("business-creatives")
-      .getPublicUrl(filePath);
-
-    console.log("[🌐 Public URL]", publicUrlData.publicUrl);
-
-    const insertPayload = {
-      id: uuidv4(),
-      business_email: user.email,
-      offer_id: selectedOfferId || null,
-      type,
-      caption,
-      audience,
-      location,
-      media_url: publicUrlData.publicUrl,
-    };
-    console.log("[📦 Insert Payload]", insertPayload);
-    const { error: insertError } = await supabase
-      .from("business_creatives")
-      .insert([insertPayload]);
-
-    if (insertError) {
-      console.error("[❌ Insert Error]", insertError);
-    } else {
-      console.log("[✅ Insert Success]");
+    setSaving(true);
+    try {
+      const endpoint = form.id ? `/api/business/content-library/${form.id}` : "/api/business/content-library";
+      const method = form.id ? "PATCH" : "POST";
+      const res = await fetch(endpoint, {
+        method,
+        body: buildFormData(form),
+      });
+      const json = await res.json();
+      if (!res.ok || !json?.ok) {
+        throw new Error(json?.error || "Failed to save asset");
+      }
+      nmToast.success(form.id ? "Asset updated" : "Asset uploaded");
+      closeEditor();
+      await loadLibrary();
+    } catch (error: any) {
+      console.error("[content-library] save error", error);
+      nmToast.error(error?.message || "Failed to save asset");
+    } finally {
+      setSaving(false);
     }
-
-    setCaption("");
-    setAudience("");
-    setLocation("");
-    setFile(null);
-    setUploading(false);
-
-    const { data } = await supabase
-      .from("business_creatives")
-      .select("*")
-      .eq("business_email", user.email);
-    setCreatives(data || []);
-    console.log("[🔁 Refetched Creatives]", data);
   };
 
+  const handleArchiveToggle = async (asset: ContentLibraryAsset) => {
+    try {
+      const fd = new FormData();
+      fd.set("title", asset.title || "Untitled creative");
+      fd.set("caption", asset.caption || "");
+      fd.set("offer_id", asset.offer_id || "");
+      fd.set("allow_organic", String(!!asset.allow_organic));
+      fd.set("allow_paid", String(!!asset.allow_paid));
+      fd.set("organic_preapproved", String(!!asset.organic_preapproved));
+      fd.set("paid_preapproved", String(!!asset.paid_preapproved));
+      fd.set("is_active", String(!asset.is_active));
+      const res = await fetch(`/api/business/content-library/${asset.id}`, { method: "PATCH", body: fd });
+      const json = await res.json();
+      if (!res.ok || !json?.ok) throw new Error(json?.error || "Failed to update asset");
+      nmToast.success(asset.is_active ? "Asset archived" : "Asset restored");
+      await loadLibrary();
+    } catch (error: any) {
+      nmToast.error(error?.message || "Failed to update asset");
+    }
+  };
+
+  const handleDelete = async (asset: ContentLibraryAsset) => {
+    const confirmed = window.confirm(`Delete \"${asset.title || "Untitled creative"}\"? This only works if it has never been used in a promotion.`);
+    if (!confirmed) return;
+
+    try {
+      const res = await fetch(`/api/business/content-library/${asset.id}`, { method: "DELETE" });
+      const json = await res.json();
+      if (!res.ok || !json?.ok) throw new Error(json?.error || "Failed to delete asset");
+      nmToast.success("Asset deleted");
+      await loadLibrary();
+    } catch (error: any) {
+      nmToast.error(error?.message || "Failed to delete asset");
+    }
+  };
+
+  const activeCount = assets.filter((asset) => asset.is_active).length;
+  const readyCount = assets.filter((asset) => asset.is_active && (asset.allow_organic || asset.allow_paid)).length;
+
   return (
-    <div className="publish-creatives-theme min-h-screen w-full bg-[var(--background)] p-10">
-      <h1 className="text-2xl font-semibold text-[var(--primary)] mb-2 flex items-center gap-2">
-        <FiImage className="text-[var(--primary)]" />
-        Upload Creatives
-      </h1>
-      <p className="text-[var(--muted-foreground)] text-sm mb-4">
-        Upload creatives for your affiliates to use in campaigns.
-      </p>
-      <div className="h-px w-full bg-gradient-to-r from-transparent via-[var(--primary)]/40 to-transparent my-4" />
-
-      <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-[0_0_10px_rgba(0,0,0,0.10)] backdrop-blur-sm space-y-4">
-        <label className="mb-2 flex items-center gap-2 text-[var(--foreground)]">
-          <FiZap className="text-[var(--primary)]" />
-          Creative Type
-        </label>
-        <select
-          value={type}
-          onChange={(e) => setType(e.target.value as "winning" | "suggested")}
-          className="w-full rounded-md border border-[var(--border)] bg-[var(--input-background)] p-3 text-[var(--foreground)] transition duration-200 placeholder-[var(--muted-foreground)] focus:border-transparent focus:ring-2 focus:ring-[var(--ring)]"
-        >
-          <option value="winning">Winning Creative</option>
-          <option value="suggested">Suggested Creative</option>
-        </select>
-
-        <label className="mb-2 flex items-center gap-2 text-[var(--foreground)]">
-          <FiBox className="text-[var(--primary)]" />
-          Offer
-        </label>
-        <select
-          value={selectedOfferId}
-          onChange={(e) => setSelectedOfferId(e.target.value)}
-          className="w-full rounded-md border border-[var(--border)] bg-[var(--input-background)] p-3 text-[var(--foreground)] transition duration-200 placeholder-[var(--muted-foreground)] focus:border-transparent focus:ring-2 focus:ring-[var(--ring)]"
-        >
-          <option value="">Select Offer</option>
-          {offers.map((offer) => (
-            <option key={offer.id} value={offer.id}>
-              {offer.businessName} - {offer.title}
-            </option>
-          ))}
-        </select>
-
-        <label className="mb-2 flex items-center gap-2 text-[var(--foreground)]">
-          <FiEdit3 className="text-[var(--primary)]" />
-          Caption
-        </label>
-        <input
-          type="text"
-          placeholder="Caption"
-          value={caption}
-          onChange={(e) => setCaption(e.target.value)}
-          className="w-full rounded-md border border-[var(--border)] bg-[var(--input-background)] p-3 text-[var(--foreground)] transition duration-200 placeholder-[var(--muted-foreground)] focus:border-transparent focus:ring-2 focus:ring-[var(--ring)]"
-        />
-
-        {type === "winning" && (
-          <>
-            <label className="mb-2 flex items-center gap-2 text-[var(--foreground)]">
-              <FiUsers className="text-[var(--primary)]" />
-              Audience (e.g. Males 18-24)
-            </label>
-            <input
-              type="text"
-              placeholder="Audience (e.g. Males 18-24)"
-              value={audience}
-              onChange={(e) => setAudience(e.target.value)}
-              className="w-full rounded-md border border-[var(--border)] bg-[var(--input-background)] p-3 text-[var(--foreground)] transition duration-200 placeholder-[var(--muted-foreground)] focus:border-transparent focus:ring-2 focus:ring-[var(--ring)]"
-            />
-            <label className="mb-2 flex items-center gap-2 text-[var(--foreground)]">
-              <FiMapPin className="text-[var(--primary)]" />
-              Location (e.g. Australia)
-            </label>
-            <input
-              type="text"
-              placeholder="Location (e.g. Australia)"
-              value={location}
-              onChange={(e) => setLocation(e.target.value)}
-              className="w-full rounded-md border border-[var(--border)] bg-[var(--input-background)] p-3 text-[var(--foreground)] transition duration-200 placeholder-[var(--muted-foreground)] focus:border-transparent focus:ring-2 focus:ring-[var(--ring)]"
-            />
-          </>
-        )}
-
-        <label className="mb-2 flex items-center gap-2 text-[var(--foreground)]">
-          Media File
-        </label>
-        <input
-          type="file"
-          onChange={(e) => setFile(e.target.files?.[0] || null)}
-          className="w-full bg-[#0b0b0b]/80 border border-[#00C2CB]/30 rounded-md p-3 text-white placeholder-gray-400 focus:ring-2 focus:ring-[#00C2CB] focus:border-transparent transition duration-200 file:bg-[var(--primary)] file:text-[var(--primary-foreground)] file:font-semibold file:border-none file:rounded file:px-4 file:py-2"
-        />
-
-        <button
-          onClick={handleUpload}
-          disabled={uploading}
-          className="w-full rounded-md bg-[var(--primary)] py-3 font-semibold text-[var(--primary-foreground)] transition-all duration-200 hover:brightness-110 shadow-[0_0_10px_rgba(0,194,203,0.25)]"
-        >
-          <FiUpload className="mr-2 inline-block text-[var(--primary-foreground)]" />
-          {uploading ? "Uploading..." : "Upload Creative"}
-        </button>
-      </div>
-
-      <h2 className="text-2xl font-semibold text-[var(--primary)] mb-4 mt-12 flex items-center gap-2">
-        <FiFolder className="text-[var(--primary)]" />
-        Your Uploaded Creatives
-      </h2>
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
-        {creatives.map((creative) => (
-          <div
-            key={creative.id}
-            className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-4 shadow-md transition duration-200 hover:shadow-[0_0_15px_rgba(0,0,0,0.14)]"
-          >
-            <p className="font-semibold text-[var(--primary)] capitalize mb-1">
-              📌 {creative.type}
-            </p>
-            <p className="mb-2 text-sm text-[var(--muted-foreground)]">
-              {creative.caption}
-            </p>
-            {creative.audience && (
-              <p className="text-xs text-[var(--muted-foreground)]">
-                🎯 {creative.audience}
+    <div className="publish-creatives-theme min-h-screen w-full bg-[var(--background)] p-6 sm:p-10 text-[var(--foreground)]">
+      <div className="mx-auto max-w-7xl space-y-8">
+        <header className="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.08)]">
+          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+            <div className="max-w-3xl">
+              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#00C2CB]/20 bg-[#00C2CB]/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.24em] text-[#7ff5fb]">
+                <FiFolder className="h-3.5 w-3.5" />
+                Content Library
+              </div>
+              <h1 className="text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">Content Library</h1>
+              <p className="mt-3 max-w-2xl text-sm text-[var(--muted-foreground)] sm:text-base">
+                Upload reusable content affiliates can use to promote your offers. Keep the media here, then let affiliates plug it straight into the existing paid or organic review flow.
               </p>
-            )}
-            {creative.location && (
-              <p className="text-xs text-[var(--muted-foreground)]">
-                🌍 {creative.location}
-              </p>
-            )}
-            {creative.media_url &&
-              (creative.media_url.includes(".mp4") ? (
-                <video
-                  controls
-                  className="w-full rounded-lg mt-3 border border-[var(--border)]"
-                >
-                  <source src={creative.media_url} type="video/mp4" />
-                </video>
-              ) : (
-                <img
-                  src={creative.media_url}
-                  alt="Creative"
-                  className="w-full rounded-lg mt-3 border border-[var(--border)]"
-                />
-              ))}
+            </div>
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={() => void loadLibrary()}
+                className="inline-flex items-center gap-2 rounded-2xl border border-[var(--border)] bg-[var(--secondary)] px-4 py-3 text-sm font-medium text-[var(--secondary-foreground)] transition hover:opacity-90"
+              >
+                <FiRefreshCw /> Refresh
+              </button>
+              <button
+                type="button"
+                onClick={openCreate}
+                className="inline-flex items-center gap-2 rounded-2xl bg-[var(--primary)] px-4 py-3 text-sm font-semibold text-[var(--primary-foreground)] shadow-[0_0_18px_rgba(0,194,203,0.18)] transition hover:brightness-110"
+              >
+                <FiPlus /> Upload content
+              </button>
+            </div>
           </div>
-        ))}
+
+          <div className="mt-6 grid gap-4 sm:grid-cols-3">
+            <div className="rounded-2xl border border-[var(--border)] bg-[var(--background)] p-4">
+              <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted-foreground)]">Active assets</p>
+              <p className="mt-2 text-2xl font-bold text-[var(--foreground)]">{activeCount}</p>
+            </div>
+            <div className="rounded-2xl border border-[var(--border)] bg-[var(--background)] p-4">
+              <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted-foreground)]">Affiliate-ready now</p>
+              <p className="mt-2 text-2xl font-bold text-[var(--foreground)]">{readyCount}</p>
+            </div>
+            <div className="rounded-2xl border border-[var(--border)] bg-[var(--background)] p-4">
+              <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted-foreground)]">Archived</p>
+              <p className="mt-2 text-2xl font-bold text-[var(--foreground)]">{assets.length - activeCount}</p>
+            </div>
+          </div>
+        </header>
+
+        <section className="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.08)]">
+          <div className="flex flex-wrap gap-2">
+            {FILTERS.map((filter) => (
+              <button
+                key={filter}
+                type="button"
+                onClick={() => setActiveFilter(filter)}
+                className={[
+                  "rounded-full border px-3 py-2 text-sm font-medium transition",
+                  activeFilter === filter
+                    ? "border-[var(--primary)] bg-[var(--primary)] text-[var(--primary-foreground)]"
+                    : "border-[var(--border)] bg-[var(--secondary)] text-[var(--secondary-foreground)] hover:opacity-90",
+                ].join(" ")}
+              >
+                {filter === "all" ? "All" : filter === "image" ? "Images" : filter === "video" ? "Videos" : filter === "paid" ? "Paid approved" : filter === "organic" ? "Organic approved" : "Archived"}
+              </button>
+            ))}
+          </div>
+        </section>
+
+        {loading ? (
+          <div className="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-12 text-center text-[var(--muted-foreground)]">Loading content library…</div>
+        ) : filteredAssets.length === 0 ? (
+          <div className="rounded-3xl border border-dashed border-[var(--border)] bg-[var(--card)] p-12 text-center">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--secondary)] text-[var(--primary)]">
+              <FiUpload className="h-6 w-6" />
+            </div>
+            <h2 className="text-xl font-semibold text-[var(--foreground)]">Give affiliates something to start with.</h2>
+            <p className="mx-auto mt-3 max-w-2xl text-sm text-[var(--muted-foreground)]">
+              Upload product images, videos, or existing content so affiliates can start promoting faster.
+            </p>
+            <button
+              type="button"
+              onClick={openCreate}
+              className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-[var(--primary)] px-4 py-3 text-sm font-semibold text-[var(--primary-foreground)]"
+            >
+              <FiPlus /> Upload your first creative
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-3">
+            {filteredAssets.map((asset) => (
+              <article key={asset.id} className="overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--card)] shadow-[0_20px_60px_rgba(0,0,0,0.08)]">
+                <div className="relative aspect-[4/3] bg-black/60">
+                  {asset.media_type === "video" ? (
+                    <video controls className="h-full w-full object-cover" poster={asset.thumbnail_url || undefined}>
+                      <source src={asset.media_url} />
+                    </video>
+                  ) : (
+                    <img src={asset.media_url} alt={asset.title || "Creative preview"} className="h-full w-full object-cover" />
+                  )}
+                  <div className="absolute left-3 top-3 flex flex-wrap gap-2">
+                    <StatBadge tone={asset.is_active ? "success" : "warning"}>{asset.is_active ? "Available" : "Archived"}</StatBadge>
+                    <StatBadge>{asset.media_type === "video" ? "Video" : "Image"}</StatBadge>
+                  </div>
+                </div>
+
+                <div className="space-y-4 p-5">
+                  <div>
+                    <h3 className="text-lg font-semibold text-[var(--foreground)]">{asset.title || "Untitled creative"}</h3>
+                    <p className="mt-1 text-sm text-[var(--muted-foreground)] line-clamp-3">{asset.caption || "No suggested copy yet."}</p>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    {asset.allow_organic && <StatBadge>Organic</StatBadge>}
+                    {asset.allow_paid && <StatBadge>Paid ads</StatBadge>}
+                    <StatBadge>{getApprovalLabel(asset)}</StatBadge>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3 text-sm">
+                    <div className="rounded-2xl border border-[var(--border)] bg-[var(--background)] p-3">
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-[var(--muted-foreground)]">Offer scope</p>
+                      <p className="mt-2 font-medium text-[var(--foreground)]">{getUsageScopeLabel(asset)}</p>
+                    </div>
+                    <div className="rounded-2xl border border-[var(--border)] bg-[var(--background)] p-3">
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-[var(--muted-foreground)]">Usage count</p>
+                      <p className="mt-2 font-medium text-[var(--foreground)]">{asset.usage_count || 0}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2">
+                    <button type="button" onClick={() => openEdit(asset)} className="inline-flex items-center gap-2 rounded-xl border border-[var(--border)] px-3 py-2 text-sm font-medium text-[var(--foreground)] hover:bg-[var(--secondary)]">
+                      <FiEdit3 /> Edit
+                    </button>
+                    <button type="button" onClick={() => void handleArchiveToggle(asset)} className="inline-flex items-center gap-2 rounded-xl border border-[var(--border)] px-3 py-2 text-sm font-medium text-[var(--foreground)] hover:bg-[var(--secondary)]">
+                      <FiArchive /> {asset.is_active ? "Archive" : "Restore"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void handleDelete(asset)}
+                      className="inline-flex items-center gap-2 rounded-xl border border-red-500/25 px-3 py-2 text-sm font-medium text-red-200 hover:bg-red-500/10"
+                    >
+                      <FiTrash2 /> Delete
+                    </button>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
       </div>
+
+      {isEditorOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4">
+          <div className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-3xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-2xl font-semibold text-[var(--foreground)]">{form.id ? "Edit content asset" : "Upload content"}</h2>
+                <p className="mt-2 text-sm text-[var(--muted-foreground)]">Upload once, then let affiliates reuse it in the existing paid and organic promotion flows.</p>
+              </div>
+              <button type="button" onClick={closeEditor} className="rounded-full border border-[var(--border)] p-2 text-[var(--muted-foreground)] hover:text-[var(--foreground)]">
+                <FiX />
+              </button>
+            </div>
+
+            <div className="mt-6 grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+              <div className="space-y-5">
+                <label className="block">
+                  <span className="mb-2 block text-sm font-medium text-[var(--foreground)]">Title</span>
+                  <input value={form.title} onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))} className="w-full rounded-2xl border border-[var(--border)] bg-[var(--input-background)] px-4 py-3 text-[var(--foreground)]" placeholder="e.g. Hero product shot" />
+                </label>
+
+                <label className="block">
+                  <span className="mb-2 block text-sm font-medium text-[var(--foreground)]">Suggested caption / copy</span>
+                  <textarea value={form.caption} onChange={(e) => setForm((prev) => ({ ...prev, caption: e.target.value }))} className="min-h-[140px] w-full rounded-2xl border border-[var(--border)] bg-[var(--input-background)] px-4 py-3 text-[var(--foreground)]" placeholder="Give affiliates a strong starting point for their caption or ad copy." />
+                </label>
+
+                <div className="rounded-2xl border border-[var(--border)] bg-[var(--background)] p-4">
+                  <div className="flex items-center gap-2 text-sm font-medium text-[var(--foreground)]"><FiLayers /> Offer association</div>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <button type="button" onClick={() => setForm((prev) => ({ ...prev, usageScope: "all", offerId: "" }))} className={`rounded-full px-3 py-2 text-sm ${form.usageScope === "all" ? "bg-[var(--primary)] text-[var(--primary-foreground)]" : "border border-[var(--border)] bg-[var(--secondary)] text-[var(--secondary-foreground)]"}`}>
+                      All business offers
+                    </button>
+                    <button type="button" onClick={() => setForm((prev) => ({ ...prev, usageScope: "offer" }))} className={`rounded-full px-3 py-2 text-sm ${form.usageScope === "offer" ? "bg-[var(--primary)] text-[var(--primary-foreground)]" : "border border-[var(--border)] bg-[var(--secondary)] text-[var(--secondary-foreground)]"}`}>
+                      One specific offer
+                    </button>
+                  </div>
+                  {form.usageScope === "offer" && (
+                    <select value={form.offerId} onChange={(e) => setForm((prev) => ({ ...prev, offerId: e.target.value }))} className="mt-4 w-full rounded-2xl border border-[var(--border)] bg-[var(--input-background)] px-4 py-3 text-[var(--foreground)]">
+                      <option value="">Select offer</option>
+                      {offers.map((offer) => (
+                        <option key={offer.id} value={offer.id}>{offer.title}</option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+
+                <div className="rounded-2xl border border-[var(--border)] bg-[var(--background)] p-4">
+                  <div className="flex items-center gap-2 text-sm font-medium text-[var(--foreground)]"><FiGlobe /> Usage permissions</div>
+                  <div className="mt-4 space-y-3">
+                    <label className="flex items-start gap-3 rounded-2xl border border-[var(--border)] p-3">
+                      <input type="checkbox" checked={form.allowOrganic} onChange={(e) => setForm((prev) => ({ ...prev, allowOrganic: e.target.checked }))} className="mt-1" />
+                      <span>
+                        <span className="block font-medium text-[var(--foreground)]">Available for organic</span>
+                        <span className="block text-sm text-[var(--muted-foreground)]">Affiliates can use this in the organic review flow.</span>
+                      </span>
+                    </label>
+                    <label className="flex items-start gap-3 rounded-2xl border border-[var(--border)] p-3">
+                      <input type="checkbox" checked={form.allowPaid} onChange={(e) => setForm((prev) => ({ ...prev, allowPaid: e.target.checked }))} className="mt-1" />
+                      <span>
+                        <span className="block font-medium text-[var(--foreground)]">Available for paid ads</span>
+                        <span className="block text-sm text-[var(--muted-foreground)]">Affiliates can use this in the existing ad idea flow.</span>
+                      </span>
+                    </label>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-[var(--border)] bg-[var(--background)] p-4">
+                  <div className="flex items-center gap-2 text-sm font-medium text-[var(--foreground)]"><FiEye /> Asset approval state</div>
+                  <div className="mt-4 space-y-3">
+                    <label className="flex items-start gap-3 rounded-2xl border border-[var(--border)] p-3">
+                      <input type="checkbox" checked={form.organicPreapproved} onChange={(e) => setForm((prev) => ({ ...prev, organicPreapproved: e.target.checked }))} className="mt-1" />
+                      <span>
+                        <span className="block font-medium text-[var(--foreground)]">Organic pre-approved</span>
+                        <span className="block text-sm text-[var(--muted-foreground)]">The media asset itself is approved for organic use, but affiliates still submit the final promotion for review.</span>
+                      </span>
+                    </label>
+                    <label className="flex items-start gap-3 rounded-2xl border border-[var(--border)] p-3">
+                      <input type="checkbox" checked={form.paidPreapproved} onChange={(e) => setForm((prev) => ({ ...prev, paidPreapproved: e.target.checked }))} className="mt-1" />
+                      <span>
+                        <span className="block font-medium text-[var(--foreground)]">Paid pre-approved</span>
+                        <span className="block text-sm text-[var(--muted-foreground)]">The media asset is approved for paid use, but budget, targeting, and final ad setup still follow the normal approval path.</span>
+                      </span>
+                    </label>
+                    <label className="flex items-start gap-3 rounded-2xl border border-[var(--border)] p-3">
+                      <input type="checkbox" checked={form.isActive} onChange={(e) => setForm((prev) => ({ ...prev, isActive: e.target.checked }))} className="mt-1" />
+                      <span>
+                        <span className="block font-medium text-[var(--foreground)]">Available to affiliates</span>
+                        <span className="block text-sm text-[var(--muted-foreground)]">Turn this off to archive the asset without breaking historical promotions.</span>
+                      </span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-5">
+                <div className="rounded-2xl border border-[var(--border)] bg-[var(--background)] p-4">
+                  <div className="flex items-center gap-2 text-sm font-medium text-[var(--foreground)]"><FiUpload /> Media</div>
+                  <label className="mt-4 block">
+                    <span className="mb-2 block text-sm text-[var(--muted-foreground)]">Image or video</span>
+                    <input type="file" accept="image/png,image/jpeg,image/webp,video/mp4,video/quicktime,video/webm" onChange={(e) => setForm((prev) => ({ ...prev, file: e.target.files?.[0] || null }))} className="w-full rounded-2xl border border-[var(--border)] bg-[var(--input-background)] px-4 py-3 text-[var(--foreground)]" />
+                    <p className="mt-2 text-xs text-[var(--muted-foreground)]">Use JPG, PNG, WebP, MP4, MOV, or WebM. Paid video assets need a thumbnail.</p>
+                  </label>
+                  <label className="mt-4 block">
+                    <span className="mb-2 block text-sm text-[var(--muted-foreground)]">Video thumbnail (optional unless using paid video)</span>
+                    <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => setForm((prev) => ({ ...prev, thumbnail: e.target.files?.[0] || null, clearThumbnail: false }))} className="w-full rounded-2xl border border-[var(--border)] bg-[var(--input-background)] px-4 py-3 text-[var(--foreground)]" />
+                    {form.id && (
+                      <label className="mt-3 inline-flex items-center gap-2 text-sm text-[var(--muted-foreground)]">
+                        <input type="checkbox" checked={form.clearThumbnail} onChange={(e) => setForm((prev) => ({ ...prev, clearThumbnail: e.target.checked, thumbnail: e.target.checked ? null : prev.thumbnail }))} />
+                        Remove current thumbnail
+                      </label>
+                    )}
+                  </label>
+                </div>
+
+                <div className="rounded-2xl border border-[var(--border)] bg-[var(--background)] p-4">
+                  <div className="flex items-center gap-2 text-sm font-medium text-[var(--foreground)]"><FiFilm /> What affiliates will see</div>
+                  <ul className="mt-4 space-y-3 text-sm text-[var(--muted-foreground)]">
+                    <li>• The asset appears directly inside <strong>Start promoting</strong>.</li>
+                    <li>• Paid-only assets stay out of the organic picker.</li>
+                    <li>• Organic-only assets stay out of the paid picker.</li>
+                    <li>• Archived assets disappear for new promotions but stay intact for historical ones.</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-end">
+              <button type="button" onClick={closeEditor} className="rounded-2xl border border-[var(--border)] px-4 py-3 text-sm font-medium text-[var(--foreground)]">Cancel</button>
+              <button type="button" disabled={saving} onClick={() => void handleSave()} className="rounded-2xl bg-[var(--primary)] px-4 py-3 text-sm font-semibold text-[var(--primary-foreground)] disabled:opacity-60">
+                {saving ? "Saving…" : form.id ? "Save changes" : "Upload asset"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
-};
-
-export default BusinessCreativesPage;
+}

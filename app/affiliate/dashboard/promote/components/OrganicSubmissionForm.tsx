@@ -15,6 +15,16 @@ interface OrganicSubmissionFormProps {
   setOgContent: (value: string) => void;
   ogFile: File | null;
   setOgFile: (file: File | null) => void;
+  selectedBrandCreative?: {
+    title?: string | null;
+    caption?: string | null;
+    media_url: string;
+    media_type: string;
+    thumbnail_url?: string | null;
+  } | null;
+  usingBrandContent?: boolean;
+  onSwitchToBrandContent?: () => void;
+  onSwitchToUploadOwn?: () => void;
   handleOrganicSubmit: () => Promise<void>;
 }
 
@@ -29,6 +39,10 @@ export function OrganicSubmissionForm({
   setOgContent,
   ogFile,
   setOgFile,
+  selectedBrandCreative,
+  usingBrandContent,
+  onSwitchToBrandContent,
+  onSwitchToUploadOwn,
   handleOrganicSubmit,
 }: OrganicSubmissionFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -69,6 +83,49 @@ export function OrganicSubmissionForm({
       </div>
 
       <div className="px-4 sm:px-8 py-6 space-y-4 sm:space-y-6">
+        <div className="rounded-xl border border-[#232323] bg-[#101010] p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="text-sm font-semibold text-white">Choose your creative</div>
+              <div className="mt-1 text-xs text-gray-400">Use brand content to skip the blank-canvas step, or upload your own.</div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={onSwitchToBrandContent}
+                className={`rounded-full px-3 py-2 text-xs font-medium ${usingBrandContent ? "bg-[#00C2CB] text-black" : "border border-[#2a2a2a] text-gray-300 hover:border-[#00C2CB]/40"}`}
+              >
+                Brand content
+              </button>
+              <button
+                type="button"
+                onClick={onSwitchToUploadOwn}
+                className={`rounded-full px-3 py-2 text-xs font-medium ${!usingBrandContent ? "bg-[#00C2CB] text-black" : "border border-[#2a2a2a] text-gray-300 hover:border-[#00C2CB]/40"}`}
+              >
+                Upload your own
+              </button>
+            </div>
+          </div>
+
+          {usingBrandContent && selectedBrandCreative && (
+            <div className="mt-4 overflow-hidden rounded-2xl border border-[#2a2a2a] bg-[#141414]">
+              <div className="aspect-[4/3] bg-black">
+                {selectedBrandCreative.media_type === "video" ? (
+                  <video controls className="h-full w-full object-cover" poster={selectedBrandCreative.thumbnail_url || undefined}>
+                    <source src={selectedBrandCreative.media_url} />
+                  </video>
+                ) : (
+                  <img src={selectedBrandCreative.media_url} alt={selectedBrandCreative.title || "Selected brand creative"} className="h-full w-full object-cover" />
+                )}
+              </div>
+              <div className="p-4">
+                <div className="text-sm font-semibold text-white">{selectedBrandCreative.title || "Selected brand creative"}</div>
+                <div className="mt-1 text-xs text-gray-400">This media will be attached automatically when you submit.</div>
+              </div>
+            </div>
+          )}
+        </div>
+
         <label className="block">
           <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Method</span>
           <select className={`${INPUT} w-full text-base`} value={ogMethod} onChange={(e) => setOgMethod(e.target.value as any)}>
@@ -109,13 +166,14 @@ export function OrganicSubmissionForm({
               <input
                 type="file"
                 accept="image/*,video/*"
+                disabled={usingBrandContent}
                 className={`${INPUT} w-full text-base`}
                 onChange={(e) => {
                   const file = e.target.files?.[0] || null;
                   setOgFile(file || null);
                 }}
               />
-              <p className="mt-1 text-[11px] text-gray-500">Tip: MP4/H.264 works best for cross-platform preview. {ogFile ? "File attached." : "No file selected."}</p>
+              <p className="mt-1 text-[11px] text-gray-500">Tip: MP4/H.264 works best for cross-platform preview. {usingBrandContent ? "Brand content is selected, so upload is disabled." : ogFile ? "File attached." : "No file selected."}</p>
             </label>
           </>
         )}

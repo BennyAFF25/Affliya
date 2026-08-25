@@ -30,6 +30,8 @@ import { supabase } from "../../../../../utils/supabase/pages-client";
 import { fetchReachEstimate } from "../../../../../utils/meta/fetchReachEstimate";
 import { getActivationSubsidyBadgeLabel, getActivationSubsidyRemaining } from "../../../../../utils/activationSubsidies";
 import { calculateWalletBalance } from "../../../../../utils/wallet/balance";
+import { logProductEvent } from "../../../../../utils/productEvents";
+import type { ContentLibraryAsset } from "../../../../../utils/contentLibrary";
 
 import { AdFormState, GenderOpt, PlacementKey } from "../types";
 
@@ -38,6 +40,7 @@ import { INPUT } from "../constants";
 import { AdCampaignWizard } from "../components/AdCampaignWizard";
 import { OrganicSubmissionForm } from "../components/OrganicSubmissionForm";
 import { PreviewSidebar } from "../components/PreviewSidebar";
+import { BrandCreativePicker } from "../components/BrandCreativePicker";
 
 // --- Lightweight row types for Supabase queries
 type OfferRow = {
@@ -68,6 +71,7 @@ export default function PromoteOfferPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const offerId = params.offerId as string;
+  const requestedMode = (searchParams.get("mode") || "").toLowerCase() === "organic" ? "organic" : "ad";
 
   const session = useSession();
   const userEmail = session?.user?.email || "";
@@ -75,13 +79,32 @@ export default function PromoteOfferPage() {
   // ─────────────────────────────
   // Organic flow state (non-invasive)
   // ─────────────────────────────
-  const [mode, setMode] = useState<"ad" | "organic">("ad");
+  const [mode, setMode] = useState<"ad" | "organic">(requestedMode);
+  const [adCreativeSource, setAdCreativeSource] = useState<"brand" | "upload">("brand");
+  const [organicCreativeSource, setOrganicCreativeSource] = useState<"brand" | "upload">("brand");
+  const [brandCreatives, setBrandCreatives] = useState<ContentLibraryAsset[]>([]);
+  const [brandContentLoading, setBrandContentLoading] = useState(false);
+  const [selectedAdBrandCreative, setSelectedAdBrandCreative] = useState<ContentLibraryAsset | null>(null);
+  const [selectedOrganicBrandCreative, setSelectedOrganicBrandCreative] = useState<ContentLibraryAsset | null>(null);
+  const [promotionStartedLogged, setPromotionStartedLogged] = useState(false);
 
   useEffect(() => {
     const requestedMode = (searchParams.get("mode") || "").toLowerCase();
     if (requestedMode === "organic") setMode("organic");
     if (requestedMode === "ad") setMode("ad");
   }, [searchParams]);
+
+  useEffect(() => {
+    if (promotionStartedLogged || !offerId) return;
+    void logProductEvent({
+      eventType: "promotion_started",
+      actorRole: "affiliate",
+      offerId,
+      promotionType: mode === "ad" ? "paid" : "organic",
+      meta: { source: mode === "ad" ? adCreativeSource : organicCreativeSource },
+    });
+    setPromotionStartedLogged(true);
+  }, [adCreativeSource, mode, offerId, organicCreativeSource, promotionStartedLogged]);
 
   // Wallet balance state (real-time gating)
   const [walletBalance, setWalletBalance] = useState<number>(0);
@@ -163,6 +186,88 @@ export default function PromoteOfferPage() {
     if (session === undefined) return;
     if (session === null) router.push("/");
   }, [session, router]);
+
+  useEffect(() => {
+    if (!offerId || !userEmail) return;
+
+    const flowMode = mode === "ad" ? "paid" : "organic";
+    const currentSource = mode === "ad" ? adCreativeSource : organicCreativeSource;
+    if (currentSource !== "brand") return;
+
+    let cancelled = false;
+    const loadBrandContent = async () => {
+      setBrandContentLoading(true);
+      try {
+        const res = await fetch(`/api/affiliate/offers/${offerId}/brand-content?mode=${flowMode}`, { cache: "no-store" });
+        const json = await res.json();
+        if (!res.ok || !json?.ok) {
+          throw new Error(json?.message || json?.error || "Failed to load brand content");
+        }
+        if (cancelled) return;
+        const nextAssets = (json.assets || []) as ContentLibraryAsset[];
+        setBrandCreatives(nextAssets);
+
+        if (mode === "ad") {
+          setSelectedAdBrandCreative((prev) => prev && nextAssets.some((asset) => asset.id === prev.id) ? prev : nextAssets[0] || null);
+        } else {
+          setSelectedOrganicBrandCreative((prev) => prev && nextAssets.some((asset) => asset.id === prev.id) ? prev : nextAssets[0] || null);
+          if (!ogFile && !ogCaption && nextAssets[0]?.caption) {
+            setOgCaption(nextAssets[0].caption || "");
+          }
+        }
+      } catch (error: any) {
+        console.error("[brand content] load error", error);
+        if (!cancelled) {
+          setBrandCreatives([]);
+          if (mode === "ad") setSelectedAdBrandCreative(null);
+          if (mode === "organic") setSelectedOrganicBrandCreative(null);
+        }
+      } finally {
+        if (!cancelled) setBrandContentLoading(false);
+      }
+    };
+
+    void loadBrandContent();
+    return () => {
+      cancelled = true;
+    };
+  }, [adCreativeSource, mode, offerId, organicCreativeSource, userEmail]);
+
+  useEffect(() => {
+    if (selectedAdBrandCreative && adCreativeSource === "brand") {
+      setForm((prev) => ({
+        ...prev,
+        caption: prev.caption || selectedAdBrandCreative.caption || "",
+        headline: prev.headline || selectedAdBrandCreative.title || "",
+      }));
+      setVideoFile(null);
+      setImageFile(null);
+      setThumbnailFile(null);
+      setThumbnailError(null);
+      setVideoPreviewUrl(selectedAdBrandCreative.media_type === "video" ? selectedAdBrandCreative.media_url : null);
+      setThumbPreviewUrl(
+        selectedAdBrandCreative.media_type === "video"
+          ? selectedAdBrandCreative.thumbnail_url || null
+          : selectedAdBrandCreative.media_url,
+      );
+    }
+  }, [adCreativeSource, selectedAdBrandCreative]);
+
+  useEffect(() => {
+    if (selectedOrganicBrandCreative && organicCreativeSource === "brand") {
+      if (!ogCaption) {
+        setOgCaption(selectedOrganicBrandCreative.caption || "");
+      }
+      setOgFile(null);
+    }
+  }, [organicCreativeSource, ogCaption, selectedOrganicBrandCreative]);
+
+  useEffect(() => {
+    if (adCreativeSource === "upload" && !videoFile && !imageFile) {
+      setVideoPreviewUrl(null);
+      setThumbPreviewUrl(null);
+    }
+  }, [adCreativeSource, imageFile, videoFile]);
 
   // ─────────────────────────────
   // Derived tracking link
@@ -725,8 +830,18 @@ export default function PromoteOfferPage() {
       // Optional upload (only for social with media)
       let image_url: string | null = null;
       let video_url: string | null = null;
+      const usingBrandContent = organicCreativeSource === "brand" && !!selectedOrganicBrandCreative;
+      const selectedCreativeId = usingBrandContent ? selectedOrganicBrandCreative?.id || null : null;
 
-      if (ogFile) {
+      if (usingBrandContent && selectedOrganicBrandCreative) {
+        if (selectedOrganicBrandCreative.media_type === "video") {
+          video_url = selectedOrganicBrandCreative.media_url;
+        } else {
+          image_url = selectedOrganicBrandCreative.media_url;
+        }
+      }
+
+      if (!usingBrandContent && ogFile) {
         const bucket = "organic-posts"; // ← Supabase storage bucket name
         const ts = Date.now();
         const path = `${ts}-${sanitize(ogFile.name)}`;
@@ -794,6 +909,7 @@ export default function PromoteOfferPage() {
           platform, // Facebook/Instagram/TikTok OR Email/Forum
           image_url,
           video_url,
+          business_creative_id: selectedCreativeId,
           status: "pending",
         } as any,
       ]);
@@ -801,6 +917,14 @@ export default function PromoteOfferPage() {
         throw new Error(insertErr.message || JSON.stringify(insertErr));
 
       nmToast.success("Organic post submitted for review");
+      void logProductEvent({
+        eventType: "organic_promotion_submitted",
+        actorRole: "affiliate",
+        offerId,
+        businessCreativeId: selectedCreativeId,
+        promotionType: "organic",
+        meta: { source: usingBrandContent ? "brand" : "upload", platform },
+      });
       // Reset organic fields
       setOgCaption("");
       setOgContent("");
@@ -830,8 +954,10 @@ export default function PromoteOfferPage() {
       }
       const isVideoCreative = !!videoFile;
       const isImageCreative = !!imageFile;
+      const usingBrandContent = adCreativeSource === "brand" && !!selectedAdBrandCreative;
+      const selectedCreativeId = usingBrandContent ? selectedAdBrandCreative?.id || null : null;
 
-      if (!isVideoCreative && !isImageCreative) {
+      if (!usingBrandContent && !isVideoCreative && !isImageCreative) {
         nmToast.error("Please upload either a video or a photo");
         return;
       }
@@ -934,7 +1060,10 @@ export default function PromoteOfferPage() {
       let creativePublicUrl: string | null = null;
       let thumbPublicUrl: string | null = null;
 
-      if (videoFile) {
+      if (usingBrandContent && selectedAdBrandCreative) {
+        creativePublicUrl = selectedAdBrandCreative.media_url;
+        thumbPublicUrl = selectedAdBrandCreative.thumbnail_url || null;
+      } else if (videoFile) {
         const videoPath = `videos/${ts}-${sanitize(videoFile.name)}`;
         const { error: upVidErr } = await supabase.storage
           .from("ad-ideas-assets")
@@ -1009,6 +1138,7 @@ export default function PromoteOfferPage() {
         thumbnail_url: thumbPublicUrl,
         media_type: videoFile ? "VIDEO" : "IMAGE",
         type: videoFile ? "Video" : "Image",
+        business_creative_id: selectedCreativeId,
 
         // campaign/adset/ad
         campaign_name: form.campaign_name || null,
@@ -1055,6 +1185,11 @@ export default function PromoteOfferPage() {
         meta_status: null,
       };
 
+      if (usingBrandContent && selectedAdBrandCreative) {
+        insertPayload.media_type = selectedAdBrandCreative.media_type === "video" ? "VIDEO" : "IMAGE";
+        insertPayload.type = selectedAdBrandCreative.media_type === "video" ? "Video" : "Image";
+      }
+
       console.log("[BID CAP DEBUG]", {
         bid_strategy: form.bid_strategy,
         bid_cap_dollars: form.bid_cap_dollars,
@@ -1065,6 +1200,15 @@ export default function PromoteOfferPage() {
         supabase.from("ad_ideas") as any
       ).insert([insertPayload as any]);
       if (insertErr) throw insertErr;
+
+      void logProductEvent({
+        eventType: "paid_promotion_submitted",
+        actorRole: "affiliate",
+        offerId,
+        businessCreativeId: selectedCreativeId,
+        promotionType: "paid",
+        meta: { source: usingBrandContent ? "brand" : "upload", objective: form.objective },
+      });
 
       nmToast.success("Ad idea submitted for review");
       router.push("/affiliate/dashboard"); // back to dashboard after submit
@@ -1321,9 +1465,34 @@ export default function PromoteOfferPage() {
               validateThumbnailFile={validateThumbnailFile}
               setVideoPreviewUrl={setVideoPreviewUrl}
               setThumbPreviewUrl={setThumbPreviewUrl}
+              selectedBrandCreative={selectedAdBrandCreative}
+              usingBrandContent={adCreativeSource === "brand"}
+              onSwitchToBrandContent={() => setAdCreativeSource("brand")}
+              onSwitchToUploadOwn={() => setAdCreativeSource("upload")}
               handleAdSubmit={handleAdSubmit}
               onNavigateToWallet={() => router.push("/affiliate/wallet")}
             />
+
+            {adCreativeSource === "brand" && (
+              <BrandCreativePicker
+                mode="ad"
+                assets={brandCreatives}
+                loading={brandContentLoading}
+                selectedId={selectedAdBrandCreative?.id || null}
+                onChooseUploadOwn={() => setAdCreativeSource("upload")}
+                onSelect={(asset) => {
+                  setSelectedAdBrandCreative(asset);
+                  void logProductEvent({
+                    eventType: "affiliate_brand_content_selected",
+                    actorRole: "affiliate",
+                    offerId,
+                    businessCreativeId: asset.id,
+                    promotionType: "paid",
+                    meta: { mediaType: asset.media_type },
+                  });
+                }}
+              />
+            )}
           </div>
         )}
 
@@ -1349,8 +1518,34 @@ export default function PromoteOfferPage() {
               setOgContent={setOgContent}
               ogFile={ogFile}
               setOgFile={setOgFile}
+              selectedBrandCreative={selectedOrganicBrandCreative}
+              usingBrandContent={organicCreativeSource === "brand"}
+              onSwitchToBrandContent={() => setOrganicCreativeSource("brand")}
+              onSwitchToUploadOwn={() => setOrganicCreativeSource("upload")}
               handleOrganicSubmit={handleOrganicSubmit}
             />
+
+            {organicCreativeSource === "brand" && (
+              <BrandCreativePicker
+                mode="organic"
+                assets={brandCreatives}
+                loading={brandContentLoading}
+                selectedId={selectedOrganicBrandCreative?.id || null}
+                onChooseUploadOwn={() => setOrganicCreativeSource("upload")}
+                onSelect={(asset) => {
+                  setSelectedOrganicBrandCreative(asset);
+                  if (!ogCaption) setOgCaption(asset.caption || "");
+                  void logProductEvent({
+                    eventType: "affiliate_brand_content_selected",
+                    actorRole: "affiliate",
+                    offerId,
+                    businessCreativeId: asset.id,
+                    promotionType: "organic",
+                    meta: { mediaType: asset.media_type },
+                  });
+                }}
+              />
+            )}
           </div>
         )}
 

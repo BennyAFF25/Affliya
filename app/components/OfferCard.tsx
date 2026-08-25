@@ -24,6 +24,9 @@ interface Offer {
   meta_ad_account_id?: string | null;
   meta_pixel_id?: string | null;
   starterCreditAmount?: number;
+  readyCreativeCount?: number;
+  readyOrganicCreativeCount?: number;
+  readyPaidCreativeCount?: number;
 }
 
 function getPromotionMode(offer: Offer) {
@@ -95,6 +98,9 @@ export default function OfferCard({
   const fitSummary = offer.meta_page_id && offer.meta_ad_account_id
     ? 'Built for both organic placements and paid Meta campaigns.'
     : 'Best suited to organic content, link-in-bio placements, and creator-led promotion.';
+  const readyCreativeLabel = offer.readyCreativeCount && offer.readyCreativeCount > 0
+    ? `${offer.readyCreativeCount} ready-to-use creative${offer.readyCreativeCount === 1 ? '' : 's'}`
+    : null;
 
   const sendEmail = async (endpoint: string, payload: any) => {
     try {
@@ -268,6 +274,11 @@ export default function OfferCard({
             Includes ${offer.starterCreditAmount.toFixed(0)} starter ad spend
           </span>
         ) : null}
+        {readyCreativeLabel ? (
+          <span className="inline-flex items-center rounded-full border border-emerald-400/30 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-medium text-emerald-200">
+            {readyCreativeLabel}
+          </span>
+        ) : null}
         {offerTags.map((tag) => (
           <span
             key={tag}
@@ -317,6 +328,11 @@ export default function OfferCard({
         ) : (
           <p className="mt-3 text-xs text-gray-500">{promotionMode.helper}</p>
         )}
+        {readyCreativeLabel ? (
+          <p className="mt-3 text-xs text-emerald-200/85">
+            {offer.readyPaidCreativeCount ? `${offer.readyPaidCreativeCount} paid` : '0 paid'} · {offer.readyOrganicCreativeCount ? `${offer.readyOrganicCreativeCount} organic` : '0 organic'} brand assets ready to drop into Start promoting.
+          </p>
+        ) : null}
       </div>
 
       {/* Affiliate note */}
