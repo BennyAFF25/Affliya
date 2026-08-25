@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { useSearchParams } from "next/navigation";
 import { useSession } from "@supabase/auth-helpers-react";
 import {
   FiArchive,
@@ -106,7 +105,6 @@ function deriveFormState(asset: ContentLibraryAsset): AssetFormState {
 export default function BusinessCreativesPage() {
   const session = useSession();
   const user = session?.user;
-  const searchParams = useSearchParams();
   const [assets, setAssets] = useState<ContentLibraryAsset[]>([]);
   const [offers, setOffers] = useState<OfferOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -140,11 +138,14 @@ export default function BusinessCreativesPage() {
   }, [user?.email]);
 
   useEffect(() => {
-    const shouldOpen = searchParams.get("open") === "1";
+    if (typeof window === "undefined") return;
+
+    const params = new URLSearchParams(window.location.search);
+    const shouldOpen = params.get("open") === "1";
     if (!shouldOpen) return;
 
-    const offerId = searchParams.get("offerId") || "";
-    const requestedScope = searchParams.get("scope") === "offer" ? "offer" : "all";
+    const offerId = params.get("offerId") || "";
+    const requestedScope = params.get("scope") === "offer" ? "offer" : "all";
 
     if (requestedScope === "offer") {
       openCreateForScope("offer", offerId);
@@ -152,7 +153,7 @@ export default function BusinessCreativesPage() {
     }
 
     openCreateForScope("all");
-  }, [searchParams]);
+  }, []);
 
   const filteredAssets = useMemo(() => {
     return assets.filter((asset) => {
