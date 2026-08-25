@@ -1001,12 +1001,12 @@ function AffiliateDashboardContent() {
                       <span className="absolute left-4 top-9 h-[calc(100%-1rem)] w-px bg-white/10" />
                     )}
                     <div
-                      className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-xs font-bold ${
+                      className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-xs font-bold shadow-[0_6px_20px_rgba(0,0,0,0.2)] ${
                         task.done
-                          ? "border-[#00C2CB]/45 bg-[#00C2CB]/15 text-[#7ff5fb]"
+                          ? "border-[#00C2CB]/55 bg-[#00C2CB]/18 text-[#b9fbff]"
                           : isCurrent
                             ? "border-[#00C2CB] bg-[#00C2CB] text-black"
-                            : "border-white/12 bg-[#15191c] text-white/45"
+                            : "border-white/20 bg-[#1b2128] text-white/78"
                       }`}
                     >
                       {task.done ? <CheckCircle2 className="h-4 w-4" /> : idx + 1}
@@ -1014,10 +1014,10 @@ function AffiliateDashboardContent() {
                     <div
                       className={`flex flex-1 flex-col gap-3 rounded-2xl border px-4 py-3 sm:flex-row sm:items-center sm:justify-between ${
                         task.done
-                          ? "border-[#00C2CB]/20 bg-[#00C2CB]/5"
+                          ? "border-[#00C2CB]/22 bg-[#00C2CB]/7"
                           : isCurrent
-                            ? "border-[#00C2CB]/35 bg-[#00C2CB]/10"
-                            : "border-white/10 bg-[#15191c] opacity-75"
+                            ? "border-[#00C2CB]/40 bg-[#00C2CB]/10"
+                            : "border-white/14 bg-[#161c22]"
                       }`}
                     >
                       <div className="flex min-w-0 items-start gap-2">
@@ -1025,13 +1025,21 @@ function AffiliateDashboardContent() {
                         <div>
                           <div className="flex flex-wrap items-center gap-2">
                             <p className="text-sm font-medium text-white">{task.title}</p>
-                            <span className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/48">
+                            <span
+                              className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] ${
+                                task.done
+                                  ? "border-[#00C2CB]/25 bg-[#00C2CB]/10 text-[#9df9ff]"
+                                  : isCurrent
+                                    ? "border-[#00C2CB]/30 bg-[#00C2CB]/12 text-[#c8fdff]"
+                                    : "border-white/12 bg-white/[0.04] text-white/65"
+                              }`}
+                            >
                               {task.done ? "Complete" : isCurrent ? "Current" : "Later"}
                             </span>
                           </div>
-                          <p className="mt-1 text-xs leading-5 text-white/55">{task.description}</p>
+                          <p className={`mt-1 text-xs leading-5 ${isUpcoming ? "text-white/68" : "text-white/60"}`}>{task.description}</p>
                           {isUpcoming && (
-                            <p className="mt-1 text-[11px] text-white/38">
+                            <p className="mt-1 text-[11px] text-white/52">
                               Finish the earlier step first so this makes sense.
                             </p>
                           )}
@@ -1047,7 +1055,7 @@ function AffiliateDashboardContent() {
                           className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
                             isCurrent
                               ? "bg-[#00C2CB] text-black hover:bg-[#00b0b8]"
-                              : "border border-white/12 text-white/62 hover:border-[#00C2CB]/40 hover:text-white"
+                              : "border border-white/14 bg-[#111317] text-white/76 hover:border-[#00C2CB]/40 hover:text-white"
                           }`}
                         >
                           Open

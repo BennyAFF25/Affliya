@@ -3,7 +3,7 @@
 import Link from "next/link";
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { MessageCircle } from "lucide-react";
+import { Eye, MessageCircle, Store, X } from "lucide-react";
 import { logProductEvent } from "@/../utils/productEvents";
 import type { ContentLibraryAsset } from "@/../utils/contentLibrary";
 
@@ -89,6 +89,7 @@ export default function AffiliateOnboardingV1() {
   const [brandCreatives, setBrandCreatives] = useState<ContentLibraryAsset[]>([]);
   const [selectedCreative, setSelectedCreative] = useState<ContentLibraryAsset | null>(null);
   const [readyPromotion, setReadyPromotion] = useState<ReadyPromotion | null>(null);
+  const [previewCreative, setPreviewCreative] = useState<ContentLibraryAsset | null>(null);
   const [loadingOffer, setLoadingOffer] = useState(false);
   const [activatingOffer, setActivatingOffer] = useState(false);
   const [creatingPromotion, setCreatingPromotion] = useState(false);
@@ -255,6 +256,8 @@ export default function AffiliateOnboardingV1() {
 
   const readyCreativeUrl = safeAssetUrl(readyPromotion?.creative.mediaUrl);
   const readyPosterUrl = safeAssetUrl(readyPromotion?.creative.thumbnailUrl || null);
+  const previewCreativeUrl = safeAssetUrl(previewCreative?.media_url);
+  const previewPosterUrl = safeAssetUrl(previewCreative?.thumbnail_url);
 
   return (
     <main className="min-h-screen px-4 py-8 text-white sm:px-6 sm:py-10" style={{ background: "#05080b" }}>
@@ -312,6 +315,19 @@ export default function AffiliateOnboardingV1() {
           {step === 1 && (
             <section className="space-y-5">
               <h2 className="text-2xl font-semibold tracking-tight sm:text-3xl">Your first promotion starts here</h2>
+              <div className="rounded-2xl border border-[#00C2CB]/20 bg-[#00C2CB]/10 p-4 text-sm text-[#d8fdff]">
+                <div className="flex items-start gap-3">
+                  <span className="rounded-xl border border-[#00C2CB]/25 bg-[#06191c] p-2 text-[#7ff5fb]">
+                    <Store className="h-4 w-4" />
+                  </span>
+                  <div>
+                    <p className="font-semibold text-white">This is your fast start — not the whole marketplace.</p>
+                    <p className="mt-1 text-[#d8fdff]/85">
+                      We&apos;ll start you with the Nettmark Partner Programme so you can begin immediately, then you can explore and promote more marketplace offers from your dashboard.
+                    </p>
+                  </div>
+                </div>
+              </div>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
                   <p className="text-sm font-semibold text-white">1. Choose how to promote</p>
@@ -382,6 +398,7 @@ export default function AffiliateOnboardingV1() {
               <div>
                 <h2 className="text-2xl font-semibold">Your first offer</h2>
                 <p className="mt-2 text-sm text-white/65">Start with Nettmark&apos;s own partner programme so you can begin promoting immediately instead of waiting on approvals.</p>
+                <p className="mt-2 text-sm text-white/50">Once you&apos;re through this quick-start flow, you&apos;ll be able to browse the wider marketplace and promote other approved offers too.</p>
               </div>
 
               {loadingOffer ? (
@@ -430,13 +447,13 @@ export default function AffiliateOnboardingV1() {
                       disabled={activatingOffer}
                       className="rounded-full bg-[#00C2CB] px-6 py-3 text-sm font-semibold text-black hover:bg-[#00b0b8] disabled:opacity-60"
                     >
-                      {activatingOffer ? "Preparing…" : "Start promoting"}
+                      {activatingOffer ? "Preparing…" : "Start with this offer"}
                     </button>
                     <Link
                       href="/affiliate/marketplace"
                       className="rounded-full border border-white/10 bg-[#111317] px-6 py-3 text-sm font-semibold text-white/80 hover:bg-[#15191c]"
                     >
-                      Explore more offers later
+                      Explore the marketplace
                     </Link>
                   </div>
                 </article>
@@ -453,6 +470,7 @@ export default function AffiliateOnboardingV1() {
               <div>
                 <h2 className="text-2xl font-semibold">Choose your first promotion</h2>
                 <p className="mt-2 text-sm text-white/65">Use a ready-made Nettmark creative. If it&apos;s already pre-approved for organic use, you can start promoting immediately.</p>
+                <p className="mt-2 text-sm text-white/50">You can preview each creative before choosing it, and you can always come back later for more Nettmark content or other marketplace offers.</p>
               </div>
 
               {preferredCreatives.length === 0 ? (
@@ -466,20 +484,8 @@ export default function AffiliateOnboardingV1() {
                     const mediaUrl = safeAssetUrl(asset.media_url);
                     const posterUrl = safeAssetUrl(asset.thumbnail_url);
                     return (
-                      <button
+                      <div
                         key={asset.id}
-                        type="button"
-                        onClick={() => {
-                          setSelectedCreative(asset);
-                          void logProductEvent({
-                            eventType: "first_creative_selected",
-                            actorRole: "affiliate",
-                            offerId: offer?.id,
-                            businessCreativeId: asset.id,
-                            promotionType: "organic",
-                            meta: { mediaType: asset.media_type },
-                          });
-                        }}
                         className={`overflow-hidden rounded-3xl border text-left transition ${
                           selected
                             ? "border-[#00C2CB] bg-[#0d1f21] shadow-[0_0_24px_rgba(0,194,203,0.16)]"
@@ -516,9 +522,39 @@ export default function AffiliateOnboardingV1() {
                               </span>
                             )}
                           </div>
-                          <div className="text-xs text-white/50">{selected ? "Selected" : "Use this"}</div>
+                          <div className="flex flex-wrap gap-2 pt-1">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedCreative(asset);
+                                void logProductEvent({
+                                  eventType: "first_creative_selected",
+                                  actorRole: "affiliate",
+                                  offerId: offer?.id,
+                                  businessCreativeId: asset.id,
+                                  promotionType: "organic",
+                                  meta: { mediaType: asset.media_type },
+                                });
+                              }}
+                              className={`rounded-full px-4 py-2 text-xs font-semibold transition ${
+                                selected
+                                  ? "bg-[#00C2CB] text-black"
+                                  : "bg-[#111317] text-white/85 hover:bg-[#15191c]"
+                              }`}
+                            >
+                              {selected ? "Selected" : "Choose this creative"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setPreviewCreative(asset)}
+                              className="inline-flex items-center gap-2 rounded-full border border-white/12 bg-transparent px-4 py-2 text-xs font-semibold text-white/75 transition hover:border-[#00C2CB]/35 hover:text-white"
+                            >
+                              <Eye className="h-3.5 w-3.5" />
+                              Preview content
+                            </button>
+                          </div>
                         </div>
-                      </button>
+                      </div>
                     );
                   })}
                 </div>
@@ -667,6 +703,93 @@ export default function AffiliateOnboardingV1() {
           {error && <p className="mt-4 text-sm text-[#7ff5fb]">{error}</p>}
         </div>
       </div>
+
+      {previewCreative && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+          <div className="relative w-full max-w-4xl overflow-hidden rounded-[2rem] border border-white/12 bg-[#0b1015] shadow-[0_24px_80px_rgba(0,0,0,0.45)]">
+            <button
+              type="button"
+              onClick={() => setPreviewCreative(null)}
+              className="absolute right-4 top-4 z-10 rounded-full border border-white/12 bg-black/30 p-2 text-white/75 transition hover:text-white"
+              aria-label="Close preview"
+            >
+              <X className="h-4 w-4" />
+            </button>
+
+            <div className="grid gap-0 lg:grid-cols-[1.15fr_0.85fr]">
+              <div className="min-h-[280px] bg-black">
+                {previewCreative?.media_type === "video" ? (
+                  previewCreativeUrl ? (
+                    <video className="h-full w-full object-contain" poster={previewPosterUrl || undefined} controls playsInline>
+                      <source src={previewCreativeUrl} />
+                    </video>
+                  ) : (
+                    <div className="flex h-full items-center justify-center text-sm text-white/45">Preview unavailable</div>
+                  )
+                ) : previewCreativeUrl ? (
+                  <img src={previewCreativeUrl} alt={previewCreative.title || "Creative preview"} className="h-full w-full object-contain" />
+                ) : (
+                  <div className="flex h-full items-center justify-center text-sm text-white/45">Preview unavailable</div>
+                )}
+              </div>
+
+              <div className="space-y-4 p-5 sm:p-6">
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Previewing</p>
+                  <h3 className="mt-2 text-2xl font-semibold text-white">{previewCreative.title || "Untitled creative"}</h3>
+                  <p className="mt-2 text-sm text-white/65">This is the actual promotional content your affiliate will be able to use for their first Nettmark promotion.</p>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <span className="rounded-full border border-white/10 bg-black/20 px-2.5 py-1 text-[11px] text-white/70">
+                    {previewCreative.media_type === "video" ? "Video" : "Image"}
+                  </span>
+                  {previewCreative.organic_preapproved && (
+                    <span className="rounded-full border border-[#00C2CB]/25 bg-[#00C2CB]/10 px-2.5 py-1 text-[11px] text-[#7ff5fb]">
+                      Organic pre-approved
+                    </span>
+                  )}
+                </div>
+
+                <div>
+                  <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Suggested caption</p>
+                  <div className="mt-2 whitespace-pre-wrap rounded-2xl border border-white/10 bg-black/20 p-4 text-sm leading-6 text-white/80">
+                    {previewCreative.caption || "Ready-to-use Nettmark partner content."}
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedCreative(previewCreative);
+                      void logProductEvent({
+                        eventType: "first_creative_selected",
+                        actorRole: "affiliate",
+                        offerId: offer?.id,
+                        businessCreativeId: previewCreative.id,
+                        promotionType: "organic",
+                        meta: { mediaType: previewCreative.media_type, source: "preview_modal" },
+                      });
+                      setPreviewCreative(null);
+                    }}
+                    className="rounded-full bg-[#00C2CB] px-5 py-2.5 text-sm font-semibold text-black hover:bg-[#00b0b8]"
+                  >
+                    Choose this creative
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPreviewCreative(null)}
+                    className="rounded-full border border-white/10 bg-[#111317] px-5 py-2.5 text-sm font-semibold text-white/80 hover:bg-[#15191c]"
+                  >
+                    Close preview
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
