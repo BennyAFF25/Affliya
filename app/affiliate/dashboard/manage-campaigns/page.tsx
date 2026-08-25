@@ -229,19 +229,21 @@ export default function AffiliateManageCampaignsPage() {
       // ----------------------------
       // Organic campaigns (live_campaigns)
       // ----------------------------
-      const { data: liveCampaignsData, error: liveCampaignsErr } =
-        await supabase
-          .from("live_campaigns")
-          .select(
-            "id, type, offer_id, business_email, affiliate_email, media_url, caption, platform, created_from, status, created_at",
-          )
-          .eq("affiliate_email", email)
-          .order("created_at", { ascending: false });
+      try {
+        const liveCampaignRes = await fetch("/api/affiliate/live-campaigns", {
+          cache: "no-store",
+        });
+        const liveCampaignJson = await liveCampaignRes.json().catch(() => null);
 
-      // If the table doesn't exist in this project yet, don’t kill the page.
-      if (liveCampaignsErr) {
-        // Only surface the error if it’s NOT a missing table scenario
-        const msg = String(liveCampaignsErr.message || "");
+        if (!liveCampaignRes.ok || !liveCampaignJson?.ok) {
+          throw new Error(liveCampaignJson?.error || "Failed to load live campaigns");
+        }
+
+        setOrganic(
+          (((liveCampaignJson.campaigns || []) as LiveCampaignRow[]) ?? []).filter(Boolean),
+        );
+      } catch (liveCampaignsErr: any) {
+        const msg = String(liveCampaignsErr?.message || "");
         if (
           !msg.toLowerCase().includes("does not exist") &&
           !msg.toLowerCase().includes("relation")
@@ -249,10 +251,6 @@ export default function AffiliateManageCampaignsPage() {
           throw liveCampaignsErr;
         }
         setOrganic([]);
-      } else {
-        setOrganic(
-          ((liveCampaignsData as LiveCampaignRow[]) ?? []).filter(Boolean),
-        );
       }
 
       // ----------------------------

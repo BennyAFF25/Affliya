@@ -351,18 +351,18 @@ function AffiliateDashboardContent() {
       }
 
       // Live organic campaigns for this affiliate
-      const { data: live, error: liveErr } = await supabase
-        .from("live_campaigns")
-        .select(
-          "id, offer_id, media_url, caption, platform, status, created_at",
-        )
-        .eq("affiliate_email", session.user?.email || "");
+      try {
+        const liveRes = await fetch("/api/affiliate/live-campaigns", { cache: "no-store" });
+        const liveJson = await liveRes.json().catch(() => null);
 
-      if (liveErr) {
+        if (!liveRes.ok || !liveJson?.ok) {
+          throw new Error(liveJson?.error || "Failed to fetch live campaigns");
+        }
+
+        setLiveCampaigns(liveJson.campaigns || []);
+      } catch (liveErr) {
         console.error("[❌ Failed to fetch live_campaigns]", liveErr);
         setLiveCampaigns([]);
-      } else {
-        setLiveCampaigns(live || []);
       }
 
       // Live ads (Meta paid) for this affiliate within Ad Spend window

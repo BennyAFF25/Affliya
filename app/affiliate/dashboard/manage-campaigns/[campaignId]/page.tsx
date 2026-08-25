@@ -322,30 +322,40 @@ export default function ManageCampaignPage() {
     if (!campaignId) return;
 
     // 1) Organic / live_campaigns
-    const { data: organic, error: organicErr } = await supabase
-      .from("live_campaigns")
-      .select(
-        `
-          *,
-          offers:offers (
-            id,
-            title
-          )
-        `,
-      )
-      .eq("id", campaignId)
-      .maybeSingle();
+    try {
+      const organicRes = await fetch(
+        `/api/affiliate/live-campaigns?campaignId=${encodeURIComponent(String(campaignId))}`,
+        { cache: "no-store" },
+      );
+      const organicJson = await organicRes.json().catch(() => null);
 
-    if (organic) {
-      const normalised: Campaign = {
-        ...(organic as any),
-        type: (organic as any).type || "organic",
-        media_url:
-          (organic as any).media_url || (organic as any).file_url || null,
-      };
-      setCampaign(normalised);
-      if (organicErr) setError(organicErr);
-      return;
+      if (organicRes.ok && organicJson?.ok && organicJson?.campaign) {
+        const organic = organicJson.campaign;
+        let offerTitle = "";
+
+        if ((organic as any)?.offer_id) {
+          const { data: offerRow } = await (supabase as any)
+            .from("offers")
+            .select("id, title")
+            .eq("id", (organic as any).offer_id)
+            .maybeSingle();
+          offerTitle = String(offerRow?.title || "");
+        }
+
+        const normalised: Campaign = {
+          ...(organic as any),
+          type: (organic as any).type || "organic",
+          media_url:
+            (organic as any).media_url || (organic as any).file_url || null,
+          offers: (organic as any).offer_id
+            ? { id: (organic as any).offer_id, title: offerTitle }
+            : undefined,
+        };
+        setCampaign(normalised);
+        return;
+      }
+    } catch (organicErr) {
+      console.warn("[manage-campaigns/detail] organic server fetch failed", organicErr);
     }
 
     // 2) Paid Meta / live_ads
