@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo } from "react";
+import { isBlobAssetUrl, isRenderableAssetUrl } from "@/../utils/contentLibrary";
 import { AdFormState } from "../types";
 
 interface PreviewSidebarProps {
@@ -52,7 +53,7 @@ export function PreviewSidebar(props: PreviewSidebarProps) {
 
   useEffect(() => {
     return () => {
-      if (socialPreviewUrl) URL.revokeObjectURL(socialPreviewUrl);
+      if (isBlobAssetUrl(socialPreviewUrl)) URL.revokeObjectURL(socialPreviewUrl!);
     };
   }, [socialPreviewUrl]);
 
@@ -83,12 +84,12 @@ export function PreviewSidebar(props: PreviewSidebarProps) {
           </div>
 
           <div className="aspect-[4/5] w-full rounded-lg bg-[#0f0f0f] border border-[#232323] overflow-hidden">
-            {creativeKind === "video" && videoPreviewUrl ? (
-              <video src={videoPreviewUrl} className="h-full w-full object-cover" controls playsInline muted />
-            ) : creativeKind === "image" && (videoPreviewUrl || thumbPreviewUrl) ? (
-              <img src={videoPreviewUrl || thumbPreviewUrl || ""} alt="Ad image preview" className="h-full w-full object-cover" />
-            ) : thumbPreviewUrl ? (
-              <img src={thumbPreviewUrl} alt="Thumbnail preview" className="h-full w-full object-cover" />
+            {creativeKind === "video" && isRenderableAssetUrl(videoPreviewUrl) ? (
+              <video src={videoPreviewUrl || undefined} className="h-full w-full object-cover" controls playsInline muted />
+            ) : creativeKind === "image" && isRenderableAssetUrl(videoPreviewUrl || thumbPreviewUrl) ? (
+              <img src={(videoPreviewUrl || thumbPreviewUrl) || ""} alt="Ad image preview" className="h-full w-full object-cover" />
+            ) : isRenderableAssetUrl(thumbPreviewUrl) ? (
+              <img src={thumbPreviewUrl || ""} alt="Thumbnail preview" className="h-full w-full object-cover" />
             ) : (
               <div className="h-full w-full flex items-center justify-center text-gray-500 text-sm px-4 text-center">Your ad image/video will appear here</div>
             )}

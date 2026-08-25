@@ -102,6 +102,22 @@ export function slugifyFilenamePart(value: string) {
   return value.replace(/[^a-zA-Z0-9._-]/g, "_");
 }
 
+export function isRenderableAssetUrl(url: string | null | undefined) {
+  if (!url) return false;
+
+  try {
+    const parsed = new URL(url, "https://nettmark.local");
+    return parsed.protocol === "http:" || parsed.protocol === "https:" || parsed.protocol === "blob:";
+  } catch {
+    return false;
+  }
+}
+
+export function isBlobAssetUrl(url: string | null | undefined) {
+  if (!url) return false;
+  return String(url).startsWith("blob:");
+}
+
 export function parseStoragePathFromPublicUrl(url: string | null | undefined, bucket = CONTENT_LIBRARY_BUCKET) {
   if (!url) return null;
 

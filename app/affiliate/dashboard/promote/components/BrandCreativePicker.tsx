@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import type { ContentLibraryAsset } from "@/../utils/contentLibrary";
+import { isRenderableAssetUrl, type ContentLibraryAsset } from "@/../utils/contentLibrary";
 
 interface BrandCreativePickerProps {
   mode: "ad" | "organic";
@@ -66,11 +66,19 @@ export function BrandCreativePicker({ mode, assets, loading, selectedId, onSelec
               >
                 <div className="aspect-[4/3] bg-black">
                   {asset.media_type === "video" ? (
-                    <video className="h-full w-full object-cover" poster={asset.thumbnail_url || undefined} muted playsInline>
-                      <source src={asset.media_url} />
-                    </video>
+                    isRenderableAssetUrl(asset.media_url) ? (
+                      <video className="h-full w-full object-cover" poster={isRenderableAssetUrl(asset.thumbnail_url) ? asset.thumbnail_url || undefined : undefined} muted playsInline>
+                        <source src={asset.media_url} />
+                      </video>
+                    ) : (
+                      <div className="flex h-full items-center justify-center px-5 text-center text-sm text-gray-400">Preview unavailable for this video asset.</div>
+                    )
                   ) : (
-                    <img src={asset.media_url} alt={asset.title || "Brand creative"} className="h-full w-full object-cover" />
+                    isRenderableAssetUrl(asset.media_url) ? (
+                      <img src={asset.media_url} alt={asset.title || "Brand creative"} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full items-center justify-center px-5 text-center text-sm text-gray-400">Preview unavailable for this image asset.</div>
+                    )
                   )}
                 </div>
                 <div className="space-y-3 p-4">

@@ -32,6 +32,7 @@ import { getActivationSubsidyBadgeLabel, getActivationSubsidyRemaining } from ".
 import { calculateWalletBalance } from "../../../../../utils/wallet/balance";
 import { logProductEvent } from "../../../../../utils/productEvents";
 import type { ContentLibraryAsset } from "../../../../../utils/contentLibrary";
+import { isBlobAssetUrl, isRenderableAssetUrl } from "../../../../../utils/contentLibrary";
 
 import { AdFormState, GenderOpt, PlacementKey } from "../types";
 
@@ -244,11 +245,19 @@ export default function PromoteOfferPage() {
       setImageFile(null);
       setThumbnailFile(null);
       setThumbnailError(null);
-      setVideoPreviewUrl(selectedAdBrandCreative.media_type === "video" ? selectedAdBrandCreative.media_url : null);
+      setVideoPreviewUrl(
+        selectedAdBrandCreative.media_type === "video" && isRenderableAssetUrl(selectedAdBrandCreative.media_url)
+          ? selectedAdBrandCreative.media_url
+          : null,
+      );
       setThumbPreviewUrl(
         selectedAdBrandCreative.media_type === "video"
-          ? selectedAdBrandCreative.thumbnail_url || null
-          : selectedAdBrandCreative.media_url,
+          ? isRenderableAssetUrl(selectedAdBrandCreative.thumbnail_url)
+            ? selectedAdBrandCreative.thumbnail_url || null
+            : null
+          : isRenderableAssetUrl(selectedAdBrandCreative.media_url)
+            ? selectedAdBrandCreative.media_url
+            : null,
       );
     }
   }, [adCreativeSource, selectedAdBrandCreative]);
@@ -392,10 +401,10 @@ export default function PromoteOfferPage() {
   const [thumbPreviewUrl, setThumbPreviewUrl] = useState<string | null>(null);
   useEffect(() => {
     return () => {
-      if (videoPreviewUrl) URL.revokeObjectURL(videoPreviewUrl);
-      if (thumbPreviewUrl) URL.revokeObjectURL(thumbPreviewUrl);
+      if (isBlobAssetUrl(videoPreviewUrl)) URL.revokeObjectURL(videoPreviewUrl!);
+      if (isBlobAssetUrl(thumbPreviewUrl)) URL.revokeObjectURL(thumbPreviewUrl!);
     };
-  }, [videoPreviewUrl, thumbPreviewUrl]);
+  }, [thumbPreviewUrl, videoPreviewUrl]);
 
   // Meta business connection (for reach estimate)
   const [biz, setBiz] = useState<{
