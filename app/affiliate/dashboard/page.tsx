@@ -1014,9 +1014,9 @@ function AffiliateDashboardContent() {
                     <div
                       className={`flex flex-1 flex-col gap-3 rounded-2xl border px-4 py-3 sm:flex-row sm:items-center sm:justify-between ${
                         task.done
-                          ? "border-[#00C2CB]/26 bg-[#00C2CB]/8"
+                          ? "border-[#00C2CB]/30 bg-[#0f1d21]"
                           : isCurrent
-                            ? "border-[#00C2CB]/40 bg-[#00C2CB]/12"
+                            ? "border-[#00C2CB]/55 bg-[#102529]"
                             : "border-white/14 bg-[#1a2027]"
                       }`}
                     >
@@ -1028,16 +1028,18 @@ function AffiliateDashboardContent() {
                             <span
                               className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] ${
                                 task.done
-                                  ? "border-[#00C2CB]/30 bg-[#00C2CB]/12 text-[#aafaff]"
+                                  ? "border-[#00C2CB]/35 bg-[#12343a] text-[#aafaff]"
                                   : isCurrent
-                                    ? "border-[#00C2CB]/35 bg-[#00C2CB]/12 text-[#d7feff]"
+                                    ? "border-[#00C2CB]/40 bg-[#154048] text-[#e9feff]"
                                     : "border-white/14 bg-white/[0.05] text-white/72"
                               }`}
                             >
                               {task.done ? "Complete" : isCurrent ? "Current" : "Later"}
                             </span>
                           </div>
-                          <p className={`mt-1 text-xs leading-5 ${isUpcoming ? "text-white/72" : "text-white/64"}`}>{task.description}</p>
+                          <p className={`mt-1 text-xs leading-5 ${
+                            task.done ? "text-white/78" : isCurrent ? "text-white/88" : isUpcoming ? "text-white/72" : "text-white/64"
+                          }`}>{task.description}</p>
                           {isUpcoming && (
                             <p className="mt-1 text-[11px] text-white/56">
                               Finish the earlier step first so this makes sense.
@@ -1046,7 +1048,7 @@ function AffiliateDashboardContent() {
                         </div>
                       </div>
                       {task.done ? (
-                        <span className="shrink-0 text-xs font-semibold text-[#7ff5fb]">
+                        <span className="shrink-0 text-xs font-semibold text-[#aafaff]">
                           Done
                         </span>
                       ) : (
