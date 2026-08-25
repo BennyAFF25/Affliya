@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useSession } from "@supabase/auth-helpers-react";
+import { supabase } from "@/../utils/supabase/pages-client";
 import {
   FiArchive,
   FiEdit3,
@@ -18,7 +19,7 @@ import {
 } from "react-icons/fi";
 import { nmToast } from "@/components/ui/toast";
 import type { ContentLibraryAsset } from "@/../utils/contentLibrary";
-import { getApprovalLabel, getUsageScopeLabel } from "@/../utils/contentLibrary";
+import { CONTENT_LIBRARY_BUCKET, getApprovalLabel, getUsageScopeLabel, inferMediaType, slugifyFilenamePart, validateCreativeFile, validateThumbnailFile } from "@/../utils/contentLibrary";
 
 const FILTERS = ["all", "image", "video", "paid", "organic", "archived"] as const;
 type FilterKey = (typeof FILTERS)[number];
@@ -79,9 +80,51 @@ function buildFormData(form: AssetFormState) {
   fd.set("paid_preapproved", String(form.paidPreapproved));
   fd.set("is_active", String(form.isActive));
   fd.set("replace_thumbnail", String(form.clearThumbnail));
-  if (form.file) fd.set("file", form.file);
-  if (form.thumbnail) fd.set("thumbnail", form.thumbnail);
   return fd;
+}
+
+function normalizePublicUrl(url: string) {
+  if (
+    url &&
+    url.includes("/storage/v1/object/") &&
+    !url.includes("/storage/v1/object/public/")
+  ) {
+    return url.replace("/storage/v1/object/", "/storage/v1/object/public/");
+  }
+  return url;
+}
+
+async function uploadContentLibraryFile(file: File, businessEmail: string, kind: "asset" | "thumbnail") {
+  const ext = (file.name.split(".").pop() || "bin").toLowerCase();
+  const base = slugifyFilenamePart(file.name.replace(/\.[^.]+$/, ""));
+  const fileName = `${Date.now()}-${base}.${ext}`;
+  const path = `${slugifyFilenamePart(businessEmail)}/${kind === "thumbnail" ? "thumbnails" : "assets"}/${fileName}`;
+  const { error } = await supabase.storage.from(CONTENT_LIBRARY_BUCKET).upload(path, file, {
+    upsert: false,
+    contentType: file.type,
+  });
+
+  if (error) {
+    throw new Error(error.message || `Failed to upload ${kind}`);
+  }
+
+  const { data } = supabase.storage.from(CONTENT_LIBRARY_BUCKET).getPublicUrl(path);
+  return {
+    filePath: path,
+    publicUrl: normalizePublicUrl(data.publicUrl),
+  };
+}
+
+async function parseApiResponse(res: Response) {
+  const text = await res.text();
+  try {
+    return text ? JSON.parse(text) : null;
+  } catch {
+    if (!res.ok) {
+      throw new Error(text || `Request failed with status ${res.status}`);
+    }
+    return null;
+  }
 }
 
 function deriveFormState(asset: ContentLibraryAsset): AssetFormState {
@@ -129,7 +172,7 @@ export default function BusinessCreativesPage() {
     setLoading(true);
     try {
       const res = await fetch("/api/business/content-library", { cache: "no-store" });
-      const json = await res.json();
+      const json = await parseApiResponse(res);
       if (!res.ok || !json?.ok) {
         throw new Error(json?.error || "Failed to load content library");
       }
@@ -228,11 +271,33 @@ export default function BusinessCreativesPage() {
     try {
       const endpoint = form.id ? `/api/business/content-library/${form.id}` : "/api/business/content-library";
       const method = form.id ? "PATCH" : "POST";
+      const fd = buildFormData(form);
+
+      if (form.file) {
+        const fileError = validateCreativeFile(form.file);
+        if (fileError) throw new Error(fileError);
+        const mediaType = inferMediaType(form.file);
+        if (!mediaType) throw new Error("Unsupported media type.");
+        const uploaded = await uploadContentLibraryFile(form.file, user?.email || "business", "asset");
+        fd.set("media_url", uploaded.publicUrl);
+        fd.set("file_path", uploaded.filePath);
+        fd.set("media_type", mediaType);
+        fd.set("source_filename", form.file.name);
+      }
+
+      if (form.thumbnail) {
+        const thumbError = validateThumbnailFile(form.thumbnail);
+        if (thumbError) throw new Error(thumbError);
+        const uploadedThumb = await uploadContentLibraryFile(form.thumbnail, user?.email || "business", "thumbnail");
+        fd.set("thumbnail_url", uploadedThumb.publicUrl);
+        fd.set("thumbnail_path", uploadedThumb.filePath);
+      }
+
       const res = await fetch(endpoint, {
         method,
-        body: buildFormData(form),
+        body: fd,
       });
-      const json = await res.json();
+      const json = await parseApiResponse(res);
       if (!res.ok || !json?.ok) {
         throw new Error(json?.error || "Failed to save asset");
       }
@@ -259,7 +324,7 @@ export default function BusinessCreativesPage() {
       fd.set("paid_preapproved", String(!!asset.paid_preapproved));
       fd.set("is_active", String(!asset.is_active));
       const res = await fetch(`/api/business/content-library/${asset.id}`, { method: "PATCH", body: fd });
-      const json = await res.json();
+      const json = await parseApiResponse(res);
       if (!res.ok || !json?.ok) throw new Error(json?.error || "Failed to update asset");
       nmToast.success(asset.is_active ? "Asset archived" : "Asset restored");
       await loadLibrary();
@@ -274,7 +339,7 @@ export default function BusinessCreativesPage() {
 
     try {
       const res = await fetch(`/api/business/content-library/${asset.id}`, { method: "DELETE" });
-      const json = await res.json();
+      const json = await parseApiResponse(res);
       if (!res.ok || !json?.ok) throw new Error(json?.error || "Failed to delete asset");
       nmToast.success("Asset deleted");
       await loadLibrary();

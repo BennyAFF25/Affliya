@@ -139,19 +139,29 @@ export async function POST(req: Request) {
     const formData = await req.formData();
     const file = formData.get("file");
     const thumbnail = formData.get("thumbnail");
+    const providedMediaUrl = cleanNullableText(formData.get("media_url"));
+    const providedFilePath = cleanNullableText(formData.get("file_path"));
+    const providedMediaType = cleanNullableText(formData.get("media_type"));
+    const providedSourceFilename = cleanNullableText(formData.get("source_filename"));
 
-    if (!(file instanceof File)) {
+    let mediaType: "image" | "video" | null = null;
+    let assetUpload: { filePath: string; publicUrl: string } | null = null;
+
+    if (file instanceof File) {
+      const fileValidationError = validateCreativeFile(file);
+      if (fileValidationError) {
+        return NextResponse.json({ ok: false, error: fileValidationError }, { status: 400 });
+      }
+
+      mediaType = inferMediaType(file);
+      if (!mediaType) {
+        return NextResponse.json({ ok: false, error: "Unsupported media type." }, { status: 400 });
+      }
+    } else if (providedMediaUrl && providedFilePath && (providedMediaType === "image" || providedMediaType === "video")) {
+      mediaType = providedMediaType;
+      assetUpload = { filePath: providedFilePath, publicUrl: providedMediaUrl };
+    } else {
       return NextResponse.json({ ok: false, error: "A creative file is required." }, { status: 400 });
-    }
-
-    const fileValidationError = validateCreativeFile(file);
-    if (fileValidationError) {
-      return NextResponse.json({ ok: false, error: fileValidationError }, { status: 400 });
-    }
-
-    const mediaType = inferMediaType(file);
-    if (!mediaType) {
-      return NextResponse.json({ ok: false, error: "Unsupported media type." }, { status: 400 });
     }
 
     const offerId = cleanNullableText(formData.get("offer_id"));
@@ -179,19 +189,25 @@ export async function POST(req: Request) {
     }
 
     let thumbnailUpload: { filePath: string; publicUrl: string } | null = null;
+    const providedThumbnailUrl = cleanNullableText(formData.get("thumbnail_url"));
+    const providedThumbnailPath = cleanNullableText(formData.get("thumbnail_path"));
     if (thumbnail instanceof File && thumbnail.size > 0) {
       const thumbError = validateThumbnailFile(thumbnail);
       if (thumbError) {
         return NextResponse.json({ ok: false, error: thumbError }, { status: 400 });
       }
       thumbnailUpload = await uploadFile(thumbnail, businessEmail, "thumbnail");
+    } else if (providedThumbnailUrl && providedThumbnailPath) {
+      thumbnailUpload = { filePath: providedThumbnailPath, publicUrl: providedThumbnailUrl };
     }
 
     if (mediaType === "video" && allowPaid && !thumbnailUpload) {
       return NextResponse.json({ ok: false, error: "Paid video assets need a thumbnail for Meta launch." }, { status: 400 });
     }
 
-    const assetUpload = await uploadFile(file, businessEmail, "asset");
+    if (!assetUpload && file instanceof File) {
+      assetUpload = await uploadFile(file, businessEmail, "asset");
+    }
 
     const insertPayload = {
       id: crypto.randomUUID(),
@@ -199,12 +215,12 @@ export async function POST(req: Request) {
       offer_id: offerId,
       title: cleanNullableText(formData.get("title")) || file.name,
       caption: cleanNullableText(formData.get("caption")),
-      media_url: assetUpload.publicUrl,
+      media_url: assetUpload!.publicUrl,
       media_type: mediaType,
       thumbnail_url: thumbnailUpload?.publicUrl || null,
-      file_path: assetUpload.filePath,
+      file_path: assetUpload!.filePath,
       thumbnail_path: thumbnailUpload?.filePath || null,
-      source_filename: file.name,
+      source_filename: providedSourceFilename || (file instanceof File ? file.name : null),
       type: cleanNullableText(formData.get("type")) || "suggested",
       audience: cleanNullableText(formData.get("audience")),
       location: cleanNullableText(formData.get("location")),

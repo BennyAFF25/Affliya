@@ -138,37 +138,56 @@ export async function PATCH(req: Request, context: { params: Promise<{ id: strin
     const file = formData.get("file");
     const thumbnail = formData.get("thumbnail");
     const replaceThumbnail = parseBoolean(formData.get("replace_thumbnail"), false);
+    const providedMediaUrl = cleanNullableText(formData.get("media_url"));
+    const providedFilePath = cleanNullableText(formData.get("file_path"));
+    const providedMediaType = cleanNullableText(formData.get("media_type"));
+    const providedSourceFilename = cleanNullableText(formData.get("source_filename"));
+    const providedThumbnailUrl = cleanNullableText(formData.get("thumbnail_url"));
+    const providedThumbnailPath = cleanNullableText(formData.get("thumbnail_path"));
 
-    if (file instanceof File && file.size > 0) {
+    if ((file instanceof File && file.size > 0) || (providedMediaUrl && providedFilePath && providedMediaType)) {
       if (usageCount > 0) {
         return NextResponse.json({ ok: false, error: "This asset is already referenced by promotions. Archive it instead of replacing the media." }, { status: 409 });
       }
-      const fileError = validateCreativeFile(file);
-      if (fileError) {
-        return NextResponse.json({ ok: false, error: fileError }, { status: 400 });
+
+      if (file instanceof File && file.size > 0) {
+        const fileError = validateCreativeFile(file);
+        if (fileError) {
+          return NextResponse.json({ ok: false, error: fileError }, { status: 400 });
+        }
+        const mediaType = inferMediaType(file);
+        if (!mediaType) {
+          return NextResponse.json({ ok: false, error: "Unsupported media type." }, { status: 400 });
+        }
+        const uploaded = await uploadFile(file, businessEmail, "asset");
+        nextPayload.media_url = uploaded.publicUrl;
+        nextPayload.file_path = uploaded.filePath;
+        nextPayload.media_type = mediaType;
+        nextPayload.source_filename = file.name;
+      } else if (providedMediaUrl && providedFilePath && (providedMediaType === "image" || providedMediaType === "video")) {
+        nextPayload.media_url = providedMediaUrl;
+        nextPayload.file_path = providedFilePath;
+        nextPayload.media_type = providedMediaType;
+        nextPayload.source_filename = providedSourceFilename || existing.source_filename;
       }
-      const mediaType = inferMediaType(file);
-      if (!mediaType) {
-        return NextResponse.json({ ok: false, error: "Unsupported media type." }, { status: 400 });
-      }
-      const uploaded = await uploadFile(file, businessEmail, "asset");
-      nextPayload.media_url = uploaded.publicUrl;
-      nextPayload.file_path = uploaded.filePath;
-      nextPayload.media_type = mediaType;
-      nextPayload.source_filename = file.name;
     }
 
-    if (thumbnail instanceof File && thumbnail.size > 0) {
+    if ((thumbnail instanceof File && thumbnail.size > 0) || (providedThumbnailUrl && providedThumbnailPath)) {
       if (usageCount > 0) {
         return NextResponse.json({ ok: false, error: "This asset is already referenced by promotions. Archive it instead of replacing the thumbnail." }, { status: 409 });
       }
-      const thumbError = validateThumbnailFile(thumbnail);
-      if (thumbError) {
-        return NextResponse.json({ ok: false, error: thumbError }, { status: 400 });
+      if (thumbnail instanceof File && thumbnail.size > 0) {
+        const thumbError = validateThumbnailFile(thumbnail);
+        if (thumbError) {
+          return NextResponse.json({ ok: false, error: thumbError }, { status: 400 });
+        }
+        const uploadedThumb = await uploadFile(thumbnail, businessEmail, "thumbnail");
+        nextPayload.thumbnail_url = uploadedThumb.publicUrl;
+        nextPayload.thumbnail_path = uploadedThumb.filePath;
+      } else if (providedThumbnailUrl && providedThumbnailPath) {
+        nextPayload.thumbnail_url = providedThumbnailUrl;
+        nextPayload.thumbnail_path = providedThumbnailPath;
       }
-      const uploadedThumb = await uploadFile(thumbnail, businessEmail, "thumbnail");
-      nextPayload.thumbnail_url = uploadedThumb.publicUrl;
-      nextPayload.thumbnail_path = uploadedThumb.filePath;
     } else if (replaceThumbnail && usageCount === 0) {
       nextPayload.thumbnail_url = null;
       nextPayload.thumbnail_path = null;
