@@ -19,11 +19,11 @@ import {
   ListChecks,
   ChevronDown,
   ChevronUp,
-  Circle,
   MessageCircle,
 } from "lucide-react";
 import DashboardCard from "@/components/DashboardCard";
-import { Button, SectionHeader, StatCard } from "@/../components/ui";
+import { buildTrackingUrl } from "@/../utils/tracking/buildTrackingUrl";
+import { isNettmarkPartnerProgrammeOffer } from "@/../utils/offers/firstPartyOffer";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -77,6 +77,15 @@ interface TrackingEventRow {
   created_at: string | null;
   event_type?: string | null;
   affiliate_id?: string | null;
+}
+
+interface FirstPromotionSnapshot {
+  offerTitle: string;
+  campaignId: string;
+  trackingLink: string;
+  clicks: number;
+  conversions: number;
+  earnings: number;
 }
 
 // (Not used on the dashboard right now, but keeping for future ad preview use)
@@ -166,7 +175,7 @@ function AffiliateDashboardContent() {
     if (isLoading) return; // wait for session resolution
     if (session === null) {
       const next = encodeURIComponent("/affiliate/dashboard");
-      router.replace(`/login/affiliate?next=${next}`);
+      router.replace(`/login?role=affiliate&next=${next}`);
       return;
     }
   }, [session, isLoading, router]);
@@ -297,6 +306,17 @@ function AffiliateDashboardContent() {
         error: any;
       };
 
+      const { data: allRequests, error: requestErr } = await supabase
+        .from("affiliate_requests")
+        .select("id")
+        .eq("affiliate_email", session.user?.email || "");
+
+      if (requestErr) {
+        console.error("[❌ Failed to fetch affiliate requests]", requestErr);
+      } else {
+        setRequestCount((allRequests || []).length);
+      }
+
       if (approvedError) {
         console.error("[❌ Failed to fetch approved requests]", approvedError);
       } else {
@@ -304,19 +324,7 @@ function AffiliateDashboardContent() {
           new Set((approved || []).map((r: ApprovedRequest) => r.offer_id)),
         );
         setApprovedIds(ids);
-        setApprovedRequestCount((approved || []).length);
         console.log("[✅ Approved IDs]", ids);
-      }
-
-      const { data: allRequests, error: allRequestsError } = await (supabase as any)
-        .from("affiliate_requests")
-        .select("id")
-        .eq("affiliate_email", session.user?.email || "");
-
-      if (allRequestsError) {
-        console.error("[❌ Failed to fetch all affiliate requests]", allRequestsError);
-      } else {
-        setRequestCount((allRequests || []).length);
       }
 
       // Approved ad ideas for this affiliate
@@ -409,6 +417,18 @@ function AffiliateDashboardContent() {
         .eq("affiliate_id", session.user?.email || "")
         .in("event_type", ["conversion", "purchase", "order", "checkout_completed"]);
 
+      const { data: clickEvents, error: clickErr } = await supabase
+        .from("campaign_tracking_events")
+        .select("id")
+        .eq("affiliate_id", session.user?.email || "")
+        .in("event_type", ["click", "landing_view", "page_view"]);
+
+      if (clickErr) {
+        console.error("[❌ Failed to fetch click events]", clickErr);
+      } else {
+        setClickCount((clickEvents || []).length);
+      }
+
       if (convFromIso) {
         convQuery = convQuery.gte("created_at", convFromIso);
       }
@@ -446,18 +466,6 @@ function AffiliateDashboardContent() {
           }));
 
         setConversionSeries(sortedConv);
-      }
-
-      const { data: clickEvents, error: clickErr } = await (supabase as any)
-        .from("campaign_tracking_events")
-        .select("id")
-        .eq("affiliate_id", session.user?.email || "")
-        .in("event_type", ["click", "landing_view", "page_view"]);
-
-      if (clickErr) {
-        console.error("[❌ Failed to fetch click events]", clickErr);
-      } else {
-        setClickCount((clickEvents || []).length);
       }
 
       // Wallet payouts for this affiliate
@@ -499,10 +507,10 @@ function AffiliateDashboardContent() {
   });
   const [checklistDismissed, setChecklistDismissed] = useState(false);
   const [checklistCompletionSent, setChecklistCompletionSent] = useState(false);
-  const [showChecklistDetails, setShowChecklistDetails] = useState(false);
   const [requestCount, setRequestCount] = useState(0);
-  const [approvedRequestCount, setApprovedRequestCount] = useState(0);
   const [clickCount, setClickCount] = useState(0);
+  const [firstPromotionSnapshot, setFirstPromotionSnapshot] = useState<FirstPromotionSnapshot | null>(null);
+  const [showActivationDetails, setShowActivationDetails] = useState(true);
   const checklistStorageKey = user ? `affiliate-checklist-${user.id}` : null;
   const checklistDismissedStorageKey = user
     ? `affiliate-checklist-dismissed-${user.id}`
@@ -510,6 +518,13 @@ function AffiliateDashboardContent() {
   const approvedOffers = offers.filter((offer) =>
     approvedIds.includes(offer.id),
   );
+  const partnerProgrammeOffer = offers.find((offer: any) =>
+    isNettmarkPartnerProgrammeOffer(offer),
+  ) as (Offer & { id: string }) | undefined;
+  const partnerProgrammeApproved = !!partnerProgrammeOffer && approvedIds.includes(partnerProgrammeOffer.id);
+  const firstPartnerCampaign = partnerProgrammeOffer
+    ? (liveCampaigns || []).find((campaign: any) => campaign.offer_id === partnerProgrammeOffer.id) || null
+    : null;
   const activeCampaigns = (liveCampaigns || [])
     .map((camp: any) => {
       const matchedOffer = offers.find((offer) => offer.id === camp.offer_id);
@@ -520,6 +535,58 @@ function AffiliateDashboardContent() {
   // Derived metrics for stat cards
   const activeCampaignCount =
     (activeCampaigns?.length || 0) + (liveAds?.length || 0);
+
+  useEffect(() => {
+    const loadFirstPromotionSnapshot = async () => {
+      if (!session?.user?.email || !partnerProgrammeOffer?.id || !firstPartnerCampaign?.id) {
+        setFirstPromotionSnapshot(null);
+        return;
+      }
+
+      const [{ data: clickRows }, { data: conversionRows }, { data: payoutRows, error: payoutError }] = await Promise.all([
+        supabase
+          .from("campaign_tracking_events")
+          .select("id")
+          .eq("affiliate_id", session.user.email)
+          .eq("campaign_id", firstPartnerCampaign.id)
+          .in("event_type", ["click", "landing_view", "page_view"]),
+        supabase
+          .from("campaign_tracking_events")
+          .select("id")
+          .eq("affiliate_id", session.user.email)
+          .eq("campaign_id", firstPartnerCampaign.id)
+          .in("event_type", ["conversion", "purchase", "order", "checkout_completed"]),
+        supabase
+          .from("wallet_payouts")
+          .select("amount")
+          .eq("affiliate_email", session.user.email)
+          .eq("offer_id", partnerProgrammeOffer.id),
+      ]);
+
+      if (payoutError) {
+        console.error("[❌ Failed to fetch first promotion payout snapshot]", payoutError);
+      }
+
+      const earnings = (payoutRows || []).reduce((sum: number, row: any) => {
+        const value = Number(row.amount || 0);
+        return sum + (Number.isFinite(value) ? value : 0);
+      }, 0);
+
+      setFirstPromotionSnapshot({
+        offerTitle: partnerProgrammeOffer.title,
+        campaignId: firstPartnerCampaign.id,
+        trackingLink: buildTrackingUrl({
+          campaignId: firstPartnerCampaign.id,
+          affiliateId: session.user.email,
+        }),
+        clicks: (clickRows || []).length,
+        conversions: (conversionRows || []).length,
+        earnings,
+      });
+    };
+
+    void loadFirstPromotionSnapshot();
+  }, [firstPartnerCampaign?.id, partnerProgrammeOffer?.id, partnerProgrammeOffer?.title, session?.user?.email]);
 
   const totalSpent = (liveAds || []).reduce((sum: number, ad: any) => {
     const val = Number(ad.spend || 0);
@@ -703,40 +770,55 @@ function AffiliateDashboardContent() {
     },
   ];
 
-  const activationItems = [
+  const activationTasks = [
     {
-      label: "Browse offers",
-      description: "Choose an offer from the marketplace.",
-      done: requestCount > 0,
+      key: "payouts",
+      title: "Connect payouts",
+      description: "Add Stripe before your first withdrawal so commissions can be paid automatically.",
+      href: "/affiliate/settings#withdrawals",
+      done: checklistState.payouts,
+      icon: CreditCard,
+    },
+    {
+      key: "request",
+      title: "Get your first offer",
+      description: "Activate the Nettmark Partner Programme or request a third-party offer.",
       href: "/affiliate/marketplace",
+      done: approvedOffers.length > 0 || requestCount > 0,
+      icon: Store,
     },
     {
-      label: "Request approval",
-      description: "Ask the business to approve you before promoting.",
-      done: requestCount > 0,
-      href: "/affiliate/marketplace",
-    },
-    {
-      label: "Get approved",
-      description: "Approved offers unlock paid ads and organic promotion.",
-      done: approvedRequestCount > 0,
-      href: "/affiliate/inbox",
-    },
-    {
-      label: "Promote the offer",
-      description: "Submit paid ads or organic content for review.",
+      key: "launch",
+      title: "Make your first promotion ready",
+      description: "Choose a creative and get a live tracking link you can share right away.",
+      href: partnerProgrammeOffer ? `/affiliate/dashboard/promote/${partnerProgrammeOffer.id}?mode=organic` : "/affiliate/dashboard",
       done: activeCampaignCount > 0,
-      href: "/affiliate/dashboard",
+      icon: RocketLaunchIcon,
     },
     {
-      label: "Track results",
-      description: "Watch clicks, conversions, and commissions.",
-      done: clickCount > 0 || pendingPayoutTotal > 0,
+      key: "traffic",
+      title: "Get first traffic",
+      description: "Watch for your first tracked click or conversion event.",
       href: "/affiliate/dashboard/manage-campaigns",
+      done: clickCount > 0,
+      icon: TrendingUp,
     },
   ];
-  const activationDoneCount = activationItems.filter((item) => item.done).length;
-  const activationProgress = Math.round((activationDoneCount / activationItems.length) * 100);
+
+  const completedActivationSteps = activationTasks.filter((t) => t.done).length;
+  const activationProgress = Math.round(
+    (completedActivationSteps / activationTasks.length) * 100,
+  );
+  const remainingActivationTasks = activationTasks.filter((t) => !t.done);
+
+  async function handleCopyFirstPromotionLink() {
+    if (!firstPromotionSnapshot?.trackingLink) return;
+    try {
+      await navigator.clipboard.writeText(firstPromotionSnapshot.trackingLink);
+    } catch (err) {
+      console.warn("[Dashboard] Failed to copy first promotion link", err);
+    }
+  }
 
   function handleOpenAssistant() {
     if (typeof window === "undefined") return;
@@ -762,18 +844,11 @@ function AffiliateDashboardContent() {
   return (
     <div className="affiliate-dashboard-theme min-h-screen bg-[var(--background)] text-[var(--foreground)]">
       <div className="max-w-8xl mx-auto px-4 sm:px-6 md:px-8 lg:px-10 py-6 md:py-8">
-        <section
-          className="relative mb-8 overflow-hidden rounded-3xl border border-[var(--border)] p-6 shadow-[0_24px_60px_rgba(0,0,0,0.16)] md:p-8"
-          style={{
-            background:
-              "radial-gradient(circle at top right, rgba(0,194,203,0.16), transparent 34%), linear-gradient(135deg, var(--card) 0%, color-mix(in srgb, var(--card) 82%, var(--primary) 18%) 100%)",
-          }}
-        >
-          <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/40 to-transparent opacity-40 dark:via-white/20" />
+        <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-[#0a1719] via-[#0b0f10] to-black p-6 md:p-8 mb-8 shadow-[0_24px_60px_rgba(0,0,0,0.45)]">
           <div className="pointer-events-none absolute -top-16 right-0 h-44 w-44 rounded-full bg-[#00C2CB]/12 blur-3xl" />
-          <div className="pointer-events-none absolute -bottom-24 -left-24 h-40 w-40 rounded-full bg-[#00C2CB]/6 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-24 -left-24 h-40 w-40 rounded-full bg-[#00C2CB]/4 blur-3xl" />
 
-          <div className="relative z-10 flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+          <div className="relative z-10 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-5">
             <div>
               <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#00C2CB]/20 bg-[#00C2CB]/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.24em] text-[#7ff5fb]">
                 <Sparkles className="h-3.5 w-3.5" />
@@ -782,33 +857,101 @@ function AffiliateDashboardContent() {
               <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
                 Affiliate Dashboard
               </h1>
-              <p className="mt-3 max-w-2xl text-sm text-white sm:text-base">
+              <p className="mt-3 max-w-2xl text-sm text-white/82 sm:text-base">
                 Welcome back, {firstName}. Track campaign performance, monitor
                 spend, and launch approved offers faster.
               </p>
             </div>
 
             <div className="flex flex-wrap gap-3">
-              <Button href="/affiliate/marketplace" variant="secondary">
+              <Link
+                href="/affiliate/marketplace"
+                className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-[#111317] px-4 py-2.5 text-sm font-semibold text-white/80 transition hover:bg-[#15191c]"
+              >
                 Browse Offers <ArrowRight className="h-4 w-4" />
-              </Button>
-              <Button href="/affiliate/wallet" variant="secondary">
+              </Link>
+              <Link
+                href="/affiliate/wallet"
+                className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-[#111317] px-4 py-2.5 text-sm font-semibold text-white/80 transition hover:bg-[#15191c]"
+              >
                 Open Wallet
-              </Button>
+              </Link>
             </div>
           </div>
         </section>
 
+        {partnerProgrammeApproved && (
+          <section className="mb-7 overflow-hidden rounded-3xl border border-[#00C2CB]/18 bg-gradient-to-br from-[#0d1b1e] via-[#0f1318] to-[#0b0f10] p-5 md:p-6 shadow-[0_20px_50px_rgba(0,0,0,0.28)]">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <div className="inline-flex items-center gap-2 rounded-full border border-[#00C2CB]/20 bg-[#00C2CB]/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#7ff5fb]">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  Nettmark Partner Programme
+                </div>
+                <h2 className="mt-3 text-2xl font-semibold text-white">
+                  {firstPromotionSnapshot ? "Your first promotion is ready" : "Your first Nettmark offer is approved"}
+                </h2>
+                <p className="mt-2 max-w-2xl text-sm text-white/70">
+                  {firstPromotionSnapshot
+                    ? "Share your first attributable Nettmark promotion now, then come back here to track clicks, conversions, and earnings."
+                    : "You already have approved access to the Nettmark Partner Programme. Pick a creative and get your first attributable promotion ready."}
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-3">
+                {firstPromotionSnapshot?.trackingLink ? (
+                  <button
+                    type="button"
+                    onClick={handleCopyFirstPromotionLink}
+                    className="rounded-full bg-[#00C2CB] px-4 py-2.5 text-sm font-semibold text-black hover:bg-[#00b0b8]"
+                  >
+                    Copy link
+                  </button>
+                ) : null}
+                <Link
+                  href={partnerProgrammeOffer ? `/affiliate/dashboard/promote/${partnerProgrammeOffer.id}?mode=organic` : "/affiliate/marketplace"}
+                  className="rounded-full border border-white/10 bg-[#111317] px-4 py-2.5 text-sm font-semibold text-white/80 hover:bg-[#15191c]"
+                >
+                  Get more content
+                </Link>
+                <Link
+                  href="/affiliate/marketplace"
+                  className="rounded-full border border-white/10 bg-[#111317] px-4 py-2.5 text-sm font-semibold text-white/80 hover:bg-[#15191c]"
+                >
+                  Promote another offer
+                </Link>
+              </div>
+            </div>
+
+            {firstPromotionSnapshot && (
+              <div className="mt-5 grid gap-4 sm:grid-cols-3">
+                <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                  <p className="text-xs text-white/45">Clicks</p>
+                  <p className="mt-2 text-3xl font-bold text-white">{firstPromotionSnapshot.clicks}</p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                  <p className="text-xs text-white/45">Conversions</p>
+                  <p className="mt-2 text-3xl font-bold text-white">{firstPromotionSnapshot.conversions}</p>
+                </div>
+                <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+                  <p className="text-xs text-white/45">Earnings</p>
+                  <p className="mt-2 text-3xl font-bold text-white">{formatCurrency(firstPromotionSnapshot.earnings)}</p>
+                </div>
+              </div>
+            )}
+          </section>
+        )}
+
         <section className="mb-7 rounded-2xl border border-white/12 bg-[#111317] p-4 md:p-5">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div className="flex items-start gap-3">
-              <span className="rounded-xl border border-white/12 bg-[#15191c] p-2">
+              <span className="mt-0.5 rounded-xl border border-white/12 bg-[#15191c] p-2">
                 <ListChecks className="h-4 w-4 text-white" />
               </span>
               <div>
                 <p className="text-sm font-semibold text-white">Affiliate launch path</p>
-                <p className="text-xs text-white">
-                  Choose an offer, request approval, then promote it through paid ads or organic content.
+                <p className="text-xs text-white/60">
+                  {completedActivationSteps} of {activationTasks.length} steps complete · get your first promotion ready, then expand into the marketplace
                 </p>
               </div>
             </div>
@@ -822,11 +965,11 @@ function AffiliateDashboardContent() {
                 Stuck? Talk to the Nettmark bot
               </button>
               <button
-                onClick={() => setShowChecklistDetails((prev) => !prev)}
-                className="inline-flex items-center gap-1 rounded-lg border border-white/12 px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#15191c]"
+                onClick={() => setShowActivationDetails((prev) => !prev)}
+                className="inline-flex items-center gap-2 rounded-lg border border-white/12 px-3 py-2 text-xs font-semibold text-white/80 transition hover:bg-[#15191c]"
               >
-                {showChecklistDetails ? "Hide steps" : "Show steps"}
-                {showChecklistDetails ? (
+                {showActivationDetails ? "Hide steps" : "Show steps"}
+                {showActivationDetails ? (
                   <ChevronUp className="h-4 w-4" />
                 ) : (
                   <ChevronDown className="h-4 w-4" />
@@ -837,63 +980,92 @@ function AffiliateDashboardContent() {
 
           <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-[#1b2026]">
             <div
-              className="h-full rounded-full bg-[#00C2CB] transition-all"
+              className="h-full rounded-full bg-[#00C2CB] transition-all duration-500"
               style={{ width: `${activationProgress}%` }}
             />
           </div>
 
-          {showChecklistDetails && (
-            <div className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-2">
-              {activationItems.map((item) => (
-                <Link
-                  key={item.label}
-                  href={item.href}
-                  className="flex items-start justify-between gap-3 rounded-xl border border-white/10 bg-[#15191c] px-3 py-3"
-                >
-                  <span>
-                    <span className="block text-sm font-medium text-white">{item.label}</span>
-                    <span className="mt-1 block text-xs leading-5 text-white">
-                      {item.description}
-                    </span>
-                  </span>
-                  {item.done ? (
-                    <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#7ff5fb]" />
-                  ) : (
-                    <Circle className="mt-0.5 h-4 w-4 shrink-0 text-white" />
-                  )}
-                </Link>
-              ))}
+          {showActivationDetails && (
+            <div className="mt-5 space-y-3">
+              {activationTasks.map((task, idx) => {
+                const Icon = task.icon;
+                const priorComplete = activationTasks
+                  .slice(0, idx)
+                  .every((priorTask) => priorTask.done);
+                const isCurrent = !task.done && priorComplete;
+                const isUpcoming = !task.done && !priorComplete;
+
+                return (
+                  <div key={task.key} className="relative flex gap-3">
+                    {idx < activationTasks.length - 1 && (
+                      <span className="absolute left-4 top-9 h-[calc(100%-1rem)] w-px bg-white/10" />
+                    )}
+                    <div
+                      className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-xs font-bold ${
+                        task.done
+                          ? "border-[#00C2CB]/45 bg-[#00C2CB]/15 text-[#7ff5fb]"
+                          : isCurrent
+                            ? "border-[#00C2CB] bg-[#00C2CB] text-black"
+                            : "border-white/12 bg-[#15191c] text-white/45"
+                      }`}
+                    >
+                      {task.done ? <CheckCircle2 className="h-4 w-4" /> : idx + 1}
+                    </div>
+                    <div
+                      className={`flex flex-1 flex-col gap-3 rounded-2xl border px-4 py-3 sm:flex-row sm:items-center sm:justify-between ${
+                        task.done
+                          ? "border-[#00C2CB]/20 bg-[#00C2CB]/5"
+                          : isCurrent
+                            ? "border-[#00C2CB]/35 bg-[#00C2CB]/10"
+                            : "border-white/10 bg-[#15191c] opacity-75"
+                      }`}
+                    >
+                      <div className="flex min-w-0 items-start gap-2">
+                        <Icon className="mt-0.5 h-4 w-4 shrink-0 text-white/80" />
+                        <div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-sm font-medium text-white">{task.title}</p>
+                            <span className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/48">
+                              {task.done ? "Complete" : isCurrent ? "Current" : "Later"}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-xs leading-5 text-white/55">{task.description}</p>
+                          {isUpcoming && (
+                            <p className="mt-1 text-[11px] text-white/38">
+                              Finish the earlier step first so this makes sense.
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      {task.done ? (
+                        <span className="shrink-0 text-xs font-semibold text-[#7ff5fb]">
+                          Done
+                        </span>
+                      ) : (
+                        <Link
+                          href={task.href}
+                          className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                            isCurrent
+                              ? "bg-[#00C2CB] text-black hover:bg-[#00b0b8]"
+                              : "border border-white/12 text-white/62 hover:border-[#00C2CB]/40 hover:text-white"
+                          }`}
+                        >
+                          Open
+                        </Link>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+              {remainingActivationTasks.length === 0 && (
+                <p className="text-xs text-white/60">All activation steps are complete.</p>
+              )}
             </div>
           )}
         </section>
 
-        {approvedOffers.length > 0 && (
-          <section className="mb-7 rounded-2xl border border-[#00C2CB]/25 bg-[#0f161b] p-4 md:p-5">
-            <p className="text-xs uppercase tracking-[0.2em] text-[#7ff5fb]">
-              Approved to promote
-            </p>
-            <h3 className="mt-2 text-xl font-semibold text-white">
-              {approvedOffers[0]?.title || "Offer approved"}
-            </h3>
-            <div className="mt-4 flex flex-wrap gap-2">
-              <Link
-                href={`/affiliate/dashboard/promote/${approvedOffers[0].id}?mode=ad`}
-                className="rounded-lg bg-[#00C2CB] px-4 py-2 text-sm font-semibold text-black transition hover:bg-[#28d3da]"
-              >
-                Launch Campaign
-              </Link>
-              <Link
-                href={`/affiliate/dashboard/promote/${approvedOffers[0].id}?mode=organic`}
-                className="rounded-lg border border-white/12 bg-[#15191c] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#1a2026]"
-              >
-                Promote Organically
-              </Link>
-            </div>
-          </section>
-        )}
-
         <section className="mb-7">
-          <p className="mb-3 text-xs uppercase tracking-[0.2em] text-white">
+          <p className="mb-3 text-xs uppercase tracking-[0.2em] text-white/45">
             Quick actions
           </p>
           <div className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -901,7 +1073,7 @@ function AffiliateDashboardContent() {
               <Link
                 key={action.href}
                 href={action.href}
-                className="shrink-0 rounded-full border border-white/10 bg-[#111317] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#15191c]"
+                className="shrink-0 rounded-full border border-white/10 bg-[#111317] px-4 py-2 text-sm font-medium text-white/80 transition hover:bg-[#15191c]"
               >
                 {action.label}
               </Link>
@@ -909,15 +1081,86 @@ function AffiliateDashboardContent() {
           </div>
         </section>
 
-        <SectionHeader eyebrow="Snapshot" title="Dashboard snapshot" className="mb-4" />
-        <div className="mb-9 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard label="Active campaigns" value={activeCampaignCount} icon={<TrendingUp className="h-4 w-4" />} tone="primary" />
-          <StatCard label="Total spent" value={formatCurrency(totalSpent)} icon={<DollarSign className="h-4 w-4" />} tone="primary" />
-          <StatCard label="Pending payout" value={formatCurrency(pendingPayoutTotal)} icon={<Wallet className="h-4 w-4" />} tone="muted" />
-          <StatCard label="Approved offers" value={approvedOffers.length} icon={<CheckCircle className="h-4 w-4" />} tone="success" />
+        <section className="mb-4">
+          <p className="text-xs uppercase tracking-[0.2em] text-white/45">
+            Snapshot
+          </p>
+        </section>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-10">
+          {/* Stat Card: Active Campaigns */}
+          <DashboardCard>
+            <div className="flex items-center gap-4">
+              <div className="text-white/80 bg-[#15191c] rounded-lg border border-white/10 p-2.5">
+                <TrendingUp className="h-6 w-6" />
+              </div>
+              <div>
+                <p className="text-xs text-[var(--muted-foreground)]">
+                  Active Campaigns
+                </p>
+                <h2 className="text-3xl font-bold text-white">
+                  {activeCampaignCount}
+                </h2>
+              </div>
+            </div>
+          </DashboardCard>
+
+          {/* Stat Card: Total Spent */}
+          <DashboardCard>
+            <div className="flex items-center gap-4">
+              <div className="text-white/80 bg-[#15191c] rounded-lg border border-white/10 p-2.5">
+                <DollarSign className="h-6 w-6" />
+              </div>
+              <div>
+                <p className="text-xs text-[var(--muted-foreground)]">
+                  Total Spent
+                </p>
+                <h2 className="text-3xl font-bold text-white">
+                  {formatCurrency(totalSpent)}
+                </h2>
+              </div>
+            </div>
+          </DashboardCard>
+
+          {/* Stat Card: Pending Payout */}
+          <DashboardCard>
+            <div className="flex items-center gap-4">
+              <div className="text-white/80 bg-[#15191c] rounded-lg border border-white/10 p-2.5">
+                <Wallet className="h-6 w-6" />
+              </div>
+              <div>
+                <p className="text-xs text-[var(--muted-foreground)]">
+                  Pending Payout
+                </p>
+                <h2 className="text-3xl font-bold text-white">
+                  {formatCurrency(pendingPayoutTotal)}
+                </h2>
+              </div>
+            </div>
+          </DashboardCard>
+
+          {/* Stat Card: Approved Offers */}
+          <DashboardCard>
+            <div className="flex items-center gap-4">
+              <div className="text-white/80 bg-[#15191c] rounded-lg border border-white/10 p-2.5">
+                <CheckCircle className="h-6 w-6" />
+              </div>
+              <div>
+                <p className="text-xs text-[var(--muted-foreground)]">
+                  Approved Offers
+                </p>
+                <h2 className="text-3xl font-bold text-white">
+                  {approvedOffers.length}
+                </h2>
+              </div>
+            </div>
+          </DashboardCard>
         </div>
 
-        <SectionHeader eyebrow="Performance" title="Performance trends" className="mb-4" />
+        <section className="mb-4">
+          <p className="text-xs uppercase tracking-[0.2em] text-white/45">
+            Performance
+          </p>
+        </section>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
           {chartConfigs.map((chart) => {
             const isSpendChart = chart.id === "spend";
@@ -1238,7 +1481,7 @@ function AffiliateDashboardContent() {
         </div>
 
         <section className="mb-4">
-          <p className="text-xs uppercase tracking-[0.2em] text-white">
+          <p className="text-xs uppercase tracking-[0.2em] text-white/45">
             Action queue
           </p>
         </section>
@@ -1250,17 +1493,17 @@ function AffiliateDashboardContent() {
                 Active Campaigns
               </h2>
               {activeCampaigns.length === 0 ? (
-                <div className="rounded-xl border border-white/12 bg-[#15191c] p-6 text-center text-white">
-                  <p className="font-medium text-white">
+                <div className="rounded-xl border border-white/12 bg-[#15191c] p-6 text-center text-white/70">
+                  <p className="font-medium text-white/85">
                     No active campaigns yet.
                   </p>
-                  <p className="mt-1 text-sm text-white">
+                  <p className="mt-1 text-sm text-white/60">
                     Start by promoting an approved offer and launch your first
                     campaign.
                   </p>
                   <Link
                     href="/affiliate/marketplace"
-                    className="mt-4 inline-flex items-center gap-2 rounded-lg border border-white/10 bg-[#111317] px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-[#15191c]"
+                    className="mt-4 inline-flex items-center gap-2 rounded-lg border border-white/10 bg-[#111317] px-3.5 py-2 text-sm font-semibold text-white/80 transition hover:bg-[#15191c]"
                   >
                     Start first campaign <ArrowRight className="h-4 w-4" />
                   </Link>
@@ -1278,14 +1521,14 @@ function AffiliateDashboardContent() {
                         </p>
                         <div className="flex items-center">
                           <RocketLaunchIcon className="w-5 h-5 text-[#00C2CB] mr-2" />
-                          <span className="truncate text-sm text-white">
+                          <span className="truncate text-sm text-white/70">
                             Campaign: {offer.ideaId?.slice(0, 8)}...
                           </span>
                         </div>
                       </div>
                       <Link
                         href={`/affiliate/dashboard/manage-campaigns/${offer.ideaId}`}
-                        className="text-sm px-3 py-1 rounded-lg border border-white/10 bg-[#111317] text-white transition hover:bg-[#15191c]"
+                        className="text-sm px-3 py-1 rounded-lg border border-white/10 bg-[#111317] text-white/80 transition hover:bg-[#15191c]"
                       >
                         View
                       </Link>
@@ -1313,17 +1556,17 @@ function AffiliateDashboardContent() {
                 Approved Offers
               </h2>
               {approvedOffers.length === 0 ? (
-                <div className="rounded-xl border border-white/12 bg-[#15191c] p-6 text-center text-white">
-                  <p className="font-medium text-white">
+                <div className="rounded-xl border border-white/12 bg-[#15191c] p-6 text-center text-white/70">
+                  <p className="font-medium text-white/85">
                     No approved offers yet.
                   </p>
-                  <p className="mt-1 text-sm text-white">
+                  <p className="mt-1 text-sm text-white/60">
                     Browse the marketplace and request offers to unlock your
                     promotion queue.
                   </p>
                   <Link
                     href="/affiliate/marketplace"
-                    className="mt-4 inline-flex items-center gap-2 rounded-lg border border-white/10 bg-[#111317] px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-[#15191c]"
+                    className="mt-4 inline-flex items-center gap-2 rounded-lg border border-white/10 bg-[#111317] px-3.5 py-2 text-sm font-semibold text-white/80 transition hover:bg-[#15191c]"
                   >
                     Browse marketplace <ArrowRight className="h-4 w-4" />
                   </Link>
@@ -1341,7 +1584,7 @@ function AffiliateDashboardContent() {
                         </p>
                         <div className="flex items-center">
                           <RocketLaunchIcon className="w-5 h-5 text-[#00C2CB] mr-2" />
-                          <span className="truncate text-sm text-white">
+                          <span className="truncate text-sm text-white/70">
                             Commission: {offer.commission}% | Type:{" "}
                             {offer.payoutType}
                           </span>
@@ -1349,7 +1592,7 @@ function AffiliateDashboardContent() {
                       </div>
                       <Link
                         href={`/affiliate/dashboard/promote/${offer.id}`}
-                        className="text-sm px-3 py-1 rounded-lg border border-white/10 bg-[#111317] text-white transition hover:bg-[#15191c]"
+                        className="text-sm px-3 py-1 rounded-lg border border-white/10 bg-[#111317] text-white/80 transition hover:bg-[#15191c]"
                       >
                         Promote
                       </Link>

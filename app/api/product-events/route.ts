@@ -11,6 +11,14 @@ const ALLOWED_EVENT_TYPES = new Set([
   "promotion_started",
   "paid_promotion_submitted",
   "organic_promotion_submitted",
+  "onboarding_started",
+  "promotion_preference_selected",
+  "nettmark_partner_offer_activated",
+  "first_creative_viewed",
+  "first_creative_selected",
+  "first_tracking_link_created",
+  "first_promotion_ready",
+  "onboarding_completed",
 ]);
 
 export async function POST(req: Request) {

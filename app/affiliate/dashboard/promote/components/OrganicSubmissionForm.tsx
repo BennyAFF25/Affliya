@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { isRenderableAssetUrl } from "@/../utils/contentLibrary";
 import { Disclosure } from "./AdFormFields";
 import { INPUT } from "../constants";
 
@@ -112,19 +111,11 @@ export function OrganicSubmissionForm({
             <div className="mt-4 overflow-hidden rounded-2xl border border-[#2a2a2a] bg-[#141414]">
               <div className="aspect-[4/3] bg-black">
                 {selectedBrandCreative.media_type === "video" ? (
-                  isRenderableAssetUrl(selectedBrandCreative.media_url) ? (
-                    <video controls className="h-full w-full object-cover" poster={isRenderableAssetUrl(selectedBrandCreative.thumbnail_url) ? selectedBrandCreative.thumbnail_url || undefined : undefined}>
-                      <source src={selectedBrandCreative.media_url} />
-                    </video>
-                  ) : (
-                    <div className="flex h-full items-center justify-center px-5 text-center text-sm text-gray-400">This video creative is saved, but its preview URL is invalid.</div>
-                  )
+                  <video controls className="h-full w-full object-cover" poster={selectedBrandCreative.thumbnail_url || undefined}>
+                    <source src={selectedBrandCreative.media_url} />
+                  </video>
                 ) : (
-                  isRenderableAssetUrl(selectedBrandCreative.media_url) ? (
-                    <img src={selectedBrandCreative.media_url} alt={selectedBrandCreative.title || "Selected brand creative"} className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="flex h-full items-center justify-center px-5 text-center text-sm text-gray-400">This image creative is saved, but its preview URL is invalid.</div>
-                  )
+                  <img src={selectedBrandCreative.media_url} alt={selectedBrandCreative.title || "Selected brand creative"} className="h-full w-full object-cover" />
                 )}
               </div>
               <div className="p-4">

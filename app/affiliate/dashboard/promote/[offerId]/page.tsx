@@ -32,7 +32,6 @@ import { getActivationSubsidyBadgeLabel, getActivationSubsidyRemaining } from ".
 import { calculateWalletBalance } from "../../../../../utils/wallet/balance";
 import { logProductEvent } from "../../../../../utils/productEvents";
 import type { ContentLibraryAsset } from "../../../../../utils/contentLibrary";
-import { isBlobAssetUrl, isRenderableAssetUrl } from "../../../../../utils/contentLibrary";
 
 import { AdFormState, GenderOpt, PlacementKey } from "../types";
 
@@ -235,6 +234,26 @@ export default function PromoteOfferPage() {
   }, [adCreativeSource, mode, offerId, organicCreativeSource, userEmail]);
 
   useEffect(() => {
+    if (selectedAdBrandCreative && adCreativeSource === "brand") {
+      setForm((prev) => ({
+        ...prev,
+        caption: prev.caption || selectedAdBrandCreative.caption || "",
+        headline: prev.headline || selectedAdBrandCreative.title || "",
+      }));
+      setVideoFile(null);
+      setImageFile(null);
+      setThumbnailFile(null);
+      setThumbnailError(null);
+      setVideoPreviewUrl(selectedAdBrandCreative.media_type === "video" ? selectedAdBrandCreative.media_url : null);
+      setThumbPreviewUrl(
+        selectedAdBrandCreative.media_type === "video"
+          ? selectedAdBrandCreative.thumbnail_url || null
+          : selectedAdBrandCreative.media_url,
+      );
+    }
+  }, [adCreativeSource, selectedAdBrandCreative]);
+
+  useEffect(() => {
     if (selectedOrganicBrandCreative && organicCreativeSource === "brand") {
       if (!ogCaption) {
         setOgCaption(selectedOrganicBrandCreative.caption || "");
@@ -242,6 +261,13 @@ export default function PromoteOfferPage() {
       setOgFile(null);
     }
   }, [organicCreativeSource, ogCaption, selectedOrganicBrandCreative]);
+
+  useEffect(() => {
+    if (adCreativeSource === "upload" && !videoFile && !imageFile) {
+      setVideoPreviewUrl(null);
+      setThumbPreviewUrl(null);
+    }
+  }, [adCreativeSource, imageFile, videoFile]);
 
   // ─────────────────────────────
   // Derived tracking link
@@ -366,45 +392,10 @@ export default function PromoteOfferPage() {
   const [thumbPreviewUrl, setThumbPreviewUrl] = useState<string | null>(null);
   useEffect(() => {
     return () => {
-      if (isBlobAssetUrl(videoPreviewUrl)) URL.revokeObjectURL(videoPreviewUrl!);
-      if (isBlobAssetUrl(thumbPreviewUrl)) URL.revokeObjectURL(thumbPreviewUrl!);
+      if (videoPreviewUrl) URL.revokeObjectURL(videoPreviewUrl);
+      if (thumbPreviewUrl) URL.revokeObjectURL(thumbPreviewUrl);
     };
-  }, [thumbPreviewUrl, videoPreviewUrl]);
-
-  useEffect(() => {
-    if (selectedAdBrandCreative && adCreativeSource === "brand") {
-      setForm((prev) => ({
-        ...prev,
-        caption: prev.caption || selectedAdBrandCreative.caption || "",
-        headline: prev.headline || selectedAdBrandCreative.title || "",
-      }));
-      setVideoFile(null);
-      setImageFile(null);
-      setThumbnailFile(null);
-      setThumbnailError(null);
-      setVideoPreviewUrl(
-        selectedAdBrandCreative.media_type === "video" && isRenderableAssetUrl(selectedAdBrandCreative.media_url)
-          ? selectedAdBrandCreative.media_url
-          : null,
-      );
-      setThumbPreviewUrl(
-        selectedAdBrandCreative.media_type === "video"
-          ? isRenderableAssetUrl(selectedAdBrandCreative.thumbnail_url)
-            ? selectedAdBrandCreative.thumbnail_url || null
-            : null
-          : isRenderableAssetUrl(selectedAdBrandCreative.media_url)
-            ? selectedAdBrandCreative.media_url
-            : null,
-      );
-    }
-  }, [adCreativeSource, selectedAdBrandCreative]);
-
-  useEffect(() => {
-    if (adCreativeSource === "upload" && !videoFile && !imageFile) {
-      setVideoPreviewUrl(null);
-      setThumbPreviewUrl(null);
-    }
-  }, [adCreativeSource, imageFile, videoFile]);
+  }, [videoPreviewUrl, thumbPreviewUrl]);
 
   // Meta business connection (for reach estimate)
   const [biz, setBiz] = useState<{
