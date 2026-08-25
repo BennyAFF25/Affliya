@@ -1283,6 +1283,34 @@ export default function MyBusinessPage() {
               </div>
             )}
 
+            <section className="rounded-[22px] border border-[#00C2CB]/18 bg-[#111314] p-5 shadow-2xl shadow-black/20 sm:p-6">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="max-w-2xl">
+                  <div className="inline-flex items-center gap-2 rounded-full border border-[#00C2CB]/25 bg-[#00C2CB]/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-[#7ff5fb]">
+                    <IconBolt className="h-3.5 w-3.5" />
+                    Creative Library
+                  </div>
+                  <h2 className="mt-4 text-lg font-bold text-white">Upload approved ads and brand content for affiliates</h2>
+                  <p className="mt-2 text-sm leading-6 text-slate-400">
+                    This stays available even before Meta or billing are fully set up. Add reusable images, videos, and copy once, then attach each creative to all offers or one specific offer.
+                  </p>
+                </div>
+                <div className="grid gap-2 sm:min-w-[230px]">
+                  <Link href="/business/my-business/publish-creatives" prefetch={false} className="inline-flex min-h-[40px] items-center justify-center rounded-full bg-[#00C2CB] px-4 text-xs font-black text-black hover:bg-[#14d5de]">
+                    Open content library
+                  </Link>
+                  <Link href="/business/my-business/publish-creatives?open=1&scope=offer" prefetch={false} className="inline-flex min-h-[40px] items-center justify-center rounded-full border border-white/10 bg-white/[0.03] px-4 text-xs font-bold text-slate-200 hover:border-[#00C2CB]/35">
+                    Attach creative to offer
+                  </Link>
+                </div>
+              </div>
+              {!hasAnyOffer && (
+                <div className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-xs text-amber-100">
+                  Create your first offer, then use <strong>Attach creative to offer</strong> to keep uploaded media scoped to that offer only.
+                </div>
+              )}
+            </section>
+
             <section className="rounded-[22px] border border-white/[0.08] bg-[#151718] p-5 shadow-2xl shadow-black/20 sm:p-6">
               <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>

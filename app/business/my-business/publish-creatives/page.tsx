@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useSearchParams } from "next/navigation";
 import { useSession } from "@supabase/auth-helpers-react";
 import {
   FiArchive,
   FiEdit3,
+  FiEye,
   FiFilm,
   FiFolder,
   FiGlobe,
@@ -104,6 +106,7 @@ function deriveFormState(asset: ContentLibraryAsset): AssetFormState {
 export default function BusinessCreativesPage() {
   const session = useSession();
   const user = session?.user;
+  const searchParams = useSearchParams();
   const [assets, setAssets] = useState<ContentLibraryAsset[]>([]);
   const [offers, setOffers] = useState<OfferOption[]>([]);
   const [loading, setLoading] = useState(true);
@@ -136,6 +139,21 @@ export default function BusinessCreativesPage() {
     void loadLibrary();
   }, [user?.email]);
 
+  useEffect(() => {
+    const shouldOpen = searchParams.get("open") === "1";
+    if (!shouldOpen) return;
+
+    const offerId = searchParams.get("offerId") || "";
+    const requestedScope = searchParams.get("scope") === "offer" ? "offer" : "all";
+
+    if (requestedScope === "offer") {
+      openCreateForScope("offer", offerId);
+      return;
+    }
+
+    openCreateForScope("all");
+  }, [searchParams]);
+
   const filteredAssets = useMemo(() => {
     return assets.filter((asset) => {
       if (activeFilter === "all") return true;
@@ -150,6 +168,15 @@ export default function BusinessCreativesPage() {
 
   const openCreate = () => {
     setForm(EMPTY_FORM);
+    setIsEditorOpen(true);
+  };
+
+  const openCreateForScope = (scope: "all" | "offer", offerId = "") => {
+    setForm({
+      ...EMPTY_FORM,
+      usageScope: scope,
+      offerId: scope === "offer" ? offerId : "",
+    });
     setIsEditorOpen(true);
   };
 
@@ -242,6 +269,7 @@ export default function BusinessCreativesPage() {
 
   const activeCount = assets.filter((asset) => asset.is_active).length;
   const readyCount = assets.filter((asset) => asset.is_active && (asset.allow_organic || asset.allow_paid)).length;
+  const offerScopedCount = assets.filter((asset) => asset.is_active && !!asset.offer_id).length;
 
   return (
     <div className="publish-creatives-theme min-h-screen w-full bg-[var(--background)] p-6 sm:p-10 text-[var(--foreground)]">
@@ -255,7 +283,7 @@ export default function BusinessCreativesPage() {
               </div>
               <h1 className="text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">Content Library</h1>
               <p className="mt-3 max-w-2xl text-sm text-[var(--muted-foreground)] sm:text-base">
-                Upload reusable content affiliates can use to promote your offers. Keep the media here, then let affiliates plug it straight into the existing paid or organic review flow.
+                Upload approved ads, images, videos, and suggested copy that affiliates can use to promote your offers. You can keep assets global across all offers or attach them to one specific offer.
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
@@ -268,15 +296,22 @@ export default function BusinessCreativesPage() {
               </button>
               <button
                 type="button"
-                onClick={openCreate}
+                onClick={() => openCreateForScope("all")}
                 className="inline-flex items-center gap-2 rounded-2xl bg-[var(--primary)] px-4 py-3 text-sm font-semibold text-[var(--primary-foreground)] shadow-[0_0_18px_rgba(0,194,203,0.18)] transition hover:brightness-110"
               >
                 <FiPlus /> Upload content
               </button>
+              <button
+                type="button"
+                onClick={() => openCreateForScope("offer")}
+                className="inline-flex items-center gap-2 rounded-2xl border border-[var(--primary)]/25 bg-[var(--primary)]/10 px-4 py-3 text-sm font-semibold text-[var(--primary)] transition hover:bg-[var(--primary)]/15"
+              >
+                <FiLayers /> Attach to an offer
+              </button>
             </div>
           </div>
 
-          <div className="mt-6 grid gap-4 sm:grid-cols-3">
+          <div className="mt-6 grid gap-4 sm:grid-cols-4">
             <div className="rounded-2xl border border-[var(--border)] bg-[var(--background)] p-4">
               <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted-foreground)]">Active assets</p>
               <p className="mt-2 text-2xl font-bold text-[var(--foreground)]">{activeCount}</p>
@@ -289,8 +324,50 @@ export default function BusinessCreativesPage() {
               <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted-foreground)]">Archived</p>
               <p className="mt-2 text-2xl font-bold text-[var(--foreground)]">{assets.length - activeCount}</p>
             </div>
+            <div className="rounded-2xl border border-[var(--border)] bg-[var(--background)] p-4">
+              <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted-foreground)]">Offer-specific assets</p>
+              <p className="mt-2 text-2xl font-bold text-[var(--foreground)]">{offerScopedCount}</p>
+            </div>
           </div>
         </header>
+
+        <section className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+          <div className="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.08)]">
+            <div className="flex items-center gap-2 text-sm font-semibold text-[var(--foreground)]">
+              <FiEye /> How this works
+            </div>
+            <ul className="mt-4 space-y-3 text-sm leading-6 text-[var(--muted-foreground)]">
+              <li>• Upload brand content once, then let affiliates pick it directly inside <strong>Start promoting</strong>.</li>
+              <li>• Choose <strong>All business offers</strong> for reusable evergreen assets.</li>
+              <li>• Choose <strong>One specific offer</strong> when a creative should only appear for one offer.</li>
+              <li>• Paid video assets need a thumbnail before they can be used in paid ad flows.</li>
+            </ul>
+          </div>
+
+          <div className="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.08)]">
+            <div className="flex items-center gap-2 text-sm font-semibold text-[var(--foreground)]">
+              <FiLayers /> Offer attachment
+            </div>
+            <p className="mt-3 text-sm leading-6 text-[var(--muted-foreground)]">
+              Want a creative to show only on one offer? Use <strong>Attach to an offer</strong>, then choose the offer inside the upload form.
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {offers.slice(0, 6).map((offer) => (
+                <button
+                  key={offer.id}
+                  type="button"
+                  onClick={() => openCreateForScope("offer", offer.id)}
+                  className="rounded-full border border-[var(--border)] bg-[var(--secondary)] px-3 py-2 text-xs font-medium text-[var(--secondary-foreground)] hover:border-[var(--primary)]/35"
+                >
+                  {offer.title}
+                </button>
+              ))}
+              {!offers.length ? (
+                <span className="text-xs text-[var(--muted-foreground)]">Create an offer first, then attach creatives to it here.</span>
+              ) : null}
+            </div>
+          </div>
+        </section>
 
         <section className="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-5 shadow-[0_20px_60px_rgba(0,0,0,0.08)]">
           <div className="flex flex-wrap gap-2">
@@ -325,7 +402,7 @@ export default function BusinessCreativesPage() {
             </p>
             <button
               type="button"
-              onClick={openCreate}
+              onClick={() => openCreateForScope("all")}
               className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-[var(--primary)] px-4 py-3 text-sm font-semibold text-[var(--primary-foreground)]"
             >
               <FiPlus /> Upload your first creative
@@ -421,6 +498,9 @@ export default function BusinessCreativesPage() {
 
                 <div className="rounded-2xl border border-[var(--border)] bg-[var(--background)] p-4">
                   <div className="flex items-center gap-2 text-sm font-medium text-[var(--foreground)]"><FiLayers /> Offer association</div>
+                  <p className="mt-2 text-sm leading-6 text-[var(--muted-foreground)]">
+                    Attach this media to <strong>all offers</strong> or keep it limited to <strong>one specific offer</strong> if the creative is only approved for that listing.
+                  </p>
                   <div className="mt-4 flex flex-wrap gap-2">
                     <button type="button" onClick={() => setForm((prev) => ({ ...prev, usageScope: "all", offerId: "" }))} className={`rounded-full px-3 py-2 text-sm ${form.usageScope === "all" ? "bg-[var(--primary)] text-[var(--primary-foreground)]" : "border border-[var(--border)] bg-[var(--secondary)] text-[var(--secondary-foreground)]"}`}>
                       All business offers
@@ -430,12 +510,28 @@ export default function BusinessCreativesPage() {
                     </button>
                   </div>
                   {form.usageScope === "offer" && (
-                    <select value={form.offerId} onChange={(e) => setForm((prev) => ({ ...prev, offerId: e.target.value }))} className="mt-4 w-full rounded-2xl border border-[var(--border)] bg-[var(--input-background)] px-4 py-3 text-[var(--foreground)]">
-                      <option value="">Select offer</option>
-                      {offers.map((offer) => (
-                        <option key={offer.id} value={offer.id}>{offer.title}</option>
-                      ))}
-                    </select>
+                    <div className="mt-4 space-y-3">
+                      <select value={form.offerId} onChange={(e) => setForm((prev) => ({ ...prev, offerId: e.target.value }))} className="w-full rounded-2xl border border-[var(--border)] bg-[var(--input-background)] px-4 py-3 text-[var(--foreground)]">
+                        <option value="">Select offer</option>
+                        {offers.map((offer) => (
+                          <option key={offer.id} value={offer.id}>{offer.title}</option>
+                        ))}
+                      </select>
+                      {!!offers.length && (
+                        <div className="flex flex-wrap gap-2">
+                          {offers.slice(0, 8).map((offer) => (
+                            <button
+                              key={offer.id}
+                              type="button"
+                              onClick={() => setForm((prev) => ({ ...prev, offerId: offer.id, usageScope: "offer" }))}
+                              className={`rounded-full px-3 py-2 text-xs font-medium ${form.offerId === offer.id ? "bg-[var(--primary)] text-[var(--primary-foreground)]" : "border border-[var(--border)] bg-[var(--secondary)] text-[var(--secondary-foreground)]"}`}
+                            >
+                              {offer.title}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
 
