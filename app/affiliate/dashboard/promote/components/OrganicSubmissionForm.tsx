@@ -1,7 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
-import { Badge, Button } from "@/../components/ui";
+import { useState } from "react";
 import { Disclosure } from "./AdFormFields";
 import { INPUT } from "../constants";
 
@@ -16,6 +15,16 @@ interface OrganicSubmissionFormProps {
   setOgContent: (value: string) => void;
   ogFile: File | null;
   setOgFile: (file: File | null) => void;
+  selectedBrandCreative?: {
+    title?: string | null;
+    caption?: string | null;
+    media_url: string;
+    media_type: string;
+    thumbnail_url?: string | null;
+  } | null;
+  usingBrandContent?: boolean;
+  onSwitchToBrandContent?: () => void;
+  onSwitchToUploadOwn?: () => void;
   handleOrganicSubmit: () => Promise<void>;
 }
 
@@ -30,6 +39,10 @@ export function OrganicSubmissionForm({
   setOgContent,
   ogFile,
   setOgFile,
+  selectedBrandCreative,
+  usingBrandContent,
+  onSwitchToBrandContent,
+  onSwitchToUploadOwn,
   handleOrganicSubmit,
 }: OrganicSubmissionFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -60,22 +73,62 @@ export function OrganicSubmissionForm({
   };
 
   return (
-    <div className="mx-auto w-full max-w-full overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[0_18px_55px_rgba(0,0,0,0.22)]">
-      <div className="flex items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-4 sm:px-5">
+    <div className="bg-[#141414] border border-[#232323] rounded-2xl shadow-xl overflow-hidden w-full max-w-full mx-auto">
+      <div className="px-4 sm:px-8 py-5 border-b border-[#232323] flex items-center justify-between gap-3">
         <div>
-          <div className="mb-2 flex flex-wrap items-center gap-2">
-            <Badge variant="primary">Organic track</Badge>
-            <Badge variant="muted">No ad spend</Badge>
-          </div>
-          <h2 className="text-xl font-semibold text-[#00C2CB] sm:text-2xl">Submit Organic Promotion</h2>
-          <p className="mt-1 text-xs text-gray-400 sm:text-sm">Social, email, forum, or other promotion for business review.</p>
+          <h2 className="text-xl sm:text-2xl font-bold text-[#00C2CB]">Submit Organic Promotion</h2>
+          <p className="text-xs sm:text-sm text-gray-400 mt-1">Mobile-friendly, no ad spend required.</p>
         </div>
+        <span className="hidden sm:inline-flex text-xs px-2 py-1 rounded-full border border-[#00C2CB]/40 text-[#7ff5fb]">Organic track</span>
       </div>
 
-      <div className="space-y-4 px-4 py-5 sm:px-5 sm:py-6">
+      <div className="px-4 sm:px-8 py-6 space-y-4 sm:space-y-6">
+        <div className="rounded-xl border border-[#232323] bg-[#101010] p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <div className="text-sm font-semibold text-white">Choose your creative</div>
+              <div className="mt-1 text-xs text-gray-400">Use brand content to skip the blank-canvas step, or upload your own.</div>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={onSwitchToBrandContent}
+                className={`rounded-full px-3 py-2 text-xs font-medium ${usingBrandContent ? "bg-[#00C2CB] text-black" : "border border-[#2a2a2a] text-gray-300 hover:border-[#00C2CB]/40"}`}
+              >
+                Brand content
+              </button>
+              <button
+                type="button"
+                onClick={onSwitchToUploadOwn}
+                className={`rounded-full px-3 py-2 text-xs font-medium ${!usingBrandContent ? "bg-[#00C2CB] text-black" : "border border-[#2a2a2a] text-gray-300 hover:border-[#00C2CB]/40"}`}
+              >
+                Upload your own
+              </button>
+            </div>
+          </div>
+
+          {usingBrandContent && selectedBrandCreative && (
+            <div className="mt-4 overflow-hidden rounded-2xl border border-[#2a2a2a] bg-[#141414]">
+              <div className="aspect-[4/3] bg-black">
+                {selectedBrandCreative.media_type === "video" ? (
+                  <video controls className="h-full w-full object-cover" poster={selectedBrandCreative.thumbnail_url || undefined}>
+                    <source src={selectedBrandCreative.media_url} />
+                  </video>
+                ) : (
+                  <img src={selectedBrandCreative.media_url} alt={selectedBrandCreative.title || "Selected brand creative"} className="h-full w-full object-cover" />
+                )}
+              </div>
+              <div className="p-4">
+                <div className="text-sm font-semibold text-white">{selectedBrandCreative.title || "Selected brand creative"}</div>
+                <div className="mt-1 text-xs text-gray-400">This media will be attached automatically when you submit.</div>
+              </div>
+            </div>
+          )}
+        </div>
+
         <label className="block">
           <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">Method</span>
-          <select className={`${INPUT} w-full text-base`} value={ogMethod} onChange={(e) => setOgMethod(e.target.value as "social" | "email" | "forum" | "other")}>
+          <select className={`${INPUT} w-full text-base`} value={ogMethod} onChange={(e) => setOgMethod(e.target.value as any)}>
             <option value="social">Social Post</option>
             <option value="email">Email Campaign</option>
             <option value="forum">Forum Posting</option>
@@ -83,10 +136,10 @@ export function OrganicSubmissionForm({
           </select>
         </label>
 
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-          <Button type="button" onClick={() => applyTemplate("social")} variant="secondary" size="sm" className="justify-start">Use social template</Button>
-          <Button type="button" onClick={() => applyTemplate("email")} variant="secondary" size="sm" className="justify-start">Use email template</Button>
-          <Button type="button" onClick={() => applyTemplate("forum")} variant="secondary" size="sm" className="justify-start">Use forum template</Button>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <button type="button" onClick={() => applyTemplate("social")} className="px-3 py-2 text-xs rounded-lg border border-[#2a2a2a] hover:border-[#00C2CB]/50 hover:bg-[#101b1c] text-left">Use social template</button>
+          <button type="button" onClick={() => applyTemplate("email")} className="px-3 py-2 text-xs rounded-lg border border-[#2a2a2a] hover:border-[#00C2CB]/50 hover:bg-[#101b1c] text-left">Use email template</button>
+          <button type="button" onClick={() => applyTemplate("forum")} className="px-3 py-2 text-xs rounded-lg border border-[#2a2a2a] hover:border-[#00C2CB]/50 hover:bg-[#101b1c] text-left">Use forum template</button>
         </div>
 
         {ogMethod === "social" && (
@@ -113,13 +166,14 @@ export function OrganicSubmissionForm({
               <input
                 type="file"
                 accept="image/*,video/*"
+                disabled={usingBrandContent}
                 className={`${INPUT} w-full text-base`}
                 onChange={(e) => {
                   const file = e.target.files?.[0] || null;
                   setOgFile(file || null);
                 }}
               />
-              <p className="mt-1 text-[11px] text-gray-500">Tip: MP4/H.264 works best for cross-platform preview. {ogFile ? "File attached." : "No file selected."}</p>
+              <p className="mt-1 text-[11px] text-gray-500">Tip: MP4/H.264 works best for cross-platform preview. {usingBrandContent ? "Brand content is selected, so upload is disabled." : ogFile ? "File attached." : "No file selected."}</p>
             </label>
           </>
         )}
@@ -173,22 +227,23 @@ export function OrganicSubmissionForm({
         </Disclosure>
       </div>
 
-      <div className="flex items-center justify-end border-t border-[var(--border)] px-4 py-4 sm:px-5">
-        <Button
-          type="button"
+      <div className="px-4 sm:px-8 py-5 border-t border-[#232323] flex items-center justify-end">
+        <button
           onClick={onSubmitClick}
           disabled={isSubmitting}
-          className="w-full gap-2 sm:w-auto sm:min-w-[220px]"
+          className={`w-full sm:w-auto sm:min-w-[240px] font-semibold py-3 px-6 rounded-lg flex items-center justify-center gap-2 transition-all duration-200 ${
+            isSubmitting ? "bg-[#1a1a1a] text-gray-400 cursor-not-allowed" : "bg-[#00C2CB] hover:bg-[#00b0b8] text-black"
+          }`}
         >
           {isSubmitting ? (
             <>
-              <span className="h-4 w-4 animate-spin rounded-full border-2 border-gray-500 border-t-[#00C2CB]" />
+              <span className="h-4 w-4 rounded-full border-2 border-gray-500 border-t-[#00C2CB] animate-spin" />
               Submitting…
             </>
           ) : (
             "Submit for Review"
           )}
-        </Button>
+        </button>
       </div>
     </div>
   );
