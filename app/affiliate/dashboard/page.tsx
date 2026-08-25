@@ -942,7 +942,7 @@ function AffiliateDashboardContent() {
           </section>
         )}
 
-        <section className="mb-7 rounded-2xl border border-white/12 bg-[#111317] p-4 md:p-5">
+        <section className="mb-7 rounded-2xl border border-white/16 bg-gradient-to-br from-[#151a20] via-[#111317] to-[#0d1014] p-4 md:p-5 shadow-[0_20px_50px_rgba(0,0,0,0.22)]">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div className="flex items-start gap-3">
               <span className="mt-0.5 rounded-xl border border-white/12 bg-[#15191c] p-2">
@@ -966,7 +966,7 @@ function AffiliateDashboardContent() {
               </button>
               <button
                 onClick={() => setShowActivationDetails((prev) => !prev)}
-                className="inline-flex items-center gap-2 rounded-lg border border-white/12 px-3 py-2 text-xs font-semibold text-white/80 transition hover:bg-[#15191c]"
+                className="inline-flex items-center gap-2 rounded-lg border border-white/16 bg-[#161b21] px-3 py-2 text-xs font-semibold text-white/88 transition hover:bg-[#1b2128]"
               >
                 {showActivationDetails ? "Hide steps" : "Show steps"}
                 {showActivationDetails ? (
@@ -1001,12 +1001,12 @@ function AffiliateDashboardContent() {
                       <span className="absolute left-4 top-9 h-[calc(100%-1rem)] w-px bg-white/10" />
                     )}
                     <div
-                      className={`relative z-10 flex h-8 w-8 shrink-0 items-center justify-center rounded-full border text-xs font-bold shadow-[0_6px_20px_rgba(0,0,0,0.2)] ${
+                      className={`relative z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-full border text-xs font-bold shadow-[0_8px_20px_rgba(0,0,0,0.28)] ${
                         task.done
-                          ? "border-[#00C2CB]/55 bg-[#00C2CB]/18 text-[#b9fbff]"
+                          ? "border-[#00C2CB]/60 bg-[#00C2CB]/18 text-[#c8fdff]"
                           : isCurrent
                             ? "border-[#00C2CB] bg-[#00C2CB] text-black"
-                            : "border-white/20 bg-[#1b2128] text-white/78"
+                            : "border-white/20 bg-[#212730] text-white/88"
                       }`}
                     >
                       {task.done ? <CheckCircle2 className="h-4 w-4" /> : idx + 1}
@@ -1014,10 +1014,10 @@ function AffiliateDashboardContent() {
                     <div
                       className={`flex flex-1 flex-col gap-3 rounded-2xl border px-4 py-3 sm:flex-row sm:items-center sm:justify-between ${
                         task.done
-                          ? "border-[#00C2CB]/22 bg-[#00C2CB]/7"
+                          ? "border-[#00C2CB]/26 bg-[#00C2CB]/8"
                           : isCurrent
-                            ? "border-[#00C2CB]/40 bg-[#00C2CB]/10"
-                            : "border-white/14 bg-[#161c22]"
+                            ? "border-[#00C2CB]/40 bg-[#00C2CB]/12"
+                            : "border-white/14 bg-[#1a2027]"
                       }`}
                     >
                       <div className="flex min-w-0 items-start gap-2">
@@ -1028,18 +1028,18 @@ function AffiliateDashboardContent() {
                             <span
                               className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] ${
                                 task.done
-                                  ? "border-[#00C2CB]/25 bg-[#00C2CB]/10 text-[#9df9ff]"
+                                  ? "border-[#00C2CB]/30 bg-[#00C2CB]/12 text-[#aafaff]"
                                   : isCurrent
-                                    ? "border-[#00C2CB]/30 bg-[#00C2CB]/12 text-[#c8fdff]"
-                                    : "border-white/12 bg-white/[0.04] text-white/65"
+                                    ? "border-[#00C2CB]/35 bg-[#00C2CB]/12 text-[#d7feff]"
+                                    : "border-white/14 bg-white/[0.05] text-white/72"
                               }`}
                             >
                               {task.done ? "Complete" : isCurrent ? "Current" : "Later"}
                             </span>
                           </div>
-                          <p className={`mt-1 text-xs leading-5 ${isUpcoming ? "text-white/68" : "text-white/60"}`}>{task.description}</p>
+                          <p className={`mt-1 text-xs leading-5 ${isUpcoming ? "text-white/72" : "text-white/64"}`}>{task.description}</p>
                           {isUpcoming && (
-                            <p className="mt-1 text-[11px] text-white/52">
+                            <p className="mt-1 text-[11px] text-white/56">
                               Finish the earlier step first so this makes sense.
                             </p>
                           )}
@@ -1055,7 +1055,7 @@ function AffiliateDashboardContent() {
                           className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
                             isCurrent
                               ? "bg-[#00C2CB] text-black hover:bg-[#00b0b8]"
-                              : "border border-white/14 bg-[#111317] text-white/76 hover:border-[#00C2CB]/40 hover:text-white"
+                              : "border border-white/16 bg-[#11161b] text-white/82 hover:border-[#00C2CB]/40 hover:text-white"
                           }`}
                         >
                           Open
