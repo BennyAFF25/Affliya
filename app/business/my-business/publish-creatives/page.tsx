@@ -102,6 +102,16 @@ function deriveFormState(asset: ContentLibraryAsset): AssetFormState {
   };
 }
 
+function isRenderableUrl(value: string | null | undefined) {
+  if (!value) return false;
+  try {
+    const parsed = new URL(value, "https://nettmark.local");
+    return ["http:", "https:"].includes(parsed.protocol);
+  } catch {
+    return false;
+  }
+}
+
 export default function BusinessCreativesPage() {
   const session = useSession();
   const user = session?.user;
@@ -111,6 +121,7 @@ export default function BusinessCreativesPage() {
   const [saving, setSaving] = useState(false);
   const [activeFilter, setActiveFilter] = useState<FilterKey>("all");
   const [isEditorOpen, setIsEditorOpen] = useState(false);
+  const [fileInputResetKey, setFileInputResetKey] = useState(0);
   const [form, setForm] = useState<AssetFormState>(EMPTY_FORM);
 
   const loadLibrary = async () => {
@@ -169,6 +180,7 @@ export default function BusinessCreativesPage() {
 
   const openCreate = () => {
     setForm(EMPTY_FORM);
+    setFileInputResetKey((value) => value + 1);
     setIsEditorOpen(true);
   };
 
@@ -178,16 +190,19 @@ export default function BusinessCreativesPage() {
       usageScope: scope,
       offerId: scope === "offer" ? offerId : "",
     });
+    setFileInputResetKey((value) => value + 1);
     setIsEditorOpen(true);
   };
 
   const openEdit = (asset: ContentLibraryAsset) => {
     setForm(deriveFormState(asset));
+    setFileInputResetKey((value) => value + 1);
     setIsEditorOpen(true);
   };
 
   const closeEditor = () => {
     setForm(EMPTY_FORM);
+    setFileInputResetKey((value) => value + 1);
     setIsEditorOpen(false);
   };
 
@@ -415,11 +430,19 @@ export default function BusinessCreativesPage() {
               <article key={asset.id} className="overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--card)] shadow-[0_20px_60px_rgba(0,0,0,0.08)]">
                 <div className="relative aspect-[4/3] bg-black/60">
                   {asset.media_type === "video" ? (
-                    <video controls className="h-full w-full object-cover" poster={asset.thumbnail_url || undefined}>
-                      <source src={asset.media_url} />
-                    </video>
+                    isRenderableUrl(asset.media_url) ? (
+                      <video controls className="h-full w-full object-cover" poster={isRenderableUrl(asset.thumbnail_url) ? asset.thumbnail_url || undefined : undefined}>
+                        <source src={asset.media_url} />
+                      </video>
+                    ) : (
+                      <div className="flex h-full items-center justify-center px-6 text-center text-sm text-white/70">This video asset was saved, but its preview URL is invalid. Re-save it if needed.</div>
+                    )
                   ) : (
-                    <img src={asset.media_url} alt={asset.title || "Creative preview"} className="h-full w-full object-cover" />
+                    isRenderableUrl(asset.media_url) ? (
+                      <img src={asset.media_url} alt={asset.title || "Creative preview"} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full items-center justify-center px-6 text-center text-sm text-white/70">This image asset was saved, but its preview URL is invalid. Re-save it if needed.</div>
+                    )
                   )}
                   <div className="absolute left-3 top-3 flex flex-wrap gap-2">
                     <StatBadge tone={asset.is_active ? "success" : "warning"}>{asset.is_active ? "Available" : "Archived"}</StatBadge>
@@ -589,12 +612,12 @@ export default function BusinessCreativesPage() {
                   <div className="flex items-center gap-2 text-sm font-medium text-[var(--foreground)]"><FiUpload /> Media</div>
                   <label className="mt-4 block">
                     <span className="mb-2 block text-sm text-[var(--muted-foreground)]">Image or video</span>
-                    <input type="file" accept="image/png,image/jpeg,image/webp,video/mp4,video/quicktime,video/webm" onChange={(e) => setForm((prev) => ({ ...prev, file: e.target.files?.[0] || null }))} className="w-full rounded-2xl border border-[var(--border)] bg-[var(--input-background)] px-4 py-3 text-[var(--foreground)]" />
+                    <input key={`asset-file-${fileInputResetKey}`} type="file" accept="image/png,image/jpeg,image/webp,video/mp4,video/quicktime,video/webm" onChange={(e) => setForm((prev) => ({ ...prev, file: e.target.files?.[0] || null }))} className="w-full rounded-2xl border border-[var(--border)] bg-[var(--input-background)] px-4 py-3 text-[var(--foreground)]" />
                     <p className="mt-2 text-xs text-[var(--muted-foreground)]">Use JPG, PNG, WebP, MP4, MOV, or WebM. Paid video assets need a thumbnail.</p>
                   </label>
                   <label className="mt-4 block">
                     <span className="mb-2 block text-sm text-[var(--muted-foreground)]">Video thumbnail (optional unless using paid video)</span>
-                    <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => setForm((prev) => ({ ...prev, thumbnail: e.target.files?.[0] || null, clearThumbnail: false }))} className="w-full rounded-2xl border border-[var(--border)] bg-[var(--input-background)] px-4 py-3 text-[var(--foreground)]" />
+                    <input key={`asset-thumb-${fileInputResetKey}`} type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => setForm((prev) => ({ ...prev, thumbnail: e.target.files?.[0] || null, clearThumbnail: false }))} className="w-full rounded-2xl border border-[var(--border)] bg-[var(--input-background)] px-4 py-3 text-[var(--foreground)]" />
                     {form.id && (
                       <label className="mt-3 inline-flex items-center gap-2 text-sm text-[var(--muted-foreground)]">
                         <input type="checkbox" checked={form.clearThumbnail} onChange={(e) => setForm((prev) => ({ ...prev, clearThumbnail: e.target.checked, thumbnail: e.target.checked ? null : prev.thumbnail }))} />
