@@ -262,13 +262,6 @@ export default function PromoteOfferPage() {
     }
   }, [organicCreativeSource, ogCaption, selectedOrganicBrandCreative]);
 
-  useEffect(() => {
-    if (adCreativeSource === "upload" && !videoFile && !imageFile) {
-      setVideoPreviewUrl(null);
-      setThumbPreviewUrl(null);
-    }
-  }, [adCreativeSource, imageFile, videoFile]);
-
   // ─────────────────────────────
   // Derived tracking link
   // ─────────────────────────────
@@ -338,6 +331,13 @@ export default function PromoteOfferPage() {
   const [thumbnailFile, setThumbnailFile] = useState<File | null>(null);
   // Thumbnail error state for submission validation
   const [thumbnailError, setThumbnailError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (adCreativeSource === "upload" && !videoFile && !imageFile) {
+      setVideoPreviewUrl(null);
+      setThumbPreviewUrl(null);
+    }
+  }, [adCreativeSource, imageFile, videoFile]);
 
   // Thumbnail validation (Meta does NOT accept SVG thumbnails)
   const ALLOWED_THUMB_MIME = ["image/jpeg", "image/png", "image/webp"];
