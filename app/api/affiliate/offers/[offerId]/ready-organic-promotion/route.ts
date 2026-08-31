@@ -30,18 +30,36 @@ export async function POST(req: Request, context: { params: Promise<{ offerId: s
       return NextResponse.json({ ok: false, error: "Missing businessCreativeId" }, { status: 400 });
     }
 
-    let { data: offer, error: offerError } = await (supabaseAdmin as any)
-      .from("offers")
-      .select("id, title, business_email, participation_mode, status")
-      .eq("id", offerId)
-      .maybeSingle();
+    const offerSelectVariants = [
+      "id, title, business_email, participation_mode, status",
+      "id, title, business_email, participation_mode",
+      "id, title, business_email, status",
+      "id, title, business_email",
+    ];
 
-    if (offerError?.message?.toLowerCase().includes("participation_mode")) {
-      ({ data: offer, error: offerError } = await (supabaseAdmin as any)
+    let offer: any = null;
+    let offerError: any = null;
+
+    for (const columns of offerSelectVariants) {
+      const result = await (supabaseAdmin as any)
         .from("offers")
-        .select("id, title, business_email, status")
+        .select(columns)
         .eq("id", offerId)
-        .maybeSingle());
+        .maybeSingle();
+
+      if (!result.error) {
+        offer = result.data;
+        offerError = null;
+        break;
+      }
+
+      const message = String(result.error?.message || "").toLowerCase();
+      if (!message.includes("status") && !message.includes("participation_mode")) {
+        offerError = result.error;
+        break;
+      }
+
+      offerError = result.error;
     }
 
     if (offerError) {
