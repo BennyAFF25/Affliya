@@ -85,8 +85,7 @@ export default function AffiliateMarketplace() {
     };
 
     const fetchOffers = async () => {
-      const [{ data, error }, { data: subsidyRows, error: subsidyErr }] = await Promise.all([
-        supabase.from("offers").select(`
+      const offerColumnsWithParticipationMode = `
           id,
           title,
           business_email,
@@ -102,7 +101,34 @@ export default function AffiliateMarketplace() {
           meta_ad_account_id,
           meta_pixel_id,
           participation_mode
-        `),
+        `;
+      const offerColumnsFallback = `
+          id,
+          title,
+          business_email,
+          description,
+          commission,
+          type,
+          currency,
+          price,
+          commission_value,
+          logo_url,
+          website,
+          meta_page_id,
+          meta_ad_account_id,
+          meta_pixel_id
+        `;
+
+      const offerPromise = (async () => {
+        let result = await supabase.from("offers").select(offerColumnsWithParticipationMode);
+        if (result.error?.message?.toLowerCase().includes("participation_mode")) {
+          result = await supabase.from("offers").select(offerColumnsFallback);
+        }
+        return result;
+      })();
+
+      const [{ data, error }, { data: subsidyRows, error: subsidyErr }] = await Promise.all([
+        offerPromise,
         supabase
           .from("business_activation_subsidies")
           .select("offer_id, subsidy_amount, consumed_amount")

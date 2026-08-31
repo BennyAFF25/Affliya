@@ -430,13 +430,21 @@ export default function PromoteOfferPage() {
 
     const go = async () => {
       // 1) Offer core fields
-      const { data: offer, error: offerErr } = await (supabase as any)
+      let { data: offer, error: offerErr } = await (supabase as any)
         .from("offers")
         .select(
           "title, logo_url, business_email, website, meta_page_id, meta_ad_account_id, meta_pixel_id, participation_mode",
         )
         .eq("id", offerId)
         .single();
+
+      if (offerErr?.message?.toLowerCase().includes("participation_mode")) {
+        ({ data: offer, error: offerErr } = await (supabase as any)
+          .from("offers")
+          .select("title, logo_url, business_email, website, meta_page_id, meta_ad_account_id, meta_pixel_id")
+          .eq("id", offerId)
+          .single());
+      }
 
       if (offerErr) {
         console.error("[offer fetch error]", offerErr);

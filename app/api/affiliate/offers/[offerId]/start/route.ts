@@ -17,11 +17,19 @@ export async function POST(_req: Request, context: { params: Promise<{ offerId: 
       return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
     }
 
-    const { data: offer, error: offerError } = await (supabaseAdmin as any)
+    let { data: offer, error: offerError } = await (supabaseAdmin as any)
       .from("offers")
       .select("id, title, business_email, status, participation_mode")
       .eq("id", offerId)
       .maybeSingle();
+
+    if (offerError?.message?.toLowerCase().includes("participation_mode")) {
+      ({ data: offer, error: offerError } = await (supabaseAdmin as any)
+        .from("offers")
+        .select("id, title, business_email, status")
+        .eq("id", offerId)
+        .maybeSingle());
+    }
 
     if (offerError) {
       throw new Error(offerError.message || "Failed to load offer.");
