@@ -75,6 +75,7 @@ function CreateOfferPageInner() {
   const [price, setPrice] = useState("");
   const [commissionValue, setCommissionValue] = useState(0);
   const [currency, setCurrency] = useState("USD");
+  const [participationMode, setParticipationMode] = useState<"open" | "approval_required" | "private">("open");
   const [conversionScope, setConversionScope] = useState<
     "store_wide" | "specific_products"
   >("store_wide");
@@ -435,6 +436,7 @@ function CreateOfferPageInner() {
       price: Number(price),
       commission_value: commissionValue,
       currency,
+      participation_mode: participationMode,
       conversion_scope: conversionScope,
       eligible_product_ids: parsedEligibleProductIds,
       eligible_variant_ids: parsedEligibleVariantIds,
@@ -808,6 +810,27 @@ function CreateOfferPageInner() {
                   <option value="one-time">One-Time</option>
                   <option value="recurring">Recurring</option>
                 </Select>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-white mb-1">
+                  Participation Mode
+                </label>
+                <Select
+                  value={participationMode}
+                  onChange={(e) =>
+                    setParticipationMode(
+                      e.target.value as "open" | "approval_required" | "private",
+                    )
+                  }
+                >
+                  <option value="open">Open</option>
+                  <option value="approval_required">Approval Required</option>
+                  <option value="private">Private</option>
+                </Select>
+                <p className="mt-2 text-xs text-white/55">
+                  Open offers let affiliates start immediately. Approval Required preserves the request queue. Private keeps the offer restricted.
+                </p>
               </div>
 
               <div className="mt-4 space-y-4 border border-[#262626] rounded-lg p-4 bg-[#111111]">

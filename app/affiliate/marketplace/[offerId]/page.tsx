@@ -24,6 +24,7 @@ type Offer = {
   readyCreativeCount?: number;
   readyOrganicCreativeCount?: number;
   readyPaidCreativeCount?: number;
+  participation_mode?: 'open' | 'approval_required' | 'private' | null;
 };
 
 function getPromotionMode(offer: Offer | null) {
@@ -59,6 +60,7 @@ export default function AffiliateOfferProfilePage() {
   const [requestLoading, setRequestLoading] = useState(false);
   const [requestError, setRequestError] = useState<string | null>(null);
   const [requestSuccess, setRequestSuccess] = useState<string | null>(null);
+  const [requestStatus, setRequestStatus] = useState<'approved' | 'pending' | 'rejected' | null>(null);
   const [starterSpendLabel, setStarterSpendLabel] = useState<string | null>(null);
   const [starterSpendRemaining, setStarterSpendRemaining] = useState<number>(0);
 
@@ -192,6 +194,10 @@ export default function AffiliateOfferProfilePage() {
 
       if (data) {
         setRequested(true);
+        const status = String((data as any).status || '').toLowerCase();
+        if (status === 'approved' || status === 'pending' || status === 'rejected') {
+          setRequestStatus(status);
+        }
       }
     };
 
@@ -220,8 +226,11 @@ export default function AffiliateOfferProfilePage() {
       }
 
       setRequested(true);
-      setRequestSuccess('You can start promoting this offer now.');
-      router.push(json.promotePath || `/affiliate/dashboard/promote/${offerId}`);
+      setRequestStatus(json?.participation?.status || null);
+      setRequestSuccess(json?.message || (json?.promotePath ? 'You can start promoting this offer now.' : 'Request sent.'));
+      if (json?.promotePath) {
+        router.push(json.promotePath || `/affiliate/dashboard/promote/${offerId}`);
+      }
     } catch (err: any) {
       console.error('[Error starting offer participation]', err);
       setRequestError(err?.message || 'Failed to start promoting this offer.');
@@ -273,6 +282,10 @@ export default function AffiliateOfferProfilePage() {
       : offer.type === 'one_time'
       ? 'One-time'
       : offer.type || 'Standard';
+  const participationMode = offer.participation_mode || 'open';
+  const isPrivate = participationMode === 'private';
+  const isApprovalRequired = participationMode === 'approval_required';
+  const isPending = requestStatus === 'pending';
 
   return (
     <div className="min-h-screen bg-surface text-white px-4 py-8">
@@ -471,11 +484,21 @@ export default function AffiliateOfferProfilePage() {
                 <div>
                   <h3 className="text-sm font-semibold text-[#00C2CB]">Start promoting</h3>
                   <p className="text-xs text-white/60 mt-1">
-                    Join this offer immediately, then use the organic and paid pathways the business has already configured.
+                    {isPrivate
+                      ? 'This offer is currently restricted and cannot be joined from the marketplace.'
+                      : isApprovalRequired
+                        ? 'Request access here, then start promoting as soon as the business approves you.'
+                        : 'Join this offer immediately, then use the organic and paid pathways the business has already configured.'}
                   </p>
                 </div>
-                <span className="inline-flex items-center rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3 py-1 text-[11px] text-emerald-200">
-                  Instant access
+                <span className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] ${
+                  isPrivate
+                    ? 'border border-white/10 bg-white/5 text-white/70'
+                    : isApprovalRequired
+                      ? 'border border-amber-400/30 bg-amber-500/10 text-amber-200'
+                      : 'border border-emerald-400/30 bg-emerald-500/10 text-emerald-200'
+                }`}>
+                  {isPrivate ? 'Private' : isApprovalRequired ? 'Approval required' : 'Instant access'}
                 </span>
               </div>
 
@@ -486,10 +509,20 @@ export default function AffiliateOfferProfilePage() {
                 <button
                   type="button"
                   onClick={handleRequestToPromote}
-                  disabled={requestLoading || !userEmail}
+                  disabled={requestLoading || !userEmail || isPrivate || isPending}
                   className="inline-flex items-center rounded-full bg-[#00C2CB] hover:bg-[#00b0b8] text-black text-xs font-medium px-5 py-2 disabled:opacity-60"
                 >
-                  {requestLoading ? 'Opening…' : requested ? 'Continue promoting' : 'Start promoting'}
+                  {requestLoading
+                    ? 'Opening…'
+                    : isPrivate
+                      ? 'Private offer'
+                      : isPending
+                        ? 'Pending approval'
+                        : requested
+                          ? 'Continue promoting'
+                          : isApprovalRequired
+                            ? 'Request to promote'
+                            : 'Start promoting'}
                 </button>
                 {!userEmail && (
                   <p className="text-[11px] text-red-300">

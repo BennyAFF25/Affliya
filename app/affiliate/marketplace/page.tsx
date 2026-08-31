@@ -27,11 +27,13 @@ interface Offer {
   readyCreativeCount?: number;
   readyOrganicCreativeCount?: number;
   readyPaidCreativeCount?: number;
+  participationMode?: 'open' | 'approval_required' | 'private';
 }
 
 export default function AffiliateMarketplace() {
   const [offers, setOffers] = useState<Offer[]>([]);
   const [participatingIds, setParticipatingIds] = useState<string[]>([]);
+  const [requestStatusByOfferId, setRequestStatusByOfferId] = useState<Record<string, 'approved' | 'pending' | 'rejected'>>({});
 
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState("All");
@@ -79,6 +81,7 @@ export default function AffiliateMarketplace() {
       meta_page_id?: string | null;
       meta_ad_account_id?: string | null;
       meta_pixel_id?: string | null;
+      participation_mode?: 'open' | 'approval_required' | 'private' | null;
     };
 
     const fetchOffers = async () => {
@@ -97,7 +100,8 @@ export default function AffiliateMarketplace() {
           website,
           meta_page_id,
           meta_ad_account_id,
-          meta_pixel_id
+          meta_pixel_id,
+          participation_mode
         `),
         supabase
           .from("business_activation_subsidies")
@@ -127,7 +131,9 @@ export default function AffiliateMarketplace() {
         if (remaining > 0) subsidyMap.set(offerId, remaining);
       }
 
-      const typedData = data as SupabaseOffer[];
+      const typedData = (data as SupabaseOffer[]).filter(
+        (offer) => String(offer.participation_mode || 'open').toLowerCase() !== 'private',
+      );
 
       const commissions = typedData.map((o) => o.commission ?? 0);
       const threshold = commissions.length ? Math.max(...commissions) * 0.9 : 0;
@@ -150,6 +156,7 @@ export default function AffiliateMarketplace() {
         meta_ad_account_id: o.meta_ad_account_id ?? null,
         meta_pixel_id: o.meta_pixel_id ?? null,
         starterCreditAmount: subsidyMap.get(o.id) ?? undefined,
+        participationMode: (o.participation_mode as Offer['participationMode']) || 'open',
       }));
 
       const readinessRes = await fetch(`/api/offers/content-readiness?offerIds=${formatted.map((offer) => offer.id).join(",")}`, {
@@ -210,7 +217,16 @@ export default function AffiliateMarketplace() {
       const typedReqs = data as AffiliateRequestRow[];
       const active = typedReqs.filter((r) => ["pending", "approved"].includes(String(r.status || "").toLowerCase()));
       const ids = Array.from(new Set(active.map((r) => r.offer_id)));
+      const nextStatusByOfferId: Record<string, 'approved' | 'pending' | 'rejected'> = {};
+      for (const row of typedReqs) {
+        const status = String(row.status || '').toLowerCase();
+        if (!row.offer_id || !['approved', 'pending', 'rejected'].includes(status)) continue;
+        if (!nextStatusByOfferId[row.offer_id] || status === 'approved' || (status === 'pending' && nextStatusByOfferId[row.offer_id] !== 'approved')) {
+          nextStatusByOfferId[row.offer_id] = status as 'approved' | 'pending' | 'rejected';
+        }
+      }
       setParticipatingIds(ids);
+      setRequestStatusByOfferId(nextStatusByOfferId);
     };
 
     fetchRequests();
@@ -300,6 +316,7 @@ export default function AffiliateMarketplace() {
                 offer={offer}
                 role="affiliate"
                 alreadyRequested={participatingIds.includes(offer.id)}
+                currentStatus={requestStatusByOfferId[offer.id] || null}
               />
             ))}
           </div>

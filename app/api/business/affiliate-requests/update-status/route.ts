@@ -35,9 +35,14 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: "UNAUTHORIZED", message: "Only the offer business can update this request." }, { status: 403 });
     }
 
+    const nextUpdate: Record<string, unknown> = { status };
+    if (status === "approved") {
+      nextUpdate.approved_at = new Date().toISOString();
+    }
+
     const { data: updated, error: updateError } = await admin
       .from("affiliate_requests")
-      .update({ status })
+      .update(nextUpdate)
       .eq("id", requestId)
       .eq("business_email", user.email)
       .select("id,status")

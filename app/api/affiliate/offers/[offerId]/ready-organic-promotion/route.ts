@@ -5,6 +5,7 @@ import supabaseAdmin from "@/../utils/supabase/server-client";
 import {
   assertAffiliateOfferApproved,
   ensureAffiliateOfferParticipation,
+  normalizeOfferParticipationMode,
 } from "@/../utils/approvals/enforcement";
 import { buildTrackingUrl } from "@/../utils/tracking/buildTrackingUrl";
 
@@ -31,7 +32,7 @@ export async function POST(req: Request, context: { params: Promise<{ offerId: s
 
     const { data: offer, error: offerError } = await (supabaseAdmin as any)
       .from("offers")
-      .select("id, title, business_email")
+      .select("id, title, business_email, participation_mode, status")
       .eq("id", offerId)
       .maybeSingle();
 
@@ -43,17 +44,27 @@ export async function POST(req: Request, context: { params: Promise<{ offerId: s
       return NextResponse.json({ ok: false, error: "Offer not found" }, { status: 404 });
     }
 
-    const participation = await ensureAffiliateOfferParticipation(supabaseAdmin as any, {
-      offerId,
-      affiliateEmail: user.email,
-      businessEmail: offer.business_email,
-    });
+    const offerStatus = String(offer.status || "active").toLowerCase();
+    if (!["active", "approved", "live", "published"].includes(offerStatus)) {
+      return NextResponse.json({ ok: false, error: "offer_not_active", message: "This offer is not currently available." }, { status: 409 });
+    }
 
-    if (!participation.ok) {
-      return NextResponse.json(
-        { ok: false, error: participation.error, message: participation.message },
-        { status: participation.status },
-      );
+    const participationMode = normalizeOfferParticipationMode(offer.participation_mode);
+
+    if (participationMode === "open") {
+      const participation = await ensureAffiliateOfferParticipation(supabaseAdmin as any, {
+        offerId,
+        affiliateEmail: user.email,
+        businessEmail: offer.business_email,
+        participationMode,
+      });
+
+      if (!participation.ok) {
+        return NextResponse.json(
+          { ok: false, error: participation.error, message: participation.message },
+          { status: participation.status },
+        );
+      }
     }
 
     const approval = await assertAffiliateOfferApproved(supabaseAdmin as any, {

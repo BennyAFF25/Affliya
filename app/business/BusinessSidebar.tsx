@@ -26,8 +26,8 @@ export default function BusinessSidebar() {
       if (!user?.email) return;
 
       const [{ data: reqs }, { data: ads }] = await Promise.all([
-        supabase.from("affiliate_requests").select("*").eq("status", "pending"),
-        supabase.from("ad_ideas").select("*").eq("status", "pending"),
+        supabase.from("affiliate_requests").select("id").eq("business_email", user.email).eq("status", "pending"),
+        supabase.from("ad_ideas").select("id").eq("business_email", user.email).eq("status", "pending"),
       ]);
 
       if ((reqs?.length ?? 0) > 0 || (ads?.length ?? 0) > 0) {
