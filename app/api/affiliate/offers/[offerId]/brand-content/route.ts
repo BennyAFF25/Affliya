@@ -26,11 +26,19 @@ export async function GET(req: Request, context: { params: Promise<{ offerId: st
       return NextResponse.json({ ok: false, error: "Invalid mode" }, { status: 400 });
     }
 
-    const { data: offer, error: offerError } = await (supabaseAdmin as any)
+    let { data: offer, error: offerError } = await (supabaseAdmin as any)
       .from("offers")
       .select("id, business_email, title, participation_mode")
       .eq("id", offerId)
       .maybeSingle();
+
+    if (offerError?.message?.toLowerCase().includes("participation_mode")) {
+      ({ data: offer, error: offerError } = await (supabaseAdmin as any)
+        .from("offers")
+        .select("id, business_email, title")
+        .eq("id", offerId)
+        .maybeSingle());
+    }
 
     if (offerError || !offer?.business_email) {
       return NextResponse.json({ ok: false, error: "Offer not found." }, { status: 404 });

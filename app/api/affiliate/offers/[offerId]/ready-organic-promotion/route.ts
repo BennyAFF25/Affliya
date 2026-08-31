@@ -30,11 +30,19 @@ export async function POST(req: Request, context: { params: Promise<{ offerId: s
       return NextResponse.json({ ok: false, error: "Missing businessCreativeId" }, { status: 400 });
     }
 
-    const { data: offer, error: offerError } = await (supabaseAdmin as any)
+    let { data: offer, error: offerError } = await (supabaseAdmin as any)
       .from("offers")
       .select("id, title, business_email, participation_mode, status")
       .eq("id", offerId)
       .maybeSingle();
+
+    if (offerError?.message?.toLowerCase().includes("participation_mode")) {
+      ({ data: offer, error: offerError } = await (supabaseAdmin as any)
+        .from("offers")
+        .select("id, title, business_email, status")
+        .eq("id", offerId)
+        .maybeSingle());
+    }
 
     if (offerError) {
       throw new Error(offerError.message || "Failed to load offer.");
