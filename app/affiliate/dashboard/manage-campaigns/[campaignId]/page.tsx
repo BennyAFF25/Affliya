@@ -29,6 +29,7 @@ import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/../utils/supabase/pages-client";
 import type { PostgrestError } from "@supabase/supabase-js";
 import {
+  ArrowLeftIcon,
   ShoppingCartIcon,
   CurrencyDollarIcon,
   TrashIcon,
@@ -38,6 +39,12 @@ import {
   DocumentDuplicateIcon,
   GlobeAltIcon,
   CheckCircleIcon,
+  RocketLaunchIcon,
+  ArrowTopRightOnSquareIcon,
+  FolderOpenIcon,
+  Cog6ToothIcon,
+  ShieldCheckIcon,
+  ChevronDownIcon,
 } from "@heroicons/react/24/outline";
 import {
   Badge,
@@ -671,6 +678,16 @@ export default function ManageCampaignPage() {
     );
   }, [offer?.title, campaign?.ad_name, campaign?.platform, campaign?.caption]);
 
+  const promoteOfferPath = useMemo(() => {
+    if (!campaign?.offer_id) return null;
+    return `/affiliate/dashboard/promote/${campaign.offer_id}`;
+  }, [campaign?.offer_id]);
+
+  const organicContentPath = useMemo(() => {
+    if (!campaign?.offer_id) return null;
+    return `/affiliate/dashboard/promote/${campaign.offer_id}?mode=organic`;
+  }, [campaign?.offer_id]);
+
   const organicGuideSteps = useMemo(
     () => [
       {
@@ -706,6 +723,37 @@ export default function ManageCampaignPage() {
     [campaign?.platform, campaign?.status, isOrganic, offer?.commission, offer?.title],
   );
 
+  const organicQuickActions = useMemo(
+    () => [
+      {
+        title: "Create your first ad",
+        body: "Take this organic campaign further by putting paid reach behind the same offer.",
+        icon: RocketLaunchIcon,
+        onClick: () => {
+          if (promoteOfferPath) router.push(promoteOfferPath);
+        },
+        disabled: !promoteOfferPath,
+      },
+      {
+        title: "View content setup",
+        body: "Open the organic promotion flow again and reuse approved content for another placement.",
+        icon: FolderOpenIcon,
+        onClick: () => {
+          if (organicContentPath) router.push(organicContentPath);
+        },
+        disabled: !organicContentPath,
+      },
+      {
+        title: "Affiliate settings",
+        body: "Jump to your affiliate profile and payout-related setup without leaving the product flow.",
+        icon: Cog6ToothIcon,
+        onClick: () => router.push("/affiliate/settings"),
+        disabled: false,
+      },
+    ],
+    [organicContentPath, promoteOfferPath, router],
+  );
+
   async function handleCopyTrackingLink() {
     if (!trackingUrl) return;
     await navigator.clipboard.writeText(trackingUrl);
@@ -733,8 +781,556 @@ export default function ManageCampaignPage() {
     );
   }
 
+  if (isOrganic) {
+    return (
+      <div className="min-h-screen bg-[#090b0c] text-white">
+        <div className="mx-auto max-w-[1540px] px-6 py-7 lg:px-10">
+          <button
+            type="button"
+            onClick={() => router.push("/affiliate/dashboard/manage-campaigns")}
+            className="mb-6 inline-flex items-center gap-2 text-sm text-zinc-400 transition hover:text-white"
+          >
+            <ArrowLeftIcon className="h-4 w-4" />
+            Back to campaigns
+          </button>
+
+          {(isTerminatedByBusiness || isPaused) && (
+            <div className="mb-6 space-y-3">
+              {isTerminatedByBusiness && (
+                <ReadinessBanner
+                  tone="danger"
+                  title="Campaign permanently stopped by business"
+                >
+                  This campaign has been hard-stopped at the business level. Historical stats stay visible, but the link no longer accepts new tracked traffic.
+                </ReadinessBanner>
+              )}
+              {!isTerminatedByBusiness && isPaused && (
+                <ReadinessBanner tone="warning" title="Campaign paused">
+                  Stats remain visible, but this organic tracking link is temporarily inactive until the campaign is reactivated.
+                </ReadinessBanner>
+              )}
+            </div>
+          )}
+
+          <div className="grid gap-7 xl:grid-cols-[340px_minmax(0,1fr)]">
+            <aside className="space-y-5">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center rounded-full border border-cyan-500/50 bg-cyan-500/5 px-3 py-1.5 text-xs text-cyan-300">
+                  Organic Campaign
+                </span>
+                <span
+                  className={`inline-flex items-center rounded-full border px-3 py-1.5 text-xs ${
+                    isPaused || isTerminatedByBusiness
+                      ? "border-amber-500/50 bg-amber-500/10 text-amber-200"
+                      : "border-emerald-500/50 bg-emerald-500/10 text-emerald-300"
+                  }`}
+                >
+                  {isTerminatedByBusiness
+                    ? "Off (Stopped by Business)"
+                    : isPaused
+                      ? "Off (Paused)"
+                      : "On (Active)"}
+                </span>
+              </div>
+
+              <section className="overflow-hidden rounded-[28px] border border-white/10 bg-[#0b1116] shadow-2xl shadow-black/30">
+                <div className="flex h-14 items-center justify-between border-b border-white/10 px-5">
+                  <div className="text-[10px] font-black tracking-tight">
+                    <span className="text-zinc-300">N</span>
+                    <span className="text-cyan-400">NETTMARK</span>
+                  </div>
+                  <div className="text-[11px] text-zinc-500">
+                    {campaign?.platform || "Organic"}
+                  </div>
+                </div>
+
+                <div className="relative aspect-[9/16] min-h-[520px] bg-[radial-gradient(circle_at_50%_35%,rgba(6,182,212,0.08),transparent_40%),linear-gradient(180deg,#071018_0%,#081015_100%)]">
+                  {campaign.media_url ? (
+                    String(campaign.media_url).match(/\.(mp4|mov)$/i) ? (
+                      <video
+                        controls
+                        className="h-full w-full object-cover"
+                      >
+                        <source src={String(campaign.media_url)} type="video/mp4" />
+                        Your browser does not support the video tag.
+                      </video>
+                    ) : String(campaign.media_url).match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                      <img
+                        src={String(campaign.media_url)}
+                        alt="Organic campaign preview"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center px-8 text-center text-zinc-500">
+                        Unsupported media format
+                      </div>
+                    )
+                  ) : (
+                    <div className="flex h-full items-center justify-center px-8 text-center text-zinc-500">
+                      No preview asset available for this campaign yet.
+                    </div>
+                  )}
+                </div>
+              </section>
+
+              <button
+                type="button"
+                onClick={() => promoteOfferPath && router.push(promoteOfferPath)}
+                disabled={!promoteOfferPath}
+                className="group w-full rounded-2xl border border-white/10 bg-[#111416] p-5 text-left transition hover:border-cyan-500/30 hover:bg-[#13191c] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <div className="flex items-start gap-3">
+                  <RocketLaunchIcon className="mt-0.5 h-5 w-5 shrink-0 text-cyan-300" />
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-zinc-100">
+                      Nice start — this offer is live.
+                    </p>
+                    <p className="mt-1 text-sm leading-6 text-zinc-400">
+                      Create an ad to reach more people and potentially drive more sales from the same offer.
+                    </p>
+                  </div>
+                  <ArrowTopRightOnSquareIcon className="mt-1 h-4 w-4 text-cyan-300 transition group-hover:translate-x-0.5" />
+                </div>
+              </button>
+            </aside>
+
+            <section className="min-w-0 space-y-5">
+              <header className="flex flex-col justify-between gap-5 lg:flex-row lg:items-start">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
+                    Campaign
+                  </p>
+                  <h1 className="mt-2 text-3xl font-semibold tracking-tight lg:text-4xl">
+                    {campaignTitle}
+                  </h1>
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-zinc-300">
+                      Organic
+                    </span>
+                    <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-zinc-300">
+                      {campaign?.platform || "Placement"}
+                    </span>
+                    <span className="inline-flex items-center rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs text-zinc-300">
+                      {offer?.title || "Offer"}
+                    </span>
+                    <span
+                      className={`inline-flex items-center rounded-full border px-3 py-1.5 text-xs ${
+                        isPaused || isTerminatedByBusiness
+                          ? "border-amber-500/50 bg-amber-500/10 text-amber-200"
+                          : "border-emerald-500/50 bg-emerald-500/10 text-emerald-300"
+                      }`}
+                    >
+                      {isTerminatedByBusiness
+                        ? "Stopped"
+                        : isPaused
+                          ? "Paused"
+                          : "Active"}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="grid min-w-[330px] grid-cols-2 gap-3">
+                  <div className="rounded-2xl border border-white/10 bg-[#111416] p-5">
+                    <p className="text-xs font-semibold uppercase tracking-[0.15em] text-zinc-500">
+                      Pending payout
+                    </p>
+                    <p className="mt-2 text-2xl font-semibold">
+                      {pendingPayout > 0 ? `$${pendingPayout.toFixed(2)}` : "$0.00"}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-[#111416] p-5">
+                    <p className="text-xs font-semibold uppercase tracking-[0.15em] text-zinc-500">
+                      Commission rate
+                    </p>
+                    <p className="mt-2 text-2xl font-semibold">
+                      {offer?.commission ? `${offer.commission}%` : "—"}
+                    </p>
+                  </div>
+                </div>
+              </header>
+
+              <section className="rounded-2xl border border-white/10 bg-[#111416]">
+                <div className="grid md:grid-cols-2 xl:grid-cols-4">
+                  {[
+                    {
+                      label: "Clicks",
+                      value: stats.clicks.toLocaleString(),
+                      icon: CursorArrowRaysIcon,
+                    },
+                    {
+                      label: "Add to carts",
+                      value: stats.carts.toLocaleString(),
+                      icon: ShoppingCartIcon,
+                    },
+                    {
+                      label: "Conversions",
+                      value: stats.conversions.toLocaleString(),
+                      icon: CheckCircleIcon,
+                    },
+                    {
+                      label: "Earned",
+                      value:
+                        pendingPayout > 0 ? `$${pendingPayout.toFixed(2)}` : "$0.00",
+                      icon: CurrencyDollarIcon,
+                    },
+                  ].map((stat, index, arr) => {
+                    const Icon = stat.icon;
+                    return (
+                      <div
+                        key={stat.label}
+                        className={`flex items-center gap-4 px-6 py-6 ${
+                          index !== arr.length - 1
+                            ? "xl:border-r xl:border-white/10"
+                            : ""
+                        }`}
+                      >
+                        <Icon className="h-7 w-7 text-cyan-300" strokeWidth={1.7 as never} />
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.15em] text-zinc-400">
+                            {stat.label}
+                          </p>
+                          <p className="mt-1 text-2xl font-semibold">{stat.value}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="flex flex-col justify-between gap-3 border-t border-white/10 px-6 py-3.5 sm:flex-row sm:items-center">
+                  <div className="inline-flex items-center gap-2 text-xs text-zinc-500">
+                    <ShieldCheckIcon className="h-4 w-4 text-cyan-400" />
+                    Tracked by Nettmark
+                  </div>
+
+                  <div className="inline-flex items-center gap-2 rounded-lg bg-white/[0.05] px-3 py-2 text-xs text-zinc-300">
+                    Last 7 days
+                    <ChevronDownIcon className="h-4 w-4" />
+                  </div>
+                </div>
+              </section>
+
+              <section className="overflow-hidden rounded-2xl border border-cyan-500/30 bg-[radial-gradient(circle_at_85%_20%,rgba(34,211,238,0.10),transparent_30%),linear-gradient(135deg,rgba(6,182,212,0.12),rgba(17,20,22,0.95)_45%)] p-6">
+                <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex max-w-3xl items-start gap-4">
+                    <div className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-cyan-400/10">
+                      <RocketLaunchIcon className="h-7 w-7 text-cyan-300" />
+                    </div>
+
+                    <div>
+                      <h2 className="text-xl font-semibold">Ready to reach more people?</h2>
+                      <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-400">
+                        Organic sharing is a great start. Create an ad and put your own budget behind it to reach a bigger audience and potentially generate more sales.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="shrink-0 text-left lg:text-right">
+                    <button
+                      type="button"
+                      onClick={() => promoteOfferPath && router.push(promoteOfferPath)}
+                      disabled={!promoteOfferPath}
+                      className="rounded-xl bg-cyan-400 px-6 py-3 text-sm font-bold text-[#031013] shadow-lg shadow-cyan-500/10 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Create Your First Ad
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => organicContentPath && router.push(organicContentPath)}
+                      disabled={!organicContentPath}
+                      className="mt-3 flex items-center gap-1 text-sm font-medium text-cyan-300 lg:ml-auto disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      View content setup
+                      <ArrowTopRightOnSquareIcon className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              </section>
+
+              <section>
+                <h2 className="mb-3 text-sm font-semibold text-zinc-200">Quick actions</h2>
+                <div className="grid gap-3 lg:grid-cols-3">
+                  {organicQuickActions.map((action) => {
+                    const Icon = action.icon;
+                    return (
+                      <button
+                        key={action.title}
+                        type="button"
+                        onClick={action.onClick}
+                        disabled={action.disabled}
+                        className="group flex min-h-[110px] items-center gap-4 rounded-2xl border border-white/10 bg-[#111416] p-5 text-left transition hover:border-cyan-500/30 hover:bg-[#13181b] disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-cyan-400 text-[#041014]">
+                          <Icon className="h-6 w-6" />
+                        </div>
+
+                        <div className="min-w-0 flex-1">
+                          <p className="font-semibold text-zinc-100">{action.title}</p>
+                          <p className="mt-1 text-sm leading-5 text-zinc-500">{action.body}</p>
+                        </div>
+
+                        <ArrowTopRightOnSquareIcon className="h-4 w-4 text-cyan-300 transition group-hover:translate-x-0.5" />
+                      </button>
+                    );
+                  })}
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-white/10 bg-[#111416] p-5">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                  <div className="min-w-0">
+                    <div className="mb-2 flex items-center gap-2">
+                      <DocumentDuplicateIcon className="h-4 w-4 text-cyan-300" />
+                      <p className="text-xs font-semibold uppercase tracking-[0.15em] text-zinc-500">
+                        Tracking link
+                      </p>
+                    </div>
+
+                    {!affiliateId ? (
+                      <p className="text-sm text-red-300">
+                        Missing affiliate ID. Please sign in again or complete your affiliate profile.
+                      </p>
+                    ) : (
+                      <p className="truncate text-sm text-cyan-300">{trackingUrl}</p>
+                    )}
+                    <p className="mt-2 text-xs text-zinc-500">
+                      Share this link anywhere you&apos;re promoting the offer. Nettmark attaches attribution automatically.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleCopyTrackingLink}
+                    disabled={!trackingUrl || isPaused || isTerminatedByBusiness}
+                    className="shrink-0 rounded-lg bg-cyan-400 px-4 py-2.5 text-sm font-bold text-[#061114] hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {copyState === "copied"
+                      ? "Copied"
+                      : isPaused || isTerminatedByBusiness
+                        ? "Copy (inactive)"
+                        : "Copy Link"}
+                  </button>
+                </div>
+              </section>
+
+              <section className="rounded-2xl border border-white/10 bg-[#111416] p-6">
+                <div className="mb-8 flex items-center justify-between gap-4">
+                  <h2 className="font-semibold">Performance overview</h2>
+                  <div className="inline-flex items-center gap-2 rounded-lg bg-white/[0.05] px-3 py-2 text-xs text-zinc-300">
+                    Last 7 days
+                    <ChevronDownIcon className="h-4 w-4" />
+                  </div>
+                </div>
+                <div className="h-[260px]">
+                  <Line
+                    data={{
+                      labels: chartSeries.labels.length
+                        ? chartSeries.labels
+                        : ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+                      datasets: [
+                        {
+                          label: "Add to Carts",
+                          data: chartSeries.carts.length
+                            ? chartSeries.carts
+                            : [0, 0, 0, 0, 0, 0, 0],
+                          fill: true,
+                          backgroundColor: (context) => {
+                            const gradient = context.chart.ctx.createLinearGradient(
+                              0,
+                              0,
+                              0,
+                              200,
+                            );
+                            gradient.addColorStop(0, "rgba(34,211,238,0.12)");
+                            gradient.addColorStop(1, "rgba(34,211,238,0)");
+                            return gradient;
+                          },
+                          borderColor: "#67e8f9",
+                          borderWidth: 2,
+                          tension: 0.35,
+                          pointRadius: 2,
+                          pointHoverRadius: 4,
+                        },
+                        {
+                          label: "Conversions",
+                          data: chartSeries.conversions.length
+                            ? chartSeries.conversions
+                            : [0, 0, 0, 0, 0, 0, 0],
+                          fill: true,
+                          backgroundColor: (context) => {
+                            const gradient = context.chart.ctx.createLinearGradient(
+                              0,
+                              0,
+                              0,
+                              200,
+                            );
+                            gradient.addColorStop(0, "rgba(14,165,233,0.10)");
+                            gradient.addColorStop(1, "rgba(14,165,233,0)");
+                            return gradient;
+                          },
+                          borderColor: "#38bdf8",
+                          borderWidth: 2,
+                          tension: 0.35,
+                          pointRadius: 2,
+                          pointHoverRadius: 4,
+                        },
+                      ],
+                    }}
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      plugins: {
+                        legend: {
+                          labels: {
+                            color: "#a1a1aa",
+                            font: { size: 11 },
+                            boxWidth: 10,
+                            usePointStyle: true,
+                            pointStyle: "line",
+                          },
+                        },
+                        tooltip: { mode: "index", intersect: false },
+                      },
+                      scales: {
+                        x: {
+                          ticks: { color: "#71717a", font: { size: 10 } },
+                          grid: { color: "rgba(255,255,255,0.06)" },
+                        },
+                        y: {
+                          ticks: { color: "#71717a", font: { size: 10 } },
+                          grid: { color: "rgba(255,255,255,0.06)" },
+                          beginAtZero: true,
+                        },
+                      },
+                    }}
+                  />
+                </div>
+              </section>
+
+              <div className="grid gap-5 lg:grid-cols-2">
+                <section className="rounded-2xl border border-white/10 bg-[#111416] p-6">
+                  <p className="text-xs font-semibold uppercase tracking-[0.15em] text-zinc-500">
+                    Campaign details
+                  </p>
+                  <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                    {campaignDetails.map((item) => (
+                      <div key={item.label} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                        <p className="text-[11px] uppercase tracking-[0.15em] text-zinc-500">
+                          {item.label}
+                        </p>
+                        <p className="mt-2 text-sm font-medium text-zinc-100">
+                          {item.value}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="rounded-2xl border border-white/10 bg-[#111416] p-6">
+                  <p className="text-xs font-semibold uppercase tracking-[0.15em] text-zinc-500">
+                    Affiliate guide
+                  </p>
+                  <div className="mt-5 space-y-4">
+                    {organicGuideSteps.map((step, index) => (
+                      <div key={step.title} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+                        <div className="flex items-start gap-3">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-cyan-400/10 text-sm font-semibold text-cyan-300">
+                            {index + 1}
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold text-zinc-100">
+                              {step.title}
+                            </p>
+                            <p className="mt-1 text-sm leading-6 text-zinc-400">
+                              {step.body}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </section>
+              </div>
+
+              <section className="rounded-2xl border border-red-500/20 bg-red-500/5 p-6">
+                <p className="text-xs font-semibold uppercase tracking-[0.15em] text-red-200/70">
+                  Danger zone
+                </p>
+                <h3 className="mt-2 text-xl font-semibold text-white">
+                  Delete this organic campaign
+                </h3>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-400">
+                  Permanently remove this campaign if it was created by mistake or should no longer exist.
+                </p>
+                <button
+                  onClick={async () => {
+                    const confirmDelete = window.confirm(
+                      `Permanently delete this organic campaign?\n\nThis action cannot be undone.`,
+                    );
+                    if (!confirmDelete) return;
+
+                    const { error: delErr } = await supabase
+                      .from("live_campaigns")
+                      .delete()
+                      .eq("id", campaign.id);
+                    if (delErr) {
+                      console.error("❌ Delete error:", delErr);
+                      alert("Error deleting campaign.");
+                    } else {
+                      alert("Campaign deleted.");
+                      router.replace("/affiliate/dashboard/manage-campaigns");
+                    }
+                  }}
+                  className="mt-5 inline-flex items-center rounded-xl border border-red-500/40 bg-red-500/10 px-6 py-2.5 font-medium text-red-300 transition hover:border-red-500/70 hover:bg-red-500/15"
+                >
+                  <TrashIcon className="mr-2 h-5 w-5 text-red-400" />
+                  Delete Campaign
+                </button>
+              </section>
+            </section>
+          </div>
+        </div>
+
+        {showEmailModal && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm"
+            onClick={() => setShowEmailModal(false)}
+          >
+            <div
+              className="max-h-[80vh] w-[90%] max-w-2xl overflow-y-auto rounded-xl border border-[#00C2CB55] bg-[#1A1A1A] p-6"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="text-lg font-semibold text-white">Full Email Content</h2>
+                <button onClick={() => setShowEmailModal(false)}>
+                  <XMarkIcon className="h-6 w-6 text-gray-400 hover:text-white" />
+                </button>
+              </div>
+              <div className="whitespace-pre-line text-sm leading-relaxed text-gray-200">
+                {campaign.caption || "No email content available."}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[var(--background)] px-4 py-6 text-[var(--foreground)] md:px-8 md:py-8">
+      {isOrganic && (
+        <div className="mx-auto mb-6 max-w-6xl">
+          <button
+            type="button"
+            onClick={() => router.push("/affiliate/dashboard/manage-campaigns")}
+            className="inline-flex items-center gap-2 text-sm text-zinc-400 transition hover:text-white"
+          >
+            <ArrowLeftIcon className="h-4 w-4" />
+            Back to campaigns
+          </button>
+        </div>
+      )}
+
       {/* Status banners */}
       {isTerminatedByBusiness && (
         <div className="mx-auto mb-4 max-w-6xl">
@@ -808,6 +1404,28 @@ export default function ManageCampaignPage() {
       <div className="grid grid-cols-1 lg:grid-cols-[340px,minmax(0,1fr)] gap-8 items-start justify-center max-w-6xl mx-auto">
         {/* Left side: media / email preview */}
         <div className="w-full flex justify-center items-start">
+          <div className="w-full max-w-lg space-y-5">
+          {isOrganic && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center rounded-full border border-cyan-500/50 bg-cyan-500/5 px-3 py-1.5 text-xs text-cyan-300">
+                Organic Campaign
+              </span>
+              <span
+                className={`inline-flex items-center rounded-full px-3 py-1.5 text-xs border ${
+                  isPaused || isTerminatedByBusiness
+                    ? "border-amber-500/40 bg-amber-500/10 text-amber-200"
+                    : "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
+                }`}
+              >
+                {isTerminatedByBusiness
+                  ? "Off (Stopped by Business)"
+                  : isPaused
+                    ? "Off (Paused)"
+                    : "On (Active)"}
+              </span>
+            </div>
+          )}
+
           {campaign.platform &&
           String(campaign.platform).toLowerCase() === "email" ? (
             <div className="bg-gradient-to-b from-[#181d22] to-[#101214] rounded-2xl border border-[#232931] shadow-xl w-full max-w-lg min-h-[340px] flex flex-col justify-between p-12 relative drop-shadow-[0_0_16px_rgba(0,194,203,0.11)]">
@@ -933,6 +1551,29 @@ export default function ManageCampaignPage() {
               </span>
             </div>
           )}
+
+          {isOrganic && (
+            <button
+              type="button"
+              onClick={() => promoteOfferPath && router.push(promoteOfferPath)}
+              disabled={!promoteOfferPath}
+              className="group w-full rounded-[1.6rem] border border-white/10 bg-[#111416] p-5 text-left transition hover:border-cyan-500/30 hover:bg-[#13191c] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <div className="flex items-start gap-3">
+                <RocketLaunchIcon className="mt-0.5 h-5 w-5 shrink-0 text-cyan-300" />
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-zinc-100">
+                    Ready to reach more people?
+                  </p>
+                  <p className="mt-1 text-sm leading-6 text-zinc-400">
+                    Organic sharing is live. Create an ad for this same offer when you want to add paid reach on top.
+                  </p>
+                </div>
+                <ArrowTopRightOnSquareIcon className="mt-1 h-4 w-4 text-cyan-300 transition group-hover:translate-x-0.5" />
+              </div>
+            </button>
+          )}
+          </div>
         </div>
 
         {/* Right side: summary + stats */}
@@ -1145,10 +1786,96 @@ export default function ManageCampaignPage() {
             </div>
           </div>
 
+          {isOrganic && (
+            <section className="overflow-hidden rounded-[1.8rem] border border-cyan-500/30 bg-[radial-gradient(circle_at_85%_20%,rgba(34,211,238,0.10),transparent_30%),linear-gradient(135deg,rgba(6,182,212,0.12),rgba(17,20,22,0.95)_45%)] p-6">
+              <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex max-w-3xl items-start gap-4">
+                  <div className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-cyan-400/10">
+                    <RocketLaunchIcon className="h-7 w-7 text-cyan-300" />
+                  </div>
+
+                  <div>
+                    <h2 className="text-xl font-semibold text-white">
+                      Ready to scale this campaign?
+                    </h2>
+                    <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-400">
+                      Organic traction is a good signal. If you want to push this offer harder, create a paid ad using the same approved offer and start testing extra reach.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="shrink-0 text-left lg:text-right">
+                  <button
+                    type="button"
+                    onClick={() => promoteOfferPath && router.push(promoteOfferPath)}
+                    disabled={!promoteOfferPath}
+                    className="rounded-xl bg-cyan-400 px-6 py-3 text-sm font-bold text-[#031013] shadow-lg shadow-cyan-500/10 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Create Your First Ad
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => organicContentPath && router.push(organicContentPath)}
+                    disabled={!organicContentPath}
+                    className="mt-3 flex items-center gap-1 text-sm font-medium text-cyan-300 lg:ml-auto disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    View content setup
+                    <ArrowTopRightOnSquareIcon className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {isOrganic && (
+            <section>
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <h2 className="text-sm font-semibold text-zinc-200">Quick actions</h2>
+                <div className="inline-flex items-center gap-2 text-xs text-zinc-500">
+                  <ShieldCheckIcon className="h-4 w-4 text-cyan-400" />
+                  Organic campaign tools
+                </div>
+              </div>
+              <div className="grid gap-3 lg:grid-cols-3">
+                {organicQuickActions.map((action) => {
+                  const Icon = action.icon;
+                  return (
+                    <button
+                      key={action.title}
+                      type="button"
+                      onClick={action.onClick}
+                      disabled={action.disabled}
+                      className="group flex min-h-[110px] items-center gap-4 rounded-2xl border border-white/10 bg-[#111416] p-5 text-left transition hover:border-cyan-500/30 hover:bg-[#13181b] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-cyan-400 text-[#041014]">
+                        <Icon className="h-6 w-6" />
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold text-zinc-100">{action.title}</p>
+                        <p className="mt-1 text-sm leading-5 text-zinc-500">{action.body}</p>
+                      </div>
+
+                      <ArrowTopRightOnSquareIcon className="h-4 w-4 text-cyan-300 transition group-hover:translate-x-0.5" />
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
           {/* Line chart */}
           <Card className={isOrganic ? "min-h-[260px] rounded-[2rem] border-white/10 bg-[linear-gradient(180deg,rgba(15,19,24,0.98),rgba(9,12,16,0.98))] p-5" : "min-h-[260px] p-4"}>
             <CardHeader className="p-0 pb-3">
-              <CardTitle>Performance overview</CardTitle>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <CardTitle>Performance overview</CardTitle>
+                {isOrganic && (
+                  <div className="inline-flex items-center gap-2 rounded-lg bg-white/[0.05] px-3 py-2 text-xs text-zinc-300">
+                    Last 7 days
+                    <ChevronDownIcon className="h-4 w-4" />
+                  </div>
+                )}
+              </div>
             </CardHeader>
             <div className="h-full">
               <Line
