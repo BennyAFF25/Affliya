@@ -19,7 +19,6 @@ function friendlyObjective(objective?: string): string {
       return "Traffic";
   }
 }
-// eslint-disable-next-line
 
 import { useState, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { nmToast } from "@/components/ui/toast";
@@ -817,6 +816,54 @@ export default function PromoteOfferPage() {
         return;
       }
 
+      const usingBrandContent = organicCreativeSource === "brand" && !!selectedOrganicBrandCreative;
+      const selectedCreativeId = usingBrandContent ? selectedOrganicBrandCreative?.id || null : null;
+      const normalizedSelectedCaption = String(selectedOrganicBrandCreative?.caption || "").trim();
+      const normalizedCurrentCaption = String(ogCaption || "").trim();
+      const canAutoLaunchPreapprovedOrganic =
+        usingBrandContent &&
+        !!selectedOrganicBrandCreative?.organic_preapproved &&
+        !!selectedOrganicBrandCreative?.allow_organic &&
+        ogMethod === "social" &&
+        normalizedCurrentCaption === normalizedSelectedCaption;
+
+      if (canAutoLaunchPreapprovedOrganic && selectedCreativeId) {
+        const response = await fetch(`/api/affiliate/offers/${offerId}/ready-organic-promotion`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            businessCreativeId: selectedCreativeId,
+            platform: ogPlatform,
+          }),
+        });
+
+        const json = await response.json().catch(() => null);
+        if (!response.ok || !json?.ok) {
+          throw new Error(json?.message || json?.error || "Failed to launch pre-approved organic promotion.");
+        }
+
+        nmToast.success("Organic campaign is live — your tracking link is ready.");
+        void logProductEvent({
+          eventType: "organic_promotion_ready",
+          actorRole: "affiliate",
+          offerId,
+          businessCreativeId: selectedCreativeId,
+          promotionType: "organic",
+          meta: {
+            source: "brand_preapproved",
+            platform: ogPlatform,
+            campaignId: json?.campaign?.id || null,
+          },
+        });
+        const campaignId = String(json?.campaign?.id || "").trim();
+        router.push(
+          campaignId
+            ? `/affiliate/dashboard/manage-campaigns/${campaignId}`
+            : "/affiliate/dashboard/manage-campaigns",
+        );
+        return;
+      }
+
       // Fetch business_email for this offer
       const { data: offerRow, error: offerErr } = await (supabase as any)
         .from("offers")
@@ -830,9 +877,6 @@ export default function PromoteOfferPage() {
       // Optional upload (only for social with media)
       let image_url: string | null = null;
       let video_url: string | null = null;
-      const usingBrandContent = organicCreativeSource === "brand" && !!selectedOrganicBrandCreative;
-      const selectedCreativeId = usingBrandContent ? selectedOrganicBrandCreative?.id || null : null;
-
       if (usingBrandContent && selectedOrganicBrandCreative) {
         if (selectedOrganicBrandCreative.media_type === "video") {
           video_url = selectedOrganicBrandCreative.media_url;
@@ -875,8 +919,8 @@ export default function PromoteOfferPage() {
 
       // Map fields by method
       let platform = ogPlatform;
-      let caption = ogCaption;
-      let content = ogContent;
+      const caption = ogCaption;
+      const content = ogContent;
 
       if (ogMethod === "email") {
         platform = "Email";

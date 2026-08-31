@@ -398,7 +398,7 @@ export default function AffiliateOnboardingV1() {
               <div>
                 <h2 className="text-2xl font-semibold">Your first offer</h2>
                 <p className="mt-2 text-sm text-white/65">Start with Nettmark&apos;s own partner programme so you can begin promoting immediately instead of waiting on approvals.</p>
-                <p className="mt-2 text-sm text-white/50">Once you&apos;re through this quick-start flow, you&apos;ll be able to browse the wider marketplace and promote other approved offers too.</p>
+                <p className="mt-2 text-sm text-white/50">Once you&apos;re through this quick-start flow, you&apos;ll be able to browse the wider marketplace and start promoting other offers too.</p>
               </div>
 
               {loadingOffer ? (

@@ -17,9 +17,9 @@ const slides = [
   {
     eyebrow: "Start here",
     title: "Welcome to Nettmark",
-    body: "Nettmark lets partners find business offers, request approval, promote approved offers, and track earnings.",
+    body: "Nettmark lets partners find business offers, start promoting, submit content or ads for review when needed, and track earnings.",
     helper:
-      "Choose an offer from the marketplace, request approval, then promote it through paid ads or organic content once approved.",
+      "Choose an offer from the marketplace, start promoting, then use paid ads or organic content based on that offer’s approval settings.",
     icon: Sparkles,
     actions: [
       { label: "Browse offers", href: "/affiliate/marketplace", primary: true },
@@ -30,7 +30,7 @@ const slides = [
     eyebrow: "Step 1",
     title: "Browse offers",
     body: "Use the marketplace to find an offer you understand and want to promote.",
-    helper: "You need approval from the business before you can promote an offer.",
+    helper: "Open offers let you start immediately, while downstream content and ad approvals still protect the brand.",
     icon: Search,
     actions: [
       { label: "Open marketplace", href: "/affiliate/marketplace", primary: true },
@@ -52,8 +52,8 @@ const slides = [
   },
   {
     eyebrow: "Step 3",
-    title: "Promote after approval",
-    body: "Once approved, choose paid ads or organic content and submit your promotion for review.",
+    title: "Start promoting",
+    body: "Choose paid ads or organic content and submit your promotion for review wherever the business requires it.",
     helper: "After launch, your dashboard tracks clicks, conversions, and commissions.",
     icon: Handshake,
     actions: [

@@ -21,6 +21,8 @@ interface OrganicSubmissionFormProps {
     media_url: string;
     media_type: string;
     thumbnail_url?: string | null;
+    allow_organic?: boolean;
+    organic_preapproved?: boolean;
   } | null;
   usingBrandContent?: boolean;
   onSwitchToBrandContent?: () => void;
@@ -46,6 +48,8 @@ export function OrganicSubmissionForm({
   handleOrganicSubmit,
 }: OrganicSubmissionFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const canLaunchInstantly =
+    !!usingBrandContent && !!selectedBrandCreative?.allow_organic && !!selectedBrandCreative?.organic_preapproved;
 
   const applyTemplate = (kind: "social" | "email" | "forum") => {
     if (kind === "social") {
@@ -120,7 +124,11 @@ export function OrganicSubmissionForm({
               </div>
               <div className="p-4">
                 <div className="text-sm font-semibold text-white">{selectedBrandCreative.title || "Selected brand creative"}</div>
-                <div className="mt-1 text-xs text-gray-400">This media will be attached automatically when you submit.</div>
+                <div className="mt-1 text-xs text-gray-400">
+                  {canLaunchInstantly
+                    ? "This media is pre-approved for organic use. Submit without editing the caption to launch instantly."
+                    : "This media will be attached automatically when you submit."}
+                </div>
               </div>
             </div>
           )}
@@ -241,7 +249,7 @@ export function OrganicSubmissionForm({
               Submitting…
             </>
           ) : (
-            "Submit for Review"
+            canLaunchInstantly ? "Launch Organic Campaign" : "Submit for Review"
           )}
         </button>
       </div>

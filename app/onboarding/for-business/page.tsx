@@ -747,7 +747,7 @@ export default function BusinessOnboardingPage() {
                 Your offer is live
               </h2>
               <p className="mt-2 text-sm leading-6 text-white/70">
-                Affiliates can now view it and request to promote it.
+                Affiliates can now view it and start promoting it.
               </p>
               <button
                 onClick={() => router.replace("/business/my-business")}

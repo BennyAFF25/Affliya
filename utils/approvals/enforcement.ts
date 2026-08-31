@@ -24,6 +24,17 @@ export type ApprovalEnforcementResult = {
   message: string;
 };
 
+export type ParticipationEnsureResult = {
+  ok: true;
+  status: 'approved' | 'pending';
+  created: boolean;
+} | {
+  ok: false;
+  status: number;
+  error: string;
+  message: string;
+};
+
 export const TRACKING_NOT_READY_MESSAGE =
   'Tracking is not connected for this offer yet. Ask the business to open Setup tracking, install the Nettmark pixel, and run the test before launching campaigns.';
 
@@ -139,7 +150,7 @@ export async function assertAffiliateOfferApproved(
   const row = data as { status?: string | null } | null;
   const status = String(row?.status || '').toLowerCase();
 
-  if (status !== 'approved') {
+  if (status !== 'approved' && status !== 'pending') {
     return {
       ok: false,
       status: 403,
@@ -149,6 +160,83 @@ export async function assertAffiliateOfferApproved(
   }
 
   return { ok: true };
+}
+
+export async function ensureAffiliateOfferParticipation(
+  supabase: QueryClient & {
+    from: (table: string) => QueryBuilder & {
+      insert: (values: Record<string, unknown>) => Promise<QueryResponse>;
+    };
+  },
+  params: {
+    offerId: string;
+    affiliateEmail: string;
+    businessEmail?: string | null;
+    notes?: string | null;
+  },
+): Promise<ParticipationEnsureResult> {
+  const { data, error } = await supabase
+    .from('affiliate_requests')
+    .select('id, status')
+    .eq('offer_id', params.offerId)
+    .eq('affiliate_email', params.affiliateEmail)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to verify affiliate participation: ${error.message || error}`);
+  }
+
+  const existing = data as { status?: string | null } | null;
+  const existingStatus = String(existing?.status || '').toLowerCase();
+
+  if (existingStatus === 'approved' || existingStatus === 'pending') {
+    return {
+      ok: true,
+      status: existingStatus as 'approved' | 'pending',
+      created: false,
+    };
+  }
+
+  if (existingStatus === 'rejected') {
+    return {
+      ok: false,
+      status: 403,
+      error: 'AFFILIATE_OFFER_REJECTED',
+      message: 'This offer access was previously rejected. Contact support if this should be reopened.',
+    };
+  }
+
+  const insertPayload: Record<string, unknown> = {
+    offer_id: params.offerId,
+    affiliate_email: params.affiliateEmail,
+    status: 'approved',
+    notes: params.notes || 'Auto-approved open offer participation',
+    approved_at: new Date().toISOString(),
+  };
+
+  if (params.businessEmail) {
+    insertPayload.business_email = params.businessEmail;
+  }
+
+  const { error: insertError } = await supabase.from('affiliate_requests').insert(insertPayload);
+
+  if (insertError) {
+    const conflict = String((insertError as { code?: string | null })?.code || '').toUpperCase();
+    if (conflict === '23505') {
+      return {
+        ok: true,
+        status: 'approved',
+        created: false,
+      };
+    }
+    throw new Error(`Failed to create affiliate participation: ${(insertError as { message?: string | null })?.message || insertError}`);
+  }
+
+  return {
+    ok: true,
+    status: 'approved',
+    created: true,
+  };
 }
 
 export async function assertAdIdeaLaunchApproved(

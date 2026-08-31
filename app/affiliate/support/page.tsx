@@ -14,7 +14,7 @@ const faqs = [
   {
     question: "How do I get approved to promote an offer?",
     answer:
-      "Go to the Marketplace, choose an offer, and click “Request to Promote”. Businesses manually review and approve requests.",
+      "Go to the Marketplace, choose an offer, and click “Start Promoting”. Open offers unlock immediately, while content and ad approvals still apply where required.",
   },
   {
     question: "When do I get paid?",
@@ -24,7 +24,7 @@ const faqs = [
   {
     question: "Can I promote multiple businesses?",
     answer:
-      "Yes. You can promote multiple businesses at once, as long as each approves you.",
+      "Yes. You can promote multiple businesses at once, as long as each offer remains available and you follow its content and launch rules.",
   },
   {
     question: "What if my ad gets rejected?",
