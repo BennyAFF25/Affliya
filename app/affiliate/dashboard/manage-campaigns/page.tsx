@@ -154,77 +154,81 @@ export default function AffiliateManageCampaignsPage() {
         return q.order("created_at", { ascending: false });
       };
 
-      // Attempt 1: with ad_name + offer_id + source filter
-      let currentSelect = selectWithNameFull;
-      let withSource = true;
+      let liveAdsData: LiveAdRow[] = [];
 
-      let { data: liveAdsData, error: liveAdsErr } = await runLiveAdsQuery(
-        currentSelect,
-        withSource,
-      );
+      try {
+        // Attempt 1: with ad_name + offer_id + source filter
+        let currentSelect = selectWithNameFull;
+        let withSource = true;
 
-      // If ad_name doesn't exist, drop it
-      if (liveAdsErr?.message?.includes("ad_name")) {
-        currentSelect = currentSelect.includes("offer_id")
-          ? selectNoNameFull
-          : selectNoNameNoOffer;
-        ({ data: liveAdsData, error: liveAdsErr } = await runLiveAdsQuery(
-          currentSelect,
-          withSource,
-        ));
-      }
+        let liveAdsRes = await runLiveAdsQuery(currentSelect, withSource);
+        let liveAdsErr = liveAdsRes.error;
+        let liveAdsRows = (liveAdsRes.data as LiveAdRow[] | null) ?? [];
 
-      // If offer_id doesn't exist, drop it (keep whether we include ad_name or not)
-      if (liveAdsErr?.message?.includes("offer_id")) {
-        const wantsName = currentSelect.includes("ad_name");
-        currentSelect = wantsName ? selectWithNameNoOffer : selectNoNameNoOffer;
-        ({ data: liveAdsData, error: liveAdsErr } = await runLiveAdsQuery(
-          currentSelect,
-          withSource,
-        ));
-
-        // After dropping offer_id, if ad_name still errors, drop it too
+        // If ad_name doesn't exist, drop it
         if (liveAdsErr?.message?.includes("ad_name")) {
-          currentSelect = selectNoNameNoOffer;
-          ({ data: liveAdsData, error: liveAdsErr } = await runLiveAdsQuery(
-            currentSelect,
-            withSource,
-          ));
+          currentSelect = currentSelect.includes("offer_id")
+            ? selectNoNameFull
+            : selectNoNameNoOffer;
+          liveAdsRes = await runLiveAdsQuery(currentSelect, withSource);
+          liveAdsErr = liveAdsRes.error;
+          liveAdsRows = (liveAdsRes.data as LiveAdRow[] | null) ?? [];
         }
-      }
 
-      // If source doesn't exist, retry without source filter (keep the currentSelect)
-      if (liveAdsErr?.message?.includes("source")) {
-        withSource = false;
-        ({ data: liveAdsData, error: liveAdsErr } = await runLiveAdsQuery(
-          currentSelect,
-          withSource,
-        ));
-
-        // If offer_id errors now, drop it
+        // If offer_id doesn't exist, drop it (keep whether we include ad_name or not)
         if (liveAdsErr?.message?.includes("offer_id")) {
           const wantsName = currentSelect.includes("ad_name");
-          currentSelect = wantsName
-            ? selectWithNameNoOffer
-            : selectNoNameNoOffer;
-          ({ data: liveAdsData, error: liveAdsErr } = await runLiveAdsQuery(
-            currentSelect,
-            withSource,
-          ));
+          currentSelect = wantsName ? selectWithNameNoOffer : selectNoNameNoOffer;
+          liveAdsRes = await runLiveAdsQuery(currentSelect, withSource);
+          liveAdsErr = liveAdsRes.error;
+          liveAdsRows = (liveAdsRes.data as LiveAdRow[] | null) ?? [];
+
+          // After dropping offer_id, if ad_name still errors, drop it too
+          if (liveAdsErr?.message?.includes("ad_name")) {
+            currentSelect = selectNoNameNoOffer;
+            liveAdsRes = await runLiveAdsQuery(currentSelect, withSource);
+            liveAdsErr = liveAdsRes.error;
+            liveAdsRows = (liveAdsRes.data as LiveAdRow[] | null) ?? [];
+          }
         }
 
-        // If ad_name errors now, drop it
-        if (liveAdsErr?.message?.includes("ad_name")) {
-          currentSelect = selectNoNameNoOffer;
-          ({ data: liveAdsData, error: liveAdsErr } = await runLiveAdsQuery(
-            currentSelect,
-            withSource,
-          ));
+        // If source doesn't exist, retry without source filter (keep the currentSelect)
+        if (liveAdsErr?.message?.includes("source")) {
+          withSource = false;
+          liveAdsRes = await runLiveAdsQuery(currentSelect, withSource);
+          liveAdsErr = liveAdsRes.error;
+          liveAdsRows = (liveAdsRes.data as LiveAdRow[] | null) ?? [];
+
+          // If offer_id errors now, drop it
+          if (liveAdsErr?.message?.includes("offer_id")) {
+            const wantsName = currentSelect.includes("ad_name");
+            currentSelect = wantsName
+              ? selectWithNameNoOffer
+              : selectNoNameNoOffer;
+            liveAdsRes = await runLiveAdsQuery(currentSelect, withSource);
+            liveAdsErr = liveAdsRes.error;
+            liveAdsRows = (liveAdsRes.data as LiveAdRow[] | null) ?? [];
+          }
+
+          // If ad_name errors now, drop it
+          if (liveAdsErr?.message?.includes("ad_name")) {
+            currentSelect = selectNoNameNoOffer;
+            liveAdsRes = await runLiveAdsQuery(currentSelect, withSource);
+            liveAdsErr = liveAdsRes.error;
+            liveAdsRows = (liveAdsRes.data as LiveAdRow[] | null) ?? [];
+          }
         }
+
+        if (liveAdsErr) {
+          console.warn("[affiliate/manage-campaigns] paid live_ads query failed; continuing without paid rows", liveAdsErr);
+        } else {
+          liveAdsData = liveAdsRows.filter(Boolean);
+        }
+      } catch (liveAdsFatalErr) {
+        console.warn("[affiliate/manage-campaigns] paid live_ads fetch crashed; continuing without paid rows", liveAdsFatalErr);
       }
 
-      if (liveAdsErr) throw liveAdsErr;
-      setPaidMeta(((liveAdsData as LiveAdRow[]) ?? []).filter(Boolean));
+      setPaidMeta(liveAdsData);
 
       // ----------------------------
       // Organic campaigns (live_campaigns)
