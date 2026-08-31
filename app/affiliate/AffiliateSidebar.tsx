@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -73,6 +74,13 @@ export default function AffiliateSidebar() {
     { name: "Wallet", href: "/affiliate/wallet", icon: Package },
   ];
 
+  const activeHref =
+    links
+      .filter(
+        (link) => pathname === link.href || pathname.startsWith(`${link.href}/`),
+      )
+      .sort((a, b) => b.href.length - a.href.length)[0]?.href ?? null;
+
   return (
     <div
       className="relative h-full w-64 border-r px-5 py-6"
@@ -84,8 +92,7 @@ export default function AffiliateSidebar() {
     >
       <ul className="mt-2 space-y-1">
         {links.map((link) => {
-          const active =
-            pathname === link.href || pathname.startsWith(`${link.href}/`);
+          const active = activeHref === link.href;
           const Icon = link.icon;
           return (
             <li key={link.href} className="relative">
