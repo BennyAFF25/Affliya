@@ -201,8 +201,8 @@ export default function OfferCard({
   };
 
   return (
-    <article className="group flex h-full flex-col overflow-hidden rounded-[24px] border border-white/10 bg-[#111416] text-white shadow-[0_10px_30px_rgba(0,0,0,0.22)] transition hover:border-cyan-400/40 hover:shadow-[0_18px_45px_rgba(0,194,203,0.10)]">
-      <div className="flex flex-col gap-4 px-5 py-5 sm:px-6">
+    <article className="group flex h-full flex-col overflow-hidden rounded-[20px] border border-[var(--sidebar-border)] bg-[var(--sidebar)] text-white shadow-[0_10px_24px_rgba(0,0,0,0.20)] transition hover:border-cyan-400/35 hover:shadow-[0_14px_34px_rgba(0,194,203,0.08)]">
+      <div className="flex flex-col gap-4 px-5 py-5 sm:px-6 lg:min-h-[420px]">
         <div className="flex items-start justify-between gap-4">
           <div className="flex min-w-0 items-center gap-3.5">
             {offer.logoUrl ? (
@@ -210,7 +210,7 @@ export default function OfferCard({
                 <img src={offer.logoUrl} alt={`${name} logo`} className="h-full w-full object-contain p-2" />
               </div>
             ) : (
-              <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-white/10 bg-[#1a1e20] text-sm font-semibold text-cyan-200">
+              <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-[var(--sidebar-border)] bg-[#202329] text-sm font-semibold text-cyan-200">
                 {logoFallback}
               </div>
             )}
@@ -240,7 +240,7 @@ export default function OfferCard({
           ) : null}
         </div>
 
-        <div className="grid gap-3 rounded-2xl border border-white/10 bg-[#0d1012] p-3 sm:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1.2fr)] sm:items-center sm:p-4">
+        <div className="grid gap-3 rounded-2xl border border-[var(--sidebar-border)] bg-[#202329] p-3 sm:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1.2fr)] sm:items-center sm:p-4">
           <div className="min-w-0">
             <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-zinc-500">Commission</p>
             <p className="mt-1 text-2xl font-semibold tracking-tight text-cyan-300">{commissionHeadline}</p>
@@ -281,9 +281,9 @@ export default function OfferCard({
           ) : null}
         </div>
 
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex flex-col gap-4 lg:flex-1 lg:flex-row lg:items-start lg:justify-between">
           <div className="flex min-w-0 flex-1 items-start gap-3.5">
-            <div className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-xl border border-white/10 bg-[#171b1d] text-zinc-500">
+            <div className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-xl border border-[var(--sidebar-border)] bg-[#202329] text-zinc-500">
               {offer.logoUrl ? (
                 <img src={offer.logoUrl} alt="Offer preview" className="h-full w-full object-cover" />
               ) : (
@@ -314,7 +314,7 @@ export default function OfferCard({
           ) : null}
         </div>
 
-        <div className="grid gap-3 pt-1 sm:grid-cols-2">
+        <div className="mt-auto grid gap-3 pt-1 sm:grid-cols-2">
           {role === 'affiliate' ? (
             <>
               <Link
