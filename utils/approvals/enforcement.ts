@@ -8,6 +8,8 @@ type QueryBuilder = PromiseLike<QueryResponse> & {
   eq: (column: string, value: string | boolean | null) => QueryBuilder;
   is: (column: string, value: null) => QueryBuilder;
   limit: (count: number) => QueryBuilder;
+  insert: (values: Record<string, unknown>) => Promise<QueryResponse>;
+  update: (values: Record<string, unknown>) => QueryBuilder;
   maybeSingle: () => Promise<QueryResponse>;
 };
 
@@ -34,6 +36,17 @@ export type ParticipationEnsureResult = {
   error: string;
   message: string;
 };
+
+export type OfferParticipationMode = 'open' | 'approval_required' | 'private';
+
+export function normalizeOfferParticipationMode(value: unknown): OfferParticipationMode {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (normalized === 'approval_required' || normalized === 'private') {
+    return normalized;
+  }
+
+  return 'open';
+}
 
 export const TRACKING_NOT_READY_MESSAGE =
   'Tracking is not connected for this offer yet. Ask the business to open Setup tracking, install the Nettmark pixel, and run the test before launching campaigns.';
@@ -150,7 +163,7 @@ export async function assertAffiliateOfferApproved(
   const row = data as { status?: string | null } | null;
   const status = String(row?.status || '').toLowerCase();
 
-  if (status !== 'approved' && status !== 'pending') {
+  if (status !== 'approved' && status !== 'active' && status !== 'accepted') {
     return {
       ok: false,
       status: 403,
@@ -163,16 +176,14 @@ export async function assertAffiliateOfferApproved(
 }
 
 export async function ensureAffiliateOfferParticipation(
-  supabase: QueryClient & {
-    from: (table: string) => QueryBuilder & {
-      insert: (values: Record<string, unknown>) => Promise<QueryResponse>;
-    };
-  },
+  supabase: QueryClient,
   params: {
     offerId: string;
     affiliateEmail: string;
     businessEmail?: string | null;
     notes?: string | null;
+    participationMode?: OfferParticipationMode | null;
+    allowPendingCreation?: boolean;
   },
 ): Promise<ParticipationEnsureResult> {
   const { data, error } = await supabase
@@ -189,10 +200,42 @@ export async function ensureAffiliateOfferParticipation(
   const existing = data as { status?: string | null } | null;
   const existingStatus = String(existing?.status || '').toLowerCase();
 
-  if (existingStatus === 'approved' || existingStatus === 'pending') {
+  const mode = normalizeOfferParticipationMode(params.participationMode);
+
+  if (existingStatus === 'approved' || existingStatus === 'active' || existingStatus === 'accepted') {
     return {
       ok: true,
-      status: existingStatus as 'approved' | 'pending',
+      status: 'approved',
+      created: false,
+    };
+  }
+
+  if (existingStatus === 'pending') {
+    if (mode === 'open') {
+      const { error: promoteError } = await supabase
+        .from('affiliate_requests')
+        .update({
+          status: 'approved',
+          approved_at: new Date().toISOString(),
+          notes: params.notes || 'Auto-approved open offer participation',
+        })
+        .eq('offer_id', params.offerId)
+        .eq('affiliate_email', params.affiliateEmail);
+
+      if (promoteError) {
+        throw new Error(`Failed to promote pending participation: ${promoteError.message || promoteError}`);
+      }
+
+      return {
+        ok: true,
+        status: 'approved',
+        created: false,
+      };
+    }
+
+    return {
+      ok: true,
+      status: 'pending',
       created: false,
     };
   }
@@ -206,13 +249,37 @@ export async function ensureAffiliateOfferParticipation(
     };
   }
 
+  if (mode === 'private') {
+    return {
+      ok: false,
+      status: 403,
+      error: 'AFFILIATE_OFFER_PRIVATE',
+      message: 'This offer is currently private and cannot be joined from the marketplace.',
+    };
+  }
+
+  if (mode === 'approval_required' && !params.allowPendingCreation) {
+    return {
+      ok: false,
+      status: 403,
+      error: 'AFFILIATE_OFFER_APPROVAL_REQUIRED',
+      message: 'This offer requires business approval before promotion can start.',
+    };
+  }
+
+  const nextStatus: 'approved' | 'pending' = mode === 'approval_required' ? 'pending' : 'approved';
+
   const insertPayload: Record<string, unknown> = {
     offer_id: params.offerId,
     affiliate_email: params.affiliateEmail,
-    status: 'approved',
-    notes: params.notes || 'Auto-approved open offer participation',
-    approved_at: new Date().toISOString(),
+    status: nextStatus,
+    notes: params.notes || (nextStatus === 'approved' ? 'Auto-approved open offer participation' : 'Approval requested from marketplace'),
+    requested_at: new Date().toISOString(),
   };
+
+  if (nextStatus === 'approved') {
+    insertPayload.approved_at = new Date().toISOString();
+  }
 
   if (params.businessEmail) {
     insertPayload.business_email = params.businessEmail;
@@ -225,7 +292,7 @@ export async function ensureAffiliateOfferParticipation(
     if (conflict === '23505') {
       return {
         ok: true,
-        status: 'approved',
+        status: nextStatus,
         created: false,
       };
     }
@@ -234,7 +301,7 @@ export async function ensureAffiliateOfferParticipation(
 
   return {
     ok: true,
-    status: 'approved',
+    status: nextStatus,
     created: true,
   };
 }

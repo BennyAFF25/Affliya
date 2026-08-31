@@ -401,6 +401,29 @@ export default function PromoteOfferPage() {
     access_token: string;
     ad_account_id: string;
   } | null>(null);
+  const [participationMode, setParticipationMode] = useState<"open" | "approval_required" | "private">("open");
+  const [participationStatus, setParticipationStatus] = useState<"approved" | "pending" | "rejected" | null>(null);
+
+  const ensurePromotionAccess = async () => {
+    const response = await fetch(`/api/affiliate/offers/${offerId}/start`, { method: "POST" });
+    const json = await response.json().catch(() => null);
+
+    if (!response.ok || !json?.ok) {
+      throw new Error(json?.message || json?.error || "This offer is not available right now.");
+    }
+
+    const nextStatus = json?.participation?.status || null;
+    if (nextStatus === "approved" || nextStatus === "pending" || nextStatus === "rejected") {
+      setParticipationStatus(nextStatus);
+    }
+    if (json?.participationMode === "open" || json?.participationMode === "approval_required" || json?.participationMode === "private") {
+      setParticipationMode(json.participationMode);
+    }
+
+    if (nextStatus !== "approved") {
+      throw new Error(json?.message || "This offer requires approval before promotion can start.");
+    }
+  };
 
   useEffect(() => {
     if (session === undefined || session === null) return;
@@ -410,7 +433,7 @@ export default function PromoteOfferPage() {
       const { data: offer, error: offerErr } = await (supabase as any)
         .from("offers")
         .select(
-          "title, logo_url, business_email, website, meta_page_id, meta_ad_account_id, meta_pixel_id",
+          "title, logo_url, business_email, website, meta_page_id, meta_ad_account_id, meta_pixel_id, participation_mode",
         )
         .eq("id", offerId)
         .single();
@@ -423,6 +446,11 @@ export default function PromoteOfferPage() {
       // Preview title + logo
       setBrandName(offer?.title || "Your Brand Name");
       setBrandLogoUrl(offer?.logo_url || null);
+      setParticipationMode(
+        offer?.participation_mode === "approval_required" || offer?.participation_mode === "private"
+          ? offer.participation_mode
+          : "open",
+      );
       setOfferMetaState({
         hasPage: !!offer?.meta_page_id,
         hasAdAccount: !!(offer as OfferRow | null)?.meta_ad_account_id,
@@ -473,10 +501,28 @@ export default function PromoteOfferPage() {
           }
         }
       }
+
+      if (userEmail) {
+        const { data: requestRow } = await (supabase as any)
+          .from("affiliate_requests")
+          .select("status")
+          .eq("offer_id", offerId)
+          .eq("affiliate_email", userEmail)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        const status = String(requestRow?.status || "").toLowerCase();
+        if (status === "approved" || status === "pending" || status === "rejected") {
+          setParticipationStatus(status);
+        } else {
+          setParticipationStatus(null);
+        }
+      }
     };
 
     go();
-  }, [offerId, session]);
+  }, [offerId, session, userEmail]);
 
   // Debounce helper – prevents spamming Graph while typing
   function useDebounce(fn: (...args: any[]) => void, delay = 600) {
@@ -816,6 +862,8 @@ export default function PromoteOfferPage() {
         return;
       }
 
+      await ensurePromotionAccess();
+
       const usingBrandContent = organicCreativeSource === "brand" && !!selectedOrganicBrandCreative;
       const selectedCreativeId = usingBrandContent ? selectedOrganicBrandCreative?.id || null : null;
       const normalizedSelectedCaption = String(selectedOrganicBrandCreative?.caption || "").trim();
@@ -986,6 +1034,8 @@ export default function PromoteOfferPage() {
   const handleAdSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
     try {
+      await ensurePromotionAccess();
+
       // UI-side safety: if Bid Cap selected, require a value
       if (form.bid_strategy === "BID_CAP") {
         const cap = Number(form.bid_cap_dollars);

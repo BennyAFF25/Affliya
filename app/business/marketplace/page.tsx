@@ -494,10 +494,10 @@ export default function BusinessMarketplace() {
                   <div className="mt-4 flex items-center justify-between rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
                     <div>
                       <p className="text-[11px] uppercase tracking-[0.14em] text-gray-500">
-                        Total request volume
+                        Participation volume
                       </p>
                       <p className="mt-1 text-sm font-medium text-white">
-                        {stats.totalRequests} affiliate requests logged
+                        {stats.totalRequests} affiliate participation records logged
                       </p>
                     </div>
                     <ArrowUpRight className="h-4 w-4 text-[#7ff5fb]" />

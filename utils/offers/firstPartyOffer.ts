@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+import { ensureAffiliateOfferParticipation } from "@/../utils/approvals/enforcement";
+
 export const NETTMARK_PARTNER_PROGRAMME_SYSTEM_KEY = "nettmark_partner_programme";
 export const NETTMARK_PARTNER_PROGRAMME_EMAIL = "contact@nettmark.com";
 export const NETTMARK_PARTNER_PROGRAMME_TITLE = "Nettmark Partner Programme";
@@ -101,20 +103,15 @@ export async function ensureNettmarkPartnerProgrammeAccess(params: {
 }) {
   const { supabase, offerId, affiliateEmail, businessEmail = NETTMARK_PARTNER_PROGRAMME_EMAIL } = params;
 
-  const { error } = await supabase
-    .from("affiliate_requests")
-    .upsert(
-      {
-        offer_id: offerId,
-        affiliate_email: affiliateEmail,
-        business_email: businessEmail,
-        status: "approved",
-        notes: "Auto-approved first-party onboarding access",
-      },
-      { onConflict: "offer_id,affiliate_email" },
-    );
+  const result = await ensureAffiliateOfferParticipation(supabase, {
+    offerId,
+    affiliateEmail,
+    businessEmail,
+    participationMode: "open",
+    notes: "Auto-approved first-party onboarding access",
+  });
 
-  if (error) {
-    throw new Error(error.message || "Failed to create approved onboarding access.");
+  if (!result.ok) {
+    throw new Error(result.message || "Failed to create approved onboarding access.");
   }
 }

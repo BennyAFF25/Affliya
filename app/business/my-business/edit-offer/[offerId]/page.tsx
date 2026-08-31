@@ -30,6 +30,7 @@ interface Offer {
   meta_ad_account_name?: string | null;
   meta_pixel_id?: string | null;
   meta_pixel_name?: string | null;
+  participation_mode?: "open" | "approval_required" | "private" | null;
 }
 
 type MetaConnection = {
@@ -98,6 +99,7 @@ export default function EditOfferPage() {
   const [type, setType] = useState("one-time");
   const [price, setPrice] = useState("");
   const [currency, setCurrency] = useState("USD");
+  const [participationMode, setParticipationMode] = useState<"open" | "approval_required" | "private">("open");
   const [commissionValue, setCommissionValue] = useState("");
   const [payoutMode, setPayoutMode] = useState<"upfront" | "spread">("upfront");
   const [payoutInterval, setPayoutInterval] = useState<"monthly">("monthly");
@@ -159,7 +161,7 @@ export default function EditOfferPage() {
       const { data, error } = await (supabase as any)
         .from("offers")
         .select(
-          "id,business_email,title,description,commission,type,price,currency,commission_value,payout_mode,payout_interval,payout_cycles,recurring_term_months,recurring_monthly_commission_value,conversion_scope,eligible_product_ids,eligible_variant_ids,meta_page_id,meta_page_name,meta_ad_account_id,meta_ad_account_name,meta_pixel_id,meta_pixel_name",
+          "id,business_email,title,description,commission,type,price,currency,commission_value,payout_mode,payout_interval,payout_cycles,recurring_term_months,recurring_monthly_commission_value,conversion_scope,eligible_product_ids,eligible_variant_ids,meta_page_id,meta_page_name,meta_ad_account_id,meta_ad_account_name,meta_pixel_id,meta_pixel_name,participation_mode",
         )
         .eq("id", offerId as string)
         .eq("business_email", user.email as string)
@@ -178,6 +180,7 @@ export default function EditOfferPage() {
       setCommission(data.commission?.toString() || "");
       setPrice(data.price != null ? data.price.toString() : "");
       setCurrency(data.currency || "USD");
+      setParticipationMode((data.participation_mode as "open" | "approval_required" | "private") || "open");
       setType(data.type || "one-time");
       setCommissionValue(
         (data.recurring_monthly_commission_value ?? data.commission_value) != null
@@ -313,6 +316,7 @@ export default function EditOfferPage() {
         type,
         price: price ? Number(price) : null,
         currency,
+        participation_mode: participationMode,
         commission_value: commissionValue ? Number(commissionValue) : null,
         payout_mode: type === "recurring" ? payoutMode : "upfront",
         payout_interval: type === "recurring" ? payoutInterval : "monthly",
@@ -468,6 +472,20 @@ export default function EditOfferPage() {
               >
                 <option value="one-time">One-Time</option>
                 <option value="recurring">Recurring</option>
+              </Select>
+            </div>
+
+            <div>
+              <label className="mb-1 block text-xs font-medium tracking-wide text-[var(--muted-foreground)]">
+                Participation mode
+              </label>
+              <Select
+                value={participationMode}
+                onChange={(e) => setParticipationMode(e.target.value as "open" | "approval_required" | "private")}
+              >
+                <option value="open">Open — affiliates can start immediately</option>
+                <option value="approval_required">Approval required — review each affiliate first</option>
+                <option value="private">Private — keep this offer restricted</option>
               </Select>
             </div>
 

@@ -301,7 +301,7 @@ function AffiliateDashboardContent() {
         .from("affiliate_requests")
         .select("offer_id")
         .eq("affiliate_email", session.user?.email || "")
-        .in("status", ["approved", "pending"])) as {
+        .in("status", ["approved", "active", "accepted"])) as {
         data: ApprovedRequest[] | null;
         error: any;
       };

@@ -8,7 +8,7 @@ const faqs = [
   {
     question: "How do I approve an affiliate?",
     answer:
-      "Open your Inbox or Affiliate Requests page to review each incoming request. You can approve or reject partners individually once you’ve checked fit and intent.",
+      "Open offers let affiliates start immediately. Use Affiliate Requests only for approval-required offers, and keep business review focused on content, ad, and policy decisions that actually need approval.",
   },
   {
     question: "Can I control the ads affiliates run?",

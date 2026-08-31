@@ -5,6 +5,7 @@ import supabaseAdmin from "@/../utils/supabase/server-client";
 import {
   assertAffiliateOfferApproved,
   ensureAffiliateOfferParticipation,
+  normalizeOfferParticipationMode,
 } from "@/../utils/approvals/enforcement";
 
 export async function GET(req: Request, context: { params: Promise<{ offerId: string }> }) {
@@ -27,7 +28,7 @@ export async function GET(req: Request, context: { params: Promise<{ offerId: st
 
     const { data: offer, error: offerError } = await (supabaseAdmin as any)
       .from("offers")
-      .select("id, business_email, title")
+      .select("id, business_email, title, participation_mode")
       .eq("id", offerId)
       .maybeSingle();
 
@@ -35,16 +36,21 @@ export async function GET(req: Request, context: { params: Promise<{ offerId: st
       return NextResponse.json({ ok: false, error: "Offer not found." }, { status: 404 });
     }
 
-    const participation = await ensureAffiliateOfferParticipation(supabaseAdmin as any, {
-      offerId,
-      affiliateEmail: user.email,
-      businessEmail: offer.business_email,
-    });
-    if (!participation.ok) {
-      return NextResponse.json(
-        { ok: false, error: participation.error, message: participation.message },
-        { status: participation.status },
-      );
+    const participationMode = normalizeOfferParticipationMode(offer.participation_mode);
+
+    if (participationMode === "open") {
+      const participation = await ensureAffiliateOfferParticipation(supabaseAdmin as any, {
+        offerId,
+        affiliateEmail: user.email,
+        businessEmail: offer.business_email,
+        participationMode,
+      });
+      if (!participation.ok) {
+        return NextResponse.json(
+          { ok: false, error: participation.error, message: participation.message },
+          { status: participation.status },
+        );
+      }
     }
 
     const access = await assertAffiliateOfferApproved(supabaseAdmin as any, {

@@ -24,6 +24,7 @@ export default function BusinessOnboardingPage() {
   const [commissionPercent, setCommissionPercent] = useState("");
   const [description, setDescription] = useState("");
   const [currency, setCurrency] = useState("USD");
+  const [participationMode, setParticipationMode] = useState<"open" | "approval_required" | "private">("open");
   const [offerType, setOfferType] = useState<"one-time" | "recurring">(
     "one-time",
   );
@@ -190,6 +191,7 @@ export default function BusinessOnboardingPage() {
         commission: commissionValue,
         price: priceValue,
         currency,
+        participation_mode: participationMode,
         commission_value: Math.round((priceValue * commissionValue) / 100),
         type: offerType,
         conversion_scope: conversionScope,
@@ -497,6 +499,22 @@ export default function BusinessOnboardingPage() {
                       >
                         <option value="one-time">One-time</option>
                         <option value="recurring">Recurring</option>
+                      </select>
+                    </label>
+                    <label className="block text-sm font-medium text-white/82 md:col-span-2">
+                      Participation mode
+                      <select
+                        value={participationMode}
+                        onChange={(e) =>
+                          setParticipationMode(
+                            e.target.value as "open" | "approval_required" | "private",
+                          )
+                        }
+                        className="mt-1.5 w-full rounded-xl border border-white/10 bg-[#0c1112] px-3.5 py-3 text-sm text-white outline-none transition focus:border-[#00C2CB]/70 focus:ring-2 focus:ring-[#00C2CB]/15"
+                      >
+                        <option value="open">Open — affiliates can start immediately</option>
+                        <option value="approval_required">Approval required — review each affiliate first</option>
+                        <option value="private">Private — keep this offer restricted</option>
                       </select>
                     </label>
                   </div>

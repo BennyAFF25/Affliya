@@ -27,6 +27,7 @@ interface Offer {
   readyCreativeCount?: number;
   readyOrganicCreativeCount?: number;
   readyPaidCreativeCount?: number;
+  participationMode?: 'open' | 'approval_required' | 'private';
 }
 
 function getPromotionMode(offer: Offer) {
@@ -80,10 +81,12 @@ export default function OfferCard({
   offer,
   role,
   alreadyRequested = false,
+  currentStatus,
 }: {
   offer: Offer;
   role: 'business' | 'affiliate';
   alreadyRequested?: boolean;
+  currentStatus?: 'approved' | 'pending' | 'rejected' | null;
 }) {
   const session = useSession();
   const user = session?.user;
@@ -102,6 +105,10 @@ export default function OfferCard({
   const readyCreativeLabel = offer.readyCreativeCount && offer.readyCreativeCount > 0
     ? `${offer.readyCreativeCount} ready-to-use creative${offer.readyCreativeCount === 1 ? '' : 's'}`
     : null;
+  const participationMode = offer.participationMode || 'open';
+  const isPrivate = participationMode === 'private';
+  const isPending = currentStatus === 'pending';
+  const canStart = !isPrivate && currentStatus !== 'pending';
 
   const startPromoting = async () => {
     if (!user?.email) {
@@ -123,7 +130,9 @@ export default function OfferCard({
       }
 
       setRequested(true);
-      router.push(json.promotePath || `/affiliate/dashboard/promote/${offer.id}`);
+      if (json.promotePath) {
+        router.push(json.promotePath || `/affiliate/dashboard/promote/${offer.id}`);
+      }
     } catch (e) {
       console.warn('[offer-start] failed', e);
       alert('Failed to start promoting this offer.');
@@ -282,14 +291,24 @@ export default function OfferCard({
             </Link>
             <button
               onClick={startPromoting}
-              disabled={starting}
+              disabled={starting || !canStart}
               className={`flex-1 font-semibold px-4 py-2 rounded-lg text-xs sm:text-sm transition-colors ${
-                starting
+                starting || !canStart
                   ? 'bg-zinc-700 text-gray-300 cursor-wait'
                   : 'bg-[#00C2CB] hover:bg-[#00b0b8] text-black'
               }`}
             >
-              {starting ? 'Opening…' : requested ? 'Continue Promoting' : 'Start Promoting'}
+              {starting
+                ? 'Opening…'
+                : isPrivate
+                  ? 'Private offer'
+                  : isPending
+                    ? 'Pending Approval'
+                    : requested
+                      ? 'Continue Promoting'
+                      : participationMode === 'approval_required'
+                        ? 'Request to Promote'
+                        : 'Start Promoting'}
             </button>
           </>
         ) : (
