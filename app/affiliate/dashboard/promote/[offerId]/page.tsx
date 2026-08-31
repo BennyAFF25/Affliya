@@ -1482,10 +1482,16 @@ export default function PromoteOfferPage() {
   }
 
   return (
-    <div className="promote-theme min-h-screen py-10 px-6 bg-[var(--background)] text-[var(--foreground)] pb-8">
-      <div className="max-w-6xl mx-auto grid lg:grid-cols-[1fr_360px] gap-8">
+    <div className="promote-theme min-h-screen bg-[var(--background)] px-6 py-10 pb-8 text-[var(--foreground)]">
+      <div
+        className={
+          mode === "ad"
+            ? "mx-auto grid max-w-6xl gap-8 lg:grid-cols-[1fr_360px]"
+            : "mx-auto max-w-[1220px]"
+        }
+      >
         {/* Mode toggle (Ad vs Organic) */}
-        <div className="lg:col-span-2 -mb-2 flex items-center justify-between">
+        <div className={mode === "ad" ? "-mb-2 flex items-center justify-between lg:col-span-2" : "mb-6 flex items-center justify-between"}>
           <div className="flex gap-2 overflow-x-auto">
             <button
               type="button"
@@ -1652,25 +1658,27 @@ export default function PromoteOfferPage() {
         )}
 
         {/* RIGHT: Preview / Metrics */}
-        <PreviewSidebar
-          mode={mode}
-          reachDaily={reachDaily}
-          reachMonthly={reachMonthly}
-          reachStatus={reachStatus}
-          reachMessage={reachMessage}
-          interestsIgnored={interestsIgnored}
-          dailyConversions={dailyConversions}
-          monthlyConversions={monthlyConversions}
-          brandName={brandName}
-          brandLogoUrl={brandLogoUrl}
-          videoPreviewUrl={videoPreviewUrl}
-          thumbPreviewUrl={thumbPreviewUrl}
-          form={form}
-          ogMethod={ogMethod}
-          ogFile={ogFile}
-          ogPlatform={ogPlatform}
-          ogCaption={ogCaption}
-        />
+        {mode === "ad" && (
+          <PreviewSidebar
+            mode={mode}
+            reachDaily={reachDaily}
+            reachMonthly={reachMonthly}
+            reachStatus={reachStatus}
+            reachMessage={reachMessage}
+            interestsIgnored={interestsIgnored}
+            dailyConversions={dailyConversions}
+            monthlyConversions={monthlyConversions}
+            brandName={brandName}
+            brandLogoUrl={brandLogoUrl}
+            videoPreviewUrl={videoPreviewUrl}
+            thumbPreviewUrl={thumbPreviewUrl}
+            form={form}
+            ogMethod={ogMethod}
+            ogFile={ogFile}
+            ogPlatform={ogPlatform}
+            ogCaption={ogCaption}
+          />
+        )}
       </div>
     </div>
   );
