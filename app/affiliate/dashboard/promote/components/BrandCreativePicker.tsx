@@ -92,7 +92,13 @@ export function BrandCreativePicker({ mode, assets, loading, selectedId, onSelec
                     {asset.allow_paid && <Badge>Paid ads</Badge>}
                     <Badge>{approvalLabel}</Badge>
                   </div>
-                  <div className="text-xs text-gray-500">{selected ? "Selected" : "Use this creative"}</div>
+                  <div className="text-xs text-gray-500">
+                    {selected
+                      ? "Selected"
+                      : mode === "organic" && asset.organic_preapproved
+                        ? "Use this creative to launch immediately"
+                        : "Use this creative"}
+                  </div>
                 </div>
               </button>
             );

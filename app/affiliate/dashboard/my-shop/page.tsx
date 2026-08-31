@@ -579,8 +579,8 @@ export default function MyShopPage() {
           {!hasApprovedOffers && (
             <div className="rounded-3xl border border-dashed border-white/20 bg-[#0d1218]/70 p-6 text-center space-y-3 shadow-[0_20px_60px_rgba(0,0,0,0.5)]">
               <p className="text-white/70 text-sm">
-                You don’t have any approved offers yet. Browse the marketplace
-                and request to promote a product before applying for a
+                You don’t have any started offers yet. Browse the marketplace
+                and start promoting a product before applying for a
                 storefront.
               </p>
               <Link
@@ -906,8 +906,8 @@ export default function MyShopPage() {
           </div>
         ) : rows.length === 0 ? (
           <div className={`${CARD_SHELL} p-8 text-center text-white/70`}>
-            No approved offers yet. Once a business approves you, the offers
-            will appear here.
+            No started offers yet. Once you begin promoting an offer, it will
+            appear here.
           </div>
         ) : (
           <div className="space-y-4">

@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import supabaseAdmin from "@/../utils/supabase/server-client";
-import { assertAffiliateOfferApproved } from "@/../utils/approvals/enforcement";
+import {
+  assertAffiliateOfferApproved,
+  ensureAffiliateOfferParticipation,
+} from "@/../utils/approvals/enforcement";
 
 export async function GET(req: Request, context: { params: Promise<{ offerId: string }> }) {
   try {
@@ -22,14 +25,6 @@ export async function GET(req: Request, context: { params: Promise<{ offerId: st
       return NextResponse.json({ ok: false, error: "Invalid mode" }, { status: 400 });
     }
 
-    const access = await assertAffiliateOfferApproved(supabaseAdmin as any, {
-      offerId,
-      affiliateEmail: user.email,
-    });
-    if (!access.ok) {
-      return NextResponse.json({ ok: false, error: access.error, message: access.message }, { status: access.status });
-    }
-
     const { data: offer, error: offerError } = await (supabaseAdmin as any)
       .from("offers")
       .select("id, business_email, title")
@@ -38,6 +33,26 @@ export async function GET(req: Request, context: { params: Promise<{ offerId: st
 
     if (offerError || !offer?.business_email) {
       return NextResponse.json({ ok: false, error: "Offer not found." }, { status: 404 });
+    }
+
+    const participation = await ensureAffiliateOfferParticipation(supabaseAdmin as any, {
+      offerId,
+      affiliateEmail: user.email,
+      businessEmail: offer.business_email,
+    });
+    if (!participation.ok) {
+      return NextResponse.json(
+        { ok: false, error: participation.error, message: participation.message },
+        { status: participation.status },
+      );
+    }
+
+    const access = await assertAffiliateOfferApproved(supabaseAdmin as any, {
+      offerId,
+      affiliateEmail: user.email,
+    });
+    if (!access.ok) {
+      return NextResponse.json({ ok: false, error: access.error, message: access.message }, { status: access.status });
     }
 
     let query = (supabaseAdmin as any)
@@ -51,8 +66,8 @@ export async function GET(req: Request, context: { params: Promise<{ offerId: st
 
     query = mode === "paid" ? query.eq("allow_paid", true) : query.eq("allow_organic", true);
 
-    const { data: assets, error } = await query;
-    if (error) throw new Error(error.message || "Failed to load brand content");
+    const { data: assets, error: assetsError } = await query;
+    if (assetsError) throw new Error(assetsError.message || "Failed to load brand content");
 
     const filteredAssets = (assets || []).filter((asset: any) => {
       if (mode !== "paid") return true;
@@ -70,9 +85,11 @@ export async function GET(req: Request, context: { params: Promise<{ offerId: st
     });
 
     return NextResponse.json({ ok: true, assets: filteredAssets, offerTitle: offer.title || null });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("[affiliate/brand-content][GET] error", error);
-    return NextResponse.json({ ok: false, error: error?.message || "Unexpected error" }, { status: 500 });
+    return NextResponse.json(
+      { ok: false, error: error instanceof Error ? error.message : "Unexpected error" },
+      { status: 500 },
+    );
   }
 }
-

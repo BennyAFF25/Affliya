@@ -56,7 +56,6 @@ export default function AffiliateOfferProfilePage() {
 
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [requested, setRequested] = useState(false);
-  const [requestNotes, setRequestNotes] = useState('');
   const [requestLoading, setRequestLoading] = useState(false);
   const [requestError, setRequestError] = useState<string | null>(null);
   const [requestSuccess, setRequestSuccess] = useState<string | null>(null);
@@ -169,7 +168,7 @@ export default function AffiliateOfferProfilePage() {
     };
   }, [offerId]);
 
-  // Check if already requested
+  // Check if already participating
   useEffect(() => {
     if (!offerId || !userEmail) return;
     let cancelled = false;
@@ -177,7 +176,7 @@ export default function AffiliateOfferProfilePage() {
     const checkRequest = async () => {
       const { data, error } = await (supabase as any)
         .from('affiliate_requests')
-        .select('id,status,notes,created_at')
+        .select('id,status,created_at')
         .eq('offer_id', offerId)
         .eq('affiliate_email', userEmail)
         .order('created_at', { ascending: false })
@@ -193,9 +192,6 @@ export default function AffiliateOfferProfilePage() {
 
       if (data) {
         setRequested(true);
-        if ((data as any).notes) {
-          setRequestNotes((data as any).notes as string);
-        }
       }
     };
 
@@ -213,116 +209,22 @@ export default function AffiliateOfferProfilePage() {
     setRequestSuccess(null);
 
     try {
-      // Safety: check again to prevent duplicates (double-click / refresh / race)
-      const { data: existing, error: existingErr } = await (supabase as any)
-        .from('affiliate_requests')
-        .select('id,status,notes,created_at')
-        .eq('offer_id', offerId)
-        .eq('affiliate_email', userEmail)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      const response = await fetch(`/api/affiliate/offers/${offerId}/start`, {
+        method: 'POST',
+      });
+      const json = await response.json().catch(() => null);
 
-      if (existingErr && existingErr.code !== 'PGRST116') {
-        console.warn('[Error checking existing affiliate request]', existingErr);
-      }
-
-      if (existing?.id) {
-        setRequested(true);
-        if ((existing as any).notes) setRequestNotes((existing as any).notes as string);
-        setRequestSuccess('Request already sent to the business for approval.');
-        return;
-      }
-
-      const payload: any = {
-        offer_id: offerId,
-        affiliate_email: userEmail,
-        status: 'pending',
-        notes: requestNotes || null,
-      };
-
-      // If your table has these columns, this will populate them nicely
-      if ((offer as any).business_email) {
-        payload.business_email = (offer as any).business_email;
-      }
-      if (offer.business_name) {
-        payload.business_name = offer.business_name;
-      }
-
-      const { error } = await (supabase as any)
-        .from('affiliate_requests')
-        .insert(payload);
-
-      if (error) {
-        console.error('[Error inserting affiliate request]', error);
-        setRequestError(error.message || 'Failed to send request.');
+      if (!response.ok || !json?.ok) {
+        setRequestError(json?.message || json?.error || 'Failed to start promoting this offer.');
         return;
       }
 
       setRequested(true);
-      setRequestSuccess('Request sent to the business for approval.');
-
-      let requestId: string | undefined;
-
-      try {
-        const { data: insertedRow, error: insertedLookupErr } = await (supabase as any)
-          .from('affiliate_requests')
-          .select('id, notes, created_at')
-          .eq('offer_id', offerId)
-          .eq('affiliate_email', userEmail)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (insertedLookupErr && insertedLookupErr.code !== 'PGRST116') {
-          console.warn('[affiliate request post-insert lookup warn]', insertedLookupErr);
-        }
-
-        if (insertedRow?.id) {
-          requestId = insertedRow.id as string;
-          if ((insertedRow as any).notes) {
-            setRequestNotes((insertedRow as any).notes as string);
-          }
-        }
-      } catch (lookupErr) {
-        console.warn('[affiliate request post-insert lookup threw]', lookupErr);
-      }
-
-      // Optional: email notify the business (non-blocking)
-      try {
-        const businessEmail = (offer as any).business_email || null;
-        if (businessEmail) {
-          const baseUrl =
-            process.env.NEXT_PUBLIC_SITE_URL ||
-            process.env.NEXT_PUBLIC_APP_URL ||
-            window.location.origin;
-
-          void fetch(`${baseUrl}/api/emails/affiliate-request-sent`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              to: businessEmail,
-              affiliateEmail: userEmail,
-              businessEmail,
-              offerId,
-              requestId,
-              offerTitle: offer.title || offer.business_name || 'Offer',
-              notes: requestNotes || '',
-            }),
-          })
-            .then(async (res) => {
-              if (!res.ok) {
-                const txt = await res.text().catch(() => '');
-                console.warn('[affiliate-request email] failed', res.status, txt);
-              }
-            })
-            .catch((err) => {
-              console.warn('[affiliate-request email] error', err);
-            });
-        }
-      } catch (emailErr) {
-        console.warn('[Email notify failed - non blocking]', emailErr);
-      }
+      setRequestSuccess('You can start promoting this offer now.');
+      router.push(json.promotePath || `/affiliate/dashboard/promote/${offerId}`);
+    } catch (err: any) {
+      console.error('[Error starting offer participation]', err);
+      setRequestError(err?.message || 'Failed to start promoting this offer.');
     } finally {
       setRequestLoading(false);
     }
@@ -527,7 +429,7 @@ export default function AffiliateOfferProfilePage() {
               <p className="text-sm text-white/70 leading-relaxed whitespace-pre-line">
                 {offer.profile_bio ||
                   offer.description ||
-                  'This business hasn’t added a full story yet, but you can still request to promote and chat through details once approved.'}
+                  'This business hasn’t added a full story yet, but you can still start promoting and use the approval controls already configured for this offer.'}
                 {starterSpendRemaining > 0 ? ` First approved affiliates can launch with $${starterSpendRemaining.toFixed(0)} of starter ad spend once the business subscription is active.` : ''}
               </p>
               {readyCreativeLabel ? (
@@ -563,33 +465,18 @@ export default function AffiliateOfferProfilePage() {
               </div>
             )}
 
-            {/* Request to promote */}
+            {/* Start promoting */}
             <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-6 space-y-4">
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <h3 className="text-sm font-semibold text-[#00C2CB]">Request to promote</h3>
+                  <h3 className="text-sm font-semibold text-[#00C2CB]">Start promoting</h3>
                   <p className="text-xs text-white/60 mt-1">
-                    This sends a request to the business. Once approved, the offer unlocks
-                    in your dashboard so you can start running campaigns.
+                    Join this offer immediately, then use the organic and paid pathways the business has already configured.
                   </p>
                 </div>
-                <span className="inline-flex items-center rounded-full border border-[#00C2CB40] bg-black/40 px-3 py-1 text-[11px] text-[#7ff5fb]">
-                  Approval required
+                <span className="inline-flex items-center rounded-full border border-emerald-400/30 bg-emerald-500/10 px-3 py-1 text-[11px] text-emerald-200">
+                  Instant access
                 </span>
-              </div>
-
-              <div>
-                <label className="block text-[11px] text-white/60 mb-1">
-                  Optional message to the business
-                </label>
-                <textarea
-                  rows={4}
-                  value={requestNotes}
-                  onChange={(e) => setRequestNotes(e.target.value)}
-                  disabled={requested}
-                  className="w-full rounded-xl border border-white/15 bg-black/50 px-3 py-2 text-sm text-white/80 placeholder:text-white/40 focus:outline-none focus:ring-1 focus:ring-[#00C2CB] disabled:opacity-60"
-                  placeholder="Share how you plan to promote, your audience, or any results you’ve had before."
-                />
               </div>
 
               {requestError && <p className="text-xs text-red-400">{requestError}</p>}
@@ -599,14 +486,14 @@ export default function AffiliateOfferProfilePage() {
                 <button
                   type="button"
                   onClick={handleRequestToPromote}
-                  disabled={requestLoading || requested || !userEmail}
+                  disabled={requestLoading || !userEmail}
                   className="inline-flex items-center rounded-full bg-[#00C2CB] hover:bg-[#00b0b8] text-black text-xs font-medium px-5 py-2 disabled:opacity-60"
                 >
-                  {requested ? 'Request sent' : requestLoading ? 'Sending…' : 'Request to promote'}
+                  {requestLoading ? 'Opening…' : requested ? 'Continue promoting' : 'Start promoting'}
                 </button>
                 {!userEmail && (
                   <p className="text-[11px] text-red-300">
-                    You must be signed in as an affiliate to request this offer.
+                    You must be signed in as an affiliate to start promoting this offer.
                   </p>
                 )}
               </div>
@@ -616,7 +503,7 @@ export default function AffiliateOfferProfilePage() {
 
         {/* Small note at bottom */}
         <p className="text-[11px] text-white/40 text-center max-w-2xl mx-auto">
-          Once approved, you&apos;ll see this offer appear in your{' '}
+          Once you start, you&apos;ll see this offer appear in your{' '}
           <span className="text-[#7ff5fb]">Affiliate Dashboard</span> under active
           campaigns, with tracking links and full stats wired through Nettmark.
         </p>

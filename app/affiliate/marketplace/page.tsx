@@ -31,7 +31,7 @@ interface Offer {
 
 export default function AffiliateMarketplace() {
   const [offers, setOffers] = useState<Offer[]>([]);
-  const [requestedIds, setRequestedIds] = useState<string[]>([]);
+  const [participatingIds, setParticipatingIds] = useState<string[]>([]);
 
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState("All");
@@ -182,7 +182,6 @@ export default function AffiliateMarketplace() {
     const fetchRequests = async () => {
       const {
         data: { user },
-        error,
       } = await supabase.auth.getUser();
       if (!user || !user.email) {
         console.warn("[❌ No email found in session]");
@@ -204,14 +203,14 @@ export default function AffiliateMarketplace() {
       }
 
       if (!data) {
-        setRequestedIds([]);
+        setParticipatingIds([]);
         return;
       }
 
       const typedReqs = data as AffiliateRequestRow[];
-      const pending = typedReqs.filter((r) => r.status === "pending");
-      const ids = Array.from(new Set(pending.map((r) => r.offer_id)));
-      setRequestedIds(ids);
+      const active = typedReqs.filter((r) => ["pending", "approved"].includes(String(r.status || "").toLowerCase()));
+      const ids = Array.from(new Set(active.map((r) => r.offer_id)));
+      setParticipatingIds(ids);
     };
 
     fetchRequests();
@@ -300,7 +299,7 @@ export default function AffiliateMarketplace() {
                 key={offer.id}
                 offer={offer}
                 role="affiliate"
-                alreadyRequested={requestedIds.includes(offer.id)}
+                alreadyRequested={participatingIds.includes(offer.id)}
               />
             ))}
           </div>

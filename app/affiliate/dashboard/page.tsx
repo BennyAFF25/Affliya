@@ -297,11 +297,11 @@ function AffiliateDashboardContent() {
       }
 
       // Approved requests for this affiliate
-      const { data: approved, error: approvedError } = (await supabase
+      const { data: approved, error: approvedError } = (await (supabase as any)
         .from("affiliate_requests")
         .select("offer_id")
         .eq("affiliate_email", session.user?.email || "")
-        .eq("status", "approved")) as {
+        .in("status", ["approved", "pending"])) as {
         data: ApprovedRequest[] | null;
         error: any;
       };
@@ -1568,10 +1568,10 @@ function AffiliateDashboardContent() {
               {approvedOffers.length === 0 ? (
                 <div className="rounded-xl border border-white/12 bg-[#15191c] p-6 text-center text-white/70">
                   <p className="font-medium text-white/85">
-                    No approved offers yet.
+                    No started offers yet.
                   </p>
                   <p className="mt-1 text-sm text-white/60">
-                    Browse the marketplace and request offers to unlock your
+                    Browse the marketplace and start an offer to unlock your
                     promotion queue.
                   </p>
                   <Link

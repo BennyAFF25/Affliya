@@ -1,9 +1,9 @@
 'use client';
 
 import { useSession } from '@supabase/auth-helpers-react';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { BadgeDollarSign, ShoppingBag, TrendingUp, Globe, ArrowUpRight } from 'lucide-react';
 
 interface Offer {
@@ -87,8 +87,9 @@ export default function OfferCard({
 }) {
   const session = useSession();
   const user = session?.user;
-  const [notes, setNotes] = useState('');
   const [requested, setRequested] = useState(alreadyRequested);
+  const [starting, setStarting] = useState(false);
+  const router = useRouter();
   const promotionMode = getPromotionMode(offer);
   const offerTags = useMemo(() => getOfferTags(offer), [offer]);
   const formattedPrice = offer.price ? formatMoney(offer.price, offer.currency) : null;
@@ -102,98 +103,32 @@ export default function OfferCard({
     ? `${offer.readyCreativeCount} ready-to-use creative${offer.readyCreativeCount === 1 ? '' : 's'}`
     : null;
 
-  const sendEmail = async (endpoint: string, payload: any) => {
+  const startPromoting = async () => {
+    if (!user?.email) {
+      alert('You must be logged in to start promoting.');
+      return;
+    }
+
+    setStarting(true);
     try {
-      // Fire-and-forget email trigger (should never block UX)
-      const res = await fetch(endpoint, {
+      const res = await fetch(`/api/affiliate/offers/${offer.id}/start`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
       });
 
-      // Log non-2xx responses so we can debug missing emails
-      if (!res.ok) {
-        const text = await res.text().catch(() => '');
-        console.warn('[email] non-ok response', endpoint, res.status, text);
+      const json = await res.json().catch(() => null);
+
+      if (!res.ok || !json?.ok) {
+        alert(json?.message || json?.error || 'Failed to start promoting this offer.');
+        return;
       }
-    } catch (e) {
-      console.warn('[email] failed to send', endpoint, e);
-    }
-  };
 
-  const handleRequest = async () => {
-    const supabase = createClientComponentClient();
-
-    const affiliateEmail = user?.email;
-
-    if (!affiliateEmail) {
-      console.error('[❌ No email found in session]');
-      alert("You must be logged in to request.");
-      return;
-    }
-
-    console.log('[👤 Affiliate Email]', affiliateEmail);
-    console.log('[🧪 Offer Debug]', {
-      id: offer.id,
-      business_email: offer.businessEmail || offer.business_email,
-      businessName: offer.businessName,
-    });
-
-    // Normalize backend field naming (supports both camelCase and snake_case)
-    const businessEmail = offer.businessEmail || offer.business_email || '';
-
-    if (!businessEmail) {
-      console.error('[missing business email in offer]');
-      alert('This offer is missing business information. Please contact support.');
-      return;
-    }
-
-    const { data: userProfile } = await supabase
-      .from('users')
-      .select('role')
-      .eq('email', affiliateEmail)
-      .single();
-    console.log('[🧠 User Role]', userProfile?.role);
-
-    const payload = {
-      offer_id: offer.id,
-      affiliate_email: affiliateEmail,
-      business_email: businessEmail,
-      status: 'pending',
-      notes: notes || '',
-    };
-
-    console.log('[📩 Request Payload]', payload);
-
-    const { data: requestRow, error } = await supabase
-      .from('affiliate_requests')
-      .upsert(payload, {
-        onConflict: 'offer_id,affiliate_email',
-      })
-      .select('id')
-      .single();
-
-    if (error) {
-      console.error('[❌ Request Error]', error);
-      alert('Something went wrong. ' + error.message);
-    } else {
-      alert('Request sent!');
-      // mark request as sent so the button disables
       setRequested(true);
-
-      // Trigger business notification email (non-blocking)
-      const offerTitle = offer.businessName || 'New offer';
-      const requestId = requestRow?.id;
-
-      void sendEmail('/api/emails/affiliate-request-sent', {
-        to: businessEmail,
-        businessEmail,
-        affiliateEmail,
-        offerTitle,
-        notes: notes || '',
-        offerId: offer.id,
-        requestId,
-      });
+      router.push(json.promotePath || `/affiliate/dashboard/promote/${offer.id}`);
+    } catch (e) {
+      console.warn('[offer-start] failed', e);
+      alert('Failed to start promoting this offer.');
+    } finally {
+      setStarting(false);
     }
   };
 
@@ -335,17 +270,6 @@ export default function OfferCard({
         ) : null}
       </div>
 
-      {/* Affiliate note */}
-      {role === 'affiliate' && !requested && (
-        <textarea
-          placeholder="Write a note for the business..."
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          className="w-full mt-2 p-2 rounded-lg text-sm bg-black border border-[#0d0d0d] text-gray-100 placeholder:text-gray-500 focus:outline-none focus:border-[#00C2CB] focus:ring-0"
-          rows={2}
-        />
-      )}
-
       {/* Footer buttons */}
       <div className="mt-5 flex gap-3">
         {role === 'affiliate' ? (
@@ -357,15 +281,15 @@ export default function OfferCard({
               View offer
             </Link>
             <button
-              onClick={handleRequest}
-              disabled={requested}
+              onClick={startPromoting}
+              disabled={starting}
               className={`flex-1 font-semibold px-4 py-2 rounded-lg text-xs sm:text-sm transition-colors ${
-                requested
-                  ? 'bg-zinc-700 text-gray-400 cursor-not-allowed'
+                starting
+                  ? 'bg-zinc-700 text-gray-300 cursor-wait'
                   : 'bg-[#00C2CB] hover:bg-[#00b0b8] text-black'
               }`}
             >
-              {requested ? 'Request Sent' : 'Request to Promote'}
+              {starting ? 'Opening…' : requested ? 'Continue Promoting' : 'Start Promoting'}
             </button>
           </>
         ) : (
