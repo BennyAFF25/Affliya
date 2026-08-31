@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -35,6 +35,9 @@ import {
   ArrowPathIcon,
   CursorArrowRaysIcon,
   XMarkIcon,
+  DocumentDuplicateIcon,
+  GlobeAltIcon,
+  CheckCircleIcon,
 } from "@heroicons/react/24/outline";
 import {
   Badge,
@@ -668,6 +671,41 @@ export default function ManageCampaignPage() {
     );
   }, [offer?.title, campaign?.ad_name, campaign?.platform, campaign?.caption]);
 
+  const organicGuideSteps = useMemo(
+    () => [
+      {
+        title: "Post the creative where your audience already pays attention",
+        body:
+          "Use the supplied caption/media as a starting point, then tailor it to the platform so it still feels native.",
+      },
+      {
+        title: "Always use your Nettmark tracking link",
+        body:
+          "That link is what attributes clicks, carts, and conversions back to this campaign. Without it, the post has no commercial trail.",
+      },
+      {
+        title: "Let the campaign run and review the signals here",
+        body:
+          "This page is your control panel for traction. Check clicks first, then carts, then confirmed conversions and pending payout.",
+      },
+    ],
+    [],
+  );
+
+  const campaignDetails = useMemo(
+    () => [
+      { label: "Offer", value: offer?.title || "No linked offer" },
+      { label: "Campaign type", value: isOrganic ? "Organic" : "Paid Meta" },
+      { label: "Platform", value: campaign?.platform || "Platform not set" },
+      { label: "Status", value: campaign?.status || "Unknown status" },
+      {
+        label: "Commission",
+        value: offer?.commission ? `${offer.commission}% per conversion` : "Not set",
+      },
+    ],
+    [campaign?.platform, campaign?.status, isOrganic, offer?.commission, offer?.title],
+  );
+
   async function handleCopyTrackingLink() {
     if (!trackingUrl) return;
     await navigator.clipboard.writeText(trackingUrl);
@@ -807,37 +845,86 @@ export default function ManageCampaignPage() {
               </button>
             </div>
           ) : campaign.media_url ? (
-            <div className="bg-black rounded-[2rem] border-[3px] border-[#2D2D2D] w-[320px] h-[640px] overflow-hidden shadow-lg relative">
-              <div className="bg-[#111111] flex items-center justify-center px-4 py-2 border-b border-gray-700">
-                <img
-                  src="/nettmark-logo.png"
-                  alt="Nettmark Logo"
-                  className="h-10 w-auto opacity-95 transform scale-125"
-                />
-              </div>
-              <div className="h-[calc(100%-48px)] overflow-hidden">
-                {String(campaign.media_url).match(/\.(mp4|mov)$/i) ? (
-                  <video
-                    controls
-                    className="w-full h-full object-cover bg-black"
-                  >
-                    <source src={String(campaign.media_url)} type="video/mp4" />
-                    Your browser does not support the video tag.
-                  </video>
-                ) : String(campaign.media_url).match(
-                    /\.(jpg|jpeg|png|gif|webp)$/i,
-                  ) ? (
-                  <img
-                    src={String(campaign.media_url)}
-                    alt="Ad Preview"
-                    className="w-full h-full object-cover bg-black"
-                  />
-                ) : (
-                  <div className="p-8 text-center text-gray-500">
-                    Unsupported media format
+            <div
+              className={
+                isOrganic
+                  ? "w-full max-w-sm overflow-hidden rounded-[2rem] border border-white/10 bg-[#0f1418] shadow-[0_35px_90px_rgba(0,0,0,0.35)]"
+                  : "bg-black rounded-[2rem] border-[3px] border-[#2D2D2D] w-[320px] h-[640px] overflow-hidden shadow-lg relative"
+              }
+            >
+              {isOrganic ? (
+                <>
+                  <div className="flex items-center justify-between border-b border-white/10 bg-[#131a1f] px-4 py-3">
+                    <div>
+                      <p className="text-[11px] uppercase tracking-[0.24em] text-[#7ff5fb]/70">
+                        Organic preview
+                      </p>
+                      <p className="mt-1 text-sm font-semibold text-white">
+                        {campaign?.platform || "Content placement"}
+                      </p>
+                    </div>
+                    <div className="rounded-full border border-[#00C2CB]/25 bg-[#00C2CB]/10 px-3 py-1 text-[11px] font-medium text-[#7ff5fb]">
+                      Live link ready
+                    </div>
                   </div>
-                )}
-              </div>
+                  <div className="aspect-[4/5] overflow-hidden bg-black">
+                    {String(campaign.media_url).match(/\.(mp4|mov)$/i) ? (
+                      <video controls className="h-full w-full object-cover bg-black">
+                        <source src={String(campaign.media_url)} type="video/mp4" />
+                        Your browser does not support the video tag.
+                      </video>
+                    ) : String(campaign.media_url).match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                      <img
+                        src={String(campaign.media_url)}
+                        alt="Organic campaign preview"
+                        className="h-full w-full object-cover bg-black"
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center p-8 text-center text-gray-500">
+                        Unsupported media format
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-3 p-4">
+                    <div className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">
+                        Suggested caption
+                      </p>
+                      <p className="mt-2 whitespace-pre-line text-sm leading-6 text-white/78">
+                        {campaign.caption || "No caption available for this campaign yet."}
+                      </p>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="bg-[#111111] flex items-center justify-center px-4 py-2 border-b border-gray-700">
+                    <img
+                      src="/nettmark-logo.png"
+                      alt="Nettmark Logo"
+                      className="h-10 w-auto opacity-95 transform scale-125"
+                    />
+                  </div>
+                  <div className="h-[calc(100%-48px)] overflow-hidden">
+                    {String(campaign.media_url).match(/\.(mp4|mov)$/i) ? (
+                      <video controls className="w-full h-full object-cover bg-black">
+                        <source src={String(campaign.media_url)} type="video/mp4" />
+                        Your browser does not support the video tag.
+                      </video>
+                    ) : String(campaign.media_url).match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                      <img
+                        src={String(campaign.media_url)}
+                        alt="Ad Preview"
+                        className="w-full h-full object-cover bg-black"
+                      />
+                    ) : (
+                      <div className="p-8 text-center text-gray-500">
+                        Unsupported media format
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
           ) : (
             <div className="bg-[#1A1A1A] w-[90%] max-w-md rounded-xl border border-[#2A2A2A] p-8 shadow-lg flex items-center justify-center">
@@ -850,13 +937,22 @@ export default function ManageCampaignPage() {
 
         {/* Right side: summary + stats */}
         <div className="w-full min-w-0 flex flex-col gap-6">
-          <Card variant="elevated" className="space-y-4 p-5">
+          <Card
+            variant="elevated"
+            className={isOrganic ? "space-y-5 rounded-[2rem] border-white/10 bg-[linear-gradient(180deg,rgba(16,22,27,0.98),rgba(10,14,18,0.98))] p-6 shadow-[0_30px_80px_rgba(0,0,0,0.28)]" : "space-y-4 p-5"}
+          >
             <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
               <div className="min-w-0">
                 <SectionHeader
-                  eyebrow="Campaign Summary"
+                  eyebrow={isOrganic ? "Organic Campaign" : "Campaign Summary"}
                   title={campaignTitle}
                 />
+
+                {isOrganic && (
+                  <p className="mt-3 max-w-2xl text-sm leading-6 text-white/68">
+                    Keep this page as your campaign home base — copy the link, monitor traction, and use the preview as the single source of truth for what is live.
+                  </p>
+                )}
 
                 <div className="mt-3 flex flex-wrap gap-2 text-[0.7rem] md:text-xs">
                   <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-gray-200">
@@ -888,7 +984,7 @@ export default function ManageCampaignPage() {
               </div>
             </div>
 
-            <Card className="p-4">
+            <Card className={isOrganic ? "rounded-[1.5rem] border-white/8 bg-white/[0.03] p-4" : "p-4"}>
               <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <div className="min-w-0">
                   <p className="text-[0.65rem] uppercase tracking-wide text-gray-500">
@@ -912,11 +1008,12 @@ export default function ManageCampaignPage() {
                   <button
                     type="button"
                     onClick={handleCopyTrackingLink}
-                    className="px-3 py-2 rounded-lg bg-[#00C2CB] hover:bg-[#00b0b8] text-white text-xs font-semibold disabled:opacity-60"
+                    className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-[#00C2CB] hover:bg-[#00b0b8] text-white text-xs font-semibold disabled:opacity-60"
                     disabled={
                       !trackingUrl || isPaused || isTerminatedByBusiness
                     }
                   >
+                    <DocumentDuplicateIcon className="h-4 w-4" />
                     {copyState === "copied"
                       ? "Copied"
                       : isPaused || isTerminatedByBusiness
@@ -947,7 +1044,7 @@ export default function ManageCampaignPage() {
             </Card>
           </Card>
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div className={`grid grid-cols-1 gap-4 ${isOrganic ? "md:grid-cols-2 xl:grid-cols-4" : "sm:grid-cols-2"}`}>
             {/* Spend (Meta) - Paid only */}
             {isMetaPaid && (
               <StatCard
@@ -992,6 +1089,25 @@ export default function ManageCampaignPage() {
               </div>
             </div>
 
+            {isOrganic && (
+              <div className="bg-[#171717] hover:bg-[#1C1C1C] transition-all duration-300 p-4 rounded-2xl shadow-md flex items-center justify-between h-24 border border-[#2A2A2A] drop-shadow-[0_0_10px_rgba(0,194,203,0.12)]">
+                <div>
+                  <h2 className="text-gray-300 text-sm font-medium mb-1 tracking-wide uppercase">
+                    Link status
+                  </h2>
+                  <p className="text-2xl font-semibold text-white">
+                    {isPaused || isTerminatedByBusiness ? "Inactive" : "Live"}
+                  </p>
+                  <p className="text-[0.6rem] text-gray-500 mt-1">
+                    {campaign?.platform || "Organic placement"}
+                  </p>
+                </div>
+                <div className="w-9 h-9 rounded-full bg-[#0F0F0F] flex items-center justify-center shadow-inner">
+                  <GlobeAltIcon className="w-5 h-5 text-[#00C2CB]/80" />
+                </div>
+              </div>
+            )}
+
             {/* Add to carts */}
             <div className="bg-[#171717] hover:bg-[#1C1C1C] transition-all duration-300 p-4 rounded-2xl shadow-md flex items-center justify-between h-24 border border-[#2A2A2A] drop-shadow-[0_0_10px_rgba(0,194,203,0.12)]">
               <div>
@@ -1030,7 +1146,7 @@ export default function ManageCampaignPage() {
           </div>
 
           {/* Line chart */}
-          <Card className="min-h-[260px] p-4">
+          <Card className={isOrganic ? "min-h-[260px] rounded-[2rem] border-white/10 bg-[linear-gradient(180deg,rgba(15,19,24,0.98),rgba(9,12,16,0.98))] p-5" : "min-h-[260px] p-4"}>
             <CardHeader className="p-0 pb-3">
               <CardTitle>Performance overview</CardTitle>
             </CardHeader>
@@ -1126,7 +1242,67 @@ export default function ManageCampaignPage() {
       {/* Campaign Details */}
       <div className="mx-auto mt-10 mb-6 max-w-6xl">
         <div className="w-full">
-          <details className="group overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-sm transition-all duration-300">
+          {isOrganic ? (
+            <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr),minmax(320px,0.9fr)]">
+              <Card className="rounded-[2rem] border-white/10 bg-[linear-gradient(180deg,rgba(16,22,27,0.98),rgba(11,15,19,0.98))] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.24)]">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className="text-[11px] uppercase tracking-[0.22em] text-[#7ff5fb]/65">
+                      Campaign details
+                    </p>
+                    <h3 className="mt-2 text-xl font-semibold text-white">
+                      Clean handoff info for this live organic campaign
+                    </h3>
+                  </div>
+                  <div className="rounded-2xl border border-[#00C2CB]/20 bg-[#00C2CB]/10 p-2 text-[#7ff5fb]">
+                    <CheckCircleIcon className="h-5 w-5" />
+                  </div>
+                </div>
+
+                <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                  {campaignDetails.map((item) => (
+                    <div key={item.label} className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
+                      <p className="text-[11px] uppercase tracking-[0.18em] text-white/40">
+                        {item.label}
+                      </p>
+                      <p className="mt-2 text-sm font-medium text-white/88">
+                        {item.value}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+
+              <Card className="rounded-[2rem] border-white/10 bg-[linear-gradient(180deg,rgba(16,22,27,0.98),rgba(11,15,19,0.98))] p-6 shadow-[0_24px_70px_rgba(0,0,0,0.24)]">
+                <p className="text-[11px] uppercase tracking-[0.22em] text-[#7ff5fb]/65">
+                  Affiliate guide
+                </p>
+                <h3 className="mt-2 text-xl font-semibold text-white">
+                  How to get the most from this placement
+                </h3>
+                <div className="mt-6 space-y-4">
+                  {organicGuideSteps.map((step, index) => (
+                    <div key={step.title} className="rounded-2xl border border-white/8 bg-white/[0.03] p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[#00C2CB]/25 bg-[#00C2CB]/10 text-sm font-semibold text-[#7ff5fb]">
+                          {index + 1}
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-white">
+                            {step.title}
+                          </p>
+                          <p className="mt-1 text-sm leading-6 text-white/68">
+                            {step.body}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </Card>
+            </div>
+          ) : (
+            <details className="group overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-sm transition-all duration-300">
             <summary className="flex cursor-pointer select-none items-center justify-between bg-[var(--secondary)] px-5 py-3 text-xs uppercase tracking-wide text-[var(--muted-foreground)] transition-all duration-300 hover:bg-[var(--accent)] md:text-sm">
               <div className="flex items-center">
                 <svg
@@ -1193,11 +1369,13 @@ export default function ManageCampaignPage() {
                 </div>
               )}
             </div>
-          </details>
+            </details>
+          )}
         </div>
       </div>
 
       {/* Affiliate Guide */}
+      {!isOrganic && (
       <div className="mx-auto mt-6 max-w-6xl">
         <div className="w-full">
           <details className="group overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-sm transition-all duration-300">
@@ -1291,10 +1469,20 @@ export default function ManageCampaignPage() {
           </details>
         </div>
       </div>
+      )}
 
       {/* Delete Campaign – affiliates can only fully delete ORGANIC campaigns here */}
       {isOrganic && (
-        <div className="mx-auto mt-10 max-w-5xl rounded-2xl border border-red-500/25 bg-red-500/5 p-5 text-center">
+        <div className="mx-auto mt-10 max-w-6xl rounded-[2rem] border border-red-500/25 bg-[linear-gradient(180deg,rgba(68,16,16,0.18),rgba(32,8,8,0.16))] p-6 text-left shadow-[0_24px_70px_rgba(0,0,0,0.2)]">
+          <p className="text-[11px] uppercase tracking-[0.22em] text-red-200/70">
+            Danger zone
+          </p>
+          <h3 className="mt-2 text-xl font-semibold text-white">
+            Delete this organic campaign
+          </h3>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-white/68">
+            Use this only if the campaign was created by mistake or should be removed entirely. This permanently deletes the live organic record tied to this placement.
+          </p>
           <button
             onClick={async () => {
               const confirmDelete = window.confirm(
@@ -1320,7 +1508,7 @@ export default function ManageCampaignPage() {
             Delete Campaign
             <span className="absolute inset-0 rounded-xl bg-red-500/10 opacity-0 group-hover:opacity-100 transition" />
           </button>
-          <p className="text-xs text-gray-500 mt-2">
+          <p className="text-xs text-gray-500 mt-3">
             This will permanently remove all data linked to this organic
             campaign.
           </p>
