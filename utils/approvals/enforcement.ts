@@ -216,7 +216,6 @@ export async function ensureAffiliateOfferParticipation(
         .from('affiliate_requests')
         .update({
           status: 'approved',
-          approved_at: new Date().toISOString(),
           notes: params.notes || 'Auto-approved open offer participation',
         })
         .eq('offer_id', params.offerId)
@@ -274,12 +273,7 @@ export async function ensureAffiliateOfferParticipation(
     affiliate_email: params.affiliateEmail,
     status: nextStatus,
     notes: params.notes || (nextStatus === 'approved' ? 'Auto-approved open offer participation' : 'Approval requested from marketplace'),
-    requested_at: new Date().toISOString(),
   };
-
-  if (nextStatus === 'approved') {
-    insertPayload.approved_at = new Date().toISOString();
-  }
 
   if (params.businessEmail) {
     insertPayload.business_email = params.businessEmail;
