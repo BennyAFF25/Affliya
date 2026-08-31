@@ -676,10 +676,10 @@ export default function AffiliateOnboardingV1() {
                   <div className="flex flex-col gap-3">
                     <button
                       type="button"
-                      onClick={() => router.push("/affiliate/dashboard")}
+                      onClick={() => readyPromotion?.campaign?.id && router.push(`/affiliate/dashboard/manage-campaigns/${readyPromotion.campaign.id}`)}
                       className="rounded-full bg-[#00C2CB] px-6 py-3 text-sm font-semibold text-black hover:bg-[#00b0b8]"
                     >
-                      Go to dashboard
+                      Open campaign
                     </button>
                     <button
                       type="button"

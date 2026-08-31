@@ -84,6 +84,23 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "Creative is not pre-approved for organic onboarding" }, { status: 400 });
     }
 
+    // Ensure the affiliate identity row exists before we create commercial records.
+    // New signups create `profiles`, but not always `affiliate_profiles` yet.
+    // live_campaigns / organic_posts visibility and downstream joins rely on that row.
+    const { error: affiliateProfileError } = await (supabaseAdmin as any)
+      .from("affiliate_profiles")
+      .upsert(
+        {
+          user_id: user.id,
+          email: user.email,
+        },
+        { onConflict: "user_id" },
+      );
+
+    if (affiliateProfileError) {
+      throw new Error(affiliateProfileError.message || "Failed to prepare affiliate profile.");
+    }
+
     const mediaUrl = String(asset.media_url || "").trim();
     if (!mediaUrl) {
       return NextResponse.json({ ok: false, error: "Creative is missing media" }, { status: 400 });
@@ -119,6 +136,7 @@ export async function POST(req: Request) {
       .insert({
         type: "organic",
         offer_id: offer.id,
+        affiliate_user_id: user.id,
         business_email: offer.business_email,
         affiliate_email: user.email,
         media_url: mediaUrl,
