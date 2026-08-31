@@ -229,6 +229,8 @@ export default function AffiliateManageCampaignsPage() {
       // ----------------------------
       // Organic campaigns (live_campaigns)
       // ----------------------------
+      let organicCampaignRows: LiveCampaignRow[] = [];
+
       try {
         const liveCampaignRes = await fetch("/api/affiliate/live-campaigns", {
           cache: "no-store",
@@ -238,10 +240,8 @@ export default function AffiliateManageCampaignsPage() {
         if (!liveCampaignRes.ok || !liveCampaignJson?.ok) {
           throw new Error(liveCampaignJson?.error || "Failed to load live campaigns");
         }
-
-        setOrganic(
-          (((liveCampaignJson.campaigns || []) as LiveCampaignRow[]) ?? []).filter(Boolean),
-        );
+        organicCampaignRows = (((liveCampaignJson.campaigns || []) as LiveCampaignRow[]) ?? []).filter(Boolean);
+        setOrganic(organicCampaignRows);
       } catch (liveCampaignsErr: any) {
         const msg = String(liveCampaignsErr?.message || "");
         if (
@@ -262,7 +262,7 @@ export default function AffiliateManageCampaignsPage() {
             ...(((liveAdsData as LiveAdRow[]) ?? [])
               .map((r) => (r as any)?.offer_id)
               .filter(Boolean) as string[]),
-            ...(((liveCampaignsData as LiveCampaignRow[]) ?? [])
+            ...(organicCampaignRows
               .map((r) => r.offer_id)
               .filter(Boolean) as string[]),
           ].filter(Boolean),
