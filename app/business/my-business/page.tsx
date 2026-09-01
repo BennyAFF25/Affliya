@@ -969,14 +969,14 @@ export default function MyBusinessPage() {
 
               <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
                 <div>
-                  <h1 className="text-3xl font-bold tracking-tight sm:text-4xl xl:text-5xl">
+                  <h1 className="text-3xl font-bold tracking-tight sm:text-4xl 2xl:text-5xl">
                     My Business
                   </h1>
                   <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400 sm:text-base">
                     Grow your brand with affiliates. Review and approve content, and complete required setup only when a campaign is ready to go live.
                   </p>
 
-                  <div className="mt-7 grid gap-4 xl:grid-cols-[270px_minmax(0,1fr)]">
+                  <div className="mt-7 grid gap-4 2xl:grid-cols-[270px_minmax(0,1fr)]">
                     <Link
                       href={pendingSubmissionCount > 0 ? "/business/my-business/ad-ideas" : "/business/my-business/affiliate-requests"}
                       prefetch={false}
@@ -1042,7 +1042,7 @@ export default function MyBusinessPage() {
               </div>
             </section>
 
-            <section className="grid gap-5 xl:grid-cols-3">
+            <section className="grid gap-5 2xl:grid-cols-3">
               <div className="rounded-[22px] border border-white/[0.08] bg-[#151718] p-5 shadow-2xl shadow-black/20">
                 <div className="mb-5 flex items-center gap-3">
                   <span className="grid h-10 w-10 place-items-center rounded-full bg-[#00C2CB]/10 text-[#7ff5fb]"><IconStorefront className="h-5 w-5" /></span>
@@ -1067,7 +1067,7 @@ export default function MyBusinessPage() {
                 </div>
               </div>
 
-              <div className="rounded-[22px] border border-white/[0.08] bg-[#151718] p-5 shadow-2xl shadow-black/20 xl:col-span-1">
+              <div className="rounded-[22px] border border-white/[0.08] bg-[#151718] p-5 shadow-2xl shadow-black/20 2xl:col-span-1">
                 <div className="mb-5 flex items-center gap-3">
                   <span className="grid h-10 w-10 place-items-center rounded-full bg-[#00C2CB]/10 text-[#7ff5fb]"><IconPost className="h-5 w-5" /></span>
                   <div>
@@ -1139,7 +1139,7 @@ export default function MyBusinessPage() {
                 </div>
               </div>
 
-              <div className="grid gap-3 xl:grid-cols-2">
+              <div className="grid gap-3 2xl:grid-cols-2">
                 <div className="rounded-2xl border border-white/[0.08] bg-black/10 p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex gap-3">
@@ -1235,7 +1235,7 @@ export default function MyBusinessPage() {
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-white/[0.08] bg-black/10 p-4 xl:col-span-2">
+                <div className="rounded-2xl border border-white/[0.08] bg-black/10 p-4 2xl:col-span-2">
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div className="flex gap-3">
                       <span className={`mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full ${payoutsReady ? "bg-[#00C2CB] text-black" : "border border-white/15 text-slate-500"}`}>
@@ -1253,7 +1253,7 @@ export default function MyBusinessPage() {
                         </p>
                       </div>
                     </div>
-                    <div className="grid gap-2 xl:min-w-[220px] sm:grid-cols-1">
+                    <div className="grid gap-2 2xl:min-w-[220px] sm:grid-cols-1">
                       {!payoutsReady && (
                         <button onClick={handleEnablePayouts} disabled={isEnablingPayouts} className="inline-flex min-h-[38px] items-center justify-center rounded-full bg-[#00C2CB] px-4 text-xs font-black text-black hover:bg-[#14d5de] disabled:opacity-60">
                           {isEnablingPayouts ? "Opening Stripe…" : businessAccountId ? "Continue Stripe setup" : "Enable payouts"}
@@ -1295,7 +1295,7 @@ export default function MyBusinessPage() {
                     This stays available even before Meta or billing are fully set up. Add reusable images, videos, and copy once, then attach each creative to all offers or one specific offer.
                   </p>
                 </div>
-                <div className="grid gap-2 xl:min-w-[230px]">
+                <div className="grid gap-2 2xl:min-w-[230px]">
                   <Link href="/business/my-business/publish-creatives" prefetch={false} className="inline-flex min-h-[40px] items-center justify-center rounded-full bg-[#00C2CB] px-4 text-xs font-black text-black hover:bg-[#14d5de]">
                     Open content library
                   </Link>
@@ -1329,7 +1329,7 @@ export default function MyBusinessPage() {
               ) : (
                 <div className="overflow-hidden rounded-2xl border border-white/[0.07]">
                   {recentActivity.map((item, index) => (
-                    <Link key={`${item.title}-${index}`} href={item.href} prefetch={false} className="grid gap-2 border-b border-white/[0.07] bg-black/10 p-4 text-sm transition last:border-b-0 hover:bg-white/[0.03] xl:grid-cols-[210px_minmax(0,1fr)_30px] xl:items-center">
+                    <Link key={`${item.title}-${index}`} href={item.href} prefetch={false} className="grid gap-2 border-b border-white/[0.07] bg-black/10 p-4 text-sm transition last:border-b-0 hover:bg-white/[0.03] 2xl:grid-cols-[210px_minmax(0,1fr)_30px] 2xl:items-center">
                       <div className="flex items-center gap-3 font-semibold text-white">
                         <span className="h-2.5 w-2.5 rounded-full bg-[#00C2CB] shadow-[0_0_14px_rgba(0,194,203,0.65)]" />
                         {item.title}
@@ -1360,7 +1360,7 @@ export default function MyBusinessPage() {
                   You haven&apos;t uploaded any offers yet. Create your first offer so affiliates have something to promote.
                 </div>
               ) : (
-                <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+                <div className="grid grid-cols-1 gap-5 2xl:grid-cols-2">
                   {offers.map((offer) => {
                     const metaStatus = getOfferMetaStatus(offer);
                     const onboardingTrackingReady = onboardingProgressRows.some((row) => row.offer_id === offer.id && row.tracking_connected);
