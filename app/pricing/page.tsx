@@ -38,12 +38,12 @@ export default function PricingPage() {
     const isBusiness = plan === "business";
     return {
       title: isBusiness ? "For Businesses" : "For Partners",
-      priceNow: "$0 platform access",
+      priceNow: isBusiness ? "$49/month" : "$0 platform access",
       priceDetail: isBusiness
-        ? "2.2% fee on wallet top-ups and payout charges"
+        ? "Only once content has been submitted to your brand"
         : "2.2% fee when funds are added to your wallet",
       blurb: isBusiness
-        ? "Publish offers, approve affiliates, and manage payouts."
+        ? "Publish offers, review submitted content, and manage payouts."
         : "Access offers, run ads, and track commissions.",
       cta: isBusiness ? "Create Business Account" : "Create Partner Account",
     };
@@ -52,11 +52,11 @@ export default function PricingPage() {
   const faqs = [
     {
       q: "Do I need to pay to create an account?",
-      a: "No. You can create your Nettmark account without paying up front. Platform fees only apply when money moves through wallet top-ups and business payout charges.",
+      a: "No. You can create your Nettmark account without paying up front. Business accounts only move onto the $49/month Nettmark Business subscription once content has been submitted to the brand, and platform fees still only apply when money moves through wallet top-ups and business payout charges.",
     },
     {
       q: "How does Nettmark pricing work?",
-      a: "Nettmark uses a fee-based model instead of subscriptions. Platform access is free, and a 2.2% Nettmark fee is applied when money moves through wallet top-ups and business payout charges.",
+      a: "Partner access stays fee-based. For businesses, account creation is free and the $49/month Nettmark Business subscription only applies once content has been submitted to your brand. A 2.2% Nettmark fee is still applied when money moves through wallet top-ups and business payout charges.",
     },
     {
       q: "Does Business pay for ads?",
@@ -99,10 +99,10 @@ export default function PricingPage() {
 
           <div className="mt-3 grid grid-cols-1 gap-2 text-xs text-gray-400 sm:grid-cols-3 w-full">
             <div className="rounded-md border border-white/10 bg-white/[0.03] px-3 py-2">
-              No subscription required
+              {plan === "business" ? "Starts free" : "No subscription required"}
             </div>
             <div className="rounded-md border border-white/10 bg-white/[0.03] px-3 py-2">
-              Fee-based pricing
+              {plan === "business" ? "$49/month after content submission" : "Fee-based pricing"}
             </div>
             <div className="rounded-md border border-white/10 bg-white/[0.03] px-3 py-2">
               No card required to join
@@ -117,7 +117,7 @@ export default function PricingPage() {
               {(plan === "business"
                 ? [
                     "Always-on exposure inside the Nettmark offer marketplace.",
-                    "Low-risk, pay-on-results acquisition instead of subscription overhead.",
+                    "Create your account free, then move onto the $49/month Business subscription only after content has been submitted to your brand.",
                     "Infrastructure for approvals, tracking, and automated Stripe payouts.",
                     "Clear fee breakdowns when you top up wallets or settle partner payouts.",
                     "Shared ad infrastructure so partners can run Meta ads from your account without sharing logins.",
@@ -172,10 +172,14 @@ export default function PricingPage() {
               <span className="mt-1 inline-block h-2 w-2 rounded-full bg-[#00C2CB]" />
               <div className="text-sm text-gray-200">
                 <div className="font-semibold text-[#00C2CB]">
-                  No subscription required
+                  Free to create your account
                 </div>
                 <div className="text-gray-400">
-                  No card required to create an account. Nettmark charges a
+                  No card required to create an account. Business accounts only
+                  move onto the
+                  <span className="text-white/80 font-medium"> $49/month Nettmark Business subscription</span>{" "}
+                  once content has been submitted to the brand. Nettmark also
+                  charges a
                   <span className="text-white/80 font-medium"> 2.2% platform fee</span>{" "}
                   on wallet top-ups and business payout charges, with Stripe
                   fees shown separately where applicable.
