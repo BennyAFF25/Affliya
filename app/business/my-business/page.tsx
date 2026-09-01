@@ -1042,7 +1042,7 @@ export default function MyBusinessPage() {
               </div>
             </section>
 
-            <section className="grid gap-5 lg:grid-cols-3">
+            <section className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
               <div className="rounded-[22px] border border-white/[0.08] bg-[#151718] p-5 shadow-2xl shadow-black/20">
                 <div className="mb-5 flex items-center gap-3">
                   <span className="grid h-10 w-10 place-items-center rounded-full bg-[#00C2CB]/10 text-[#7ff5fb]"><IconStorefront className="h-5 w-5" /></span>
@@ -1067,7 +1067,7 @@ export default function MyBusinessPage() {
                 </div>
               </div>
 
-              <div className="rounded-[22px] border border-white/[0.08] bg-[#151718] p-5 shadow-2xl shadow-black/20">
+              <div className="rounded-[22px] border border-white/[0.08] bg-[#151718] p-5 shadow-2xl shadow-black/20 md:col-span-2 xl:col-span-1">
                 <div className="mb-5 flex items-center gap-3">
                   <span className="grid h-10 w-10 place-items-center rounded-full bg-[#00C2CB]/10 text-[#7ff5fb]"><IconPost className="h-5 w-5" /></span>
                   <div>
@@ -1360,7 +1360,7 @@ export default function MyBusinessPage() {
                   You haven&apos;t uploaded any offers yet. Create your first offer so affiliates have something to promote.
                 </div>
               ) : (
-                <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
                   {offers.map((offer) => {
                     const metaStatus = getOfferMetaStatus(offer);
                     const onboardingTrackingReady = onboardingProgressRows.some((row) => row.offer_id === offer.id && row.tracking_connected);
