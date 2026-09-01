@@ -913,6 +913,11 @@ export default function MyBusinessPage() {
   const profileComplete = Boolean(user?.email);
   const brandAssetsAvailable = hasTrackingConnected || hasMetaConnected || offers.some((offer) => Boolean(offer.meta_page_id) || Boolean(offer.site_host));
   const liveOfferLabel = offersLoading ? "Loading…" : `${activeOfferCount}`;
+  const reviewSubmissionsHref = pendingAdIdeaCount > 0
+    ? "/business/my-business/ad-ideas"
+    : pendingPostIdeaCount > 0
+      ? "/business/my-business/post-ideas"
+      : "/business/my-business/affiliate-requests";
 
   const setupReadyCount = [hasAnyOffer, hasTrackingConnected, billingReady, payoutsReady, hasMetaConnected].filter(Boolean).length;
 
@@ -978,7 +983,7 @@ export default function MyBusinessPage() {
 
                   <div className="mt-7 grid gap-4 2xl:grid-cols-[270px_minmax(0,1fr)]">
                     <Link
-                      href={pendingSubmissionCount > 0 ? "/business/my-business/ad-ideas" : "/business/my-business/affiliate-requests"}
+                      href={reviewSubmissionsHref}
                       prefetch={false}
                       className="group rounded-2xl border border-white/[0.08] bg-black/10 p-5 text-left transition hover:border-[#00C2CB]/35"
                     >
@@ -1077,7 +1082,7 @@ export default function MyBusinessPage() {
                 </div>
                 <p className="min-h-[44px] text-sm leading-6 text-slate-400">Surface pending paid ad ideas, organic post ideas, and affiliate requests without creating a duplicate submission system.</p>
                 <div className="mt-5 space-y-3">
-                  <Link href={pendingAdIdeaCount > 0 ? "/business/my-business/ad-ideas" : pendingPostIdeaCount > 0 ? "/business/my-business/post-ideas" : "/business/my-business/affiliate-requests"} prefetch={false} className="inline-flex min-h-[42px] w-full items-center justify-center gap-2 rounded-full bg-[#00C2CB] px-4 text-sm font-black text-black shadow-[0_12px_28px_rgba(0,194,203,0.2)] hover:bg-[#14d5de]">
+                  <Link href={reviewSubmissionsHref} prefetch={false} className="inline-flex min-h-[42px] w-full items-center justify-center gap-2 rounded-full bg-[#00C2CB] px-4 text-sm font-black text-black shadow-[0_12px_28px_rgba(0,194,203,0.2)] hover:bg-[#14d5de]">
                     Review submissions
                     {pendingSubmissionCount > 0 && <span className="grid h-5 min-w-5 place-items-center rounded-full bg-black px-1 text-[10px] text-[#7ff5fb]">{pendingSubmissionCount}</span>}
                   </Link>
