@@ -38,9 +38,9 @@ export default function PricingPage() {
     const isBusiness = plan === "business";
     return {
       title: isBusiness ? "For Businesses" : "For Partners",
-      priceNow: isBusiness ? "$49/month" : "$0 platform access",
+      priceNow: "$0 to start",
       priceDetail: isBusiness
-        ? "Only once content has been submitted to your brand"
+        ? "$49/month starting after your first promotional content is submitted"
         : "2.2% fee when funds are added to your wallet",
       blurb: isBusiness
         ? "Publish offers, review submitted content, and manage payouts."
@@ -102,7 +102,7 @@ export default function PricingPage() {
               {plan === "business" ? "Starts free" : "No subscription required"}
             </div>
             <div className="rounded-md border border-white/10 bg-white/[0.03] px-3 py-2">
-              {plan === "business" ? "$49/month after content submission" : "Fee-based pricing"}
+              {plan === "business" ? "$49/month after first submitted promo content" : "Fee-based pricing"}
             </div>
             <div className="rounded-md border border-white/10 bg-white/[0.03] px-3 py-2">
               No card required to join
