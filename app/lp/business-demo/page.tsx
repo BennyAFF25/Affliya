@@ -29,7 +29,7 @@ export default function BusinessDemoLandingPage() {
       subtitle="This short demo shows how to create an offer, approve the right people, review their ads or content, and track the sales they bring in."
       primaryCta={{
         label: "Start as a business",
-        href: "/for-businesses",
+        href: "/create-account?role=business",
       }}
       secondaryCta={{
         label: "View pricing",
