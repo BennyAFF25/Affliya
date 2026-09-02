@@ -11,7 +11,7 @@ const ALLOWED_PAGE_PATHS = new Set([
   "/create-account",
 ]);
 
-const ALLOWED_EVENT_TYPES = new Set(["page_view", "create_account_start"]);
+const ALLOWED_EVENT_TYPES = new Set(["page_view", "create_account_start", "business_demo_cta_click"]);
 
 export async function POST(req: Request) {
   try {
@@ -83,7 +83,7 @@ export async function GET(req: Request) {
 
     const eventsQuery = (supabaseAdmin as any)
       .from("marketing_site_events")
-      .select("event_type, page_path, audience, created_at")
+      .select("event_type, page_path, audience, meta, created_at")
       .order("created_at", { ascending: false })
       .limit(5000);
     const revenueQuery = (supabaseAdmin as any)
@@ -108,36 +108,57 @@ export async function GET(req: Request) {
       event_type: string;
       page_path: string;
       audience: string | null;
+      meta?: Record<string, unknown> | null;
       created_at: string;
     }>;
 
     const totals = {
       pageViews: 0,
       createAccountStarts: 0,
+      businessDemoCtaClicks: 0,
     };
 
-    const byPage: Record<string, { pageViews: number; createAccountStarts: number }> = {};
-    const byAudience: Record<string, { pageViews: number; createAccountStarts: number }> = {};
-    const dailyMap: Record<string, { date: string; pageViews: number; createAccountStarts: number }> = {};
+    const byPage: Record<string, { pageViews: number; createAccountStarts: number; businessDemoCtaClicks: number }> = {};
+    const byAudience: Record<string, { pageViews: number; createAccountStarts: number; businessDemoCtaClicks: number }> = {};
+    const dailyMap: Record<string, { date: string; pageViews: number; createAccountStarts: number; businessDemoCtaClicks: number }> = {};
+    const bySource: Record<string, { pageViews: number; createAccountStarts: number; businessDemoCtaClicks: number }> = {};
 
     for (const row of rows) {
-      const eventKey = row.event_type === "create_account_start" ? "createAccountStarts" : "pageViews";
+      const eventKey =
+        row.event_type === "create_account_start"
+          ? "createAccountStarts"
+          : row.event_type === "business_demo_cta_click"
+          ? "businessDemoCtaClicks"
+          : "pageViews";
       totals[eventKey] += 1;
 
       if (!byPage[row.page_path]) {
-        byPage[row.page_path] = { pageViews: 0, createAccountStarts: 0 };
+        byPage[row.page_path] = { pageViews: 0, createAccountStarts: 0, businessDemoCtaClicks: 0 };
       }
       byPage[row.page_path][eventKey] += 1;
 
       const audienceKey = row.audience || "unknown";
       if (!byAudience[audienceKey]) {
-        byAudience[audienceKey] = { pageViews: 0, createAccountStarts: 0 };
+        byAudience[audienceKey] = { pageViews: 0, createAccountStarts: 0, businessDemoCtaClicks: 0 };
       }
       byAudience[audienceKey][eventKey] += 1;
 
+      const sourceKey =
+        typeof row.meta?.utm_source === "string"
+          ? row.meta.utm_source
+          : typeof row.meta?.source === "string"
+          ? row.meta.source
+          : typeof row.meta?.referrer === "string" && row.meta.referrer
+          ? row.meta.referrer
+          : "unknown";
+      if (!bySource[sourceKey]) {
+        bySource[sourceKey] = { pageViews: 0, createAccountStarts: 0, businessDemoCtaClicks: 0 };
+      }
+      bySource[sourceKey][eventKey] += 1;
+
       const date = row.created_at.slice(0, 10);
       if (!dailyMap[date]) {
-        dailyMap[date] = { date, pageViews: 0, createAccountStarts: 0 };
+        dailyMap[date] = { date, pageViews: 0, createAccountStarts: 0, businessDemoCtaClicks: 0 };
       }
       dailyMap[date][eventKey] += 1;
     }
@@ -177,6 +198,7 @@ export async function GET(req: Request) {
       totals,
       byPage,
       byAudience,
+      bySource,
       daily,
       recentCount: rows.length,
       revenue: {

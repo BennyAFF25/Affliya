@@ -1,8 +1,18 @@
-import React from "react";
+"use client";
+
+import React, { useMemo } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { ArrowRight, CheckCircle2, PlayCircle } from "lucide-react";
 import MarketingPageTracker from "@/components/marketing/MarketingPageTracker";
 import StorylaneEmbed from "@/components/marketing/StorylaneEmbed";
+import {
+  buildHrefWithAttribution,
+  extractAttributionFromSearchParams,
+  persistAttribution,
+} from "@/../utils/marketing/attribution";
+import { logMarketingEvent } from "@/../utils/marketing/logEvent";
+import { trackMetaCustomEvent } from "@/../utils/marketing/metaPixel";
 
 type StorylaneLandingPageProps = {
   pagePath: string;
@@ -62,6 +72,47 @@ export default function StorylaneLandingPage({
   footerTitle,
   footerCopy,
 }: StorylaneLandingPageProps) {
+  const searchParams = useSearchParams();
+  const attribution = useMemo(
+    () => extractAttributionFromSearchParams(new URLSearchParams(searchParams.toString())),
+    [searchParams],
+  );
+
+  const primaryHref = useMemo(
+    () => buildHrefWithAttribution(primaryCta.href, attribution),
+    [attribution, primaryCta.href],
+  );
+  const secondaryHref = useMemo(
+    () => buildHrefWithAttribution(secondaryCta.href, attribution),
+    [attribution, secondaryCta.href],
+  );
+
+  const handlePrimaryCtaClick = (placement: string) => {
+    if (Object.keys(attribution).length > 0) {
+      persistAttribution(attribution);
+    }
+
+    const meta = {
+      ...attribution,
+      cta_label: primaryCta.label,
+      cta_href: primaryHref,
+      cta_placement: placement,
+    };
+
+    void logMarketingEvent({
+      eventType: "business_demo_cta_click",
+      pagePath,
+      audience,
+      meta,
+    });
+
+    trackMetaCustomEvent("BusinessDemoCtaClick", {
+      page_path: pagePath,
+      ...(audience ? { role: audience } : {}),
+      ...meta,
+    });
+  };
+
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(0,194,203,0.18),transparent_32%),linear-gradient(180deg,#061012_0%,#05070b_55%,#030405_100%)] text-white font-bold">
       <MarketingPageTracker pagePath={pagePath} audience={audience} />
@@ -92,13 +143,14 @@ export default function StorylaneLandingPage({
 
             <div className="mt-7 flex flex-col gap-3 sm:flex-row">
               <Link
-                href={primaryCta.href}
+                href={primaryHref}
+                onClick={() => handlePrimaryCtaClick("hero")}
                 className="inline-flex items-center justify-center rounded-full bg-[#00C2CB] px-6 py-3 text-sm font-bold text-black shadow-[0_0_35px_rgba(0,194,203,0.28)] transition hover:bg-[#00b0b8]"
               >
                 {primaryCta.label}
               </Link>
               <Link
-                href={secondaryCta.href}
+                href={secondaryHref}
                 className="inline-flex items-center justify-center rounded-full border border-white/15 px-6 py-3 text-sm font-bold text-white/85 transition hover:bg-white/5 hover:text-white"
               >
                 {secondaryCta.label}
@@ -169,7 +221,8 @@ export default function StorylaneLandingPage({
                 </div>
               </div>
               <Link
-                href={primaryCta.href}
+                href={primaryHref}
+                onClick={() => handlePrimaryCtaClick("mid_page")}
                 className="inline-flex items-center justify-center gap-2 rounded-full bg-[#00C2CB] px-5 py-2.5 text-sm font-bold text-black transition hover:bg-[#00b0b8]"
               >
                 {primaryCta.label}
@@ -218,7 +271,8 @@ export default function StorylaneLandingPage({
             </div>
 
             <Link
-              href={primaryCta.href}
+              href={primaryHref}
+              onClick={() => handlePrimaryCtaClick("footer")}
               className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-bold text-[#04131d] transition hover:bg-[#dffcff]"
             >
               {primaryCta.label}
@@ -229,7 +283,8 @@ export default function StorylaneLandingPage({
       </main>
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-[#05070b]/92 px-4 py-3 backdrop-blur md:hidden">
         <Link
-          href={primaryCta.href}
+          href={primaryHref}
+          onClick={() => handlePrimaryCtaClick("mobile_sticky")}
           className="flex items-center justify-center gap-2 rounded-full bg-[#00C2CB] px-5 py-3 text-sm font-bold text-black shadow-[0_0_30px_rgba(0,194,203,0.22)]"
         >
           {primaryCta.label}

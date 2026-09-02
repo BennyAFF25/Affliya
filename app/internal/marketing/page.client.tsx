@@ -12,10 +12,12 @@ type DashboardData = {
   totals: {
     pageViews: number;
     createAccountStarts: number;
+    businessDemoCtaClicks: number;
   };
-  byPage: Record<string, { pageViews: number; createAccountStarts: number }>;
-  byAudience: Record<string, { pageViews: number; createAccountStarts: number }>;
-  daily: Array<{ date: string; pageViews: number; createAccountStarts: number }>;
+  byPage: Record<string, { pageViews: number; createAccountStarts: number; businessDemoCtaClicks: number }>;
+  byAudience: Record<string, { pageViews: number; createAccountStarts: number; businessDemoCtaClicks: number }>;
+  bySource: Record<string, { pageViews: number; createAccountStarts: number; businessDemoCtaClicks: number }>;
+  daily: Array<{ date: string; pageViews: number; createAccountStarts: number; businessDemoCtaClicks: number }>;
   recentCount: number;
   revenue?: {
     total: number;
@@ -89,6 +91,7 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
       label: friendlyPage(path),
       pageViews: data.byPage[path]?.pageViews || 0,
       createAccountStarts: data.byPage[path]?.createAccountStarts || 0,
+      businessDemoCtaClicks: data.byPage[path]?.businessDemoCtaClicks || 0,
     }));
   }, [data]);
 
@@ -100,6 +103,19 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
       revenue: revenueMap.get(d.date) || 0,
       label: d.date.slice(5),
     }));
+  }, [data]);
+
+  const sourceRows = useMemo(() => {
+    if (!data) return [] as Array<{ label: string; pageViews: number; createAccountStarts: number; businessDemoCtaClicks: number }>;
+    return Object.entries(data.bySource)
+      .map(([label, counts]) => ({
+        label,
+        pageViews: counts.pageViews,
+        createAccountStarts: counts.createAccountStarts,
+        businessDemoCtaClicks: counts.businessDemoCtaClicks,
+      }))
+      .sort((a, b) => b.createAccountStarts - a.createAccountStarts || b.businessDemoCtaClicks - a.businessDemoCtaClicks || b.pageViews - a.pageViews)
+      .slice(0, 10);
   }, [data]);
 
   return (
@@ -145,8 +161,9 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
           <div className="rounded-3xl border border-red-400/20 bg-red-500/10 p-8 text-red-200">{error}</div>
         ) : data ? (
           <>
-            <section className="grid gap-4 md:grid-cols-4">
+            <section className="grid gap-4 md:grid-cols-5">
               <StatCard label="Page views" value={data.totals.pageViews.toLocaleString()} tone="cyan" />
+              <StatCard label="CTA clicks" value={data.totals.businessDemoCtaClicks.toLocaleString()} tone="cyan" />
               <StatCard label="Create account starts" value={data.totals.createAccountStarts.toLocaleString()} tone="violet" />
               <StatCard label="View → start rate" value={`${conversionRate.toFixed(1)}%`} tone="emerald" />
               <StatCard
@@ -163,6 +180,7 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
             >
               <div className="mb-4 flex flex-wrap items-center gap-4 text-xs text-white/70">
                 <span className="inline-flex items-center gap-2"><span className="h-1.5 w-6 rounded-full bg-[#00C2CB]" /> Page views</span>
+                <span className="inline-flex items-center gap-2"><span className="h-1.5 w-6 rounded-full bg-[#38BDF8]" /> CTA clicks</span>
                 <span className="inline-flex items-center gap-2"><span className="h-1.5 w-6 rounded-full bg-[#8B5CF6]" /> Create account starts</span>
                 {showRevenue ? <span className="inline-flex items-center gap-2"><span className="h-1.5 w-6 rounded-full bg-[#F59E0B]" /> Revenue</span> : null}
               </div>
@@ -189,11 +207,13 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
                       formatter={(value: number, name: string) => {
                         if (name === "revenue") return [fmtMoney(Number(value || 0)), "Revenue"];
                         if (name === "pageViews") return [Number(value || 0), "Page views"];
+                        if (name === "businessDemoCtaClicks") return [Number(value || 0), "CTA clicks"];
                         if (name === "createAccountStarts") return [Number(value || 0), "Create account starts"];
                         return [Number(value || 0), name];
                       }}
                     />
                     <Area yAxisId="left" type="monotone" dataKey="pageViews" stroke="#00C2CB" fill="url(#pv)" strokeWidth={2.2} />
+                    <Line yAxisId="left" type="monotone" dataKey="businessDemoCtaClicks" stroke="#38BDF8" strokeWidth={2} dot={false} />
                     <Area yAxisId="left" type="monotone" dataKey="createAccountStarts" stroke="#8B5CF6" fill="url(#ca)" strokeWidth={2.2} />
                     {showRevenue ? <Line yAxisId="right" type="monotone" dataKey="revenue" stroke="#F59E0B" strokeWidth={2} dot={false} /> : null}
                   </ComposedChart>
@@ -204,7 +224,15 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
             <Panel title="By page" subtitle="Clean view of your key pages">
               <div className="space-y-3">
                 {pageRows.map((row) => (
-                  <CollapsibleStatCard key={row.key} label={row.label} pageViews={row.pageViews} createAccountStarts={row.createAccountStarts} />
+                  <CollapsibleStatCard key={row.key} label={row.label} pageViews={row.pageViews} businessDemoCtaClicks={row.businessDemoCtaClicks} createAccountStarts={row.createAccountStarts} />
+                ))}
+              </div>
+            </Panel>
+
+            <Panel title="Top sources" subtitle="Based on UTMs first, then fallback referrer">
+              <div className="space-y-3">
+                {sourceRows.map((row) => (
+                  <CollapsibleStatCard key={row.label} label={row.label} pageViews={row.pageViews} businessDemoCtaClicks={row.businessDemoCtaClicks} createAccountStarts={row.createAccountStarts} />
                 ))}
               </div>
             </Panel>
@@ -212,7 +240,7 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
             <Panel title="By audience">
               <div className="space-y-3">
                 {Object.entries(data.byAudience).map(([audience, counts]) => (
-                  <CollapsibleStatCard key={audience} label={audience === "unknown" ? "Unknown" : audience} pageViews={counts.pageViews} createAccountStarts={counts.createAccountStarts} />
+                  <CollapsibleStatCard key={audience} label={audience === "unknown" ? "Unknown" : audience} pageViews={counts.pageViews} businessDemoCtaClicks={counts.businessDemoCtaClicks} createAccountStarts={counts.createAccountStarts} />
                 ))}
               </div>
             </Panel>
@@ -254,10 +282,21 @@ function StatCard({ label, value, tone, note }: { label: string; value: string; 
   );
 }
 
-function CollapsibleStatCard({ label, pageViews, createAccountStarts }: { label: string; pageViews: number; createAccountStarts: number }) {
+function CollapsibleStatCard({
+  label,
+  pageViews,
+  businessDemoCtaClicks,
+  createAccountStarts,
+}: {
+  label: string;
+  pageViews: number;
+  businessDemoCtaClicks: number;
+  createAccountStarts: number;
+}) {
   const rate = pageViews ? (createAccountStarts / pageViews) * 100 : 0;
   const chartRows = [
     { name: "Views", value: pageViews, fill: "#00C2CB" },
+    { name: "CTA clicks", value: businessDemoCtaClicks, fill: "#38BDF8" },
     { name: "Starts", value: createAccountStarts, fill: "#8B5CF6" },
   ];
 
@@ -270,6 +309,7 @@ function CollapsibleStatCard({ label, pageViews, createAccountStarts }: { label:
         </div>
         <div className="flex items-center gap-4 text-xs text-white/80">
           <span>Views <strong className="text-white">{pageViews}</strong></span>
+          <span>Clicks <strong className="text-white">{businessDemoCtaClicks}</strong></span>
           <span>Starts <strong className="text-white">{createAccountStarts}</strong></span>
           <ChevronDown className="h-4 w-4 transition group-open:rotate-180" />
         </div>
