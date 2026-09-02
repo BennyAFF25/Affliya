@@ -13,6 +13,51 @@ const ALLOWED_PAGE_PATHS = new Set([
 
 const ALLOWED_EVENT_TYPES = new Set(["page_view", "create_account_start", "business_demo_cta_click"]);
 
+type MetricCounts = {
+  pageViews: number;
+  createAccountStarts: number;
+  businessDemoCtaClicks: number;
+};
+
+function emptyCounts(): MetricCounts {
+  return {
+    pageViews: 0,
+    createAccountStarts: 0,
+    businessDemoCtaClicks: 0,
+  };
+}
+
+function getRange(period: string) {
+  const now = new Date();
+
+  switch (period) {
+    case "24h": {
+      return {
+        label: "24h",
+        from: new Date(now.getTime() - 24 * 60 * 60 * 1000),
+      };
+    }
+    case "today": {
+      const from = new Date(now);
+      from.setHours(0, 0, 0, 0);
+      return {
+        label: "today",
+        from,
+      };
+    }
+    case "7d":
+      return { label: "7d", from: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000) };
+    case "30d":
+      return { label: "30d", from: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000) };
+    case "90d":
+      return { label: "90d", from: new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000) };
+    case "all":
+      return { label: "all", from: null };
+    default:
+      return { label: "30d", from: new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000) };
+  }
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => null);
@@ -75,11 +120,9 @@ export async function GET(req: Request) {
     }
 
     const url = new URL(req.url);
-    const daysParam = (url.searchParams.get("days") || "30").toLowerCase();
-    const allTime = daysParam === "all";
-    const parsedDays = Number(daysParam);
-    const days = allTime ? null : Math.min(Math.max(Number.isFinite(parsedDays) ? parsedDays : 30, 1), 365);
-    const from = days ? new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString() : null;
+    const period = (url.searchParams.get("period") || "30d").toLowerCase();
+    const range = getRange(period);
+    const fromIso = range.from ? range.from.toISOString() : null;
 
     const eventsQuery = (supabaseAdmin as any)
       .from("marketing_site_events")
@@ -93,8 +136,8 @@ export async function GET(req: Request) {
       .limit(5000);
 
     const [eventsResult, revenueResult] = await Promise.all([
-      from ? eventsQuery.gte("created_at", from) : eventsQuery,
-      from ? revenueQuery.gte("accrued_at", from) : revenueQuery,
+      fromIso ? eventsQuery.gte("created_at", fromIso) : eventsQuery,
+      fromIso ? revenueQuery.gte("accrued_at", fromIso) : revenueQuery,
     ]);
 
     const { data, error } = eventsResult;
@@ -112,58 +155,47 @@ export async function GET(req: Request) {
       created_at: string;
     }>;
 
-    const totals = {
-      pageViews: 0,
-      createAccountStarts: 0,
-      businessDemoCtaClicks: 0,
-    };
-
-    const byPage: Record<string, { pageViews: number; createAccountStarts: number; businessDemoCtaClicks: number }> = {};
-    const byAudience: Record<string, { pageViews: number; createAccountStarts: number; businessDemoCtaClicks: number }> = {};
-    const dailyMap: Record<string, { date: string; pageViews: number; createAccountStarts: number; businessDemoCtaClicks: number }> = {};
-    const bySource: Record<string, { pageViews: number; createAccountStarts: number; businessDemoCtaClicks: number }> = {};
+    const totals = emptyCounts();
+    const byPage: Record<string, MetricCounts> = {};
+    const byAudience: Record<string, MetricCounts> = {};
+    const bySource: Record<string, MetricCounts> = {};
+    const byPlacement: Record<string, MetricCounts> = {};
 
     for (const row of rows) {
       const eventKey =
         row.event_type === "create_account_start"
           ? "createAccountStarts"
           : row.event_type === "business_demo_cta_click"
-          ? "businessDemoCtaClicks"
-          : "pageViews";
+            ? "businessDemoCtaClicks"
+            : "pageViews";
+
       totals[eventKey] += 1;
 
-      if (!byPage[row.page_path]) {
-        byPage[row.page_path] = { pageViews: 0, createAccountStarts: 0, businessDemoCtaClicks: 0 };
-      }
+      if (!byPage[row.page_path]) byPage[row.page_path] = emptyCounts();
       byPage[row.page_path][eventKey] += 1;
 
       const audienceKey = row.audience || "unknown";
-      if (!byAudience[audienceKey]) {
-        byAudience[audienceKey] = { pageViews: 0, createAccountStarts: 0, businessDemoCtaClicks: 0 };
-      }
+      if (!byAudience[audienceKey]) byAudience[audienceKey] = emptyCounts();
       byAudience[audienceKey][eventKey] += 1;
 
       const sourceKey =
         typeof row.meta?.utm_source === "string"
           ? row.meta.utm_source
           : typeof row.meta?.source === "string"
-          ? row.meta.source
-          : typeof row.meta?.referrer === "string" && row.meta.referrer
-          ? row.meta.referrer
-          : "unknown";
-      if (!bySource[sourceKey]) {
-        bySource[sourceKey] = { pageViews: 0, createAccountStarts: 0, businessDemoCtaClicks: 0 };
-      }
+            ? row.meta.source
+            : typeof row.meta?.referrer === "string" && row.meta.referrer
+              ? row.meta.referrer
+              : "unknown";
+      if (!bySource[sourceKey]) bySource[sourceKey] = emptyCounts();
       bySource[sourceKey][eventKey] += 1;
 
-      const date = row.created_at.slice(0, 10);
-      if (!dailyMap[date]) {
-        dailyMap[date] = { date, pageViews: 0, createAccountStarts: 0, businessDemoCtaClicks: 0 };
-      }
-      dailyMap[date][eventKey] += 1;
+      const placementKey =
+        typeof row.meta?.cta_placement === "string" && row.meta.cta_placement
+          ? row.meta.cta_placement
+          : "unknown";
+      if (!byPlacement[placementKey]) byPlacement[placementKey] = emptyCounts();
+      byPlacement[placementKey][eventKey] += 1;
     }
-
-    const daily = Object.values(dailyMap).sort((a, b) => a.date.localeCompare(b.date));
 
     const revenueRows = ((revenueResult?.data as Array<{
       amount: number | string | null;
@@ -172,41 +204,23 @@ export async function GET(req: Request) {
       accrued_at: string;
     }>) || []).filter((row) => row?.accrued_at);
 
-    const revenueByStatus: Record<string, number> = {};
-    const revenueDailyMap: Record<string, number> = {};
     let revenueTotal = 0;
-
     for (const row of revenueRows) {
       const amount = Number(row.amount || 0);
-      if (!Number.isFinite(amount)) continue;
-
-      revenueTotal += amount;
-      const statusKey = row.status || "unknown";
-      revenueByStatus[statusKey] = (revenueByStatus[statusKey] || 0) + amount;
-
-      const date = row.accrued_at.slice(0, 10);
-      revenueDailyMap[date] = (revenueDailyMap[date] || 0) + amount;
+      if (Number.isFinite(amount)) revenueTotal += amount;
     }
-
-    const revenueDaily = Object.entries(revenueDailyMap)
-      .map(([date, amount]) => ({ date, amount }))
-      .sort((a, b) => a.date.localeCompare(b.date));
 
     return NextResponse.json({
       ok: true,
-      days: days ?? "all",
+      period: range.label,
       totals,
       byPage,
       byAudience,
       bySource,
-      daily,
+      byPlacement,
       recentCount: rows.length,
       revenue: {
         total: Number(revenueTotal.toFixed(2)),
-        byStatus: Object.fromEntries(
-          Object.entries(revenueByStatus).map(([key, value]) => [key, Number(value.toFixed(2))]),
-        ),
-        daily: revenueDaily.map((row) => ({ ...row, amount: Number(row.amount.toFixed(2)) })),
         count: revenueRows.length,
       },
     });
