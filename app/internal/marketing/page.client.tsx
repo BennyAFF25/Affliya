@@ -3,20 +3,34 @@
 import React, { useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { Area, Bar, BarChart, CartesianGrid, Cell, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import {
+  Area,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  ComposedChart,
+  Line,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { ChevronDown } from "lucide-react";
+
+type MetricCounts = {
+  pageViews: number;
+  createAccountStarts: number;
+  businessDemoCtaClicks: number;
+};
 
 type DashboardData = {
   ok: boolean;
   days: number | "all";
-  totals: {
-    pageViews: number;
-    createAccountStarts: number;
-    businessDemoCtaClicks: number;
-  };
-  byPage: Record<string, { pageViews: number; createAccountStarts: number; businessDemoCtaClicks: number }>;
-  byAudience: Record<string, { pageViews: number; createAccountStarts: number; businessDemoCtaClicks: number }>;
-  bySource: Record<string, { pageViews: number; createAccountStarts: number; businessDemoCtaClicks: number }>;
+  totals: MetricCounts;
+  byPage: Record<string, MetricCounts>;
+  byAudience: Record<string, MetricCounts>;
+  bySource: Record<string, MetricCounts>;
   daily: Array<{ date: string; pageViews: number; createAccountStarts: number; businessDemoCtaClicks: number }>;
   recentCount: number;
   revenue?: {
@@ -25,6 +39,17 @@ type DashboardData = {
     daily: Array<{ date: string; amount: number }>;
     count: number;
   };
+};
+
+type FunnelSummary = {
+  key: string;
+  label: string;
+  pageViews: number;
+  ctaClicks: number;
+  starts: number;
+  viewToClickRate: number;
+  clickToStartRate: number;
+  viewToStartRate: number;
 };
 
 const PAGE_LABELS: Record<string, string> = {
@@ -46,6 +71,28 @@ function fmtMoney(value: number) {
     currency: "AUD",
     maximumFractionDigits: value % 1 === 0 ? 0 : 2,
   }).format(value || 0);
+}
+
+function fmtPct(value: number) {
+  return `${value.toFixed(1)}%`;
+}
+
+function rate(numerator: number, denominator: number) {
+  if (!denominator) return 0;
+  return (numerator / denominator) * 100;
+}
+
+function buildFunnelSummary(key: string, label: string, counts: MetricCounts): FunnelSummary {
+  return {
+    key,
+    label,
+    pageViews: counts.pageViews || 0,
+    ctaClicks: counts.businessDemoCtaClicks || 0,
+    starts: counts.createAccountStarts || 0,
+    viewToClickRate: rate(counts.businessDemoCtaClicks || 0, counts.pageViews || 0),
+    clickToStartRate: rate(counts.createAccountStarts || 0, counts.businessDemoCtaClicks || 0),
+    viewToStartRate: rate(counts.createAccountStarts || 0, counts.pageViews || 0),
+  };
 }
 
 export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail: string }) {
@@ -79,13 +126,13 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
     };
   }, [days]);
 
-  const conversionRate = useMemo(() => {
+  const overviewRate = useMemo(() => {
     if (!data?.totals.pageViews) return 0;
     return (data.totals.createAccountStarts / data.totals.pageViews) * 100;
   }, [data]);
 
   const pageRows = useMemo(() => {
-    if (!data) return [] as Array<{ key: string; label: string; pageViews: number; createAccountStarts: number }>;
+    if (!data) return [] as Array<{ key: string; label: string; pageViews: number; createAccountStarts: number; businessDemoCtaClicks: number }>;
     return PAGE_ORDER.map((path) => ({
       key: path,
       label: friendlyPage(path),
@@ -96,7 +143,7 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
   }, [data]);
 
   const trendRows = useMemo(() => {
-    if (!data) return [];
+    if (!data) return [] as Array<{ date: string; pageViews: number; createAccountStarts: number; businessDemoCtaClicks: number; revenue: number; label: string }>;
     const revenueMap = new Map((data.revenue?.daily || []).map((r) => [r.date, r.amount]));
     return data.daily.map((d) => ({
       ...d,
@@ -114,9 +161,34 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
         createAccountStarts: counts.createAccountStarts,
         businessDemoCtaClicks: counts.businessDemoCtaClicks,
       }))
-      .sort((a, b) => b.createAccountStarts - a.createAccountStarts || b.businessDemoCtaClicks - a.businessDemoCtaClicks || b.pageViews - a.pageViews)
+      .sort(
+        (a, b) =>
+          b.createAccountStarts - a.createAccountStarts ||
+          b.businessDemoCtaClicks - a.businessDemoCtaClicks ||
+          b.pageViews - a.pageViews,
+      )
       .slice(0, 10);
   }, [data]);
+
+  const funnelRows = useMemo(() => {
+    if (!data) return [] as FunnelSummary[];
+    return [
+      buildFunnelSummary("business", "Business funnel", data.byAudience.business || { pageViews: 0, createAccountStarts: 0, businessDemoCtaClicks: 0 }),
+      buildFunnelSummary("affiliate", "Affiliate funnel", data.byAudience.affiliate || { pageViews: 0, createAccountStarts: 0, businessDemoCtaClicks: 0 }),
+      buildFunnelSummary("unknown", "Unknown / uncategorised", data.byAudience.unknown || { pageViews: 0, createAccountStarts: 0, businessDemoCtaClicks: 0 }),
+    ].filter((row) => row.pageViews > 0 || row.ctaClicks > 0 || row.starts > 0);
+  }, [data]);
+
+  const strongestFunnel = useMemo(() => {
+    if (!funnelRows.length) return null;
+    return [...funnelRows].sort((a, b) => b.viewToStartRate - a.viewToStartRate)[0];
+  }, [funnelRows]);
+
+  const leakiestFunnel = useMemo(() => {
+    const candidates = funnelRows.filter((row) => row.pageViews > 0);
+    if (!candidates.length) return null;
+    return [...candidates].sort((a, b) => a.clickToStartRate - b.clickToStartRate)[0];
+  }, [funnelRows]);
 
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,rgba(0,194,203,0.18),transparent_30%),linear-gradient(180deg,#071014_0%,#04080b_62%,#030405_100%)] px-5 py-6 text-white sm:px-6 lg:px-8 lg:py-8">
@@ -165,7 +237,7 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
               <StatCard label="Page views" value={data.totals.pageViews.toLocaleString()} tone="cyan" />
               <StatCard label="CTA clicks" value={data.totals.businessDemoCtaClicks.toLocaleString()} tone="cyan" />
               <StatCard label="Create account starts" value={data.totals.createAccountStarts.toLocaleString()} tone="violet" />
-              <StatCard label="View → start rate" value={`${conversionRate.toFixed(1)}%`} tone="emerald" />
+              <StatCard label="View → start rate" value={fmtPct(overviewRate)} tone="emerald" />
               <StatCard
                 label="Fee ledger revenue"
                 value={fmtMoney(data.revenue?.total || 0)}
@@ -173,6 +245,30 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
                 note={data.revenue?.count ? `${data.revenue.count} ledger rows` : "No ledger rows yet"}
               />
             </section>
+
+            <Panel title="Audience funnels" subtitle="Business and affiliate performance side by side">
+              <div className="grid gap-4 lg:grid-cols-3">
+                {funnelRows.map((row) => (
+                  <FunnelCard key={row.key} row={row} />
+                ))}
+              </div>
+              {(strongestFunnel || leakiestFunnel) && (
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  {strongestFunnel ? (
+                    <InsightCard
+                      title="Best funnel right now"
+                      copy={`${strongestFunnel.label} is converting best from view to start at ${fmtPct(strongestFunnel.viewToStartRate)}.`}
+                    />
+                  ) : null}
+                  {leakiestFunnel ? (
+                    <InsightCard
+                      title="Biggest leak to watch"
+                      copy={`${leakiestFunnel.label} has the weakest click to start follow-through at ${fmtPct(leakiestFunnel.clickToStartRate)}.`}
+                    />
+                  ) : null}
+                </div>
+              )}
+            </Panel>
 
             <Panel
               title="Daily trend"
@@ -193,13 +289,7 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
                       <linearGradient id="ca" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#8B5CF6" stopOpacity={0.45} /><stop offset="100%" stopColor="#8B5CF6" stopOpacity={0.04} /></linearGradient>
                     </defs>
                     <CartesianGrid stroke="rgba(255,255,255,0.11)" vertical={false} strokeDasharray="4 5" />
-                    <XAxis
-                      dataKey="label"
-                      stroke="rgba(255,255,255,0.6)"
-                      tickMargin={10}
-                      minTickGap={24}
-                      interval="preserveStartEnd"
-                    />
+                    <XAxis dataKey="label" stroke="rgba(255,255,255,0.6)" tickMargin={10} minTickGap={24} interval="preserveStartEnd" />
                     <YAxis yAxisId="left" stroke="rgba(255,255,255,0.6)" tickMargin={8} width={40} />
                     {showRevenue ? <YAxis yAxisId="right" orientation="right" stroke="rgba(245,158,11,0.9)" tickFormatter={(v) => `$${Math.round(Number(v || 0))}`} width={52} /> : null}
                     <Tooltip
@@ -224,7 +314,13 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
             <Panel title="By page" subtitle="Clean view of your key pages">
               <div className="space-y-3">
                 {pageRows.map((row) => (
-                  <CollapsibleStatCard key={row.key} label={row.label} pageViews={row.pageViews} businessDemoCtaClicks={row.businessDemoCtaClicks} createAccountStarts={row.createAccountStarts} />
+                  <CollapsibleStatCard
+                    key={row.key}
+                    label={row.label}
+                    pageViews={row.pageViews}
+                    businessDemoCtaClicks={row.businessDemoCtaClicks}
+                    createAccountStarts={row.createAccountStarts}
+                  />
                 ))}
               </div>
             </Panel>
@@ -232,15 +328,27 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
             <Panel title="Top sources" subtitle="Based on UTMs first, then fallback referrer">
               <div className="space-y-3">
                 {sourceRows.map((row) => (
-                  <CollapsibleStatCard key={row.label} label={row.label} pageViews={row.pageViews} businessDemoCtaClicks={row.businessDemoCtaClicks} createAccountStarts={row.createAccountStarts} />
+                  <CollapsibleStatCard
+                    key={row.label}
+                    label={row.label}
+                    pageViews={row.pageViews}
+                    businessDemoCtaClicks={row.businessDemoCtaClicks}
+                    createAccountStarts={row.createAccountStarts}
+                  />
                 ))}
               </div>
             </Panel>
 
-            <Panel title="By audience">
+            <Panel title="By audience" subtitle="Raw event breakdown by audience tag">
               <div className="space-y-3">
                 {Object.entries(data.byAudience).map(([audience, counts]) => (
-                  <CollapsibleStatCard key={audience} label={audience === "unknown" ? "Unknown" : audience} pageViews={counts.pageViews} businessDemoCtaClicks={counts.businessDemoCtaClicks} createAccountStarts={counts.createAccountStarts} />
+                  <CollapsibleStatCard
+                    key={audience}
+                    label={audience === "unknown" ? "Unknown" : audience}
+                    pageViews={counts.pageViews}
+                    businessDemoCtaClicks={counts.businessDemoCtaClicks}
+                    createAccountStarts={counts.createAccountStarts}
+                  />
                 ))}
               </div>
             </Panel>
@@ -282,6 +390,61 @@ function StatCard({ label, value, tone, note }: { label: string; value: string; 
   );
 }
 
+function FunnelCard({ row }: { row: FunnelSummary }) {
+  return (
+    <div className="rounded-3xl border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02))] p-5">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold text-white">{row.label}</p>
+          <p className="mt-1 text-xs text-white/55">Traffic → click intent → account start</p>
+        </div>
+        <div className="rounded-full border border-white/10 bg-black/20 px-3 py-1 text-xs text-white/70">
+          {fmtPct(row.viewToStartRate)} overall
+        </div>
+      </div>
+
+      <div className="mt-4 grid grid-cols-3 gap-3 text-center">
+        <MiniMetric label="Views" value={row.pageViews.toLocaleString()} />
+        <MiniMetric label="Clicks" value={row.ctaClicks.toLocaleString()} />
+        <MiniMetric label="Starts" value={row.starts.toLocaleString()} />
+      </div>
+
+      <div className="mt-4 space-y-2 text-sm text-white/75">
+        <RateRow label="View → click" value={row.viewToClickRate} />
+        <RateRow label="Click → start" value={row.clickToStartRate} />
+        <RateRow label="View → start" value={row.viewToStartRate} />
+      </div>
+    </div>
+  );
+}
+
+function MiniMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-black/20 px-3 py-3">
+      <div className="text-[11px] uppercase tracking-[0.18em] text-white/45">{label}</div>
+      <div className="mt-1 text-lg font-bold text-white">{value}</div>
+    </div>
+  );
+}
+
+function RateRow({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="flex items-center justify-between rounded-2xl border border-white/8 bg-black/15 px-3 py-2">
+      <span>{label}</span>
+      <span className="font-semibold text-white">{fmtPct(value)}</span>
+    </div>
+  );
+}
+
+function InsightCard({ title, copy }: { title: string; copy: string }) {
+  return (
+    <div className="rounded-2xl border border-[#00C2CB]/20 bg-[#00C2CB]/8 px-4 py-3">
+      <div className="text-xs font-semibold uppercase tracking-[0.2em] text-[#aefcff]">{title}</div>
+      <div className="mt-1 text-sm text-white/85">{copy}</div>
+    </div>
+  );
+}
+
 function CollapsibleStatCard({
   label,
   pageViews,
@@ -293,7 +456,8 @@ function CollapsibleStatCard({
   businessDemoCtaClicks: number;
   createAccountStarts: number;
 }) {
-  const rate = pageViews ? (createAccountStarts / pageViews) * 100 : 0;
+  const viewToStartRate = pageViews ? (createAccountStarts / pageViews) * 100 : 0;
+  const clickToStartRate = businessDemoCtaClicks ? (createAccountStarts / businessDemoCtaClicks) * 100 : 0;
   const chartRows = [
     { name: "Views", value: pageViews, fill: "#00C2CB" },
     { name: "CTA clicks", value: businessDemoCtaClicks, fill: "#38BDF8" },
@@ -305,7 +469,7 @@ function CollapsibleStatCard({
       <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3">
         <div>
           <p className="text-sm font-semibold text-white">{label}</p>
-          <p className="text-xs text-white/55">View → start {rate.toFixed(1)}%</p>
+          <p className="text-xs text-white/55">View → start {fmtPct(viewToStartRate)} · Click → start {fmtPct(clickToStartRate)}</p>
         </div>
         <div className="flex items-center gap-4 text-xs text-white/80">
           <span>Views <strong className="text-white">{pageViews}</strong></span>
