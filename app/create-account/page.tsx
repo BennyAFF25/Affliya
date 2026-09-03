@@ -4,6 +4,8 @@ import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/../utils/supabase/pages-client';
 import MarketingPageTracker from '@/components/marketing/MarketingPageTracker';
+import { getAttributionFromWindow } from '@/../utils/marketing/attribution';
+import { logMarketingEvent } from '@/../utils/marketing/logEvent';
 import { trackMetaStandardEvent } from '@/../utils/marketing/metaPixel';
 
 function CreateAccountInner() {
@@ -219,6 +221,18 @@ function CreateAccountInner() {
           console.warn('[SIGNUP] creator referral attribution deferred/failed:', creatorReferralErr);
         }
       }
+
+      const attribution = getAttributionFromWindow();
+      void logMarketingEvent({
+        eventType: 'account_created',
+        pagePath: '/create-account',
+        audience: role,
+        meta: {
+          ...attribution,
+          role,
+          signup_method: 'email',
+        },
+      });
 
       trackMetaStandardEvent('CompleteRegistration', {
         role,

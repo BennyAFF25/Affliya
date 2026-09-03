@@ -1,5 +1,5 @@
 export type MarketingEventPayload = {
-  eventType: "page_view" | "create_account_start";
+  eventType: "page_view" | "create_account_start" | "business_demo_cta_click" | "account_created";
   pagePath: string;
   audience?: string | null;
   meta?: Record<string, unknown>;

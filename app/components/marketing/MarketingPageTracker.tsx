@@ -3,9 +3,10 @@
 import { useEffect, useRef } from "react";
 import { logMarketingEvent } from "@/../utils/marketing/logEvent";
 import { trackMetaCustomEvent } from "@/../utils/marketing/metaPixel";
+import { getAttributionFromWindow, persistAttribution } from "@/../utils/marketing/attribution";
 
 type Props = {
-  eventType?: "page_view" | "create_account_start";
+  eventType?: "page_view" | "create_account_start" | "business_demo_cta_click" | "account_created";
   pagePath: string;
   audience?: string | null;
   meta?: Record<string, unknown>;
@@ -23,18 +24,28 @@ export default function MarketingPageTracker({
     if (sentRef.current) return;
     sentRef.current = true;
 
+    const attribution = getAttributionFromWindow();
+    if (Object.keys(attribution).length > 0) {
+      persistAttribution(attribution);
+    }
+
+    const eventMeta = {
+      ...attribution,
+      ...(meta || {}),
+    };
+
     void logMarketingEvent({
       eventType,
       pagePath,
       audience,
-      meta,
+      meta: eventMeta,
     });
 
     if (eventType === "create_account_start") {
       trackMetaCustomEvent("CreateAccountStart", {
         page_path: pagePath,
         ...(audience ? { role: audience } : {}),
-        ...(meta || {}),
+        ...eventMeta,
       });
     }
   }, [audience, eventType, meta, pagePath]);
