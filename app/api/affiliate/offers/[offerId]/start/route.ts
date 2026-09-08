@@ -3,6 +3,8 @@ import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import supabaseAdmin from "@/../utils/supabase/server-client";
 import { ensureAffiliateOfferParticipation, normalizeOfferParticipationMode } from "@/../utils/approvals/enforcement";
+import { sendEmail } from "@/../lib/email/send";
+import { businessNewAffiliateRequestEmail } from "@/../lib/email/templates";
 
 export async function POST(_req: Request, context: { params: Promise<{ offerId: string }> }) {
   try {
@@ -92,6 +94,33 @@ export async function POST(_req: Request, context: { params: Promise<{ offerId: 
         participationMode,
       },
     });
+
+    if (participation.created) {
+      try {
+        const email = businessNewAffiliateRequestEmail({
+          businessEmail: offer.business_email,
+          affiliateEmail: user.email,
+          offerTitle: offer.title || undefined,
+          notes:
+            participation.status === "approved"
+              ? "This affiliate has joined your open offer and is approved to promote it."
+              : "This affiliate is requesting approval to promote your offer.",
+        });
+
+        await sendEmail({
+          to: offer.business_email,
+          subject: email.subject,
+          html: email.html,
+        });
+      } catch (emailError) {
+        console.error("[affiliate/offers/start][business notification failed]", {
+          businessEmail: offer.business_email,
+          affiliateEmail: user.email,
+          offerId,
+          error: emailError instanceof Error ? emailError.message : emailError,
+        });
+      }
+    }
 
     return NextResponse.json({
       ok: true,
