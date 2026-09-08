@@ -628,12 +628,36 @@ export default function PromoteOfferPage() {
   const isOrganicOnlyOffer = offerMetaResolved && !offerHasMetaLaunchSetup;
   const showMetaSetupWarning = offerMetaResolved && !offerHasMetaLaunchSetup;
   const showSalesPixelWarning = offerMetaResolved && offerHasMetaLaunchSetup && needsSalesPixel && !offerHasSalesPixel;
+  const [metaDemandSending, setMetaDemandSending] = useState(false);
+  const [metaDemandSent, setMetaDemandSent] = useState(false);
 
-  useEffect(() => {
-    if (isOrganicOnlyOffer && mode === "ad") {
-      setMode("organic");
+  const requestBusinessPaidPromotion = async () => {
+    if (!offerId || metaDemandSending || metaDemandSent) return;
+    setMetaDemandSending(true);
+    try {
+      await ensurePromotionAccess();
+      const response = await fetch(`/api/affiliate/offers/${offerId}/paid-promotion-request`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ budget: Number(form.budget_amount_dollars || 0) }),
+      });
+      const json = await response.json().catch(() => null);
+      if (!response.ok || !json?.ok) {
+        throw new Error(json?.error || "Could not notify the business.");
+      }
+      if (json?.alreadyEnabled) {
+        nmToast.success("Paid promotion is already enabled. Refreshing...");
+        window.location.reload();
+        return;
+      }
+      setMetaDemandSent(true);
+      nmToast.success("Business notified — we'll let you know when paid promotion is enabled.");
+    } catch (error: any) {
+      nmToast.error(error?.message || "Could not notify the business.");
+    } finally {
+      setMetaDemandSending(false);
     }
-  }, [isOrganicOnlyOffer, mode]);
+  };
 
   // Sparkline for 30-day projection (tiny sideways line chart)
   function buildSparkPath(values: number[], w = 120, h = 36, pad = 2) {
@@ -1495,19 +1519,15 @@ export default function PromoteOfferPage() {
           <div className="flex gap-2 overflow-x-auto">
             <button
               type="button"
-              onClick={() => {
-                if (!isOrganicOnlyOffer) setMode("ad");
-              }}
-              disabled={isOrganicOnlyOffer}
+              onClick={() => setMode("ad")}
               className={[
                 "px-4 py-2 rounded-lg border text-sm",
                 mode === "ad"
                   ? "bg-[#00C2CB] text-black border-[#00C2CB]"
                   : "border-[#2a2a2a] text-gray-300 hover:bg-[#151515]",
-                isOrganicOnlyOffer ? "cursor-not-allowed opacity-50 hover:bg-transparent" : "",
               ].join(" ")}
             >
-              {isOrganicOnlyOffer ? "Ads unavailable" : "Submit Ad"}
+              Submit Ad
             </button>
             <button
               type="button"
@@ -1527,10 +1547,24 @@ export default function PromoteOfferPage() {
         {mode === "ad" && (
           <div className="space-y-4">
             {showMetaSetupWarning && (
-              <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-100">
-                <div className="font-semibold">This offer is organic-only right now</div>
-                <p className="mt-1 text-amber-100/85">
-                  The business has not connected the Meta page and ad account for this offer yet, so affiliates can only promote it organically for now.
+              <div className="rounded-2xl border border-cyan-500/30 bg-cyan-500/10 p-5 text-sm text-cyan-50">
+                <div className="text-base font-semibold">Want to fund paid promotion for this offer?</div>
+                <p className="mt-1 text-cyan-100/85">
+                  The business hasn't enabled paid promotion yet. Tell them you're ready to advertise and Nettmark will ask them to connect Meta.
+                </p>
+                <div className="mt-3 rounded-xl border border-cyan-400/20 bg-black/15 px-3 py-2 text-xs text-cyan-100/90">
+                  Their brand · Their ad account · Their approval · Your ad spend
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void requestBusinessPaidPromotion()}
+                  disabled={metaDemandSending || metaDemandSent}
+                  className="mt-4 rounded-xl bg-[#00C2CB] px-4 py-2.5 font-semibold text-black transition hover:brightness-110 disabled:cursor-default disabled:opacity-70"
+                >
+                  {metaDemandSent ? "Business notified ✓" : metaDemandSending ? "Notifying business..." : `I'm ready to run paid ads`}
+                </button>
+                <p className="mt-2 text-xs text-cyan-100/70">
+                  No wallet funds are reserved or deducted by this request.
                 </p>
               </div>
             )}
@@ -1544,6 +1578,7 @@ export default function PromoteOfferPage() {
               </div>
             )}
 
+            {!showMetaSetupWarning && (
             <AdCampaignWizard
               form={form}
               setForm={setForm}
@@ -1581,7 +1616,9 @@ export default function PromoteOfferPage() {
               onNavigateToWallet={() => router.push("/affiliate/wallet")}
             />
 
-            {adCreativeSource === "brand" && (
+            )}
+
+            {!showMetaSetupWarning && adCreativeSource === "brand" && (
               <BrandCreativePicker
                 mode="ad"
                 assets={brandCreatives}
