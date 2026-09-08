@@ -1618,7 +1618,7 @@ export default function PromoteOfferPage() {
 
             )}
 
-            {adCreativeSource === "brand" && (
+            {!showMetaSetupWarning && adCreativeSource === "brand" && (
               <BrandCreativePicker
                 mode="ad"
                 assets={brandCreatives}
