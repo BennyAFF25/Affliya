@@ -14,7 +14,13 @@ export async function logProductEvent(payload: {
     | "first_creative_selected"
     | "first_tracking_link_created"
     | "first_promotion_ready"
-    | "onboarding_completed";
+    | "onboarding_completed"
+    | "business_dashboard_viewed"
+    | "offer_create_viewed"
+    | "offer_create_step"
+    | "offer_publish_clicked"
+    | "offer_publish_failed"
+    | "offer_published";
   actorRole: "business" | "affiliate";
   offerId?: string | null;
   businessCreativeId?: string | null;
