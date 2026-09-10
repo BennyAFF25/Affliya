@@ -36,6 +36,7 @@ import {
 import { supabase } from "utils/supabase/pages-client";
 import { SectionHeader, StatCard } from "@/../components/ui";
 import { formatRecurringTermDetail } from "@/../utils/recurringTerms";
+import { logProductEvent } from "@/../utils/productEvents";
 
 interface Profile {
   id: string;
@@ -186,6 +187,15 @@ export default function BusinessDashboard() {
   const [showBillingWhy, setShowBillingWhy] = useState(false);
   const [showMetaWhy, setShowMetaWhy] = useState(false);
   const [requestActionBusyId, setRequestActionBusyId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!session?.user?.email) return;
+    void logProductEvent({
+      eventType: "business_dashboard_viewed",
+      actorRole: "business",
+      meta: { source: "business_dashboard" },
+    });
+  }, [session?.user?.email]);
 
   // simple dynamic goal line for sales
   const salesGoal =

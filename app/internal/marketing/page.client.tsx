@@ -22,6 +22,37 @@ type DashboardData = {
     total: number;
     count: number;
   };
+  businessActivation?: {
+    steps: Array<{
+      key: string;
+      label: string;
+      count: number;
+      rateFromPrevious: number | null;
+      dropOffFromPrevious: number;
+    }>;
+    blockers: {
+      neverReachedDashboard: number;
+      dashboardNoOfferStart: number;
+      offerStartedNoPublish: number;
+      publishFailures: number;
+      publishedNoAffiliateRequest: number;
+      publishedNoMeta: number;
+    };
+    recentBusinesses: Array<{
+      email: string;
+      signedUpAt: string;
+      dashboardReached: boolean;
+      offerStarted: boolean;
+      publishClicked: boolean;
+      offerPublished: boolean;
+      affiliateRequest: boolean;
+      metaEnabled: boolean;
+      offerCount: number;
+      lastEvent: string;
+      lastEventAt: string;
+    }>;
+    instrumentationStarted: boolean;
+  };
 };
 
 type Period = "24h" | "today" | "7d" | "30d" | "90d" | "all";
@@ -189,6 +220,100 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
           <div className="rounded-3xl border border-red-400/20 bg-red-500/10 p-6 text-sm text-red-200">{error}</div>
         ) : data ? (
           <>
+            {audience === "business" && data.businessActivation ? (
+              <>
+                <section className="grid gap-3 sm:grid-cols-3">
+                  <CompactStat
+                    label="Business signups"
+                    value={(data.businessActivation.steps.find((step) => step.key === "signup")?.count || 0).toLocaleString()}
+                    sublabel={`new businesses · ${data.period}`}
+                  />
+                  <CompactStat
+                    label="Offers published"
+                    value={(data.businessActivation.steps.find((step) => step.key === "offer_live")?.count || 0).toLocaleString()}
+                    sublabel={`signup → live ${pct(
+                      data.businessActivation.steps.find((step) => step.key === "offer_live")?.count || 0,
+                      data.businessActivation.steps.find((step) => step.key === "signup")?.count || 0,
+                    )}`}
+                  />
+                  <CompactStat
+                    label="No offer yet"
+                    value={Math.max(
+                      0,
+                      (data.businessActivation.steps.find((step) => step.key === "signup")?.count || 0) -
+                        (data.businessActivation.steps.find((step) => step.key === "offer_live")?.count || 0),
+                    ).toLocaleString()}
+                    sublabel="businesses to diagnose"
+                  />
+                </section>
+
+                <section className="grid gap-3 lg:grid-cols-[1.2fr,0.8fr]">
+                  <Card title="Business activation funnel">
+                    <div className="space-y-2">
+                      {data.businessActivation.steps.map((step) => (
+                        <div key={step.key} className="rounded-2xl border border-white/10 bg-black/20 px-4 py-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="text-sm text-white/80">{step.label}</span>
+                            <span className="text-lg font-bold text-white">{step.count.toLocaleString()}</span>
+                          </div>
+                          {step.rateFromPrevious !== null ? (
+                            <div className="mt-1 flex items-center justify-between text-xs">
+                              <span className="text-[#aefcff]">{step.rateFromPrevious.toFixed(1)}% from previous step</span>
+                              <span className="text-white/45">{step.dropOffFromPrevious} lost</span>
+                            </div>
+                          ) : null}
+                        </div>
+                      ))}
+                    </div>
+                    {!data.businessActivation.instrumentationStarted ? (
+                      <p className="mt-3 text-xs text-amber-200/80">
+                        Offer-step tracking starts from this dashboard upgrade, so the middle funnel will become more accurate as new businesses move through it.
+                      </p>
+                    ) : null}
+                  </Card>
+
+                  <Card title="Where businesses stop">
+                    <div className="space-y-3 text-sm text-white/78">
+                      <MiniLine label="Never reached dashboard" value={String(data.businessActivation.blockers.neverReachedDashboard)} />
+                      <MiniLine label="Dashboard → no offer start" value={String(data.businessActivation.blockers.dashboardNoOfferStart)} />
+                      <MiniLine label="Offer started → not published" value={String(data.businessActivation.blockers.offerStartedNoPublish)} />
+                      <MiniLine label="Publish failures" value={String(data.businessActivation.blockers.publishFailures)} />
+                      <MiniLine label="Offer live → no affiliate yet" value={String(data.businessActivation.blockers.publishedNoAffiliateRequest)} />
+                      <MiniLine label="Offer live → Meta not enabled" value={String(data.businessActivation.blockers.publishedNoMeta)} />
+                    </div>
+                  </Card>
+                </section>
+
+                <Card title="Recent business journeys">
+                  <div className="space-y-2">
+                    {data.businessActivation.recentBusinesses.length ? data.businessActivation.recentBusinesses.map((business) => (
+                      <div key={business.email} className="rounded-2xl border border-white/8 bg-black/20 px-3 py-3">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="min-w-0">
+                            <div className="truncate text-sm font-medium text-white">{business.email}</div>
+                            <div className="mt-1 text-xs text-white/45">
+                              Last: {business.lastEvent.replaceAll("_", " ")}
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5 text-[11px]">
+                            <JourneyPill label="Dashboard" active={business.dashboardReached} />
+                            <JourneyPill label="Offer started" active={business.offerStarted} />
+                            <JourneyPill label="Offer live" active={business.offerPublished} />
+                            <JourneyPill label="Affiliate" active={business.affiliateRequest} />
+                            <JourneyPill label="Paid enabled" active={business.metaEnabled} />
+                          </div>
+                        </div>
+                      </div>
+                    )) : <div className="text-sm text-white/50">No business signups in this period.</div>}
+                  </div>
+                </Card>
+
+                <div className="pt-2">
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/35">Website acquisition</p>
+                </div>
+              </>
+            ) : null}
+
             <section className="grid gap-3 sm:grid-cols-3">
               <CompactStat label="Views" value={selectedCounts.pageViews.toLocaleString()} sublabel={`${audience} · ${data.period}`} />
               <CompactStat label="Clicks" value={selectedCounts.businessDemoCtaClicks.toLocaleString()} sublabel={`view → click ${pct(selectedCounts.businessDemoCtaClicks, selectedCounts.pageViews)}`} />
@@ -266,6 +391,20 @@ function MiniLine({ label, value }: { label: string; value: string }) {
       <span className="text-white/60">{label}</span>
       <span className="text-right text-white">{value}</span>
     </div>
+  );
+}
+
+function JourneyPill({ label, active }: { label: string; active: boolean }) {
+  return (
+    <span
+      className={
+        active
+          ? "rounded-full border border-[#00C2CB]/30 bg-[#00C2CB]/10 px-2 py-1 text-[#aefcff]"
+          : "rounded-full border border-white/8 bg-white/[0.03] px-2 py-1 text-white/35"
+      }
+    >
+      {active ? "✓ " : "· "}{label}
+    </span>
   );
 }
 
