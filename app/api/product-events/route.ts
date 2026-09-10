@@ -19,6 +19,12 @@ const ALLOWED_EVENT_TYPES = new Set([
   "first_tracking_link_created",
   "first_promotion_ready",
   "onboarding_completed",
+  "business_dashboard_viewed",
+  "offer_create_viewed",
+  "offer_create_step",
+  "offer_publish_clicked",
+  "offer_publish_failed",
+  "offer_published",
 ]);
 
 export async function POST(req: Request) {
