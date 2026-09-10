@@ -143,6 +143,19 @@ export async function GET(req: Request) {
       .order("created_at", { ascending: false })
       .limit(5000);
 
+    const affiliateProfilesQuery = (supabaseAdmin as any)
+      .from("profiles")
+      .select("id,email,role,created_at")
+      .eq("role", "affiliate")
+      .order("created_at", { ascending: false })
+      .limit(5000);
+
+    const liveCampaignsQuery = (supabaseAdmin as any)
+      .from("live_campaigns")
+      .select("id,status,type,created_at")
+      .order("created_at", { ascending: false })
+      .limit(5000);
+
     const offersQuery = (supabaseAdmin as any)
       .from("offers")
       .select("id,title,business_email,created_at,meta_page_id,meta_ad_account_id")
@@ -162,15 +175,25 @@ export async function GET(req: Request) {
       .order("created_at", { ascending: false })
       .limit(5000);
 
-    const [eventsResult, revenueResult, profilesResult, offersResult, affiliateRequestsResult, productEventsResult] =
-      await Promise.all([
-        fromIso ? eventsQuery.gte("created_at", fromIso) : eventsQuery,
-        fromIso ? revenueQuery.gte("accrued_at", fromIso) : revenueQuery,
-        fromIso ? profilesQuery.gte("created_at", fromIso) : profilesQuery,
-        fromIso ? offersQuery.gte("created_at", fromIso) : offersQuery,
-        fromIso ? affiliateRequestsQuery.gte("created_at", fromIso) : affiliateRequestsQuery,
-        fromIso ? productEventsQuery.gte("created_at", fromIso) : productEventsQuery,
-      ]);
+    const [
+      eventsResult,
+      revenueResult,
+      profilesResult,
+      affiliateProfilesResult,
+      offersResult,
+      affiliateRequestsResult,
+      liveCampaignsResult,
+      productEventsResult,
+    ] = await Promise.all([
+      fromIso ? eventsQuery.gte("created_at", fromIso) : eventsQuery,
+      fromIso ? revenueQuery.gte("accrued_at", fromIso) : revenueQuery,
+      fromIso ? profilesQuery.gte("created_at", fromIso) : profilesQuery,
+      fromIso ? affiliateProfilesQuery.gte("created_at", fromIso) : affiliateProfilesQuery,
+      fromIso ? offersQuery.gte("created_at", fromIso) : offersQuery,
+      fromIso ? affiliateRequestsQuery.gte("created_at", fromIso) : affiliateRequestsQuery,
+      fromIso ? liveCampaignsQuery.gte("created_at", fromIso) : liveCampaignsQuery,
+      fromIso ? productEventsQuery.gte("created_at", fromIso) : productEventsQuery,
+    ]);
 
     const { data, error } = eventsResult;
 
@@ -403,6 +426,14 @@ export async function GET(req: Request) {
         blockers,
         recentBusinesses,
         instrumentationStarted: productRows.length > 0,
+      },
+      growthSummary: {
+        businessSignups: businessProfiles.length,
+        affiliateSignups: ((affiliateProfilesResult?.data || []) as Array<unknown>).length,
+        offersPublished: offerRows.length,
+        affiliateRequests: requestRows.length,
+        liveCampaigns: ((liveCampaignsResult?.data || []) as Array<unknown>).length,
+        trackedRevenue: Number(revenueTotal.toFixed(2)),
       },
     });
   } catch (error) {
