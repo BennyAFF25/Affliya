@@ -129,16 +129,48 @@ export async function GET(req: Request) {
       .select("event_type, page_path, audience, meta, created_at")
       .order("created_at", { ascending: false })
       .limit(5000);
+
     const revenueQuery = (supabaseAdmin as any)
       .from("platform_fee_ledger")
       .select("amount, status, currency, accrued_at")
       .order("accrued_at", { ascending: false })
       .limit(5000);
 
-    const [eventsResult, revenueResult] = await Promise.all([
-      fromIso ? eventsQuery.gte("created_at", fromIso) : eventsQuery,
-      fromIso ? revenueQuery.gte("accrued_at", fromIso) : revenueQuery,
-    ]);
+    const profilesQuery = (supabaseAdmin as any)
+      .from("profiles")
+      .select("id,email,role,created_at")
+      .eq("role", "business")
+      .order("created_at", { ascending: false })
+      .limit(5000);
+
+    const offersQuery = (supabaseAdmin as any)
+      .from("offers")
+      .select("id,title,business_email,created_at,meta_page_id,meta_ad_account_id")
+      .order("created_at", { ascending: false })
+      .limit(5000);
+
+    const affiliateRequestsQuery = (supabaseAdmin as any)
+      .from("affiliate_requests")
+      .select("id,offer_id,business_email,status,created_at")
+      .order("created_at", { ascending: false })
+      .limit(5000);
+
+    const productEventsQuery = (supabaseAdmin as any)
+      .from("product_events")
+      .select("event_type,actor_email,actor_role,offer_id,meta,created_at")
+      .eq("actor_role", "business")
+      .order("created_at", { ascending: false })
+      .limit(5000);
+
+    const [eventsResult, revenueResult, profilesResult, offersResult, affiliateRequestsResult, productEventsResult] =
+      await Promise.all([
+        fromIso ? eventsQuery.gte("created_at", fromIso) : eventsQuery,
+        fromIso ? revenueQuery.gte("accrued_at", fromIso) : revenueQuery,
+        fromIso ? profilesQuery.gte("created_at", fromIso) : profilesQuery,
+        fromIso ? offersQuery.gte("created_at", fromIso) : offersQuery,
+        fromIso ? affiliateRequestsQuery.gte("created_at", fromIso) : affiliateRequestsQuery,
+        fromIso ? productEventsQuery.gte("created_at", fromIso) : productEventsQuery,
+      ]);
 
     const { data, error } = eventsResult;
 
@@ -210,6 +242,149 @@ export async function GET(req: Request) {
       if (Number.isFinite(amount)) revenueTotal += amount;
     }
 
+    const normalizeEmail = (value: unknown) => String(value || "").trim().toLowerCase();
+    const businessProfiles = ((profilesResult?.data || []) as Array<{
+      id: string;
+      email: string | null;
+      role: string | null;
+      created_at: string;
+    }>).filter((row) => normalizeEmail(row.email));
+
+    const cohortEmails = new Set(businessProfiles.map((row) => normalizeEmail(row.email)));
+
+    const offerRows = ((offersResult?.data || []) as Array<{
+      id: string;
+      title: string | null;
+      business_email: string | null;
+      created_at: string;
+      meta_page_id: string | null;
+      meta_ad_account_id: string | null;
+    }>).filter((row) => cohortEmails.has(normalizeEmail(row.business_email)));
+
+    const requestRows = ((affiliateRequestsResult?.data || []) as Array<{
+      id: string;
+      offer_id: string | null;
+      business_email: string | null;
+      status: string | null;
+      created_at: string;
+    }>).filter((row) => cohortEmails.has(normalizeEmail(row.business_email)));
+
+    const productRows = ((productEventsResult?.data || []) as Array<{
+      event_type: string;
+      actor_email: string | null;
+      actor_role: string | null;
+      offer_id: string | null;
+      meta?: Record<string, unknown> | null;
+      created_at: string;
+    }>).filter((row) => cohortEmails.has(normalizeEmail(row.actor_email)));
+
+    const eventEmails = (eventType: string) =>
+      new Set(
+        productRows
+          .filter((row) => row.event_type === eventType)
+          .map((row) => normalizeEmail(row.actor_email))
+          .filter(Boolean),
+      );
+
+    const dashboardReached = eventEmails("business_dashboard_viewed");
+    const offerCreateViewed = eventEmails("offer_create_viewed");
+    const publishClicked = eventEmails("offer_publish_clicked");
+    const publishFailed = eventEmails("offer_publish_failed");
+    const publishedByEvent = eventEmails("offer_published");
+
+    const offerPublishedEmails = new Set(
+      offerRows.map((row) => normalizeEmail(row.business_email)).filter(Boolean),
+    );
+    for (const email of publishedByEvent) offerPublishedEmails.add(email);
+
+    const affiliateRequestEmails = new Set(
+      requestRows.map((row) => normalizeEmail(row.business_email)).filter(Boolean),
+    );
+
+    const metaEnabledEmails = new Set(
+      offerRows
+        .filter((row) => Boolean(row.meta_page_id && row.meta_ad_account_id))
+        .map((row) => normalizeEmail(row.business_email))
+        .filter(Boolean),
+    );
+
+    const signupCount = businessProfiles.length;
+    const countIn = (set: Set<string>) =>
+      Array.from(cohortEmails).filter((email) => set.has(email)).length;
+
+    const dashboardCount = countIn(dashboardReached);
+    const offerStartedCount = countIn(offerCreateViewed);
+    const publishClickedCount = countIn(publishClicked);
+    const offerPublishedCount = countIn(offerPublishedEmails);
+    const affiliateRequestCount = countIn(affiliateRequestEmails);
+    const metaEnabledCount = countIn(metaEnabledEmails);
+
+    const blockers = {
+      neverReachedDashboard: Math.max(0, signupCount - dashboardCount),
+      dashboardNoOfferStart: Math.max(
+        0,
+        Array.from(cohortEmails).filter(
+          (email) => dashboardReached.has(email) && !offerCreateViewed.has(email),
+        ).length,
+      ),
+      offerStartedNoPublish: Math.max(
+        0,
+        Array.from(cohortEmails).filter(
+          (email) => offerCreateViewed.has(email) && !offerPublishedEmails.has(email),
+        ).length,
+      ),
+      publishFailures: countIn(publishFailed),
+      publishedNoAffiliateRequest: Math.max(
+        0,
+        Array.from(cohortEmails).filter(
+          (email) => offerPublishedEmails.has(email) && !affiliateRequestEmails.has(email),
+        ).length,
+      ),
+      publishedNoMeta: Math.max(
+        0,
+        Array.from(cohortEmails).filter(
+          (email) => offerPublishedEmails.has(email) && !metaEnabledEmails.has(email),
+        ).length,
+      ),
+    };
+
+    const recentBusinesses = businessProfiles.slice(0, 30).map((profile) => {
+      const email = normalizeEmail(profile.email);
+      const businessOffers = offerRows.filter((row) => normalizeEmail(row.business_email) === email);
+      const lastEvent = productRows.find((row) => normalizeEmail(row.actor_email) === email);
+      return {
+        email,
+        signedUpAt: profile.created_at,
+        dashboardReached: dashboardReached.has(email),
+        offerStarted: offerCreateViewed.has(email),
+        publishClicked: publishClicked.has(email),
+        offerPublished: offerPublishedEmails.has(email),
+        affiliateRequest: affiliateRequestEmails.has(email),
+        metaEnabled: metaEnabledEmails.has(email),
+        offerCount: businessOffers.length,
+        lastEvent: lastEvent?.event_type || (businessOffers.length ? "offer_published" : "signup"),
+        lastEventAt: lastEvent?.created_at || businessOffers[0]?.created_at || profile.created_at,
+      };
+    });
+
+    const steps = [
+      { key: "signup", label: "Business signups", count: signupCount },
+      { key: "dashboard", label: "Dashboard reached", count: dashboardCount },
+      { key: "offer_started", label: "Offer builder opened", count: offerStartedCount },
+      { key: "publish_clicked", label: "Publish attempted", count: publishClickedCount },
+      { key: "offer_live", label: "Offer published", count: offerPublishedCount },
+      { key: "affiliate_request", label: "Affiliate request received", count: affiliateRequestCount },
+      { key: "meta_enabled", label: "Paid promotion enabled", count: metaEnabledCount },
+    ].map((step, index, arr) => ({
+      ...step,
+      rateFromPrevious:
+        index === 0 || !arr[index - 1].count
+          ? null
+          : Number(((step.count / arr[index - 1].count) * 100).toFixed(1)),
+      dropOffFromPrevious:
+        index === 0 ? 0 : Math.max(0, arr[index - 1].count - step.count),
+    }));
+
     return NextResponse.json({
       ok: true,
       period: range.label,
@@ -222,6 +397,12 @@ export async function GET(req: Request) {
       revenue: {
         total: Number(revenueTotal.toFixed(2)),
         count: revenueRows.length,
+      },
+      businessActivation: {
+        steps,
+        blockers,
+        recentBusinesses,
+        instrumentationStarted: productRows.length > 0,
       },
     });
   } catch (error) {
