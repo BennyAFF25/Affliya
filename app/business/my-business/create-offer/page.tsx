@@ -7,6 +7,7 @@ import Link from "next/link";
 import { Button, Card, Input, PageHeader, Select, Textarea } from "@/../components/ui";
 import { v4 as uuidv4 } from "uuid";
 import { createPagesBrowserClient } from "@supabase/auth-helpers-nextjs";
+import { logProductEvent } from "@/../utils/productEvents";
 
 function CreateOfferPageInner() {
   const router = useRouter();
@@ -102,6 +103,28 @@ function CreateOfferPageInner() {
   const [recurringTermMonths, setRecurringTermMonths] = useState<number>(12);
 
   const [step, setStep] = useState(1);
+  const offerCreateViewedRef = React.useRef(false);
+  const seenStepsRef = React.useRef<Set<number>>(new Set());
+
+  useEffect(() => {
+    if (!userEmail || offerCreateViewedRef.current) return;
+    offerCreateViewedRef.current = true;
+    void logProductEvent({
+      eventType: "offer_create_viewed",
+      actorRole: "business",
+      meta: { source: isOnboard ? "onboarding" : "my_business" },
+    });
+  }, [isOnboard, userEmail]);
+
+  useEffect(() => {
+    if (!userEmail || seenStepsRef.current.has(step)) return;
+    seenStepsRef.current.add(step);
+    void logProductEvent({
+      eventType: "offer_create_step",
+      actorRole: "business",
+      meta: { step, source: isOnboard ? "onboarding" : "my_business" },
+    });
+  }, [isOnboard, step, userEmail]);
 
   const [metaConnections, setMetaConnections] = useState<
     {
@@ -324,10 +347,21 @@ function CreateOfferPageInner() {
     e?.preventDefault?.();
 
     if (!userEmail) return;
+
+    void logProductEvent({
+      eventType: "offer_publish_clicked",
+      actorRole: "business",
+      meta: { step, source: isOnboard ? "onboarding" : "my_business" },
+    });
     const parsedEligibleProductIds = parseIdList(eligibleProductIdsText);
     const parsedEligibleVariantIds = parseIdList(eligibleVariantIdsText);
 
     if (!siteHost) {
+      void logProductEvent({
+        eventType: "offer_publish_failed",
+        actorRole: "business",
+        meta: { reason: "site_host_missing", step },
+      });
       alert("Please select a Website Platform/Host.");
       return;
     }
@@ -337,6 +371,11 @@ function CreateOfferPageInner() {
       parsedEligibleProductIds.length === 0 &&
       parsedEligibleVariantIds.length === 0
     ) {
+      void logProductEvent({
+        eventType: "offer_publish_failed",
+        actorRole: "business",
+        meta: { reason: "eligible_product_missing", step: 2 },
+      });
       alert(
         "Add at least one eligible product ID or variant ID for a product-scoped offer.",
       );
@@ -461,8 +500,25 @@ function CreateOfferPageInner() {
       .insert([newOffer]);
     if (insertError) {
       console.error("[❌ Offer Insert Error]", insertError.message);
+      void logProductEvent({
+        eventType: "offer_publish_failed",
+        actorRole: "business",
+        offerId: newOffer.id,
+        meta: { reason: "offer_insert_error", message: insertError.message },
+      });
       return;
     }
+
+    void logProductEvent({
+      eventType: "offer_published",
+      actorRole: "business",
+      offerId: newOffer.id,
+      meta: {
+        source: isOnboard ? "onboarding" : "my_business",
+        hasMeta: Boolean(metaPageId && metaAdAccountId),
+        hasTrackingHost: Boolean(siteHost),
+      },
+    });
 
     // Emails: offer created (non-blocking)
     try {
