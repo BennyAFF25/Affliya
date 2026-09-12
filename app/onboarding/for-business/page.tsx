@@ -5,7 +5,12 @@ import { useRouter } from "next/navigation";
 import { useSessionContext } from "@supabase/auth-helpers-react";
 import {
   CheckCircle2,
+  ChevronDown,
   ChevronRight,
+  ImagePlus,
+  Package2,
+  Percent,
+  Rocket,
   Store,
 } from "lucide-react";
 import { supabase } from "utils/supabase/pages-client";
@@ -17,6 +22,7 @@ export default function BusinessOnboardingPage() {
   const [step, setStep] = useState(1);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
 
   const [offerName, setOfferName] = useState("");
   const [websiteUrl, setWebsiteUrl] = useState("");
@@ -24,7 +30,9 @@ export default function BusinessOnboardingPage() {
   const [commissionPercent, setCommissionPercent] = useState("");
   const [description, setDescription] = useState("");
   const [currency, setCurrency] = useState("USD");
-  const [participationMode, setParticipationMode] = useState<"open" | "approval_required" | "private">("open");
+  const [participationMode, setParticipationMode] = useState<
+    "open" | "approval_required" | "private"
+  >("open");
   const [offerType, setOfferType] = useState<"one-time" | "recurring">(
     "one-time",
   );
@@ -34,15 +42,13 @@ export default function BusinessOnboardingPage() {
   const [eligibleProductIdsText, setEligibleProductIdsText] = useState("");
   const [eligibleVariantIdsText, setEligibleVariantIdsText] = useState("");
   const [logoFile, setLogoFile] = useState<File | null>(null);
-  const [logoPreview, setLogoPreview] = useState<string>("");
+  const [logoPreview, setLogoPreview] = useState("");
   const [productImageFiles, setProductImageFiles] = useState<File[]>([]);
-  const [productImagePreviews, setProductImagePreviews] = useState<string[]>(
-    [],
-  );
+  const [productImagePreviews, setProductImagePreviews] = useState<string[]>([]);
 
-  const progressItems = ["Offer details", "Review", "Publish"];
+  const progressItems = ["Product", "Commission", "Go live"];
   const progressPercent =
-    step === 1 ? 12 : step === 2 ? 42 : step === 3 ? 72 : 100;
+    step === 1 ? 8 : step === 2 ? 34 : step === 3 ? 67 : step === 4 ? 100 : 100;
 
   if (!isLoading && !session?.user) {
     router.replace("/login?role=business&next=/onboarding/for-business");
@@ -54,23 +60,28 @@ export default function BusinessOnboardingPage() {
       .map((entry) => entry.trim())
       .filter(Boolean);
 
-  const canPreview =
+  const productStepComplete = Boolean(
     offerName.trim() &&
-    websiteUrl.trim() &&
+      websiteUrl.trim() &&
+      description.trim() &&
+      logoFile &&
+      productImageFiles.length > 0,
+  );
+
+  const commissionStepComplete = Boolean(
     productPrice.trim() &&
-    commissionPercent.trim() &&
-    description.trim() &&
-    logoFile &&
-    productImageFiles.length > 0 &&
-    (conversionScope === "store_wide" ||
-      parseIdList(eligibleProductIdsText).length > 0 ||
-      parseIdList(eligibleVariantIdsText).length > 0);
+      commissionPercent.trim() &&
+      (conversionScope === "store_wide" ||
+        parseIdList(eligibleProductIdsText).length > 0 ||
+        parseIdList(eligibleVariantIdsText).length > 0),
+  );
 
   const commissionPreviewAmount = useMemo(() => {
     const priceValue = Number(productPrice || 0);
     const commissionValue = Number(commissionPercent || 0);
-    if (!Number.isFinite(priceValue) || !Number.isFinite(commissionValue))
+    if (!Number.isFinite(priceValue) || !Number.isFinite(commissionValue)) {
       return 0;
+    }
     return (priceValue * commissionValue) / 100;
   }, [productPrice, commissionPercent]);
 
@@ -225,7 +236,7 @@ export default function BusinessOnboardingPage() {
         () => null,
       );
 
-      setStep(4);
+      setStep(5);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Could not publish offer.");
     } finally {
@@ -233,351 +244,180 @@ export default function BusinessOnboardingPage() {
     }
   };
 
-  return (
-    <main className="min-h-screen bg-[#05080b] px-4 py-6 text-white sm:px-6 lg:py-10">
-      <div className="mx-auto w-full max-w-4xl">
-        <div className="rounded-[28px] border border-white/10 bg-[#111617]/95 p-4 shadow-[0_24px_80px_rgba(0,0,0,0.42)] sm:p-6 lg:p-8">
-          <div className="mb-7 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4 sm:px-5">
-            <div className="flex items-center justify-between gap-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/55">
-              {progressItems.map((item, index) => {
-                const isActive =
-                  (step === 1 && index === 0) ||
-                  (step === 2 && index === 0) ||
-                  (step === 3 && index === 1) ||
-                  (step >= 4 && index === 2);
-                const isComplete =
-                  (step >= 3 && index === 0) || (step >= 4 && index <= 1);
+  const inputClass =
+    "mt-1.5 w-full rounded-2xl border border-white/10 bg-[#0b1011] px-4 py-3.5 text-sm text-white outline-none transition placeholder:text-white/26 focus:border-[#00C2CB]/70 focus:ring-2 focus:ring-[#00C2CB]/15";
 
-                return (
-                  <span
-                    key={item}
-                    className={
-                      isActive || isComplete
-                        ? "text-[#7ff5fb]"
-                        : "text-white/40"
-                    }
-                  >
-                    {item}
-                  </span>
-                );
-              })}
+  return (
+    <main className="min-h-screen bg-[#05080b] px-3 py-4 text-white sm:px-6 lg:py-10">
+      <div className="mx-auto w-full max-w-3xl">
+        <div className="rounded-[30px] border border-white/10 bg-[#101516]/95 p-4 shadow-[0_24px_80px_rgba(0,0,0,0.42)] sm:p-6 lg:p-8">
+          {step < 5 && (
+            <div className="mb-7 rounded-2xl border border-white/10 bg-white/[0.025] px-4 py-4 sm:px-5">
+              <div className="flex items-center justify-between gap-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-white/38">
+                {progressItems.map((item, index) => {
+                  const activeIndex = step <= 2 ? 0 : step === 3 ? 1 : 2;
+                  const isActive = index === activeIndex;
+                  const isComplete = index < activeIndex;
+
+                  return (
+                    <span
+                      key={item}
+                      className={
+                        isActive || isComplete ? "text-[#7ff5fb]" : "text-white/36"
+                      }
+                    >
+                      {item}
+                    </span>
+                  );
+                })}
+              </div>
+              <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10">
+                <div
+                  className="h-full rounded-full bg-[#00C2CB] transition-all duration-300"
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
             </div>
-            <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/10">
-              <div
-                className="h-full rounded-full bg-[#00C2CB] transition-all duration-300"
-                style={{ width: `${progressPercent}%` }}
-              />
-            </div>
-          </div>
+          )}
 
           {step === 1 && (
-            <section className="mx-auto max-w-2xl py-8 text-center sm:py-12">
+            <section className="mx-auto max-w-xl py-9 text-center sm:py-12">
               <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-2xl border border-[#00C2CB]/25 bg-[#00C2CB]/10">
                 <Store className="h-6 w-6 text-[#7ff5fb]" />
               </div>
-              <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-                Create your first offer
+              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#7ff5fb]">
+                Get your business live
+              </p>
+              <h1 className="mt-3 text-3xl font-bold tracking-tight sm:text-4xl">
+                Put your first product in front of affiliates
               </h1>
-              <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-white/70 sm:text-base">
-                Add the product you want affiliates to promote and choose the
-                commission they can earn.
+              <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-white/64 sm:text-base">
+                Show affiliates what to promote, choose what they earn, then go live.
               </p>
               <button
                 onClick={() => setStep(2)}
-                className="mt-7 inline-flex items-center justify-center gap-2 rounded-xl bg-[#00C2CB] px-5 py-3 text-sm font-semibold text-black transition hover:bg-[#28d3da]"
+                className="mt-7 inline-flex w-full max-w-xs items-center justify-center gap-2 rounded-2xl bg-[#00C2CB] px-5 py-3.5 text-sm font-semibold text-black transition hover:bg-[#28d3da]"
               >
-                Create offer <ChevronRight className="h-4 w-4" />
+                Get started <ChevronRight className="h-4 w-4" />
               </button>
-              <p className="mt-3 text-xs text-white/45">
-                Takes around 2 minutes.
-              </p>
+              <p className="mt-3 text-xs text-white/38">About 2 minutes.</p>
             </section>
           )}
 
           {step === 2 && (
             <section>
               <div className="mb-6">
-                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#7ff5fb]">
-                  Offer details
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#00C2CB]/10 text-[#7ff5fb]">
+                  <Package2 className="h-5 w-5" />
+                </div>
+                <p className="mt-4 text-xs font-semibold uppercase tracking-[0.22em] text-[#7ff5fb]">
+                  Product
                 </p>
                 <h2 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">
-                  Tell affiliates what they can promote
+                  What should affiliates promote?
                 </h2>
-                <p className="mt-2 text-sm leading-6 text-white/62">
-                  Keep it simple. You can edit the offer later.
+                <p className="mt-2 text-sm leading-6 text-white/58">
+                  Add the essentials. You can change any of this later.
                 </p>
               </div>
 
-              <div className="space-y-8">
-                <div className="border-t border-white/10 pt-6">
-                  <h3 className="text-sm font-semibold text-white">
-                    Offer details
-                  </h3>
-                  <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <label className="block text-sm font-medium text-white/82">
-                      Offer name
-                      <input
-                        value={offerName}
-                        onChange={(e) => setOfferName(e.target.value)}
-                        placeholder="Example: Summer skincare bundle"
-                        className="mt-1.5 w-full rounded-xl border border-white/10 bg-[#0c1112] px-3.5 py-3 text-sm text-white outline-none transition placeholder:text-white/28 focus:border-[#00C2CB]/70 focus:ring-2 focus:ring-[#00C2CB]/15"
-                      />
-                    </label>
-                    <label className="block text-sm font-medium text-white/82">
-                      Website URL
-                      <input
-                        value={websiteUrl}
-                        onChange={(e) => setWebsiteUrl(e.target.value)}
-                        placeholder="https://yourstore.com/product"
-                        className="mt-1.5 w-full rounded-xl border border-white/10 bg-[#0c1112] px-3.5 py-3 text-sm text-white outline-none transition placeholder:text-white/28 focus:border-[#00C2CB]/70 focus:ring-2 focus:ring-[#00C2CB]/15"
-                      />
-                    </label>
+              <div className="space-y-5">
+                <label className="block text-sm font-medium text-white/82">
+                  Product or offer name
+                  <input
+                    value={offerName}
+                    onChange={(e) => setOfferName(e.target.value)}
+                    placeholder="Example: Summer skincare bundle"
+                    className={inputClass}
+                  />
+                </label>
 
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:col-span-2">
-                      <div>
-                        <p className="text-sm font-medium text-white/82">
-                          Business logo
-                        </p>
-                        <div className="mt-1.5 flex items-center gap-3 rounded-xl border border-white/10 bg-[#0c1112] px-3.5 py-3">
-                          <label
-                            htmlFor="business-logo-upload"
-                            className="cursor-pointer rounded-lg bg-[#00C2CB] px-3 py-2 text-xs font-semibold text-black transition hover:bg-[#28d3da]"
-                          >
-                            Upload file
-                          </label>
-                          <input
-                            id="business-logo-upload"
-                            type="file"
-                            accept="image/*"
-                            onChange={onLogoChange}
-                            className="sr-only"
-                          />
-                          <span className="min-w-0 truncate text-xs text-white/50">
-                            {logoFile?.name || "PNG or JPG"}
-                          </span>
-                        </div>
-                        {logoPreview && (
-                          <div className="mt-2 inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] p-2">
-                            <img
-                              src={logoPreview}
-                              alt="Logo preview"
-                              className="h-10 w-10 rounded-lg object-cover"
-                            />
-                            <span className="text-xs text-white/55">
-                              Logo added
-                            </span>
-                          </div>
-                        )}
-                      </div>
+                <label className="block text-sm font-medium text-white/82">
+                  Where can customers buy it?
+                  <input
+                    value={websiteUrl}
+                    onChange={(e) => setWebsiteUrl(e.target.value)}
+                    placeholder="https://yourstore.com/product"
+                    className={inputClass}
+                  />
+                </label>
 
-                      <div>
-                        <p className="text-sm font-medium text-white/82">
-                          Product images
-                        </p>
-                        <div className="mt-1.5 flex items-center gap-3 rounded-xl border border-white/10 bg-[#0c1112] px-3.5 py-3">
-                          <label
-                            htmlFor="product-images-upload"
-                            className="cursor-pointer rounded-lg bg-[#00C2CB] px-3 py-2 text-xs font-semibold text-black transition hover:bg-[#28d3da]"
-                          >
-                            Add images
-                          </label>
-                          <input
-                            id="product-images-upload"
-                            type="file"
-                            accept="image/*"
-                            multiple
-                            onChange={onProductImagesChange}
-                            className="sr-only"
-                          />
-                          <span className="min-w-0 truncate text-xs text-white/50">
-                            {productImageFiles.length
-                              ? `${productImageFiles.length} image${
-                                  productImageFiles.length === 1 ? "" : "s"
-                                } added`
-                              : "PNG or JPG"}
-                          </span>
-                        </div>
-                        {productImagePreviews.length > 0 && (
-                          <div className="mt-2 flex flex-wrap gap-2">
-                            {productImagePreviews.slice(0, 4).map((src, i) => (
-                              <img
-                                key={`${src}-${i}`}
-                                src={src}
-                                alt={`Product preview ${i + 1}`}
-                                className="h-10 w-10 rounded-lg border border-white/10 object-cover"
-                              />
-                            ))}
-                            {productImagePreviews.length > 4 && (
-                              <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] text-xs text-white/55">
-                                +{productImagePreviews.length - 4}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
+                <label className="block text-sm font-medium text-white/82">
+                  Short description
+                  <textarea
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    rows={3}
+                    placeholder="A quick description of what affiliates will promote."
+                    className={inputClass}
+                  />
+                </label>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
+                    <div className="flex items-center gap-2">
+                      <ImagePlus className="h-4 w-4 text-[#7ff5fb]" />
+                      <p className="text-sm font-medium text-white/82">Business logo</p>
                     </div>
-
-                    <label className="block text-sm font-medium text-white/82 md:col-span-2">
-                      Description
-                      <textarea
-                        value={description}
-                        onChange={(e) => setDescription(e.target.value)}
-                        rows={4}
-                        placeholder="Briefly describe what affiliates will promote."
-                        className="mt-1.5 w-full rounded-xl border border-white/10 bg-[#0c1112] px-3.5 py-3 text-sm text-white outline-none transition placeholder:text-white/28 focus:border-[#00C2CB]/70 focus:ring-2 focus:ring-[#00C2CB]/15"
-                      />
-                    </label>
-                  </div>
-                </div>
-
-                <div className="border-t border-white/10 pt-6">
-                  <h3 className="text-sm font-semibold text-white">
-                    Commission
-                  </h3>
-                  <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <label className="block text-sm font-medium text-white/82">
-                      Product price
-                      <input
-                        value={productPrice}
-                        onChange={(e) => setProductPrice(e.target.value)}
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        placeholder="100.00"
-                        className="mt-1.5 w-full rounded-xl border border-white/10 bg-[#0c1112] px-3.5 py-3 text-sm text-white outline-none transition placeholder:text-white/28 focus:border-[#00C2CB]/70 focus:ring-2 focus:ring-[#00C2CB]/15"
-                      />
-                    </label>
-                    <label className="block text-sm font-medium text-white/82">
-                      Commission percentage
-                      <input
-                        value={commissionPercent}
-                        onChange={(e) => setCommissionPercent(e.target.value)}
-                        type="number"
-                        min="0"
-                        max="100"
-                        step="0.01"
-                        placeholder="20"
-                        className="mt-1.5 w-full rounded-xl border border-white/10 bg-[#0c1112] px-3.5 py-3 text-sm text-white outline-none transition placeholder:text-white/28 focus:border-[#00C2CB]/70 focus:ring-2 focus:ring-[#00C2CB]/15"
-                      />
-                      <span className="mt-1 block text-xs text-white/45">
-                        The percentage an affiliate earns from a tracked sale.
+                    <label
+                      htmlFor="business-logo-upload"
+                      className="mt-3 flex cursor-pointer items-center justify-between rounded-xl border border-white/10 bg-[#0b1011] px-3.5 py-3 text-xs text-white/58 transition hover:border-[#00C2CB]/45"
+                    >
+                      <span className="truncate">
+                        {logoFile?.name || "Choose logo"}
                       </span>
+                      <span className="font-semibold text-[#7ff5fb]">Upload</span>
                     </label>
-
-                    <div className="rounded-xl border border-[#00C2CB]/25 bg-[#00C2CB]/10 px-4 py-3 text-sm text-[#dffcff] md:col-span-2">
-                      Affiliate earns approximately{" "}
-                      <span className="font-semibold text-white">
-                        {currency} ${commissionPreviewAmount.toFixed(2)}
-                      </span>{" "}
-                      per sale
-                    </div>
-
-                    <label className="block text-sm font-medium text-white/82">
-                      Currency
-                      <select
-                        value={currency}
-                        onChange={(e) => setCurrency(e.target.value)}
-                        className="mt-1.5 w-full rounded-xl border border-white/10 bg-[#0c1112] px-3.5 py-3 text-sm text-white outline-none transition focus:border-[#00C2CB]/70 focus:ring-2 focus:ring-[#00C2CB]/15"
-                      >
-                        <option value="USD">USD</option>
-                        <option value="AUD">AUD</option>
-                        <option value="EUR">EUR</option>
-                        <option value="GBP">GBP</option>
-                        <option value="CAD">CAD</option>
-                      </select>
-                    </label>
-                    <label className="block text-sm font-medium text-white/82">
-                      Offer type
-                      <select
-                        value={offerType}
-                        onChange={(e) =>
-                          setOfferType(
-                            e.target.value as "one-time" | "recurring",
-                          )
-                        }
-                        className="mt-1.5 w-full rounded-xl border border-white/10 bg-[#0c1112] px-3.5 py-3 text-sm text-white outline-none transition focus:border-[#00C2CB]/70 focus:ring-2 focus:ring-[#00C2CB]/15"
-                      >
-                        <option value="one-time">One-time</option>
-                        <option value="recurring">Recurring</option>
-                      </select>
-                    </label>
-                    <label className="block text-sm font-medium text-white/82 md:col-span-2">
-                      Participation mode
-                      <select
-                        value={participationMode}
-                        onChange={(e) =>
-                          setParticipationMode(
-                            e.target.value as "open" | "approval_required" | "private",
-                          )
-                        }
-                        className="mt-1.5 w-full rounded-xl border border-white/10 bg-[#0c1112] px-3.5 py-3 text-sm text-white outline-none transition focus:border-[#00C2CB]/70 focus:ring-2 focus:ring-[#00C2CB]/15"
-                      >
-                        <option value="open">Open — affiliates can start immediately</option>
-                        <option value="approval_required">Approval required — review each affiliate first</option>
-                        <option value="private">Private — keep this offer restricted</option>
-                      </select>
-                    </label>
+                    <input
+                      id="business-logo-upload"
+                      type="file"
+                      accept="image/*"
+                      onChange={onLogoChange}
+                      className="sr-only"
+                    />
+                    {logoPreview && (
+                      <img
+                        src={logoPreview}
+                        alt="Logo preview"
+                        className="mt-3 h-14 w-14 rounded-xl border border-white/10 object-cover"
+                      />
+                    )}
                   </div>
-                </div>
 
-                <div className="border-t border-white/10 pt-6">
-                  <h3 className="text-sm font-semibold text-white">
-                    Eligible sales
-                  </h3>
-                  <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.025] p-4">
-                    <label className="block text-sm font-medium text-white/82">
-                      Commission scope
-                      <select
-                        value={conversionScope}
-                        onChange={(e) =>
-                          setConversionScope(
-                            e.target.value as
-                              "store_wide" | "specific_products",
-                          )
-                        }
-                        className="mt-1.5 w-full rounded-xl border border-white/10 bg-[#0c1112] px-3.5 py-3 text-sm text-white outline-none transition focus:border-[#00C2CB]/70 focus:ring-2 focus:ring-[#00C2CB]/15"
-                      >
-                        <option value="store_wide">Whole store</option>
-                        <option value="specific_products">
-                          Specific product or SKU
-                        </option>
-                      </select>
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
+                    <div className="flex items-center gap-2">
+                      <ImagePlus className="h-4 w-4 text-[#7ff5fb]" />
+                      <p className="text-sm font-medium text-white/82">Product image</p>
+                    </div>
+                    <label
+                      htmlFor="product-images-upload"
+                      className="mt-3 flex cursor-pointer items-center justify-between rounded-xl border border-white/10 bg-[#0b1011] px-3.5 py-3 text-xs text-white/58 transition hover:border-[#00C2CB]/45"
+                    >
+                      <span>
+                        {productImageFiles.length
+                          ? `${productImageFiles.length} added`
+                          : "Choose image"}
+                      </span>
+                      <span className="font-semibold text-[#7ff5fb]">Upload</span>
                     </label>
-                    <p className="mt-2 text-xs leading-5 text-white/50">
-                      Choose whether commission applies to the whole store or
-                      one product.
-                    </p>
-
-                    {conversionScope === "specific_products" && (
-                      <div className="mt-4 grid gap-3 md:grid-cols-2">
-                        <label className="block text-sm font-medium text-white/82">
-                          Product IDs
-                          <textarea
-                            value={eligibleProductIdsText}
-                            onChange={(e) =>
-                              setEligibleProductIdsText(e.target.value)
-                            }
-                            rows={3}
-                            placeholder="One per line or comma-separated"
-                            className="mt-1.5 w-full rounded-xl border border-white/10 bg-[#0c1112] px-3.5 py-3 text-sm text-white outline-none transition placeholder:text-white/28 focus:border-[#00C2CB]/70 focus:ring-2 focus:ring-[#00C2CB]/15"
+                    <input
+                      id="product-images-upload"
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={onProductImagesChange}
+                      className="sr-only"
+                    />
+                    {productImagePreviews.length > 0 && (
+                      <div className="mt-3 flex gap-2 overflow-hidden">
+                        {productImagePreviews.slice(0, 3).map((src, i) => (
+                          <img
+                            key={`${src}-${i}`}
+                            src={src}
+                            alt={`Product preview ${i + 1}`}
+                            className="h-14 w-14 rounded-xl border border-white/10 object-cover"
                           />
-                        </label>
-                        <label className="block text-sm font-medium text-white/82">
-                          Variant IDs or SKUs
-                          <textarea
-                            value={eligibleVariantIdsText}
-                            onChange={(e) =>
-                              setEligibleVariantIdsText(e.target.value)
-                            }
-                            rows={3}
-                            placeholder="Example: SKU-RED-L"
-                            className="mt-1.5 w-full rounded-xl border border-white/10 bg-[#0c1112] px-3.5 py-3 text-sm text-white outline-none transition placeholder:text-white/28 focus:border-[#00C2CB]/70 focus:ring-2 focus:ring-[#00C2CB]/15"
-                          />
-                        </label>
-                        <p className="text-xs leading-5 text-white/48 md:col-span-2">
-                          Only needed when commission applies to selected
-                          products.
-                        </p>
+                        ))}
                       </div>
                     )}
                   </div>
@@ -586,169 +426,327 @@ export default function BusinessOnboardingPage() {
 
               {error && <p className="mt-5 text-sm text-red-400">{error}</p>}
 
-              <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-xs text-white/45">
-                  You can preview before publishing.
-                </p>
-                <button
-                  onClick={() => setStep(3)}
-                  disabled={!canPreview}
-                  className="inline-flex items-center justify-center rounded-xl bg-[#00C2CB] px-5 py-3 text-sm font-semibold text-black transition hover:bg-[#28d3da] disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  Preview offer
-                </button>
-              </div>
+              <button
+                onClick={() => {
+                  setError(null);
+                  setStep(3);
+                }}
+                disabled={!productStepComplete}
+                className="mt-7 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#00C2CB] px-5 py-3.5 text-sm font-semibold text-black transition hover:bg-[#28d3da] disabled:cursor-not-allowed disabled:opacity-45"
+              >
+                Continue <ChevronRight className="h-4 w-4" />
+              </button>
             </section>
           )}
 
           {step === 3 && (
             <section>
               <div className="mb-6">
-                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-[#7ff5fb]">
-                  Review
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#00C2CB]/10 text-[#7ff5fb]">
+                  <Percent className="h-5 w-5" />
+                </div>
+                <p className="mt-4 text-xs font-semibold uppercase tracking-[0.22em] text-[#7ff5fb]">
+                  Commission
                 </p>
                 <h2 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">
-                  Review your offer
+                  What should someone earn for bringing you a customer?
                 </h2>
-                <p className="mt-2 text-sm leading-6 text-white/62">
-                  Check the details before affiliates can see it.
+                <p className="mt-2 text-sm leading-6 text-white/58">
+                  You only pay this commission when an eligible tracked sale is made.
                 </p>
               </div>
 
-              <div className="grid gap-5 lg:grid-cols-[1fr,0.85fr]">
-                <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.16em] text-white/42">
-                        Offer name
-                      </p>
-                      <p className="mt-1 text-sm font-semibold text-white">
-                        {offerName || "—"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.16em] text-white/42">
-                        Website
-                      </p>
-                      <p className="mt-1 break-all text-sm text-white/78">
-                        {websiteUrl || "—"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.16em] text-white/42">
-                        Product price
-                      </p>
-                      <p className="mt-1 text-sm text-white/78">
-                        {currency} ${productPrice || "0"}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.16em] text-white/42">
-                        Commission
-                      </p>
-                      <p className="mt-1 text-sm text-white/78">
-                        {commissionPercent || "0"}%
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.16em] text-white/42">
-                        Estimated payout
-                      </p>
-                      <p className="mt-1 text-sm font-semibold text-[#7ff5fb]">
-                        {currency} ${commissionPreviewAmount.toFixed(2)} per
-                        sale
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.16em] text-white/42">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="block text-sm font-medium text-white/82">
+                  Product price
+                  <input
+                    value={productPrice}
+                    onChange={(e) => setProductPrice(e.target.value)}
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="100.00"
+                    className={inputClass}
+                  />
+                </label>
+
+                <label className="block text-sm font-medium text-white/82">
+                  Affiliate commission
+                  <div className="relative">
+                    <input
+                      value={commissionPercent}
+                      onChange={(e) => setCommissionPercent(e.target.value)}
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="0.01"
+                      placeholder="20"
+                      className={`${inputClass} pr-10`}
+                    />
+                    <span className="pointer-events-none absolute right-4 top-[18px] text-sm text-white/42">
+                      %
+                    </span>
+                  </div>
+                </label>
+              </div>
+
+              <div className="mt-4 rounded-2xl border border-[#00C2CB]/25 bg-[#00C2CB]/10 p-4">
+                <p className="text-xs uppercase tracking-[0.16em] text-[#7ff5fb]">
+                  Affiliate earns
+                </p>
+                <p className="mt-1 text-2xl font-bold tracking-tight text-white">
+                  {currency} ${commissionPreviewAmount.toFixed(2)}
+                  <span className="ml-2 text-sm font-normal text-white/50">per sale</span>
+                </p>
+                <p className="mt-2 text-xs leading-5 text-white/48">
+                  You keep the customer and fulfil the order as normal.
+                </p>
+              </div>
+
+              <div className="mt-5 rounded-2xl border border-white/10 bg-white/[0.02]">
+                <button
+                  type="button"
+                  onClick={() => setAdvancedOpen((value) => !value)}
+                  className="flex w-full items-center justify-between px-4 py-4 text-left"
+                >
+                  <div>
+                    <p className="text-sm font-semibold text-white/82">Advanced settings</p>
+                    <p className="mt-0.5 text-xs text-white/40">
+                      Defaults are already set for most businesses.
+                    </p>
+                  </div>
+                  <ChevronDown
+                    className={`h-4 w-4 text-white/40 transition ${
+                      advancedOpen ? "rotate-180" : ""
+                    }`}
+                  />
+                </button>
+
+                {advancedOpen && (
+                  <div className="space-y-4 border-t border-white/8 px-4 pb-4 pt-4">
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <label className="block text-sm font-medium text-white/72">
+                        Currency
+                        <select
+                          value={currency}
+                          onChange={(e) => setCurrency(e.target.value)}
+                          className={inputClass}
+                        >
+                          <option value="USD">USD</option>
+                          <option value="AUD">AUD</option>
+                          <option value="EUR">EUR</option>
+                          <option value="GBP">GBP</option>
+                          <option value="CAD">CAD</option>
+                        </select>
+                      </label>
+
+                      <label className="block text-sm font-medium text-white/72">
                         Offer type
-                      </p>
-                      <p className="mt-1 text-sm text-white/78">
-                        {offerType === "recurring" ? "Recurring" : "One-time"}
-                      </p>
+                        <select
+                          value={offerType}
+                          onChange={(e) =>
+                            setOfferType(e.target.value as "one-time" | "recurring")
+                          }
+                          className={inputClass}
+                        >
+                          <option value="one-time">One-time</option>
+                          <option value="recurring">Recurring</option>
+                        </select>
+                      </label>
                     </div>
-                    <div className="sm:col-span-2">
-                      <p className="text-xs uppercase tracking-[0.16em] text-white/42">
-                        Commission scope
-                      </p>
-                      <p className="mt-1 text-sm text-white/78">
-                        {conversionScope === "store_wide"
-                          ? "Whole store"
-                          : "Specific product or SKU"}
-                      </p>
-                      {conversionScope === "specific_products" && (
-                        <div className="mt-2 space-y-1 text-xs leading-5 text-white/55">
-                          <p>
-                            Product IDs:{" "}
-                            {parseIdList(eligibleProductIdsText).join(", ") ||
-                              "—"}
-                          </p>
-                          <p>
-                            Variant IDs / SKUs:{" "}
-                            {parseIdList(eligibleVariantIdsText).join(", ") ||
-                              "—"}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                    <div className="sm:col-span-2">
-                      <p className="text-xs uppercase tracking-[0.16em] text-white/42">
-                        Description
-                      </p>
-                      <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-white/78">
-                        {description || "—"}
+
+                    <label className="block text-sm font-medium text-white/72">
+                      Participation
+                      <select
+                        value={participationMode}
+                        onChange={(e) =>
+                          setParticipationMode(
+                            e.target.value as
+                              | "open"
+                              | "approval_required"
+                              | "private",
+                          )
+                        }
+                        className={inputClass}
+                      >
+                        <option value="open">Open — affiliates can start immediately</option>
+                        <option value="approval_required">
+                          Approval required — review each affiliate first
+                        </option>
+                        <option value="private">Private — keep this offer restricted</option>
+                      </select>
+                    </label>
+
+                    <label className="block text-sm font-medium text-white/72">
+                      Commission applies to
+                      <select
+                        value={conversionScope}
+                        onChange={(e) =>
+                          setConversionScope(
+                            e.target.value as "store_wide" | "specific_products",
+                          )
+                        }
+                        className={inputClass}
+                      >
+                        <option value="store_wide">Whole store</option>
+                        <option value="specific_products">Specific product or SKU</option>
+                      </select>
+                    </label>
+
+                    {conversionScope === "specific_products" && (
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <label className="block text-sm font-medium text-white/72">
+                          Product IDs
+                          <textarea
+                            value={eligibleProductIdsText}
+                            onChange={(e) => setEligibleProductIdsText(e.target.value)}
+                            rows={3}
+                            placeholder="One per line or comma-separated"
+                            className={inputClass}
+                          />
+                        </label>
+                        <label className="block text-sm font-medium text-white/72">
+                          Variant IDs or SKUs
+                          <textarea
+                            value={eligibleVariantIdsText}
+                            onChange={(e) => setEligibleVariantIdsText(e.target.value)}
+                            rows={3}
+                            placeholder="Example: SKU-RED-L"
+                            className={inputClass}
+                          />
+                        </label>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {error && <p className="mt-5 text-sm text-red-400">{error}</p>}
+
+              <div className="mt-7 grid grid-cols-[auto_1fr] gap-3">
+                <button
+                  type="button"
+                  onClick={() => setStep(2)}
+                  className="rounded-2xl border border-white/10 px-4 py-3.5 text-sm font-semibold text-white/70 transition hover:bg-white/[0.03]"
+                >
+                  Back
+                </button>
+                <button
+                  onClick={() => {
+                    setError(null);
+                    setStep(4);
+                  }}
+                  disabled={!commissionStepComplete}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#00C2CB] px-5 py-3.5 text-sm font-semibold text-black transition hover:bg-[#28d3da] disabled:cursor-not-allowed disabled:opacity-45"
+                >
+                  See my offer <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            </section>
+          )}
+
+          {step === 4 && (
+            <section>
+              <div className="mb-6">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#00C2CB]/10 text-[#7ff5fb]">
+                  <Rocket className="h-5 w-5" />
+                </div>
+                <p className="mt-4 text-xs font-semibold uppercase tracking-[0.22em] text-[#7ff5fb]">
+                  Go live
+                </p>
+                <h2 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">
+                  Here&apos;s what affiliates will see
+                </h2>
+                <p className="mt-2 text-sm leading-6 text-white/58">
+                  One final look, then your offer is live on Nettmark.
+                </p>
+              </div>
+
+              <div className="overflow-hidden rounded-[24px] border border-white/10 bg-[#0b1011]">
+                {productImagePreviews[0] && (
+                  <img
+                    src={productImagePreviews[0]}
+                    alt="Offer preview"
+                    className="h-44 w-full object-cover sm:h-56"
+                  />
+                )}
+
+                <div className="p-5">
+                  <div className="flex items-start gap-3">
+                    {logoPreview && (
+                      <img
+                        src={logoPreview}
+                        alt="Business logo"
+                        className="h-11 w-11 rounded-xl border border-white/10 object-cover"
+                      />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <h3 className="truncate text-xl font-bold tracking-tight text-white">
+                        {offerName}
+                      </h3>
+                      <p className="mt-1 line-clamp-2 text-sm leading-5 text-white/52">
+                        {description}
                       </p>
                     </div>
                   </div>
-                </div>
 
-                <div className="rounded-2xl border border-white/10 bg-[#0c1112] p-4 sm:p-5">
-                  <p className="text-xs uppercase tracking-[0.16em] text-white/42">
-                    Images
-                  </p>
-                  <div className="mt-3 grid grid-cols-2 gap-3">
-                    {logoPreview && (
-                      <div className="rounded-xl border border-white/10 bg-white/[0.03] p-2">
-                        <img
-                          src={logoPreview}
-                          alt="Logo preview"
-                          className="h-24 w-full rounded-lg object-cover"
-                        />
-                        <p className="mt-2 text-xs text-white/55">Logo</p>
-                      </div>
-                    )}
-                    {productImagePreviews.slice(0, 3).map((src, i) => (
-                      <div
-                        key={`${src}-${i}`}
-                        className="rounded-xl border border-white/10 bg-white/[0.03] p-2"
-                      >
-                        <img
-                          src={src}
-                          alt={`Product preview ${i + 1}`}
-                          className="h-24 w-full rounded-lg object-cover"
-                        />
-                        <p className="mt-2 text-xs text-white/55">
-                          Product image
-                        </p>
-                      </div>
-                    ))}
+                  <div className="mt-5 grid grid-cols-2 gap-3">
+                    <div className="rounded-2xl border border-white/8 bg-white/[0.025] p-3.5">
+                      <p className="text-[10px] uppercase tracking-[0.16em] text-white/35">
+                        Product price
+                      </p>
+                      <p className="mt-1 text-base font-semibold text-white">
+                        {currency} ${productPrice}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl border border-[#00C2CB]/20 bg-[#00C2CB]/8 p-3.5">
+                      <p className="text-[10px] uppercase tracking-[0.16em] text-[#7ff5fb]/70">
+                        Affiliate earns
+                      </p>
+                      <p className="mt-1 text-base font-semibold text-[#7ff5fb]">
+                        {currency} ${commissionPreviewAmount.toFixed(2)}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex flex-wrap gap-2 text-xs text-white/48">
+                    <span className="rounded-full border border-white/8 bg-white/[0.025] px-3 py-1.5">
+                      {commissionPercent}% commission
+                    </span>
+                    <span className="rounded-full border border-white/8 bg-white/[0.025] px-3 py-1.5">
+                      {participationMode === "open"
+                        ? "Open to affiliates"
+                        : participationMode === "approval_required"
+                          ? "Approval required"
+                          : "Private"}
+                    </span>
+                  </div>
+
+                  <div className="mt-5 rounded-2xl border border-white/8 bg-white/[0.025] p-4">
+                    <p className="text-sm font-medium text-white/82">
+                      Affiliates can now discover this offer and start distributing it.
+                    </p>
+                    <p className="mt-1 text-xs leading-5 text-white/42">
+                      They can promote organically or use their own ad budget where your offer allows it.
+                    </p>
                   </div>
                 </div>
               </div>
 
               {error && <p className="mt-5 text-sm text-red-400">{error}</p>}
 
-              <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="mt-7 grid grid-cols-[auto_1fr] gap-3">
                 <button
-                  onClick={() => setStep(2)}
-                  className="inline-flex items-center justify-center rounded-xl border border-white/12 px-5 py-3 text-sm font-semibold text-white/82 transition hover:bg-white/[0.04] hover:text-white"
+                  type="button"
+                  onClick={() => setStep(3)}
+                  className="rounded-2xl border border-white/10 px-4 py-3.5 text-sm font-semibold text-white/70 transition hover:bg-white/[0.03]"
                 >
-                  Edit offer
+                  Edit
                 </button>
                 <button
                   onClick={handlePublish}
                   disabled={submitting}
-                  className="inline-flex items-center justify-center rounded-xl bg-[#00C2CB] px-5 py-3 text-sm font-semibold text-black transition hover:bg-[#28d3da] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#00C2CB] px-5 py-3.5 text-sm font-semibold text-black transition hover:bg-[#28d3da] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {submitting ? "Publishing..." : "Publish offer"}
                 </button>
@@ -756,20 +754,20 @@ export default function BusinessOnboardingPage() {
             </section>
           )}
 
-          {step === 4 && (
-            <section className="mx-auto max-w-xl py-8 text-center sm:py-12">
+          {step === 5 && (
+            <section className="mx-auto max-w-xl py-9 text-center sm:py-12">
               <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full border border-[#00C2CB]/40 bg-[#00C2CB]/10">
                 <CheckCircle2 className="h-7 w-7 text-[#7ff5fb]" />
               </div>
               <h2 className="mt-4 text-3xl font-bold tracking-tight">
                 Your offer is live
               </h2>
-              <p className="mt-2 text-sm leading-6 text-white/70">
-                Affiliates can now view it and start promoting it.
+              <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-white/64">
+                Affiliates can now discover it, promote it and bring new customers to your business.
               </p>
               <button
                 onClick={() => router.replace("/business/my-business")}
-                className="mt-6 rounded-xl bg-[#00C2CB] px-5 py-3 text-sm font-semibold text-black transition hover:bg-[#28d3da]"
+                className="mt-6 w-full max-w-xs rounded-2xl bg-[#00C2CB] px-5 py-3.5 text-sm font-semibold text-black transition hover:bg-[#28d3da]"
               >
                 Go to business dashboard
               </button>
