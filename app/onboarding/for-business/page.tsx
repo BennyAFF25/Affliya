@@ -61,11 +61,7 @@ export default function BusinessOnboardingPage() {
       .filter(Boolean);
 
   const productStepComplete = Boolean(
-    offerName.trim() &&
-      websiteUrl.trim() &&
-      description.trim() &&
-      logoFile &&
-      productImageFiles.length > 0,
+    offerName.trim() && websiteUrl.trim() && description.trim(),
   );
 
   const commissionStepComplete = Boolean(
@@ -140,7 +136,9 @@ export default function BusinessOnboardingPage() {
           });
 
         if (logoError) {
-          throw new Error(logoError.message || "Could not upload logo.");
+          throw new Error(
+            `Logo upload failed: ${logoError.message || "please try again or continue without a logo."}`,
+          );
         }
 
         const { data: logoData } = supabase.storage
@@ -164,7 +162,7 @@ export default function BusinessOnboardingPage() {
 
         if (imageError) {
           throw new Error(
-            imageError.message || "Could not upload product image.",
+            `Product image upload failed: ${imageError.message || "please try again or continue without an image."}`,
           );
         }
 
@@ -317,7 +315,7 @@ export default function BusinessOnboardingPage() {
                   What should affiliates promote?
                 </h2>
                 <p className="mt-2 text-sm leading-6 text-white/58">
-                  Add the essentials. You can change any of this later.
+                  Add the essentials. Images are optional and can be added later.
                 </p>
               </div>
 
@@ -357,7 +355,9 @@ export default function BusinessOnboardingPage() {
                   <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
                     <div className="flex items-center gap-2">
                       <ImagePlus className="h-4 w-4 text-[#7ff5fb]" />
-                      <p className="text-sm font-medium text-white/82">Business logo</p>
+                      <p className="text-sm font-medium text-white/82">
+                        Business logo <span className="text-white/38">(optional)</span>
+                      </p>
                     </div>
                     <label
                       htmlFor="business-logo-upload"
@@ -387,7 +387,9 @@ export default function BusinessOnboardingPage() {
                   <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
                     <div className="flex items-center gap-2">
                       <ImagePlus className="h-4 w-4 text-[#7ff5fb]" />
-                      <p className="text-sm font-medium text-white/82">Product image</p>
+                      <p className="text-sm font-medium text-white/82">
+                        Product image <span className="text-white/38">(optional)</span>
+                      </p>
                     </div>
                     <label
                       htmlFor="product-images-upload"
