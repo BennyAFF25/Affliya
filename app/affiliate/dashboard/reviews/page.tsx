@@ -6,17 +6,22 @@ import { useSessionContext } from "@supabase/auth-helpers-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
+  ArrowRight,
   CheckCircle2,
   Clock3,
   Eye,
   EyeOff,
   FileImage,
+  Megaphone,
   RefreshCw,
+  Send,
   XCircle,
 } from "lucide-react";
 import { supabase } from "utils/supabase/pages-client";
 
 type SubmissionKind = "paid" | "organic";
+type ReviewFilter = "all" | "paid" | "organic";
+type SortOrder = "recent" | "oldest";
 
 type Submission = {
   id: string;
@@ -37,6 +42,7 @@ function cleanStatus(value: unknown) {
 
 function statusMeta(status: string, viewed: boolean) {
   const normalized = cleanStatus(status);
+
   if (["approved", "active", "accepted", "live"].includes(normalized)) {
     return {
       label: "Approved",
@@ -44,6 +50,7 @@ function statusMeta(status: string, viewed: boolean) {
       icon: CheckCircle2,
     };
   }
+
   if (["rejected", "declined", "denied"].includes(normalized)) {
     return {
       label: "Rejected",
@@ -51,22 +58,24 @@ function statusMeta(status: string, viewed: boolean) {
       icon: XCircle,
     };
   }
+
   if (["changes_requested", "needs_changes", "revision_requested"].includes(normalized)) {
     return {
       label: "Changes requested",
-      className: "border-amber-400/20 bg-amber-400/10 text-amber-200",
-      icon: Clock3,
+      className: "border-red-400/20 bg-red-400/10 text-red-300",
+      icon: XCircle,
     };
   }
+
   return viewed
     ? {
-        label: "Viewed · awaiting decision",
-        className: "border-cyan-400/20 bg-cyan-400/10 text-cyan-200",
+        label: "Viewed by business",
+        className: "border-sky-400/20 bg-sky-400/10 text-sky-300",
         icon: Eye,
       }
     : {
         label: "Pending review",
-        className: "border-white/10 bg-white/[0.04] text-zinc-300",
+        className: "border-amber-400/20 bg-amber-400/10 text-amber-200",
         icon: Clock3,
       };
 }
@@ -75,9 +84,11 @@ function formatDate(value: string | null) {
   if (!value) return "Unknown time";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "Unknown time";
+
   return date.toLocaleString(undefined, {
     day: "numeric",
     month: "short",
+    year: "numeric",
     hour: "numeric",
     minute: "2-digit",
   });
@@ -90,6 +101,8 @@ export default function AffiliateReviewsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [filter, setFilter] = useState<ReviewFilter>("all");
+  const [sortOrder, setSortOrder] = useState<SortOrder>("recent");
 
   useEffect(() => {
     if (sessionLoading) return;
@@ -142,7 +155,9 @@ export default function AffiliateReviewsPage() {
           .from("offers")
           .select("id,title")
           .in("id", offerIds);
+
         if (offersError) throw offersError;
+
         for (const offer of offers || []) {
           offerTitleById.set(String(offer.id), String(offer.title || "Offer"));
         }
@@ -196,14 +211,36 @@ export default function AffiliateReviewsPage() {
   }, [session?.user?.email, loadSubmissions]);
 
   const pendingCount = useMemo(
-    () => submissions.filter((item) => cleanStatus(item.status) === "pending").length,
+    () => submissions.filter((item) => cleanStatus(item.status) === "pending" && !item.businessViewedAt).length,
     [submissions],
   );
+
+  const openedCount = useMemo(
+    () => submissions.filter((item) => !!item.businessViewedAt).length,
+    [submissions],
+  );
+
+  const paidCount = useMemo(
+    () => submissions.filter((item) => item.kind === "paid").length,
+    [submissions],
+  );
+
+  const organicCount = submissions.length - paidCount;
+
+  const visibleSubmissions = useMemo(() => {
+    const filtered = submissions.filter((item) => filter === "all" || item.kind === filter);
+
+    return [...filtered].sort((a, b) => {
+      const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return sortOrder === "recent" ? bTime - aTime : aTime - bTime;
+    });
+  }, [submissions, filter, sortOrder]);
 
   if (sessionLoading || (loading && !submissions.length)) {
     return (
       <main className="min-h-screen bg-[#080b0c] px-5 py-8 text-white">
-        <div className="mx-auto max-w-5xl animate-pulse space-y-4">
+        <div className="mx-auto max-w-6xl animate-pulse space-y-4">
           <div className="h-8 w-56 rounded bg-white/10" />
           <div className="h-28 rounded-3xl bg-white/[0.05]" />
           <div className="h-40 rounded-3xl bg-white/[0.05]" />
@@ -214,8 +251,8 @@ export default function AffiliateReviewsPage() {
 
   return (
     <main className="min-h-screen bg-[#080b0c] px-4 py-6 text-white sm:px-6 sm:py-8">
-      <div className="mx-auto max-w-5xl">
-        <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
+      <div className="mx-auto max-w-6xl">
+        <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
           <div>
             <Link
               href="/affiliate/dashboard"
@@ -238,19 +275,57 @@ export default function AffiliateReviewsPage() {
             type="button"
             onClick={() => void loadSubmissions(true)}
             disabled={refreshing}
-            className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.05] px-4 py-2.5 text-sm font-medium text-zinc-200 transition hover:bg-white/[0.08] disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-[#101416] px-4 py-2.5 text-sm font-medium text-zinc-200 transition hover:border-cyan-400/30 hover:bg-white/[0.06] disabled:opacity-50"
           >
             <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
             Refresh
           </button>
         </div>
 
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap gap-2">
+            <FilterButton active={filter === "all"} onClick={() => setFilter("all")}>
+              All ({submissions.length})
+            </FilterButton>
+            <FilterButton active={filter === "paid"} onClick={() => setFilter("paid")}>
+              Ad ideas ({paidCount})
+            </FilterButton>
+            <FilterButton active={filter === "organic"} onClick={() => setFilter("organic")}>
+              Organic posts ({organicCount})
+            </FilterButton>
+          </div>
+
+          <select
+            value={sortOrder}
+            onChange={(event) => setSortOrder(event.target.value as SortOrder)}
+            className="rounded-xl border border-white/10 bg-[#101416] px-3 py-2.5 text-sm text-zinc-200 outline-none transition focus:border-cyan-400/40"
+          >
+            <option value="recent">Most recent</option>
+            <option value="oldest">Oldest first</option>
+          </select>
+        </div>
+
         <div className="mb-6 grid gap-3 sm:grid-cols-3">
-          <Stat label="Total submitted" value={submissions.length} />
-          <Stat label="Waiting on business" value={pendingCount} />
+          <Stat
+            label="Total submitted"
+            value={submissions.length}
+            hint="All time"
+            icon={Send}
+            tone="cyan"
+          />
+          <Stat
+            label="Waiting on business"
+            value={pendingCount}
+            hint="Needs review"
+            icon={Clock3}
+            tone="amber"
+          />
           <Stat
             label="Opened by business"
-            value={submissions.filter((item) => !!item.businessViewedAt).length}
+            value={openedCount}
+            hint="Viewed submissions"
+            icon={Eye}
+            tone="emerald"
           />
         </div>
 
@@ -268,19 +343,25 @@ export default function AffiliateReviewsPage() {
               When you submit a paid ad or organic promotion to a business, it will appear here automatically.
             </p>
           </div>
+        ) : !visibleSubmissions.length ? (
+          <div className="rounded-3xl border border-white/10 bg-[#101416] p-8 text-center text-sm text-zinc-400">
+            No submissions match this filter.
+          </div>
         ) : (
           <div className="space-y-3">
-            {submissions.map((item) => {
+            {visibleSubmissions.map((item) => {
               const viewed = !!item.businessViewedAt;
               const meta = statusMeta(item.status, viewed);
               const StatusIcon = meta.icon;
+              const typeLabel = item.kind === "paid" ? "Ad idea" : "Organic promotion";
+
               return (
                 <article
                   key={`${item.kind}-${item.id}`}
-                  className="rounded-3xl border border-white/10 bg-[#101416] p-5 shadow-xl shadow-black/10 sm:p-6"
+                  className="group rounded-2xl border border-white/10 bg-[#101416] p-4 transition hover:border-white/[0.16] sm:p-5"
                 >
-                  <div className="flex gap-4">
-                    <div className="hidden h-16 w-16 shrink-0 overflow-hidden rounded-2xl border border-white/10 bg-black sm:block">
+                  <div className="grid gap-4 lg:grid-cols-[128px_minmax(0,1fr)_235px_130px] lg:items-center">
+                    <div className="h-28 w-full overflow-hidden rounded-xl border border-white/10 bg-[#0b0f10] sm:h-32 lg:h-[96px] lg:w-32">
                       {item.previewUrl ? (
                         <img src={item.previewUrl} alt="" className="h-full w-full object-cover" />
                       ) : (
@@ -290,44 +371,60 @@ export default function AffiliateReviewsPage() {
                       )}
                     </div>
 
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-500">
-                            <span>{item.kind === "paid" ? "Paid ad" : "Organic promotion"}</span>
-                            {item.platform ? <><span>•</span><span>{item.platform}</span></> : null}
-                            <span>•</span>
-                            <span>Submitted {formatDate(item.createdAt)}</span>
-                          </div>
-                          <h2 className="mt-1 truncate text-lg font-semibold text-white">
-                            {item.offerTitle}
-                          </h2>
-                          <p className="mt-1 line-clamp-2 text-sm leading-6 text-zinc-400">
-                            {item.title}
-                          </p>
+                    <div className="min-w-0">
+                      <span
+                        className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
+                          item.kind === "paid"
+                            ? "border-violet-400/20 bg-violet-400/10 text-violet-300"
+                            : "border-emerald-400/20 bg-emerald-400/10 text-emerald-300"
+                        }`}
+                      >
+                        {item.kind === "paid" ? <Megaphone className="h-3 w-3" /> : <Send className="h-3 w-3" />}
+                        {typeLabel}
+                      </span>
+
+                      <h2 className="mt-2 truncate text-base font-semibold text-white sm:text-lg">
+                        {item.offerTitle}
+                      </h2>
+                      <p className="mt-1 line-clamp-2 text-sm leading-5 text-zinc-400">
+                        {item.title}
+                      </p>
+                    </div>
+
+                    <div className="rounded-xl border border-white/[0.06] bg-black/10 p-3 lg:border-0 lg:bg-transparent lg:p-0">
+                      <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${meta.className}`}>
+                        <StatusIcon className="h-3.5 w-3.5" />
+                        {meta.label}
+                      </span>
+
+                      <div className="mt-3 space-y-2 text-xs text-zinc-400">
+                        <div className="flex items-start gap-2">
+                          <Clock3 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-zinc-500" />
+                          <span>Submitted {formatDate(item.createdAt)}</span>
                         </div>
-
-                        <span className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold ${meta.className}`}>
-                          <StatusIcon className="h-3.5 w-3.5" />
-                          {meta.label}
-                        </span>
+                        <div className="flex items-start gap-2">
+                          {viewed ? (
+                            <Eye className="mt-0.5 h-3.5 w-3.5 shrink-0 text-cyan-300" />
+                          ) : (
+                            <EyeOff className="mt-0.5 h-3.5 w-3.5 shrink-0 text-zinc-500" />
+                          )}
+                          <span className={viewed ? "text-zinc-300" : "text-zinc-500"}>
+                            {viewed
+                              ? `Viewed ${formatDate(item.businessViewedAt)}`
+                              : "Business hasn’t viewed this yet"}
+                          </span>
+                        </div>
                       </div>
+                    </div>
 
-                      <div className="mt-4 flex items-center gap-2 border-t border-white/8 pt-4 text-sm">
-                        {viewed ? (
-                          <>
-                            <Eye className="h-4 w-4 text-cyan-300" />
-                            <span className="text-zinc-300">
-                              Business opened this {formatDate(item.businessViewedAt)}
-                            </span>
-                          </>
-                        ) : (
-                          <>
-                            <EyeOff className="h-4 w-4 text-zinc-500" />
-                            <span className="text-zinc-500">Business hasn&apos;t viewed this yet</span>
-                          </>
-                        )}
-                      </div>
+                    <div className="flex lg:justify-end">
+                      <Link
+                        href={`/affiliate/dashboard/promote/${item.offerId}`}
+                        className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm font-medium text-zinc-200 transition hover:border-cyan-400/30 hover:bg-cyan-400/[0.06] hover:text-white lg:w-auto"
+                      >
+                        View details
+                        <ArrowRight className="h-4 w-4" />
+                      </Link>
                     </div>
                   </div>
                 </article>
@@ -340,11 +437,61 @@ export default function AffiliateReviewsPage() {
   );
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
+function FilterButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
+        active
+          ? "border-cyan-400/60 bg-cyan-400 text-[#071012] shadow-[0_0_22px_rgba(34,211,238,0.12)]"
+          : "border-white/10 bg-[#101416] text-zinc-300 hover:border-white/20 hover:text-white"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function Stat({
+  label,
+  value,
+  hint,
+  icon: Icon,
+  tone,
+}: {
+  label: string;
+  value: number;
+  hint: string;
+  icon: typeof Send;
+  tone: "cyan" | "amber" | "emerald";
+}) {
+  const toneClasses = {
+    cyan: "border-cyan-400/15 bg-cyan-400/[0.07] text-cyan-300",
+    amber: "border-amber-400/15 bg-amber-400/[0.07] text-amber-300",
+    emerald: "border-emerald-400/15 bg-emerald-400/[0.07] text-emerald-300",
+  }[tone];
+
   return (
     <div className="rounded-2xl border border-white/10 bg-[#101416] px-5 py-4">
-      <p className="text-xs uppercase tracking-[0.14em] text-zinc-500">{label}</p>
-      <p className="mt-1 text-2xl font-semibold text-white">{value}</p>
+      <div className="flex items-center gap-4">
+        <div className={`grid h-11 w-11 shrink-0 place-items-center rounded-full border ${toneClasses}`}>
+          <Icon className="h-5 w-5" />
+        </div>
+        <div>
+          <p className="text-2xl font-semibold leading-none text-white">{value}</p>
+          <p className="mt-1.5 text-sm font-medium text-zinc-200">{label}</p>
+          <p className="mt-0.5 text-xs text-zinc-500">{hint}</p>
+        </div>
+      </div>
     </div>
   );
 }
