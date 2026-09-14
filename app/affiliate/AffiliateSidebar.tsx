@@ -12,6 +12,7 @@ import {
   Settings,
   LifeBuoy,
   Store,
+  ClipboardCheck,
   type LucideIcon,
 } from "lucide-react";
 import { useSessionContext } from "@supabase/auth-helpers-react";
@@ -66,6 +67,11 @@ export default function AffiliateSidebar() {
       name: "Manage Campaigns",
       href: "/affiliate/dashboard/manage-campaigns",
       icon: Package,
+    },
+    {
+      name: "Submitted Reviews",
+      href: "/affiliate/dashboard/reviews",
+      icon: ClipboardCheck,
     },
     { name: "My Shop", href: "/affiliate/dashboard/my-shop", icon: Store },
     { name: "Inbox", href: "/affiliate/inbox", icon: Mail },
