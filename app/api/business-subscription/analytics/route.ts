@@ -39,6 +39,37 @@ export async function POST(req: Request) {
       metadata: body?.metadata && typeof body.metadata === "object" ? body.metadata : {},
     });
 
+    // Both business review queues already fire campaign_review_opened when the
+    // business clicks "View details". Persist that event on the actual submission
+    // so the affiliate can see that their work has genuinely been opened.
+    if (eventType === "campaign_review_opened" && body?.submissionId) {
+      const submissionId = String(body.submissionId);
+      const viewedAt = new Date().toISOString();
+      const intendedAction = String(body?.intendedAction || "");
+      const tables = intendedAction === "approve_organic_post"
+        ? ["organic_posts"]
+        : intendedAction === "approve_ad_idea"
+          ? ["ad_ideas"]
+          : ["ad_ideas", "organic_posts"];
+
+      for (const table of tables) {
+        const { error } = await (admin as any)
+          .from(table)
+          .update({ business_viewed_at: viewedAt })
+          .eq("id", submissionId)
+          .eq("business_email", user.email)
+          .is("business_viewed_at", null);
+
+        if (error) {
+          console.warn("[business-subscription/analytics] submission view stamp failed", {
+            table,
+            submissionId,
+            message: error.message,
+          });
+        }
+      }
+    }
+
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.warn("[business-subscription/analytics] unexpected", err);
