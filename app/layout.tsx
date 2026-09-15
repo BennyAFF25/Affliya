@@ -159,6 +159,30 @@ fbq('track', 'PageView');
 `
               }}
             />
+            <Script
+              id="data-minimisation-footer-link"
+              strategy="afterInteractive"
+              dangerouslySetInnerHTML={{
+                __html: `
+(function(){
+  function addPolicyLink(){
+    var footer = document.querySelector('footer');
+    if(!footer || footer.querySelector('a[href="/legal/privacy/data-minimisation"]')) return;
+    var privacy = footer.querySelector('a[href="/legal/privacy"]');
+    if(!privacy || !privacy.parentElement) return;
+    var link = document.createElement('a');
+    link.href = '/legal/privacy/data-minimisation';
+    link.textContent = 'Data Minimisation';
+    link.className = privacy.className;
+    privacy.parentElement.insertBefore(link, privacy.nextSibling);
+  }
+  addPolicyLink();
+  var observer = new MutationObserver(addPolicyLink);
+  observer.observe(document.body, { childList: true, subtree: true });
+})();
+`
+              }}
+            />
             <NettmarkOfferTracker />
           </ThemeWrapper>
         </Providers>
