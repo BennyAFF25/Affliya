@@ -1,14 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useSessionContext } from "@supabase/auth-helpers-react";
 import { Check, Megaphone, Sparkles } from "lucide-react";
 import { supabase } from "utils/supabase/pages-client";
 
 export default function ChooseBusinessPlanPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { session, isLoading } = useSessionContext();
   const [businessId, setBusinessId] = useState<string | null>(null);
   const [busy, setBusy] = useState<"free" | "growth" | null>(null);
@@ -36,11 +35,13 @@ export default function ChooseBusinessPlanPage() {
   }, [isLoading, router, session?.user?.email]);
 
   useEffect(() => {
-    if (searchParams.get("subscription") !== "checkout_returned") return;
+    const subscription = new URLSearchParams(window.location.search).get("subscription");
+    if (subscription !== "checkout_returned") return;
+
     void fetch("/api/business-subscription/choose-free", { method: "POST" }).finally(() => {
       router.replace("/business/my-business?trial=started");
     });
-  }, [router, searchParams]);
+  }, [router]);
 
   const chooseFree = async () => {
     setBusy("free");
