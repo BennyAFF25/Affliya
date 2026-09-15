@@ -8,7 +8,7 @@ const LEGACY_PLAN_CHOICE_COOKIE = 'nettmark_business_plan_choice';
 export async function POST() {
   const supabase = createRouteHandlerClient({ cookies });
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  if (!user?.email) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
 
   const { error } = await supabase
     .from('profiles')
