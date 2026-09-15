@@ -19,6 +19,12 @@ export default function ChooseBusinessPlanPage() {
   const [businessId, setBusinessId] = useState<string | null>(null);
   const [busy, setBusy] = useState<"free" | "growth" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [resumeSubscription, setResumeSubscription] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setResumeSubscription(new URLSearchParams(window.location.search).get("resume") === "1");
+  }, []);
 
   useEffect(() => {
     if (isLoading) return;
@@ -79,11 +85,15 @@ export default function ChooseBusinessPlanPage() {
         body: JSON.stringify({
           businessId,
           returnTo: "/business/choose-plan",
-          intendedAction: "start_growth_trial",
+          intendedAction: resumeSubscription ? "continue_growth_subscription" : "start_growth_trial",
         }),
       });
 
       const json = await res.json();
+      if (json?.status === "already_subscribed") {
+        router.replace("/business/my-business");
+        return;
+      }
       if (!res.ok || !json?.url) {
         throw new Error(json?.error || json?.message || "Could not start checkout.");
       }
@@ -107,14 +117,16 @@ export default function ChooseBusinessPlanPage() {
         <div className="plan-enter plan-enter-1 text-center">
           <div className="inline-flex items-center gap-2 rounded-full border border-[#16c8d5]/35 bg-[#16c8d5]/[0.06] px-4 py-2 text-[11px] font-bold uppercase tracking-[0.2em] text-[#20d4df] shadow-[0_0_28px_rgba(22,200,213,0.08)]">
             <span className="h-1.5 w-1.5 rounded-full bg-[#20d4df] shadow-[0_0_10px_rgba(32,212,223,0.9)]" />
-            Your offer is live
+            {resumeSubscription ? "Your Growth trial ended" : "Your offer is live"}
           </div>
 
           <h1 className="mt-5 text-3xl font-semibold tracking-[-0.035em] text-white sm:text-[42px] sm:leading-[1.08]">
-            How should affiliates promote you?
+            {resumeSubscription ? "Choose how you want to continue" : "How should affiliates promote you?"}
           </h1>
           <p className="mx-auto mt-4 max-w-2xl text-sm leading-6 text-[#969da7] sm:text-[15px]">
-            Start free with organic distribution, or unlock affiliate-funded advertising through your Meta account for more growth.
+            {resumeSubscription
+              ? "Keep organic distribution free, or continue Growth to keep affiliate-funded advertising enabled through your Meta account."
+              : "Start free with organic distribution, or unlock affiliate-funded advertising through your Meta account for more growth."}
           </p>
         </div>
 
@@ -170,14 +182,18 @@ export default function ChooseBusinessPlanPage() {
               <div className="flex h-12 w-12 items-center justify-center rounded-[13px] border border-[#16c8d5]/30 bg-[#16c8d5]/[0.08] text-[#22d6e1] shadow-[0_0_24px_rgba(22,200,213,0.08)]">
                 <Sparkles className="h-5 w-5" />
               </div>
-              <span className="text-xs font-semibold text-[#28d8e2]">14 days free</span>
+              <span className="text-xs font-semibold text-[#28d8e2]">
+                {resumeSubscription ? "Continue Growth" : "14 days free"}
+              </span>
             </div>
 
             <div className="relative mt-7">
               <h2 className="text-[23px] font-semibold tracking-tight text-white">Organic + Paid</h2>
               <div className="mt-1 flex items-end gap-2">
                 <span className="text-[38px] font-semibold leading-none tracking-[-0.04em] text-white">$49</span>
-                <span className="pb-1 text-sm text-[#7f8790]">/ month after trial</span>
+                <span className="pb-1 text-sm text-[#7f8790]">
+                  {resumeSubscription ? "/ month" : "/ month after trial"}
+                </span>
               </div>
               <p className="mt-5 max-w-sm text-sm leading-6 text-[#a0a7af]">
                 Let affiliates use their own ad budgets to advertise your products through your Meta account.
@@ -206,11 +222,17 @@ export default function ChooseBusinessPlanPage() {
               className="plan-primary relative mt-auto w-full overflow-hidden rounded-[14px] bg-[#16c8d5] px-5 py-3.5 text-sm font-bold text-[#061113] shadow-[0_10px_32px_rgba(22,200,213,0.18)] transition disabled:cursor-not-allowed disabled:opacity-50"
             >
               <span className="relative z-10">
-                {busy === "growth" ? "Opening secure checkout..." : "Start 14-day free trial"}
+                {busy === "growth"
+                  ? "Opening secure checkout..."
+                  : resumeSubscription
+                    ? "Continue subscription"
+                    : "Start 14-day free trial"}
               </span>
             </button>
             <p className="relative mt-3 text-center text-[11px] text-[#7d858d]">
-              Card required. $0 today. Then $49/month unless cancelled.
+              {resumeSubscription
+                ? "Continue at $49/month. Cancel anytime."
+                : "Card required. $0 today. Then $49/month unless cancelled."}
             </p>
           </section>
         </div>
