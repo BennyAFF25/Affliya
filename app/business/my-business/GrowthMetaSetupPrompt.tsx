@@ -29,6 +29,12 @@ function getTrialDaysLeft(value: string | null) {
   return Math.max(0, Math.ceil((end - Date.now()) / (1000 * 60 * 60 * 24)));
 }
 
+function isCancelledBillingStatus(status: string | null | undefined) {
+  return ["subscription_cancelled", "cancelled", "canceled"].includes(
+    String(status || "").toLowerCase(),
+  );
+}
+
 export default function GrowthMetaSetupPrompt() {
   const [status, setStatus] = useState<MetaSetupStatus | null>(null);
   const [dismissed, setDismissed] = useState(false);
@@ -58,6 +64,11 @@ export default function GrowthMetaSetupPrompt() {
 
         const json = (await response.json()) as MetaSetupStatus;
         if (cancelled) return;
+
+        if (isCancelledBillingStatus(json.billingStatus)) {
+          window.location.replace("/business/choose-plan?resume=1");
+          return;
+        }
 
         setStatus(json);
 
