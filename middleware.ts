@@ -1,7 +1,20 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-export function middleware(_req: NextRequest) {
-  // Rollback: keep middleware neutral to avoid interfering with client auth/session handling.
+export function middleware(req: NextRequest) {
+  const needsPlanChoice = req.cookies.get('nettmark_business_plan_choice')?.value === 'required';
+  const isBusinessDashboard = req.nextUrl.pathname === '/business/my-business';
+
+  if (needsPlanChoice && isBusinessDashboard) {
+    const url = req.nextUrl.clone();
+    url.pathname = '/business/choose-plan';
+    url.search = '';
+    return NextResponse.redirect(url);
+  }
+
   return NextResponse.next();
 }
+
+export const config = {
+  matcher: ['/business/my-business'],
+};
