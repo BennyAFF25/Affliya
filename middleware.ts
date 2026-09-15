@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export function middleware(req: NextRequest) {
-  const needsPlanChoice = req.cookies.get('nettmark_business_plan_choice')?.value === 'required';
+  const needsPlanChoice = req.cookies.get('nettmark_business_plan_choice_v2')?.value === 'required';
   const isBusinessDashboard = req.nextUrl.pathname === '/business/my-business';
 
   if (needsPlanChoice && isBusinessDashboard) {
