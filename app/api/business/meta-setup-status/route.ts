@@ -38,6 +38,7 @@ export async function GET() {
         hasMetaConnection: false,
         businessId: null,
         billingStatus: "free",
+        currentPeriodEnd: null,
       });
     }
 
@@ -72,6 +73,7 @@ export async function GET() {
       hasMetaConnection,
       businessId: business.id,
       billingStatus,
+      currentPeriodEnd: entitlement?.subscriptionCurrentPeriodEnd || null,
     });
   } catch (error) {
     console.error("[business/meta-setup-status]", error);
