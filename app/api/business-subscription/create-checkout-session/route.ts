@@ -37,111 +37,61 @@ export async function POST(req: Request) {
     const campaignId = typeof body?.campaignId === "string" ? body.campaignId.slice(0, 120) : submissionId;
     const attribution = body?.attribution && typeof body.attribution === "object" ? body.attribution : {};
 
-    if (!businessId) {
-      return NextResponse.json({ error: "businessId is required" }, { status: 400 });
-    }
+    if (!businessId) return NextResponse.json({ error: "businessId is required" }, { status: 400 });
 
     const userSupabase = createRouteHandlerClient({ cookies });
     const { data: authData, error: authError } = await userSupabase.auth.getUser();
     const user = authData?.user || null;
-
-    if (authError || !user?.id || !user.email) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    if (authError || !user?.id || !user.email) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
     const admin = createServerSupabaseClient();
-    const business = await getOwnedBusinessForUser({
-      supabase: admin,
-      businessId,
-      userId: user.id,
-      userEmail: user.email,
-    });
-
-    if (!business) {
-      return NextResponse.json({ error: "Business not found or not authorized" }, { status: 403 });
-    }
+    const business = await getOwnedBusinessForUser({ supabase: admin, businessId, userId: user.id, userEmail: user.email });
+    if (!business) return NextResponse.json({ error: "Business not found or not authorized" }, { status: 403 });
 
     const entitlement = await getEntitlementOrThrow({ supabase: admin, businessId: business.id });
-
     if (entitlement.isGrandfathered) {
-      return NextResponse.json({
-        status: "grandfathered",
-        message: "This business is grandfathered and does not require a Nettmark Business subscription.",
-        entitlement,
-      });
+      return NextResponse.json({ status: "grandfathered", message: "This business is grandfathered and does not require a Nettmark Business subscription.", entitlement });
     }
-
     if (!isBusinessSubscriptionCheckoutEnabled()) {
-      return NextResponse.json(
-        {
-          status: "checkout_disabled",
-          message: "Business subscription checkout is disabled.",
-          entitlement,
-        },
-        { status: 403 },
-      );
+      return NextResponse.json({ status: "checkout_disabled", message: "Business subscription checkout is disabled.", entitlement }, { status: 403 });
     }
 
     const priceId = getBusinessSubscriptionPriceId();
-    if (!priceId) {
-      return NextResponse.json(
-        { error: "Missing STRIPE_NETTMARK_BUSINESS_MONTHLY_PRICE_ID" },
-        { status: 500 },
-      );
-    }
+    if (!priceId) return NextResponse.json({ error: "Missing STRIPE_NETTMARK_BUSINESS_MONTHLY_PRICE_ID" }, { status: 500 });
 
     const stripe = createBusinessSubscriptionStripeClient();
-    const customerId = await ensureSubscriptionCustomer({
-      stripe,
-      supabase: admin,
-      business,
-      entitlement,
-      userId: user.id,
-    });
-
-    const existingSubscription = await findExistingLiveSubscription({
-      stripe,
-      customerId,
-      subscriptionId: entitlement.stripeSubscriptionId,
-    });
-
+    const customerId = await ensureSubscriptionCustomer({ stripe, supabase: admin, business, entitlement, userId: user.id });
+    const existingSubscription = await findExistingLiveSubscription({ stripe, customerId, subscriptionId: entitlement.stripeSubscriptionId });
     if (existingSubscription) {
-      return NextResponse.json({
-        status: "already_subscribed",
-        stripeSubscriptionId: existingSubscription.id,
-        billingStatus: resolveBillingStatusFromSubscription(existingSubscription),
-        currentPeriodEnd: getSubscriptionCurrentPeriodEnd(existingSubscription),
-      });
+      return NextResponse.json({ status: "already_subscribed", stripeSubscriptionId: existingSubscription.id, billingStatus: resolveBillingStatusFromSubscription(existingSubscription), currentPeriodEnd: getSubscriptionCurrentPeriodEnd(existingSubscription) });
     }
 
     const baseUrl = getBusinessSubscriptionBaseUrl();
     const metadata = {
-      ...buildBusinessSubscriptionMetadata({
-        businessId: business.id,
-        userId: user.id,
-        businessEmail: business.business_email,
-      }),
+      ...buildBusinessSubscriptionMetadata({ businessId: business.id, userId: user.id, businessEmail: business.business_email }),
       returnTo,
       intendedAction: intendedAction || "",
       campaignId: campaignId || "",
       submissionId: submissionId || "",
     };
 
-    const session = await stripe.checkout.sessions.create(
-      {
-        mode: "subscription",
-        customer: customerId,
-        line_items: [{ price: priceId, quantity: 1 }],
-        client_reference_id: user.id,
+    const session = await stripe.checkout.sessions.create({
+      mode: "subscription",
+      customer: customerId,
+      line_items: [{ price: priceId, quantity: 1 }],
+      client_reference_id: user.id,
+      metadata,
+      payment_method_collection: "always",
+      subscription_data: {
         metadata,
-        subscription_data: { metadata },
-        success_url: `${baseUrl}${returnTo}?subscription=checkout_returned&session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${baseUrl}${returnTo}?subscription=cancelled`,
+        trial_period_days: 14,
+        trial_settings: { end_behavior: { missing_payment_method: "cancel" } },
       },
-      {
-        idempotencyKey: `business_subscription_checkout:${business.id}:${customerId}:${entitlement.billingStatus}:${entitlement.stripeSubscriptionId || "none"}:${intendedAction || "general"}:${submissionId || "none"}`,
-      },
-    );
+      success_url: `${baseUrl}${returnTo}?subscription=checkout_returned&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${baseUrl}${returnTo}?subscription=cancelled`,
+    }, {
+      idempotencyKey: `business_subscription_checkout:${business.id}:${customerId}:${entitlement.billingStatus}:${entitlement.stripeSubscriptionId || "none"}:${intendedAction || "general"}:${submissionId || "none"}`,
+    });
 
     await trackBusinessSubscriptionAnalytics({
       supabase: admin,
@@ -153,12 +103,7 @@ export async function POST(req: Request) {
       submissionId,
       returnTo,
       attribution: attribution as Record<string, unknown>,
-      metadata: {
-        source: "checkout_endpoint",
-        checkoutSessionId: session.id,
-        stripeCustomerId: customerId,
-        userId: user.id,
-      },
+      metadata: { source: "checkout_endpoint", checkoutSessionId: session.id, stripeCustomerId: customerId, userId: user.id, trialDays: 14 },
     });
 
     await admin.from("business_entitlement_events").insert({
@@ -166,29 +111,12 @@ export async function POST(req: Request) {
       business_email: business.business_email,
       event_type: "business_subscription_checkout_created",
       billing_status: entitlement.billingStatus,
-      metadata: {
-        source: "checkout_endpoint",
-        checkoutSessionId: session.id,
-        stripeCustomerId: customerId,
-        userId: user.id,
-        returnTo,
-        intendedAction,
-        campaignId,
-        submissionId,
-        attribution,
-      },
+      metadata: { source: "checkout_endpoint", checkoutSessionId: session.id, stripeCustomerId: customerId, userId: user.id, returnTo, intendedAction, campaignId, submissionId, attribution, trialDays: 14 },
     });
 
-    return NextResponse.json({
-      status: "checkout_created",
-      url: session.url,
-      sessionId: session.id,
-    });
+    return NextResponse.json({ status: "checkout_created", url: session.url, sessionId: session.id });
   } catch (err: unknown) {
     console.error("[business-subscription/create-checkout-session]", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Failed to create business subscription checkout" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: err instanceof Error ? err.message : "Failed to create business subscription checkout" }, { status: 500 });
   }
 }
