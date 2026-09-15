@@ -36,6 +36,7 @@ export async function POST(req: Request) {
     const submissionId = typeof body?.submissionId === "string" ? body.submissionId.slice(0, 120) : null;
     const campaignId = typeof body?.campaignId === "string" ? body.campaignId.slice(0, 120) : submissionId;
     const attribution = body?.attribution && typeof body.attribution === "object" ? body.attribution : {};
+    const isContinuingSubscription = intendedAction === "continue_growth_subscription";
 
     if (!businessId) return NextResponse.json({ error: "businessId is required" }, { status: 400 });
 
@@ -75,6 +76,14 @@ export async function POST(req: Request) {
       submissionId: submissionId || "",
     };
 
+    const subscriptionData = isContinuingSubscription
+      ? { metadata }
+      : {
+          metadata,
+          trial_period_days: 14,
+          trial_settings: { end_behavior: { missing_payment_method: "cancel" as const } },
+        };
+
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: customerId,
@@ -82,13 +91,9 @@ export async function POST(req: Request) {
       client_reference_id: user.id,
       metadata,
       payment_method_collection: "always",
-      subscription_data: {
-        metadata,
-        trial_period_days: 14,
-        trial_settings: { end_behavior: { missing_payment_method: "cancel" } },
-      },
+      subscription_data: subscriptionData,
       success_url: `${baseUrl}${returnTo}?subscription=checkout_returned&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${baseUrl}${returnTo}?subscription=cancelled`,
+      cancel_url: `${baseUrl}${returnTo}?subscription=cancelled${isContinuingSubscription ? "&resume=1" : ""}`,
     }, {
       idempotencyKey: `business_subscription_checkout:${business.id}:${customerId}:${entitlement.billingStatus}:${entitlement.stripeSubscriptionId || "none"}:${intendedAction || "general"}:${submissionId || "none"}`,
     });
@@ -103,7 +108,7 @@ export async function POST(req: Request) {
       submissionId,
       returnTo,
       attribution: attribution as Record<string, unknown>,
-      metadata: { source: "checkout_endpoint", checkoutSessionId: session.id, stripeCustomerId: customerId, userId: user.id, trialDays: 14 },
+      metadata: { source: "checkout_endpoint", checkoutSessionId: session.id, stripeCustomerId: customerId, userId: user.id, trialDays: isContinuingSubscription ? 0 : 14 },
     });
 
     await admin.from("business_entitlement_events").insert({
@@ -111,7 +116,7 @@ export async function POST(req: Request) {
       business_email: business.business_email,
       event_type: "business_subscription_checkout_created",
       billing_status: entitlement.billingStatus,
-      metadata: { source: "checkout_endpoint", checkoutSessionId: session.id, stripeCustomerId: customerId, userId: user.id, returnTo, intendedAction, campaignId, submissionId, attribution, trialDays: 14 },
+      metadata: { source: "checkout_endpoint", checkoutSessionId: session.id, stripeCustomerId: customerId, userId: user.id, returnTo, intendedAction, campaignId, submissionId, attribution, trialDays: isContinuingSubscription ? 0 : 14 },
     });
 
     return NextResponse.json({ status: "checkout_created", url: session.url, sessionId: session.id });
