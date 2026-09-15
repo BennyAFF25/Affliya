@@ -15,6 +15,18 @@ import {
 } from "lucide-react";
 import { supabase } from "utils/supabase/pages-client";
 
+function safeStorageFileName(name: string) {
+  const normalized = name
+    .normalize("NFKD")
+    .replace(/[^\x00-\x7F]/g, "")
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .toLowerCase();
+
+  return normalized || "image";
+}
+
 export default function BusinessOnboardingPage() {
   const router = useRouter();
   const { session, isLoading } = useSessionContext();
@@ -119,14 +131,14 @@ export default function BusinessOnboardingPage() {
   };
 
   const handlePublish = async () => {
-    if (!session?.user?.email) return;
+    if (!session?.user?.email || !session.user.id) return;
     setSubmitting(true);
     setError(null);
 
     try {
       let uploadedLogoUrl: string | null = null;
       if (logoFile) {
-        const logoPath = `${Date.now()}_${logoFile.name}`;
+        const logoPath = `${session.user.id}/logos/${Date.now()}_${safeStorageFileName(logoFile.name)}`;
         const { error: logoError } = await supabase.storage
           .from("offer-logos")
           .upload(logoPath, logoFile, {
@@ -151,7 +163,7 @@ export default function BusinessOnboardingPage() {
       const uploadedImageUrls: string[] = [];
 
       for (const file of productImageFiles) {
-        const imagePath = `${Date.now()}_${file.name}`;
+        const imagePath = `${session.user.id}/products/${Date.now()}_${safeStorageFileName(file.name)}`;
         const { error: imageError } = await supabase.storage
           .from("profile-images")
           .upload(imagePath, file, {
