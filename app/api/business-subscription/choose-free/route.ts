@@ -8,12 +8,14 @@ export async function POST() {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const response = NextResponse.json({ ok: true, plan: "free" });
-  response.cookies.set("nettmark_business_plan_choice", "", {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: 0,
-  });
+  for (const cookieName of ["nettmark_business_plan_choice", "nettmark_business_plan_choice_v2"]) {
+    response.cookies.set(cookieName, "", {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: 0,
+    });
+  }
   return response;
 }
