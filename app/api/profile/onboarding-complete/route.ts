@@ -13,5 +13,14 @@ export async function POST() {
     .eq('id', user.id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
-  return NextResponse.json({ ok: true });
+
+  const response = NextResponse.json({ ok: true });
+  response.cookies.set('nettmark_business_plan_choice', 'required', {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+    maxAge: 60 * 60 * 24,
+  });
+  return response;
 }
