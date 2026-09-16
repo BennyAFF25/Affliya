@@ -55,8 +55,6 @@ type OfferAssetDraft = {
   pixelId: string;
 };
 
-const baseOAuthUrl = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${process.env.NEXT_PUBLIC_META_APP_ID}&redirect_uri=https://www.nettmark.com/api/meta/callback&scope=pages_show_list,ads_management,business_management,pages_read_engagement,pages_read_user_content,ads_read,pages_manage_ads&response_type=code`;
-
 function uniqBy<T>(items: T[], key: (item: T) => string | null | undefined) {
   const seen = new Set<string>();
   return items.filter((item) => {
@@ -69,11 +67,6 @@ function uniqBy<T>(items: T[], key: (item: T) => string | null | undefined) {
 
 function getOfferMapped(offer: Offer) {
   return Boolean(offer.meta_page_id && offer.meta_ad_account_id);
-}
-
-function encodeState(returnTo: string) {
-  if (typeof window === "undefined") return encodeURIComponent(returnTo);
-  return encodeURIComponent(window.btoa(returnTo));
 }
 
 function StatusPill({ connected }: { connected: boolean }) {
@@ -113,7 +106,7 @@ function ConnectMetaPageInner() {
   const connected = connections.length > 0;
 
   const returnTo = `/business/my-business/connect-meta${isOnboard ? "?onboard=1&connected=1" : "?connected=1"}`;
-  const oauthUrl = `${baseOAuthUrl}&state=${encodeState(returnTo)}`;
+  const oauthUrl = `/api/meta/start?returnTo=${encodeURIComponent(returnTo)}`;
 
   const uniquePages = useMemo(
     () => uniqBy(connections, (connection) => connection.page_id),
