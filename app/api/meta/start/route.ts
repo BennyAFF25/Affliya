@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 
-const META_APP_ID = process.env.NEXT_PUBLIC_META_APP_ID!;
+const META_APP_ID =
+  process.env.META_APP_ID ||
+  process.env.NEXT_PUBLIC_META_APP_ID ||
+  "1452564419447717";
 const META_CONFIG_ID = process.env.NEXT_PUBLIC_META_CONFIG_ID || "2067019383939915";
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://www.nettmark.com";
 const REDIRECT_URI = `${BASE_URL}/api/meta/callback`;
@@ -37,6 +40,8 @@ export async function GET(req: NextRequest) {
       graphVersion: "v19.0",
       loginMode: "facebook_login_for_business",
       configId: META_CONFIG_ID,
+      appIdPresent: Boolean(META_APP_ID),
+      appIdLast4: META_APP_ID.slice(-4),
     });
 
     const state = Buffer.from(returnTo, "utf8").toString("base64");
