@@ -9,6 +9,7 @@ type MetaSetupStatus = {
   businessId: string | null;
   billingStatus: string;
   currentPeriodEnd: string | null;
+  cancelAtPeriodEnd: boolean;
 };
 
 function formatTrialEnd(value: string | null) {
@@ -98,6 +99,7 @@ export default function GrowthMetaSetupPrompt() {
   }, [isDashboard]);
 
   const isTrial = status?.billingStatus === "subscription_trialing";
+  const isScheduledToCancel = Boolean(status?.cancelAtPeriodEnd);
   const trialEndLabel = useMemo(
     () => formatTrialEnd(status?.currentPeriodEnd || null),
     [status?.currentPeriodEnd],
@@ -154,16 +156,25 @@ export default function GrowthMetaSetupPrompt() {
         <section className="flex flex-col gap-4 rounded-2xl border border-[#00C2CB]/25 bg-[#00C2CB]/[0.055] px-4 py-4 text-white shadow-[0_10px_35px_rgba(0,0,0,0.12)] sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <span className="font-semibold text-[#7ff5fb]">Growth trial</span>
+              <span className="font-semibold text-[#7ff5fb]">
+                {isScheduledToCancel ? "Growth trial cancelled" : "Growth trial"}
+              </span>
               {trialDaysLeft !== null && (
                 <span className="rounded-full border border-[#00C2CB]/20 bg-[#00C2CB]/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em] text-[#7ff5fb]">
-                  {trialDaysLeft === 0 ? "Ends today" : `${trialDaysLeft} day${trialDaysLeft === 1 ? "" : "s"} left`}
+                  {isScheduledToCancel
+                    ? trialEndLabel
+                      ? `Access until ${trialEndLabel}`
+                      : "Ends after current trial"
+                    : trialDaysLeft === 0
+                      ? "Ends today"
+                      : `${trialDaysLeft} day${trialDaysLeft === 1 ? "" : "s"} left`}
                 </span>
               )}
             </div>
             <p className="mt-1 text-sm text-white/65">
-              Affiliate-funded ads are enabled during your trial
-              {trialEndLabel ? ` through ${trialEndLabel}` : ""}. After that, Growth is $49/month unless cancelled.
+              {isScheduledToCancel
+                ? `Affiliate-funded ads remain enabled${trialEndLabel ? ` through ${trialEndLabel}` : " until the end of your current trial"}. Your subscription will not renew or charge after that.`
+                : `Affiliate-funded ads are enabled during your trial${trialEndLabel ? ` through ${trialEndLabel}` : ""}. After that, Growth is $49/month unless cancelled.`}
             </p>
           </div>
           <button
@@ -172,7 +183,7 @@ export default function GrowthMetaSetupPrompt() {
             disabled={openingPortal}
             className="inline-flex shrink-0 items-center justify-center rounded-xl border border-[#00C2CB]/35 bg-[#00C2CB]/10 px-4 py-2.5 text-sm font-semibold text-[#7ff5fb] transition hover:bg-[#00C2CB]/15 hover:text-white disabled:cursor-wait disabled:opacity-60"
           >
-            {openingPortal ? "Opening…" : "Manage trial"}
+            {openingPortal ? "Opening…" : isScheduledToCancel ? "Resume Growth" : "Manage trial"}
           </button>
         </section>
       )}
