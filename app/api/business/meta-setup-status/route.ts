@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
-import { createServerSupabaseClient } from "../../../../utils/businessSubscriptions";
+import {
+  createBusinessSubscriptionStripeClient,
+  createServerSupabaseClient,
+} from "../../../../utils/businessSubscriptions";
 import { getBusinessEntitlement } from "../../../../utils/businessEntitlements";
 
 export const runtime = "nodejs";
@@ -39,6 +42,7 @@ export async function GET() {
         businessId: null,
         billingStatus: "free",
         currentPeriodEnd: null,
+        cancelAtPeriodEnd: false,
       });
     }
 
@@ -68,12 +72,28 @@ export async function GET() {
       (row) => Boolean(row?.ad_account_id) && Boolean(row?.page_id),
     );
 
+    let cancelAtPeriodEnd = false;
+    if (entitlement?.stripeSubscriptionId && isGrowth) {
+      try {
+        const stripe = createBusinessSubscriptionStripeClient();
+        const subscription = await stripe.subscriptions.retrieve(entitlement.stripeSubscriptionId);
+        cancelAtPeriodEnd = Boolean(subscription.cancel_at_period_end);
+      } catch (stripeError) {
+        console.warn("[business/meta-setup-status] failed to resolve scheduled cancellation", {
+          businessId: business.id,
+          stripeSubscriptionId: entitlement.stripeSubscriptionId,
+          message: stripeError instanceof Error ? stripeError.message : "Unknown Stripe error",
+        });
+      }
+    }
+
     return NextResponse.json({
       isGrowth,
       hasMetaConnection,
       businessId: business.id,
       billingStatus,
       currentPeriodEnd: entitlement?.subscriptionCurrentPeriodEnd || null,
+      cancelAtPeriodEnd,
     });
   } catch (error) {
     console.error("[business/meta-setup-status]", error);
