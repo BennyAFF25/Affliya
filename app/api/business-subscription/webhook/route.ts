@@ -5,6 +5,7 @@ import {
   createServerSupabaseClient,
   getStripeCustomerIdFromSubscription,
   syncBusinessEntitlementFromStripeSubscription,
+  toIsoFromStripeSeconds,
 } from "../../../../utils/businessSubscriptions";
 import { trackBusinessSubscriptionAnalytics } from "../../../../utils/businessSubscriptionAnalytics";
 import {
@@ -210,6 +211,28 @@ export async function POST(req: Request) {
       fallbackUserId: metadata.user_id || subscription.metadata?.user_id || null,
       sourceEventType: event.type,
     });
+
+    const consumedTrial =
+      subscription.status === "trialing" || subscription.metadata?.trialEligibleAtCheckout === "true";
+
+    if (consumedTrial && syncResult.businessId) {
+      const trialStartedAt = toIsoFromStripeSeconds(subscription.trial_start || subscription.created || null);
+      const { error: trialHistoryError } = await supabase
+        .from("business_entitlements")
+        .update({
+          growth_trial_used: true,
+          growth_trial_started_at: trialStartedAt,
+        })
+        .eq("business_id", syncResult.businessId);
+
+      if (trialHistoryError) {
+        console.error("[business-subscription/webhook] failed to persist Growth trial history", {
+          businessId: syncResult.businessId,
+          stripeSubscriptionId: subscription.id,
+          message: trialHistoryError.message,
+        });
+      }
+    }
 
     if (event.type === "invoice.paid") {
       const invoice = event.data.object as Stripe.Invoice;
