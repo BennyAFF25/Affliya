@@ -2,6 +2,7 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+import { PageHeader } from "@/../components/ui/page-header";
 import { useSession } from "@supabase/auth-helpers-react";
 import React, { useEffect, useState } from "react";
 import { supabase } from "utils/supabase/pages-client";
@@ -584,26 +585,17 @@ export default function AdIdeasPage() {
         intent={subscriptionIntent ? { ...subscriptionIntent, businessId: subscriptionIntent.businessId || businessId } : null}
         onClose={() => setSubscriptionIntent(null)}
       />
-      <div className="ad-ideas-theme min-h-screen bg-[#05080b] px-4 py-8 text-white md:px-10 md:py-10">
+      <div className="ad-ideas-theme min-h-screen bg-[var(--background)] px-4 py-6 text-white sm:px-6 lg:px-10 lg:py-8">
       <div className="mx-auto max-w-6xl space-y-6">
-        <div className="overflow-hidden rounded-[32px] border border-white/10 bg-[radial-gradient(circle_at_top_right,rgba(0,194,203,0.22),transparent_34%),linear-gradient(135deg,#111819,#080b0d)] p-6 shadow-[0_28px_90px_rgba(0,0,0,0.45)] md:p-8">
-          <div className="flex flex-col gap-7 xl:flex-row xl:items-end xl:justify-between">
-            <div className="max-w-3xl">
-              <div className="inline-flex rounded-full border border-[#00C2CB]/25 bg-[#00C2CB]/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.2em] text-[#7ff5fb]">
-                Paid launch review
-              </div>
-              <h1 className="mt-4 text-3xl font-black tracking-tight text-white md:text-5xl">
-                Affiliate ad ideas
-              </h1>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300 md:text-base">
-                Review paid campaign submissions from approved affiliates. Billing and Nettmark Business activate only when you approve real paid campaign activity.
-              </p>
-            </div>
-            <div className="grid grid-cols-3 gap-3 xl:min-w-[420px]">
-              <StatCard label="Pending" value={pendingIdeas.length} tone="warning" className="border-white/10 bg-white/[0.04]" />
-              <StatCard label="Approved" value={approvedCount} tone="success" className="border-white/10 bg-white/[0.04]" />
-              <StatCard label="Reviewed" value={reviewedIdeas.length} tone="muted" className="border-white/10 bg-white/[0.04]" />
-            </div>
+        <div className="space-y-6">
+          <PageHeader
+            title="Affiliate ad ideas"
+            description="Review paid campaign submissions from approved affiliates. Billing and Nettmark Business activate only when you approve real paid campaign activity."
+          />
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <StatCard label="Pending" value={pendingIdeas.length} tone="warning" className="border-white/10 bg-white/[0.04]" />
+            <StatCard label="Approved" value={approvedCount} tone="success" className="border-white/10 bg-white/[0.04]" />
+            <StatCard label="Reviewed" value={reviewedIdeas.length} tone="muted" className="border-white/10 bg-white/[0.04]" />
           </div>
         </div>
 

@@ -4,6 +4,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { PageHeader } from "@/../components/ui/page-header";
 import { useSession } from "@supabase/auth-helpers-react";
 import { supabase } from "@/../utils/supabase/pages-client";
 import { TRACKING_NOT_READY_MESSAGE } from "@/../utils/approvals/enforcement";
@@ -357,26 +358,17 @@ export default function PostIdeasPage() {
 
   return (
     <>
-      <div className="post-ideas-theme min-h-screen bg-[var(--background)] px-4 py-8 text-[var(--foreground)] sm:px-8 lg:px-10">
+      <div className="post-ideas-theme min-h-screen bg-[var(--background)] px-4 py-6 text-[var(--foreground)] sm:px-6 lg:px-10 lg:py-8">
       <div className="mx-auto max-w-6xl">
-        <div className="mb-8 rounded-[28px] border border-white/10 bg-[radial-gradient(circle_at_top_right,rgba(0,194,203,0.18),transparent_32%),linear-gradient(135deg,#11181a_0%,#0c1011_52%,#070808_100%)] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.32)] md:p-8">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <p className="inline-flex items-center rounded-full border border-[#00C2CB]/20 bg-[#00C2CB]/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.24em] text-[#7ff5fb]">
-                Organic review queue
-              </p>
-              <h1 className="mt-4 text-3xl font-bold tracking-tight text-white md:text-4xl">
-                Post Requests
-              </h1>
-              <p className="mt-3 max-w-2xl text-sm text-white/65 md:text-base">
-                Review submitted posts, inspect how the affiliate plans to publish them, and approve the strongest placements without the clunky old modal flow.
-              </p>
-            </div>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              <StatCard label="Pending" value={pendingPosts.length} tone="warning" />
-              <StatCard label="Approved" value={approvedCount} tone="success" />
-              <StatCard label="Recently reviewed" value={reviewedPosts.length} tone="muted" className="col-span-2 sm:col-span-1" />
-            </div>
+        <div className="mb-6 space-y-6">
+          <PageHeader
+            title="Post Requests"
+            description="Review submitted posts, inspect how affiliates plan to publish them, and approve the strongest placements."
+          />
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <StatCard label="Pending" value={pendingPosts.length} tone="warning" />
+            <StatCard label="Approved" value={approvedCount} tone="success" />
+            <StatCard label="Recently reviewed" value={reviewedPosts.length} tone="muted" className="col-span-2 sm:col-span-1" />
           </div>
         </div>
 
