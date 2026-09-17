@@ -14,6 +14,7 @@ import {
   getOwnedBusinessForUser,
   isBusinessSubscriptionCheckoutEnabled,
   resolveBillingStatusFromSubscription,
+  toIsoFromStripeSeconds,
 } from "../../../../utils/businessSubscriptions";
 import { trackBusinessSubscriptionAnalytics } from "../../../../utils/businessSubscriptionAnalytics";
 
@@ -36,7 +37,6 @@ export async function POST(req: Request) {
     const submissionId = typeof body?.submissionId === "string" ? body.submissionId.slice(0, 120) : null;
     const campaignId = typeof body?.campaignId === "string" ? body.campaignId.slice(0, 120) : submissionId;
     const attribution = body?.attribution && typeof body.attribution === "object" ? body.attribution : {};
-    const isContinuingSubscription = intendedAction === "continue_growth_subscription";
 
     if (!businessId) return NextResponse.json({ error: "businessId is required" }, { status: 400 });
 
@@ -57,6 +57,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ status: "checkout_disabled", message: "Business subscription checkout is disabled.", entitlement }, { status: 403 });
     }
 
+    const { data: trialHistory, error: trialHistoryError } = await admin
+      .from("business_entitlements")
+      .select("growth_trial_used,growth_trial_started_at")
+      .eq("business_id", business.id)
+      .maybeSingle();
+
+    if (trialHistoryError) {
+      throw new Error(`Failed to load Growth trial history: ${trialHistoryError.message}`);
+    }
+
     const priceId = getBusinessSubscriptionPriceId();
     if (!priceId) return NextResponse.json({ error: "Missing STRIPE_NETTMARK_BUSINESS_MONTHLY_PRICE_ID" }, { status: 500 });
 
@@ -67,6 +77,41 @@ export async function POST(req: Request) {
       return NextResponse.json({ status: "already_subscribed", stripeSubscriptionId: existingSubscription.id, billingStatus: resolveBillingStatusFromSubscription(existingSubscription), currentPeriodEnd: getSubscriptionCurrentPeriodEnd(existingSubscription) });
     }
 
+    const historicalSubscriptions = await stripe.subscriptions.list({
+      customer: customerId,
+      status: "all",
+      limit: 100,
+    });
+
+    const priorNettmarkSubscription = historicalSubscriptions.data.find((subscription) => {
+      const metadata = subscription.metadata || {};
+      return metadata.nettmark_action === "business_subscription" || metadata.business_id === business.id;
+    }) || null;
+
+    const trialPreviouslyUsed = Boolean(trialHistory?.growth_trial_used) || Boolean(priorNettmarkSubscription);
+    const trialEligible = !trialPreviouslyUsed;
+
+    if (priorNettmarkSubscription && !trialHistory?.growth_trial_used) {
+      const inferredTrialStartedAt =
+        trialHistory?.growth_trial_started_at ||
+        toIsoFromStripeSeconds(priorNettmarkSubscription.trial_start || priorNettmarkSubscription.created || null);
+
+      const { error: trialBackfillError } = await admin
+        .from("business_entitlements")
+        .update({
+          growth_trial_used: true,
+          growth_trial_started_at: inferredTrialStartedAt,
+        })
+        .eq("business_id", business.id);
+
+      if (trialBackfillError) {
+        console.warn("[business-subscription/create-checkout-session] failed to self-heal Growth trial history", {
+          businessId: business.id,
+          message: trialBackfillError.message,
+        });
+      }
+    }
+
     const baseUrl = getBusinessSubscriptionBaseUrl();
     const metadata = {
       ...buildBusinessSubscriptionMetadata({ businessId: business.id, userId: user.id, businessEmail: business.business_email }),
@@ -74,15 +119,16 @@ export async function POST(req: Request) {
       intendedAction: intendedAction || "",
       campaignId: campaignId || "",
       submissionId: submissionId || "",
+      trialEligibleAtCheckout: trialEligible ? "true" : "false",
     };
 
-    const subscriptionData = isContinuingSubscription
-      ? { metadata }
-      : {
+    const subscriptionData = trialEligible
+      ? {
           metadata,
           trial_period_days: 14,
           trial_settings: { end_behavior: { missing_payment_method: "cancel" as const } },
-        };
+        }
+      : { metadata };
 
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
@@ -93,9 +139,9 @@ export async function POST(req: Request) {
       payment_method_collection: "always",
       subscription_data: subscriptionData,
       success_url: `${baseUrl}${returnTo}?subscription=checkout_returned&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${baseUrl}${returnTo}?subscription=cancelled${isContinuingSubscription ? "&resume=1" : ""}`,
+      cancel_url: `${baseUrl}${returnTo}?subscription=cancelled${trialEligible ? "" : "&resume=1"}`,
     }, {
-      idempotencyKey: `business_subscription_checkout:${business.id}:${customerId}:${entitlement.billingStatus}:${entitlement.stripeSubscriptionId || "none"}:${intendedAction || "general"}:${submissionId || "none"}`,
+      idempotencyKey: `business_subscription_checkout:${business.id}:${customerId}:${entitlement.billingStatus}:${entitlement.stripeSubscriptionId || "none"}:${trialEligible ? "trial" : "paid"}:${intendedAction || "general"}:${submissionId || "none"}`,
     });
 
     await trackBusinessSubscriptionAnalytics({
@@ -108,7 +154,7 @@ export async function POST(req: Request) {
       submissionId,
       returnTo,
       attribution: attribution as Record<string, unknown>,
-      metadata: { source: "checkout_endpoint", checkoutSessionId: session.id, stripeCustomerId: customerId, userId: user.id, trialDays: isContinuingSubscription ? 0 : 14 },
+      metadata: { source: "checkout_endpoint", checkoutSessionId: session.id, stripeCustomerId: customerId, userId: user.id, trialDays: trialEligible ? 14 : 0, trialEligible },
     });
 
     await admin.from("business_entitlement_events").insert({
@@ -116,10 +162,16 @@ export async function POST(req: Request) {
       business_email: business.business_email,
       event_type: "business_subscription_checkout_created",
       billing_status: entitlement.billingStatus,
-      metadata: { source: "checkout_endpoint", checkoutSessionId: session.id, stripeCustomerId: customerId, userId: user.id, returnTo, intendedAction, campaignId, submissionId, attribution, trialDays: isContinuingSubscription ? 0 : 14 },
+      metadata: { source: "checkout_endpoint", checkoutSessionId: session.id, stripeCustomerId: customerId, userId: user.id, returnTo, intendedAction, campaignId, submissionId, attribution, trialDays: trialEligible ? 14 : 0, trialEligible },
     });
 
-    return NextResponse.json({ status: "checkout_created", url: session.url, sessionId: session.id });
+    return NextResponse.json({
+      status: "checkout_created",
+      url: session.url,
+      sessionId: session.id,
+      trialEligible,
+      trialDays: trialEligible ? 14 : 0,
+    });
   } catch (err: unknown) {
     console.error("[business-subscription/create-checkout-session]", err);
     return NextResponse.json({ error: err instanceof Error ? err.message : "Failed to create business subscription checkout" }, { status: 500 });
