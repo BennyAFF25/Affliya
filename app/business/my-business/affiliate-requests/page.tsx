@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { PageHeader } from "@/../components/ui/page-header";
 import { useSession } from "@supabase/auth-helpers-react";
 import { supabase } from "@/../utils/supabase/pages-client";
 
@@ -262,45 +263,31 @@ export default function AffiliateRequestsPage() {
   const shopPending = shopRequests.filter((r) => r.status === "pending");
 
   return (
-    <div className="min-h-screen w-full bg-[var(--background)] px-5 py-6 text-[var(--foreground)]">
+    <div className="min-h-screen w-full bg-[var(--background)] px-4 py-6 text-[var(--foreground)] sm:px-6 lg:px-10 lg:py-8">
       <div className="mx-auto max-w-6xl">
-        <div className="relative mb-8 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-[0_0_0_1px_rgba(0,0,0,0.35),0_8px_30px_rgba(0,0,0,0.28)]">
-          <div className="pointer-events-none absolute inset-0">
-            <div className="absolute -right-16 -top-20 h-56 w-56 rounded-full bg-[var(--primary)]/10 blur-3xl" />
-            <div className="absolute -bottom-24 -left-10 h-48 w-48 rounded-full bg-[var(--primary)]/10 blur-3xl" />
-          </div>
-          <div className="relative z-10 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-[0.18em] text-[var(--muted-foreground)]">
-                Business inbox
-              </p>
-              <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[var(--primary)]">
-                Pending requests
-              </h1>
-              <p className="mt-2 max-w-2xl text-sm text-[var(--muted-foreground)]">
-                Review affiliates who want to promote your offer and decide who gets storefront access. Everything waiting on you is grouped here.
-              </p>
+        <div className="mb-6 space-y-6">
+          <PageHeader
+            title="Pending requests"
+            description="Review affiliates who want to promote your offer and decide who gets storefront access. Everything waiting on you is grouped here."
+          />
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--secondary)]/60 px-4 py-3">
+              <div className="text-xs uppercase tracking-[0.16em] text-[var(--muted-foreground)]">
+                Offer requests
+              </div>
+              <div className="mt-2 text-2xl font-semibold">{pending.length}</div>
             </div>
-
-            <div className="grid gap-3 sm:grid-cols-3">
-              <div className="rounded-xl border border-[var(--border)] bg-[var(--secondary)]/60 px-4 py-3">
-                <div className="text-xs uppercase tracking-[0.16em] text-[var(--muted-foreground)]">
-                  Offer requests
-                </div>
-                <div className="mt-2 text-2xl font-semibold">{pending.length}</div>
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--secondary)]/60 px-4 py-3">
+              <div className="text-xs uppercase tracking-[0.16em] text-[var(--muted-foreground)]">
+                Storefront requests
               </div>
-              <div className="rounded-xl border border-[var(--border)] bg-[var(--secondary)]/60 px-4 py-3">
-                <div className="text-xs uppercase tracking-[0.16em] text-[var(--muted-foreground)]">
-                  Storefront requests
-                </div>
-                <div className="mt-2 text-2xl font-semibold">{shopPending.length}</div>
+              <div className="mt-2 text-2xl font-semibold">{shopPending.length}</div>
+            </div>
+            <div className="rounded-xl border border-[var(--border)] bg-[var(--secondary)]/60 px-4 py-3">
+              <div className="text-xs uppercase tracking-[0.16em] text-[var(--muted-foreground)]">
+                Rejected logged
               </div>
-              <div className="rounded-xl border border-[var(--border)] bg-[var(--secondary)]/60 px-4 py-3">
-                <div className="text-xs uppercase tracking-[0.16em] text-[var(--muted-foreground)]">
-                  Rejected logged
-                </div>
-                <div className="mt-2 text-2xl font-semibold">{rejected.length}</div>
-              </div>
+              <div className="mt-2 text-2xl font-semibold">{rejected.length}</div>
             </div>
           </div>
         </div>

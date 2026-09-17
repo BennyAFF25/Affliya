@@ -5,6 +5,7 @@ import "@/globals.css";
 import AcceptTermsModal from "@/../app/components/AcceptTermsModal";
 import Link from "next/link";
 import React, { useEffect, useState } from "react";
+import { PageHeader } from "@/../components/ui/page-header";
 import { useSession } from "@supabase/auth-helpers-react";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import toast from "react-hot-toast";
@@ -963,25 +964,18 @@ export default function MyBusinessPage() {
         />
       )}
 
-      <div className="my-business-theme min-h-screen bg-[#090b0c] px-4 py-6 text-white sm:px-6 lg:px-10 lg:py-8">
+      <div className="my-business-theme min-h-screen bg-[var(--background)] px-4 py-6 text-white sm:px-6 lg:px-10 lg:py-8">
         <div className="mx-auto grid w-full max-w-[1500px] gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
           <div className="space-y-6">
-            <section className="overflow-hidden rounded-[24px] border border-white/[0.09] bg-[#17191a] p-5 shadow-2xl shadow-black/20 sm:p-7">
-              <div className="mb-5 inline-flex items-center gap-2 rounded-full bg-[#00C2CB] px-4 py-2 text-[10px] font-black uppercase tracking-[0.28em] text-black">
-                <IconBolt className="h-3.5 w-3.5" />
-                Business Overview
-              </div>
+            <PageHeader
+              title="My Business"
+              description="Grow your brand with affiliates. Review and approve content, and complete required setup only when a campaign is ready to go live."
+            />
 
+            <section className="overflow-hidden rounded-[24px] border border-white/[0.09] bg-[#17191a] p-5 shadow-2xl shadow-black/20 sm:p-7">
               <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
                 <div>
-                  <h1 className="text-3xl font-bold tracking-tight sm:text-4xl 2xl:text-5xl">
-                    My Business
-                  </h1>
-                  <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-400 sm:text-base">
-                    Grow your brand with affiliates. Review and approve content, and complete required setup only when a campaign is ready to go live.
-                  </p>
-
-                  <div className="mt-7 grid gap-4 2xl:grid-cols-[270px_minmax(0,1fr)]">
+                  <div className="grid gap-4 2xl:grid-cols-[270px_minmax(0,1fr)]">
                     <Link
                       href={reviewSubmissionsHref}
                       prefetch={false}
