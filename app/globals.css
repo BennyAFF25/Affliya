@@ -1370,6 +1370,9 @@ body.dark {
 }
 
 .trust-carousel-mask {
+  /* Give the small pill shadows room to fade before the horizontal mask clips. */
+  padding-block: 1.5rem;
+  margin-block: -1.5rem;
   overflow: hidden;
   mask-image: linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%);
   -webkit-mask-image: linear-gradient(to right, transparent 0%, black 8%, black 92%, transparent 100%);
@@ -1386,6 +1389,8 @@ body.dark {
 .trust-carousel-pill {
   position: relative;
   isolation: isolate;
+  /* Contain the animated/composited glow within each rounded pill. */
+  overflow: hidden;
 }
 
 .trust-carousel-pill::before {

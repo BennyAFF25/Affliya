@@ -236,7 +236,7 @@ export default function Home() {
               {[...trustBadges, ...trustBadges].map((badge, index) => (
                 <span
                   key={`${badge}-${index}`}
-                  className="trust-carousel-pill inline-flex shrink-0 items-center rounded-full border border-[#7ff5fb]/20 bg-[linear-gradient(180deg,rgba(16,58,66,0.96),rgba(8,25,30,0.94))] px-6 py-3 text-base font-semibold text-[#e7fdff] shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_14px_34px_rgba(0,194,203,0.16),inset_0_1px_0_rgba(255,255,255,0.12)] sm:px-8 sm:py-4 sm:text-lg"
+                  className="trust-carousel-pill inline-flex shrink-0 items-center rounded-full border border-[#7ff5fb]/20 bg-[linear-gradient(180deg,rgba(16,58,66,0.96),rgba(8,25,30,0.94))] px-6 py-3 text-base font-semibold text-[#e7fdff] shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_5px_10px_rgba(0,194,203,0.10),inset_0_1px_0_rgba(255,255,255,0.12)] sm:px-8 sm:py-4 sm:text-lg"
                 >
                   <span className="mr-3 inline-block h-2.5 w-2.5 rounded-full bg-[#7ff5fb] shadow-[0_0_14px_rgba(127,245,251,0.95)] sm:h-3 sm:w-3" />
                   {badge}

@@ -106,7 +106,7 @@ function DesktopManifesto({ frameIndex, reduced }: { frameIndex: number; reduced
   const resolved = Boolean(frame.resolved);
 
   return (
-    <div className="relative hidden min-h-[580px] overflow-hidden rounded-[2.25rem] border border-white/8 bg-[#030707] px-8 py-9 shadow-[0_30px_120px_-55px_rgba(0,0,0,0.9),inset_0_1px_0_rgba(255,255,255,0.08)] md:block lg:min-h-[610px] lg:px-12 lg:py-10">
+    <div className="relative isolate hidden min-h-[580px] overflow-hidden rounded-[2.25rem] [clip-path:inset(0_round_2.25rem)] border border-white/8 bg-[#030707] px-8 py-9 shadow-[0_30px_120px_-55px_rgba(0,0,0,0.9),inset_0_1px_0_rgba(255,255,255,0.08)] md:block lg:min-h-[610px] lg:px-12 lg:py-10">
       <motion.div
         className="pointer-events-none absolute -left-28 top-6 h-[34rem] w-[34rem] rounded-full bg-[#00C2CB]/[0.16] blur-[110px]"
         animate={{ opacity: resolved ? 0.18 : 0.28, scale: resolved ? 1.04 : 1 }}
@@ -122,7 +122,7 @@ function DesktopManifesto({ frameIndex, reduced }: { frameIndex: number; reduced
         animate={{ opacity: resolved ? 0.52 : 0.12, scale: resolved ? 1.14 : 0.88 }}
         transition={{ duration: 1.8, ease: "easeInOut" }}
       />
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.055),transparent_26%),radial-gradient(circle_at_50%_0%,rgba(127,245,251,0.08),transparent_38%)]" />
+      <div className="pointer-events-none absolute inset-0 rounded-[inherit] bg-[linear-gradient(180deg,rgba(255,255,255,0.055),transparent_26%),radial-gradient(circle_at_50%_0%,rgba(127,245,251,0.08),transparent_38%)]" />
 
       <div className="relative grid h-full min-h-[310px] grid-cols-[1fr_9rem_1fr] items-center gap-4 lg:grid-cols-[1fr_10rem_1fr] lg:gap-8">
         <div className="max-w-[31rem] justify-self-start">
@@ -173,7 +173,7 @@ function MobileManifesto({ frameIndex, reduced }: { frameIndex: number; reduced:
   const resolved = Boolean(frame.resolved);
 
   return (
-    <div className="relative overflow-hidden rounded-[1.75rem] border border-white/8 bg-[#030707] px-5 py-6 shadow-[0_24px_80px_-45px_rgba(0,0,0,0.86),inset_0_1px_0_rgba(255,255,255,0.08)] md:hidden">
+    <div className="relative isolate overflow-hidden rounded-[1.75rem] [clip-path:inset(0_round_1.75rem)] border border-white/8 bg-[#030707] px-5 py-6 shadow-[0_24px_80px_-45px_rgba(0,0,0,0.86),inset_0_1px_0_rgba(255,255,255,0.08)] md:hidden">
       <motion.div
         className="pointer-events-none absolute -left-20 top-0 h-56 w-56 rounded-full bg-[#00C2CB]/[0.16] blur-[70px]"
         animate={{ opacity: resolved ? 0.14 : 0.26 }}
