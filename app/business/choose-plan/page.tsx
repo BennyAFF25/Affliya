@@ -47,6 +47,19 @@ export default function ChooseBusinessPlanPage() {
       }
 
       setBusinessId(data.id);
+
+      try {
+        const eligibilityRes = await fetch(
+          `/api/business-subscription/trial-eligibility?businessId=${encodeURIComponent(data.id)}`,
+          { cache: "no-store" },
+        );
+        const eligibility = await eligibilityRes.json().catch(() => null);
+        if (eligibilityRes.ok && eligibility?.trialEligible === false) {
+          setResumeSubscription(true);
+        }
+      } catch (eligibilityError) {
+        console.warn("[choose-plan] failed to load Growth trial eligibility", eligibilityError);
+      }
     })();
   }, [isLoading, router, session?.user?.email]);
 
