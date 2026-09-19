@@ -6,7 +6,7 @@ import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import clsx from "clsx";
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronRight, Moon, Sun } from "lucide-react";
+import { ChevronRight, LogOut, Moon, Sun } from "lucide-react";
 import { useSessionContext } from "@supabase/auth-helpers-react";
 import { useTheme } from "@/../context/ThemeContext";
 
@@ -47,14 +47,54 @@ export default function MarketingHeader() {
   const user = session?.user ?? null;
   const [menuOpen, setMenuOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [dashboardHref, setDashboardHref] = useState("/affiliate/dashboard");
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const resolveDashboard = async () => {
+      if (!user?.email) {
+        setDashboardHref("/affiliate/dashboard");
+        return;
+      }
+
+      try {
+        const { data, error } = await supabaseClient
+          .from("business_profiles")
+          .select("id")
+          .eq("business_email", user.email)
+          .limit(1)
+          .maybeSingle();
+
+        if (cancelled) return;
+        if (!error && data?.id) {
+          setDashboardHref("/business/my-business");
+          return;
+        }
+      } catch {
+        // Fall back to the affiliate dashboard when role resolution is unavailable.
+      }
+
+      if (!cancelled) setDashboardHref("/affiliate/dashboard");
+    };
+
+    void resolveDashboard();
+    return () => {
+      cancelled = true;
+    };
+  }, [supabaseClient, user?.email]);
+
   const resolvedTheme = mounted ? theme : "dark";
 
   const handleLogin = () => router.push("/login");
+  const handleDashboard = () => {
+    setMenuOpen(false);
+    router.push(dashboardHref);
+  };
 
   const handleLogout = async () => {
     await supabaseClient.auth.signOut();
@@ -148,10 +188,10 @@ export default function MarketingHeader() {
 
             {user ? (
               <button
-                onClick={handleLogout}
-                className="hidden md:inline-flex text-sm font-medium text-white/70 hover:text-white transition"
+                onClick={handleDashboard}
+                className="hidden md:inline-flex px-4 py-2 rounded-full bg-[#00C2CB] text-black text-sm font-semibold shadow-[0_0_30px_#00C2CB44] hover:bg-[#00b0b8] transition"
               >
-                Sign out
+                Dashboard
               </button>
             ) : (
               <button
@@ -273,10 +313,10 @@ export default function MarketingHeader() {
 
                   {user ? (
                     <button
-                      onClick={handleLogout}
-                      className="rounded-xl bg-white/[0.04] px-3 py-2.5 text-[12px] font-medium text-white/82 transition hover:bg-white/[0.07]"
+                      onClick={handleDashboard}
+                      className="rounded-xl bg-[#00C2CB] px-3 py-2.5 text-[12px] font-semibold text-black shadow-[0_10px_30px_-18px_rgba(0,194,203,0.75)] transition hover:bg-[#00b0b8]"
                     >
-                      Sign out
+                      Dashboard
                     </button>
                   ) : (
                     <button
@@ -290,6 +330,16 @@ export default function MarketingHeader() {
                     </button>
                   )}
                 </div>
+
+                {user ? (
+                  <button
+                    onClick={handleLogout}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-[12px] font-medium text-white/65 transition hover:bg-white/[0.06] hover:text-white"
+                  >
+                    <LogOut className="h-3.5 w-3.5" />
+                    Sign out
+                  </button>
+                ) : null}
               </div>
             </div>
           </motion.div>
