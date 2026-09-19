@@ -32,6 +32,16 @@ const themeInitScript = `
 })();
 `;
 
+const mobileInputZoomGuard = `
+@media (max-width: 768px), (pointer: coarse) {
+  input:not([type='checkbox']):not([type='radio']):not([type='range']):not([type='color']),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
+`;
+
 export const metadata = {
   title: 'Nettmark',
   description: 'Nettmark – The Fastest Growing Affiliate Platform on the Planet',
@@ -67,6 +77,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className="dark bg-[#0b0b0b] text-white" suppressHydrationWarning>
       <body className="dark min-h-screen bg-gradient-to-b from-[#0b0b0b] to-[#0e0e0e] antialiased">
         <script id="theme-init" dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        <style id="mobile-input-zoom-guard" dangerouslySetInnerHTML={{ __html: mobileInputZoomGuard }} />
         <Providers>
           <ThemeWrapper>
             {children}
