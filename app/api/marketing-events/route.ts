@@ -177,7 +177,7 @@ export async function GET(req: Request) {
 
     const entitlementsQuery = (supabaseAdmin as any)
       .from("business_entitlements")
-      .select("business_email,billing_status,subscription_started_at")
+      .select("business_email,billing_status,subscription_started_at,growth_trial_used,growth_trial_started_at")
       .limit(5000);
 
     const [
@@ -312,6 +312,8 @@ export async function GET(req: Request) {
       business_email: string | null;
       billing_status: string | null;
       subscription_started_at: string | null;
+      growth_trial_used: boolean | null;
+      growth_trial_started_at: string | null;
     }>).filter((row) => cohortEmails.has(normalizeEmail(row.business_email)));
 
     const eventEmails = (eventType: string) =>
@@ -332,6 +334,13 @@ export async function GET(req: Request) {
     const planGrowthClicked = eventEmails("plan_growth_clicked");
     const growthCheckoutStarted = eventEmails("plan_growth_checkout_started");
     const growthActivatedByEvent = eventEmails("plan_growth_activated");
+
+    const growthTrialStartedByEntitlement = new Set(
+      entitlementRows
+        .filter((row) => Boolean(row.growth_trial_used && row.growth_trial_started_at))
+        .map((row) => normalizeEmail(row.business_email))
+        .filter(Boolean),
+    );
 
     const growthActiveByEntitlement = new Set(
       entitlementRows
@@ -457,6 +466,7 @@ export async function GET(req: Request) {
         offerCount: businessOffers.length,
         planChoice,
         growthCheckoutStarted: growthCheckoutStarted.has(email),
+        growthTrialStarted: growthTrialStartedByEntitlement.has(email),
         growthActivated: growthActiveByEntitlement.has(email),
         firstDashboardAction,
         lastEvent: lastEvent?.event_type || (businessOffers.length ? "offer_published" : "signup"),
@@ -486,6 +496,7 @@ export async function GET(req: Request) {
     const freeClickedCount = countIn(planFreeClicked);
     const growthClickedCount = countIn(planGrowthClicked);
     const growthCheckoutCount = countIn(growthCheckoutStarted);
+    const growthTrialStartedCount = countIn(growthTrialStartedByEntitlement);
     const growthActivatedCount = countIn(growthActiveByEntitlement);
 
     return NextResponse.json({
@@ -512,6 +523,7 @@ export async function GET(req: Request) {
         freeClicked: freeClickedCount,
         growthClicked: growthClickedCount,
         growthCheckoutStarted: growthCheckoutCount,
+        growthTrialStarted: growthTrialStartedCount,
         growthActivated: growthActivatedCount,
       },
       dashboardBehavior: {
