@@ -199,6 +199,7 @@ fbq('track', 'PageView');
             <NettmarkOfferTracker />
           </ThemeWrapper>
         </Providers>
+        <Analytics />
       </body>
     </html>
   );
