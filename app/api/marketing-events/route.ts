@@ -175,6 +175,11 @@ export async function GET(req: Request) {
       .order("created_at", { ascending: false })
       .limit(5000);
 
+    const entitlementsQuery = (supabaseAdmin as any)
+      .from("business_entitlements")
+      .select("business_email,billing_status,subscription_started_at")
+      .limit(5000);
+
     const [
       eventsResult,
       revenueResult,
@@ -184,6 +189,7 @@ export async function GET(req: Request) {
       affiliateRequestsResult,
       liveCampaignsResult,
       productEventsResult,
+      entitlementsResult,
     ] = await Promise.all([
       fromIso ? eventsQuery.gte("created_at", fromIso) : eventsQuery,
       fromIso ? revenueQuery.gte("accrued_at", fromIso) : revenueQuery,
@@ -193,6 +199,7 @@ export async function GET(req: Request) {
       fromIso ? affiliateRequestsQuery.gte("created_at", fromIso) : affiliateRequestsQuery,
       fromIso ? liveCampaignsQuery.gte("created_at", fromIso) : liveCampaignsQuery,
       fromIso ? productEventsQuery.gte("created_at", fromIso) : productEventsQuery,
+      entitlementsQuery,
     ]);
 
     const { data, error } = eventsResult;
@@ -301,6 +308,12 @@ export async function GET(req: Request) {
       created_at: string;
     }>).filter((row) => cohortEmails.has(normalizeEmail(row.actor_email)));
 
+    const entitlementRows = ((entitlementsResult?.data || []) as Array<{
+      business_email: string | null;
+      billing_status: string | null;
+      subscription_started_at: string | null;
+    }>).filter((row) => cohortEmails.has(normalizeEmail(row.business_email)));
+
     const eventEmails = (eventType: string) =>
       new Set(
         productRows
@@ -314,6 +327,19 @@ export async function GET(req: Request) {
     const publishClicked = eventEmails("offer_publish_clicked");
     const publishFailed = eventEmails("offer_publish_failed");
     const publishedByEvent = eventEmails("offer_published");
+    const planChoiceReached = eventEmails("plan_choice_viewed");
+    const planFreeClicked = eventEmails("plan_free_clicked");
+    const planGrowthClicked = eventEmails("plan_growth_clicked");
+    const growthCheckoutStarted = eventEmails("plan_growth_checkout_started");
+    const growthActivatedByEvent = eventEmails("plan_growth_activated");
+
+    const growthActiveByEntitlement = new Set(
+      entitlementRows
+        .filter((row) => row.billing_status === "subscription_active" || row.billing_status === "subscription_trialing")
+        .map((row) => normalizeEmail(row.business_email))
+        .filter(Boolean),
+    );
+    for (const email of growthActivatedByEvent) growthActiveByEntitlement.add(email);
 
     const offerPublishedEmails = new Set(
       offerRows.map((row) => normalizeEmail(row.business_email)).filter(Boolean),
@@ -371,10 +397,54 @@ export async function GET(req: Request) {
       ),
     };
 
+    const dashboardActionRows = productRows.filter((row) => row.event_type === "dashboard_action_clicked");
+    const actionMap = new Map<string, {
+      action: string;
+      label: string;
+      destination: string | null;
+      count: number;
+      businesses: Set<string>;
+    }>();
+
+    for (const row of dashboardActionRows) {
+      const action = typeof row.meta?.action === "string" && row.meta.action ? row.meta.action : "unknown_action";
+      const label = typeof row.meta?.label === "string" && row.meta.label ? row.meta.label : action.replace(/_/g, " ");
+      const destination = typeof row.meta?.destination === "string" ? row.meta.destination : null;
+      const current = actionMap.get(action) || { action, label, destination, count: 0, businesses: new Set<string>() };
+      current.count += 1;
+      const email = normalizeEmail(row.actor_email);
+      if (email) current.businesses.add(email);
+      actionMap.set(action, current);
+    }
+
+    const dashboardActions = Array.from(actionMap.values())
+      .map((item) => ({
+        action: item.action,
+        label: item.label,
+        destination: item.destination,
+        count: item.count,
+        uniqueBusinesses: item.businesses.size,
+      }))
+      .sort((a, b) => b.uniqueBusinesses - a.uniqueBusinesses || b.count - a.count)
+      .slice(0, 12);
+
+    const firstDashboardActionByEmail = new Map<string, { action: string; label: string; at: string }>();
+    for (const row of [...dashboardActionRows].reverse()) {
+      const email = normalizeEmail(row.actor_email);
+      if (!email || firstDashboardActionByEmail.has(email)) continue;
+      const action = typeof row.meta?.action === "string" && row.meta.action ? row.meta.action : "unknown_action";
+      const label = typeof row.meta?.label === "string" && row.meta.label ? row.meta.label : action.replace(/_/g, " ");
+      firstDashboardActionByEmail.set(email, { action, label, at: row.created_at });
+    }
+
     const recentBusinesses = businessProfiles.slice(0, 30).map((profile) => {
       const email = normalizeEmail(profile.email);
       const businessOffers = offerRows.filter((row) => normalizeEmail(row.business_email) === email);
-      const lastEvent = productRows.find((row) => normalizeEmail(row.actor_email) === email);
+      const businessProductRows = productRows.filter((row) => normalizeEmail(row.actor_email) === email);
+      const lastEvent = businessProductRows[0];
+      const firstDashboardAction = firstDashboardActionByEmail.get(email) || null;
+      const planChoice = planGrowthClicked.has(email) ? "growth" : planFreeClicked.has(email) ? "free" : null;
+
       return {
         email,
         signedUpAt: profile.created_at,
@@ -385,6 +455,10 @@ export async function GET(req: Request) {
         affiliateRequest: affiliateRequestEmails.has(email),
         metaEnabled: metaEnabledEmails.has(email),
         offerCount: businessOffers.length,
+        planChoice,
+        growthCheckoutStarted: growthCheckoutStarted.has(email),
+        growthActivated: growthActiveByEntitlement.has(email),
+        firstDashboardAction,
         lastEvent: lastEvent?.event_type || (businessOffers.length ? "offer_published" : "signup"),
         lastEventAt: lastEvent?.created_at || businessOffers[0]?.created_at || profile.created_at,
       };
@@ -408,6 +482,12 @@ export async function GET(req: Request) {
         index === 0 ? 0 : Math.max(0, arr[index - 1].count - step.count),
     }));
 
+    const planReachedCount = countIn(planChoiceReached);
+    const freeClickedCount = countIn(planFreeClicked);
+    const growthClickedCount = countIn(planGrowthClicked);
+    const growthCheckoutCount = countIn(growthCheckoutStarted);
+    const growthActivatedCount = countIn(growthActiveByEntitlement);
+
     return NextResponse.json({
       ok: true,
       period: range.label,
@@ -426,6 +506,18 @@ export async function GET(req: Request) {
         blockers,
         recentBusinesses,
         instrumentationStarted: productRows.length > 0,
+      },
+      planSelection: {
+        reached: planReachedCount,
+        freeClicked: freeClickedCount,
+        growthClicked: growthClickedCount,
+        growthCheckoutStarted: growthCheckoutCount,
+        growthActivated: growthActivatedCount,
+      },
+      dashboardBehavior: {
+        totalClickers: new Set(dashboardActionRows.map((row) => normalizeEmail(row.actor_email)).filter(Boolean)).size,
+        totalClicks: dashboardActionRows.length,
+        actions: dashboardActions,
       },
       growthSummary: {
         businessSignups: businessProfiles.length,
