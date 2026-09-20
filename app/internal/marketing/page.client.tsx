@@ -49,6 +49,24 @@ type DashboardData = {
     count: number;
   };
   growthSummary?: GrowthSummary;
+  planSelection?: {
+    reached: number;
+    freeClicked: number;
+    growthClicked: number;
+    growthCheckoutStarted: number;
+    growthActivated: number;
+  };
+  dashboardBehavior?: {
+    totalClickers: number;
+    totalClicks: number;
+    actions: Array<{
+      action: string;
+      label: string;
+      destination: string | null;
+      count: number;
+      uniqueBusinesses: number;
+    }>;
+  };
   businessActivation?: {
     steps: Array<{
       key: string;
@@ -75,6 +93,10 @@ type DashboardData = {
       affiliateRequest: boolean;
       metaEnabled: boolean;
       offerCount: number;
+      planChoice: "free" | "growth" | null;
+      growthCheckoutStarted: boolean;
+      growthActivated: boolean;
+      firstDashboardAction: { action: string; label: string; at: string } | null;
       lastEvent: string;
       lastEventAt: string;
     }>;
@@ -192,6 +214,8 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
 
   const growth = data?.growthSummary;
   const activation = data?.businessActivation;
+  const plan = data?.planSelection;
+  const dashboardBehavior = data?.dashboardBehavior;
   const signupStep = activation?.steps.find((step) => step.key === "signup")?.count || 0;
   const offerStep = activation?.steps.find((step) => step.key === "offer_live")?.count || 0;
   const noOffer = Math.max(0, signupStep - offerStep);
@@ -333,7 +357,42 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
                       <Insight tone="warning" icon={Activity} title={biggestBlocker ? `Biggest drop-off: ${biggestBlocker[0]}` : "No blocker data yet"} body={biggestBlocker ? `${biggestBlocker[1]} businesses currently sit in this gap.` : "Fresh event data will populate this automatically."} />
                       <Insight tone="info" icon={BriefcaseBusiness} title={`${noOffer} business${noOffer === 1 ? "" : "es"} without an offer`} body={signupStep ? `${pct(noOffer, signupStep)} of business signups in this period have not published an offer yet.` : "No business signups in this period."} />
                       <Insight tone="success" icon={Store} title={`${offerStep} offers published`} body={signupStep ? `Signup → offer publication is currently ${pct(offerStep, signupStep)}.` : "Waiting for data."} />
-                      <Insight tone="info" icon={Gauge} title="New tracking is now active" body="Dashboard reach, offer-builder entry, publish attempts and failures are being captured for new users." />
+                      <Insight tone="info" icon={Gauge} title="Product behavior tracking active" body="Plan choice, dashboard reach, dashboard actions and offer-builder activity now feed this page." />
+                    </div>
+                  </Panel>
+                </section>
+
+                <section className="mt-5 grid gap-4 xl:grid-cols-2">
+                  <Panel title="Plan selection" subtitle="What businesses choose immediately after publishing their offer.">
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      <MiniStat icon={Gauge} label="Reached plans" value={plan?.reached || 0} foot="plan screen viewed" />
+                      <MiniStat icon={Megaphone} label="Organic free" value={plan?.freeClicked || 0} foot={pct(plan?.freeClicked || 0, plan?.reached || 0)} />
+                      <MiniStat icon={Sparkles} label="Growth clicked" value={plan?.growthClicked || 0} foot={pct(plan?.growthClicked || 0, plan?.reached || 0)} />
+                    </div>
+                    <div className="mt-4 space-y-2">
+                      <FunnelRow label="Growth selected" value={plan?.growthClicked || 0} rate={pct(plan?.growthClicked || 0, plan?.reached || 0)} />
+                      <FunnelRow label="Stripe checkout opened" value={plan?.growthCheckoutStarted || 0} rate={pct(plan?.growthCheckoutStarted || 0, plan?.growthClicked || 0)} />
+                      <FunnelRow label="Growth active / trialing" value={plan?.growthActivated || 0} rate={pct(plan?.growthActivated || 0, plan?.growthCheckoutStarted || 0)} />
+                    </div>
+                  </Panel>
+
+                  <Panel title="What businesses click on the dashboard" subtitle={`${dashboardBehavior?.totalClickers || 0} businesses · ${dashboardBehavior?.totalClicks || 0} tracked clicks`}>
+                    <div className="space-y-2">
+                      {(dashboardBehavior?.actions || []).length ? (dashboardBehavior?.actions || []).slice(0, 8).map((item, index) => (
+                        <div key={item.action} className="flex items-center justify-between gap-4 rounded-xl border border-white/8 bg-black/15 px-4 py-3">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-[#00C2CB]/10 text-[11px] font-bold text-[#80faff]">{index + 1}</span>
+                              <span className="truncate text-sm text-white/78">{item.label}</span>
+                            </div>
+                            {item.destination ? <div className="mt-1 truncate pl-8 text-[11px] text-white/30">{item.destination}</div> : null}
+                          </div>
+                          <div className="shrink-0 text-right">
+                            <div className="text-sm font-semibold text-white">{item.uniqueBusinesses}</div>
+                            <div className="text-[11px] text-white/34">businesses · {item.count} clicks</div>
+                          </div>
+                        </div>
+                      )) : <div className="rounded-xl border border-dashed border-white/10 px-4 py-6 text-center text-sm text-white/38">Dashboard click data will appear as new businesses move through onboarding.</div>}
                     </div>
                   </Panel>
                 </section>
@@ -375,19 +434,20 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
                 </section>
 
                 <section id="users" className="mt-5 scroll-mt-5">
-                  <Panel title="Recent business journeys" subtitle="Who joined, how far they got, and what they did last.">
+                  <Panel title="Recent business journeys" subtitle="Who joined, which plan they chose, and the first thing they did next.">
                     <div className="overflow-x-auto">
-                      <table className="w-full min-w-[900px] text-left text-sm">
+                      <table className="w-full min-w-[1180px] text-left text-sm">
                         <thead className="border-b border-white/8 text-[11px] uppercase tracking-[0.14em] text-white/35">
                           <tr>
                             <th className="px-2 py-3 font-medium">Business</th>
                             <th className="px-2 py-3 font-medium">Signed up</th>
-                            <th className="px-2 py-3 font-medium">Dashboard</th>
-                            <th className="px-2 py-3 font-medium">Offer started</th>
                             <th className="px-2 py-3 font-medium">Offer live</th>
-                            <th className="px-2 py-3 font-medium">Affiliate</th>
-                            <th className="px-2 py-3 font-medium">Paid enabled</th>
-                            <th className="px-2 py-3 font-medium">Last action</th>
+                            <th className="px-2 py-3 font-medium">Plan</th>
+                            <th className="px-2 py-3 font-medium">Checkout</th>
+                            <th className="px-2 py-3 font-medium">Growth active</th>
+                            <th className="px-2 py-3 font-medium">Dashboard</th>
+                            <th className="px-2 py-3 font-medium">First dashboard click</th>
+                            <th className="px-2 py-3 font-medium">Last event</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-white/[0.05]">
@@ -395,11 +455,18 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
                             <tr key={business.email} className="text-white/68 hover:bg-white/[0.02]">
                               <td className="max-w-[260px] truncate px-2 py-3 font-medium text-white/88">{business.email}</td>
                               <td className="px-2 py-3 text-white/45">{ago(business.signedUpAt)}</td>
-                              <td className="px-2 py-3"><Status active={business.dashboardReached} /></td>
-                              <td className="px-2 py-3"><Status active={business.offerStarted} /></td>
                               <td className="px-2 py-3"><Status active={business.offerPublished} /></td>
-                              <td className="px-2 py-3"><Status active={business.affiliateRequest} /></td>
-                              <td className="px-2 py-3"><Status active={business.metaEnabled} /></td>
+                              <td className="px-2 py-3">
+                                {business.planChoice ? (
+                                  <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${business.planChoice === "growth" ? "bg-[#00C2CB]/12 text-[#82faff]" : "bg-white/[0.05] text-white/55"}`}>
+                                    {business.planChoice === "growth" ? "Growth" : "Free"}
+                                  </span>
+                                ) : <span className="text-white/24">—</span>}
+                              </td>
+                              <td className="px-2 py-3"><Status active={business.growthCheckoutStarted} /></td>
+                              <td className="px-2 py-3"><Status active={business.growthActivated} /></td>
+                              <td className="px-2 py-3"><Status active={business.dashboardReached} /></td>
+                              <td className="max-w-[240px] truncate px-2 py-3 text-white/55">{business.firstDashboardAction?.label || "—"}</td>
                               <td className="px-2 py-3 text-white/50">{business.lastEvent.replaceAll("_", " ")}</td>
                             </tr>
                           ))}
@@ -419,9 +486,10 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
                   <Panel title="Founder quick read" subtitle="A deliberately small decision panel.">
                     <div className="space-y-3">
                       <QuickLine label="Business signup → offer live" value={pct(offerStep, signupStep)} />
+                      <QuickLine label="Businesses choosing Growth" value={pct(plan?.growthClicked || 0, plan?.reached || 0)} />
+                      <QuickLine label="Growth click → checkout" value={pct(plan?.growthCheckoutStarted || 0, plan?.growthClicked || 0)} />
                       <QuickLine label="Businesses without offers" value={String(noOffer)} />
                       <QuickLine label="Tracked revenue" value={fmtMoney(growth?.trackedRevenue || data.revenue?.total || 0)} />
-                      <QuickLine label="Events in period" value={data.recentCount.toLocaleString()} />
                     </div>
                   </Panel>
                 </section>
