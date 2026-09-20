@@ -2,6 +2,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import "@/globals.css";
+import "./mobile-business.css";
+import MobileBusinessOverview, { type MobileBusinessView } from "./MobileBusinessOverview";
 import AcceptTermsModal from "@/../app/components/AcceptTermsModal";
 import Link from "next/link";
 import React, { useEffect, useState } from "react";
@@ -218,6 +220,7 @@ function getOfferMetaStatus(offer: Offer) {
 }
 
 export default function MyBusinessPage() {
+  const [mobileView, setMobileView] = useState<MobileBusinessView>("overview");
   const [offers, setOffers] = useState<Offer[]>([]);
   const [trackingVerifiedOfferIds, setTrackingVerifiedOfferIds] = useState<Set<string>>(new Set());
   const [trackingReadinessResolved, setTrackingReadinessResolved] = useState(false);
@@ -832,6 +835,7 @@ export default function MyBusinessPage() {
     if (params.get("billing") !== "required") return;
 
     setBillingRequiredPrompt(true);
+    setMobileView("setup");
     toast("Add a payment method to approve this campaign. You are only charged when tracked commission/ad spend is due.", { icon: "💳" });
 
     if (businessCustomerId && !hasCard) {
@@ -964,15 +968,23 @@ export default function MyBusinessPage() {
         />
       )}
 
-      <div className="my-business-theme min-h-screen bg-[var(--background)] px-4 py-6 text-white sm:px-6 lg:px-10 lg:py-8">
+      <div data-mobile-view={mobileView} className="my-business-theme min-h-screen bg-[var(--background)] px-4 py-6 text-white sm:px-6 lg:px-10 lg:py-8">
         <div className="mx-auto grid w-full max-w-[1500px] gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
           <div className="space-y-6">
+            <MobileBusinessOverview
+              view={mobileView} onNavigate={setMobileView} loading={offersLoading}
+              offers={offers} requests={affiliateRequestCount} adIdeas={pendingAdIdeaCount}
+              postIdeas={pendingPostIdeaCount} reviewHref={reviewSubmissionsHref}
+              billingRequired={billingRequiredPrompt && !billingReady} onSupport={handleOpenAssistant}
+            />
             <PageHeader
+              data-mobile-panel="desktop"
+              className="md:!mt-0"
               title="My Business"
               description="Grow your brand with affiliates. Review and approve content, and complete required setup only when a campaign is ready to go live."
             />
 
-            <section className="overflow-hidden rounded-[24px] border border-white/[0.09] bg-[#17191a] p-5 shadow-2xl shadow-black/20 sm:p-7">
+            <section data-mobile-panel="desktop" className="overflow-hidden rounded-[24px] border border-white/[0.09] bg-[#17191a] p-5 shadow-2xl shadow-black/20 sm:p-7">
               <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
                 <div>
                   <div className="grid gap-4 2xl:grid-cols-[270px_minmax(0,1fr)]">
@@ -1041,7 +1053,7 @@ export default function MyBusinessPage() {
               </div>
             </section>
 
-            <section className="grid gap-5 2xl:grid-cols-3">
+            <section data-mobile-panel="desktop" className="grid gap-5 2xl:grid-cols-3">
               <div className="rounded-[22px] border border-white/[0.08] bg-[#151718] p-5 shadow-2xl shadow-black/20">
                 <div className="mb-5 flex items-center gap-3">
                   <span className="grid h-10 w-10 place-items-center rounded-full bg-[#00C2CB]/10 text-[#7ff5fb]"><IconStorefront className="h-5 w-5" /></span>
@@ -1122,7 +1134,7 @@ export default function MyBusinessPage() {
               </div>
             </section>
 
-            <section className="rounded-[22px] border border-white/[0.08] bg-[#151718] p-5 shadow-2xl shadow-black/20 sm:p-6">
+            <section data-mobile-panel="setup" className="rounded-[22px] border border-white/[0.08] bg-[#151718] p-5 shadow-2xl shadow-black/20 sm:p-6">
               <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                   <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-[#00C2CB]/25 bg-[#00C2CB]/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.22em] text-[#7ff5fb]">
@@ -1282,7 +1294,7 @@ export default function MyBusinessPage() {
               </div>
             )}
 
-            <section className="rounded-[22px] border border-[#00C2CB]/18 bg-[#111314] p-5 shadow-2xl shadow-black/20 sm:p-6">
+            <section data-mobile-panel="desktop" className="rounded-[22px] border border-[#00C2CB]/18 bg-[#111314] p-5 shadow-2xl shadow-black/20 sm:p-6">
               <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div className="max-w-2xl">
                   <div className="inline-flex items-center gap-2 rounded-full border border-[#00C2CB]/25 bg-[#00C2CB]/10 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.18em] text-[#7ff5fb]">
@@ -1310,7 +1322,7 @@ export default function MyBusinessPage() {
               )}
             </section>
 
-            <section className="rounded-[22px] border border-white/[0.08] bg-[#151718] p-5 shadow-2xl shadow-black/20 sm:p-6">
+            <section data-mobile-panel="desktop" className="rounded-[22px] border border-white/[0.08] bg-[#151718] p-5 shadow-2xl shadow-black/20 sm:p-6">
               <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h2 className="text-lg font-bold text-white">Recent activity</h2>
@@ -1341,7 +1353,7 @@ export default function MyBusinessPage() {
               )}
             </section>
 
-            <section className="rounded-[22px] border border-white/[0.08] bg-[#151718] p-5 shadow-2xl shadow-black/20 sm:p-6">
+            <section data-mobile-panel="offers" className="rounded-[22px] border border-white/[0.08] bg-[#151718] p-5 shadow-2xl shadow-black/20 sm:p-6">
               <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <h2 className="text-lg font-bold text-white">Marketplace offers</h2>
@@ -1518,7 +1530,7 @@ export default function MyBusinessPage() {
             </section>
           </div>
 
-          <aside className="space-y-5 xl:sticky xl:top-24 xl:self-start">
+          <aside data-mobile-panel="desktop" className="space-y-5 xl:sticky xl:top-24 xl:self-start">
             <div className="rounded-[22px] border border-white/[0.08] bg-[#151718] p-5 shadow-2xl shadow-black/20">
               <h2 className="text-lg font-bold text-white">Business status</h2>
               <p className="mt-1 text-sm text-slate-500">

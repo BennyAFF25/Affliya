@@ -1,0 +1,32 @@
+/* Desktop layout and styling deliberately remain untouched. */
+.mobile-business-overview { display: none; }
+
+@media (max-width: 767px) {
+  .my-business-theme[data-mobile-view] {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  .my-business-theme .mobile-business-overview { display: block; color: var(--foreground); }
+  .mobile-business-overview [aria-current="page"] { color: var(--foreground); }
+  .mobile-business-overview [aria-label="Next action"] { background: var(--card); }
+  .mobile-business-overview :is(.text-slate-300, .text-slate-400, .text-slate-500) { color: var(--muted-foreground); }
+  .my-business-theme [data-mobile-panel] { display: none; }
+  .my-business-theme[data-mobile-view="offers"] [data-mobile-panel="offers"],
+  .my-business-theme[data-mobile-view="setup"] [data-mobile-panel="setup"] { display: block; }
+  .my-business-theme .mobile-business-primary {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 44px;
+    margin-top: 20px;
+    padding: 10px 16px;
+    border-radius: 8px;
+    background: #00c2cb;
+    color: #080808;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .mobile-business-overview :is(a, button):focus-visible {
+    outline: 2px solid #00c2cb;
+    outline-offset: 4px;
+  }
+}
