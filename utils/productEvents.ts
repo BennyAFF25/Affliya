@@ -15,12 +15,23 @@ export async function logProductEvent(payload: {
     | "first_tracking_link_created"
     | "first_promotion_ready"
     | "onboarding_completed"
+    | "business_signup_completed"
     | "business_dashboard_viewed"
     | "offer_create_viewed"
     | "offer_create_step"
     | "offer_publish_clicked"
     | "offer_publish_failed"
-    | "offer_published";
+    | "offer_published"
+    | "plan_choice_viewed"
+    | "plan_free_clicked"
+    | "plan_growth_clicked"
+    | "plan_growth_checkout_started"
+    | "plan_growth_activated"
+    | "dashboard_action_clicked"
+    | "meta_connect_clicked"
+    | "tracking_setup_clicked"
+    | "affiliate_requests_viewed"
+    | "content_review_clicked";
   actorRole: "business" | "affiliate";
   offerId?: string | null;
   businessCreativeId?: string | null;
@@ -38,4 +49,3 @@ export async function logProductEvent(payload: {
     // best-effort only
   }
 }
-
