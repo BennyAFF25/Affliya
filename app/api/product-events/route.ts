@@ -19,12 +19,23 @@ const ALLOWED_EVENT_TYPES = new Set([
   "first_tracking_link_created",
   "first_promotion_ready",
   "onboarding_completed",
+  "business_signup_completed",
   "business_dashboard_viewed",
   "offer_create_viewed",
   "offer_create_step",
   "offer_publish_clicked",
   "offer_publish_failed",
   "offer_published",
+  "plan_choice_viewed",
+  "plan_free_clicked",
+  "plan_growth_clicked",
+  "plan_growth_checkout_started",
+  "plan_growth_activated",
+  "dashboard_action_clicked",
+  "meta_connect_clicked",
+  "tracking_setup_clicked",
+  "affiliate_requests_viewed",
+  "content_review_clicked",
 ]);
 
 export async function POST(req: Request) {
@@ -51,8 +62,20 @@ export async function POST(req: Request) {
       ? String(body.businessCreativeId).trim()
       : null;
     const promotionType = body?.promotionType ? String(body.promotionType).trim() : null;
-    const actorRole = body?.actorRole ? String(body.actorRole).trim() : null;
     const meta = body?.meta && typeof body.meta === "object" && !Array.isArray(body.meta) ? body.meta : {};
+
+    const { data: businessProfile, error: businessProfileError } = await (supabaseAdmin as any)
+      .from("business_profiles")
+      .select("id")
+      .eq("business_email", user.email)
+      .limit(1)
+      .maybeSingle();
+
+    if (businessProfileError) {
+      console.warn("[product-events] business role lookup failed", businessProfileError);
+    }
+
+    const actorRole = businessProfile?.id ? "business" : "affiliate";
 
     const { error } = await (supabaseAdmin as any).from("product_events").insert({
       event_type: eventType,
@@ -75,4 +98,3 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: "Unexpected error" }, { status: 500 });
   }
 }
-
