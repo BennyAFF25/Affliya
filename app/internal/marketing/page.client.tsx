@@ -54,6 +54,7 @@ type DashboardData = {
     freeClicked: number;
     growthClicked: number;
     growthCheckoutStarted: number;
+    growthTrialStarted: number;
     growthActivated: number;
   };
   dashboardBehavior?: {
@@ -95,6 +96,7 @@ type DashboardData = {
       offerCount: number;
       planChoice: "free" | "growth" | null;
       growthCheckoutStarted: boolean;
+      growthTrialStarted: boolean;
       growthActivated: boolean;
       firstDashboardAction: { action: string; label: string; at: string } | null;
       lastEvent: string;
@@ -372,7 +374,8 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
                     <div className="mt-4 space-y-2">
                       <FunnelRow label="Growth selected" value={plan?.growthClicked || 0} rate={pct(plan?.growthClicked || 0, plan?.reached || 0)} />
                       <FunnelRow label="Stripe checkout opened" value={plan?.growthCheckoutStarted || 0} rate={pct(plan?.growthCheckoutStarted || 0, plan?.growthClicked || 0)} />
-                      <FunnelRow label="Growth active / trialing" value={plan?.growthActivated || 0} rate={pct(plan?.growthActivated || 0, plan?.growthCheckoutStarted || 0)} />
+                      <FunnelRow label="Trial started" value={plan?.growthTrialStarted || 0} rate={pct(plan?.growthTrialStarted || 0, plan?.growthCheckoutStarted || 0)} />
+                      <FunnelRow label="Growth active / trialing" value={plan?.growthActivated || 0} rate={pct(plan?.growthActivated || 0, plan?.growthTrialStarted || plan?.growthCheckoutStarted || 0)} />
                     </div>
                   </Panel>
 
@@ -436,7 +439,7 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
                 <section id="users" className="mt-5 scroll-mt-5">
                   <Panel title="Recent business journeys" subtitle="Who joined, which plan they chose, and the first thing they did next.">
                     <div className="overflow-x-auto">
-                      <table className="w-full min-w-[1180px] text-left text-sm">
+                      <table className="w-full min-w-[1260px] text-left text-sm">
                         <thead className="border-b border-white/8 text-[11px] uppercase tracking-[0.14em] text-white/35">
                           <tr>
                             <th className="px-2 py-3 font-medium">Business</th>
@@ -444,6 +447,7 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
                             <th className="px-2 py-3 font-medium">Offer live</th>
                             <th className="px-2 py-3 font-medium">Plan</th>
                             <th className="px-2 py-3 font-medium">Checkout</th>
+                            <th className="px-2 py-3 font-medium">Trial started</th>
                             <th className="px-2 py-3 font-medium">Growth active</th>
                             <th className="px-2 py-3 font-medium">Dashboard</th>
                             <th className="px-2 py-3 font-medium">First dashboard click</th>
@@ -464,6 +468,7 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
                                 ) : <span className="text-white/24">—</span>}
                               </td>
                               <td className="px-2 py-3"><Status active={business.growthCheckoutStarted} /></td>
+                              <td className="px-2 py-3"><Status active={business.growthTrialStarted} /></td>
                               <td className="px-2 py-3"><Status active={business.growthActivated} /></td>
                               <td className="px-2 py-3"><Status active={business.dashboardReached} /></td>
                               <td className="max-w-[240px] truncate px-2 py-3 text-white/55">{business.firstDashboardAction?.label || "—"}</td>
@@ -488,6 +493,7 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
                       <QuickLine label="Business signup → offer live" value={pct(offerStep, signupStep)} />
                       <QuickLine label="Businesses choosing Growth" value={pct(plan?.growthClicked || 0, plan?.reached || 0)} />
                       <QuickLine label="Growth click → checkout" value={pct(plan?.growthCheckoutStarted || 0, plan?.growthClicked || 0)} />
+                      <QuickLine label="Checkout → trial started" value={pct(plan?.growthTrialStarted || 0, plan?.growthCheckoutStarted || 0)} />
                       <QuickLine label="Businesses without offers" value={String(noOffer)} />
                       <QuickLine label="Tracked revenue" value={fmtMoney(growth?.trackedRevenue || data.revenue?.total || 0)} />
                     </div>
