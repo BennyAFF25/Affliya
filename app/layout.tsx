@@ -3,7 +3,7 @@ import React from 'react';
 import Providers from './Providers';
 import ThemeWrapper from '@/components/ThemeWrapper';
 import NettmarkOfferTracker from '../components/marketing/NettmarkOfferTracker';
-import BusinessProductAnalytics from '@/components/analytics/BusinessProductAnalytics';
+import BusinessProductAnalytics from '../components/analytics/BusinessProductAnalytics';
 import { Toaster } from 'react-hot-toast';
 import Script from 'next/script';
 import { META_PIXEL_ID } from '@/../utils/marketing/metaPixel';
