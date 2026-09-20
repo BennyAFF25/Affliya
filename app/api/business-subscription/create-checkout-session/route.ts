@@ -165,6 +165,27 @@ export async function POST(req: Request) {
       metadata: { source: "checkout_endpoint", checkoutSessionId: session.id, stripeCustomerId: customerId, userId: user.id, returnTo, intendedAction, campaignId, submissionId, attribution, trialDays: trialEligible ? 14 : 0, trialEligible },
     });
 
+    const { error: productEventError } = await admin.from("product_events").insert({
+      event_type: "plan_growth_checkout_started",
+      actor_email: business.business_email,
+      actor_role: "business",
+      meta: {
+        source: "checkout_endpoint",
+        checkoutSessionId: session.id,
+        trialEligible,
+        trialDays: trialEligible ? 14 : 0,
+        intendedAction,
+        returnTo,
+      },
+    });
+
+    if (productEventError) {
+      console.warn("[business-subscription/create-checkout-session] failed to log product event", {
+        businessId: business.id,
+        message: productEventError.message,
+      });
+    }
+
     return NextResponse.json({
       status: "checkout_created",
       url: session.url,
