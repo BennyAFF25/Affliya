@@ -264,6 +264,29 @@ export async function POST(req: Request) {
           billingStatus: syncResult.billingStatus,
         },
       });
+
+      if (event.type === "checkout.session.completed" && syncResult.businessEmail) {
+        const { error: productEventError } = await supabase.from("product_events").insert({
+          event_type: "plan_growth_activated",
+          actor_email: syncResult.businessEmail,
+          actor_role: "business",
+          meta: {
+            source: "stripe_webhook",
+            stripeEventId: event.id,
+            stripeEventType: event.type,
+            billingStatus: syncResult.billingStatus,
+            stripeSubscriptionId: subscription.id,
+          },
+        });
+
+        if (productEventError) {
+          console.warn("[business-subscription/webhook] failed to log Growth activation product event", {
+            businessId: syncResult.businessId,
+            stripeEventId: event.id,
+            message: productEventError.message,
+          });
+        }
+      }
     }
 
     await markEvent({
