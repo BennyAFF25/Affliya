@@ -95,6 +95,25 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               }}
             />
             <Script
+              id="trybe-attribution-pixel"
+              strategy="afterInteractive"
+              dangerouslySetInnerHTML={{
+                __html: `
+(function(w,d,p,s,u,pl,at) {
+  w._trybe = w._trybe || { pixelCode: p, storeId: s, platform: pl, autoTracking: at, customDomain: 'track.nettmark.com', serviceUrl: 'https://prod-trybe-platform-6mi3j.ondigitalocean.app/attribution' };
+  var script = d.createElement('script');
+  script.src = u + '/pixel.js';
+  script.async = true;
+  script.setAttribute('data-pixel-code', p);
+  script.setAttribute('data-store-id', s);
+  script.setAttribute('data-platform', pl);
+  script.setAttribute('data-auto-tracking', at);
+  d.head.appendChild(script);
+})(window, document, 'px_4f4f743c629f', '1f76e30b-a49e-419f-bb2f-116385e337ac', 'https://track.nettmark.com', 'CUSTOM', 'false');
+`
+              }}
+            />
+            <Script
               id="meta-pixel-base"
               strategy="afterInteractive"
               dangerouslySetInnerHTML={{
