@@ -68,8 +68,8 @@ export async function POST() {
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
   // This endpoint is called immediately after the onboarding offer insert succeeds.
-  // Reddit tracking is best-effort and must never block onboarding completion.
-  void trackOnboardingOfferConversion({ id: user.id, email: user.email });
+  // Reddit tracking is best-effort and must never break onboarding completion.
+  await trackOnboardingOfferConversion({ id: user.id, email: user.email });
 
   const { data: entitlement } = await supabase
     .from('business_entitlements')
