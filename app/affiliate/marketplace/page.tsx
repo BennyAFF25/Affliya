@@ -1,10 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useSession } from "@supabase/auth-helpers-react";
 import AcceptTermsModal from "@/../app/components/AcceptTermsModal";
-import OfferCard from "@/components/OfferCard";
 import { supabase } from "../../../utils/supabase/pages-client";
-import { Search, Sparkles } from "lucide-react";
+import {
+  BadgeCheck,
+  ChevronLeft,
+  ChevronRight,
+  Search,
+  ShieldCheck,
+  Sparkles,
+  TrendingUp,
+} from "lucide-react";
 
 interface Offer {
   id: string;
@@ -27,41 +37,236 @@ interface Offer {
   readyCreativeCount?: number;
   readyOrganicCreativeCount?: number;
   readyPaidCreativeCount?: number;
-  participationMode?: 'open' | 'approval_required' | 'private';
+  participationMode?: "open" | "approval_required" | "private";
+}
+
+type RequestStatus = "approved" | "pending" | "rejected";
+type MarketplaceStatus = "all" | "ads" | "organic" | "pending";
+
+const PAGE_SIZE = 8;
+
+function formatMoney(amount: number, currency?: string) {
+  const normalizedCurrency = (currency || "USD").toUpperCase();
+  try {
+    return new Intl.NumberFormat("en-AU", {
+      style: "currency",
+      currency: normalizedCurrency,
+      maximumFractionDigits: amount >= 100 ? 0 : 2,
+    }).format(amount);
+  } catch {
+    return `${normalizedCurrency} ${amount.toFixed(2)}`;
+  }
+}
+
+function MarketplaceRow({
+  offer,
+  alreadyRequested,
+  currentStatus,
+}: {
+  offer: Offer;
+  alreadyRequested: boolean;
+  currentStatus: RequestStatus | null;
+}) {
+  const session = useSession();
+  const router = useRouter();
+  const [requested, setRequested] = useState(alreadyRequested);
+  const [starting, setStarting] = useState(false);
+
+  const adsEnabled = !!offer.meta_page_id && !!offer.meta_ad_account_id;
+  const trackingReady = !!offer.meta_pixel_id;
+  const isPending = currentStatus === "pending";
+  const isApproved = currentStatus === "approved";
+  const needsApproval = offer.participationMode === "approval_required";
+  const estimatedPayout =
+    offer.commissionValue ??
+    (offer.price ? (offer.price * offer.commission) / 100 : null);
+  const logoFallback = offer.title.slice(0, 1).toUpperCase();
+  const typeLabel = offer.type === "recurring" ? "Recurring" : "One-time";
+  const primaryLabel = starting
+    ? "Opening…"
+    : isPending
+      ? "Pending Approval"
+      : requested || isApproved
+        ? "Continue Promoting"
+        : needsApproval
+          ? "Request Approval"
+          : "Start Promoting";
+
+  const startPromoting = async () => {
+    if (!session?.user?.email || isPending) return;
+    setStarting(true);
+    try {
+      const res = await fetch(`/api/affiliate/offers/${offer.id}/start`, {
+        method: "POST",
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.ok) {
+        alert(json?.message || json?.error || "Failed to start promoting this offer.");
+        return;
+      }
+      setRequested(true);
+      if (json.promotePath) {
+        router.push(json.promotePath || `/affiliate/dashboard/promote/${offer.id}`);
+      }
+    } catch (error) {
+      console.warn("[offer-start] failed", error);
+      alert("Failed to start promoting this offer.");
+    } finally {
+      setStarting(false);
+    }
+  };
+
+  return (
+    <div className="group border-t border-white/[0.07] first:border-t-0 hover:bg-white/[0.018]">
+      <div className="hidden min-h-[94px] grid-cols-[minmax(280px,2.4fr)_minmax(170px,1.35fr)_minmax(105px,.8fr)_minmax(185px,1.35fr)_minmax(170px,1.15fr)_minmax(235px,1.45fr)] items-center gap-4 px-5 py-3 lg:grid">
+        <div className="flex min-w-0 items-center gap-3">
+          {offer.logoUrl ? (
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-white/[0.04]">
+              <img src={offer.logoUrl} alt={`${offer.title} logo`} className="h-full w-full object-contain p-1.5" />
+            </div>
+          ) : (
+            <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-white/10 bg-[#202329] text-sm font-semibold text-cyan-200">
+              {logoFallback}
+            </div>
+          )}
+          <div className="min-w-0">
+            <div className="flex min-w-0 items-center gap-1.5">
+              <p className="truncate text-sm font-semibold text-white">{offer.title}</p>
+              <BadgeCheck className="h-3.5 w-3.5 shrink-0 fill-emerald-400 text-[#101314]" />
+              {offer.isTopCommission ? (
+                <span className="ml-1 inline-flex shrink-0 items-center gap-1 rounded-full border border-amber-400/30 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-200">
+                  <TrendingUp className="h-2.5 w-2.5" /> Top payout
+                </span>
+              ) : null}
+            </div>
+            <p className="mt-1 line-clamp-2 max-w-[330px] text-xs leading-4 text-zinc-500">
+              {offer.description || (adsEnabled ? "Organic + paid ads available" : "Organic promotion available")}
+            </p>
+          </div>
+          {offer.currency ? (
+            <span className="ml-auto shrink-0 rounded-full border border-cyan-400/25 bg-cyan-400/[0.06] px-2 py-1 text-[10px] font-medium text-cyan-300">
+              {offer.currency.toUpperCase()}
+            </span>
+          ) : null}
+        </div>
+
+        <div className="flex flex-wrap gap-1.5">
+          <span className={`rounded-full border px-2 py-1 text-[10px] ${adsEnabled ? "border-emerald-400/25 bg-emerald-500/10 text-emerald-300" : "border-white/10 bg-white/[0.03] text-zinc-300"}`}>
+            {adsEnabled ? "Ads enabled" : "Organic only"}
+          </span>
+          <span className="rounded-full border border-white/10 bg-white/[0.03] px-2 py-1 text-[10px] text-zinc-300">{typeLabel}</span>
+          <span className="rounded-full border border-white/10 bg-white/[0.03] px-2 py-1 text-[10px] text-zinc-300">
+            {adsEnabled ? "Paid + organic" : "Organic only"}
+          </span>
+        </div>
+
+        <div>
+          <p className="text-xl font-semibold tracking-tight text-cyan-300">{offer.commission > 0 ? `${offer.commission}%` : "Custom"}</p>
+          <p className="mt-0.5 text-[11px] text-zinc-500">Commission</p>
+        </div>
+
+        <div>
+          <p className="text-sm font-semibold text-white">
+            {estimatedPayout != null ? formatMoney(estimatedPayout, offer.currency) : "—"}
+          </p>
+          <p className="mt-0.5 text-[11px] text-zinc-500">Typical payout</p>
+          {offer.price ? (
+            <p className="mt-0.5 truncate text-[10px] text-zinc-600">Based on order value of {formatMoney(offer.price, offer.currency)}</p>
+          ) : null}
+        </div>
+
+        <div className="space-y-1.5">
+          {isPending ? (
+            <div className="inline-flex items-center gap-2 text-xs font-medium text-amber-300">
+              <span className="h-2 w-2 rounded-full bg-amber-400 shadow-[0_0_10px_rgba(251,191,36,.45)]" /> Pending approval
+            </div>
+          ) : (
+            <div className={`inline-flex items-center gap-2 text-xs font-medium ${adsEnabled ? "text-emerald-300" : "text-zinc-300"}`}>
+              <span className={`h-2 w-2 rounded-full ${adsEnabled ? "bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,.4)]" : "bg-zinc-500"}`} />
+              {adsEnabled ? "Ads enabled" : "Organic only"}
+            </div>
+          )}
+          {trackingReady ? (
+            <div className="w-fit rounded-full border border-cyan-400/25 bg-cyan-400/[0.06] px-2 py-1 text-[10px] text-cyan-300">Tracking ready</div>
+          ) : needsApproval && !isPending ? (
+            <div className="w-fit rounded-full border border-amber-400/25 bg-amber-400/[0.06] px-2 py-1 text-[10px] text-amber-300">Approval required</div>
+          ) : null}
+        </div>
+
+        <div className="flex items-center justify-end gap-2">
+          <Link
+            href={`/affiliate/marketplace/${offer.id}`}
+            className="inline-flex h-10 min-w-[94px] items-center justify-center rounded-xl border border-white/10 px-3 text-xs font-medium text-zinc-200 transition hover:border-cyan-400/35 hover:text-white"
+          >
+            View Offer
+          </Link>
+          <button
+            onClick={startPromoting}
+            disabled={starting || isPending}
+            className={`inline-flex h-10 min-w-[128px] items-center justify-center gap-1 rounded-xl px-3 text-xs font-semibold transition ${starting || isPending ? "cursor-not-allowed bg-zinc-700 text-zinc-300" : "bg-cyan-400 text-[#061013] hover:bg-cyan-300"}`}
+          >
+            <span className="max-w-[100px] text-center leading-4">{primaryLabel}</span>
+            {!starting && !isPending ? <ChevronRight className="h-3.5 w-3.5 shrink-0" /> : null}
+          </button>
+        </div>
+      </div>
+
+      <div className="p-4 lg:hidden">
+        <div className="flex items-start gap-3">
+          {offer.logoUrl ? (
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-white/[0.04]">
+              <img src={offer.logoUrl} alt={`${offer.title} logo`} className="h-full w-full object-contain p-1.5" />
+            </div>
+          ) : (
+            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-white/10 bg-[#202329] text-sm font-semibold text-cyan-200">{logoFallback}</div>
+          )}
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-1.5">
+              <p className="truncate text-sm font-semibold text-white">{offer.title}</p>
+              <BadgeCheck className="h-3.5 w-3.5 shrink-0 fill-emerald-400 text-[#101314]" />
+            </div>
+            <p className="mt-1 line-clamp-2 text-xs leading-4 text-zinc-500">{offer.description}</p>
+          </div>
+          <p className="text-lg font-semibold text-cyan-300">{offer.commission}%</p>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          <span className={`rounded-full border px-2 py-1 text-[10px] ${adsEnabled ? "border-emerald-400/25 bg-emerald-500/10 text-emerald-300" : "border-white/10 bg-white/[0.03] text-zinc-300"}`}>{adsEnabled ? "Ads enabled" : "Organic only"}</span>
+          <span className="rounded-full border border-white/10 bg-white/[0.03] px-2 py-1 text-[10px] text-zinc-300">{typeLabel}</span>
+          {trackingReady ? <span className="rounded-full border border-cyan-400/25 bg-cyan-400/[0.06] px-2 py-1 text-[10px] text-cyan-300">Tracking ready</span> : null}
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <Link href={`/affiliate/marketplace/${offer.id}`} className="inline-flex h-10 items-center justify-center rounded-xl border border-white/10 text-xs font-medium text-zinc-200">View Offer</Link>
+          <button onClick={startPromoting} disabled={starting || isPending} className={`inline-flex h-10 items-center justify-center rounded-xl px-3 text-xs font-semibold ${starting || isPending ? "bg-zinc-700 text-zinc-300" : "bg-cyan-400 text-[#061013]"}`}>{primaryLabel}</button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function AffiliateMarketplace() {
   const [offers, setOffers] = useState<Offer[]>([]);
   const [participatingIds, setParticipatingIds] = useState<string[]>([]);
-  const [requestStatusByOfferId, setRequestStatusByOfferId] = useState<Record<string, 'approved' | 'pending' | 'rejected'>>({});
-
+  const [requestStatusByOfferId, setRequestStatusByOfferId] = useState<Record<string, RequestStatus>>({});
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState("All");
-  const [sortOrder, setSortOrder] = useState("None");
-
+  const [statusFilter, setStatusFilter] = useState<MarketplaceStatus>("all");
+  const [sortOrder, setSortOrder] = useState("Featured");
+  const [page, setPage] = useState(1);
   const [showAcceptTerms, setShowAcceptTerms] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+
   useEffect(() => {
     const checkTerms = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-
       setUserId(user.id);
-
       const { data, error } = await (supabase as any)
         .from("profiles")
         .select("terms_accepted")
         .eq("id", user.id)
         .single();
-
-      if (!error && data?.terms_accepted !== true) {
-        setShowAcceptTerms(true);
-      }
+      if (!error && data?.terms_accepted !== true) setShowAcceptTerms(true);
     };
-
     checkTerms();
   }, []);
 
@@ -81,43 +286,12 @@ export default function AffiliateMarketplace() {
       meta_page_id?: string | null;
       meta_ad_account_id?: string | null;
       meta_pixel_id?: string | null;
-      participation_mode?: 'open' | 'approval_required' | 'private' | null;
+      participation_mode?: "open" | "approval_required" | "private" | null;
     };
 
     const fetchOffers = async () => {
-      const offerColumnsWithParticipationMode = `
-          id,
-          title,
-          business_email,
-          description,
-          commission,
-          type,
-          currency,
-          price,
-          commission_value,
-          logo_url,
-          website,
-          meta_page_id,
-          meta_ad_account_id,
-          meta_pixel_id,
-          participation_mode
-        `;
-      const offerColumnsFallback = `
-          id,
-          title,
-          business_email,
-          description,
-          commission,
-          type,
-          currency,
-          price,
-          commission_value,
-          logo_url,
-          website,
-          meta_page_id,
-          meta_ad_account_id,
-          meta_pixel_id
-        `;
+      const offerColumnsWithParticipationMode = `id,title,business_email,description,commission,type,currency,price,commission_value,logo_url,website,meta_page_id,meta_ad_account_id,meta_pixel_id,participation_mode`;
+      const offerColumnsFallback = `id,title,business_email,description,commission,type,currency,price,commission_value,logo_url,website,meta_page_id,meta_ad_account_id,meta_pixel_id`;
 
       const offerPromise = (async () => {
         let result = await supabase.from("offers").select(offerColumnsWithParticipationMode);
@@ -129,25 +303,18 @@ export default function AffiliateMarketplace() {
 
       const [{ data, error }, { data: subsidyRows, error: subsidyErr }] = await Promise.all([
         offerPromise,
-        supabase
-          .from("business_activation_subsidies")
-          .select("offer_id, subsidy_amount, consumed_amount")
-          .eq("status", "available"),
+        supabase.from("business_activation_subsidies").select("offer_id, subsidy_amount, consumed_amount").eq("status", "available"),
       ]);
 
       if (error) {
         console.error("[❌ Error fetching offers]", error.message);
         return;
       }
-
       if (!data) {
         setOffers([]);
         return;
       }
-
-      if (subsidyErr) {
-        console.error("[❌ Error fetching starter spend rows]", subsidyErr.message);
-      }
+      if (subsidyErr) console.error("[❌ Error fetching starter spend rows]", subsidyErr.message);
 
       const subsidyMap = new Map<string, number>();
       for (const row of (subsidyRows || []) as any[]) {
@@ -157,41 +324,34 @@ export default function AffiliateMarketplace() {
         if (remaining > 0) subsidyMap.set(offerId, remaining);
       }
 
-      const typedData = (data as SupabaseOffer[]).filter(
-        (offer) => String(offer.participation_mode || 'open').toLowerCase() !== 'private',
-      );
-
-      const commissions = typedData.map((o) => o.commission ?? 0);
+      const typedData = (data as SupabaseOffer[]).filter((offer) => String(offer.participation_mode || "open").toLowerCase() !== "private");
+      const commissions = typedData.map((offer) => offer.commission ?? 0);
       const threshold = commissions.length ? Math.max(...commissions) * 0.9 : 0;
 
-      const formatted: Offer[] = typedData.map((o) => ({
-        id: o.id,
-        title: o.title,
-        businessName: o.title,
-        description: o.description ?? "",
-        commission: o.commission ?? 0,
-        type: o.type,
-        currency: o.currency ?? undefined,
-        price: o.price ?? undefined,
-        commissionValue: o.commission_value ?? undefined,
-        isTopCommission: (o.commission ?? 0) >= threshold,
-        business_email: o.business_email ?? undefined,
-        logoUrl: o.logo_url ?? undefined,
-        website: o.website ?? undefined,
-        meta_page_id: o.meta_page_id ?? null,
-        meta_ad_account_id: o.meta_ad_account_id ?? null,
-        meta_pixel_id: o.meta_pixel_id ?? null,
-        starterCreditAmount: subsidyMap.get(o.id) ?? undefined,
-        participationMode: (o.participation_mode as Offer['participationMode']) || 'open',
+      const formatted: Offer[] = typedData.map((offer) => ({
+        id: offer.id,
+        title: offer.title,
+        businessName: offer.title,
+        description: offer.description ?? "",
+        commission: offer.commission ?? 0,
+        type: offer.type,
+        currency: offer.currency ?? undefined,
+        price: offer.price ?? undefined,
+        commissionValue: offer.commission_value ?? undefined,
+        isTopCommission: (offer.commission ?? 0) >= threshold,
+        business_email: offer.business_email ?? undefined,
+        logoUrl: offer.logo_url ?? undefined,
+        website: offer.website ?? undefined,
+        meta_page_id: offer.meta_page_id ?? null,
+        meta_ad_account_id: offer.meta_ad_account_id ?? null,
+        meta_pixel_id: offer.meta_pixel_id ?? null,
+        starterCreditAmount: subsidyMap.get(offer.id) ?? undefined,
+        participationMode: (offer.participation_mode as Offer["participationMode"]) || "open",
       }));
 
-      const readinessRes = await fetch(`/api/offers/content-readiness?offerIds=${formatted.map((offer) => offer.id).join(",")}`, {
-        cache: "no-store",
-      }).catch(() => null);
-
+      const readinessRes = await fetch(`/api/offers/content-readiness?offerIds=${formatted.map((offer) => offer.id).join(",")}`, { cache: "no-store" }).catch(() => null);
       const readinessJson = readinessRes ? await readinessRes.json().catch(() => null) : null;
       const readinessMap = readinessJson?.ok ? readinessJson.readiness || {} : {};
-
       formatted.forEach((offer) => {
         const readiness = readinessMap[offer.id];
         if (!readiness) return;
@@ -199,7 +359,6 @@ export default function AffiliateMarketplace() {
         offer.readyOrganicCreativeCount = Number(readiness.organic || 0);
         offer.readyPaidCreativeCount = Number(readiness.paid || 0);
       });
-
       setOffers(formatted);
     };
 
@@ -207,150 +366,168 @@ export default function AffiliateMarketplace() {
   }, []);
 
   useEffect(() => {
-    type AffiliateRequestRow = {
-      offer_id: string;
-      status: string;
-    };
-
     const fetchRequests = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user || !user.email) {
-        console.warn("[❌ No email found in session]");
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.email) return;
+      const { data, error } = await supabase.from("affiliate_requests").select("offer_id, status").eq("affiliate_email", user.email);
+      if (error) {
+        console.error("[❌ Error fetching affiliate requests]", error.message);
         return;
       }
+      const typedReqs = (data || []) as { offer_id: string; status: string }[];
+      const active = typedReqs.filter((row) => ["pending", "approved"].includes(String(row.status || "").toLowerCase()));
+      setParticipatingIds(Array.from(new Set(active.map((row) => row.offer_id))));
 
-      console.log("[📩 Fetching affiliate requests for]", user.email);
-      const { data, error: reqError } = await supabase
-        .from("affiliate_requests")
-        .select("offer_id, status")
-        .eq("affiliate_email", user.email);
-
-      if (reqError) {
-        console.error(
-          "[❌ Error fetching affiliate requests]",
-          reqError.message,
-        );
-        return;
-      }
-
-      if (!data) {
-        setParticipatingIds([]);
-        return;
-      }
-
-      const typedReqs = data as AffiliateRequestRow[];
-      const active = typedReqs.filter((r) => ["pending", "approved"].includes(String(r.status || "").toLowerCase()));
-      const ids = Array.from(new Set(active.map((r) => r.offer_id)));
-      const nextStatusByOfferId: Record<string, 'approved' | 'pending' | 'rejected'> = {};
+      const nextStatusByOfferId: Record<string, RequestStatus> = {};
       for (const row of typedReqs) {
-        const status = String(row.status || '').toLowerCase();
-        if (!row.offer_id || !['approved', 'pending', 'rejected'].includes(status)) continue;
-        if (!nextStatusByOfferId[row.offer_id] || status === 'approved' || (status === 'pending' && nextStatusByOfferId[row.offer_id] !== 'approved')) {
-          nextStatusByOfferId[row.offer_id] = status as 'approved' | 'pending' | 'rejected';
+        const status = String(row.status || "").toLowerCase();
+        if (!row.offer_id || !["approved", "pending", "rejected"].includes(status)) continue;
+        if (!nextStatusByOfferId[row.offer_id] || status === "approved" || (status === "pending" && nextStatusByOfferId[row.offer_id] !== "approved")) {
+          nextStatusByOfferId[row.offer_id] = status as RequestStatus;
         }
       }
-      setParticipatingIds(ids);
       setRequestStatusByOfferId(nextStatusByOfferId);
     };
-
     fetchRequests();
   }, []);
 
-  const filtered = offers.filter((offer) => {
-    const matchesSearch = offer.title
-      ?.toLowerCase()
-      .includes(search.toLowerCase());
-    const matchesType =
-      filterType === "All" || offer.type === filterType.toLowerCase();
-    return matchesSearch && matchesType;
-  });
+  const counts = useMemo(() => {
+    return {
+      all: offers.length,
+      ads: offers.filter((offer) => !!offer.meta_page_id && !!offer.meta_ad_account_id).length,
+      organic: offers.filter((offer) => !offer.meta_page_id || !offer.meta_ad_account_id).length,
+      pending: offers.filter((offer) => requestStatusByOfferId[offer.id] === "pending").length,
+    };
+  }, [offers, requestStatusByOfferId]);
 
-  const sorted = [...filtered].sort((a, b) => {
-    if (sortOrder === "Highest Commission") return b.commission - a.commission;
-    if (sortOrder === "Business Name")
-      return a.title?.localeCompare(b.title || "") || 0;
-    return 0;
-  });
+  const filtered = useMemo(() => {
+    const query = search.trim().toLowerCase();
+    return offers.filter((offer) => {
+      const matchesSearch = !query || offer.title.toLowerCase().includes(query) || offer.description.toLowerCase().includes(query);
+      const matchesType = filterType === "All" || offer.type === filterType.toLowerCase();
+      const adsEnabled = !!offer.meta_page_id && !!offer.meta_ad_account_id;
+      const matchesStatus =
+        statusFilter === "all" ||
+        (statusFilter === "ads" && adsEnabled) ||
+        (statusFilter === "organic" && !adsEnabled) ||
+        (statusFilter === "pending" && requestStatusByOfferId[offer.id] === "pending");
+      return matchesSearch && matchesType && matchesStatus;
+    });
+  }, [offers, search, filterType, statusFilter, requestStatusByOfferId]);
+
+  const sorted = useMemo(() => {
+    const next = [...filtered];
+    if (sortOrder === "Highest Commission") next.sort((a, b) => b.commission - a.commission);
+    if (sortOrder === "Business Name") next.sort((a, b) => a.title.localeCompare(b.title));
+    if (sortOrder === "Featured") next.sort((a, b) => Number(b.isTopCommission) - Number(a.isTopCommission) || b.commission - a.commission);
+    return next;
+  }, [filtered, sortOrder]);
+
+  useEffect(() => setPage(1), [search, filterType, statusFilter, sortOrder]);
+
+  const pageCount = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount);
+  const visibleOffers = sorted.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+
+  const tabs: { key: MarketplaceStatus; label: string; count: number }[] = [
+    { key: "all", label: "All Offers", count: counts.all },
+    { key: "ads", label: "Ads Enabled", count: counts.ads },
+    { key: "organic", label: "Organic Only", count: counts.organic },
+    { key: "pending", label: "Pending Approval", count: counts.pending },
+  ];
 
   return (
-    <div className="flex justify-center px-6 py-10 min-h-screen bg-[var(--background)] text-[var(--foreground)]">
-      {showAcceptTerms && userId && (
-        <AcceptTermsModal
-          userId={userId}
-          onAccepted={() => setShowAcceptTerms(false)}
-        />
-      )}
-      <div className="w-full max-w-7xl space-y-8">
-        <header className="rounded-3xl border border-[var(--border)] bg-[var(--card)] px-6 py-8 shadow-[0_20px_60px_rgba(0,0,0,0.08)]">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-            <div className="max-w-3xl">
-              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#00C2CB]/20 bg-[#00C2CB]/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.24em] text-[#7ff5fb]">
-                <Sparkles className="h-3.5 w-3.5" />
-                Workspace overview
-              </div>
-              <h1 className="text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
-                Affiliate Marketplace
-              </h1>
-              <p className="mt-3 max-w-2xl text-sm text-[var(--muted-foreground)] sm:text-base">
-                Choose offers aligned with your strengths and audience, and keep
-                your next promotion lined up in one place.
-              </p>
+    <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
+      {showAcceptTerms && userId ? <AcceptTermsModal userId={userId} onAccepted={() => setShowAcceptTerms(false)} /> : null}
+
+      <div className="mx-auto w-full max-w-[1540px] px-4 py-7 sm:px-6 lg:px-8">
+        <div className="mb-5 flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+          <div>
+            <h1 className="text-2xl font-semibold tracking-tight text-white sm:text-[28px]">Find the best brands to promote</h1>
+            <p className="mt-1.5 text-sm text-zinc-400">Partner with verified brands and earn commissions. New offers added regularly.</p>
+          </div>
+          <div className="flex min-w-[300px] items-center gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.025] px-4 py-3">
+            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-cyan-400/10 text-cyan-300"><ShieldCheck className="h-4.5 w-4.5" /></div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-semibold text-white">Trusted brands. Real earnings.</p>
+              <p className="mt-0.5 text-[11px] text-zinc-500">Offers are reviewed before appearing here.</p>
             </div>
+            <Sparkles className="h-4 w-4 text-cyan-300" />
           </div>
-        </header>
-
-        <div className="rounded-3xl border border-[var(--border)] bg-[var(--card)] px-6 py-6 flex flex-wrap justify-center items-center gap-4 shadow-[0_20px_60px_rgba(0,0,0,0.08)]">
-          <div className="relative w-full sm:w-80">
-            <Search className="absolute top-3.5 left-3 text-[var(--muted-foreground)] w-5 h-5" />
-            <input
-              type="text"
-              placeholder="Search by business name..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-10 pr-4 py-2 w-full rounded-2xl border border-[var(--border)] bg-[var(--input-background)] text-[var(--foreground)] placeholder-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-            />
-          </div>
-
-          <select
-            value={filterType}
-            onChange={(e) => setFilterType(e.target.value)}
-            className="p-2 rounded-2xl border border-[var(--border)] bg-[var(--input-background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-          >
-            <option value="All">All</option>
-            <option value="Recurring">Recurring</option>
-            <option value="One-Time">One-Time</option>
-          </select>
-
-          <select
-            value={sortOrder}
-            onChange={(e) => setSortOrder(e.target.value)}
-            className="p-2 rounded-2xl border border-[var(--border)] bg-[var(--input-background)] text-[var(--foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]"
-          >
-            <option value="None">None</option>
-            <option value="Highest Commission">Highest Commission</option>
-            <option value="Business Name">Business Name</option>
-          </select>
         </div>
 
-        {sorted.length > 0 ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {sorted.map((offer) => (
-              <OfferCard
-                key={offer.id}
-                offer={offer}
-                role="affiliate"
-                alreadyRequested={participatingIds.includes(offer.id)}
-                currentStatus={requestStatusByOfferId[offer.id] || null}
+        <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-3">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
+            <div className="relative min-w-0 flex-1">
+              <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Search brands, products, or offers..."
+                className="h-11 w-full rounded-xl border border-white/[0.09] bg-[#14171b] pl-10 pr-4 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-cyan-400/40"
               />
-            ))}
+            </div>
+            <select value={filterType} onChange={(event) => setFilterType(event.target.value)} className="h-11 rounded-xl border border-white/[0.09] bg-[#14171b] px-3 text-xs text-zinc-200 outline-none focus:border-cyan-400/40 xl:min-w-[150px]">
+              <option value="All">All Offer Types</option>
+              <option value="Recurring">Recurring</option>
+              <option value="One-Time">One-Time</option>
+            </select>
+            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as MarketplaceStatus)} className="h-11 rounded-xl border border-white/[0.09] bg-[#14171b] px-3 text-xs text-zinc-200 outline-none focus:border-cyan-400/40 xl:min-w-[150px]">
+              <option value="all">All Statuses</option>
+              <option value="ads">Ads Enabled</option>
+              <option value="organic">Organic Only</option>
+              <option value="pending">Pending Approval</option>
+            </select>
+            <div className="flex items-center gap-2 xl:ml-3">
+              <span className="whitespace-nowrap text-[11px] text-zinc-500">Sort by</span>
+              <select value={sortOrder} onChange={(event) => setSortOrder(event.target.value)} className="h-11 rounded-xl border border-white/[0.09] bg-[#14171b] px-3 text-xs text-zinc-200 outline-none focus:border-cyan-400/40 xl:min-w-[140px]">
+                <option value="Featured">Featured</option>
+                <option value="Highest Commission">Highest Commission</option>
+                <option value="Business Name">Business Name</option>
+              </select>
+            </div>
           </div>
-        ) : (
-          <div className="text-center text-[var(--muted-foreground)] mt-20">
-            No matching offers. Try adjusting your filters or search.
+        </div>
+
+        <div className="mt-3 flex flex-wrap gap-2">
+          {tabs.map((tab) => {
+            const active = statusFilter === tab.key;
+            return (
+              <button key={tab.key} onClick={() => setStatusFilter(tab.key)} className={`inline-flex h-9 items-center gap-2 rounded-full border px-4 text-xs font-medium transition ${active ? "border-cyan-400 bg-cyan-400/10 text-cyan-300" : "border-white/[0.08] bg-white/[0.025] text-zinc-400 hover:border-white/15 hover:text-zinc-200"}`}>
+                {tab.label}
+                <span className={`rounded-full px-2 py-0.5 text-[10px] ${active ? "bg-cyan-400 text-[#071114]" : "bg-white/[0.06] text-zinc-400"}`}>{tab.count}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="mt-4 overflow-hidden rounded-2xl border border-white/[0.08] bg-[#111315] shadow-[0_16px_50px_rgba(0,0,0,.16)]">
+          <div className="hidden grid-cols-[minmax(280px,2.4fr)_minmax(170px,1.35fr)_minmax(105px,.8fr)_minmax(185px,1.35fr)_minmax(170px,1.15fr)_minmax(235px,1.45fr)] gap-4 border-b border-white/[0.08] bg-[#1a1d21] px-5 py-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-zinc-500 lg:grid">
+            <span>Brand / Offer</span><span>Offer Type</span><span>Earnings</span><span>Order Details</span><span>Status</span><span className="text-right">Actions</span>
           </div>
-        )}
+
+          {visibleOffers.length ? visibleOffers.map((offer) => (
+            <MarketplaceRow key={offer.id} offer={offer} alreadyRequested={participatingIds.includes(offer.id)} currentStatus={requestStatusByOfferId[offer.id] || null} />
+          )) : (
+            <div className="px-6 py-16 text-center">
+              <p className="text-sm font-medium text-zinc-300">No matching offers</p>
+              <p className="mt-1 text-xs text-zinc-500">Try adjusting your search or filters.</p>
+            </div>
+          )}
+        </div>
+
+        <div className="mt-4 flex flex-col gap-3 text-xs text-zinc-500 sm:flex-row sm:items-center sm:justify-between">
+          <span>Showing {visibleOffers.length ? (safePage - 1) * PAGE_SIZE + 1 : 0}–{Math.min(safePage * PAGE_SIZE, sorted.length)} of {sorted.length} offers</span>
+          {pageCount > 1 ? (
+            <div className="flex items-center gap-1.5">
+              <button onClick={() => setPage((value) => Math.max(1, value - 1))} disabled={safePage === 1} className="grid h-9 w-9 place-items-center rounded-lg border border-white/[0.08] bg-white/[0.025] text-zinc-400 disabled:opacity-30"><ChevronLeft className="h-4 w-4" /></button>
+              {Array.from({ length: pageCount }, (_, index) => index + 1).slice(Math.max(0, safePage - 3), Math.max(5, safePage + 2)).map((pageNumber) => (
+                <button key={pageNumber} onClick={() => setPage(pageNumber)} className={`h-9 min-w-9 rounded-lg border px-2 text-xs font-medium ${safePage === pageNumber ? "border-cyan-400 bg-cyan-400 text-[#071114]" : "border-white/[0.08] bg-white/[0.025] text-zinc-400"}`}>{pageNumber}</button>
+              ))}
+              <button onClick={() => setPage((value) => Math.min(pageCount, value + 1))} disabled={safePage === pageCount} className="grid h-9 w-9 place-items-center rounded-lg border border-white/[0.08] bg-white/[0.025] text-zinc-400 disabled:opacity-30"><ChevronRight className="h-4 w-4" /></button>
+            </div>
+          ) : null}
+        </div>
       </div>
     </div>
   );
