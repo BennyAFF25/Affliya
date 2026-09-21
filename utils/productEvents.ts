@@ -1,19 +1,17 @@
+import { trackRedditConversion } from "./marketing/redditConversions";
+
 function trackRedditProductConversion(payload: {
   eventType: string;
   actorRole: "business" | "affiliate";
   offerId?: string | null;
 }) {
-  if (typeof window === "undefined") return;
-  const rdt = (window as typeof window & { rdt?: (...args: any[]) => void }).rdt;
-  if (typeof rdt !== "function") return;
-
   if (
     payload.actorRole === "business" &&
     payload.eventType === "offer_published" &&
     payload.offerId
   ) {
-    rdt("track", "Custom", {
-      customEventName: "CreateOffer",
+    trackRedditConversion({
+      eventName: "CreateOffer",
       conversionId: `offer_${payload.offerId}`,
     });
   }
