@@ -239,34 +239,34 @@ export default function AffiliateReviewsPage() {
 
   if (sessionLoading || (loading && !submissions.length)) {
     return (
-      <main className="min-h-screen bg-[#080b0c] px-5 py-8 text-white">
+      <main className="min-h-screen bg-[var(--background)] px-5 py-8 text-[var(--foreground)]">
         <div className="mx-auto max-w-6xl animate-pulse space-y-4">
-          <div className="h-8 w-56 rounded bg-white/10" />
-          <div className="h-28 rounded-3xl bg-white/[0.05]" />
-          <div className="h-40 rounded-3xl bg-white/[0.05]" />
+          <div className="h-8 w-56 rounded bg-[var(--secondary)]" />
+          <div className="h-28 rounded-3xl bg-[var(--card)]" />
+          <div className="h-40 rounded-3xl bg-[var(--card)]" />
         </div>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-[#080b0c] px-4 py-6 text-white sm:px-6 sm:py-8">
+    <main className="min-h-screen bg-[var(--background)] px-4 py-6 text-[var(--foreground)] sm:px-6 sm:py-8">
       <div className="mx-auto max-w-6xl">
         <div className="mb-5 flex flex-wrap items-start justify-between gap-4">
           <div>
             <Link
               href="/affiliate/dashboard"
-              className="mb-4 inline-flex items-center gap-2 text-sm text-zinc-400 transition hover:text-white"
+              className="mb-4 inline-flex items-center gap-2 text-sm text-[var(--muted-foreground)] transition hover:text-[var(--foreground)]"
             >
               <ArrowLeft className="h-4 w-4" /> Back to dashboard
             </Link>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-300">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--primary)]">
               Promotion workflow
             </p>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight sm:text-4xl">
               Submitted for review
             </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-400">
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--muted-foreground)]">
               See every paid ad and organic promotion you have sent to a business, including whether they have opened it.
             </p>
           </div>
@@ -275,7 +275,7 @@ export default function AffiliateReviewsPage() {
             type="button"
             onClick={() => void loadSubmissions(true)}
             disabled={refreshing}
-            className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-[#101416] px-4 py-2.5 text-sm font-medium text-zinc-200 transition hover:border-cyan-400/30 hover:bg-white/[0.06] disabled:opacity-50"
+            className="inline-flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--card)] px-4 py-2.5 text-sm font-medium text-[var(--foreground)] transition hover:border-[var(--primary)]/30 hover:bg-[var(--secondary)] disabled:opacity-50"
           >
             <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
             Refresh
@@ -298,7 +298,7 @@ export default function AffiliateReviewsPage() {
           <select
             value={sortOrder}
             onChange={(event) => setSortOrder(event.target.value as SortOrder)}
-            className="rounded-xl border border-white/10 bg-[#101416] px-3 py-2.5 text-sm text-zinc-200 outline-none transition focus:border-cyan-400/40"
+            className="rounded-xl border border-[var(--border)] bg-[var(--input-background)] px-3 py-2.5 text-sm text-[var(--foreground)] outline-none transition focus:border-[var(--primary)]/40"
           >
             <option value="recent">Most recent</option>
             <option value="oldest">Oldest first</option>
@@ -306,27 +306,9 @@ export default function AffiliateReviewsPage() {
         </div>
 
         <div className="mb-6 grid gap-3 sm:grid-cols-3">
-          <Stat
-            label="Total submitted"
-            value={submissions.length}
-            hint="All time"
-            icon={Send}
-            tone="cyan"
-          />
-          <Stat
-            label="Waiting on business"
-            value={pendingCount}
-            hint="Needs review"
-            icon={Clock3}
-            tone="amber"
-          />
-          <Stat
-            label="Opened by business"
-            value={openedCount}
-            hint="Viewed submissions"
-            icon={Eye}
-            tone="emerald"
-          />
+          <Stat label="Total submitted" value={submissions.length} hint="All time" icon={Send} tone="cyan" />
+          <Stat label="Waiting on business" value={pendingCount} hint="Needs review" icon={Clock3} tone="amber" />
+          <Stat label="Opened by business" value={openedCount} hint="Viewed submissions" icon={Eye} tone="emerald" />
         </div>
 
         {error ? (
@@ -336,15 +318,15 @@ export default function AffiliateReviewsPage() {
         ) : null}
 
         {!submissions.length ? (
-          <div className="rounded-3xl border border-white/10 bg-[#101416] p-10 text-center">
-            <FileImage className="mx-auto h-9 w-9 text-zinc-500" />
+          <div className="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-10 text-center">
+            <FileImage className="mx-auto h-9 w-9 text-[var(--muted-foreground)]" />
             <h2 className="mt-4 text-lg font-semibold">Nothing waiting for review yet</h2>
-            <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-zinc-400">
+            <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-[var(--muted-foreground)]">
               When you submit a paid ad or organic promotion to a business, it will appear here automatically.
             </p>
           </div>
         ) : !visibleSubmissions.length ? (
-          <div className="rounded-3xl border border-white/10 bg-[#101416] p-8 text-center text-sm text-zinc-400">
+          <div className="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-8 text-center text-sm text-[var(--muted-foreground)]">
             No submissions match this filter.
           </div>
         ) : (
@@ -358,15 +340,15 @@ export default function AffiliateReviewsPage() {
               return (
                 <article
                   key={`${item.kind}-${item.id}`}
-                  className="group rounded-2xl border border-white/10 bg-[#101416] p-4 transition hover:border-white/[0.16] sm:p-5"
+                  className="group rounded-2xl border border-[var(--border)] bg-[var(--card)] p-4 transition hover:border-white/[0.16] sm:p-5"
                 >
                   <div className="grid gap-4 lg:grid-cols-[128px_minmax(0,1fr)_235px_130px] lg:items-center">
-                    <div className="h-28 w-full overflow-hidden rounded-xl border border-white/10 bg-[#0b0f10] sm:h-32 lg:h-[96px] lg:w-32">
+                    <div className="h-28 w-full overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--secondary)] sm:h-32 lg:h-[96px] lg:w-32">
                       {item.previewUrl ? (
                         <img src={item.previewUrl} alt="" className="h-full w-full object-cover" />
                       ) : (
                         <div className="grid h-full w-full place-items-center">
-                          <FileImage className="h-6 w-6 text-zinc-600" />
+                          <FileImage className="h-6 w-6 text-[var(--muted-foreground)]" />
                         </div>
                       )}
                     </div>
@@ -383,32 +365,32 @@ export default function AffiliateReviewsPage() {
                         {typeLabel}
                       </span>
 
-                      <h2 className="mt-2 truncate text-base font-semibold text-white sm:text-lg">
+                      <h2 className="mt-2 truncate text-base font-semibold text-[var(--foreground)] sm:text-lg">
                         {item.offerTitle}
                       </h2>
-                      <p className="mt-1 line-clamp-2 text-sm leading-5 text-zinc-400">
+                      <p className="mt-1 line-clamp-2 text-sm leading-5 text-[var(--muted-foreground)]">
                         {item.title}
                       </p>
                     </div>
 
-                    <div className="rounded-xl border border-white/[0.06] bg-black/10 p-3 lg:border-0 lg:bg-transparent lg:p-0">
+                    <div className="rounded-xl border border-[var(--border)] bg-[var(--secondary)] p-3 lg:border-0 lg:bg-transparent lg:p-0">
                       <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${meta.className}`}>
                         <StatusIcon className="h-3.5 w-3.5" />
                         {meta.label}
                       </span>
 
-                      <div className="mt-3 space-y-2 text-xs text-zinc-400">
+                      <div className="mt-3 space-y-2 text-xs text-[var(--muted-foreground)]">
                         <div className="flex items-start gap-2">
-                          <Clock3 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-zinc-500" />
+                          <Clock3 className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--muted-foreground)]" />
                           <span>Submitted {formatDate(item.createdAt)}</span>
                         </div>
                         <div className="flex items-start gap-2">
                           {viewed ? (
-                            <Eye className="mt-0.5 h-3.5 w-3.5 shrink-0 text-cyan-300" />
+                            <Eye className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--primary)]" />
                           ) : (
-                            <EyeOff className="mt-0.5 h-3.5 w-3.5 shrink-0 text-zinc-500" />
+                            <EyeOff className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[var(--muted-foreground)]" />
                           )}
-                          <span className={viewed ? "text-zinc-300" : "text-zinc-500"}>
+                          <span className={viewed ? "text-[var(--foreground)]" : "text-[var(--muted-foreground)]"}>
                             {viewed
                               ? `Viewed ${formatDate(item.businessViewedAt)}`
                               : "Business hasn’t viewed this yet"}
@@ -420,7 +402,7 @@ export default function AffiliateReviewsPage() {
                     <div className="flex lg:justify-end">
                       <Link
                         href={`/affiliate/dashboard/promote/${item.offerId}`}
-                        className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-sm font-medium text-zinc-200 transition hover:border-cyan-400/30 hover:bg-cyan-400/[0.06] hover:text-white lg:w-auto"
+                        className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2.5 text-sm font-medium text-[var(--foreground)] transition hover:border-[var(--primary)]/30 hover:bg-[var(--primary)]/[0.06] lg:w-auto"
                       >
                         View details
                         <ArrowRight className="h-4 w-4" />
@@ -452,8 +434,8 @@ function FilterButton({
       onClick={onClick}
       className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
         active
-          ? "border-cyan-400/60 bg-cyan-400 text-[#071012] shadow-[0_0_22px_rgba(34,211,238,0.12)]"
-          : "border-white/10 bg-[#101416] text-zinc-300 hover:border-white/20 hover:text-white"
+          ? "border-[var(--primary)] bg-[var(--primary)] text-[var(--primary-foreground)] shadow-[0_0_22px_rgba(0,194,203,0.12)]"
+          : "border-[var(--border)] bg-[var(--card)] text-[var(--muted-foreground)] hover:border-[var(--primary)]/25 hover:text-[var(--foreground)]"
       }`}
     >
       {children}
@@ -481,15 +463,15 @@ function Stat({
   }[tone];
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-[#101416] px-5 py-4">
+    <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] px-5 py-4">
       <div className="flex items-center gap-4">
         <div className={`grid h-11 w-11 shrink-0 place-items-center rounded-full border ${toneClasses}`}>
           <Icon className="h-5 w-5" />
         </div>
         <div>
-          <p className="text-2xl font-semibold leading-none text-white">{value}</p>
-          <p className="mt-1.5 text-sm font-medium text-zinc-200">{label}</p>
-          <p className="mt-0.5 text-xs text-zinc-500">{hint}</p>
+          <p className="text-2xl font-semibold leading-none text-[var(--foreground)]">{value}</p>
+          <p className="mt-1.5 text-sm font-medium text-[var(--foreground)]">{label}</p>
+          <p className="mt-0.5 text-xs text-[var(--muted-foreground)]">{hint}</p>
         </div>
       </div>
     </div>
