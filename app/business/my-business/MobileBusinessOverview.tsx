@@ -214,21 +214,21 @@ export default function MobileBusinessOverview({
           </button>
         </div>
 
-        <div className="mt-4 rounded-[19px] border border-[#00C2CB]/35 bg-[#00C2CB]/[0.055] p-4 shadow-[inset_0_0_28px_rgba(0,194,203,0.035)]">
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#35d9e1]">{nextAction.eyebrow}</p>
+        <div className="mt-4 rounded-[19px] border border-[#00C2CB]/25 !bg-[#101415] p-4 shadow-[inset_0_0_24px_rgba(0,194,203,0.025)]">
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] !text-[#5ae5eb]">{nextAction.eyebrow}</p>
           <div className="mt-3 flex items-center gap-3">
-            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[#00C2CB]/10 text-[#21d9e2]"><IconRocket className="h-5 w-5" /></span>
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-[#00C2CB]/20 bg-[#00C2CB]/10 text-[#21d9e2]"><IconRocket className="h-5 w-5" /></span>
             <div className="min-w-0 flex-1">
-              <h2 className="text-base font-semibold text-white">{nextAction.title}</h2>
-              <p className="mt-1 text-xs leading-5 text-slate-400">{nextAction.description}</p>
+              <h2 className="text-base font-semibold !text-white">{nextAction.title}</h2>
+              <p className="mt-1 text-xs leading-5 !text-slate-300">{nextAction.description}</p>
             </div>
           </div>
           {nextAction.href ? (
-            <Link href={nextAction.href} prefetch={false} className="mobile-business-primary !mt-4 !rounded-full !font-bold">
+            <Link href={nextAction.href} prefetch={false} className="mobile-business-primary !mt-4 !rounded-full !bg-[#00C2CB] !font-bold !text-black shadow-[0_10px_24px_rgba(0,194,203,0.16)]">
               {nextAction.label} <span aria-hidden="true">→</span>
             </Link>
           ) : (
-            <button type="button" onClick={nextAction.onClick ?? undefined} className="mobile-business-primary !mt-4 !rounded-full !font-bold">
+            <button type="button" onClick={nextAction.onClick ?? undefined} className="mobile-business-primary !mt-4 !rounded-full !bg-[#00C2CB] !font-bold !text-black shadow-[0_10px_24px_rgba(0,194,203,0.16)]">
               {nextAction.label} <span aria-hidden="true">→</span>
             </button>
           )}
