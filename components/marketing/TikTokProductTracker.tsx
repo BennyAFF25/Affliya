@@ -33,8 +33,6 @@ export default function TikTokProductTracker() {
       'ViewContent',
       {
         contents: demoContent,
-        value: 0,
-        currency: 'USD',
       },
       { testEventCode: TIKTOK_TEST_EVENT_CODE },
     );
@@ -53,8 +51,6 @@ export default function TikTokProductTracker() {
 
       trackTikTokEvent('ClickButton', {
         contents: demoContent,
-        value: 0,
-        currency: 'USD',
       });
     };
 
@@ -108,8 +104,6 @@ export default function TikTokProductTracker() {
               content_name: 'Nettmark Business Account',
             },
           ],
-          value: 0,
-          currency: 'USD',
         },
         {
           eventId: `lead_${userId}`,
