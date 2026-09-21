@@ -11,6 +11,7 @@ import {
 const BUSINESS_DEMO_PATH = '/lp/business-demo';
 const CREATE_ACCOUNT_PATH = '/create-account';
 const BUSINESS_ONBOARDING_PATH = '/onboarding/for-business';
+const TIKTOK_TEST_EVENT_CODE = 'TEST61337';
 
 const demoContent = [
   {
@@ -28,11 +29,15 @@ export default function TikTokProductTracker() {
   useEffect(() => {
     if (pathname !== BUSINESS_DEMO_PATH) return;
 
-    trackTikTokEvent('ViewContent', {
-      contents: demoContent,
-      value: 0,
-      currency: 'USD',
-    });
+    trackTikTokEvent(
+      'ViewContent',
+      {
+        contents: demoContent,
+        value: 0,
+        currency: 'USD',
+      },
+      { testEventCode: TIKTOK_TEST_EVENT_CODE },
+    );
   }, [pathname]);
 
   useEffect(() => {
@@ -106,7 +111,11 @@ export default function TikTokProductTracker() {
           value: 0,
           currency: 'USD',
         },
-        `lead_${userId}`,
+        {
+          eventId: `lead_${userId}`,
+          email: session.user.email,
+          externalId: userId,
+        },
       );
 
       try {
