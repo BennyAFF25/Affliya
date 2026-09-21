@@ -117,61 +117,61 @@ function MarketplaceRow({
   };
 
   return (
-    <div className="group border-t border-white/[0.07] first:border-t-0 hover:bg-white/[0.018]">
+    <div className="group border-t border-[var(--border)] first:border-t-0 transition-colors hover:bg-[var(--secondary)]">
       <div className="hidden min-h-[94px] grid-cols-[minmax(280px,2.4fr)_minmax(170px,1.35fr)_minmax(105px,.8fr)_minmax(185px,1.35fr)_minmax(170px,1.15fr)_minmax(235px,1.45fr)] items-center gap-4 px-5 py-3 lg:grid">
         <div className="flex min-w-0 items-center gap-3">
           {offer.logoUrl ? (
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-white/[0.04]">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--secondary)]">
               <img src={offer.logoUrl} alt={`${offer.title} logo`} className="h-full w-full object-contain p-1.5" />
             </div>
           ) : (
-            <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-white/10 bg-[#202329] text-sm font-semibold text-cyan-200">
+            <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-[var(--border)] bg-[var(--secondary)] text-sm font-semibold text-[#00c2cb]">
               {logoFallback}
             </div>
           )}
           <div className="min-w-0">
             <div className="flex min-w-0 items-center gap-1.5">
-              <p className="truncate text-sm font-semibold text-white">{offer.title}</p>
-              <BadgeCheck className="h-3.5 w-3.5 shrink-0 fill-emerald-400 text-[#101314]" />
+              <p className="truncate text-sm font-semibold text-[var(--foreground)]">{offer.title}</p>
+              <BadgeCheck className="h-3.5 w-3.5 shrink-0 fill-emerald-400 text-[var(--card)]" />
               {offer.isTopCommission ? (
                 <span className="ml-1 inline-flex shrink-0 items-center gap-1 rounded-full border border-amber-400/30 bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-amber-200">
                   <TrendingUp className="h-2.5 w-2.5" /> Top payout
                 </span>
               ) : null}
             </div>
-            <p className="mt-1 line-clamp-2 max-w-[330px] text-xs leading-4 text-zinc-500">
+            <p className="mt-1 line-clamp-2 max-w-[330px] text-xs leading-4 text-[var(--muted-foreground)]">
               {offer.description || (adsEnabled ? "Organic + paid ads available" : "Organic promotion available")}
             </p>
           </div>
           {offer.currency ? (
-            <span className="ml-auto shrink-0 rounded-full border border-cyan-400/25 bg-cyan-400/[0.06] px-2 py-1 text-[10px] font-medium text-cyan-300">
+            <span className="ml-auto shrink-0 rounded-full border border-[#00c2cb]/30 bg-[#00c2cb]/10 px-2 py-1 text-[10px] font-medium text-[#63e6ec]">
               {offer.currency.toUpperCase()}
             </span>
           ) : null}
         </div>
 
         <div className="flex flex-wrap gap-1.5">
-          <span className={`rounded-full border px-2 py-1 text-[10px] ${adsEnabled ? "border-emerald-400/25 bg-emerald-500/10 text-emerald-300" : "border-white/10 bg-white/[0.03] text-zinc-300"}`}>
+          <span className={`rounded-full border px-2 py-1 text-[10px] ${adsEnabled ? "border-emerald-400/25 bg-emerald-500/10 text-emerald-300" : "border-[var(--border)] bg-[var(--secondary)] text-[var(--muted-foreground)]"}`}>
             {adsEnabled ? "Ads enabled" : "Organic only"}
           </span>
-          <span className="rounded-full border border-white/10 bg-white/[0.03] px-2 py-1 text-[10px] text-zinc-300">{typeLabel}</span>
-          <span className="rounded-full border border-white/10 bg-white/[0.03] px-2 py-1 text-[10px] text-zinc-300">
+          <span className="rounded-full border border-[var(--border)] bg-[var(--secondary)] px-2 py-1 text-[10px] text-[var(--muted-foreground)]">{typeLabel}</span>
+          <span className="rounded-full border border-[var(--border)] bg-[var(--secondary)] px-2 py-1 text-[10px] text-[var(--muted-foreground)]">
             {adsEnabled ? "Paid + organic" : "Organic only"}
           </span>
         </div>
 
         <div>
-          <p className="text-xl font-semibold tracking-tight text-cyan-300">{offer.commission > 0 ? `${offer.commission}%` : "Custom"}</p>
-          <p className="mt-0.5 text-[11px] text-zinc-500">Commission</p>
+          <p className="text-xl font-semibold tracking-tight text-[#00c2cb]">{offer.commission > 0 ? `${offer.commission}%` : "Custom"}</p>
+          <p className="mt-0.5 text-[11px] text-[var(--muted-foreground)]">Commission</p>
         </div>
 
         <div>
-          <p className="text-sm font-semibold text-white">
+          <p className="text-sm font-semibold text-[var(--foreground)]">
             {estimatedPayout != null ? formatMoney(estimatedPayout, offer.currency) : "—"}
           </p>
-          <p className="mt-0.5 text-[11px] text-zinc-500">Typical payout</p>
+          <p className="mt-0.5 text-[11px] text-[var(--muted-foreground)]">Typical payout</p>
           {offer.price ? (
-            <p className="mt-0.5 truncate text-[10px] text-zinc-600">Based on order value of {formatMoney(offer.price, offer.currency)}</p>
+            <p className="mt-0.5 truncate text-[10px] text-[var(--muted-foreground)]">Based on order value of {formatMoney(offer.price, offer.currency)}</p>
           ) : null}
         </div>
 
@@ -181,13 +181,13 @@ function MarketplaceRow({
               <span className="h-2 w-2 rounded-full bg-amber-400 shadow-[0_0_10px_rgba(251,191,36,.45)]" /> Pending approval
             </div>
           ) : (
-            <div className={`inline-flex items-center gap-2 text-xs font-medium ${adsEnabled ? "text-emerald-300" : "text-zinc-300"}`}>
+            <div className={`inline-flex items-center gap-2 text-xs font-medium ${adsEnabled ? "text-emerald-300" : "text-[var(--muted-foreground)]"}`}>
               <span className={`h-2 w-2 rounded-full ${adsEnabled ? "bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,.4)]" : "bg-zinc-500"}`} />
               {adsEnabled ? "Ads enabled" : "Organic only"}
             </div>
           )}
           {trackingReady ? (
-            <div className="w-fit rounded-full border border-cyan-400/25 bg-cyan-400/[0.06] px-2 py-1 text-[10px] text-cyan-300">Tracking ready</div>
+            <div className="w-fit rounded-full border border-[#00c2cb]/30 bg-[#00c2cb]/10 px-2 py-1 text-[10px] text-[#63e6ec]">Tracking ready</div>
           ) : needsApproval && !isPending ? (
             <div className="w-fit rounded-full border border-amber-400/25 bg-amber-400/[0.06] px-2 py-1 text-[10px] text-amber-300">Approval required</div>
           ) : null}
@@ -196,14 +196,14 @@ function MarketplaceRow({
         <div className="flex items-center justify-end gap-2">
           <Link
             href={`/affiliate/marketplace/${offer.id}`}
-            className="inline-flex h-10 min-w-[94px] items-center justify-center rounded-xl border border-white/10 px-3 text-xs font-medium text-zinc-200 transition hover:border-cyan-400/35 hover:text-white"
+            className="inline-flex h-10 min-w-[94px] items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--card)] px-3 text-xs font-medium text-[var(--foreground)] transition hover:border-[#00c2cb]/50"
           >
             View Offer
           </Link>
           <button
             onClick={startPromoting}
             disabled={starting || isPending}
-            className={`inline-flex h-10 min-w-[128px] items-center justify-center gap-1 rounded-xl px-3 text-xs font-semibold transition ${starting || isPending ? "cursor-not-allowed bg-zinc-700 text-zinc-300" : "bg-cyan-400 text-[#061013] hover:bg-cyan-300"}`}
+            className={`inline-flex h-10 min-w-[128px] items-center justify-center gap-1 rounded-xl px-3 text-xs font-semibold transition ${starting || isPending ? "cursor-not-allowed bg-[var(--secondary)] text-[var(--muted-foreground)]" : "bg-[#00c2cb] text-[#0f0f0f] hover:bg-[#28d1d8]"}`}
           >
             <span className="max-w-[100px] text-center leading-4">{primaryLabel}</span>
             {!starting && !isPending ? <ChevronRight className="h-3.5 w-3.5 shrink-0" /> : null}
@@ -214,29 +214,29 @@ function MarketplaceRow({
       <div className="p-4 lg:hidden">
         <div className="flex items-start gap-3">
           {offer.logoUrl ? (
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-white/[0.04]">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--secondary)]">
               <img src={offer.logoUrl} alt={`${offer.title} logo`} className="h-full w-full object-contain p-1.5" />
             </div>
           ) : (
-            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-white/10 bg-[#202329] text-sm font-semibold text-cyan-200">{logoFallback}</div>
+            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-[var(--border)] bg-[var(--secondary)] text-sm font-semibold text-[#00c2cb]">{logoFallback}</div>
           )}
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5">
-              <p className="truncate text-sm font-semibold text-white">{offer.title}</p>
-              <BadgeCheck className="h-3.5 w-3.5 shrink-0 fill-emerald-400 text-[#101314]" />
+              <p className="truncate text-sm font-semibold text-[var(--foreground)]">{offer.title}</p>
+              <BadgeCheck className="h-3.5 w-3.5 shrink-0 fill-emerald-400 text-[var(--card)]" />
             </div>
-            <p className="mt-1 line-clamp-2 text-xs leading-4 text-zinc-500">{offer.description}</p>
+            <p className="mt-1 line-clamp-2 text-xs leading-4 text-[var(--muted-foreground)]">{offer.description}</p>
           </div>
-          <p className="text-lg font-semibold text-cyan-300">{offer.commission}%</p>
+          <p className="text-lg font-semibold text-[#00c2cb]">{offer.commission}%</p>
         </div>
         <div className="mt-3 flex flex-wrap gap-1.5">
-          <span className={`rounded-full border px-2 py-1 text-[10px] ${adsEnabled ? "border-emerald-400/25 bg-emerald-500/10 text-emerald-300" : "border-white/10 bg-white/[0.03] text-zinc-300"}`}>{adsEnabled ? "Ads enabled" : "Organic only"}</span>
-          <span className="rounded-full border border-white/10 bg-white/[0.03] px-2 py-1 text-[10px] text-zinc-300">{typeLabel}</span>
-          {trackingReady ? <span className="rounded-full border border-cyan-400/25 bg-cyan-400/[0.06] px-2 py-1 text-[10px] text-cyan-300">Tracking ready</span> : null}
+          <span className={`rounded-full border px-2 py-1 text-[10px] ${adsEnabled ? "border-emerald-400/25 bg-emerald-500/10 text-emerald-300" : "border-[var(--border)] bg-[var(--secondary)] text-[var(--muted-foreground)]"}`}>{adsEnabled ? "Ads enabled" : "Organic only"}</span>
+          <span className="rounded-full border border-[var(--border)] bg-[var(--secondary)] px-2 py-1 text-[10px] text-[var(--muted-foreground)]">{typeLabel}</span>
+          {trackingReady ? <span className="rounded-full border border-[#00c2cb]/30 bg-[#00c2cb]/10 px-2 py-1 text-[10px] text-[#63e6ec]">Tracking ready</span> : null}
         </div>
         <div className="mt-4 grid grid-cols-2 gap-2">
-          <Link href={`/affiliate/marketplace/${offer.id}`} className="inline-flex h-10 items-center justify-center rounded-xl border border-white/10 text-xs font-medium text-zinc-200">View Offer</Link>
-          <button onClick={startPromoting} disabled={starting || isPending} className={`inline-flex h-10 items-center justify-center rounded-xl px-3 text-xs font-semibold ${starting || isPending ? "bg-zinc-700 text-zinc-300" : "bg-cyan-400 text-[#061013]"}`}>{primaryLabel}</button>
+          <Link href={`/affiliate/marketplace/${offer.id}`} className="inline-flex h-10 items-center justify-center rounded-xl border border-[var(--border)] bg-[var(--card)] text-xs font-medium text-[var(--foreground)]">View Offer</Link>
+          <button onClick={startPromoting} disabled={starting || isPending} className={`inline-flex h-10 items-center justify-center rounded-xl px-3 text-xs font-semibold ${starting || isPending ? "bg-[var(--secondary)] text-[var(--muted-foreground)]" : "bg-[#00c2cb] text-[#0f0f0f]"}`}>{primaryLabel}</button>
         </div>
       </div>
     </div>
@@ -443,44 +443,44 @@ export default function AffiliateMarketplace() {
       <div className="mx-auto w-full max-w-[1540px] px-4 py-7 sm:px-6 lg:px-8">
         <div className="mb-5 flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight text-white sm:text-[28px]">Find the best brands to promote</h1>
-            <p className="mt-1.5 text-sm text-zinc-400">Partner with verified brands and earn commissions. New offers added regularly.</p>
+            <h1 className="text-2xl font-semibold tracking-tight text-[var(--foreground)] sm:text-[28px]">Find the best brands to promote</h1>
+            <p className="mt-1.5 text-sm text-[var(--muted-foreground)]">Partner with verified brands and earn commissions. New offers added regularly.</p>
           </div>
-          <div className="flex min-w-[300px] items-center gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.025] px-4 py-3">
-            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-cyan-400/10 text-cyan-300"><ShieldCheck className="h-4.5 w-4.5" /></div>
+          <div className="flex min-w-[300px] items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--card)] px-4 py-3">
+            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[#00c2cb]/10 text-[#00c2cb]"><ShieldCheck className="h-4.5 w-4.5" /></div>
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-semibold text-white">Trusted brands. Real earnings.</p>
-              <p className="mt-0.5 text-[11px] text-zinc-500">Offers are reviewed before appearing here.</p>
+              <p className="text-xs font-semibold text-[var(--foreground)]">Trusted brands. Real earnings.</p>
+              <p className="mt-0.5 text-[11px] text-[var(--muted-foreground)]">Offers are reviewed before appearing here.</p>
             </div>
-            <Sparkles className="h-4 w-4 text-cyan-300" />
+            <Sparkles className="h-4 w-4 text-[#00c2cb]" />
           </div>
         </div>
 
-        <div className="rounded-2xl border border-white/[0.08] bg-white/[0.02] p-3">
+        <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-3">
           <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
             <div className="relative min-w-0 flex-1">
-              <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" />
+              <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--muted-foreground)]" />
               <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Search brands, products, or offers..."
-                className="h-11 w-full rounded-xl border border-white/[0.09] bg-[#14171b] pl-10 pr-4 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-cyan-400/40"
+                className="h-11 w-full rounded-xl border border-[var(--border)] bg-[var(--secondary)] pl-10 pr-4 text-sm text-[var(--foreground)] outline-none placeholder:text-[var(--muted-foreground)] focus:border-[#00c2cb]/50"
               />
             </div>
-            <select value={filterType} onChange={(event) => setFilterType(event.target.value)} className="h-11 rounded-xl border border-white/[0.09] bg-[#14171b] px-3 text-xs text-zinc-200 outline-none focus:border-cyan-400/40 xl:min-w-[150px]">
+            <select value={filterType} onChange={(event) => setFilterType(event.target.value)} className="h-11 rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 text-xs text-[var(--foreground)] outline-none focus:border-[#00c2cb]/50 xl:min-w-[150px]">
               <option value="All">All Offer Types</option>
               <option value="Recurring">Recurring</option>
               <option value="One-Time">One-Time</option>
             </select>
-            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as MarketplaceStatus)} className="h-11 rounded-xl border border-white/[0.09] bg-[#14171b] px-3 text-xs text-zinc-200 outline-none focus:border-cyan-400/40 xl:min-w-[150px]">
+            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as MarketplaceStatus)} className="h-11 rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 text-xs text-[var(--foreground)] outline-none focus:border-[#00c2cb]/50 xl:min-w-[150px]">
               <option value="all">All Statuses</option>
               <option value="ads">Ads Enabled</option>
               <option value="organic">Organic Only</option>
               <option value="pending">Pending Approval</option>
             </select>
             <div className="flex items-center gap-2 xl:ml-3">
-              <span className="whitespace-nowrap text-[11px] text-zinc-500">Sort by</span>
-              <select value={sortOrder} onChange={(event) => setSortOrder(event.target.value)} className="h-11 rounded-xl border border-white/[0.09] bg-[#14171b] px-3 text-xs text-zinc-200 outline-none focus:border-cyan-400/40 xl:min-w-[140px]">
+              <span className="whitespace-nowrap text-[11px] text-[var(--muted-foreground)]">Sort by</span>
+              <select value={sortOrder} onChange={(event) => setSortOrder(event.target.value)} className="h-11 rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 text-xs text-[var(--foreground)] outline-none focus:border-[#00c2cb]/50 xl:min-w-[140px]">
                 <option value="Featured">Featured</option>
                 <option value="Highest Commission">Highest Commission</option>
                 <option value="Business Name">Business Name</option>
@@ -493,16 +493,16 @@ export default function AffiliateMarketplace() {
           {tabs.map((tab) => {
             const active = statusFilter === tab.key;
             return (
-              <button key={tab.key} onClick={() => setStatusFilter(tab.key)} className={`inline-flex h-9 items-center gap-2 rounded-full border px-4 text-xs font-medium transition ${active ? "border-cyan-400 bg-cyan-400/10 text-cyan-300" : "border-white/[0.08] bg-white/[0.025] text-zinc-400 hover:border-white/15 hover:text-zinc-200"}`}>
+              <button key={tab.key} onClick={() => setStatusFilter(tab.key)} className={`inline-flex h-9 items-center gap-2 rounded-full border px-4 text-xs font-medium transition ${active ? "border-[#00c2cb] bg-[#00c2cb]/10 text-[#63e6ec]" : "border-[var(--border)] bg-[var(--card)] text-[var(--muted-foreground)] hover:border-[#00c2cb]/30 hover:text-[var(--foreground)]"}`}>
                 {tab.label}
-                <span className={`rounded-full px-2 py-0.5 text-[10px] ${active ? "bg-cyan-400 text-[#071114]" : "bg-white/[0.06] text-zinc-400"}`}>{tab.count}</span>
+                <span className={`rounded-full px-2 py-0.5 text-[10px] ${active ? "bg-[#00c2cb] text-[#0f0f0f]" : "bg-[var(--secondary)] text-[var(--muted-foreground)]"}`}>{tab.count}</span>
               </button>
             );
           })}
         </div>
 
-        <div className="mt-4 overflow-hidden rounded-2xl border border-white/[0.08] bg-[#111315] shadow-[0_16px_50px_rgba(0,0,0,.16)]">
-          <div className="hidden grid-cols-[minmax(280px,2.4fr)_minmax(170px,1.35fr)_minmax(105px,.8fr)_minmax(185px,1.35fr)_minmax(170px,1.15fr)_minmax(235px,1.45fr)] gap-4 border-b border-white/[0.08] bg-[#1a1d21] px-5 py-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-zinc-500 lg:grid">
+        <div className="mt-4 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[0_16px_50px_rgba(0,0,0,.16)]">
+          <div className="hidden grid-cols-[minmax(280px,2.4fr)_minmax(170px,1.35fr)_minmax(105px,.8fr)_minmax(185px,1.35fr)_minmax(170px,1.15fr)_minmax(235px,1.45fr)] gap-4 border-b border-[var(--border)] bg-[var(--secondary)] px-5 py-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--muted-foreground)] lg:grid">
             <span>Brand / Offer</span><span>Offer Type</span><span>Earnings</span><span>Order Details</span><span>Status</span><span className="text-right">Actions</span>
           </div>
 
@@ -510,21 +510,21 @@ export default function AffiliateMarketplace() {
             <MarketplaceRow key={offer.id} offer={offer} alreadyRequested={participatingIds.includes(offer.id)} currentStatus={requestStatusByOfferId[offer.id] || null} />
           )) : (
             <div className="px-6 py-16 text-center">
-              <p className="text-sm font-medium text-zinc-300">No matching offers</p>
-              <p className="mt-1 text-xs text-zinc-500">Try adjusting your search or filters.</p>
+              <p className="text-sm font-medium text-[var(--foreground)]">No matching offers</p>
+              <p className="mt-1 text-xs text-[var(--muted-foreground)]">Try adjusting your search or filters.</p>
             </div>
           )}
         </div>
 
-        <div className="mt-4 flex flex-col gap-3 text-xs text-zinc-500 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-4 flex flex-col gap-3 text-xs text-[var(--muted-foreground)] sm:flex-row sm:items-center sm:justify-between">
           <span>Showing {visibleOffers.length ? (safePage - 1) * PAGE_SIZE + 1 : 0}–{Math.min(safePage * PAGE_SIZE, sorted.length)} of {sorted.length} offers</span>
           {pageCount > 1 ? (
             <div className="flex items-center gap-1.5">
-              <button onClick={() => setPage((value) => Math.max(1, value - 1))} disabled={safePage === 1} className="grid h-9 w-9 place-items-center rounded-lg border border-white/[0.08] bg-white/[0.025] text-zinc-400 disabled:opacity-30"><ChevronLeft className="h-4 w-4" /></button>
+              <button onClick={() => setPage((value) => Math.max(1, value - 1))} disabled={safePage === 1} className="grid h-9 w-9 place-items-center rounded-lg border border-[var(--border)] bg-[var(--card)] text-[var(--muted-foreground)] disabled:opacity-30"><ChevronLeft className="h-4 w-4" /></button>
               {Array.from({ length: pageCount }, (_, index) => index + 1).slice(Math.max(0, safePage - 3), Math.max(5, safePage + 2)).map((pageNumber) => (
-                <button key={pageNumber} onClick={() => setPage(pageNumber)} className={`h-9 min-w-9 rounded-lg border px-2 text-xs font-medium ${safePage === pageNumber ? "border-cyan-400 bg-cyan-400 text-[#071114]" : "border-white/[0.08] bg-white/[0.025] text-zinc-400"}`}>{pageNumber}</button>
+                <button key={pageNumber} onClick={() => setPage(pageNumber)} className={`h-9 min-w-9 rounded-lg border px-2 text-xs font-medium ${safePage === pageNumber ? "border-[#00c2cb] bg-[#00c2cb] text-[#0f0f0f]" : "border-[var(--border)] bg-[var(--card)] text-[var(--muted-foreground)]"}`}>{pageNumber}</button>
               ))}
-              <button onClick={() => setPage((value) => Math.min(pageCount, value + 1))} disabled={safePage === pageCount} className="grid h-9 w-9 place-items-center rounded-lg border border-white/[0.08] bg-white/[0.025] text-zinc-400 disabled:opacity-30"><ChevronRight className="h-4 w-4" /></button>
+              <button onClick={() => setPage((value) => Math.min(pageCount, value + 1))} disabled={safePage === pageCount} className="grid h-9 w-9 place-items-center rounded-lg border border-[var(--border)] bg-[var(--card)] text-[var(--muted-foreground)] disabled:opacity-30"><ChevronRight className="h-4 w-4" /></button>
             </div>
           ) : null}
         </div>
