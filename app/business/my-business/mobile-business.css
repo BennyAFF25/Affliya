@@ -9,6 +9,17 @@
   .mobile-business-overview [aria-current="page"] { color: var(--foreground); }
   .mobile-business-overview [aria-label="Next action"] { background: var(--card); }
   .mobile-business-overview :is(.text-slate-300, .text-slate-400, .text-slate-500) { color: var(--muted-foreground); }
+
+  /* The overview status pill included a decorative dot that became invisible
+     against the cyan mobile theme, leaving what looked like broken spacing. */
+  .mobile-business-overview > section:first-of-type > div:first-child > span {
+    gap: 0 !important;
+    justify-content: center;
+  }
+  .mobile-business-overview > section:first-of-type > div:first-child > span > span:first-child {
+    display: none !important;
+  }
+
   .my-business-theme [data-mobile-panel] { display: none; }
   .my-business-theme[data-mobile-view="offers"] [data-mobile-panel="offers"],
   .my-business-theme[data-mobile-view="setup"] [data-mobile-panel="setup"] { display: block; }
