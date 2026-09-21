@@ -10,6 +10,10 @@ type RedditConversionRequest = {
   conversionId?: string;
   eventSourceUrl?: string;
   email?: string;
+  externalId?: string;
+  clickId?: string;
+  screenWidth?: number;
+  screenHeight?: number;
 };
 
 export async function POST(request: NextRequest) {
@@ -30,7 +34,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "Invalid JSON." }, { status: 400 });
   }
 
-  const { eventName, conversionId, eventSourceUrl, email } = body;
+  const {
+    eventName,
+    conversionId,
+    eventSourceUrl,
+    email,
+    externalId,
+    clickId,
+    screenWidth,
+    screenHeight,
+  } = body;
 
   if (!eventName || !conversionId) {
     return NextResponse.json(
@@ -46,11 +59,17 @@ export async function POST(request: NextRequest) {
   const forwardedFor = request.headers.get("x-forwarded-for");
   const ipAddress = forwardedFor?.split(",")[0]?.trim() || undefined;
   const userAgent = request.headers.get("user-agent") || undefined;
+  const hasScreenDimensions =
+    Number.isFinite(screenWidth) &&
+    Number.isFinite(screenHeight) &&
+    Number(screenWidth) > 0 &&
+    Number(screenHeight) > 0;
 
   const event = {
     event_at: Date.now(),
     action_source: "WEBSITE",
     ...(eventSourceUrl ? { event_source_url: eventSourceUrl } : {}),
+    ...(clickId ? { click_id: clickId } : {}),
     type:
       eventName === "SignUp"
         ? { tracking_type: "SIGN_UP" }
@@ -61,7 +80,16 @@ export async function POST(request: NextRequest) {
     user: {
       ...(ipAddress ? { ip_address: ipAddress } : {}),
       ...(userAgent ? { user_agent: userAgent } : {}),
+      ...(hasScreenDimensions
+        ? {
+            screen_dimensions: {
+              width: Number(screenWidth),
+              height: Number(screenHeight),
+            },
+          }
+        : {}),
       ...(email ? { email: email.trim().toLowerCase() } : {}),
+      ...(externalId ? { external_id: externalId } : {}),
     },
   };
 
