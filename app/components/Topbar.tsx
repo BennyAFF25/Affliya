@@ -4,9 +4,8 @@ import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import { useUser } from "@supabase/auth-helpers-react";
 import { supabase } from "utils/supabase/pages-client";
-import { LogOut, Moon, Sun } from "lucide-react";
+import { LogOut } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
-import { useTheme } from "@/../context/ThemeContext";
 
 type ProfileAvatarRow = {
   avatar_url: string | null;
@@ -64,16 +63,8 @@ export default function Topbar() {
   const user = useUser();
   const router = useRouter();
   const pathname = usePathname();
-  const { theme, toggleTheme } = useTheme();
 
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  const resolvedTheme = mounted ? theme : "dark";
 
   const userInitials = user?.email?.charAt(0).toUpperCase() || "F";
 
@@ -146,15 +137,6 @@ export default function Topbar() {
 
       {/* RIGHT SIDE */}
       <div className="flex items-center gap-4 sm:gap-6">
-        <button
-          type="button"
-          onClick={toggleTheme}
-          aria-label={`Switch to ${resolvedTheme === "dark" ? "light" : "dark"} mode`}
-          className="flex h-9 w-9 items-center justify-center rounded-full border border-[color:var(--border)] bg-[var(--card)] text-[var(--foreground)] transition hover:bg-[var(--secondary)]"
-        >
-          {resolvedTheme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
-        </button>
-
         {/* Avatar – hidden on mobile */}
         {user && (
           <div
@@ -190,8 +172,8 @@ export default function Topbar() {
             }}
             className="
               flex items-center justify-center
-              bg-[var(--primary)] hover:brightness-110 
-              text-[var(--primary-foreground)] 
+              bg-[var(--primary)] hover:brightness-110
+              text-[var(--primary-foreground)]
               px-2 py-1.5
               rounded-md
               text-xs
