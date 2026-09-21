@@ -2,7 +2,11 @@ declare global {
   interface Window {
     ttq?: {
       identify?: (payload: Record<string, string>) => void;
-      track?: (eventName: string, payload?: Record<string, unknown>) => void;
+      track?: (
+        eventName: string,
+        payload?: Record<string, unknown>,
+        options?: { event_id?: string },
+      ) => void;
     };
   }
 }
@@ -14,6 +18,16 @@ async function sha256(value: string) {
   return Array.from(new Uint8Array(digest))
     .map((byte) => byte.toString(16).padStart(2, '0'))
     .join('');
+}
+
+export function createTikTokEventId(prefix: string) {
+  try {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return `${prefix}_${crypto.randomUUID()}`;
+    }
+  } catch {}
+
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 }
 
 export async function identifyTikTokUser(input: {
@@ -37,7 +51,11 @@ export async function identifyTikTokUser(input: {
 export function trackTikTokEvent(
   eventName: 'ViewContent' | 'ClickButton' | 'Lead' | 'Search',
   payload?: Record<string, unknown>,
+  eventId?: string,
 ) {
-  if (typeof window === 'undefined' || !window.ttq?.track) return;
-  window.ttq.track(eventName, payload);
+  if (typeof window === 'undefined' || !window.ttq?.track) return null;
+
+  const resolvedEventId = eventId || createTikTokEventId(eventName.toLowerCase());
+  window.ttq.track(eventName, payload, { event_id: resolvedEventId });
+  return resolvedEventId;
 }
