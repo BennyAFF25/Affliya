@@ -1,3 +1,24 @@
+function trackRedditProductConversion(payload: {
+  eventType: string;
+  actorRole: "business" | "affiliate";
+  offerId?: string | null;
+}) {
+  if (typeof window === "undefined") return;
+  const rdt = (window as typeof window & { rdt?: (...args: any[]) => void }).rdt;
+  if (typeof rdt !== "function") return;
+
+  if (
+    payload.actorRole === "business" &&
+    payload.eventType === "offer_published" &&
+    payload.offerId
+  ) {
+    rdt("track", "Custom", {
+      customEventName: "CreateOffer",
+      conversionId: `offer_${payload.offerId}`,
+    });
+  }
+}
+
 export async function logProductEvent(payload: {
   eventType:
     | "content_library_asset_uploaded"
@@ -38,6 +59,8 @@ export async function logProductEvent(payload: {
   promotionType?: "paid" | "organic" | null;
   meta?: Record<string, unknown>;
 }) {
+  trackRedditProductConversion(payload);
+
   try {
     await fetch("/api/product-events", {
       method: "POST",
