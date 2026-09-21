@@ -124,32 +124,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 rdt('init','${REDDIT_PIXEL_ID}');
 rdt('track','PageVisit');
 (function(){
-  var previousPath = window.location.pathname;
-  var makeConversionId = function(prefix){
-    try {
-      if (window.crypto && typeof window.crypto.randomUUID === 'function') {
-        return prefix + '_' + window.crypto.randomUUID();
-      }
-    } catch (e) {}
-    return prefix + '_' + Date.now() + '_' + Math.random().toString(36).slice(2);
-  };
-  var checkRoute = function(){
-    var nextPath = window.location.pathname;
-    if (previousPath === '/create-account' && nextPath === '/onboarding/for-business') {
-      rdt('track', 'SignUp', { conversionId: makeConversionId('signup') });
+  try {
+    var clickId = new URLSearchParams(window.location.search).get('rdt_cid');
+    if (clickId) {
+      window.localStorage.setItem('nettmark.redditClickId', clickId);
     }
-    previousPath = nextPath;
-  };
-  ['pushState','replaceState'].forEach(function(method){
-    var original = window.history[method];
-    if (typeof original !== 'function') return;
-    window.history[method] = function(){
-      var result = original.apply(this, arguments);
-      setTimeout(checkRoute, 0);
-      return result;
-    };
-  });
-  window.addEventListener('popstate', function(){ setTimeout(checkRoute, 0); });
+  } catch (e) {}
 })();
 `
               }}
