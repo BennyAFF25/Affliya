@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { ArrowRight, CheckCircle2, PlayCircle } from "lucide-react";
@@ -87,6 +87,16 @@ export default function StorylaneLandingPage({
     [attribution, secondaryCta.href],
   );
 
+  useEffect(() => {
+    const rdt = (window as typeof window & { rdt?: (...args: any[]) => void }).rdt;
+    if (typeof rdt !== "function") return;
+
+    rdt("track", "ViewContent", {
+      pagePath,
+      audience,
+    });
+  }, [audience, pagePath]);
+
   const handlePrimaryCtaClick = (placement: string) => {
     if (Object.keys(attribution).length > 0) {
       persistAttribution(attribution);
@@ -111,6 +121,16 @@ export default function StorylaneLandingPage({
       ...(audience ? { role: audience } : {}),
       ...meta,
     });
+
+    const rdt = (window as typeof window & { rdt?: (...args: any[]) => void }).rdt;
+    if (typeof rdt === "function") {
+      rdt("track", "Custom", {
+        customEventName: "BusinessDemoCtaClick",
+        pagePath,
+        audience,
+        placement,
+      });
+    }
   };
 
   return (
