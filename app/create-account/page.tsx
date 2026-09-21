@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/../utils/supabase/pages-client';
 import MarketingPageTracker from '@/components/marketing/MarketingPageTracker';
 import { trackMetaStandardEvent } from '@/../utils/marketing/metaPixel';
+import { trackRedditConversion } from '@/../utils/marketing/redditConversions';
 
 function CreateAccountInner() {
   const sp = useSearchParams();
@@ -224,6 +225,18 @@ function CreateAccountInner() {
         role,
         signup_method: 'email',
       });
+
+      if (role === 'business') {
+        const signupConversionId = `signup_${
+          data?.user?.id || `${Date.now()}_${Math.random().toString(36).slice(2)}`
+        }`;
+
+        trackRedditConversion({
+          eventName: 'SignUp',
+          conversionId: signupConversionId,
+          email: trimmedEmail,
+        });
+      }
 
       // ✅ Redirect only AFTER emails were attempted
       router.replace(onboardingPath);
