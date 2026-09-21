@@ -8,6 +8,8 @@ import { Toaster } from 'react-hot-toast';
 import Script from 'next/script';
 import { META_PIXEL_ID } from '@/../utils/marketing/metaPixel';
 
+const REDDIT_PIXEL_ID = 'a2_jpxi5jrkyvlx';
+
 const themeInitScript = `
 (function () {
   try {
@@ -110,6 +112,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   script.setAttribute('data-auto-tracking', at);
   d.head.appendChild(script);
 })(window, document, 'px_4f4f743c629f', '1f76e30b-a49e-419f-bb2f-116385e337ac', 'https://track.nettmark.com', 'CUSTOM', 'false');
+`
+              }}
+            />
+            <Script
+              id="reddit-pixel-base"
+              strategy="afterInteractive"
+              dangerouslySetInnerHTML={{
+                __html: `
+!function(w,d){if(!w.rdt){var p=w.rdt=function(){p.sendEvent?p.sendEvent.apply(p,arguments):p.callQueue.push(arguments)};p.callQueue=[];var t=d.createElement("script");t.src="https://www.redditstatic.com/ads/pixel.js?pixel_id=${REDDIT_PIXEL_ID}",t.async=!0;var s=d.getElementsByTagName("script")[0];s.parentNode.insertBefore(t,s)}}(window,document);
+rdt('init','${REDDIT_PIXEL_ID}');
+rdt('track','PageVisit');
 `
               }}
             />
