@@ -4,6 +4,56 @@ import { cookies } from 'next/headers';
 
 const PLAN_CHOICE_COOKIE = 'nettmark_business_plan_choice_v2';
 const LEGACY_PLAN_CHOICE_COOKIE = 'nettmark_business_plan_choice';
+const REDDIT_PIXEL_ID = 'a2_jpxi5jrkyvlx';
+
+async function trackOnboardingOfferConversion(user: { id: string; email?: string | null }) {
+  const token = process.env.REDDIT_CONVERSION_ACCESS_TOKEN;
+  if (!token) return;
+
+  const conversionId = `offer_onboarding_${user.id}_${Date.now()}`;
+
+  try {
+    const response = await fetch(
+      `https://ads-api.reddit.com/api/v3/pixels/${REDDIT_PIXEL_ID}/conversion_events`,
+      {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          data: {
+            events: [
+              {
+                event_at: Date.now(),
+                action_source: 'WEBSITE',
+                event_source_url: 'https://www.nettmark.com/onboarding/for-business',
+                type: {
+                  tracking_type: 'CUSTOM',
+                  custom_event_name: 'CreateOffer',
+                },
+                metadata: {
+                  conversion_id: conversionId,
+                },
+                user: user.email ? { email: user.email.trim().toLowerCase() } : {},
+              },
+            ],
+          },
+        }),
+        cache: 'no-store',
+      },
+    );
+
+    if (!response.ok) {
+      console.error('[Reddit CAPI] Onboarding CreateOffer rejected', {
+        status: response.status,
+        body: await response.text().catch(() => ''),
+      });
+    }
+  } catch (error) {
+    console.error('[Reddit CAPI] Onboarding CreateOffer failed', error);
+  }
+}
 
 export async function POST() {
   const supabase = createRouteHandlerClient({ cookies });
@@ -16,6 +66,10 @@ export async function POST() {
     .eq('id', user.id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+  // This endpoint is called immediately after the onboarding offer insert succeeds.
+  // Reddit tracking is best-effort and must never block onboarding completion.
+  void trackOnboardingOfferConversion({ id: user.id, email: user.email });
 
   const { data: entitlement } = await supabase
     .from('business_entitlements')
