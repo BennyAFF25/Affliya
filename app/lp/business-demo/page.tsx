@@ -21,16 +21,23 @@ export const metadata: Metadata = {
 
 export default function BusinessDemoPage() {
   return (
-    <Suspense fallback={null}>
-      <BusinessDemoLandingPage
-        pagePath="/lp/business-demo"
-        demoHref="https://app.storylane.io/demo/qdg9lyyhmgmv?embed=inline"
-        demoPadding="calc(65.19% + 25px)"
-        demoTitle="Nettmark business demo"
-        mobileDemoHref={businessMobileDemoHref}
-        mobileDemoPadding={businessMobileDemoPadding}
-        mobileDemoTitle="Nettmark business mobile demo"
-      />
-    </Suspense>
+    <div id="business-demo-page">
+      <style>{`
+        #business-demo-page main > nav {
+          display: none;
+        }
+      `}</style>
+      <Suspense fallback={null}>
+        <BusinessDemoLandingPage
+          pagePath="/lp/business-demo"
+          demoHref="https://app.storylane.io/demo/qdg9lyyhmgmv?embed=inline"
+          demoPadding="calc(65.19% + 25px)"
+          demoTitle="Nettmark business demo"
+          mobileDemoHref={businessMobileDemoHref}
+          mobileDemoPadding={businessMobileDemoPadding}
+          mobileDemoTitle="Nettmark business mobile demo"
+        />
+      </Suspense>
+    </div>
   );
 }
