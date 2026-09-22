@@ -11,7 +11,6 @@ import {
   CheckCircle2,
   CircleDollarSign,
   Eye,
-  Megaphone,
   MousePointerClick,
   PlayCircle,
   ShieldCheck,
@@ -41,8 +40,6 @@ type Props = {
   mobileDemoPadding?: string;
   mobileDemoTitle?: string;
 };
-
-const cyan = "#00C2CB";
 
 const quickProof = [
   "No upfront affiliate ad spend",
@@ -192,232 +189,299 @@ export default function BusinessDemoLandingPage({
 
   const scrollToHowItWorks = (placement: string) => {
     trackCta(placement, "See how it works", "#how-it-works");
-    document.getElementById("how-it-works")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    document.getElementById("how-it-works")?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
   };
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-[#0f0f0f] text-white">
+    <div className="relative min-h-screen overflow-x-hidden bg-[#090a0a] text-white selection:bg-[#00C2CB]/30">
       <MarketingPageTracker pagePath={pagePath} audience="business" />
 
-      <div className="pointer-events-none fixed inset-x-0 top-0 h-[540px] bg-[radial-gradient(circle_at_50%_-10%,rgba(0,194,203,0.18),transparent_48%)]" />
+      <div className="pointer-events-none fixed inset-0">
+        <div className="absolute left-1/2 top-[-220px] h-[620px] w-[620px] -translate-x-1/2 rounded-full bg-[#00C2CB]/[0.08] blur-[120px]" />
+        <div className="nettmark-grid absolute inset-0 opacity-[0.18]" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/20 to-transparent" />
+      </div>
 
-      <main className="relative mx-auto w-full max-w-7xl px-4 pb-28 pt-5 sm:px-6 lg:px-8 lg:pb-24">
-        <nav className="flex items-center justify-between border-b border-white/[0.07] pb-5">
-          <Link href="/" className="inline-flex items-center gap-2 text-sm font-semibold tracking-tight">
-            <span className="grid h-8 w-8 place-items-center rounded-lg border border-cyan-400/20 bg-cyan-400/10 text-sm font-black text-cyan-300">N</span>
-            NETTMARK
-          </Link>
-          <Link
-            href={signupHref}
-            onClick={() => trackCta("nav", "Start as a business", signupHref)}
-            className="rounded-full border border-white/10 bg-[#1a1a1a] px-4 py-2 text-xs font-semibold text-white/85 transition hover:border-cyan-400/30 hover:text-white"
-          >
-            Start as a business
-          </Link>
-        </nav>
-
-        <section className="grid gap-10 pb-14 pt-12 lg:grid-cols-[1.02fr_.98fr] lg:items-center lg:pb-20 lg:pt-20">
-          <div className="max-w-2xl">
-            <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-cyan-400/20 bg-cyan-400/[0.08] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-cyan-300">
-              <Sparkles className="h-3.5 w-3.5" /> A different way to fund growth
+      <main className="relative mx-auto w-full max-w-7xl px-4 pb-28 sm:px-6 lg:px-8 lg:pb-24">
+        <section className="grid min-h-[88vh] gap-12 pb-16 pt-12 lg:grid-cols-[1.05fr_.95fr] lg:items-center lg:pb-24 lg:pt-16">
+          <div className="demo-reveal max-w-2xl">
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.035] px-3.5 py-2 text-[10px] font-medium uppercase tracking-[0.2em] text-white/55 backdrop-blur-xl">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#00C2CB] opacity-40" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-[#00C2CB]" />
+              </span>
+              A different way to fund growth
             </div>
-            <h1 className="text-[42px] font-semibold leading-[0.98] tracking-[-0.045em] sm:text-6xl lg:text-[72px]">
+
+            <h1 className="max-w-[760px] text-[44px] font-medium leading-[0.98] tracking-[-0.055em] text-white sm:text-6xl lg:text-[76px]">
               Let affiliates fund your advertising. <span className="text-[#00C2CB]">Pay when they make sales.</span>
             </h1>
-            <p className="mt-6 max-w-xl text-[17px] leading-7 text-white/65 sm:text-lg">
+
+            <p className="mt-7 max-w-xl text-[16px] font-normal leading-7 text-white/58 sm:text-[18px] sm:leading-8">
               Affiliates fund their own campaigns to promote your business. You choose who can promote you, set the commission, and review campaigns before they go live.
             </p>
 
-            <div className="mt-7 flex flex-col gap-3 sm:flex-row">
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <button
                 onClick={() => scrollToHowItWorks("hero")}
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#00C2CB] px-6 text-sm font-semibold text-[#061012] shadow-[0_0_32px_rgba(0,194,203,.18)] transition hover:bg-[#18d4dc]"
+                className="group inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#00C2CB] px-6 text-sm font-semibold text-[#051012] shadow-[0_12px_40px_rgba(0,194,203,.16)] transition duration-300 hover:-translate-y-0.5 hover:bg-[#19d5dc] hover:shadow-[0_18px_55px_rgba(0,194,203,.24)]"
               >
-                See how it works <ArrowDown className="h-4 w-4" />
+                See how it works
+                <ArrowDown className="h-4 w-4 transition-transform duration-300 group-hover:translate-y-0.5" />
               </button>
               <Link
                 href={signupHref}
                 onClick={() => trackCta("hero_secondary", "Start as a business", signupHref)}
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-white/10 bg-[#1a1a1a] px-6 text-sm font-semibold text-white transition hover:border-white/20"
+                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full border border-white/[0.1] bg-white/[0.035] px-6 text-sm font-semibold text-white/90 backdrop-blur-xl transition duration-300 hover:-translate-y-0.5 hover:bg-white/[0.07]"
               >
                 Start as a business <ArrowRight className="h-4 w-4" />
               </Link>
             </div>
 
-            <div className="mt-6 flex flex-wrap gap-x-4 gap-y-2 text-xs text-white/50">
-              <span>No upfront affiliate ad spend</span>
-              <span className="hidden text-white/20 sm:inline">•</span>
-              <span>You approve who promotes you</span>
-              <span className="hidden text-white/20 sm:inline">•</span>
-              <span>Pay when verified sales happen</span>
-            </div>
-          </div>
-
-          <div className="relative">
-            <div className="absolute -inset-10 bg-[radial-gradient(circle,rgba(0,194,203,.13),transparent_64%)] blur-2xl" />
-            <div className="relative overflow-hidden rounded-[28px] border border-white/10 bg-[#1a1a1a] p-4 shadow-[0_28px_80px_rgba(0,0,0,.35)] sm:p-5">
-              <div className="mb-4 flex items-center justify-between">
-                <div>
-                  <div className="text-[10px] font-semibold uppercase tracking-[0.2em] text-cyan-300">The model</div>
-                  <div className="mt-1 text-sm font-medium text-white/70">Who pays for what?</div>
-                </div>
-                <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-3 py-1 text-[10px] font-semibold text-emerald-300">Business ad spend: $0 upfront</span>
-              </div>
-              <div className="space-y-2.5">
-                {flow.map((item, index) => {
-                  const Icon = item.icon;
-                  return (
-                    <React.Fragment key={`${item.label}-${item.copy}`}>
-                      <div className="flex items-center gap-3 rounded-2xl border border-white/[0.07] bg-[#222] px-4 py-3.5 transition hover:border-cyan-400/20">
-                        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-cyan-400/10 text-cyan-300"><Icon className="h-5 w-5" /></div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/35">{item.label}</p>
-                          <p className="mt-0.5 text-sm font-semibold text-white">{item.copy}</p>
-                        </div>
-                        <CheckCircle2 className="h-4 w-4 text-cyan-400/55" />
-                      </div>
-                      {index < flow.length - 1 ? <div className="mx-auto h-3 w-px bg-gradient-to-b from-cyan-400/45 to-transparent" /> : null}
-                    </React.Fragment>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
-          {quickProof.map((item) => (
-            <div key={item} className="rounded-2xl border border-white/[0.07] bg-[#1a1a1a] px-3 py-4 text-center text-xs font-medium leading-5 text-white/75 sm:px-4">
-              <Check className="mx-auto mb-2 h-4 w-4 text-cyan-300" />
-              {item}
-            </div>
-          ))}
-        </section>
-
-        <section id="how-it-works" className="scroll-mt-6 pt-20 sm:pt-28">
-          <div className="max-w-2xl">
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300">How Nettmark works</p>
-            <h2 className="mt-3 text-3xl font-semibold tracking-[-0.035em] sm:text-5xl">You set the terms. Affiliates take the advertising risk.</h2>
-            <p className="mt-4 max-w-xl text-sm leading-6 text-white/55 sm:text-base">The flow is deliberately simple. You do not hand your brand to strangers and hope for the best.</p>
-          </div>
-          <div className="mt-8 grid gap-3 md:grid-cols-4">
-            {steps.map((step) => {
-              const Icon = step.icon;
-              return (
-                <article key={step.n} className="group rounded-[24px] border border-white/[0.07] bg-[#1a1a1a] p-5 transition hover:-translate-y-1 hover:border-cyan-400/20">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-white/25">{step.n}</span>
-                    <div className="grid h-10 w-10 place-items-center rounded-xl bg-[#2a2a2a] text-cyan-300"><Icon className="h-5 w-5" /></div>
-                  </div>
-                  <h3 className="mt-7 text-lg font-semibold">{step.title}</h3>
-                  <p className="mt-2 text-sm leading-6 text-white/50">{step.copy}</p>
-                </article>
-              );
-            })}
-          </div>
-        </section>
-
-        <section className="pt-20 sm:pt-28">
-          <div className="overflow-hidden rounded-[30px] border border-white/[0.07] bg-[#1a1a1a]">
-            <div className="grid lg:grid-cols-[.78fr_1.22fr]">
-              <div className="border-b border-white/[0.07] p-6 sm:p-8 lg:border-b-0 lg:border-r">
-                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300">How the economics work</p>
-                <h2 className="mt-3 text-3xl font-semibold tracking-[-0.035em] sm:text-4xl">Who actually pays for the advertising?</h2>
-                <p className="mt-4 text-sm leading-6 text-white/55">The affiliate funds it. You pay the commission tied to qualifying sales. Here is a simple illustrative example.</p>
-                <div className="mt-6 rounded-2xl border border-cyan-400/15 bg-cyan-400/[0.06] p-4 text-sm leading-6 text-white/65">
-                  <strong className="text-white">Example only.</strong> Your real commission, order value and affiliate ad spend are set by the offer and campaign economics.
-                </div>
-              </div>
-              <div className="p-5 sm:p-8">
-                <div className="space-y-2">
-                  {[
-                    ["Affiliate ad spend", "$500", "Paid by affiliate", "text-cyan-300"],
-                    ["Tracked customer sales", "$3,000", "Illustrative", "text-white"],
-                    ["Commission", "$600", "Paid on qualifying sales", "text-amber-300"],
-                    ["Business revenue before other costs", "$2,400", "After example commission", "text-emerald-300"],
-                  ].map(([label, value, helper, tone]) => (
-                    <div key={label} className="grid grid-cols-[1fr_auto] items-center gap-4 rounded-2xl border border-white/[0.06] bg-[#222] px-4 py-4">
-                      <div><p className="text-sm font-medium text-white/75">{label}</p><p className="mt-0.5 text-xs text-white/35">{helper}</p></div>
-                      <p className={`text-xl font-semibold ${tone}`}>{value}</p>
-                    </div>
-                  ))}
-                  <div className="mt-3 flex items-center justify-between rounded-2xl border border-cyan-400/25 bg-cyan-400/[0.09] px-4 py-5">
-                    <div><p className="text-sm font-semibold">Business upfront affiliate ad cost</p><p className="mt-1 text-xs text-white/40">The affiliate funded the campaign.</p></div>
-                    <p className="text-3xl font-semibold text-cyan-300">$0</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section className="grid gap-5 pt-20 sm:pt-28 lg:grid-cols-2">
-          <div className="rounded-[28px] border border-white/[0.07] bg-[#1a1a1a] p-6 sm:p-8">
-            <div className="grid h-11 w-11 place-items-center rounded-xl bg-cyan-400/10 text-cyan-300"><Zap className="h-5 w-5" /></div>
-            <p className="mt-6 text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300">The obvious question</p>
-            <h2 className="mt-3 text-3xl font-semibold tracking-[-0.03em]">Why would an affiliate pay for my advertising?</h2>
-            <p className="mt-4 text-sm leading-6 text-white/55">Because they are looking for offers they believe they can promote profitably. Their upside is the commission when their campaign generates a tracked sale.</p>
-            <div className="mt-6 flex flex-wrap items-center gap-2 text-xs font-medium text-white/65">
-              {['Finds an offer', 'Funds campaign', 'Generates customer', 'Sale is tracked', 'Earns commission'].map((item, index, arr) => (
-                <React.Fragment key={item}><span className="rounded-full border border-white/[0.08] bg-[#2a2a2a] px-3 py-2">{item}</span>{index < arr.length - 1 ? <ArrowRight className="h-3.5 w-3.5 text-cyan-400/40" /> : null}</React.Fragment>
+            <div className="mt-8 flex flex-wrap gap-x-5 gap-y-2.5 text-[12px] text-white/38">
+              {[
+                "No upfront affiliate ad spend",
+                "You approve who promotes you",
+                "Pay when verified sales happen",
+              ].map((item) => (
+                <span key={item} className="flex items-center gap-2">
+                  <span className="h-1 w-1 rounded-full bg-[#00C2CB]/70" />
+                  {item}
+                </span>
               ))}
             </div>
           </div>
 
-          <div className="rounded-[28px] border border-cyan-400/15 bg-[linear-gradient(145deg,rgba(0,194,203,.08),#1a1a1a_45%)] p-6 sm:p-8">
-            <div className="grid h-11 w-11 place-items-center rounded-xl bg-cyan-400/10 text-cyan-300"><ShieldCheck className="h-5 w-5" /></div>
-            <p className="mt-6 text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300">You stay in control</p>
-            <h2 className="mt-3 text-3xl font-semibold tracking-[-0.03em]">No blank cheque. No handing over your brand.</h2>
-            <p className="mt-4 text-sm leading-6 text-white/55">You decide who can promote you, and the paid campaign flow is built around business review before approved campaigns go live.</p>
-            <div className="mt-6 space-y-3">
-              {controlItems.map((item) => <div key={item} className="flex items-start gap-3 text-sm text-white/70"><CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-cyan-300" />{item}</div>)}
+          <div className="demo-reveal-delayed relative mx-auto w-full max-w-[560px] lg:mx-0 lg:ml-auto">
+            <div className="absolute -inset-16 rounded-full bg-[#00C2CB]/[0.055] blur-[75px]" />
+            <div className="hero-float relative overflow-hidden rounded-[34px] border border-white/[0.095] bg-[linear-gradient(155deg,rgba(255,255,255,.075),rgba(255,255,255,.025)_40%,rgba(0,194,203,.035))] p-1 shadow-[0_40px_100px_rgba(0,0,0,.42)] backdrop-blur-2xl">
+              <div className="rounded-[30px] border border-white/[0.045] bg-[#101212]/88 p-5 sm:p-6">
+                <div className="mb-6 flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-[9px] font-medium uppercase tracking-[0.24em] text-white/30">Live model</div>
+                    <div className="mt-1.5 text-sm font-medium text-white/78">Who pays for what?</div>
+                  </div>
+                  <span className="rounded-full border border-[#00C2CB]/20 bg-[#00C2CB]/[0.07] px-3 py-1.5 text-[10px] font-medium text-[#66e8ee]">
+                    Business ad spend: $0 upfront
+                  </span>
+                </div>
+
+                <div className="relative">
+                  <div className="absolute bottom-5 left-[19px] top-5 w-px bg-gradient-to-b from-[#00C2CB]/10 via-[#00C2CB]/50 to-[#00C2CB]/10" />
+                  <div className="signal-dot absolute left-[17px] top-5 h-[5px] w-[5px] rounded-full bg-[#7af4f8] shadow-[0_0_16px_rgba(122,244,248,.9)]" />
+                  <div className="space-y-1.5">
+                    {flow.map((item, index) => {
+                      const Icon = item.icon;
+                      return (
+                        <div
+                          key={`${item.label}-${item.copy}`}
+                          className="group relative flex items-center gap-4 rounded-2xl px-2 py-3.5 transition duration-300 hover:bg-white/[0.035]"
+                        >
+                          <div className="relative z-10 grid h-9 w-9 shrink-0 place-items-center rounded-full border border-white/[0.08] bg-[#111515] text-[#66e8ee] shadow-[0_0_0_5px_#101212]">
+                            <Icon className="h-4 w-4" strokeWidth={1.65} />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[9px] font-medium uppercase tracking-[0.18em] text-white/28">{item.label}</p>
+                            <p className="mt-1 text-[14px] font-medium text-white/88">{item.copy}</p>
+                          </div>
+                          <span className="font-mono text-[10px] text-white/18">0{index + 1}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </section>
 
-        <section className="pt-20 sm:pt-28">
-          <div className="mb-7 max-w-2xl">
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300">See the product</p>
-            <h2 className="mt-3 text-3xl font-semibold tracking-[-0.035em] sm:text-5xl">Here&apos;s what it looks like inside Nettmark.</h2>
-            <p className="mt-4 text-sm leading-6 text-white/55 sm:text-base">Create an offer, review affiliate requests, review funded campaign submissions and track the resulting sales and commissions.</p>
+        <section className="border-y border-white/[0.07] py-6">
+          <div className="grid grid-cols-2 divide-x divide-y divide-white/[0.06] sm:grid-cols-4 sm:divide-y-0">
+            {quickProof.map((item, index) => (
+              <div key={item} className="flex min-h-[90px] items-center gap-3 px-4 py-4 sm:px-6">
+                <span className="font-mono text-[10px] text-[#00C2CB]/55">0{index + 1}</span>
+                <span className="text-xs font-medium leading-5 text-white/62">{item}</span>
+              </div>
+            ))}
           </div>
-          <div className="rounded-[30px] border border-white/[0.08] bg-[#1a1a1a] p-3 shadow-[0_30px_100px_-30px_rgba(0,0,0,.8)] sm:p-5">
-            <div className="mb-4 flex flex-wrap items-center justify-between gap-3 px-1">
-              <div className="flex items-center gap-2 text-sm font-semibold"><PlayCircle className="h-4 w-4 text-cyan-300" /> Interactive business walkthrough</div>
-              <span className="text-xs text-white/35">Explore before creating an account</span>
+        </section>
+
+        <section id="how-it-works" className="scroll-mt-8 pt-24 sm:pt-32">
+          <SectionIntro
+            eyebrow="How Nettmark works"
+            title="You set the terms. Affiliates take the advertising risk."
+            copy="The flow is deliberately simple. You do not hand your brand to strangers and hope for the best."
+          />
+
+          <div className="relative mt-10 border-y border-white/[0.07]">
+            <div className="pointer-events-none absolute left-0 right-0 top-0 hidden h-px bg-gradient-to-r from-transparent via-[#00C2CB]/30 to-transparent md:block" />
+            <div className="grid md:grid-cols-4">
+              {steps.map((step, index) => {
+                const Icon = step.icon;
+                return (
+                  <article
+                    key={step.n}
+                    className="group relative min-h-[250px] border-b border-white/[0.07] p-6 transition duration-500 last:border-b-0 hover:bg-white/[0.025] md:border-b-0 md:border-r md:last:border-r-0"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-[10px] tracking-[0.18em] text-white/24">{step.n}</span>
+                      <Icon className="h-5 w-5 text-[#00C2CB]/65 transition duration-500 group-hover:text-[#74f0f5]" strokeWidth={1.5} />
+                    </div>
+                    <div className="mt-20">
+                      <h3 className="text-lg font-medium tracking-[-0.02em] text-white/92">{step.title}</h3>
+                      <p className="mt-3 max-w-[230px] text-sm leading-6 text-white/43">{step.copy}</p>
+                    </div>
+                    {index < steps.length - 1 ? (
+                      <span className="absolute right-[-5px] top-1/2 z-10 hidden h-2.5 w-2.5 -translate-y-1/2 rounded-full border border-[#00C2CB]/35 bg-[#0b0c0c] md:block" />
+                    ) : null}
+                  </article>
+                );
+              })}
             </div>
-            <StorylaneEmbed
-              desktopHref={demoHref}
-              desktopPadding={demoPadding}
-              title={demoTitle}
-              mobileHref={mobileDemoHref}
-              mobilePadding={mobileDemoPadding}
-              mobileTitle={mobileDemoTitle}
+          </div>
+        </section>
+
+        <section className="pt-24 sm:pt-32">
+          <div className="overflow-hidden rounded-[34px] border border-white/[0.085] bg-[linear-gradient(145deg,rgba(255,255,255,.055),rgba(255,255,255,.018))] shadow-[0_35px_100px_rgba(0,0,0,.26)] backdrop-blur-xl">
+            <div className="grid lg:grid-cols-[.76fr_1.24fr]">
+              <div className="border-b border-white/[0.07] p-7 sm:p-10 lg:border-b-0 lg:border-r">
+                <p className="text-[10px] font-medium uppercase tracking-[0.24em] text-[#62e7ed]">How the economics work</p>
+                <h2 className="mt-4 text-3xl font-medium tracking-[-0.045em] text-white sm:text-[42px] sm:leading-[1.02]">Who actually pays for the advertising?</h2>
+                <p className="mt-5 text-sm leading-6 text-white/48">The affiliate funds it. You pay the commission tied to qualifying sales. Here is a simple illustrative example.</p>
+                <div className="mt-8 border-l border-[#00C2CB]/35 pl-4 text-sm leading-6 text-white/48">
+                  <strong className="font-medium text-white/82">Example only.</strong> Your real commission, order value and affiliate ad spend are set by the offer and campaign economics.
+                </div>
+              </div>
+
+              <div className="p-6 sm:p-9">
+                <div className="divide-y divide-white/[0.065]">
+                  {[
+                    ["Affiliate ad spend", "$500", "Paid by affiliate", "text-[#67e9ee]"],
+                    ["Tracked customer sales", "$3,000", "Illustrative", "text-white"],
+                    ["Commission", "$600", "Paid on qualifying sales", "text-amber-200"],
+                    ["Business revenue before other costs", "$2,400", "After example commission", "text-emerald-200"],
+                  ].map(([label, value, helper, tone]) => (
+                    <div key={label} className="grid grid-cols-[1fr_auto] items-center gap-5 py-5 first:pt-1">
+                      <div>
+                        <p className="text-sm font-medium text-white/67">{label}</p>
+                        <p className="mt-1 text-xs text-white/28">{helper}</p>
+                      </div>
+                      <p className={`text-2xl font-medium tracking-[-0.04em] ${tone}`}>{value}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-4 flex items-center justify-between rounded-[22px] border border-[#00C2CB]/18 bg-[#00C2CB]/[0.055] px-5 py-5">
+                  <div>
+                    <p className="text-sm font-medium text-white/82">Business upfront affiliate ad cost</p>
+                    <p className="mt-1 text-xs text-white/32">The affiliate funded the campaign.</p>
+                  </div>
+                  <p className="text-4xl font-medium tracking-[-0.05em] text-[#62e7ed]">$0</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="grid gap-12 pt-24 sm:pt-32 lg:grid-cols-2 lg:gap-20">
+          <EditorialBlock
+            eyebrow="The obvious question"
+            icon={Zap}
+            title="Why would an affiliate pay for my advertising?"
+            copy="Because they are looking for offers they believe they can promote profitably. Their upside is the commission when their campaign generates a tracked sale."
+          >
+            <div className="mt-7 flex flex-wrap items-center gap-2.5 text-xs text-white/48">
+              {["Finds an offer", "Funds campaign", "Generates customer", "Sale is tracked", "Earns commission"].map((item, index, arr) => (
+                <React.Fragment key={item}>
+                  <span className="border-b border-white/[0.12] py-1.5">{item}</span>
+                  {index < arr.length - 1 ? <ArrowRight className="h-3 w-3 text-[#00C2CB]/35" /> : null}
+                </React.Fragment>
+              ))}
+            </div>
+          </EditorialBlock>
+
+          <EditorialBlock
+            eyebrow="You stay in control"
+            icon={ShieldCheck}
+            title="No blank cheque. No handing over your brand."
+            copy="You decide who can promote you, and the paid campaign flow is built around business review before approved campaigns go live."
+            accent
+          >
+            <div className="mt-7 divide-y divide-white/[0.06]">
+              {controlItems.map((item) => (
+                <div key={item} className="flex items-center gap-3 py-3 text-sm text-white/58">
+                  <CheckCircle2 className="h-4 w-4 shrink-0 text-[#58e1e7]" strokeWidth={1.7} />
+                  {item}
+                </div>
+              ))}
+            </div>
+          </EditorialBlock>
+        </section>
+
+        <section className="pt-24 sm:pt-32">
+          <SectionIntro
+            eyebrow="See the product"
+            title="Here&apos;s what it looks like inside Nettmark."
+            copy="Create an offer, review affiliate requests, review funded campaign submissions and track the resulting sales and commissions."
+          />
+
+          <div className="relative mt-10">
+            <div className="absolute -inset-6 rounded-[44px] bg-[#00C2CB]/[0.035] blur-3xl" />
+            <div className="relative rounded-[34px] border border-white/[0.09] bg-[linear-gradient(145deg,rgba(255,255,255,.06),rgba(255,255,255,.018))] p-2 shadow-[0_45px_120px_-35px_rgba(0,0,0,.82)] backdrop-blur-2xl sm:p-3">
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-3 px-3 py-2 sm:px-4">
+                <div className="flex items-center gap-2 text-sm font-medium text-white/78">
+                  <PlayCircle className="h-4 w-4 text-[#62e7ed]" strokeWidth={1.7} />
+                  Interactive business walkthrough
+                </div>
+                <span className="text-[11px] text-white/28">Explore before creating an account</span>
+              </div>
+              <div className="overflow-hidden rounded-[26px] border border-white/[0.06] bg-black/30">
+                <StorylaneEmbed
+                  desktopHref={demoHref}
+                  desktopPadding={demoPadding}
+                  title={demoTitle}
+                  mobileHref={mobileDemoHref}
+                  mobilePadding={mobileDemoPadding}
+                  mobileTitle={mobileDemoTitle}
+                />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="pt-24 sm:pt-32">
+          <SectionIntro eyebrow="What do I risk?" title="Keep the responsibilities clear." />
+          <div className="mt-9 grid border-y border-white/[0.07] md:grid-cols-3 md:divide-x md:divide-white/[0.07]">
+            <ResponsibilityCard
+              title="You control"
+              icon={ShieldCheck}
+              items={["Your offer", "Your commission", "Who you approve", "Which submitted campaigns go live"]}
+            />
+            <ResponsibilityCard
+              title="Affiliate funds"
+              icon={WalletCards}
+              items={["Their paid-media budget", "Their campaign testing", "Their customer acquisition effort"]}
+            />
+            <ResponsibilityCard
+              title="You pay"
+              icon={CircleDollarSign}
+              items={["The agreed commission", "On qualifying verified sales", "Nettmark fees under the current pricing plan"]}
             />
           </div>
         </section>
 
-        <section className="pt-20 sm:pt-28">
-          <div className="grid gap-3 md:grid-cols-3">
-            <div className="rounded-[26px] border border-white/[0.07] bg-[#1a1a1a] p-6 md:col-span-3">
-              <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300">What do I risk?</p>
-              <h2 className="mt-3 text-3xl font-semibold tracking-[-0.03em]">Keep the responsibilities clear.</h2>
-            </div>
-            <ResponsibilityCard title="You control" icon={ShieldCheck} items={["Your offer", "Your commission", "Who you approve", "Which submitted campaigns go live"]} />
-            <ResponsibilityCard title="Affiliate funds" icon={WalletCards} items={["Their paid-media budget", "Their campaign testing", "Their customer acquisition effort"]} />
-            <ResponsibilityCard title="You pay" icon={CircleDollarSign} items={["The agreed commission", "On qualifying verified sales", "Nettmark fees under the current pricing plan"]} />
-          </div>
-        </section>
-
-        <section className="pt-20 sm:pt-28">
-          <div className="rounded-[30px] border border-white/[0.07] bg-[#1a1a1a] p-6 sm:p-8">
-            <div className="grid gap-8 lg:grid-cols-[.8fr_1.2fr]">
+        <section className="pt-24 sm:pt-32">
+          <div className="rounded-[34px] border border-white/[0.08] bg-white/[0.025] p-7 backdrop-blur-xl sm:p-10">
+            <div className="grid gap-10 lg:grid-cols-[.78fr_1.22fr] lg:gap-16">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300">Meta & account access</p>
-                <h2 className="mt-3 text-3xl font-semibold tracking-[-0.03em]">Your Meta login is not handed to affiliates.</h2>
-                <p className="mt-4 text-sm leading-6 text-white/55">Nettmark uses connected business assets for campaign creation and tracking. The existing product is designed so partners can work through shared ad infrastructure without receiving your login credentials.</p>
+                <p className="text-[10px] font-medium uppercase tracking-[0.24em] text-[#62e7ed]">Meta & account access</p>
+                <h2 className="mt-4 text-3xl font-medium tracking-[-0.045em] sm:text-[42px] sm:leading-[1.04]">Your Meta login is not handed to affiliates.</h2>
+                <p className="mt-5 text-sm leading-6 text-white/46">Nettmark uses connected business assets for campaign creation and tracking. The existing product is designed so partners can work through shared ad infrastructure without receiving your login credentials.</p>
               </div>
-              <div className="grid gap-3 sm:grid-cols-2">
+
+              <div className="grid gap-x-8 sm:grid-cols-2">
                 <TrustCard title="You connect the assets" copy="Your business connects the Meta assets Nettmark needs for the paid campaign flow." icon={MousePointerClick} />
                 <TrustCard title="You review submissions" copy="Paid campaign creative moves through the business review flow before an approved campaign runs." icon={Eye} />
                 <TrustCard title="Affiliates fund spend" copy="Partners fund paid media from their pre-funded Nettmark wallets." icon={WalletCards} />
@@ -427,62 +491,213 @@ export default function BusinessDemoLandingPage({
           </div>
         </section>
 
-        <section className="pt-20 sm:pt-28">
-          <div className="max-w-2xl">
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-300">Straight answers</p>
-            <h2 className="mt-3 text-3xl font-semibold tracking-[-0.035em] sm:text-5xl">The questions you should ask before trying it.</h2>
-          </div>
-          <div className="mt-8 grid gap-3 md:grid-cols-2">
-            {faqs.map((faq) => (
-              <details key={faq.q} className="group rounded-2xl border border-white/[0.07] bg-[#1a1a1a] p-5 open:border-cyan-400/20">
-                <summary className="cursor-pointer list-none pr-6 text-sm font-semibold leading-6 text-white marker:hidden">{faq.q}</summary>
-                <p className="mt-3 border-t border-white/[0.06] pt-3 text-sm leading-6 text-white/50">{faq.a}</p>
+        <section className="pt-24 sm:pt-32">
+          <SectionIntro
+            eyebrow="Straight answers"
+            title="The questions you should ask before trying it."
+          />
+          <div className="mt-9 border-t border-white/[0.07]">
+            {faqs.map((faq, index) => (
+              <details key={faq.q} className="group border-b border-white/[0.07] py-1">
+                <summary className="flex cursor-pointer list-none items-center gap-4 py-5 text-sm font-medium leading-6 text-white/78 marker:hidden sm:text-[15px]">
+                  <span className="font-mono text-[10px] text-white/20">{String(index + 1).padStart(2, "0")}</span>
+                  <span className="flex-1">{faq.q}</span>
+                  <span className="grid h-7 w-7 place-items-center rounded-full border border-white/[0.08] text-white/38 transition duration-300 group-open:rotate-45 group-open:border-[#00C2CB]/25 group-open:text-[#62e7ed]">+</span>
+                </summary>
+                <p className="max-w-3xl pb-6 pl-10 pr-10 text-sm leading-6 text-white/44">{faq.a}</p>
               </details>
             ))}
           </div>
         </section>
 
-        <section className="pt-20 sm:pt-28">
-          <div className="relative overflow-hidden rounded-[32px] border border-cyan-400/20 bg-[#1a1a1a] px-6 py-10 text-center sm:px-10 sm:py-14">
-            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_100%,rgba(0,194,203,.16),transparent_48%)]" />
+        <section className="pt-24 sm:pt-32">
+          <div className="relative overflow-hidden rounded-[38px] border border-[#00C2CB]/15 bg-[linear-gradient(145deg,rgba(0,194,203,.075),rgba(255,255,255,.025)_48%,rgba(255,255,255,.018))] px-6 py-12 text-center shadow-[0_40px_100px_rgba(0,0,0,.28)] sm:px-12 sm:py-16">
+            <div className="pointer-events-none absolute left-1/2 top-full h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#00C2CB]/10 blur-[75px]" />
             <div className="relative mx-auto max-w-2xl">
-              <BadgeCheck className="mx-auto h-7 w-7 text-cyan-300" />
-              <h2 className="mt-5 text-3xl font-semibold tracking-[-0.04em] sm:text-5xl">Ready to see if affiliates want to promote your business?</h2>
-              <p className="mx-auto mt-4 max-w-xl text-sm leading-6 text-white/55 sm:text-base">Create your first offer, set the commission and decide who gets approved. You can explore the product before committing paid ad spend of your own.</p>
-              <div className="mt-7 flex flex-col justify-center gap-3 sm:flex-row">
-                <Link href={signupHref} onClick={() => trackCta("footer", "Create my first offer", signupHref)} className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#00C2CB] px-6 text-sm font-semibold text-[#061012] hover:bg-[#18d4dc]">Create my first offer <ArrowRight className="h-4 w-4" /></Link>
-                <button onClick={() => scrollToHowItWorks("footer_secondary")} className="inline-flex min-h-12 items-center justify-center rounded-full border border-white/10 bg-[#222] px-6 text-sm font-semibold text-white">See how it works</button>
+              <BadgeCheck className="mx-auto h-7 w-7 text-[#62e7ed]" strokeWidth={1.5} />
+              <h2 className="mt-6 text-3xl font-medium tracking-[-0.05em] sm:text-5xl">Ready to see if affiliates want to promote your business?</h2>
+              <p className="mx-auto mt-5 max-w-xl text-sm leading-6 text-white/46 sm:text-base">Create your first offer, set the commission and decide who gets approved. You can explore the product before committing paid ad spend of your own.</p>
+              <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+                <Link
+                  href={signupHref}
+                  onClick={() => trackCta("footer", "Create my first offer", signupHref)}
+                  className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#00C2CB] px-6 text-sm font-semibold text-[#061012] shadow-[0_12px_40px_rgba(0,194,203,.15)] transition duration-300 hover:-translate-y-0.5 hover:bg-[#19d5dc]"
+                >
+                  Create my first offer <ArrowRight className="h-4 w-4" />
+                </Link>
+                <button
+                  onClick={() => scrollToHowItWorks("footer_secondary")}
+                  className="inline-flex min-h-12 items-center justify-center rounded-full border border-white/[0.09] bg-white/[0.035] px-6 text-sm font-semibold text-white/86 backdrop-blur-xl transition hover:bg-white/[0.07]"
+                >
+                  See how it works
+                </button>
               </div>
             </div>
           </div>
         </section>
       </main>
 
-      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/[0.08] bg-[#0f0f0f]/92 px-3 py-3 backdrop-blur-xl md:hidden">
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/[0.07] bg-[#090a0a]/80 px-3 py-3 backdrop-blur-2xl md:hidden">
         <div className="mx-auto flex max-w-lg gap-2">
-          <button onClick={() => scrollToHowItWorks("mobile_sticky")} className="flex min-h-11 flex-1 items-center justify-center rounded-full border border-white/10 bg-[#1a1a1a] px-4 text-xs font-semibold text-white">See how it works</button>
-          <Link href={signupHref} onClick={() => trackCta("mobile_sticky_signup", "Start as a business", signupHref)} className="flex min-h-11 flex-1 items-center justify-center rounded-full bg-[#00C2CB] px-4 text-xs font-semibold text-[#061012]">Start as a business</Link>
+          <button
+            onClick={() => scrollToHowItWorks("mobile_sticky")}
+            className="flex min-h-11 flex-1 items-center justify-center rounded-full border border-white/[0.09] bg-white/[0.04] px-4 text-xs font-semibold text-white/86"
+          >
+            See how it works
+          </button>
+          <Link
+            href={signupHref}
+            onClick={() => trackCta("mobile_sticky_signup", "Start as a business", signupHref)}
+            className="flex min-h-11 flex-1 items-center justify-center rounded-full bg-[#00C2CB] px-4 text-xs font-semibold text-[#061012]"
+          >
+            Start as a business
+          </Link>
         </div>
       </div>
+
+      <style jsx global>{`
+        .nettmark-grid {
+          background-image:
+            linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
+          background-size: 52px 52px;
+          mask-image: linear-gradient(to bottom, black, transparent 70%);
+        }
+
+        .demo-reveal {
+          animation: demoReveal .8s cubic-bezier(.22,.75,.2,1) both;
+        }
+
+        .demo-reveal-delayed {
+          animation: demoReveal .9s .12s cubic-bezier(.22,.75,.2,1) both;
+        }
+
+        .hero-float {
+          animation: heroFloat 7s ease-in-out infinite;
+        }
+
+        .signal-dot {
+          animation: signalTravel 5.4s cubic-bezier(.45,.05,.55,.95) infinite;
+        }
+
+        @keyframes demoReveal {
+          from { opacity: 0; transform: translateY(18px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes heroFloat {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-7px); }
+        }
+
+        @keyframes signalTravel {
+          0% { top: 20px; opacity: 0; }
+          8% { opacity: 1; }
+          92% { opacity: 1; }
+          100% { top: calc(100% - 24px); opacity: 0; }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .demo-reveal,
+          .demo-reveal-delayed,
+          .hero-float,
+          .signal-dot {
+            animation: none !important;
+          }
+          html:focus-within { scroll-behavior: auto; }
+        }
+      `}</style>
     </div>
   );
 }
 
-function ResponsibilityCard({ title, icon: Icon, items }: { title: string; icon: React.ElementType; items: string[] }) {
+function SectionIntro({
+  eyebrow,
+  title,
+  copy,
+}: {
+  eyebrow: string;
+  title: string;
+  copy?: string;
+}) {
   return (
-    <article className="rounded-[24px] border border-white/[0.07] bg-[#1a1a1a] p-5">
-      <div className="flex items-center gap-3"><div className="grid h-9 w-9 place-items-center rounded-xl bg-cyan-400/10 text-cyan-300"><Icon className="h-4 w-4" /></div><h3 className="font-semibold">{title}</h3></div>
-      <div className="mt-5 space-y-3">{items.map((item) => <div key={item} className="flex items-start gap-2.5 text-sm leading-5 text-white/60"><Check className="mt-0.5 h-4 w-4 shrink-0 text-cyan-300" />{item}</div>)}</div>
+    <div className="max-w-2xl">
+      <p className="text-[10px] font-medium uppercase tracking-[0.24em] text-[#62e7ed]">{eyebrow}</p>
+      <h2 className="mt-4 text-3xl font-medium tracking-[-0.045em] text-white sm:text-5xl sm:leading-[1.02]">{title}</h2>
+      {copy ? <p className="mt-5 max-w-xl text-sm leading-6 text-white/45 sm:text-base sm:leading-7">{copy}</p> : null}
+    </div>
+  );
+}
+
+function EditorialBlock({
+  eyebrow,
+  icon: Icon,
+  title,
+  copy,
+  accent = false,
+  children,
+}: {
+  eyebrow: string;
+  icon: React.ElementType;
+  title: string;
+  copy: string;
+  accent?: boolean;
+  children?: React.ReactNode;
+}) {
+  return (
+    <article className={`relative border-t pt-7 ${accent ? "border-[#00C2CB]/30" : "border-white/[0.1]"}`}>
+      <div className="flex items-center justify-between gap-4">
+        <p className="text-[10px] font-medium uppercase tracking-[0.24em] text-[#62e7ed]">{eyebrow}</p>
+        <Icon className="h-5 w-5 text-white/32" strokeWidth={1.5} />
+      </div>
+      <h2 className="mt-5 max-w-xl text-3xl font-medium tracking-[-0.04em] sm:text-[40px] sm:leading-[1.04]">{title}</h2>
+      <p className="mt-5 max-w-xl text-sm leading-6 text-white/46">{copy}</p>
+      {children}
     </article>
   );
 }
 
-function TrustCard({ title, copy, icon: Icon }: { title: string; copy: string; icon: React.ElementType }) {
+function ResponsibilityCard({
+  title,
+  icon: Icon,
+  items,
+}: {
+  title: string;
+  icon: React.ElementType;
+  items: string[];
+}) {
   return (
-    <div className="rounded-2xl border border-white/[0.06] bg-[#222] p-4">
-      <Icon className="h-5 w-5 text-cyan-300" />
-      <h3 className="mt-4 text-sm font-semibold">{title}</h3>
-      <p className="mt-2 text-xs leading-5 text-white/45">{copy}</p>
+    <article className="border-b border-white/[0.07] p-6 last:border-b-0 md:border-b-0">
+      <div className="flex items-center gap-3">
+        <Icon className="h-5 w-5 text-[#62e7ed]" strokeWidth={1.55} />
+        <h3 className="text-sm font-medium text-white/82">{title}</h3>
+      </div>
+      <div className="mt-6 space-y-3.5">
+        {items.map((item) => (
+          <div key={item} className="flex items-start gap-2.5 text-sm leading-5 text-white/46">
+            <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#62e7ed]/70" strokeWidth={1.6} />
+            {item}
+          </div>
+        ))}
+      </div>
+    </article>
+  );
+}
+
+function TrustCard({
+  title,
+  copy,
+  icon: Icon,
+}: {
+  title: string;
+  copy: string;
+  icon: React.ElementType;
+}) {
+  return (
+    <div className="border-t border-white/[0.07] py-5 first:border-t-0 sm:first:border-t sm:[&:nth-child(2)]:border-t-0">
+      <Icon className="h-5 w-5 text-[#62e7ed]/75" strokeWidth={1.55} />
+      <h3 className="mt-4 text-sm font-medium text-white/82">{title}</h3>
+      <p className="mt-2 max-w-[280px] text-xs leading-5 text-white/38">{copy}</p>
     </div>
   );
 }
