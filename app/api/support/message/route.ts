@@ -16,13 +16,13 @@ export async function POST(req: Request) {
     const body = await req.json().catch(() => null);
     const message = typeof body?.message === "string" ? body.message.trim() : "";
     const section = body?.section;
-    if ((section !== "business" && section !== "affiliate") || message.length < 10 || message.length > 4000) {
-      return NextResponse.json({ ok: false, error: "Enter a message between 10 and 4,000 characters." }, { status: 400 });
+    if ((section !== "business" && section !== "affiliate") || !message || message.length > 4000) {
+      return NextResponse.json({ ok: false, error: "Enter a message of up to 4,000 characters." }, { status: 400 });
     }
 
-    const to = process.env.ADMIN_NOTIFY_EMAIL;
+    const to = "contact@nettmark.com";
     const fromEmail = process.env.RESEND_FROM_EMAIL;
-    if (!process.env.RESEND_API_KEY || !to || !fromEmail) {
+    if (!process.env.RESEND_API_KEY || !fromEmail) {
       console.error("[support/message] Email configuration missing");
       return NextResponse.json({ ok: false, error: "Support email is temporarily unavailable. Please try again later." }, { status: 503 });
     }

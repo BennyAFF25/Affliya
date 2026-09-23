@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Sparkles } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -38,14 +38,17 @@ export default function AffiliateSupportPage() {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
+  const sendingRef = useRef(false);
 
   const handleSend = async () => {
+    if (sendingRef.current) return;
     const trimmedMessage = message.trim();
-    if (trimmedMessage.length < 10 || trimmedMessage.length > 4000) {
-      toast.error("Enter a message between 10 and 4,000 characters");
+    if (!trimmedMessage || trimmedMessage.length > 4000) {
+      toast.error("Enter a message of up to 4,000 characters", { id: "affiliate-support-message" });
       return;
     }
 
+    sendingRef.current = true;
     setSending(true);
     try {
       const response = await fetch("/api/support/message", {
@@ -58,8 +61,9 @@ export default function AffiliateSupportPage() {
       toast.success("Message sent to Nettmark support");
       setMessage("");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not send your message");
+      toast.error(error instanceof Error ? error.message : "Could not send your message", { id: "affiliate-support-message" });
     } finally {
+      sendingRef.current = false;
       setSending(false);
     }
   };
@@ -91,7 +95,7 @@ export default function AffiliateSupportPage() {
           </div>
           <div className="grid gap-3 sm:grid-cols-3">
             {[
-              { label: "Live inbox", value: "support@nettmark.com" },
+              { label: "Support inbox", value: "contact@nettmark.com" },
               { label: "Help center", value: "docs.nettmark.com" },
               { label: "Status", value: "status.nettmark.com" },
             ].map((item) => (

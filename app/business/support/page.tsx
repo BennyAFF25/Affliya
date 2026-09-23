@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { Sparkles } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -52,11 +52,12 @@ export default function BusinessSupportPage() {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
+  const sendingRef = useRef(false);
 
   const trimmedMessage = message.trim();
   const remainingHint = useMemo(() => {
     if (!trimmedMessage) return "Tell us what’s blocked, what page you’re on, and what you expected to happen.";
-    if (trimmedMessage.length < 30) return "A bit more detail will help support respond faster.";
+    if (trimmedMessage.length < 30) return "You can add more detail if it helps us respond.";
     return "Looks good — include links, campaign names, or offer names if they matter.";
   }, [trimmedMessage]);
 
@@ -65,11 +66,13 @@ export default function BusinessSupportPage() {
   };
 
   const handleSend = async () => {
-    if (trimmedMessage.length < 10 || trimmedMessage.length > 4000) {
-      toast.error("Enter a message between 10 and 4,000 characters");
+    if (sendingRef.current) return;
+    if (!trimmedMessage || trimmedMessage.length > 4000) {
+      toast.error("Enter a message of up to 4,000 characters", { id: "business-support-message" });
       return;
     }
 
+    sendingRef.current = true;
     setSending(true);
     try {
       const response = await fetch("/api/support/message", {
@@ -82,8 +85,9 @@ export default function BusinessSupportPage() {
       toast.success("Message sent to Nettmark support");
       setMessage("");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not send your message");
+      toast.error(error instanceof Error ? error.message : "Could not send your message", { id: "business-support-message" });
     } finally {
+      sendingRef.current = false;
       setSending(false);
     }
   };
