@@ -57,6 +57,15 @@ type DashboardData = {
     growthTrialStarted: number;
     growthActivated: number;
   };
+  trialValue?: {
+    trialStarts: number;
+    trialing: number;
+    cancellationMarked: number;
+    withoutCancellation: number;
+    monthlyPriceAud: number;
+    fullConversionMonthlyAud: number;
+    withoutCancellationMonthlyAud: number;
+  };
   dashboardBehavior?: {
     totalClickers: number;
     totalClicks: number;
@@ -217,6 +226,7 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
   const growth = data?.growthSummary;
   const activation = data?.businessActivation;
   const plan = data?.planSelection;
+  const trialValue = data?.trialValue;
   const dashboardBehavior = data?.dashboardBehavior;
   const signupStep = activation?.steps.find((step) => step.key === "signup")?.count || 0;
   const offerStep = activation?.steps.find((step) => step.key === "offer_live")?.count || 0;
@@ -377,6 +387,17 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
                       <FunnelRow label="Trial started" value={plan?.growthTrialStarted || 0} rate={pct(plan?.growthTrialStarted || 0, plan?.growthCheckoutStarted || 0)} />
                       <FunnelRow label="Growth active / trialing" value={plan?.growthActivated || 0} rate={pct(plan?.growthActivated || 0, plan?.growthTrialStarted || plan?.growthCheckoutStarted || 0)} />
                     </div>
+                    <div className="mt-5 rounded-xl border border-[#00C2CB]/20 bg-[#00C2CB]/[0.05] p-4">
+                      <div className="text-sm font-semibold text-white">Trial revenue scenario</div>
+                      <p className="mt-1 text-xs leading-5 text-white/55">
+                        For trials started in this period: {trialValue?.trialStarts || 0} total, {trialValue?.trialing || 0} still trialing. At A${trialValue?.monthlyPriceAud || 49}/month each, this is potential monthly subscription value if they convert, not revenue earned.
+                      </p>
+                      <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                        <MiniStat icon={CircleDollarSign} label="If all trialing convert" value={fmtMoney(trialValue?.fullConversionMonthlyAud || 0)} foot="monthly upside scenario" />
+                        <MiniStat icon={CircleDollarSign} label="No cancellation marked" value={fmtMoney(trialValue?.withoutCancellationMonthlyAud || 0)} foot={`${trialValue?.withoutCancellation || 0} trialing businesses`} />
+                        <MiniStat icon={Activity} label="Cancellation marked" value={trialValue?.cancellationMarked || 0} foot="excluded from the second figure" />
+                      </div>
+                    </div>
                   </Panel>
 
                   <Panel title="What businesses click on the dashboard" subtitle={`${dashboardBehavior?.totalClickers || 0} businesses · ${dashboardBehavior?.totalClicks || 0} tracked clicks`}>
@@ -536,11 +557,11 @@ function MetricCard({ icon: Icon, label, value, note }: { icon: React.ComponentT
   );
 }
 
-function MiniStat({ icon: Icon, label, value, foot }: { icon: React.ComponentType<{ className?: string }>; label: string; value: number; foot: string }) {
+function MiniStat({ icon: Icon, label, value, foot }: { icon: React.ComponentType<{ className?: string }>; label: string; value: number | string; foot: string }) {
   return (
     <div className="rounded-xl border border-white/8 bg-black/15 p-4">
       <div className="flex items-center gap-2 text-xs text-white/42"><Icon className="h-4 w-4 text-[#63f7ff]" />{label}</div>
-      <div className="mt-2 text-2xl font-bold">{value.toLocaleString()}</div>
+      <div className="mt-2 text-2xl font-bold">{typeof value === "number" ? value.toLocaleString() : value}</div>
       <div className="mt-1 text-xs text-white/35">{foot}</div>
     </div>
   );

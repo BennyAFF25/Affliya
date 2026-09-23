@@ -12,6 +12,8 @@ const ALLOWED_PAGE_PATHS = new Set([
 ]);
 
 const ALLOWED_EVENT_TYPES = new Set(["page_view", "create_account_start", "business_demo_cta_click"]);
+// Current publicly listed Nettmark Business subscription price (AUD/month).
+const BUSINESS_MONTHLY_PRICE_AUD = 49;
 
 type MetricCounts = {
   pageViews: number;
@@ -177,7 +179,7 @@ export async function GET(req: Request) {
 
     const entitlementsQuery = (supabaseAdmin as any)
       .from("business_entitlements")
-      .select("business_email,billing_status,subscription_started_at,growth_trial_used,growth_trial_started_at")
+      .select("business_email,billing_status,subscription_started_at,growth_trial_used,growth_trial_started_at,subscription_cancelled_at")
       .limit(5000);
 
     const [
@@ -314,7 +316,18 @@ export async function GET(req: Request) {
       subscription_started_at: string | null;
       growth_trial_used: boolean | null;
       growth_trial_started_at: string | null;
+      subscription_cancelled_at: string | null;
     }>).filter((row) => cohortEmails.has(normalizeEmail(row.business_email)));
+
+    // The revenue scenario is based on trial start date, rather than signup date.
+    // A trial can begin weeks after the business first created its account.
+    const trialCohort = ((entitlementsResult?.data || []) as typeof entitlementRows).filter((row) =>
+      row.growth_trial_used && row.growth_trial_started_at &&
+      (!fromIso || row.growth_trial_started_at >= fromIso),
+    );
+    const trialing = trialCohort.filter((row) => row.billing_status === "subscription_trialing");
+    const cancellationMarked = trialing.filter((row) => Boolean(row.subscription_cancelled_at)).length;
+    const withoutCancellation = trialing.length - cancellationMarked;
 
     const eventEmails = (eventType: string) =>
       new Set(
@@ -525,6 +538,15 @@ export async function GET(req: Request) {
         growthCheckoutStarted: growthCheckoutCount,
         growthTrialStarted: growthTrialStartedCount,
         growthActivated: growthActivatedCount,
+      },
+      trialValue: {
+        trialStarts: trialCohort.length,
+        trialing: trialing.length,
+        cancellationMarked,
+        withoutCancellation,
+        monthlyPriceAud: BUSINESS_MONTHLY_PRICE_AUD,
+        fullConversionMonthlyAud: trialing.length * BUSINESS_MONTHLY_PRICE_AUD,
+        withoutCancellationMonthlyAud: withoutCancellation * BUSINESS_MONTHLY_PRICE_AUD,
       },
       dashboardBehavior: {
         totalClickers: new Set(dashboardActionRows.map((row) => normalizeEmail(row.actor_email)).filter(Boolean)).size,
