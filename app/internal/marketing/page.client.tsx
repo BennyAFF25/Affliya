@@ -401,12 +401,15 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
                 </section>
 
                 <section id="acquisition" className="mt-5 grid scroll-mt-5 gap-4 xl:grid-cols-[1.15fr_0.85fr]">
-                  <Panel title="Acquisition snapshot" subtitle="Website traffic is still here, but now underneath product activation.">
+                  <Panel title="Acquisition snapshot" subtitle="Recorded activity for the selected audience and period. Counts are events, not unique people.">
                     <div className="grid gap-3 sm:grid-cols-3">
-                      <MiniStat label="Views" value={selectedCounts.pageViews} foot={audience} icon={Globe2} />
-                      <MiniStat label="CTA clicks" value={selectedCounts.businessDemoCtaClicks} foot={pct(selectedCounts.businessDemoCtaClicks, selectedCounts.pageViews)} icon={MousePointerClick} />
-                      <MiniStat label="Account starts" value={selectedCounts.createAccountStarts} foot={pct(selectedCounts.createAccountStarts, selectedCounts.pageViews)} icon={Sparkles} />
+                      <MiniStat label="Marketing page views" value={selectedCounts.pageViews} foot="Recorded page openings" icon={Globe2} />
+                      <MiniStat label="Demo CTA clicks" value={selectedCounts.businessDemoCtaClicks} foot="Tracked demo-page button clicks" icon={MousePointerClick} />
+                      <MiniStat label="Signup page visits" value={selectedCounts.createAccountStarts} foot="Page opened, not account created" icon={Sparkles} />
                     </div>
+                    <p className="mt-4 text-sm leading-6 text-white/65">
+                      Signup page visits can exceed demo CTA clicks: visitors can arrive through other links or return to the signup page. These totals do not link each visit to a preceding click. Completed accounts appear separately as Business signups and Affiliate signups above.
+                    </p>
                     <div className="mt-4 flex flex-wrap gap-2">
                       {(["business", "affiliate", "all"] as Audience[]).map((item) => (
                         <button
@@ -421,15 +424,15 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
                     </div>
                   </Panel>
 
-                  <Panel title="Top sources" subtitle="Normalised from current attribution data.">
+                  <Panel title="Top sources · all audiences" subtitle="Ranked by signup page visits in the selected period. The audience filter does not apply here.">
                     <div className="space-y-2">
                       {sources.length ? sources.map((source) => (
                         <div key={source.label} className="rounded-xl border border-white/8 bg-black/15 px-3 py-3">
                           <div className="flex items-center justify-between gap-3">
                             <span className="truncate text-sm text-white/75">{source.label}</span>
-                            <span className="text-sm font-semibold">{source.createAccountStarts}</span>
+                            <span className="text-sm font-semibold">{source.createAccountStarts} signup page visits</span>
                           </div>
-                          <div className="mt-1 text-xs text-white/35">{source.pageViews} views · {source.businessDemoCtaClicks} CTA clicks</div>
+                          <div className="mt-1 text-xs text-white/35">{source.pageViews} marketing page views · {source.businessDemoCtaClicks} demo CTA clicks</div>
                         </div>
                       )) : <div className="text-sm text-white/40">No source data yet.</div>}
                     </div>
@@ -482,10 +485,10 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
                 </section>
 
                 <section id="website" className="mt-5 grid scroll-mt-5 gap-4 pb-10 xl:grid-cols-2">
-                  <Panel title="Website funnel" subtitle="The old marketing view, kept for context.">
-                    <FunnelRow label="Views" value={selectedCounts.pageViews} rate="100%" />
-                    <FunnelRow label="CTA clicks" value={selectedCounts.businessDemoCtaClicks} rate={pct(selectedCounts.businessDemoCtaClicks, selectedCounts.pageViews)} />
-                    <FunnelRow label="Create account starts" value={selectedCounts.createAccountStarts} rate={pct(selectedCounts.createAccountStarts, selectedCounts.pageViews)} />
+                  <Panel title="Website activity" subtitle="Separate event totals for the selected audience and period; these are not consecutive funnel steps.">
+                    <FunnelRow label="Marketing page views" value={selectedCounts.pageViews} rate="page openings" />
+                    <FunnelRow label="Demo CTA clicks" value={selectedCounts.businessDemoCtaClicks} rate="button clicks" />
+                    <FunnelRow label="Signup page visits" value={selectedCounts.createAccountStarts} rate="page openings" />
                   </Panel>
 
                   <Panel title="Founder quick read" subtitle="A deliberately small decision panel.">
