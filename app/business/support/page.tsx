@@ -51,6 +51,7 @@ const quickLinks = [
 export default function BusinessSupportPage() {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
   const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
 
   const trimmedMessage = message.trim();
   const remainingHint = useMemo(() => {
@@ -63,14 +64,28 @@ export default function BusinessSupportPage() {
     setOpenIndex((current) => (current === index ? null : index));
   };
 
-  const handleSend = () => {
-    if (!trimmedMessage) {
-      toast.error("Add a short message first");
+  const handleSend = async () => {
+    if (trimmedMessage.length < 10 || trimmedMessage.length > 4000) {
+      toast.error("Enter a message between 10 and 4,000 characters");
       return;
     }
 
-    toast.success("Support note saved for follow-up");
-    setMessage("");
+    setSending(true);
+    try {
+      const response = await fetch("/api/support/message", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ section: "business", message: trimmedMessage }),
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.ok) throw new Error(result?.error || "Could not send your message");
+      toast.success("Message sent to Nettmark support");
+      setMessage("");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not send your message");
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -192,9 +207,10 @@ export default function BusinessSupportPage() {
 
               <button
                 onClick={handleSend}
+                disabled={sending}
                 className="mt-4 w-full rounded-xl bg-[var(--primary)] py-3 text-sm font-semibold text-[var(--primary-foreground)] shadow-[0_0_16px_rgba(0,194,203,0.25)] transition hover:brightness-110"
               >
-                Send support note
+                {sending ? "Sending…" : "Send support note"}
               </button>
             </section>
           </div>

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Sparkles } from "lucide-react";
+import toast from "react-hot-toast";
 
 const CARD_SHELL =
   "rounded-3xl border border-[var(--border)] bg-[var(--card)] shadow-[0_25px_70px_rgba(0,0,0,0.08)]";
@@ -36,6 +37,32 @@ const faqs = [
 export default function AffiliateSupportPage() {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   const [message, setMessage] = useState("");
+  const [sending, setSending] = useState(false);
+
+  const handleSend = async () => {
+    const trimmedMessage = message.trim();
+    if (trimmedMessage.length < 10 || trimmedMessage.length > 4000) {
+      toast.error("Enter a message between 10 and 4,000 characters");
+      return;
+    }
+
+    setSending(true);
+    try {
+      const response = await fetch("/api/support/message", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ section: "affiliate", message: trimmedMessage }),
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.ok) throw new Error(result?.error || "Could not send your message");
+      toast.success("Message sent to Nettmark support");
+      setMessage("");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not send your message");
+    } finally {
+      setSending(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)] px-4 py-8">
@@ -129,13 +156,11 @@ export default function AffiliateSupportPage() {
             />
 
             <button
-              onClick={() => {
-                alert("Message sent. Support will reach out shortly.");
-                setMessage("");
-              }}
+              onClick={handleSend}
+              disabled={sending}
               className="w-full rounded-full bg-[var(--primary)] py-3 font-semibold text-[var(--primary-foreground)] shadow-[0_12px_35px_rgba(0,194,203,0.35)] hover:brightness-110"
             >
-              Send message
+              {sending ? "Sending…" : "Send message"}
             </button>
 
             <div className="text-xs text-[var(--muted-foreground)] space-y-2">
