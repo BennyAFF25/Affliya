@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 
-const META_APP_ID = process.env.NEXT_PUBLIC_META_APP_ID!;
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || "https://www.nettmark.com";
+const META_APP_ID = process.env.NEXT_PUBLIC_META_APP_ID?.trim() || "";
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL?.trim() || "https://www.nettmark.com";
 const REDIRECT_URI = `${BASE_URL}/api/meta/callback`;
 const DEFAULT_RETURN_TO = "/business/my-business/connect-meta";
 
@@ -44,6 +44,7 @@ export async function GET(req: NextRequest) {
       returnTo,
       redirectUri: REDIRECT_URI,
       graphVersion: "v19.0",
+      appIdLast4: META_APP_ID.slice(-4),
     });
 
     const state = Buffer.from(returnTo, "utf8").toString("base64");
