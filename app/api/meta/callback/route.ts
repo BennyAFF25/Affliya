@@ -4,9 +4,9 @@ import { NextResponse, NextRequest } from 'next/server'
 import { cookies } from 'next/headers'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 
-const META_APP_ID = process.env.NEXT_PUBLIC_META_APP_ID!
-const META_APP_SECRET = process.env.META_APP_SECRET!
-const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://www.nettmark.com'
+const META_APP_ID = process.env.NEXT_PUBLIC_META_APP_ID?.trim() || ''
+const META_APP_SECRET = process.env.META_APP_SECRET?.trim() || ''
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL?.trim() || 'https://www.nettmark.com'
 const REDIRECT_URI = `${BASE_URL}/api/meta/callback`
 const DEFAULT_RETURN_TO = '/business/my-business/connect-meta'
 
