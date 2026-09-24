@@ -6,9 +6,8 @@ import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import clsx from "clsx";
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronRight, LogOut, Moon, Sun } from "lucide-react";
+import { ChevronRight, LogOut } from "lucide-react";
 import { useSessionContext } from "@supabase/auth-helpers-react";
-import { useTheme } from "@/../context/ThemeContext";
 
 const navLinks = [
   {
@@ -43,15 +42,9 @@ export default function MarketingHeader() {
   const pathname = usePathname();
   const router = useRouter();
   const { session, supabaseClient } = useSessionContext();
-  const { theme, toggleTheme } = useTheme();
   const user = session?.user ?? null;
   const [menuOpen, setMenuOpen] = useState(false);
-  const [mounted, setMounted] = useState(false);
   const [dashboardHref, setDashboardHref] = useState("/affiliate/dashboard");
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -88,8 +81,6 @@ export default function MarketingHeader() {
     };
   }, [supabaseClient, user?.email]);
 
-  const resolvedTheme = mounted ? theme : "dark";
-
   const handleLogin = () => router.push("/login");
   const handleDashboard = () => {
     setMenuOpen(false);
@@ -121,11 +112,7 @@ export default function MarketingHeader() {
         <div className="relative mx-auto max-w-7xl h-16 flex items-center justify-between gap-4">
           <Link href="/" className="flex items-center gap-2">
             <Image
-              src={
-                resolvedTheme === "dark"
-                  ? "/nettmark-logo-dark.svg"
-                  : "/nettmark-logo-light.svg"
-              }
+              src="/nettmark-logo-dark.svg"
               alt="Nettmark"
               width={140}
               height={40}
@@ -173,19 +160,6 @@ export default function MarketingHeader() {
           </nav>
 
           <div className="flex items-center gap-3">
-            <button
-              onClick={toggleTheme}
-              className="hidden md:inline-flex h-10 items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 text-xs font-semibold uppercase tracking-[0.14em] text-white/80 transition hover:border-white/30 hover:bg-white/10"
-              aria-label={`Switch to ${resolvedTheme === "dark" ? "light" : "dark"} mode`}
-            >
-              {resolvedTheme === "dark" ? (
-                <Sun className="h-3.5 w-3.5" />
-              ) : (
-                <Moon className="h-3.5 w-3.5" />
-              )}
-              {resolvedTheme === "dark" ? "Light" : "Dark"}
-            </button>
-
             {user ? (
               <button
                 onClick={handleDashboard}
@@ -298,23 +272,11 @@ export default function MarketingHeader() {
                   })}
                 </div>
 
-                <div className="grid grid-cols-2 gap-2 border-t border-white/8 pt-2">
-                  <button
-                    onClick={toggleTheme}
-                    className="flex items-center justify-center gap-2 rounded-xl bg-white/[0.04] px-3 py-2.5 text-[12px] font-medium text-white/82 transition hover:bg-white/[0.07]"
-                  >
-                    {resolvedTheme === "dark" ? (
-                      <Sun className="h-4 w-4" />
-                    ) : (
-                      <Moon className="h-4 w-4" />
-                    )}
-                    {resolvedTheme === "dark" ? "Light mode" : "Dark mode"}
-                  </button>
-
+                <div className="border-t border-white/8 pt-2">
                   {user ? (
                     <button
                       onClick={handleDashboard}
-                      className="rounded-xl bg-[#00C2CB] px-3 py-2.5 text-[12px] font-semibold text-black shadow-[0_10px_30px_-18px_rgba(0,194,203,0.75)] transition hover:bg-[#00b0b8]"
+                      className="w-full rounded-xl bg-[#00C2CB] px-3 py-2.5 text-[12px] font-semibold text-black shadow-[0_10px_30px_-18px_rgba(0,194,203,0.75)] transition hover:bg-[#00b0b8]"
                     >
                       Dashboard
                     </button>
@@ -324,7 +286,7 @@ export default function MarketingHeader() {
                         setMenuOpen(false);
                         router.push("/login");
                       }}
-                      className="rounded-xl bg-[#00C2CB] px-3 py-2.5 text-[12px] font-semibold text-black shadow-[0_10px_30px_-18px_rgba(0,194,203,0.75)] transition hover:bg-[#00b0b8]"
+                      className="w-full rounded-xl bg-[#00C2CB] px-3 py-2.5 text-[12px] font-semibold text-black shadow-[0_10px_30px_-18px_rgba(0,194,203,0.75)] transition hover:bg-[#00b0b8]"
                     >
                       Login
                     </button>
