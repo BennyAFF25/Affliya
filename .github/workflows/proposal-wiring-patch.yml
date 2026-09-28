@@ -1,0 +1,115 @@
+name: Proposal wiring patch
+
+on:
+  push:
+    paths:
+      - .github/workflows/proposal-wiring-patch.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Wire proposal handoff into Ad Ideas
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('app/business/my-business/ad-ideas/page.tsx')
+          text = path.read_text()
+
+          marker = '''function formatIdeaDate(value?: string) {
+            if (!value) return "Unknown time";
+            const date = new Date(value);
+            if (Number.isNaN(date.getTime())) return "Unknown time";
+            return date.toLocaleString("en-AU", {
+              day: "2-digit",
+              month: "short",
+              hour: "numeric",
+              minute: "2-digit",
+            });
+          }
+          '''
+          replacement = marker + '''
+          function currentAdIdeasReturnTo() {
+            if (typeof window === "undefined") return "/business/my-business/ad-ideas";
+            const proposalId = new URLSearchParams(window.location.search).get("proposal");
+            return proposalId
+              ? `/business/my-business/ad-ideas?proposal=${encodeURIComponent(proposalId)}`
+              : "/business/my-business/ad-ideas";
+          }
+          '''
+          assert marker in text, 'formatIdeaDate marker not found'
+          text = text.replace(marker, replacement, 1)
+
+          old_auth = '''    if (session === null) {
+              router.push("/");
+              return;
+            }'''
+          new_auth = '''    if (session === null) {
+              const returnTo = currentAdIdeasReturnTo();
+              router.push(`/login/business?returnTo=${encodeURIComponent(returnTo)}`);
+              return;
+            }'''
+          count = text.count(old_auth)
+          assert count == 2, f'expected 2 logged-out redirects, found {count}'
+          text = text.replace(old_auth, new_auth)
+
+          effect_anchor = '''  const handleStatusChange = async (
+              id: string,
+              newStatus: string,
+              rejectionReason?: string,
+            ): Promise<boolean> => {'''
+          highlight_effect = '''  useEffect(() => {
+            if (typeof window === "undefined" || ideas.length === 0) return;
+            const proposalId = new URLSearchParams(window.location.search).get("proposal");
+            if (!proposalId) return;
+
+            const timer = window.setTimeout(() => {
+              document.getElementById(`proposal-${proposalId}`)?.scrollIntoView({
+                behavior: "smooth",
+                block: "center",
+              });
+            }, 0);
+
+            return () => window.clearTimeout(timer);
+          }, [ideas]);
+
+          ''' + effect_anchor
+          assert effect_anchor in text, 'handleStatusChange anchor not found'
+          text = text.replace(effect_anchor, highlight_effect, 1)
+
+          pending_li = '''                    <li key={idea.id}>'''
+          pending_li_new = '''                    <li
+                              key={idea.id}
+                              id={`proposal-${idea.id}`}
+                              className={typeof window !== "undefined" && new URLSearchParams(window.location.search).get("proposal") === idea.id ? "rounded-[28px] ring-1 ring-[#00C2CB]/60" : undefined}
+                            >'''
+          assert pending_li in text, 'pending proposal list item not found'
+          text = text.replace(pending_li, pending_li_new, 1)
+
+          old_view = '''                                setSelectedIdea(idea);
+                                        setShowTargetingDetails(false);'''
+          new_view = '''                                router.push(`/business/my-business/ad-ideas/${encodeURIComponent(idea.id)}`);'''
+          assert old_view in text, 'pending View details handler not found'
+          text = text.replace(old_view, new_view, 1)
+
+          path.write_text(text)
+          PY
+
+      - name: Commit scoped patch
+        run: |
+          git config user.name "nettmark-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add app/business/my-business/ad-ideas/page.tsx
+          git diff --cached --check
+          git commit -m "Wire Ad Ideas proposal handoff" || exit 0
+          git push origin HEAD:main
