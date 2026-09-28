@@ -1,0 +1,669 @@
+warning package.json: No license field
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: The input did not match the regular expression /not a Nettmark subscription/. Input:
+
+'"use client";\n' +
+  '/* eslint-disable @typescript-eslint/no-explicit-any */\n' +
+  '\n' +
+  'import "@/globals.css";\n' +
+  'import "./mobile-business.css";\n' +
+  'import MobileBusinessOverview, { type MobileBusinessView } from "./MobileBusinessOverview";\n' +
+  'import AcceptTermsModal from "@/../app/components/AcceptTermsModal";\n' +
+  'import Link from "next/link";\n' +
+  'import React, { useEffect, useState } from "react";\n' +
+  'import { PageHeader } from "@/../components/ui/page-header";\n' +
+  'import { useSession } from "@supabase/auth-helpers-react";\n' +
+  'import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";\n' +
+  'import toast from "react-hot-toast";\n' +
+  'import { loadStripe } from "@stripe/stripe-js";\n' +
+  'import {\n' +
+  '  Elements,\n' +
+  '  PaymentElement,\n' +
+  '  useStripe,\n' +
+  '  useElements,\n' +
+  '} from "@stripe/react-stripe-js";\n' +
+  '\n' +
+  'const stripePromise = loadStripe(\n' +
+  '  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY as string,\n' +
+  ');\n' +
+  '\n' +
+  '// ---- Icons (inline, no extra deps) ----\n' +
+  'const IconUsers = (props: React.SVGProps<SVGSVGElement>) => (\n' +
+  '  <svg\n' +
+  '    viewBox="0 0 24 24"\n' +
+  '    fill="none"\n' +
+  '    stroke="currentColor"\n' +
+  '    strokeWidth="1.8"\n' +
+  '    {...props}\n' +
+  '  >\n' +
+  '    <path\n' +
+  '      strokeLinecap="round"\n' +
+  '      strokeLinejoin="round"\n' +
+  '      d="M16 14a4 4 0 10-8 0v1a4 4 0 004 4 4 4 0 004-4v-1z"\n' +
+  '    />\n' +
+  '    <path\n' +
+  '      strokeLinecap="round"\n' +
+  '      strokeLinejoin="round"\n' +
+  '      d="M12 7a3 3 0 110-6 3 3 0 010 6z"\n' +
+  '    />\n' +
+  '  </svg>\n' +
+  ');\n' +
+  'const IconPuzzle = (props: React.SVGProps<SVGSVGElement>) => (\n' +
+  '  <svg\n' +
+  '    viewBox="0 0 24 24"\n' +
+  '    fill="none"\n' +
+  '    stroke="currentColor"\n' +
+  '    strokeWidth="1.8"\n' +
+  '    {...props}\n' +
+  '  >\n' +
+  '    <path\n' +
+  '      strokeLinecap="round"\n' +
+  '      strokeLinejoin="round"\n' +
+  '      d="M8 3h8a2 2 0 012 2v4h-3a2 2 0 100 4h3v4a2 2 0 01-2 2H8v-3a2 2 0 10-4 0V5a2 2 0 012-2h2z"\n' +
+  '    />\n' +
+  '  </svg>\n' +
+  ');\n' +
+  'const IconBolt = (props: React.SVGProps<SVGSVGElement>) => (\n' +
+  '  <svg\n' +
+  '    viewBox="0 0 24 24"\n' +
+  '    fill="none"\n' +
+  '    stroke="currentColor"\n' +
+  '    strokeWidth="1.8"\n' +
+  '    {...props}\n' +
+  '  >\n' +
+  '    <path\n' +
+  '      strokeLinecap="round"\n' +
+  '      strokeLinejoin="round"\n' +
+  '      d="M13 2L3 14h7l-1 8 11-12h-7l0-8z"\n' +
+  '    />\n' +
+  '  </svg>\n' +
+  ');\n' +
+  'const IconPlus = (props: React.SVGProps<SVGSVGElement>) => (\n' +
+  '  <svg\n' +
+  '    viewBox="0 0 24 24"\n' +
+  '    fill="none"\n' +
+  '    stroke="currentColor"\n' +
+  '    strokeWidth="1.8"\n' +
+  '    {...props}\n' +
+  '  >\n' +
+  '    <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14M5 12h14" />\n' +
+  '  </svg>\n' +
+  ');\n' +
+  'const IconCheck = (props: React.SVGProps<SVGSVGElement>) => (\n' +
+  '  <svg\n' +
+  '    viewBox="0 0 24 24"\n' +
+  '    fill="none"\n' +
+  '    stroke="currentColor"\n' +
+  '    strokeWidth="2"\n' +
+  '    {...props}\n' +
+  '  >\n' +
+  '    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />\n' +
+  '  </svg>\n' +
+  ');\n' +
+  'const IconChat = (props: React.SVGProps<SVGSVGElement>) => (\n' +
+  '  <svg\n' +
+  '    viewBox="0 0 24 24"\n' +
+  '    fill="none"\n' +
+  '    stroke="currentColor"\n' +
+  '    strokeWidth="1.8"\n' +
+  '    {...props}\n' +
+  '  >\n' +
+  '    <path\n' +
+  '      strokeLinecap="round"\n' +
+  '      strokeLinejoin="round"\n' +
+  '      d="M5 18.5A7.5 7.5 0 117.5 21L4 22l1-3.5z"\n' +
+  '    />\n' +
+  '    <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h8M8 14h5" />\n' +
+  '  </svg>\n' +
+  ');\n' +
+  'const IconStorefront = (props: React.SVGProps<SVGSVGElement>) => (\n' +
+  '  <svg\n' +
+  '    viewBox="0 0 24 24"\n' +
+  '    fill="none"\n' +
+  '    stroke="currentColor"\n' +
+  '    strokeWidth="1.8"\n' +
+  '    {...props}\n' +
+  '  >\n' +
+  '    <path strokeLinecap="round" strokeLinejoin="round" d="M3 9l2-4h14l2 4" />\n' +
+  '    <path\n' +
+  '      strokeLinecap="round"\n' +
+  '      strokeLinejoin="round"\n' +
+  '      d="M4 9h16v10a2 2 0 01-2 2H6a2 2 0 01-2-2V9z"\n' +
+  '    />\n' +
+  '    <path strokeLinecap="round" strokeLinejoin="round" d="M9 13h6v6H9z" />\n' +
+  '  </svg>\n' +
+  ');\n' +
+  '\n' +
+  '// New icon: Simple document with folded corner\n' +
+  'const IconPost = (props: React.SVGProps<SVGSVGElement>) => (\n' +
+  '  <svg\n' +
+  '    viewBox="0 0 24 24"\n' +
+  '    fill="none"\n' +
+  '    stroke="currentColor"\n' +
+  '    strokeWidth="1.8"\n' +
+  '    {...props}\n' +
+  '  >\n' +
+  '    <rect x="5" y="3" width="14" height="18" rx="2" />\n' +
+  '    <polyline\n' +
+  '      points="15 3 15 8 20 8"\n' +
+  '      strokeLinecap="round"\n' +
+  '      strokeLinejoin="round"\n' +
+  '    />\n' +
+  '    <path d="M15 3l5 5" strokeLinecap="round" strokeLinejoin="round" />\n' +
+  '  </svg>\n' +
+  ');\n' +
+  '\n' +
+  'interface OnboardingProgressRow {\n' +
+  '  business_email: string;\n' +
+  '  offer_id: string;\n' +
+  '  first_offer_created: boolean;\n' +
+  '  tracking_connected: boolean;\n' +
+  '  payouts_enabled: boolean;\n' +
+  '  billing_connected: boolean;\n' +
+  '  meta_connected: boolean;\n' +
+  '  first_affiliate_request_seen: boolean;\n' +
+  '}\n' +
+  '\n' +
+  'interface Offer {\n' +
+  '  id: string;\n' +
+  '  title: string;\n' +
+  '  description: string;\n' +
+  '  commission: number;\n' +
+  '  type: string;\n' +
+  '  site_host?: string | null;\n' +
+  '  meta_page_id?: string | null;\n' +
+  '  meta_ad_account_id?: string | null;\n' +
+  '  meta_pixel_id?: string | null;\n' +
+  '}\n' +
+  '\n' +
+  'interface ApprovedAffiliateRequest {\n' +
+  '  id: string;\n' +
+  '  offer_id: string;\n' +
+  '  affiliate_email: string;\n' +
+  '  created_at: string;\n' +
+  '}\n' +
+  '\n' +
+  'function getOfferMetaStatus(offer: Offer) {\n' +
+  '  if (offer.meta_page_id && offer.meta_ad_account_id && offer.meta_pixel_id) {\n' +
+  '    return {\n' +
+  '      label: "Ads enabled",\n' +
+  '      tone: "bg-emerald-500/15 text-emerald-200 border border-emerald-400/40",\n' +
+  '      helper: "This offer can run organic and paid Meta campaigns, including sales.",\n' +
+  '      needsSetup: false,\n' +
+  '      actionLabel: "Ads enabled",\n' +
+  '    };\n' +
+  '  }\n' +
+  '\n' +
+  '  if (offer.meta_page_id && offer.meta_ad_account_id) {\n' +
+  '    return {\n' +
+  '      label: "Ads enabled",\n' +
+  '      tone: "bg-cyan-500/15 text-cyan-200 border border-cyan-400/40",\n' +
+  '      helper: "Affiliates can run ads for this offer. Add a pixel if you want sales campaigns too.",\n' +
+  '      needsSetup: true,\n' +
+  '      actionLabel: "Add sales pixel",\n' +
+  '    };\n' +
+  '  }\n' +
+  '\n' +
+  '  if (offer.meta_page_id || offer.meta_ad_account_id || offer.meta_pixel_id) {\n' +
+  '    return {\n' +
+  '      label: "Organic only",\n' +
+  '      tone: "bg-amber-500/15 text-amber-200 border border-amber-400/40",\n' +
+  '      helper: "This offer is still marketplace-visible, but affiliates should only use organic promotion until Meta setup is finished.",\n' +
+  '      needsSetup: true,\n' +
+  '      actionLabel: "Finish Meta setup",\n' +
+  '    };\n' +
+  '  }\n' +
+  '\n' +
+  '  return {\n' +
+  '    label: "Organic only",\n' +
+  '    tone: "bg-white/5 text-white border border-white/10",\n' +
+  '    helper: "This offer can be listed in the marketplace, but affiliates can only promote it organically until Meta is connected.",\n' +
+  '    needsSetup: true,\n' +
+  '    actionLabel: "Connect Meta assets",\n' +
+  '  };\n' +
+  '}\n' +
+  '\n' +
+  'export default function MyBusinessPage() {\n' +
+  '  const [mobileView, setMobileView] = useState<MobileBusinessView>("overview");\n' +
+  '  const [offers, setOffers] = useState<Offer[]>([]);\n' +
+  '  const [trackingVerifiedOfferIds, setTrackingVerifiedOfferIds] = useState<Set<string>>(new Set());\n' +
+  '  const [trackingReadinessResolved, setTrackingReadinessResolved] = useState(false);\n' +
+  '  const [onboardingProgressRows, setOnboardingProgressRows] = useState<OnboardingProgressRow[]>([]);\n' +
+  '  const [hasAffiliateRequests, setHasAffiliateRequests] = useState(false);\n' +
+  '  const [offersLoading, setOffersLoading] = useState<boolean>(true);\n' +
+  '  const [loadingPaymentForm, setLoadingPaymentForm] = useState(false);\n' +
+  '  const [loadingDeleteId, setLoadingDeleteId] = useState<string | null>(null);\n' +
+  '  const [isSubmitting, setIsSubmitting] = useState(false);\n' +
+  '  const [isEnablingPayouts, setIsEnablingPayouts] = useState(false);\n' +
+  '  const [businessCustomerId, setBusinessCustomerId] = useState<string | null>(\n' +
+  '    null,\n' +
+  '  );\n' +
+  '  const [setupClientSecret, setSetupClientSecret] = useState<string | null>(\n' +
+  '    null,\n' +
+  '  );\n' +
+  '  const [showPaymentForm, setShowPaymentForm] = useState(false);\n' +
+  '  const [billingRequiredPrompt, setBillingRequiredPrompt] = useState(false);\n' +
+  '  const [billingPromptHandled, setBillingPromptHandled] = useState(false);\n' +
+  '  const [businessAccountId, setBusinessAccountId] = useState<string | null>(null);\n' +
+  '  const [onboardingComplete, setOnboardingComplete] = useState<boolean>(false);\n' +
+  '  const [hasCard, setHasCard] = useState<boolean>(false);\n' +
+  '\n' +
+  '  const [pendingPostIdeaCount, setPendingPostIdeaCount] = useState(0);\n' +
+  '  const [pendingAdIdeaCount, setPendingAdIdeaCount] = useState(0);\n' +
+  '  const [affiliateRequestCount, setAffiliateRequestCount] = useState(0);\n' +
+  '  const [approvedAffiliateRequestsByOffer, setApprovedAffiliateRequestsByOffer] = useState<Record<string, ApprovedAffiliateRequest[]>>({});\n' +
+  '  const [expandedInviteOfferId, setExpandedInviteOfferId] = useState<string | null>(null);\n' +
+  '  const [launchInviteTypeByOfferId, setLaunchInviteTypeByOfferId] = useState<Record<string, "paid" | "organic">>({});\n' +
+  '  const [launchInviteStatusByRequestId, setLaunchInviteStatusByRequestId] = useState<Record<string, "idle" | "sending" | "sent" | "error">>({});\n' +
+  '\n' +
+  '  const [showAcceptTerms, setShowAcceptTerms] = useState(false);\n' +
+  '  const session = useSession();\n' +
+  '  const user = session?.user;\n' +
+  '  const supabase = createClientComponentClient();\n' +
+  '  useEffect(() => {\n' +
+  '    if (!user?.email || offers.length === 0) return;\n' +
+  '\n' +
+  '    const offerIds = offers.map((o) => o.id);\n' +
+  '\n' +
+  '    const checkPending = async () => {\n' +
+  '      const [{ data: postIdeas }, { data: adIdeas }] = await Promise.all([\n' +
+  '        supabase\n' +
+  '          .from("organic_posts")\n' +
+  '          .select("id")\n' +
+  '          .in("offer_id", offerIds)\n' +
+  '          .eq("status", "pending"),\n' +
+  '\n' +
+  '        supabase\n' +
+  '          .from("ad_ideas")\n' +
+  '          .select("id")\n' +
+  '          .in("offer_id", offerIds)\n' +
+  '          .eq("status", "pending"),\n' +
+  '      ]);\n' +
+  '\n' +
+  '      setPendingPostIdeaCount(postIdeas?.length || 0);\n' +
+  '      setPendingAdIdeaCount(adIdeas?.length || 0);\n' +
+  '    };\n' +
+  '\n' +
+  '    checkPending();\n' +
+  '  }, [user?.email, offers, supabase]);\n' +
+  '\n' +
+  '  useEffect(() => {\n' +
+  '    if (!user?.id) return;\n' +
+  '\n' +
+  '    const checkTerms = async () => {\n' +
+  '      const { data, error } = await supabase\n' +
+  '        .from("profiles")\n' +
+  '        .select("terms_accepted")\n' +
+  '        .eq("id", user.id)\n' +
+  '        .single();\n' +
+  '\n' +
+  '      if (!error && !data?.terms_accepted) {\n' +
+  '        setShowAcceptTerms(true);\n' +
+  '      }\n' +
+  '    };\n' +
+  '\n' +
+  '    checkTerms();\n' +
+  '  }, [user?.id, supabase]);\n' +
+  '\n' +
+  '  // Helper to safely parse JSON or fallback to text for error messages\n' +
+  '  async function parseJsonSafe(res: Response) {\n' +
+  '    const ct = res.headers.get("content-type") || "";\n' +
+  '    if (ct.includes("application/json")) {\n' +
+  '      try {\n' +
+  '        return await res.json();\n' +
+  '      } catch {\n' +
+  '        return { error: "Invalid JSON in response" };\n' +
+  '      }\n' +
+  '    }\n' +
+  '    const text = await res.text();\n' +
+  '    return { error: text?.slice(0, 500) || "Non-JSON response" };\n' +
+  '  }\n' +
+  '\n' +
+  '  useEffect(() => {\n' +
+  '    const fetchOffers = async () => {\n' +
+  '      setOffersLoading(true);\n' +
+  '      const authUser = user?.email\n' +
+  '   '... 68157 more characters
+
+    at <anonymous> (/home/runner/work/Affliya/Affliya/scripts/business-payment-gate-placement.test.ts:31:8)
+    at Object.<anonymous> (/home/runner/work/Affliya/Affliya/scripts/business-payment-gate-placement.test.ts:34:59)
+    at Module._compile (node:internal/modules/cjs/loader:1521:14)
+    at Object.transformer (/home/runner/work/Affliya/Affliya/node_modules/tsx/dist/register-D46fvsV_.cjs:3:1104)
+    at Module.load (node:internal/modules/cjs/loader:1266:32)
+    at Module._load (node:internal/modules/cjs/loader:1091:12)
+    at cjsLoader (node:internal/modules/esm/translators:298:15)
+    at ModuleWrap.<anonymous> (node:internal/modules/esm/translators:240:7)
+    at ModuleJob.run (node:internal/modules/esm/module_job:325:25)
+    at async ModuleLoader.import (node:internal/modules/esm/loader:606:24) {
+  generatedMessage: true,
+  code: 'ERR_ASSERTION',
+  actual: '"use client";\n' +
+    '/* eslint-disable @typescript-eslint/no-explicit-any */\n' +
+    '\n' +
+    'import "@/globals.css";\n' +
+    'import "./mobile-business.css";\n' +
+    'import MobileBusinessOverview, { type MobileBusinessView } from "./MobileBusinessOverview";\n' +
+    'import AcceptTermsModal from "@/../app/components/AcceptTermsModal";\n' +
+    'import Link from "next/link";\n' +
+    'import React, { useEffect, useState } from "react";\n' +
+    'import { PageHeader } from "@/../components/ui/page-header";\n' +
+    'import { useSession } from "@supabase/auth-helpers-react";\n' +
+    'import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";\n' +
+    'import toast from "react-hot-toast";\n' +
+    'import { loadStripe } from "@stripe/stripe-js";\n' +
+    'import {\n' +
+    '  Elements,\n' +
+    '  PaymentElement,\n' +
+    '  useStripe,\n' +
+    '  useElements,\n' +
+    '} from "@stripe/react-stripe-js";\n' +
+    '\n' +
+    'const stripePromise = loadStripe(\n' +
+    '  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY as string,\n' +
+    ');\n' +
+    '\n' +
+    '// ---- Icons (inline, no extra deps) ----\n' +
+    'const IconUsers = (props: React.SVGProps<SVGSVGElement>) => (\n' +
+    '  <svg\n' +
+    '    viewBox="0 0 24 24"\n' +
+    '    fill="none"\n' +
+    '    stroke="currentColor"\n' +
+    '    strokeWidth="1.8"\n' +
+    '    {...props}\n' +
+    '  >\n' +
+    '    <path\n' +
+    '      strokeLinecap="round"\n' +
+    '      strokeLinejoin="round"\n' +
+    '      d="M16 14a4 4 0 10-8 0v1a4 4 0 004 4 4 4 0 004-4v-1z"\n' +
+    '    />\n' +
+    '    <path\n' +
+    '      strokeLinecap="round"\n' +
+    '      strokeLinejoin="round"\n' +
+    '      d="M12 7a3 3 0 110-6 3 3 0 010 6z"\n' +
+    '    />\n' +
+    '  </svg>\n' +
+    ');\n' +
+    'const IconPuzzle = (props: React.SVGProps<SVGSVGElement>) => (\n' +
+    '  <svg\n' +
+    '    viewBox="0 0 24 24"\n' +
+    '    fill="none"\n' +
+    '    stroke="currentColor"\n' +
+    '    strokeWidth="1.8"\n' +
+    '    {...props}\n' +
+    '  >\n' +
+    '    <path\n' +
+    '      strokeLinecap="round"\n' +
+    '      strokeLinejoin="round"\n' +
+    '      d="M8 3h8a2 2 0 012 2v4h-3a2 2 0 100 4h3v4a2 2 0 01-2 2H8v-3a2 2 0 10-4 0V5a2 2 0 012-2h2z"\n' +
+    '    />\n' +
+    '  </svg>\n' +
+    ');\n' +
+    'const IconBolt = (props: React.SVGProps<SVGSVGElement>) => (\n' +
+    '  <svg\n' +
+    '    viewBox="0 0 24 24"\n' +
+    '    fill="none"\n' +
+    '    stroke="currentColor"\n' +
+    '    strokeWidth="1.8"\n' +
+    '    {...props}\n' +
+    '  >\n' +
+    '    <path\n' +
+    '      strokeLinecap="round"\n' +
+    '      strokeLinejoin="round"\n' +
+    '      d="M13 2L3 14h7l-1 8 11-12h-7l0-8z"\n' +
+    '    />\n' +
+    '  </svg>\n' +
+    ');\n' +
+    'const IconPlus = (props: React.SVGProps<SVGSVGElement>) => (\n' +
+    '  <svg\n' +
+    '    viewBox="0 0 24 24"\n' +
+    '    fill="none"\n' +
+    '    stroke="currentColor"\n' +
+    '    strokeWidth="1.8"\n' +
+    '    {...props}\n' +
+    '  >\n' +
+    '    <path strokeLinecap="round" strokeLinejoin="round" d="M12 5v14M5 12h14" />\n' +
+    '  </svg>\n' +
+    ');\n' +
+    'const IconCheck = (props: React.SVGProps<SVGSVGElement>) => (\n' +
+    '  <svg\n' +
+    '    viewBox="0 0 24 24"\n' +
+    '    fill="none"\n' +
+    '    stroke="currentColor"\n' +
+    '    strokeWidth="2"\n' +
+    '    {...props}\n' +
+    '  >\n' +
+    '    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />\n' +
+    '  </svg>\n' +
+    ');\n' +
+    'const IconChat = (props: React.SVGProps<SVGSVGElement>) => (\n' +
+    '  <svg\n' +
+    '    viewBox="0 0 24 24"\n' +
+    '    fill="none"\n' +
+    '    stroke="currentColor"\n' +
+    '    strokeWidth="1.8"\n' +
+    '    {...props}\n' +
+    '  >\n' +
+    '    <path\n' +
+    '      strokeLinecap="round"\n' +
+    '      strokeLinejoin="round"\n' +
+    '      d="M5 18.5A7.5 7.5 0 117.5 21L4 22l1-3.5z"\n' +
+    '    />\n' +
+    '    <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h8M8 14h5" />\n' +
+    '  </svg>\n' +
+    ');\n' +
+    'const IconStorefront = (props: React.SVGProps<SVGSVGElement>) => (\n' +
+    '  <svg\n' +
+    '    viewBox="0 0 24 24"\n' +
+    '    fill="none"\n' +
+    '    stroke="currentColor"\n' +
+    '    strokeWidth="1.8"\n' +
+    '    {...props}\n' +
+    '  >\n' +
+    '    <path strokeLinecap="round" strokeLinejoin="round" d="M3 9l2-4h14l2 4" />\n' +
+    '    <path\n' +
+    '      strokeLinecap="round"\n' +
+    '      strokeLinejoin="round"\n' +
+    '      d="M4 9h16v10a2 2 0 01-2 2H6a2 2 0 01-2-2V9z"\n' +
+    '    />\n' +
+    '    <path strokeLinecap="round" strokeLinejoin="round" d="M9 13h6v6H9z" />\n' +
+    '  </svg>\n' +
+    ');\n' +
+    '\n' +
+    '// New icon: Simple document with folded corner\n' +
+    'const IconPost = (props: React.SVGProps<SVGSVGElement>) => (\n' +
+    '  <svg\n' +
+    '    viewBox="0 0 24 24"\n' +
+    '    fill="none"\n' +
+    '    stroke="currentColor"\n' +
+    '    strokeWidth="1.8"\n' +
+    '    {...props}\n' +
+    '  >\n' +
+    '    <rect x="5" y="3" width="14" height="18" rx="2" />\n' +
+    '    <polyline\n' +
+    '      points="15 3 15 8 20 8"\n' +
+    '      strokeLinecap="round"\n' +
+    '      strokeLinejoin="round"\n' +
+    '    />\n' +
+    '    <path d="M15 3l5 5" strokeLinecap="round" strokeLinejoin="round" />\n' +
+    '  </svg>\n' +
+    ');\n' +
+    '\n' +
+    'interface OnboardingProgressRow {\n' +
+    '  business_email: string;\n' +
+    '  offer_id: string;\n' +
+    '  first_offer_created: boolean;\n' +
+    '  tracking_connected: boolean;\n' +
+    '  payouts_enabled: boolean;\n' +
+    '  billing_connected: boolean;\n' +
+    '  meta_connected: boolean;\n' +
+    '  first_affiliate_request_seen: boolean;\n' +
+    '}\n' +
+    '\n' +
+    'interface Offer {\n' +
+    '  id: string;\n' +
+    '  title: string;\n' +
+    '  description: string;\n' +
+    '  commission: number;\n' +
+    '  type: string;\n' +
+    '  site_host?: string | null;\n' +
+    '  meta_page_id?: string | null;\n' +
+    '  meta_ad_account_id?: string | null;\n' +
+    '  meta_pixel_id?: string | null;\n' +
+    '}\n' +
+    '\n' +
+    'interface ApprovedAffiliateRequest {\n' +
+    '  id: string;\n' +
+    '  offer_id: string;\n' +
+    '  affiliate_email: string;\n' +
+    '  created_at: string;\n' +
+    '}\n' +
+    '\n' +
+    'function getOfferMetaStatus(offer: Offer) {\n' +
+    '  if (offer.meta_page_id && offer.meta_ad_account_id && offer.meta_pixel_id) {\n' +
+    '    return {\n' +
+    '      label: "Ads enabled",\n' +
+    '      tone: "bg-emerald-500/15 text-emerald-200 border border-emerald-400/40",\n' +
+    '      helper: "This offer can run organic and paid Meta campaigns, including sales.",\n' +
+    '      needsSetup: false,\n' +
+    '      actionLabel: "Ads enabled",\n' +
+    '    };\n' +
+    '  }\n' +
+    '\n' +
+    '  if (offer.meta_page_id && offer.meta_ad_account_id) {\n' +
+    '    return {\n' +
+    '      label: "Ads enabled",\n' +
+    '      tone: "bg-cyan-500/15 text-cyan-200 border border-cyan-400/40",\n' +
+    '      helper: "Affiliates can run ads for this offer. Add a pixel if you want sales campaigns too.",\n' +
+    '      needsSetup: true,\n' +
+    '      actionLabel: "Add sales pixel",\n' +
+    '    };\n' +
+    '  }\n' +
+    '\n' +
+    '  if (offer.meta_page_id || offer.meta_ad_account_id || offer.meta_pixel_id) {\n' +
+    '    return {\n' +
+    '      label: "Organic only",\n' +
+    '      tone: "bg-amber-500/15 text-amber-200 border border-amber-400/40",\n' +
+    '      helper: "This offer is still marketplace-visible, but affiliates should only use organic promotion until Meta setup is finished.",\n' +
+    '      needsSetup: true,\n' +
+    '      actionLabel: "Finish Meta setup",\n' +
+    '    };\n' +
+    '  }\n' +
+    '\n' +
+    '  return {\n' +
+    '    label: "Organic only",\n' +
+    '    tone: "bg-white/5 text-white border border-white/10",\n' +
+    '    helper: "This offer can be listed in the marketplace, but affiliates can only promote it organically until Meta is connected.",\n' +
+    '    needsSetup: true,\n' +
+    '    actionLabel: "Connect Meta assets",\n' +
+    '  };\n' +
+    '}\n' +
+    '\n' +
+    'export default function MyBusinessPage() {\n' +
+    '  const [mobileView, setMobileView] = useState<MobileBusinessView>("overview");\n' +
+    '  const [offers, setOffers] = useState<Offer[]>([]);\n' +
+    '  const [trackingVerifiedOfferIds, setTrackingVerifiedOfferIds] = useState<Set<string>>(new Set());\n' +
+    '  const [trackingReadinessResolved, setTrackingReadinessResolved] = useState(false);\n' +
+    '  const [onboardingProgressRows, setOnboardingProgressRows] = useState<OnboardingProgressRow[]>([]);\n' +
+    '  const [hasAffiliateRequests, setHasAffiliateRequests] = useState(false);\n' +
+    '  const [offersLoading, setOffersLoading] = useState<boolean>(true);\n' +
+    '  const [loadingPaymentForm, setLoadingPaymentForm] = useState(false);\n' +
+    '  const [loadingDeleteId, setLoadingDeleteId] = useState<string | null>(null);\n' +
+    '  const [isSubmitting, setIsSubmitting] = useState(false);\n' +
+    '  const [isEnablingPayouts, setIsEnablingPayouts] = useState(false);\n' +
+    '  const [businessCustomerId, setBusinessCustomerId] = useState<string | null>(\n' +
+    '    null,\n' +
+    '  );\n' +
+    '  const [setupClientSecret, setSetupClientSecret] = useState<string | null>(\n' +
+    '    null,\n' +
+    '  );\n' +
+    '  const [showPaymentForm, setShowPaymentForm] = useState(false);\n' +
+    '  const [billingRequiredPrompt, setBillingRequiredPrompt] = useState(false);\n' +
+    '  const [billingPromptHandled, setBillingPromptHandled] = useState(false);\n' +
+    '  const [businessAccountId, setBusinessAccountId] = useState<string | null>(null);\n' +
+    '  const [onboardingComplete, setOnboardingComplete] = useState<boolean>(false);\n' +
+    '  const [hasCard, setHasCard] = useState<boolean>(false);\n' +
+    '\n' +
+    '  const [pendingPostIdeaCount, setPendingPostIdeaCount] = useState(0);\n' +
+    '  const [pendingAdIdeaCount, setPendingAdIdeaCount] = useState(0);\n' +
+    '  const [affiliateRequestCount, setAffiliateRequestCount] = useState(0);\n' +
+    '  const [approvedAffiliateRequestsByOffer, setApprovedAffiliateRequestsByOffer] = useState<Record<string, ApprovedAffiliateRequest[]>>({});\n' +
+    '  const [expandedInviteOfferId, setExpandedInviteOfferId] = useState<string | null>(null);\n' +
+    '  const [launchInviteTypeByOfferId, setLaunchInviteTypeByOfferId] = useState<Record<string, "paid" | "organic">>({});\n' +
+    '  const [launchInviteStatusByRequestId, setLaunchInviteStatusByRequestId] = useState<Record<string, "idle" | "sending" | "sent" | "error">>({});\n' +
+    '\n' +
+    '  const [showAcceptTerms, setShowAcceptTerms] = useState(false);\n' +
+    '  const session = useSession();\n' +
+    '  const user = session?.user;\n' +
+    '  const supabase = createClientComponentClient();\n' +
+    '  useEffect(() => {\n' +
+    '    if (!user?.email || offers.length === 0) return;\n' +
+    '\n' +
+    '    const offerIds = offers.map((o) => o.id);\n' +
+    '\n' +
+    '    const checkPending = async () => {\n' +
+    '      const [{ data: postIdeas }, { data: adIdeas }] = await Promise.all([\n' +
+    '        supabase\n' +
+    '          .from("organic_posts")\n' +
+    '          .select("id")\n' +
+    '          .in("offer_id", offerIds)\n' +
+    '          .eq("status", "pending"),\n' +
+    '\n' +
+    '        supabase\n' +
+    '          .from("ad_ideas")\n' +
+    '          .select("id")\n' +
+    '          .in("offer_id", offerIds)\n' +
+    '          .eq("status", "pending"),\n' +
+    '      ]);\n' +
+    '\n' +
+    '      setPendingPostIdeaCount(postIdeas?.length || 0);\n' +
+    '      setPendingAdIdeaCount(adIdeas?.length || 0);\n' +
+    '    };\n' +
+    '\n' +
+    '    checkPending();\n' +
+    '  }, [user?.email, offers, supabase]);\n' +
+    '\n' +
+    '  useEffect(() => {\n' +
+    '    if (!user?.id) return;\n' +
+    '\n' +
+    '    const checkTerms = async () => {\n' +
+    '      const { data, error } = await supabase\n' +
+    '        .from("profiles")\n' +
+    '        .select("terms_accepted")\n' +
+    '        .eq("id", user.id)\n' +
+    '        .single();\n' +
+    '\n' +
+    '      if (!error && !data?.terms_accepted) {\n' +
+    '        setShowAcceptTerms(true);\n' +
+    '      }\n' +
+    '    };\n' +
+    '\n' +
+    '    checkTerms();\n' +
+    '  }, [user?.id, supabase]);\n' +
+    '\n' +
+    '  // Helper to safely parse JSON or fallback to text for error messages\n' +
+    '  async function parseJsonSafe(res: Response) {\n' +
+    '    const ct = res.headers.get("content-type") || "";\n' +
+    '    if (ct.includes("application/json")) {\n' +
+    '      try {\n' +
+    '        return await res.json();\n' +
+    '      } catch {\n' +
+    '        return { error: "Invalid JSON in response" };\n' +
+    '      }\n' +
+    '    }\n' +
+    '    const text = await res.text();\n' +
+    '    return { error: text?.slice(0, 500) || "Non-JSON response" };\n' +
+    '  }\n' +
+    '\n' +
+    '  useEffect(() => {\n' +
+    '    const fetchOffers = async () => {\n' +
+    '      setOffersLoading(true);\n' +
+    '      const authUser = user?.email\n' +
+    '   '... 68157 more characters,
+  expected: /not a Nettmark subscription/,
+  operator: 'match'
+}
+
+Node.js v20.20.2
