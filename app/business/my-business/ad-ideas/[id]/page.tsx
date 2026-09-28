@@ -3,6 +3,21 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useSession } from "@supabase/auth-helpers-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  BadgeCheck,
+  CheckCircle2,
+  ChevronDown,
+  CircleDollarSign,
+  Clock3,
+  CreditCard,
+  Link2,
+  Megaphone,
+  Rocket,
+  Target,
+  WalletCards,
+} from "lucide-react";
 import { BusinessSubscriptionActivationModal } from "@/components/business/BusinessSubscriptionActivationModal";
 import {
   clearPaidCampaignResume,
@@ -70,9 +85,9 @@ function formatBudget(proposal: Proposal) {
         : null;
   if (!amount) return "Not set";
   const suffix = String(proposal.budget_type || "DAILY").toUpperCase() === "LIFETIME"
-    ? "lifetime"
-    : "per day";
-  return `$${amount.toLocaleString("en-AU", { maximumFractionDigits: 2 })} ${suffix}`;
+    ? " total"
+    : "/day";
+  return `$${amount.toLocaleString("en-AU", { maximumFractionDigits: 2 })}${suffix}`;
 }
 
 function formatDate(value?: string | null) {
@@ -86,6 +101,43 @@ function formatDate(value?: string | null) {
     hour: "numeric",
     minute: "2-digit",
   });
+}
+
+function affiliateLabel(email: string) {
+  const raw = String(email || "Affiliate").split("@")[0] || "Affiliate";
+  return raw
+    .replace(/[._-]+/g, " ")
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function affiliateInitials(email: string) {
+  const words = affiliateLabel(email).split(/\s+/).filter(Boolean);
+  if (words.length === 0) return "AF";
+  return words.slice(0, 2).map((word) => word[0]).join("").toUpperCase();
+}
+
+function SetupStep({
+  label,
+  ready,
+  icon,
+}: {
+  label: string;
+  ready: boolean;
+  icon: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-xl border border-white/8 bg-white/[0.025] px-3 py-2.5">
+      <div className="flex min-w-0 items-center gap-2.5">
+        <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${ready ? "bg-emerald-400/10 text-emerald-300" : "bg-white/[0.05] text-slate-400"}`}>
+          {icon}
+        </span>
+        <span className="truncate text-sm font-medium text-slate-200">{label}</span>
+      </div>
+      <span className={`text-xs font-semibold ${ready ? "text-emerald-300" : "text-slate-500"}`}>
+        {ready ? "Complete" : "Required"}
+      </span>
+    </div>
+  );
 }
 
 export default function AdIdeaProposalDetailPage() {
@@ -115,6 +167,7 @@ export default function AdIdeaProposalDetailPage() {
   const fundingReady = Boolean(campaignReadiness?.funding?.ready);
   const pixelReady = !campaignReadiness?.pixel?.required || Boolean(campaignReadiness.pixel.ready);
   const timingReady = campaignReadiness?.timing?.ready !== false;
+  const metaSetupReady = metaReady && pixelReady;
   const allReady = Boolean(
     campaignReadiness?.ready && subscriptionReady && billingReady && metaReady && trackingReady && pixelReady && timingReady && fundingReady,
   );
@@ -252,23 +305,34 @@ export default function AdIdeaProposalDetailPage() {
   const businessNextAction = (() => {
     if (!proposal || proposal.status !== "pending") return null;
     if (!subscriptionReady) {
-      return { label: "Start 14-day Growth trial", onClick: () => setSubscriptionOpen(true) };
+      return {
+        label: "Start free trial",
+        title: "Start your 14-day Growth trial",
+        description: "Enable paid affiliate campaigns for your business. You can continue reviewing this proposal before anything launches.",
+        onClick: () => setSubscriptionOpen(true),
+      };
     }
     if (!billingReady) {
       return {
         label: "Connect billing",
+        title: "Connect business billing",
+        description: "Add your payment method for tracked affiliate commissions and campaign charges.",
         onClick: () => router.push(`/business/my-business?billing=required&returnTo=${encodeURIComponent(canonicalPath)}`),
       };
     }
-    if (!metaReady || !pixelReady) {
+    if (!metaSetupReady) {
       return {
         label: "Connect Meta",
+        title: "Connect Meta",
+        description: "Connect the Facebook Page, Ad Account and any required Sales Pixel this campaign needs.",
         onClick: () => router.push(`/business/my-business/connect-meta?offerId=${encodeURIComponent(proposal.offer_id)}&source=proposal&returnTo=${encodeURIComponent(canonicalPath)}`),
       };
     }
     if (!trackingReady) {
       return {
-        label: "Connect tracking",
+        label: "Set up tracking",
+        title: "Connect campaign tracking",
+        description: "Verify Nettmark tracking for this offer so sales can be attributed correctly.",
         onClick: () => router.push(`/business/setup-tracking?offerId=${encodeURIComponent(proposal.offer_id)}&source=proposal&returnTo=${encodeURIComponent(canonicalPath)}`),
       };
     }
@@ -279,8 +343,44 @@ export default function AdIdeaProposalDetailPage() {
     proposal?.media_type?.toUpperCase() === "VIDEO" || /\.(mp4|mov|webm|ogg)(\?|$)/i.test(proposal?.file_url || ""),
   );
 
+  const statusState = (() => {
+    if (!proposal) return { label: "Checking", className: "border-white/10 bg-white/[0.04] text-slate-300" };
+    if (proposal.status !== "pending") {
+      return { label: proposal.status, className: "border-white/10 bg-white/[0.04] text-slate-300" };
+    }
+    if (allReady) {
+      return { label: "Ready to launch", className: "border-emerald-400/20 bg-emerald-500/10 text-emerald-300" };
+    }
+    if (businessNextAction || !timingReady) {
+      return { label: "Setup required", className: "border-amber-400/25 bg-amber-400/10 text-amber-300" };
+    }
+    if (!fundingReady) {
+      return { label: "Waiting on affiliate", className: "border-[#57c7d1]/25 bg-[#57c7d1]/10 text-[#8ce5ed]" };
+    }
+    return { label: "Checking", className: "border-white/10 bg-white/[0.04] text-slate-300" };
+  })();
+
+  const affiliateStatus = (() => {
+    if (fundingReady) {
+      return {
+        title: "Campaign funding ready",
+        body: "The affiliate has enough eligible campaign funding available for launch.",
+      };
+    }
+    if (!subscriptionReady) {
+      return {
+        title: "Funding not required yet",
+        body: "Nettmark will prompt the affiliate once paid promotion is enabled. No action is required from you here.",
+      };
+    }
+    return {
+      title: "Funding campaign",
+      body: "Nettmark is handling campaign funding with the affiliate. No action is required from you.",
+    };
+  })();
+
   return (
-    <div className="min-h-screen bg-[var(--background)] px-4 py-6 text-[var(--foreground)] sm:px-6 lg:px-10">
+    <div className="min-h-screen bg-[#080b0d] px-4 py-5 text-white sm:px-6 lg:px-10 lg:py-8">
       <BusinessSubscriptionActivationModal
         open={subscriptionOpen}
         intent={proposal && readiness?.subscription.businessId ? {
@@ -299,95 +399,262 @@ export default function AdIdeaProposalDetailPage() {
         onClose={() => setSubscriptionOpen(false)}
       />
 
-      <div className="mx-auto max-w-5xl space-y-5">
-        <button
-          type="button"
-          onClick={() => router.push(`/business/my-business/ad-ideas?proposal=${encodeURIComponent(proposalId)}`)}
-          className="text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
-        >
-          ← Back to Ad Ideas
-        </button>
+      <div className="mx-auto max-w-4xl space-y-4 sm:space-y-5">
+        <div className="flex items-center gap-3 py-1">
+          <button
+            type="button"
+            onClick={() => router.push(`/business/my-business/ad-ideas?proposal=${encodeURIComponent(proposalId)}`)}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/8 bg-white/[0.04] text-slate-300 transition hover:bg-white/[0.08] hover:text-white"
+            aria-label="Back to Ad Ideas"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+          <div className="min-w-0">
+            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">Campaign proposal</h1>
+            <p className="mt-0.5 text-sm text-slate-400">Review the campaign and take the next step.</p>
+          </div>
+        </div>
 
         {loading ? (
-          <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-6">Loading proposal…</div>
+          <div className="rounded-[24px] border border-white/10 bg-[#101416] p-6 text-sm text-slate-400">Loading proposal…</div>
         ) : error && !proposal ? (
-          <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-6">
-            <h1 className="font-semibold">Campaign could not be opened</h1>
-            <p className="mt-2 text-sm text-[var(--muted-foreground)]">{error}</p>
+          <div className="rounded-[24px] border border-red-500/25 bg-red-500/10 p-6">
+            <h2 className="font-semibold">Campaign could not be opened</h2>
+            <p className="mt-2 text-sm text-red-100/70">{error}</p>
           </div>
         ) : proposal ? (
           <>
-            <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5 sm:p-6">
-              <div className="text-xs font-semibold uppercase tracking-wide text-[#00C2CB]">Paid campaign proposal</div>
-              <h1 className="mt-2 text-2xl font-semibold">{proposal.offer_title}</h1>
-              <p className="mt-2 text-sm text-[var(--muted-foreground)]">
-                {proposal.affiliate_email} wants to fund this campaign. You pay $0 in ad spend; existing commission terms still apply.
-              </p>
-              <div className="mt-4 flex flex-wrap gap-2 text-sm">
-                <span className="rounded-full border border-[var(--border)] px-3 py-1">Affiliate budget: {formatBudget(proposal)}</span>
-                <span className="rounded-full border border-[var(--border)] px-3 py-1">Your ad spend: $0</span>
-                <span className="rounded-full border border-[var(--border)] px-3 py-1 capitalize">{proposal.status}</span>
+            <section className="rounded-[24px] border border-white/10 bg-[#101416] p-5 shadow-[0_18px_60px_rgba(0,0,0,0.22)] sm:p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex min-w-0 items-center gap-3.5">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#57c7d1] text-sm font-black text-[#061113] sm:h-14 sm:w-14 sm:text-base">
+                    {affiliateInitials(proposal.affiliate_email)}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="truncate text-base font-semibold sm:text-lg">{affiliateLabel(proposal.affiliate_email)}</div>
+                    <div className="truncate text-sm text-slate-400">{proposal.affiliate_email}</div>
+                  </div>
+                </div>
+                <span className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold capitalize ${statusState.className}`}>
+                  {statusState.label}
+                </span>
+              </div>
+
+              <div className="mt-5 grid grid-cols-3 divide-x divide-white/8 border-t border-white/8 pt-4">
+                <div className="pr-3">
+                  <div className="text-xs text-slate-500">Offer</div>
+                  <div className="mt-1 truncate text-sm font-semibold text-slate-100 sm:text-base">{proposal.offer_title}</div>
+                </div>
+                <div className="px-3">
+                  <div className="text-xs text-slate-500">Affiliate budget</div>
+                  <div className="mt-1 text-sm font-semibold text-white sm:text-base">{formatBudget(proposal)}</div>
+                </div>
+                <div className="pl-3">
+                  <div className="text-xs text-slate-500">Your ad spend</div>
+                  <div className="mt-1 text-sm font-semibold text-white sm:text-base">$0</div>
+                </div>
               </div>
             </section>
 
-            {proposal.file_url ? (
-              <section className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--card)]">
-                {mediaIsVideo ? (
-                  <video src={proposal.file_url} controls className="max-h-[560px] w-full bg-black object-contain" />
-                ) : (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={proposal.file_url} alt="Affiliate campaign creative" className="max-h-[560px] w-full bg-black object-contain" />
-                )}
-                {proposal.caption ? <p className="border-t border-[var(--border)] p-4 text-sm">{proposal.caption}</p> : null}
-              </section>
-            ) : null}
-
-            <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5 sm:p-6">
-              <h2 className="font-semibold">What happens next</h2>
-              {proposal.status !== "pending" ? (
-                <p className="mt-2 text-sm text-[var(--muted-foreground)]">This proposal is {proposal.status}.</p>
-              ) : businessNextAction ? (
-                <div className="mt-3">
-                  <p className="text-sm text-[var(--muted-foreground)]">Complete the next business setup step to keep this proposal moving.</p>
-                  <button type="button" onClick={businessNextAction.onClick} className="mt-4 rounded-xl bg-[#00C2CB] px-4 py-2.5 text-sm font-semibold text-[#061113]">
-                    {businessNextAction.label}
-                  </button>
+            <section className="rounded-[24px] border border-white/10 bg-[#101416] p-4 sm:p-5">
+              <div className="mb-4 flex items-start justify-between gap-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Megaphone className="h-4 w-4 text-[#57c7d1]" />
+                    <h2 className="text-lg font-semibold">Ad preview</h2>
+                  </div>
+                  <p className="mt-1 text-sm text-slate-400">Here&apos;s the creative the affiliate wants to run for your business.</p>
                 </div>
+                <span className="rounded-full border border-white/8 bg-white/[0.03] px-2.5 py-1 text-xs text-slate-500">Preview</span>
+              </div>
+
+              <div className="overflow-hidden rounded-[18px] border border-white/10 bg-[#080b0d]">
+                <div className="flex items-center gap-3 border-b border-white/8 px-4 py-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#57c7d1]/15 text-xs font-bold text-[#57c7d1]">
+                    {proposal.offer_title.slice(0, 2).toUpperCase()}
+                  </div>
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-semibold">{proposal.offer_title}</div>
+                    <div className="text-xs text-slate-500">Sponsored</div>
+                  </div>
+                </div>
+
+                {proposal.caption ? (
+                  <p className="px-4 py-3 text-sm leading-6 text-slate-200">{proposal.caption}</p>
+                ) : null}
+
+                {proposal.file_url ? (
+                  mediaIsVideo ? (
+                    <video src={proposal.file_url} controls className="max-h-[560px] w-full bg-black object-contain" />
+                  ) : (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={proposal.file_url} alt="Affiliate campaign creative" className="max-h-[560px] w-full bg-black object-contain" />
+                  )
+                ) : (
+                  <div className="flex min-h-52 items-center justify-center px-4 text-sm text-slate-500">No creative attached</div>
+                )}
+
+                <div className="flex items-center justify-between gap-3 border-t border-white/8 bg-white/[0.025] px-4 py-3">
+                  <div className="min-w-0">
+                    <div className="truncate text-xs uppercase tracking-wide text-slate-500">{proposal.offer_website || "Affiliate campaign"}</div>
+                    <div className="truncate text-sm font-semibold text-slate-200">{proposal.campaign_name || proposal.offer_title}</div>
+                  </div>
+                  <span className="shrink-0 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-slate-200">
+                    {proposal.call_to_action || proposal.cta || "Learn more"}
+                  </span>
+                </div>
+              </div>
+            </section>
+
+            <section className="rounded-[24px] border border-[#57c7d1]/55 bg-[linear-gradient(135deg,rgba(87,199,209,0.08),rgba(16,20,22,0.96)_55%)] p-5 shadow-[0_0_40px_rgba(87,199,209,0.05)] sm:p-6">
+              {proposal.status !== "pending" ? (
+                <div className="flex items-start gap-3">
+                  <BadgeCheck className="mt-0.5 h-6 w-6 text-[#57c7d1]" />
+                  <div>
+                    <h2 className="text-lg font-semibold capitalize">Proposal {proposal.status}</h2>
+                    <p className="mt-1 text-sm text-slate-400">This campaign proposal has already been reviewed.</p>
+                  </div>
+                </div>
+              ) : businessNextAction ? (
+                <>
+                  <div className="flex items-start gap-3.5">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#57c7d1] text-[#061113]">
+                      <Rocket className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8ce5ed]">Next step</div>
+                      <h2 className="mt-1 text-xl font-bold">{businessNextAction.title}</h2>
+                      <p className="mt-1.5 text-sm leading-6 text-slate-400">{businessNextAction.description}</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={businessNextAction.onClick}
+                    className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#57c7d1] px-4 py-3.5 text-sm font-bold text-[#061113] transition hover:brightness-110"
+                  >
+                    {businessNextAction.label}
+                    <ArrowRight className="h-4 w-4" />
+                  </button>
+                </>
               ) : !timingReady ? (
-                <p className="mt-2 text-sm text-amber-300">Campaign timing needs to be updated before launch. The proposal remains pending.</p>
+                <div className="flex items-start gap-3.5">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-amber-400/10 text-amber-300">
+                    <Clock3 className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-300">Campaign update needed</div>
+                    <h2 className="mt-1 text-xl font-bold">Campaign timing needs attention</h2>
+                    <p className="mt-1.5 text-sm leading-6 text-slate-400">The current campaign dates are no longer launch-ready. The proposal will stay pending until they are corrected.</p>
+                  </div>
+                </div>
               ) : !fundingReady ? (
-                <div className="mt-2">
-                  <p className="text-sm font-medium">Waiting on affiliate</p>
-                  <p className="mt-1 text-sm text-[var(--muted-foreground)]">Nettmark will prompt the affiliate to fund their campaign. No action is required from you.</p>
+                <div className="flex items-start gap-3.5">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#57c7d1]/12 text-[#57c7d1]">
+                    <Clock3 className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8ce5ed]">You&apos;re ready</div>
+                    <h2 className="mt-1 text-xl font-bold">Waiting on the affiliate</h2>
+                    <p className="mt-1.5 text-sm leading-6 text-slate-400">Your setup is complete. Nettmark is handling campaign funding with the affiliate, so there&apos;s nothing else you need to do right now.</p>
+                  </div>
                 </div>
               ) : allReady ? (
-                <div className="mt-3">
-                  <p className="text-sm text-[var(--muted-foreground)]">Your setup and the affiliate campaign are ready.</p>
-                  <button type="button" onClick={() => void launch()} disabled={busy} className="mt-4 rounded-xl bg-[#00C2CB] px-4 py-2.5 text-sm font-semibold text-[#061113] disabled:opacity-50">
+                <>
+                  <div className="flex items-start gap-3.5">
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-emerald-400/12 text-emerald-300">
+                      <CheckCircle2 className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-300">Ready to launch</div>
+                      <h2 className="mt-1 text-xl font-bold">Everything is ready</h2>
+                      <p className="mt-1.5 text-sm leading-6 text-slate-400">Review the campaign above, then approve it when you&apos;re happy for Nettmark to launch it.</p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void launch()}
+                    disabled={busy}
+                    className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#57c7d1] px-4 py-3.5 text-sm font-bold text-[#061113] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
                     {busy ? "Launching…" : "Approve & launch"}
+                    {!busy ? <ArrowRight className="h-4 w-4" /> : null}
                   </button>
-                </div>
+                </>
               ) : (
-                <p className="mt-2 text-sm text-[var(--muted-foreground)]">Nettmark is checking the remaining launch requirements. No launch will occur until all hard checks pass.</p>
+                <div className="flex items-start gap-3.5">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/[0.05] text-slate-400">
+                    <Clock3 className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-semibold">Checking campaign readiness</h2>
+                    <p className="mt-1 text-sm text-slate-400">Nettmark is checking the remaining launch requirements.</p>
+                  </div>
+                </div>
               )}
             </section>
 
-            <details className="rounded-2xl border border-[var(--border)] bg-[var(--card)] p-5 sm:p-6">
-              <summary className="cursor-pointer font-semibold">Campaign details</summary>
-              <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-                <div><dt className="text-[var(--muted-foreground)]">Campaign</dt><dd>{proposal.campaign_name || "Not named"}</dd></div>
-                <div><dt className="text-[var(--muted-foreground)]">Objective</dt><dd>{proposal.objective || proposal.performance_goal || "Not set"}</dd></div>
-                <div><dt className="text-[var(--muted-foreground)]">Audience</dt><dd>{proposal.audience || "Not set"}</dd></div>
-                <div><dt className="text-[var(--muted-foreground)]">Location</dt><dd>{proposal.location || "Not set"}</dd></div>
-                <div><dt className="text-[var(--muted-foreground)]">Start</dt><dd>{formatDate(proposal.start_time)}</dd></div>
-                <div><dt className="text-[var(--muted-foreground)]">End</dt><dd>{formatDate(proposal.end_time)}</dd></div>
-              </dl>
+            <section className="rounded-[22px] border border-white/10 bg-[#101416] p-4 sm:p-5">
+              <div className="flex items-start gap-3.5">
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#57c7d1]/12 text-[#57c7d1]">
+                  <WalletCards className="h-5 w-5" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-base font-semibold">Affiliate status</div>
+                  <div className="mt-1 text-sm font-medium text-slate-200">{affiliateStatus.title}</div>
+                  <p className="mt-1 text-sm leading-6 text-slate-400">{affiliateStatus.body}</p>
+                </div>
+              </div>
+            </section>
+
+            <details className="group rounded-[22px] border border-white/10 bg-[#101416] p-4 sm:p-5">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 [&::-webkit-details-marker]:hidden">
+                <div className="flex items-center gap-3.5">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#57c7d1]/12 text-[#57c7d1]">
+                    <Target className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="text-base font-semibold">Campaign details</div>
+                    <div className="mt-0.5 text-sm text-slate-400">Campaign settings and setup progress.</div>
+                  </div>
+                </div>
+                <ChevronDown className="h-5 w-5 shrink-0 text-slate-500 transition group-open:rotate-180" />
+              </summary>
+
+              <div className="mt-5 space-y-5 border-t border-white/8 pt-5">
+                <div>
+                  <div className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Business setup</div>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <SetupStep label="Growth" ready={subscriptionReady} icon={<Rocket className="h-4 w-4" />} />
+                    <SetupStep label="Billing" ready={billingReady} icon={<CreditCard className="h-4 w-4" />} />
+                    <SetupStep label="Meta" ready={metaSetupReady} icon={<Megaphone className="h-4 w-4" />} />
+                    <SetupStep label="Tracking" ready={trackingReady} icon={<Link2 className="h-4 w-4" />} />
+                  </div>
+                </div>
+
+                <dl className="grid gap-x-6 gap-y-4 text-sm sm:grid-cols-2">
+                  <div><dt className="text-slate-500">Campaign</dt><dd className="mt-1 text-slate-200">{proposal.campaign_name || "Not named"}</dd></div>
+                  <div><dt className="text-slate-500">Objective</dt><dd className="mt-1 text-slate-200">{proposal.objective || proposal.performance_goal || "Not set"}</dd></div>
+                  <div><dt className="text-slate-500">Audience</dt><dd className="mt-1 text-slate-200">{proposal.audience || "Not set"}</dd></div>
+                  <div><dt className="text-slate-500">Location</dt><dd className="mt-1 text-slate-200">{proposal.location || "Not set"}</dd></div>
+                  <div><dt className="text-slate-500">Start</dt><dd className="mt-1 text-slate-200">{formatDate(proposal.start_time)}</dd></div>
+                  <div><dt className="text-slate-500">End</dt><dd className="mt-1 text-slate-200">{formatDate(proposal.end_time)}</dd></div>
+                  <div><dt className="text-slate-500">Conversion event</dt><dd className="mt-1 text-slate-200">{proposal.conversion_event || "Not set"}</dd></div>
+                  <div><dt className="text-slate-500">Your ad spend</dt><dd className="mt-1 flex items-center gap-1.5 font-semibold text-slate-100"><CircleDollarSign className="h-4 w-4 text-[#57c7d1]" />$0</dd></div>
+                </dl>
+              </div>
             </details>
 
-            {error ? <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">{error}</div> : null}
+            {error ? (
+              <div className="rounded-xl border border-red-500/25 bg-red-500/10 p-4 text-sm text-red-200">{error}</div>
+            ) : null}
 
             {proposal.status === "pending" ? (
-              <button type="button" onClick={() => void reject()} disabled={busy} className="text-sm text-red-300 hover:text-red-200 disabled:opacity-50">
+              <button
+                type="button"
+                onClick={() => void reject()}
+                disabled={busy}
+                className="w-full rounded-2xl border border-white/10 bg-transparent px-4 py-3 text-sm font-medium text-slate-400 transition hover:border-red-400/30 hover:text-red-300 disabled:opacity-50"
+              >
                 Reject proposal
               </button>
             ) : null}
