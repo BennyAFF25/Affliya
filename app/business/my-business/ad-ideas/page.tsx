@@ -201,6 +201,14 @@ function formatIdeaDate(value?: string) {
   });
 }
 
+function currentAdIdeasReturnTo() {
+  if (typeof window === "undefined") return "/business/my-business/ad-ideas";
+  const proposalId = new URLSearchParams(window.location.search).get("proposal");
+  return proposalId
+    ? `/business/my-business/ad-ideas?proposal=${encodeURIComponent(proposalId)}`
+    : "/business/my-business/ad-ideas";
+}
+
 export default function AdIdeasPage() {
   const [ideas, setIdeas] = useState<AdIdea[]>([]);
   const [offersMap, setOffersMap] = useState<Record<string, string>>({});
@@ -269,9 +277,10 @@ export default function AdIdeasPage() {
   useEffect(() => {
     if (session === undefined) return;
     if (session === null) {
-      router.push("/");
-      return;
-    }
+    const returnTo = currentAdIdeasReturnTo();
+    router.push(`/login/business?returnTo=${encodeURIComponent(returnTo)}`);
+    return;
+  }
 
     const loadOffersMap = async () => {
       if (!user?.email) return;
@@ -343,9 +352,10 @@ export default function AdIdeasPage() {
   useEffect(() => {
     if (session === undefined) return;
     if (session === null) {
-      router.push("/");
-      return;
-    }
+    const returnTo = currentAdIdeasReturnTo();
+    router.push(`/login/business?returnTo=${encodeURIComponent(returnTo)}`);
+    return;
+  }
 
     const fetchIdeas = async () => {
       if (!user?.email) return;
@@ -393,6 +403,21 @@ export default function AdIdeasPage() {
       fetchIdeas();
     }
   }, [offersMap, session, user, router]);
+
+  useEffect(() => {
+  if (typeof window === "undefined" || ideas.length === 0) return;
+  const proposalId = new URLSearchParams(window.location.search).get("proposal");
+  if (!proposalId) return;
+
+  const timer = window.setTimeout(() => {
+    document.getElementById(`proposal-${proposalId}`)?.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+  }, 0);
+
+  return () => window.clearTimeout(timer);
+}, [ideas]);
 
   const handleStatusChange = async (
     id: string,
@@ -599,7 +624,7 @@ export default function AdIdeasPage() {
               ) : (
                 <ul className="space-y-4">
                   {pendingIdeas.map((idea) => (
-                    <li key={idea.id}>
+                    <li key={idea.id} id={`proposal-${idea.id}`}>
                       <ReviewCard
                         className="border-white/10 bg-[linear-gradient(135deg,rgba(255,255,255,0.06),rgba(0,194,203,0.05))] p-5 shadow-[0_18px_60px_rgba(0,0,0,0.28)]"
                         header={(
@@ -640,8 +665,7 @@ export default function AdIdeasPage() {
                                     campaignType: "paid_meta",
                                   },
                                 });
-                                setSelectedIdea(idea);
-                                setShowTargetingDetails(false);
+                                router.push(`/business/my-business/ad-ideas/${encodeURIComponent(idea.id)}`);
                               }}
                             >
                               View details
