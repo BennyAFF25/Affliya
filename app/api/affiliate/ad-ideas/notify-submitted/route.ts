@@ -84,6 +84,7 @@ export async function POST(req: Request) {
     const offerTitle = escapeHtml(offer?.title || "your offer");
     const affiliate = escapeHtml(affiliateEmail);
     const campaignName = escapeHtml(idea.campaign_name || "Paid campaign proposal");
+    const reviewUrl = `https://www.nettmark.com/business/my-business/ad-ideas?proposal=${encodeURIComponent(adIdeaId)}`;
     const budget = Number(idea.budget_amount || 0) > 0
       ? (Number(idea.budget_amount) / 100).toFixed(2)
       : null;
@@ -106,7 +107,7 @@ export async function POST(req: Request) {
           </div>
           <p>You can review or reject the proposal before completing any paid-promotion setup. Nothing launches until all Nettmark launch requirements are satisfied and you approve it.</p>
           <p style="margin-top:22px">
-            <a href="https://www.nettmark.com/business/my-business/ad-ideas" style="display:inline-block;background:#00C2CB;color:#001015;text-decoration:none;font-weight:700;padding:12px 16px;border-radius:10px">Review campaign</a>
+            <a href="${reviewUrl}" style="display:inline-block;background:#00C2CB;color:#001015;text-decoration:none;font-weight:700;padding:12px 16px;border-radius:10px">Review campaign</a>
           </p>
         </div>
       `,
