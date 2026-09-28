@@ -5,7 +5,8 @@ const page = readFileSync('app/business/my-business/ad-ideas/page.tsx', 'utf8');
 const route = readFileSync('app/api/business/ad-ideas/review-readiness/route.ts', 'utf8');
 const launchRoute = readFileSync('app/api/business/ad-ideas/launch/route.ts', 'utf8');
 
-assert.match(page, /Paid launch review/);
+// Business review remains proposal-first: the business can inspect pending proposals,
+// see current derived launch blockers, reject at any time, and only launch when ready.
 assert.match(page, /RequirementCard/);
 assert.match(page, /Commission\/ad-spend billing/);
 assert.match(page, /Nettmark Business subscription/);
@@ -19,10 +20,13 @@ assert.match(page, /review-readiness/);
 assert.match(page, /campaignReadiness/);
 assert.match(page, /isCampaignReady/);
 assert.match(page, /Waiting for affiliate funding/);
+assert.match(page, /Campaign dates need updating/);
+assert.match(page, /Previous Meta launch needs recovery before retry/);
 assert.match(page, /Approve &amp; launch/);
 assert.match(page, /disabled=\{reviewReadinessLoading \|\| !isCampaignReady\(idea\.id\)\}/);
-assert.match(page, /bg-\[#05080b\]/);
+assert.match(page, />\s*Reject\s*</);
 
+// Review readiness is derived from current server-side state rather than submission-time assumptions.
 assert.match(route, /getBusinessPaymentReadiness/);
 assert.match(route, /getBusinessEntitlement/);
 assert.match(route, /getAffiliateCampaignFundingReadiness/);
