@@ -1,12 +1,27 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import MarketingHeader from "@/components/marketing/MarketingHeader";
 import { supabase } from "@/../utils/supabase/pages-client";
 
+function safeBusinessReturnTo(value: string | null) {
+  const raw = String(value || "").trim();
+  if (
+    !raw ||
+    !raw.startsWith("/business/") ||
+    raw.startsWith("//") ||
+    raw.includes("\\")
+  ) {
+    return null;
+  }
+  return raw.slice(0, 500);
+}
+
 export default function BusinessLogin() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const returnTo = safeBusinessReturnTo(searchParams.get("returnTo"));
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -58,7 +73,7 @@ export default function BusinessLogin() {
           role: "business",
         };
         await supabase.from("profiles").upsert([profileData] as any);
-        router.push("/auth-redirect");
+        router.replace(returnTo || "/auth-redirect");
       }
     } catch (err: any) {
       console.error("[Business login] unexpected error", err);
@@ -121,7 +136,9 @@ export default function BusinessLogin() {
                 Business Login
               </h1>
               <p className="text-xs text-white/65 mb-6">
-                Sign in to manage offers, campaigns, and payouts for your brand.
+                {returnTo
+                  ? "Sign in to continue reviewing this campaign."
+                  : "Sign in to manage offers, campaigns, and payouts for your brand."}
               </p>
 
               <form onSubmit={handleSubmit} className="space-y-4">
