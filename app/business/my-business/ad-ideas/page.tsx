@@ -244,7 +244,7 @@ export default function AdIdeasPage() {
     const labels: Record<string, string> = {
       BUSINESS_GROWTH_REQUIRED: "Start the 14-day Growth trial",
       BUSINESS_BILLING_REQUIRED: "Connect business billing",
-      AFFILIATE_CAMPAIGN_FUNDING_REQUIRED: "Waiting for affiliate funding",
+      AFFILIATE_CAMPAIGN_FUNDING_REQUIRED: "Affiliate funding pending — no action required",
       META_SETUP_REQUIRED: "Connect/select Meta Page + Ad Account",
       META_PAGE_REQUIRED: "Connect/select a Facebook Page",
       META_AD_ACCOUNT_REQUIRED: "Connect/select a Meta Ad Account",
@@ -668,7 +668,7 @@ export default function AdIdeasPage() {
                                 router.push(`/business/my-business/ad-ideas/${encodeURIComponent(idea.id)}`);
                               }}
                             >
-                              View details
+                              View proposal
                             </Button>
                             {!isCampaignReady(idea.id) && (
                               <div className="rounded-xl border border-amber-300/25 bg-amber-300/10 px-3 py-2 text-xs leading-5 text-amber-100">
@@ -813,7 +813,7 @@ export default function AdIdeasPage() {
                                   setShowTargetingDetails(false);
                                 }}
                               >
-                                View details
+                                View proposal
                               </Button>
                             )}
                           />
