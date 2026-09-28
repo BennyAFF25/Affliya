@@ -1207,7 +1207,7 @@ export default function PromoteOfferPage() {
         file_url: creativePublicUrl,
         thumbnail_url: thumbPublicUrl,
         media_type: videoFile ? "VIDEO" : "IMAGE",
-        type: videoFile ? "Video" : "Image",
+        type: videoFile ? "Video" : "Photo",
         business_creative_id: selectedCreativeId,
 
         // campaign/adset/ad
@@ -1257,7 +1257,7 @@ export default function PromoteOfferPage() {
 
       if (usingBrandContent && selectedAdBrandCreative) {
         insertPayload.media_type = selectedAdBrandCreative.media_type === "video" ? "VIDEO" : "IMAGE";
-        insertPayload.type = selectedAdBrandCreative.media_type === "video" ? "Video" : "Image";
+        insertPayload.type = selectedAdBrandCreative.media_type === "video" ? "Video" : "Photo";
       }
 
       console.log("[BID CAP DEBUG]", {
