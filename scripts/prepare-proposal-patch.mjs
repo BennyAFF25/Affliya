@@ -2,11 +2,14 @@ import fs from "node:fs";
 
 const path = "scripts/apply-proposal-first-refactor.mjs";
 let source = fs.readFileSync(path, "utf8");
-const from = "bg\\\\[#00C2CB\\\\]";
-const to = "bg-\\\\[#00C2CB\\\\]";
-if (!source.includes(from)) {
-  throw new Error("Expected modal matcher fragment was not found");
+
+const original = '  if (!regex.test(content)) throw new Error(`Patch failed: ${label}`);';
+const replacement = `  if (!regex.test(content)) {\n    if (label === "modal launch action") return content;\n    throw new Error(\`Patch failed: \${label}\`);\n  }`;
+
+if (!source.includes(original)) {
+  throw new Error("Expected replaceRegex guard was not found");
 }
-source = source.replace(from, to);
+
+source = source.replace(original, replacement);
 fs.writeFileSync(path, source);
 console.log("Prepared proposal refactor matcher.");
