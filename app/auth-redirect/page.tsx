@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/../utils/supabase/pages-client";
 import Image from "next/image";
 
@@ -17,11 +17,13 @@ function safeInternalReturnTo(value: string | null) {
 
 export default function AuthRedirect() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [fade, setFade] = useState(false);
-  const returnTo = safeInternalReturnTo(searchParams.get("returnTo"));
 
   useEffect(() => {
+    const returnTo = safeInternalReturnTo(
+      new URLSearchParams(window.location.search).get("returnTo"),
+    );
+
     const handleRedirect = async () => {
       const {
         data: { user },
@@ -67,7 +69,7 @@ export default function AuthRedirect() {
     };
 
     handleRedirect();
-  }, [router, returnTo]);
+  }, [router]);
 
   const startFade = (callback: () => void) => {
     setFade(true);
