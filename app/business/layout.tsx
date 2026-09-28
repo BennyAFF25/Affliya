@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import BusinessSidebar from "./BusinessSidebar";
 import Topbar from "@/components/Topbar";
+import PaidCampaignResumeBanner from "@/components/business/PaidCampaignResumeBanner";
 import {
   MobileNavSlider,
   MobileNavTab,
@@ -104,6 +105,7 @@ export default function BusinessLayout({
 
         {/* Page content */}
         <main className="flex-1 overflow-y-auto bg-[var(--background)]">
+          <PaidCampaignResumeBanner />
           {children}
         </main>
       </div>
