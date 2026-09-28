@@ -22,53 +22,38 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
+          import re
 
           path = Path('app/business/my-business/ad-ideas/page.tsx')
           text = path.read_text()
 
-          marker = '''function formatIdeaDate(value?: string) {
-            if (!value) return "Unknown time";
-            const date = new Date(value);
-            if (Number.isNaN(date.getTime())) return "Unknown time";
-            return date.toLocaleString("en-AU", {
-              day: "2-digit",
-              month: "short",
-              hour: "numeric",
-              minute: "2-digit",
-            });
-          }
-          '''
-          replacement = marker + '''
-          function currentAdIdeasReturnTo() {
+          page_anchor = 'export default function AdIdeasPage() {'
+          helper = '''function currentAdIdeasReturnTo() {
             if (typeof window === "undefined") return "/business/my-business/ad-ideas";
             const proposalId = new URLSearchParams(window.location.search).get("proposal");
             return proposalId
               ? `/business/my-business/ad-ideas?proposal=${encodeURIComponent(proposalId)}`
               : "/business/my-business/ad-ideas";
           }
-          '''
-          assert marker in text, 'formatIdeaDate marker not found'
-          text = text.replace(marker, replacement, 1)
 
-          old_auth = '''    if (session === null) {
-              router.push("/");
-              return;
-            }'''
-          new_auth = '''    if (session === null) {
+          '''
+          assert page_anchor in text, 'AdIdeasPage anchor not found'
+          assert 'function currentAdIdeasReturnTo()' not in text, 'returnTo helper already exists unexpectedly'
+          text = text.replace(page_anchor, helper + page_anchor, 1)
+
+          auth_pattern = re.compile(
+              r'if \(session === null\) \{\s*router\.push\("/"\);\s*return;\s*\}'
+          )
+          auth_replacement = '''if (session === null) {
               const returnTo = currentAdIdeasReturnTo();
               router.push(`/login/business?returnTo=${encodeURIComponent(returnTo)}`);
               return;
             }'''
-          count = text.count(old_auth)
-          assert count == 2, f'expected 2 logged-out redirects, found {count}'
-          text = text.replace(old_auth, new_auth)
+          text, auth_count = auth_pattern.subn(auth_replacement, text)
+          assert auth_count == 2, f'expected 2 logged-out redirects, found {auth_count}'
 
-          effect_anchor = '''  const handleStatusChange = async (
-              id: string,
-              newStatus: string,
-              rejectionReason?: string,
-            ): Promise<boolean> => {'''
-          highlight_effect = '''  useEffect(() => {
+          handle_anchor = '  const handleStatusChange = async ('
+          highlight = '''  useEffect(() => {
             if (typeof window === "undefined" || ideas.length === 0) return;
             const proposalId = new URLSearchParams(window.location.search).get("proposal");
             if (!proposalId) return;
@@ -83,24 +68,27 @@ jobs:
             return () => window.clearTimeout(timer);
           }, [ideas]);
 
-          ''' + effect_anchor
-          assert effect_anchor in text, 'handleStatusChange anchor not found'
-          text = text.replace(effect_anchor, highlight_effect, 1)
+          '''
+          assert handle_anchor in text, 'handleStatusChange anchor not found'
+          text = text.replace(handle_anchor, highlight + handle_anchor, 1)
 
-          pending_li = '''                    <li key={idea.id}>'''
-          pending_li_new = '''                    <li
-                              key={idea.id}
-                              id={`proposal-${idea.id}`}
-                              className={typeof window !== "undefined" && new URLSearchParams(window.location.search).get("proposal") === idea.id ? "rounded-[28px] ring-1 ring-[#00C2CB]/60" : undefined}
-                            >'''
-          assert pending_li in text, 'pending proposal list item not found'
-          text = text.replace(pending_li, pending_li_new, 1)
+          pending_pattern = re.compile(r'<li key=\{idea\.id\}>')
+          text, li_count = pending_pattern.subn(
+              '<li key={idea.id} id={`proposal-${idea.id}`}>',
+              text,
+              count=1,
+          )
+          assert li_count == 1, f'expected one pending list item replacement, found {li_count}'
 
-          old_view = '''                                setSelectedIdea(idea);
-                                        setShowTargetingDetails(false);'''
-          new_view = '''                                router.push(`/business/my-business/ad-ideas/${encodeURIComponent(idea.id)}`);'''
-          assert old_view in text, 'pending View details handler not found'
-          text = text.replace(old_view, new_view, 1)
+          view_pattern = re.compile(
+              r'setSelectedIdea\(idea\);\s*setShowTargetingDetails\(false\);'
+          )
+          text, view_count = view_pattern.subn(
+              'router.push(`/business/my-business/ad-ideas/${encodeURIComponent(idea.id)}`);',
+              text,
+              count=1,
+          )
+          assert view_count == 1, f'expected pending View details handler, found {view_count}'
 
           path.write_text(text)
           PY
