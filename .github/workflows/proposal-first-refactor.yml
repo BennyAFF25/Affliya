@@ -21,13 +21,37 @@ jobs:
         with:
           node-version: 20
       - name: Apply scoped refactor
-        run: node scripts/apply-proposal-first-refactor.mjs
+        id: patch
+        shell: bash
+        run: |
+          set +e
+          node scripts/apply-proposal-first-refactor.mjs > /tmp/proposal-patch.log 2>&1
+          code=$?
+          cat /tmp/proposal-patch.log
+          if [ "$code" -ne 0 ]; then
+            git checkout -- app/affiliate/dashboard/promote/[offerId]/page.tsx app/affiliate/dashboard/promote/components/AdCampaignWizard.tsx app/business/my-business/ad-ideas/page.tsx app/api/meta/callback/upload-video/route.ts
+            cp /tmp/proposal-patch.log .proposal-patch-error.txt
+            echo "success=false" >> "$GITHUB_OUTPUT"
+          else
+            rm -f .proposal-patch-error.txt
+            echo "success=true" >> "$GITHUB_OUTPUT"
+          fi
       - name: Validate patch whitespace
+        if: steps.patch.outputs.success == 'true'
         run: git diff --check
       - name: Commit generated source changes
+        if: steps.patch.outputs.success == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add app/affiliate/dashboard/promote/[offerId]/page.tsx app/affiliate/dashboard/promote/components/AdCampaignWizard.tsx app/business/my-business/ad-ideas/page.tsx app/api/meta/callback/upload-video/route.ts
           git commit -m "Refactor paid campaigns to proposal-first launch gating"
+          git push origin proposal-first-launch-gating
+      - name: Commit patch failure details
+        if: steps.patch.outputs.success != 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .proposal-patch-error.txt
+          git commit -m "Capture proposal refactor patch failure"
           git push origin proposal-first-launch-gating
