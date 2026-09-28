@@ -262,21 +262,49 @@ export async function POST(req: Request) {
     // approved proposal, so transition immediately before the launch call. On
     // any failed launch we return it to pending; a partial Meta campaign ID is
     // preserved so a retry cannot blindly duplicate resources.
-    const { error: approveError } = await admin
+    const { data: claimedProposal, error: approveError } = await admin
       .from("ad_ideas")
       .update({ status: "approved" })
       .eq("id", adIdeaId)
-      .eq("business_email", user.email);
+      .eq("business_email", user.email)
+      .eq("status", "pending")
+      .select("id")
+      .maybeSingle();
 
     if (approveError) {
       throw new Error(`Failed to prepare proposal for launch: ${approveError.message}`);
+    }
+    if (!claimedProposal?.id) {
+      const existingAfterClaim = await getExistingPaidCampaignLaunch({
+        supabase: admin,
+        adIdeaId,
+      });
+      if (existingAfterClaim?.id) {
+        return NextResponse.json({
+          success: true,
+          alreadyLive: true,
+          liveAdId: existingAfterClaim.id,
+          campaignId: existingAfterClaim.meta_campaign_id || null,
+          metaAdId: existingAfterClaim.meta_ad_id || null,
+        });
+      }
+      return jsonError(
+        "CAMPAIGN_LAUNCH_IN_PROGRESS",
+        "This campaign is already being launched or is no longer pending. Refresh before trying again.",
+        409,
+      );
     }
 
     const internalRequest = new Request(
       new URL("/api/meta/callback/upload-video", req.url),
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(req.headers.get("cookie")
+            ? { cookie: req.headers.get("cookie") as string }
+            : {}),
+        },
         body: JSON.stringify({
           adIdeaId,
           offerId,

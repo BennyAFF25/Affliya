@@ -8,6 +8,8 @@ if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "crypto";
 import { Resend } from "resend";
@@ -94,6 +96,22 @@ export async function POST(req: Request) {
 
     if (adIdeaError) {
       console.warn("[⚠️ ad_ideas lookup warning]", adIdeaError.message);
+    }
+
+    const userSupabase = createRouteHandlerClient({ cookies });
+    const { data: authData, error: authError } = await userSupabase.auth.getUser();
+    const launchUser = authData?.user || null;
+    if (authError || !launchUser?.email) {
+      return NextResponse.json(
+        { success: false, error: "UNAUTHENTICATED", message: "Sign in as the business before launching this campaign." },
+        { status: 401 },
+      );
+    }
+    if (!adIdea || String((adIdea as any).business_email || "").trim().toLowerCase() !== launchUser.email.trim().toLowerCase()) {
+      return NextResponse.json(
+        { success: false, error: "UNAUTHORIZED", message: "Only the offer business can launch this campaign." },
+        { status: 403 },
+      );
     }
 
     const fallback_image_url = (adIdea as any)?.thumbnail_url || rest.thumbnail_url;
@@ -289,7 +307,7 @@ export async function POST(req: Request) {
       source: paidReadiness.metaSource,
     });
 
-    // 2. Lookup access_token from the matching Meta connection first; fallback to latest.
+    // 2. Lookup the access token for the exact Page + Ad Account selected on this offer.
     let { data: connection, error: connectionError } = await supabase
       .from("meta_connections")
       .select("access_token, created_at")
