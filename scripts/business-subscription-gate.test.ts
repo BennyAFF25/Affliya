@@ -123,10 +123,9 @@ async function run() {
   // Server-side gate opens only for the centralized paid launch boundary, not ordinary affiliate or organic flows.
   assert.doesNotMatch(affiliateRoute, /requireBusinessCampaignLaunchEntitlement/);
   assert.doesNotMatch(organicRoute, /requireBusinessCampaignLaunchEntitlement/);
-  for (const source of [launchRoute, metaRoute]) {
-    assert.match(source, /requireBusinessCampaignLaunchEntitlement/);
-    assert.match(source, /BUSINESS_SUBSCRIPTION_REQUIRED|subscriptionRequired|buildSubscriptionRequiredResponse/);
-  }
+  assert.match(launchRoute, /requireBusinessCampaignLaunchEntitlement/);
+  assert.match(metaRoute, /requireBusinessCampaignLaunchEntitlement/);
+  assert.match(metaRoute, /BUSINESS_SUBSCRIPTION_REQUIRED|subscriptionRequired|buildSubscriptionRequiredResponse/);
   assert.match(adIdeaRoute, /APPROVE_VIA_LAUNCH_REQUIRED/, 'Direct status approval must not bypass launch preflight.');
 
   // Launch enforcement must agree with the business offer card readiness badges.
