@@ -1,15 +1,25 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/../utils/supabase/pages-client";
 import Image from "next/image";
 
 type Profile = { role?: string | null };
 
+function safeInternalReturnTo(value: string | null) {
+  const raw = String(value || "").trim();
+  if (!raw || !raw.startsWith("/") || raw.startsWith("//") || raw.includes("\\")) {
+    return null;
+  }
+  return raw.slice(0, 500);
+}
+
 export default function AuthRedirect() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [fade, setFade] = useState(false);
+  const returnTo = safeInternalReturnTo(searchParams.get("returnTo"));
 
   useEffect(() => {
     const handleRedirect = async () => {
@@ -18,7 +28,10 @@ export default function AuthRedirect() {
       } = await supabase.auth.getUser();
 
       if (!user) {
-        return startFade(() => router.replace("/login"));
+        const loginPath = returnTo
+          ? `/login?returnTo=${encodeURIComponent(returnTo)}`
+          : "/login";
+        return startFade(() => router.replace(loginPath));
       }
 
       const { data: profile, error } = await supabase
@@ -29,20 +42,32 @@ export default function AuthRedirect() {
 
       if (error) {
         console.error("[PROFILE ERROR]", error);
-        return startFade(() => router.replace("/login"));
+        const loginPath = returnTo
+          ? `/login?returnTo=${encodeURIComponent(returnTo)}`
+          : "/login";
+        return startFade(() => router.replace(loginPath));
       }
 
       if (profile?.role === "affiliate") {
-        startFade(() => router.replace("/affiliate/dashboard"));
+        const destination = returnTo?.startsWith("/affiliate/")
+          ? returnTo
+          : "/affiliate/dashboard";
+        startFade(() => router.replace(destination));
       } else if (profile?.role === "business") {
-        startFade(() => router.replace("/business/dashboard"));
+        const destination = returnTo?.startsWith("/business/")
+          ? returnTo
+          : "/business/dashboard";
+        startFade(() => router.replace(destination));
       } else {
-        startFade(() => router.replace("/login"));
+        const loginPath = returnTo
+          ? `/login?returnTo=${encodeURIComponent(returnTo)}`
+          : "/login";
+        startFade(() => router.replace(loginPath));
       }
     };
 
     handleRedirect();
-  }, [router]);
+  }, [router, returnTo]);
 
   const startFade = (callback: () => void) => {
     setFade(true);
