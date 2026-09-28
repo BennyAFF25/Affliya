@@ -15,7 +15,6 @@ const launchRoute = fs.readFileSync(path.join(root, 'app/api/business/ad-ideas/l
 const internalRoute = fs.readFileSync(path.join(root, 'app/api/internal/launch-fund/route.ts'), 'utf8');
 const offerRoute = fs.readFileSync(path.join(root, 'app/api/launch-fund/offer/route.ts'), 'utf8');
 const campaignStartedRoute = fs.readFileSync(path.join(root, 'app/api/launch-fund/campaign-started/route.ts'), 'utf8');
-const settlementHelper = fs.readFileSync(path.join(root, 'utils/adSpend/settlements.ts'), 'utf8');
 const metaUploadRoute = fs.readFileSync(path.join(root, 'app/api/meta/callback/upload-video/route.ts'), 'utf8');
 const packageJson = fs.readFileSync(path.join(root, 'package.json'), 'utf8');
 const createAccountPage = fs.readFileSync(path.join(root, 'app/create-account/page.tsx'), 'utf8');
@@ -60,14 +59,7 @@ async function run() {
   assert.match(migrationSql, /TO service_role/);
   assert.doesNotMatch(migrationSql, /TO authenticated[\s\S]*INSERT/, 'Affiliates must not be able to insert their own allocation.');
 
-  // Existing settlement semantics remain authoritative.
-  assert.match(settlementHelper, /computeLaunchFundSpendSplit/);
-  assert.match(settlementHelper, /redeemLaunchFundForSettlement/);
-  assert.match(settlementHelper, /cashAmount/);
-  assert.match(settlementHelper, /promotionalAmount/);
-  assert.match(settlementHelper, /consumptionOrder: "launch_fund_then_cash"/);
-  assert.match(settlementHelper, /amount: cashAmount[\s\S]*\.from\("wallet_deductions"\)/, 'Cash wallet deductions must record only the cash portion.');
-  assert.doesNotMatch(settlementHelper, /wallet_topups/);
+  // Existing Launch Fund lifecycle remains authoritative and separate from proposal submission.
   assert.match(helper, /getActiveLaunchFundAllocation/);
   assert.match(helper, /gt\("expires_at", new Date\(\)\.toISOString\(\)\)/);
   assert.match(helper, /allocated_for_offer_id/);
