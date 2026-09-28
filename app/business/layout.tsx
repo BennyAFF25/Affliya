@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import BusinessSidebar from "./BusinessSidebar";
 import Topbar from "@/components/Topbar";
-import PaidCampaignResumeBanner from "@/components/business/PaidCampaignResumeBanner";
+import PaidCampaignResumeBanner from "@/../components/business/PaidCampaignResumeBanner";
 import {
   MobileNavSlider,
   MobileNavTab,
