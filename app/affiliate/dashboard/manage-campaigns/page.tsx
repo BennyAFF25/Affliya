@@ -644,7 +644,7 @@ function PendingProposalRow({ proposal }: { proposal: PendingPaidProposal }) {
       : "WAITING FOR BUSINESS";
 
   const description = fundingRequired
-    ? `The business has enabled paid promotion. Add ${proposal.funding.deficit.toFixed(2)} to prepare this campaign for launch.`
+    ? `The business has enabled paid promotion. Add $${proposal.funding.deficit.toFixed(2)} to prepare this campaign for launch.`
     : funded
       ? "Campaign funding is ready. Waiting for the business to finish setup and approve the campaign."
       : "Proposal sent. No deposit is required while the business decides whether to enable paid promotion.";
