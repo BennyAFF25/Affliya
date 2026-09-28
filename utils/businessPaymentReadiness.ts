@@ -9,23 +9,39 @@ export type BusinessPaymentReadiness = {
   source?: "business_profile" | "business_entitlement" | null;
 };
 
+function isMissingStripeCustomer(error: unknown) {
+  const stripeError = error as { code?: string; message?: string };
+  const message = String(stripeError?.message || "");
+  return (
+    (stripeError?.code === "resource_missing" && /customer/i.test(message)) ||
+    /No such customer/i.test(message)
+  );
+}
+
 async function customerHasPaymentMethod(stripe: Stripe, customerId: string) {
-  const customer = await stripe.customers.retrieve(customerId, {
-    expand: ["invoice_settings.default_payment_method"],
-  });
+  try {
+    const customer = await stripe.customers.retrieve(customerId, {
+      expand: ["invoice_settings.default_payment_method"],
+    });
 
-  if (customer.deleted) return false;
+    if (customer.deleted) return false;
 
-  const defaultPm = customer.invoice_settings?.default_payment_method;
-  if (defaultPm) return true;
+    const defaultPm = customer.invoice_settings?.default_payment_method;
+    if (defaultPm) return true;
 
-  const paymentMethods = await stripe.paymentMethods.list({
-    customer: customerId,
-    type: "card",
-    limit: 1,
-  });
+    const paymentMethods = await stripe.paymentMethods.list({
+      customer: customerId,
+      type: "card",
+      limit: 1,
+    });
 
-  return (paymentMethods.data?.length || 0) > 0;
+    return (paymentMethods.data?.length || 0) > 0;
+  } catch (error) {
+    // A stale commission customer should be treated as billing not connected,
+    // not as a fatal readiness error that prevents the proposal from opening.
+    if (isMissingStripeCustomer(error)) return false;
+    throw error;
+  }
 }
 
 export async function getBusinessPaymentReadiness(params: {
@@ -48,49 +64,29 @@ export async function getBusinessPaymentReadiness(params: {
     throw new Error(`Failed to load business profile payment readiness: ${profileError.message}`);
   }
 
-  const { data: entitlement, error: entitlementError } = await params.supabase
-    .from("business_entitlements")
-    .select("subscription_stripe_customer_id")
-    .eq("business_email", businessEmail)
-    .maybeSingle();
+  // Commission/ad-spend billing is intentionally separate from the Nettmark
+  // Business / Growth subscription. The Growth customer may live under a
+  // different Stripe account/key and must never be treated as commission
+  // payment readiness here.
+  const customerId =
+    (profile as { stripe_customer_id?: string | null } | null)?.stripe_customer_id || null;
 
-  if (entitlementError) {
-    throw new Error(`Failed to load business entitlement payment readiness: ${entitlementError.message}`);
+  if (!customerId) {
+    return {
+      hasPaymentMethod: false,
+      reason: "missing_customer",
+      customerId: null,
+      source: null,
+    };
   }
 
-  const candidates = [
-    {
-      customerId: (profile as { stripe_customer_id?: string | null } | null)?.stripe_customer_id || null,
-      source: "business_profile" as const,
-    },
-    {
-      customerId: (entitlement as { subscription_stripe_customer_id?: string | null } | null)?.subscription_stripe_customer_id || null,
-      source: "business_entitlement" as const,
-    },
-  ].filter((candidate, index, all) => {
-    if (!candidate.customerId) return false;
-    return all.findIndex((other) => other.customerId === candidate.customerId) === index;
-  });
-
-  if (candidates.length === 0) {
-    return { hasPaymentMethod: false, reason: "missing_customer", customerId: null, source: null };
-  }
-
-  for (const candidate of candidates) {
-    if (await customerHasPaymentMethod(stripe, candidate.customerId)) {
-      return {
-        hasPaymentMethod: true,
-        customerId: candidate.customerId,
-        source: candidate.source,
-      };
-    }
-  }
+  const hasPaymentMethod = await customerHasPaymentMethod(stripe, customerId);
 
   return {
-    hasPaymentMethod: false,
-    reason: "missing_payment_method",
-    customerId: candidates[0]?.customerId || null,
-    source: candidates[0]?.source || null,
+    hasPaymentMethod,
+    reason: hasPaymentMethod ? undefined : "missing_payment_method",
+    customerId,
+    source: "business_profile",
   };
 }
 
