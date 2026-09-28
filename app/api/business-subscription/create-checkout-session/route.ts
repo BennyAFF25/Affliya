@@ -28,6 +28,11 @@ function safeReturnPath(value: unknown) {
   return raw.slice(0, 500);
 }
 
+function appendReturnQuery(baseUrl: string, returnTo: string, query: string) {
+  const separator = returnTo.includes("?") ? "&" : "?";
+  return `${baseUrl}${returnTo}${separator}${query}`;
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));
@@ -138,8 +143,16 @@ export async function POST(req: Request) {
       metadata,
       payment_method_collection: "always",
       subscription_data: subscriptionData,
-      success_url: `${baseUrl}${returnTo}?subscription=checkout_returned&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${baseUrl}${returnTo}?subscription=cancelled${trialEligible ? "" : "&resume=1"}`,
+      success_url: appendReturnQuery(
+        baseUrl,
+        returnTo,
+        "subscription=checkout_returned&session_id={CHECKOUT_SESSION_ID}",
+      ),
+      cancel_url: appendReturnQuery(
+        baseUrl,
+        returnTo,
+        `subscription=cancelled${trialEligible ? "" : "&resume=1"}`,
+      ),
     }, {
       idempotencyKey: `business_subscription_checkout:${business.id}:${customerId}:${entitlement.billingStatus}:${entitlement.stripeSubscriptionId || "none"}:${trialEligible ? "trial" : "paid"}:${intendedAction || "general"}:${submissionId || "none"}`,
     });
