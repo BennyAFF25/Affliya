@@ -1,0 +1,92 @@
+warning package.json: No license field
+app/affiliate/dashboard/manage-campaigns/[campaignId]/page.tsx(428,9): error TS2304: Cannot find name 'organicErr'.
+app/affiliate/dashboard/manage-campaigns/[campaignId]/page.tsx(429,17): error TS2304: Cannot find name 'organicErr'.
+app/affiliate/dashboard/my-shop/page.tsx(136,34): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type '{}'.
+  Type 'undefined' is not assignable to type '{}'.
+app/affiliate/dashboard/my-shop/page.tsx(139,53): error TS2339: Property 'offer_id' does not exist on type 'never'.
+app/affiliate/dashboard/my-shop/page.tsx(155,36): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type '{}'.
+  Type 'undefined' is not assignable to type '{}'.
+app/affiliate/dashboard/my-shop/page.tsx(160,29): error TS2339: Property 'offer_id' does not exist on type 'never'.
+app/affiliate/dashboard/my-shop/page.tsx(173,34): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type '{}'.
+  Type 'undefined' is not assignable to type '{}'.
+app/affiliate/dashboard/my-shop/page.tsx(177,52): error TS2339: Property 'views' does not exist on type 'never'.
+app/affiliate/dashboard/my-shop/page.tsx(179,52): error TS2339: Property 'clicks' does not exist on type 'never'.
+app/affiliate/dashboard/my-shop/page.tsx(185,34): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type '{}'.
+  Type 'undefined' is not assignable to type '{}'.
+app/affiliate/dashboard/my-shop/page.tsx(191,29): error TS2339: Property 'theme_json' does not exist on type 'never'.
+app/affiliate/dashboard/my-shop/page.tsx(193,42): error TS2339: Property 'theme' does not exist on type 'never'.
+app/affiliate/dashboard/my-shop/page.tsx(195,39): error TS2339: Property 'hero_image_url' does not exist on type 'never'.
+app/affiliate/dashboard/my-shop/page.tsx(196,36): error TS2339: Property 'hero_blurb' does not exist on type 'never'.
+app/affiliate/dashboard/my-shop/page.tsx(199,46): error TS2339: Property 'hero_image_url' does not exist on type 'never'.
+app/affiliate/dashboard/my-shop/page.tsx(200,43): error TS2339: Property 'hero_blurb' does not exist on type 'never'.
+app/affiliate/dashboard/my-shop/page.tsx(221,27): error TS2339: Property 'username' does not exist on type 'never'.
+app/affiliate/dashboard/my-shop/page.tsx(222,41): error TS2339: Property 'username' does not exist on type 'never'.
+app/affiliate/dashboard/my-shop/page.tsx(231,34): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type '{}'.
+  Type 'undefined' is not assignable to type '{}'.
+app/affiliate/dashboard/my-shop/page.tsx(233,45): error TS2339: Property 'status' does not exist on type 'never'.
+app/affiliate/dashboard/my-shop/page.tsx(235,52): error TS2339: Property 'status' does not exist on type 'never'.
+app/affiliate/dashboard/my-shop/page.tsx(237,52): error TS2339: Property 'status' does not exist on type 'never'.
+app/affiliate/dashboard/promote/[offerId]/page.tsx(927,11): error TS2322: Type '"organic_promotion_ready"' is not assignable to type '"affiliate_brand_content_viewed" | "content_library_asset_uploaded" | "content_library_asset_updated" | "plan_growth_checkout_started" | "plan_growth_activated" | "offer_published" | ... 25 more ... | "content_review_clicked"'.
+app/affiliate/dashboard/promote/[offerId]/page.tsx(1655,13): error TS2322: Type '{ mode: "ad"; reachDaily: number | null; reachMonthly: number | null; reachStatus: "error" | "ready" | "loading" | "idle" | "unavailable"; reachMessage: string; interestsIgnored: boolean; ... 10 more ...; ogCaption: string; }' is not assignable to type 'IntrinsicAttributes & PreviewSidebarProps'.
+  Property 'reachDaily' does not exist on type 'IntrinsicAttributes & PreviewSidebarProps'.
+app/api/ad-spend/process-transfer-batches/route.ts(77,32): error TS2783: 'success' is specified more than once, so this usage will be overwritten.
+app/api/business/content-library/route.ts(216,58): error TS18047: 'file' is possibly 'null'.
+app/api/business/content-library/route.ts(216,63): error TS2339: Property 'name' does not exist on type 'FormDataEntryValue'.
+  Property 'name' does not exist on type 'string'.
+app/business/choose-plan/page.tsx(40,31): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type '{}'.
+  Type 'undefined' is not assignable to type '{}'.
+app/business/choose-plan/page.tsx(44,34): error TS2339: Property 'id' does not exist on type 'never'.
+app/business/choose-plan/page.tsx(49,26): error TS2339: Property 'id' does not exist on type 'never'.
+app/business/choose-plan/page.tsx(53,94): error TS2339: Property 'id' does not exist on type 'never'.
+app/business/dashboard/page.tsx(692,28): error TS2339: Property 'onClick' does not exist on type '{ label: string; done: boolean; href: string; }'.
+app/business/dashboard/page.tsx(693,26): error TS2339: Property 'onClick' does not exist on type '{ label: string; done: boolean; href: string; }'.
+app/business/manage-campaigns/page.tsx(170,42): error TS2339: Property 'affiliate_email' does not exist on type 'never'.
+app/business/manage-campaigns/page.tsx(183,46): error TS2339: Property 'email' does not exist on type 'never'.
+app/business/manage-campaigns/page.tsx(195,17): error TS2339: Property 'affiliate_email' does not exist on type 'never'.
+app/business/manage-campaigns/page.tsx(196,22): error TS2339: Property 'affiliate_email' does not exist on type 'never'.
+app/business/manage-campaigns/page.tsx(197,25): error TS2339: Property 'affiliate_email' does not exist on type 'never'.
+app/business/manage-campaigns/page.tsx(212,17): error TS2339: Property 'affiliate_email' does not exist on type 'never'.
+app/business/manage-campaigns/page.tsx(213,24): error TS2339: Property 'affiliate_email' does not exist on type 'never'.
+app/business/manage-campaigns/page.tsx(214,21): error TS2339: Property 'affiliate_email' does not exist on type 'never'.
+app/business/manage-campaigns/page.tsx(216,19): error TS2339: Property 'affiliate_email' does not exist on type 'never'.
+app/business/manage-campaigns/page.tsx(216,49): error TS2339: Property 'views' does not exist on type 'never'.
+app/business/manage-campaigns/page.tsx(217,19): error TS2339: Property 'affiliate_email' does not exist on type 'never'.
+app/business/manage-campaigns/page.tsx(217,50): error TS2339: Property 'clicks' does not exist on type 'never'.
+app/business/manage-campaigns/page.tsx(222,34): error TS2339: Property 'username' does not exist on type 'never'.
+app/business/manage-campaigns/page.tsx(228,30): error TS2339: Property 'avatar_url' does not exist on type 'never'.
+app/business/my-business/ad-ideas/page.tsx(588,15): error TS2322: Type 'Element' is not assignable to type 'string | (string & ReactElement<unknown, string | JSXElementConstructor<any>>) | (string & Iterable<ReactNode>) | (string & ReactPortal) | (string & Promise<...>) | undefined'.
+  Type 'ReactElement<any, any>' is not assignable to type 'string & ReactPortal'.
+    Type 'ReactElement<any, any>' is not assignable to type 'string'.
+app/business/my-business/ad-ideas/page.tsx(614,25): error TS2322: Type 'Element' is not assignable to type 'string | (string & ReactElement<unknown, string | JSXElementConstructor<any>>) | (string & Iterable<ReactNode>) | (string & ReactPortal) | (string & Promise<...>) | undefined'.
+  Type 'ReactElement<any, any>' is not assignable to type 'string & ReactPortal'.
+    Type 'ReactElement<any, any>' is not assignable to type 'string'.
+app/create-account/page.tsx(148,12): error TS2769: No overload matches this call.
+  Overload 1 of 2, '(values: never, options?: { onConflict?: string | undefined; ignoreDuplicates?: boolean | undefined; count?: "exact" | "planned" | "estimated" | undefined; } | undefined): PostgrestFilterBuilder<{ ...; }, ... 5 more ..., "POST">', gave the following error.
+    Argument of type '{ id: string; email: string; role: "affiliate" | "business"; }' is not assignable to parameter of type 'never'.
+  Overload 2 of 2, '(values: never[], options?: { onConflict?: string | undefined; ignoreDuplicates?: boolean | undefined; count?: "exact" | "planned" | "estimated" | undefined; defaultToNull?: boolean | undefined; } | undefined): PostgrestFilterBuilder<...>', gave the following error.
+    Object literal may only specify known properties, and 'id' does not exist in type 'never[]'.
+app/create-account/page.tsx(175,21): error TS2345: Argument of type '{ revenue_stripe_customer_id: any; revenue_stripe_subscription_id: any; revenue_subscription_status: any; revenue_current_period_end: string | null; }' is not assignable to parameter of type 'never'.
+app/create-account/page.tsx(176,57): error TS2339: Property 'revenue_stripe_customer_id' does not exist on type 'never'.
+app/create-account/page.tsx(177,61): error TS2339: Property 'revenue_stripe_subscription_id' does not exist on type 'never'.
+app/create-account/page.tsx(178,58): error TS2339: Property 'revenue_subscription_status' does not exist on type 'never'.
+app/create-account/page.tsx(179,57): error TS2339: Property 'revenue_current_period_end' does not exist on type 'never'.
+app/create-account/page.tsx(180,42): error TS2339: Property 'revenue_current_period_end' does not exist on type 'never'.
+app/internal/money-flow/page.tsx(91,66): error TS2345: Argument of type '{}' is not assignable to parameter of type 'SetStateAction<string>'.
+app/internal/money-flow/page.tsx(96,63): error TS2345: Argument of type '{}' is not assignable to parameter of type 'SetStateAction<string>'.
+app/internal/money-flow/page.tsx(178,29): error TS2322: Type 'unknown' is not assignable to type 'Key | null | undefined'.
+app/internal/money-flow/page.tsx(178,41): error TS2322: Type 'unknown' is not assignable to type 'string | number | readonly string[] | undefined'.
+app/internal/money-flow/page.tsx(178,55): error TS2322: Type 'unknown' is not assignable to type 'ReactNode'.
+app/internal/money-flow/page.tsx(178,71): error TS2322: Type 'unknown' is not assignable to type 'ReactNode'.
+app/internal/money-flow/page.tsx(178,96): error TS2322: Type 'unknown' is not assignable to type 'ReactNode'.
+app/internal/money-flow/page.tsx(215,29): error TS2322: Type 'unknown' is not assignable to type 'Key | null | undefined'.
+app/internal/money-flow/page.tsx(215,45): error TS2322: Type 'unknown' is not assignable to type 'string | number | readonly string[] | undefined'.
+app/internal/money-flow/page.tsx(215,63): error TS2322: Type 'unknown' is not assignable to type 'ReactNode'.
+app/internal/money-flow/page.tsx(215,77): error TS2322: Type 'unknown' is not assignable to type 'ReactNode'.
+app/internal/money-flow/page.tsx(215,96): error TS2322: Type 'unknown' is not assignable to type 'ReactNode'.
+utils/businessPaymentReadiness.ts(80,48): error TS2345: Argument of type 'string | null' is not assignable to parameter of type 'string'.
+  Type 'null' is not assignable to type 'string'.
+utils/hooks/useInboxNotifier.ts(32,50): error TS2339: Property 'read_at' does not exist on type 'never'.
+utils/hooks/useInboxNotifier.ts(37,37): error TS2339: Property 'title' does not exist on type 'never'.
+utils/hooks/useInboxNotifier.ts(37,60): error TS2339: Property 'body' does not exist on type 'never'.
+utils/hooks/useInboxNotifier.ts(37,95): error TS2339: Property 'link_url' does not exist on type 'never'.
+utils/stripe.ts(10,54): error TS1501: This regular expression flag is only available when targeting 'es2018' or later.
