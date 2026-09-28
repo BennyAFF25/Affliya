@@ -1,0 +1,32 @@
+name: Proposal regression validation
+
+on:
+  push:
+    branches:
+      - proposal-first-launch-gating
+
+jobs:
+  test:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: proposal-first-launch-gating
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: yarn
+      - run: yarn install --frozen-lockfile
+      - name: Business entitlements
+        run: yarn -s test:business-entitlements
+      - name: Business subscription gate
+        run: yarn -s test:business-subscription-gate
+      - name: Offer readiness
+        run: yarn -s test:offer-readiness
+      - name: Business payment gate placement
+        run: yarn -s test:business-payment-gate-placement
+      - name: Ad ideas review UI
+        run: yarn -s test:ad-ideas-review-ui
+      - name: Launch fund
+        run: yarn -s test:launch-fund
