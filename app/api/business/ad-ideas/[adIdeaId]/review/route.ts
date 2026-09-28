@@ -34,7 +34,7 @@ export async function GET(
     const admin = createServerSupabaseClient();
     const { data: idea, error: ideaError } = await admin
       .from("ad_ideas")
-      .select("id,offer_id,affiliate_email,business_email,status,created_at,campaign_name,audience,location,objective,caption,file_url,media_type,call_to_action,cta,budget_amount,budget_type,daily_budget,age_range,gender,interests,placements_type,manual_placements,conversion_event,performance_goal,start_time,end_time")
+      .select("*")
       .eq("id", proposalId)
       .eq("business_email", user.email)
       .maybeSingle();
@@ -63,7 +63,33 @@ export async function GET(
     return NextResponse.json({
       success: true,
       proposal: {
-        ...idea,
+        id: idea.id,
+        offer_id: idea.offer_id,
+        affiliate_email: idea.affiliate_email,
+        business_email: idea.business_email,
+        status: idea.status,
+        created_at: idea.created_at,
+        campaign_name: idea.campaign_name || null,
+        audience: idea.audience || null,
+        location: idea.location || null,
+        objective: idea.objective || null,
+        caption: idea.caption || null,
+        file_url: idea.file_url || null,
+        media_type: idea.media_type || null,
+        call_to_action: idea.call_to_action || null,
+        cta: idea.cta || null,
+        budget_amount: idea.budget_amount ?? null,
+        budget_type: idea.budget_type || null,
+        daily_budget: idea.daily_budget ?? null,
+        age_range: idea.age_range || null,
+        gender: idea.gender || null,
+        interests: idea.interests || null,
+        placements_type: idea.placements_type || null,
+        manual_placements: idea.manual_placements || null,
+        conversion_event: idea.conversion_event || null,
+        performance_goal: idea.performance_goal || null,
+        start_time: idea.start_time || null,
+        end_time: idea.end_time || null,
         offer_title: offer?.title || "Untitled offer",
         offer_website: offer?.website || null,
       },
