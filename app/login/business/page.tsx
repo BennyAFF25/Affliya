@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import MarketingHeader from "@/components/marketing/MarketingHeader";
 import { supabase } from "@/../utils/supabase/pages-client";
 
@@ -20,13 +20,20 @@ function safeBusinessReturnTo(value: string | null) {
 
 export default function BusinessLogin() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const returnTo = safeBusinessReturnTo(searchParams.get("returnTo"));
+  const [returnTo, setReturnTo] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  useEffect(() => {
+    setReturnTo(
+      safeBusinessReturnTo(
+        new URLSearchParams(window.location.search).get("returnTo"),
+      ),
+    );
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
