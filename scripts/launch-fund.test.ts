@@ -10,11 +10,11 @@ import {
 const root = process.cwd();
 const migrationSql = fs.readFileSync(path.join(root, 'supabase/migrations/20260728130000_affiliate_launch_fund.sql'), 'utf8');
 const helper = fs.readFileSync(path.join(root, 'utils/launchFund.ts'), 'utf8');
+const fundingReadiness = fs.readFileSync(path.join(root, 'utils/paidCampaignLaunchReadiness.ts'), 'utf8');
+const launchRoute = fs.readFileSync(path.join(root, 'app/api/business/ad-ideas/launch/route.ts'), 'utf8');
 const internalRoute = fs.readFileSync(path.join(root, 'app/api/internal/launch-fund/route.ts'), 'utf8');
 const offerRoute = fs.readFileSync(path.join(root, 'app/api/launch-fund/offer/route.ts'), 'utf8');
 const campaignStartedRoute = fs.readFileSync(path.join(root, 'app/api/launch-fund/campaign-started/route.ts'), 'utf8');
-const promotePage = fs.readFileSync(path.join(root, 'app/affiliate/dashboard/promote/[offerId]/page.tsx'), 'utf8');
-const wizard = fs.readFileSync(path.join(root, 'app/affiliate/dashboard/promote/components/AdCampaignWizard.tsx'), 'utf8');
 const settlementHelper = fs.readFileSync(path.join(root, 'utils/adSpend/settlements.ts'), 'utf8');
 const metaUploadRoute = fs.readFileSync(path.join(root, 'app/api/meta/callback/upload-video/route.ts'), 'utf8');
 const packageJson = fs.readFileSync(path.join(root, 'package.json'), 'utf8');
@@ -30,10 +30,10 @@ async function run() {
   assert.equal(getLaunchFundExpiryDays(), 21, 'Expiry is configurable before implementation/deploy.');
   delete process.env.LAUNCH_FUND_EXPIRY_DAYS;
 
-  // 1. New affiliate receives no automatic credit.
+  // New affiliate receives no automatic credit.
   assert.doesNotMatch(createAccountPage + onboardingPage, /allocateLaunchFund|affiliate_launch_fund_allocations|launch_fund_allocated/, 'Signup/onboarding must not auto-grant Launch Fund credit.');
 
-  // A/B. Dedicated audited structure separate from cash wallet.
+  // Dedicated audited structure remains separate from the cash wallet.
   assert.match(migrationSql, /CREATE TABLE IF NOT EXISTS public\.affiliate_launch_fund_allocations/);
   for (const column of ['id', 'affiliate_id', 'amount', 'currency', 'status', 'allocated_for_offer_id', 'allocated_for_campaign_id', 'reason', 'source', 'allocated_by', 'allocated_at', 'expires_at', 'redeemed_at', 'cancelled_at', 'created_at', 'updated_at']) {
     assert.match(migrationSql, new RegExp(column));
@@ -46,7 +46,7 @@ async function run() {
   assert.match(helper, /nonTransferable: true/);
   assert.doesNotMatch(helper + internalRoute + offerRoute + campaignStartedRoute, /wallet_topups/);
 
-  // C/D. Controlled allocation only.
+  // Controlled allocation only.
   assert.match(internalRoute, /isTrustedLaunchFundRequest/);
   assert.match(helper, /INTERNAL_LAUNCH_FUND_KEY/);
   assert.match(internalRoute, /action === "allocate"/);
@@ -60,15 +60,7 @@ async function run() {
   assert.match(migrationSql, /TO service_role/);
   assert.doesNotMatch(migrationSql, /TO authenticated[\s\S]*INSERT/, 'Affiliates must not be able to insert their own allocation.');
 
-  // E. UI appears only after allocation and explains restrictions.
-  assert.match(promotePage, /\/api\/launch-fund\/offer/);
-  assert.match(promotePage, /launchFundAllocation &&/);
-  assert.match(promotePage, /This offer qualifies for a \$10 Nettmark Launch Fund/);
-  assert.match(promotePage, /cannot be withdrawn or transferred/);
-  assert.match(promotePage, /expires/);
-  assert.match(wizard, /Launch Fund credit is promotional ad credit only/);
-
-  // F/G. Wallet integration and restrictions.
+  // Existing settlement semantics remain authoritative.
   assert.match(settlementHelper, /computeLaunchFundSpendSplit/);
   assert.match(settlementHelper, /redeemLaunchFundForSettlement/);
   assert.match(settlementHelper, /cashAmount/);
@@ -81,16 +73,25 @@ async function run() {
   assert.match(helper, /allocated_for_offer_id/);
   assert.match(metaUploadRoute, /markLaunchFundCampaignWentLive/);
   assert.match(campaignStartedRoute, /launch_fund_campaign_started/);
-  assert.doesNotMatch(campaignStartedRoute, /redeemed/, 'Clicking/submitting must not redeem credit.');
+  assert.doesNotMatch(campaignStartedRoute, /redeemed/, 'Submitting/starting must not redeem credit.');
 
-  // H/I. Expiry, cancellation, analytics.
+  // Proposal-first launch readiness must include eligible Launch Fund credit at the
+  // authoritative server boundary without reserving/redeeming it at proposal time.
+  assert.match(fundingReadiness, /getActiveLaunchFundAllocation/);
+  assert.match(fundingReadiness, /allocated_for_campaign_id/);
+  assert.match(fundingReadiness, /!committedCampaignId/);
+  assert.match(fundingReadiness, /walletAvailable \+ activationSubsidyAvailable \+ launchFundAvailable/);
+  assert.match(launchRoute, /getAffiliateCampaignFundingReadiness/);
+  assert.match(launchRoute, /AFFILIATE_CAMPAIGN_FUNDING_REQUIRED/);
+  assert.doesNotMatch(launchRoute, /redeemLaunchFundForSettlement/);
+
+  // Expiry, cancellation and analytics remain intact.
   assert.match(migrationSql, /expire_affiliate_launch_fund_allocations/);
   assert.match(helper, /cancelLaunchFundAllocation/);
   for (const eventName of ['launch_fund_allocated', 'launch_fund_viewed', 'launch_fund_campaign_started', 'launch_fund_redeemed', 'launch_fund_expired', 'launch_fund_cancelled', 'launch_fund_campaign_went_live']) {
-    assert.match(migrationSql + helper + promotePage + metaUploadRoute, new RegExp(eventName));
+    assert.match(migrationSql + helper + metaUploadRoute + offerRoute, new RegExp(eventName));
   }
 
-  // J. Requirement coverage and package script.
   assert.match(packageJson, /test:launch-fund/);
   assert.match(helper, /allowDuplicate/);
   assert.match(helper, /allocation_not_redeemable/);
