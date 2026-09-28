@@ -21,14 +21,25 @@ type PendingCampaign = {
 const STORAGE_KEY = "nettmark:paid-campaign-resume";
 export const RESUME_CAMPAIGN_EVENT = "nettmark:paid-campaign-resume-updated";
 
+function inboxPath(proposalId: string) {
+  return `/business/my-business/ad-ideas?proposal=${encodeURIComponent(proposalId)}`;
+}
+
 function safeResume(value: unknown): ResumeCampaign | null {
   if (!value || typeof value !== "object") return null;
   const row = value as Partial<ResumeCampaign>;
   const proposalId = String(row.proposalId || "").trim();
-  const path = String(row.path || "").trim();
+  let path = String(row.path || "").trim();
   if (!proposalId || !path.startsWith("/business/") || path.startsWith("//") || path.includes("\\")) {
     return null;
   }
+
+  // Migrate resume state created by the temporary standalone review route back
+  // into the canonical Ad Ideas inbox.
+  if (path.startsWith("/business/review-campaign/")) {
+    path = inboxPath(proposalId);
+  }
+
   return {
     proposalId,
     path: path.slice(0, 500),
@@ -75,6 +86,9 @@ export default function PaidCampaignResumeBanner() {
     }
     try {
       const saved = safeResume(JSON.parse(raw));
+      if (saved) {
+        window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
+      }
       setCampaign(saved);
       return saved;
     } catch {
@@ -100,7 +114,7 @@ export default function PaidCampaignResumeBanner() {
 
       const next: ResumeCampaign = {
         proposalId: first.id,
-        path: `/business/review-campaign/${encodeURIComponent(first.id)}`,
+        path: inboxPath(first.id),
         offerTitle: first.offer_title || null,
         affiliateEmail: first.affiliate_email || null,
       };
@@ -121,7 +135,9 @@ export default function PaidCampaignResumeBanner() {
     };
   }, [discoverPendingCampaign, refresh]);
 
-  if (!campaign || pathname?.startsWith("/business/review-campaign/")) return null;
+  // The Ad Ideas area itself is the campaign-proposal hub, so showing a global
+  // resume banner there only duplicates the same task.
+  if (!campaign || pathname?.startsWith("/business/my-business/ad-ideas") || pathname?.startsWith("/business/review-campaign/")) return null;
 
   return (
     <div className="border-b border-[#00C2CB]/20 bg-[#00C2CB]/10 px-4 py-3 sm:px-6">
@@ -143,7 +159,7 @@ export default function PaidCampaignResumeBanner() {
           href={campaign.path}
           className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-[#00C2CB] px-4 py-2 text-sm font-semibold text-[#061113] transition hover:brightness-110"
         >
-          Resume review
+          Open Ad Ideas
           <ArrowRight className="h-4 w-4" />
         </Link>
       </div>
