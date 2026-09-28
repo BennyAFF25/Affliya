@@ -44,6 +44,23 @@ type LiveCampaignRow = {
   created_at?: string | null;
 };
 
+type PendingPaidProposal = {
+  id: string;
+  offerId: string;
+  offerTitle: string;
+  businessEmail: string;
+  campaignName?: string | null;
+  objective?: string | null;
+  createdAt?: string | null;
+  state: "waiting_for_business" | "funding_required" | "funded_waiting_for_business";
+  growthReady: boolean;
+  funding: {
+    ready: boolean;
+    requiredAmount: number;
+    deficit: number;
+  };
+};
+
 type CampaignItem =
   | {
       kind: "paid_meta";
@@ -103,6 +120,7 @@ export default function AffiliateManageCampaignsPage() {
 
   const [paidMeta, setPaidMeta] = useState<LiveAdRow[]>([]);
   const [organic, setOrganic] = useState<LiveCampaignRow[]>([]);
+  const [pendingPaid, setPendingPaid] = useState<PendingPaidProposal[]>([]);
 
   // per-row spend sync loading (paid meta only)
   const [syncing, setSyncing] = useState<Record<string, boolean>>({});
@@ -123,8 +141,23 @@ export default function AffiliateManageCampaignsPage() {
       if (!email) {
         setPaidMeta([]);
         setOrganic([]);
+        setPendingPaid([]);
         setError("No authenticated user email found.");
         return;
+      }
+
+      try {
+        const pendingRes = await fetch("/api/affiliate/pending-paid-proposals", {
+          cache: "no-store",
+        });
+        const pendingJson = await pendingRes.json().catch(() => null);
+        if (!pendingRes.ok || !pendingJson?.success) {
+          throw new Error(pendingJson?.message || pendingJson?.error || "Failed to load pending proposals");
+        }
+        setPendingPaid((pendingJson.proposals || []) as PendingPaidProposal[]);
+      } catch (pendingError) {
+        console.warn("[affiliate/manage-campaigns] pending proposals unavailable", pendingError);
+        setPendingPaid([]);
       }
 
       // ----------------------------
@@ -430,6 +463,7 @@ export default function AffiliateManageCampaignsPage() {
     return sum + Math.max(0, spend - transferred);
   }, 0);
   const organicCount = organic.length;
+  const pendingCount = pendingPaid.length;
 
   return (
     <div className="min-h-screen bg-[var(--background)] p-6 text-[var(--foreground)]">
@@ -462,7 +496,8 @@ export default function AffiliateManageCampaignsPage() {
           </div>
         </section>
 
-        <section className="mb-7 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
+        <section className="mb-7 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-6">
+          <StatCard label="Pending proposals" value={pendingCount.toString()} icon={<Megaphone className="h-4 w-4" />} tone="primary" />
           <StatCard label="Live campaigns" value={activeCount.toString()} icon={<Activity className="h-4 w-4" />} tone="primary" />
           <StatCard label="Archived" value={archivedCount.toString()} icon={<Archive className="h-4 w-4" />} tone="muted" />
           <StatCard label="Total paid spend" value={`$${fmtMoney(totalPaidSpend)}`} icon={<Wallet className="h-4 w-4" />} tone="primary" />
@@ -475,6 +510,32 @@ export default function AffiliateManageCampaignsPage() {
             {error}
           </div>
         )}
+
+        {/* Pending paid proposals */}
+        <Card className="mb-6 p-5 md:p-6" variant="elevated">
+          <SectionHeader
+            title="Pending paid proposals"
+            description="Real campaigns you've submitted that have not launched yet."
+            actions={<Badge variant="primary">{pendingCount} pending</Badge>}
+          />
+          <div className="mt-5">
+            {loading ? (
+              <LoadingSkeleton lines={2} />
+            ) : pendingPaid.length === 0 ? (
+              <EmptyState
+                title="No pending paid proposals"
+                description="Submit a paid campaign proposal from an offer and it will wait here until launch."
+                className="py-7"
+              />
+            ) : (
+              <div className="space-y-3">
+                {pendingPaid.map((proposal) => (
+                  <PendingProposalRow key={proposal.id} proposal={proposal} />
+                ))}
+              </div>
+            )}
+          </div>
+        </Card>
 
         {/* Active */}
         <Card className="mb-6 p-5 md:p-6" variant="elevated">
@@ -566,6 +627,60 @@ export default function AffiliateManageCampaignsPage() {
             </div>
           )}
         </Card>
+      </div>
+    </div>
+  );
+}
+
+function PendingProposalRow({ proposal }: { proposal: PendingPaidProposal }) {
+  const fundingRequired = proposal.state === "funding_required";
+  const funded = proposal.state === "funded_waiting_for_business";
+  const title = proposal.campaignName || proposal.offerTitle;
+
+  const statusLabel = fundingRequired
+    ? "FUNDING REQUIRED"
+    : funded
+      ? "FUNDED"
+      : "WAITING FOR BUSINESS";
+
+  const description = fundingRequired
+    ? `The business has enabled paid promotion. Add ${proposal.funding.deficit.toFixed(2)} to prepare this campaign for launch.`
+    : funded
+      ? "Campaign funding is ready. Waiting for the business to finish setup and approve the campaign."
+      : "Proposal sent. No deposit is required while the business decides whether to enable paid promotion.";
+
+  return (
+    <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)]/70 p-5">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="text-lg font-semibold">{title}</div>
+            <Badge variant={fundingRequired ? "warning" : funded ? "success" : "muted"}>
+              {statusLabel}
+            </Badge>
+          </div>
+          <p className="mt-2 max-w-3xl text-sm text-[var(--muted-foreground)]">
+            {description}
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2 text-xs text-[var(--muted-foreground)]">
+            <span className="rounded-full bg-[var(--card)]/60 px-3 py-1">
+              {proposal.offerTitle}
+            </span>
+            <span className="rounded-full bg-[var(--card)]/60 px-3 py-1">
+              Required at launch: ${proposal.funding.requiredAmount.toFixed(2)}
+            </span>
+            {proposal.createdAt ? (
+              <span className="rounded-full bg-[var(--card)]/60 px-3 py-1">
+                Submitted {shortDate(proposal.createdAt)}
+              </span>
+            ) : null}
+          </div>
+        </div>
+        {fundingRequired ? (
+          <Button href="/affiliate/wallet" className="rounded-full">
+            Top up wallet
+          </Button>
+        ) : null}
       </div>
     </div>
   );

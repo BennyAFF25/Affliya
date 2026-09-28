@@ -1266,10 +1266,23 @@ export default function PromoteOfferPage() {
         bid_cap_saved_to_db: insertPayload.bid_cap,
       });
 
-      const { error: insertErr } = await (
+      const { data: insertedIdeas, error: insertErr } = await (
         supabase.from("ad_ideas") as any
-      ).insert([insertPayload as any]);
+      )
+        .insert([insertPayload as any])
+        .select("id");
       if (insertErr) throw insertErr;
+
+      const createdIdeaId = insertedIdeas?.[0]?.id || null;
+      if (createdIdeaId) {
+        void fetch("/api/affiliate/ad-ideas/notify-submitted", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ adIdeaId: createdIdeaId }),
+        }).catch((error) =>
+          console.warn("[proposal-submitted] business notification failed", error),
+        );
+      }
 
       void logProductEvent({
         eventType: "paid_promotion_submitted",
@@ -1281,7 +1294,7 @@ export default function PromoteOfferPage() {
       });
 
       nmToast.success("Campaign proposal submitted — no wallet funds have been reserved.");
-      router.push("/affiliate/dashboard"); // back to dashboard after submit
+      router.push("/affiliate/dashboard/manage-campaigns");
     } catch (e: any) {
       console.error("[❌ Submit Error]", e);
       nmToast.error(e?.message || "Failed to submit ad idea");

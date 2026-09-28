@@ -892,15 +892,10 @@ export default function AdIdeasPage() {
                     <div className="flex gap-2 px-3 pb-2 pt-1">
                       <button
                         onClick={async () => {
-                          const ok = await handleStatusChange(
-                            selectedIdea.id,
-                            "approved",
-                          );
-                          if (ok) {
-                            await sendToMeta(selectedIdea.id);
-                          }
+                          await sendToMeta(selectedIdea.id);
                         }}
-                        className="w-full py-2 rounded-lg bg-[#00C2CB] hover:bg-[#00b0b8] text-black font-semibold text-sm shadow-[0_0_20px_rgba(0,194,203,0.35)] transition"
+                        disabled={reviewReadinessLoading || !isCampaignReady(selectedIdea.id)}
+                        className="w-full py-2 rounded-lg bg-[#00C2CB] hover:bg-[#00b0b8] disabled:cursor-not-allowed disabled:opacity-50 text-black font-semibold text-sm shadow-[0_0_20px_rgba(0,194,203,0.35)] transition"
                       >
                         Approve &amp; Launch
                       </button>
