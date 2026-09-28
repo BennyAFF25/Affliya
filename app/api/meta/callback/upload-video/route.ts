@@ -22,6 +22,11 @@ import { trackBusinessSubscriptionAnalytics } from "@/../utils/businessSubscript
 import { markLaunchFundCampaignWentLive } from "@/../utils/launchFund";
 import { assertBusinessPaymentReadyForCommission } from "@/../utils/businessPaymentReadiness";
 import { resolveOfferPaidReadiness } from "@/../utils/offerReadiness";
+import {
+  getAffiliateCampaignFundingReadiness,
+  getExistingPaidCampaignLaunch,
+  validatePaidCampaignTiming,
+} from "@/../utils/paidCampaignLaunchReadiness";
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -91,7 +96,7 @@ export async function POST(req: Request) {
       console.warn("[⚠️ ad_ideas lookup warning]", adIdeaError.message);
     }
 
-    const fallback_image_url = rest.thumbnail_url;
+    const fallback_image_url = (adIdea as any)?.thumbnail_url || rest.thumbnail_url;
     let image_hash: string | null = null;
 
     const affiliateEmail =
@@ -104,6 +109,58 @@ export async function POST(req: Request) {
           error: "Missing required approval context for Meta launch",
         },
         { status: 400 },
+      );
+    }
+
+    const existingLive = await getExistingPaidCampaignLaunch({
+      supabase,
+      adIdeaId,
+    });
+    if (existingLive?.id) {
+      return NextResponse.json({
+        success: true,
+        alreadyLive: true,
+        campaignId: existingLive.meta_campaign_id || (adIdea as any)?.meta_campaign_id || null,
+        liveAdId: existingLive.id,
+        metaAdId: existingLive.meta_ad_id || null,
+      });
+    }
+
+    if ((adIdea as any)?.meta_campaign_id) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "CAMPAIGN_PARTIAL_META_STATE",
+          message: "A previous launch created a Meta campaign but did not complete. Automatic retry is blocked to prevent duplication.",
+          metaCampaignId: (adIdea as any).meta_campaign_id,
+        },
+        { status: 409 },
+      );
+    }
+
+    const timingReady = validatePaidCampaignTiming(adIdea as any);
+    if (!timingReady.ok) {
+      return NextResponse.json(
+        { success: false, error: timingReady.error, message: timingReady.message, reason: timingReady.reason },
+        { status: 409 },
+      );
+    }
+
+    const fundingReady = await getAffiliateCampaignFundingReadiness({
+      supabase,
+      affiliateEmail,
+      offerId,
+      adIdea: adIdea as any,
+    });
+    if (!fundingReady.ready) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "AFFILIATE_CAMPAIGN_FUNDING_REQUIRED",
+          message: `Affiliate campaign funding is short by ${fundingReady.deficit.toFixed(2)}.`,
+          funding: { requiredAmount: fundingReady.requiredAmount, deficit: fundingReady.deficit },
+        },
+        { status: 409 },
       );
     }
 
@@ -243,18 +300,6 @@ export async function POST(req: Request) {
       .limit(1)
       .maybeSingle();
 
-    if (!connection && !connectionError) {
-      const fallback = await supabase
-        .from("meta_connections")
-        .select("access_token, created_at")
-        .eq("business_email", businessEmail)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      connection = fallback.data;
-      connectionError = fallback.error;
-    }
-
     if (connectionError || !connection) {
       console.error(
         "[❌ Meta Connection Lookup Error]",
@@ -297,13 +342,13 @@ export async function POST(req: Request) {
       return objectiveMap[o] || "OUTCOME_TRAFFIC";
     };
 
-    const rawObjective = prefer(rest.objective, adIdea?.objective, "Traffic");
+    const rawObjective = prefer(adIdea?.objective, rest.objective, "Traffic");
     const mappedObjective = normalizeObjective(rawObjective);
     const isSalesObjective = mappedObjective === "OUTCOME_SALES";
 
     // 3. Build payload for Meta API (keep misc fields)
     const payload = {
-      ...rest,
+      ...(adIdea || {}),
       adIdeaId,
       offerId,
       metaAdAccountId: selectedAdAccountId,
@@ -312,26 +357,26 @@ export async function POST(req: Request) {
 
     // ----- Dynamic field resolution (payload overrides DB; DB overrides defaults) -----
     const campaignName = prefer(
-      body.campaign_name,
       adIdea?.campaign_name,
+      body.campaign_name,
       "Affliya Campaign",
     );
     const adsetName = prefer(
-      body.adset_name,
       adIdea?.adset_name,
+      body.adset_name,
       `${campaignName || "Affliya Campaign"} – Ad Set`,
     );
     const adName = prefer(
-      body.ad_name,
       adIdea?.ad_name,
+      body.ad_name,
       `${campaignName || "Affliya Campaign"} – Ad`,
     );
 
     // Budget (Meta expects cents as integer strings)
-    const budgetType = prefer(body.budget_type, adIdea?.budget_type, "DAILY"); // DAILY | LIFETIME
+    const budgetType = prefer(adIdea?.budget_type, body.budget_type, "DAILY"); // DAILY | LIFETIME
     const budgetAmountRaw = prefer(
-      body.budget_amount,
       adIdea?.budget_amount,
+      body.budget_amount,
       (adIdea as any)?.daily_budget,
       1000,
     );
@@ -340,12 +385,12 @@ export async function POST(req: Request) {
     );
 
     // Timing
-    const startTimeISO = prefer(body.start_time, adIdea?.start_time, null);
-    const endTimeISO = prefer(body.end_time, adIdea?.end_time, null);
+    const startTimeISO = prefer(adIdea?.start_time, body.start_time, null);
+    const endTimeISO = prefer(adIdea?.end_time, body.end_time, null);
 
     // Creative fields
-    const headline = prefer(body.headline, adIdea?.headline, "");
-    const caption = prefer(body.caption, adIdea?.caption, "");
+    const headline = prefer(adIdea?.headline, body.headline, "");
+    const caption = prefer(adIdea?.caption, body.caption, "");
     const description = prefer(
       body.description,
       adIdea?.description,
@@ -689,8 +734,10 @@ export async function POST(req: Request) {
         endTimeISO || new Date(Date.now() + 7 * 86400000).toISOString();
     } else {
       adsetParams.daily_budget = budgetAmountStr;
-      adsetParams.start_time = new Date(Date.now() + 60000).toISOString();
-      adsetParams.end_time = new Date(Date.now() + 7 * 86400000).toISOString();
+      adsetParams.start_time =
+        startTimeISO || new Date(Date.now() + 60000).toISOString();
+      adsetParams.end_time =
+        endTimeISO || new Date(Date.now() + 7 * 86400000).toISOString();
     }
 
     console.log("[meta-upload] adset params", adsetParams);
@@ -1036,10 +1083,22 @@ export async function POST(req: Request) {
       }
     }
 
+    if (!liveAdRow?.id) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "PARTIAL_META_LAUNCH",
+          message: "Meta campaign creation did not fully complete. The campaign was not marked live and automatic retry is blocked from duplicating the partial Meta campaign.",
+          metaCampaignId: campaignData.id,
+        },
+        { status: 409 },
+      );
+    }
+
     return NextResponse.json({
       success: true,
       campaignId: campaignData.id,
-      liveAdId: liveAdRow ? liveAdRow.id : null,
+      liveAdId: liveAdRow.id,
     });
   } catch (err: any) {
     console.error("[❌ Upload API Error]", err.message);

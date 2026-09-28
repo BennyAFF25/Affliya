@@ -1101,57 +1101,11 @@ export default function PromoteOfferPage() {
 
       setThumbnailError(null);
 
-      // 0) Ensure budget does not exceed prefunded wallet
+      // 0) Proposal creation only validates that the campaign has a real budget.
+      // Funding is intentionally re-checked server-side at launch time.
       const budgetDollars = Number(form.budget_amount_dollars || 0);
       if (!budgetDollars || budgetDollars <= 0) {
         nmToast.error("Please enter a valid daily budget");
-        return;
-      }
-
-      const { data: walletRows, error: walletErr } = await (supabase as any)
-        .from("wallet_topups")
-        .select("amount_net, credited_amount, amount_refunded, status")
-        .eq("affiliate_email", userEmail);
-
-      if (walletErr) {
-        console.error("[wallet_topups check error]", walletErr);
-      }
-
-      const { data: deductionRows, error: deductionErr } = await (supabase as any)
-        .from("wallet_deductions")
-        .select("amount")
-        .eq("affiliate_email", userEmail);
-
-      if (deductionErr) {
-        console.error("[wallet_deductions check error]", deductionErr);
-      }
-
-      const walletTotal = calculateWalletBalance({
-        topups: walletRows || [],
-        deductions: deductionRows || [],
-      }).availableBalance;
-
-      const { data: subsidyRows, error: subsidyErr } = await (supabase as any)
-        .from("business_activation_subsidies")
-        .select("id, status, subsidy_amount, consumed_amount, reserved_for_affiliate_email")
-        .eq("offer_id", offerId)
-        .eq("reserved_for_affiliate_email", userEmail)
-        .in("status", ["reserved", "partially_consumed"])
-        .limit(1);
-
-      if (subsidyErr) {
-        console.error("[starter spend validation error]", subsidyErr);
-      }
-
-      const starterCoverage = getActivationSubsidyRemaining(subsidyRows?.[0] ?? null);
-      const effectiveFunding = walletTotal + starterCoverage;
-
-      if (effectiveFunding < budgetDollars) {
-        nmToast.error(
-          starterCoverage > 0
-            ? `Daily budget ($${budgetDollars.toFixed(2)}) exceeds your combined wallet + starter spend coverage ($${effectiveFunding.toFixed(2)}).`
-            : `Daily budget ($${budgetDollars.toFixed(2)}) exceeds your available wallet balance ($${walletTotal.toFixed(2)}).`,
-        );
         return;
       }
 
@@ -1166,19 +1120,9 @@ export default function PromoteOfferPage() {
 
       const business_email = offerRow.business_email;
 
-      if (!offerHasMetaLaunchSetup) {
-        nmToast.error(
-          "This offer is organic-only right now. The business needs to attach a Meta page and ad account before paid ads can run.",
-        );
-        return;
-      }
-
-      if (form.objective === "OUTCOME_SALES" && !offerHasSalesPixel) {
-        nmToast.error(
-          "This offer still needs a Meta pixel before Sales campaigns can be submitted.",
-        );
-        return;
-      }
+      // Meta, Sales Pixel, Growth, tracking and wallet readiness are launch
+      // requirements, not proposal requirements. The business can review the
+      // real campaign first and Nettmark will enforce every blocker at launch.
 
       // 2) Upload creative media to "ad-ideas-assets" bucket
       const ts = Date.now();
@@ -1336,7 +1280,7 @@ export default function PromoteOfferPage() {
         meta: { source: usingBrandContent ? "brand" : "upload", objective: form.objective },
       });
 
-      nmToast.success("Ad idea submitted for review");
+      nmToast.success("Campaign proposal submitted — no wallet funds have been reserved.");
       router.push("/affiliate/dashboard"); // back to dashboard after submit
     } catch (e: any) {
       console.error("[❌ Submit Error]", e);
@@ -1550,7 +1494,7 @@ export default function PromoteOfferPage() {
               <div className="rounded-2xl border border-cyan-500/30 bg-cyan-500/10 p-5 text-sm text-cyan-50">
                 <div className="text-base font-semibold">Want to fund paid promotion for this offer?</div>
                 <p className="mt-1 text-cyan-100/85">
-                  The business hasn't enabled paid promotion yet. Tell them you're ready to advertise and Nettmark will ask them to connect Meta.
+                  The business hasn't finished paid-promotion setup yet. You can still build and submit the real campaign — they will review it before anything can launch.
                 </p>
                 <div className="mt-3 rounded-xl border border-cyan-400/20 bg-black/15 px-3 py-2 text-xs text-cyan-100/90">
                   Their brand · Their ad account · Their approval · Your ad spend
@@ -1564,7 +1508,7 @@ export default function PromoteOfferPage() {
                   {metaDemandSent ? "Business notified ✓" : metaDemandSending ? "Notifying business..." : `I'm ready to run paid ads`}
                 </button>
                 <p className="mt-2 text-xs text-cyan-100/70">
-                  No wallet funds are reserved or deducted by this request.
+                  Submitting a full proposal also reserves no wallet funds. Setup and funding are enforced only before launch.
                 </p>
               </div>
             )}
@@ -1573,12 +1517,11 @@ export default function PromoteOfferPage() {
               <div className="rounded-2xl border border-cyan-500/30 bg-cyan-500/10 p-4 text-sm text-cyan-100">
                 <div className="font-semibold">Sales campaigns still need a Meta pixel</div>
                 <p className="mt-1 text-cyan-100/85">
-                  This offer is Meta-ready for traffic and engagement, but Sales requires a selected Meta pixel on the offer first.
+                  You can submit the Sales proposal now. A selected Meta pixel is still a hard requirement before it can launch.
                 </p>
               </div>
             )}
 
-            {!showMetaSetupWarning && (
             <AdCampaignWizard
               form={form}
               setForm={setForm}
@@ -1616,9 +1559,7 @@ export default function PromoteOfferPage() {
               onNavigateToWallet={() => router.push("/affiliate/wallet")}
             />
 
-            )}
-
-            {!showMetaSetupWarning && adCreativeSource === "brand" && (
+            {adCreativeSource === "brand" && (
               <BrandCreativePicker
                 mode="ad"
                 assets={brandCreatives}

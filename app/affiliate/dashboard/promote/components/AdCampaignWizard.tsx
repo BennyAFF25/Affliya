@@ -278,7 +278,7 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-xs uppercase tracking-wider text-gray-500">
-                    Wallet guard
+                    Launch funding
                   </p>
                   {walletLoading ? (
                     <span className="text-gray-400">
@@ -288,8 +288,8 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
                     <span className="text-emerald-400">
                       Wallet balance: ${walletBalance.toFixed(2)}
                       {starterSpendRemaining > 0
-                        ? ` + starter spend $${starterSpendRemaining.toFixed(2)} — ready to run this ad`
-                        : " — ready to run this ad"}
+                        ? ` + starter spend $${starterSpendRemaining.toFixed(2)} — funded for launch`
+                        : " — funded for launch"}
                     </span>
                   ) : (
                     <span className="text-red-400">
@@ -297,13 +297,13 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
                       {starterSpendRemaining > 0
                         ? ` + starter spend $${starterSpendRemaining.toFixed(2)}`
                         : ""}. You need $
-                      {walletDeficit.toFixed(2)} more to run this ad.
+                      {walletDeficit.toFixed(2)} more before this campaign can launch. You can still submit the proposal now.
                     </span>
                   )}
                 </div>
                 {!walletLoading && !canRunWithWallet && (
                   <span className="text-[11px] px-2 py-1 rounded-full border border-red-500/40 text-red-300">
-                    Action needed
+                    Needed at launch
                   </span>
                 )}
               </div>
@@ -314,7 +314,7 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
               ) : null}
               {!walletLoading && !canRunWithWallet && (
                 <span className="block mt-2 text-xs text-gray-400">
-                  Top up your wallet before submitting this campaign.
+                  No funds are required to submit this proposal. You’ll need sufficient campaign funding before it can launch.
                 </span>
               )}
             </div>
@@ -1078,34 +1078,26 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
             </button>
           )}
 
-          {step === 4 &&
-            (canRunWithWallet ? (
-              <button
-                onClick={onSubmitClick}
-                disabled={isSubmitting}
-                className={`sm:ml-auto w-full sm:w-auto px-6 py-2 rounded-md transition flex items-center justify-center gap-2 ${
-                  isSubmitting
-                    ? "bg-[#1a1a1a] text-gray-400 cursor-not-allowed"
-                    : "bg-[#00C2CB] text-black hover:bg-[#00b0b8]"
-                }`}
-              >
-                {isSubmitting ? (
-                  <>
-                    <span className="h-4 w-4 rounded-full border-2 border-gray-500 border-t-[#00C2CB] animate-spin" />
-                    Submitting…
-                  </>
-                ) : (
-                  "Submit Ad Idea"
-                )}
-              </button>
-            ) : (
-              <button
-                onClick={onNavigateToWallet}
-                className="sm:ml-auto w-full sm:w-auto px-6 py-2 rounded-md transition bg-[#1a1a1a] text-[#00C2CB] border border-[#00C2CB]/40 hover:bg-[#0f1f20]"
-              >
-                Top Up Wallet
-              </button>
-            ))}
+          {step === 4 && (
+            <button
+              onClick={onSubmitClick}
+              disabled={isSubmitting}
+              className={`sm:ml-auto w-full sm:w-auto px-6 py-2 rounded-md transition flex items-center justify-center gap-2 ${
+                isSubmitting
+                  ? "bg-[#1a1a1a] text-gray-400 cursor-not-allowed"
+                  : "bg-[#00C2CB] text-black hover:bg-[#00b0b8]"
+              }`}
+            >
+              {isSubmitting ? (
+                <>
+                  <span className="h-4 w-4 rounded-full border-2 border-gray-500 border-t-[#00C2CB] animate-spin" />
+                  Submitting…
+                </>
+              ) : (
+                "Submit Campaign Proposal"
+              )}
+            </button>
+          )}
         </div>
       </div>
     </div>

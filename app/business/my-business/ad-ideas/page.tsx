@@ -84,6 +84,23 @@ type ReviewReadiness = {
     status: string;
     businessId?: string | null;
   };
+  campaigns?: Record<
+    string,
+    {
+      ready: boolean;
+      alreadyLive?: boolean;
+      partialMetaState?: boolean;
+      blockers?: string[];
+      funding?: { ready: boolean; requiredAmount: number; deficit: number };
+      meta?: { ready: boolean; pageReady: boolean; adAccountReady: boolean };
+      tracking?: { ready: boolean; error?: string | null };
+      pixel?: { required: boolean; ready: boolean };
+      timing?: { ready: boolean; error?: string | null; message?: string | null };
+      affiliate?: { ready: boolean };
+      offer?: { ready: boolean };
+      error?: string;
+    }
+  >;
 };
 
 interface AdIdea {
@@ -210,6 +227,31 @@ export default function AdIdeasPage() {
   const subscriptionRequired = reviewReadiness?.subscription.required !== false;
   const launchRequirementsReady = billingReady && (subscriptionReady || !subscriptionRequired);
 
+  const campaignReadiness = (id: string) => reviewReadiness?.campaigns?.[id] || null;
+  const isCampaignReady = (id: string) => {
+    const readiness = campaignReadiness(id);
+    return Boolean(readiness?.ready && launchRequirementsReady);
+  };
+  const blockerLabel = (code: string) => {
+    const labels: Record<string, string> = {
+      BUSINESS_GROWTH_REQUIRED: "Start the 14-day Growth trial",
+      BUSINESS_BILLING_REQUIRED: "Connect business billing",
+      AFFILIATE_CAMPAIGN_FUNDING_REQUIRED: "Waiting for affiliate funding",
+      META_SETUP_REQUIRED: "Connect/select Meta Page + Ad Account",
+      META_PAGE_REQUIRED: "Connect/select a Facebook Page",
+      META_AD_ACCOUNT_REQUIRED: "Connect/select a Meta Ad Account",
+      OFFER_TRACKING_NOT_READY: "Connect and verify tracking",
+      TRACKING_REQUIRED: "Connect and verify tracking",
+      SALES_PIXEL_REQUIRED: "Select a Meta Pixel for this Sales campaign",
+      CAMPAIGN_DATES_REQUIRE_UPDATE: "Campaign dates need updating",
+      AFFILIATE_OFFER_NOT_APPROVED: "Affiliate access is no longer approved",
+      OFFER_NOT_AVAILABLE: "Offer is no longer available",
+      CAMPAIGN_PARTIAL_META_STATE: "Previous Meta launch needs recovery before retry",
+      READINESS_CHECK_FAILED: "Could not verify all launch requirements",
+    };
+    return labels[code] || code.replaceAll("_", " ").toLowerCase();
+  };
+
   const buildSubscriptionIntent = (idea?: AdIdea | null) => ({
     businessId: reviewReadiness?.subscription.businessId || businessId,
     campaignId: idea?.id || null,
@@ -282,6 +324,7 @@ export default function AdIdeasPage() {
           setReviewReadiness({
             billing: json.billing,
             subscription: json.subscription,
+            campaigns: json.campaigns || {},
           });
           if (json.subscription?.businessId) setBusinessId(json.subscription.businessId);
         } else {
@@ -424,157 +467,51 @@ export default function AdIdeasPage() {
     return true;
   };
 
-  // Internal API function to send full ad idea data to Meta
+  // One authenticated launch boundary. The server reloads the proposal and
+  // re-checks Growth, billing, affiliate access, funding, Meta, tracking, Pixel,
+  // dates and idempotency immediately before any Meta creation.
   const sendToMeta = async (adIdeaId: string) => {
     try {
-      // Pull ad idea from Supabase
-      const { data: adIdeaData, error } = await supabase
-        .from("ad_ideas")
-        .select("*")
-        .eq("id", adIdeaId)
-        .single();
-
-      const adIdea = adIdeaData as AdIdea | null;
-
-      if (error || !adIdea) {
-        console.error("[❌ Fetch Ad Idea Error]", error?.message);
-        return;
-      }
-
-      console.log("[🔍 Fetching Offer Details for Ad Idea]", adIdea.offer_id);
-
-      const readinessRes = await fetch(`/api/offers/${encodeURIComponent(adIdea.offer_id)}/readiness`, {
-        cache: "no-store",
-      });
-      const readinessJson = await readinessRes.json().catch(() => null);
-      const readiness = readinessJson?.readiness;
-
-      if (!readinessRes.ok || !readiness) {
-        console.error("[❌ Offer readiness fetch error]", readinessJson);
-        nmToast.error(readinessJson?.message || "Could not verify offer readiness.");
-        return;
-      }
-
-      if (!readiness.resolvedMeta?.pageId || !readiness.resolvedMeta?.adAccountId) {
-        nmToast.error(
-          readiness.metaReason === "needs_offer_selection"
-            ? "Meta is connected, but this offer needs a selected Page and Ad Account before launching paid ads."
-            : "This offer is currently organic-only. Connect a Meta page and ad account before launching paid ads.",
-        );
-        return;
-      }
-
-      const isSalesObjective =
-        String(adIdea.objective || "").trim() === "OUTCOME_SALES";
-
-      if (isSalesObjective && !readiness.resolvedMeta?.pixelId) {
-        nmToast.error(
-          "This offer still needs a Meta pixel before Sales campaigns can launch.",
-        );
-        return;
-      }
-
-      const payload = {
-        offerId: adIdea.offer_id,
-        adIdeaId,
-        videoUrl: adIdea.media_type?.toUpperCase() === "VIDEO" ? adIdea.file_url : null,
-        file_url: adIdea.file_url,
-        media_type: adIdea.media_type,
-        caption: adIdea.caption,
-        audience: adIdea.audience,
-        location: adIdea.location,
-        objective: adIdea.objective,
-        cta: adIdea.cta,
-        daily_budget: adIdea.daily_budget,
-        age_range: adIdea.age_range,
-        gender: adIdea.gender,
-        interests: adIdea.interests,
-        display_link: `https://www.nettmark.com/go/${adIdea.offer_id}___${adIdea.affiliate_email}`,
-        metaPageId: readiness.resolvedMeta.pageId,
-        metaAdAccountId: readiness.resolvedMeta.adAccountId,
-        metaPixelId: readiness.resolvedMeta.pixelId || null,
-        thumbnail_url: adIdea.thumbnail_url,
-      };
-
-      console.log("[📤 Sending ad idea payload to internal Meta API]", payload);
-      const response = await fetch("/api/meta/callback/upload-video", {
+      const response = await fetch("/api/business/ad-ideas/launch", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ adIdeaId }),
       });
+      const data = await response.json().catch(() => null);
 
-      let data: any;
-      try {
-        data = await response.json();
-      } catch (jsonError) {
-        console.error("[❌ Failed to parse JSON response]", jsonError);
-        data = null;
-      }
-
-      console.log("[📉 Status Code]", response.status);
-      console.log("[⚠️ Meta Upload Response]", data);
-
-      if (!response.ok) {
-        console.error("[❌ Meta Upload Failed]", data);
+      if (!response.ok || !data?.success) {
         const intent = readSubscriptionIntentFromResponse(data);
         if (intent) {
           setSubscriptionIntent({ ...intent, businessId: intent.businessId || businessId });
-          return;
+          return false;
         }
-        nmToast.error(data?.message || data?.error || "Meta upload failed");
-        return;
+
+        if (data?.error === "BUSINESS_PAYMENT_METHOD_REQUIRED" || data?.action === "connect_business_billing") {
+          nmToast.error(data?.message || "Connect business billing before launch.");
+          router.push("/business/my-business?billing=required&returnTo=/business/my-business/ad-ideas");
+          return false;
+        }
+
+        nmToast.error(data?.message || data?.error || "Campaign is not ready to launch.");
+        return false;
       }
 
-      console.log("[✅ Meta Upload Success]", data);
-
-      // Your API returns: { success: true, campaignId, liveAdId }
-      const hasMetaIds =
-        data?.campaignId ||
-        data?.liveAdId ||
-        data?.meta_ad_id ||
-        data?.metaAdId ||
-        data?.campaign_id ||
-        data?.meta_campaign_id;
-
-      nmToast.success(
-        hasMetaIds ? "Campaign created ✅ (live on Meta)" : "Sent to Meta ✅",
+      setIdeas((prev) =>
+        prev.map((idea) =>
+          idea.id === adIdeaId ? { ...idea, status: "approved" } : idea,
+        ),
+      );
+      setSelectedIdea((prev) =>
+        prev?.id === adIdeaId ? { ...prev, status: "approved" } : prev,
       );
 
-      // Notify affiliate after Meta launch (best-effort)
-      try {
-        const offerTitle = offersMap[adIdea.offer_id] || "Unknown Offer";
-        await notifyAdApproved({
-          to: adIdea.affiliate_email,
-          affiliateEmail: adIdea.affiliate_email,
-          businessEmail: adIdea.business_email || user?.email || "",
-          offerId: adIdea.offer_id,
-          offerTitle,
-          adIdeaId: adIdea.id,
-          campaignId:
-            data?.campaignId || data?.campaign_id || data?.meta_campaign_id,
-        });
-      } catch (e) {
-        console.error("[email] notifyAdApproved crashed", e);
-      }
-
-      // Redirect business to Manage Campaigns (live_ads record is created server-side)
-      try {
-        router.push("/business/manage-campaigns");
-      } catch {
-        // ignore
-      }
-
-      const metaStatus = data?.status || data?.metaStatus || "RUNNING";
-      if (metaStatus && adIdea?.id) {
-        await (supabase as any)
-          .from("ad_ideas")
-          .update({ meta_status: metaStatus })
-          .eq("id", adIdea.id);
-      }
-    } catch (err) {
-      console.error("[❌ Meta Upload Error]", err);
+      nmToast.success(data?.alreadyLive ? "Campaign is already live." : "Campaign approved and launched on Meta ✅");
+      router.push("/business/manage-campaigns");
+      return true;
+    } catch (error) {
+      console.error("[ad-ideas] launch failed", error);
+      nmToast.error("Could not launch this campaign.");
+      return false;
     }
   };
 
@@ -620,7 +557,7 @@ export default function AdIdeasPage() {
                 ? "This business is grandfathered or subscription is not required."
                 : subscriptionReady
                   ? "Nettmark Business is active for paid affiliate ad approvals."
-                  : "Required only when approving paid affiliate ad activity. Starts at $49 AUD/month."}
+                  : "A real paid campaign is waiting. Start the 14-day Growth trial to unlock paid affiliate advertising; $49 AUD/month after the trial."}
               cta={(
                 <Button
                   type="button"
@@ -628,7 +565,7 @@ export default function AdIdeasPage() {
                   onClick={() => setSubscriptionIntent(buildSubscriptionIntent(pendingIdeas[0]))}
                   disabled={!businessId && !reviewReadiness?.subscription.businessId}
                 >
-                  Start subscription
+                  Start 14-day Growth trial
                 </Button>
               )}
             />
@@ -709,26 +646,21 @@ export default function AdIdeasPage() {
                             >
                               View details
                             </Button>
-                            {(!billingReady || (!subscriptionReady && subscriptionRequired)) && (
+                            {!isCampaignReady(idea.id) && (
                               <div className="rounded-xl border border-amber-300/25 bg-amber-300/10 px-3 py-2 text-xs leading-5 text-amber-100">
-                                Finish billing and subscription above before this can launch.
+                                {(campaignReadiness(idea.id)?.blockers || []).map(blockerLabel).join(" · ") ||
+                                  (reviewReadinessLoading ? "Checking launch requirements…" : "Campaign setup is not ready yet.")}
                               </div>
                             )}
                             <Button
                               type="button"
                               className="w-full"
-                              disabled={!launchRequirementsReady}
+                              disabled={reviewReadinessLoading || !isCampaignReady(idea.id)}
                               onClick={async () => {
-                                const ok = await handleStatusChange(
-                                  idea.id,
-                                  "approved",
-                                );
-                                if (ok) {
-                                  await sendToMeta(idea.id);
-                                }
+                                await sendToMeta(idea.id);
                               }}
                             >
-                              Approve
+                              Approve &amp; launch
                             </Button>
                             <Button
                               type="button"
