@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 type MetaSetupStatus = {
@@ -37,15 +38,11 @@ function isCancelledBillingStatus(status: string | null | undefined) {
 }
 
 export default function GrowthMetaSetupPrompt() {
+  const pathname = usePathname();
+  const isDashboard = pathname === "/business/my-business";
   const [status, setStatus] = useState<MetaSetupStatus | null>(null);
   const [dismissed, setDismissed] = useState(false);
-  const [isDashboard, setIsDashboard] = useState(false);
   const [openingPortal, setOpeningPortal] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    setIsDashboard(window.location.pathname === "/business/my-business");
-  }, []);
 
   useEffect(() => {
     if (!isDashboard) return;
