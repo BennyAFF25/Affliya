@@ -12,6 +12,12 @@ type ResumeCampaign = {
   affiliateEmail?: string | null;
 };
 
+type PendingCampaign = {
+  id: string;
+  offer_title?: string | null;
+  affiliate_email?: string | null;
+};
+
 const STORAGE_KEY = "nettmark:paid-campaign-resume";
 export const RESUME_CAMPAIGN_EVENT = "nettmark:paid-campaign-resume-updated";
 
@@ -61,29 +67,59 @@ export default function PaidCampaignResumeBanner() {
   const [campaign, setCampaign] = useState<ResumeCampaign | null>(null);
 
   const refresh = useCallback(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined") return null;
     const raw = window.sessionStorage.getItem(STORAGE_KEY);
     if (!raw) {
       setCampaign(null);
-      return;
+      return null;
     }
     try {
-      setCampaign(safeResume(JSON.parse(raw)));
+      const saved = safeResume(JSON.parse(raw));
+      setCampaign(saved);
+      return saved;
     } catch {
       window.sessionStorage.removeItem(STORAGE_KEY);
       setCampaign(null);
+      return null;
     }
   }, []);
 
+  const discoverPendingCampaign = useCallback(async () => {
+    if (typeof window === "undefined") return;
+    if (refresh()) return;
+
+    try {
+      const res = await fetch("/api/business/ad-ideas/pending-summary", {
+        cache: "no-store",
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.success) return;
+
+      const first = (Array.isArray(json.campaigns) ? json.campaigns[0] : null) as PendingCampaign | null;
+      if (!first?.id) return;
+
+      const next: ResumeCampaign = {
+        proposalId: first.id,
+        path: `/business/review-campaign/${encodeURIComponent(first.id)}`,
+        offerTitle: first.offer_title || null,
+        affiliateEmail: first.affiliate_email || null,
+      };
+      savePaidCampaignResume(next);
+      setCampaign(next);
+    } catch (error) {
+      console.warn("[paid-campaign-resume] pending campaign lookup failed", error);
+    }
+  }, [refresh]);
+
   useEffect(() => {
-    refresh();
+    void discoverPendingCampaign();
     window.addEventListener(RESUME_CAMPAIGN_EVENT, refresh);
     window.addEventListener("storage", refresh);
     return () => {
       window.removeEventListener(RESUME_CAMPAIGN_EVENT, refresh);
       window.removeEventListener("storage", refresh);
     };
-  }, [refresh]);
+  }, [discoverPendingCampaign, refresh]);
 
   if (!campaign || pathname?.startsWith("/business/review-campaign/")) return null;
 
