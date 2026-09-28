@@ -243,6 +243,17 @@ export default function MobileBusinessOverview({
 
         <div className="divide-y divide-white/[0.07]">
           <div className="flex items-center gap-3 py-4">
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-[#00C2CB]/20 bg-[#00C2CB]/10 text-[#1cd3dc]"><IconBox className="h-5 w-5" /></span>
+            <div className="min-w-0 flex-1">
+              <h3 className="text-sm font-semibold text-white">Your offers</h3>
+              <p className="mt-0.5 text-xs text-slate-400">View and edit your current marketplace offers</p>
+            </div>
+            <Link href="/business/my-business/edit-offer" prefetch={false} className={actionButtonClass}>
+              See offers <span aria-hidden="true" className="text-[#00C2CB]">→</span>
+            </Link>
+          </div>
+
+          <div className="flex items-center gap-3 py-4">
             <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-[#00C2CB]/20 bg-[#00C2CB]/10 text-[#1cd3dc]"><IconDocument className="h-5 w-5" /></span>
             <div className="min-w-0 flex-1">
               <h3 className="text-sm font-semibold text-white">Review submissions</h3>
