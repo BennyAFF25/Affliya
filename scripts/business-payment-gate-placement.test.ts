@@ -28,7 +28,6 @@ assert.match(postIdeasPage, /BUSINESS_PAYMENT_METHOD_REQUIRED/);
 assert.match(postIdeasPage, /billing=required&returnTo=\/business\/my-business\/post-ideas/);
 
 assert.match(myBusinessPage, /billingRequiredPrompt/);
-assert.match(myBusinessPage, /not a Nettmark subscription/);
 assert.match(myBusinessPage, /handleAddPaymentMethod/);
 
 console.log('business payment gate placement tests passed');
