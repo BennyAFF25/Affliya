@@ -1,0 +1,61 @@
+name: Validate proposal-first launch boundary
+
+on:
+  push:
+    branches:
+      - proposal-first-launch-gating
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: proposal-first-launch-gating
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: yarn
+      - name: Apply final hardening
+        run: node scripts/apply-launch-boundary-hardening.mjs
+      - name: Validate diff whitespace
+        run: git diff --check
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+      - name: Typecheck
+        id: typecheck
+        shell: bash
+        run: |
+          set +e
+          yarn -s typecheck > /tmp/proposal-typecheck.log 2>&1
+          code=$?
+          cat /tmp/proposal-typecheck.log
+          if [ "$code" -ne 0 ]; then
+            cp /tmp/proposal-typecheck.log .proposal-typecheck-error.txt
+            git checkout -- app/api/meta/callback/upload-video/route.ts app/api/business/ad-ideas/launch/route.ts
+            echo "success=false" >> "$GITHUB_OUTPUT"
+          else
+            rm -f .proposal-typecheck-error.txt
+            echo "success=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Commit validated source changes
+        if: steps.typecheck.outputs.success == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/api/meta/callback/upload-video/route.ts app/api/business/ad-ideas/launch/route.ts
+          git commit -m "Harden authenticated paid campaign launch boundary"
+          git push origin proposal-first-launch-gating
+      - name: Commit typecheck failure details
+        if: steps.typecheck.outputs.success != 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .proposal-typecheck-error.txt
+          git commit -m "Capture proposal-first typecheck failure"
+          git push origin proposal-first-launch-gating
