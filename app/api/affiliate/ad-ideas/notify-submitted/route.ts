@@ -84,7 +84,7 @@ export async function POST(req: Request) {
     const offerTitle = escapeHtml(offer?.title || "your offer");
     const affiliate = escapeHtml(affiliateEmail);
     const campaignName = escapeHtml(idea.campaign_name || "Paid campaign proposal");
-    const reviewUrl = `https://www.nettmark.com/business/my-business/ad-ideas?proposal=${encodeURIComponent(adIdeaId)}`;
+    const reviewUrl = `https://www.nettmark.com/business/review-campaign/${encodeURIComponent(adIdeaId)}`;
     const budget = Number(idea.budget_amount || 0) > 0
       ? (Number(idea.budget_amount) / 100).toFixed(2)
       : null;
