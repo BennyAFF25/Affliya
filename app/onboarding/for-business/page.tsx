@@ -14,6 +14,7 @@ import {
   Store,
 } from "lucide-react";
 import { supabase } from "utils/supabase/pages-client";
+import { normalizeWebsiteUrl } from "utils/normalizeWebsiteUrl";
 
 function safeStorageFileName(name: string) {
   const normalized = name
@@ -136,6 +137,11 @@ export default function BusinessOnboardingPage() {
     setError(null);
 
     try {
+      const normalizedWebsiteUrl = normalizeWebsiteUrl(websiteUrl);
+      if (!normalizedWebsiteUrl) {
+        throw new Error("Enter a valid website address, such as yourstore.com.");
+      }
+
       let uploadedLogoUrl: string | null = null;
       if (logoFile) {
         const logoPath = `${session.user.id}/logos/${Date.now()}_${safeStorageFileName(logoFile.name)}`;
@@ -208,7 +214,7 @@ export default function BusinessOnboardingPage() {
         title: offerName.trim(),
         description: description.trim(),
         business_email: session.user.email,
-        website: websiteUrl.trim(),
+        website: normalizedWebsiteUrl,
         commission: commissionValue,
         price: priceValue,
         currency,
@@ -350,6 +356,9 @@ export default function BusinessOnboardingPage() {
                     placeholder="https://yourstore.com/product"
                     className={inputClass}
                   />
+                  <span className="mt-1 block text-xs font-normal text-white/45">
+                    Enter a domain or full link. We’ll add https:// if it’s missing.
+                  </span>
                 </label>
 
                 <label className="block text-sm font-medium text-white/82">

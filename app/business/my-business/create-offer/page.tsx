@@ -8,6 +8,7 @@ import { Button, Card, Input, PageHeader, Select, Textarea } from "@/../componen
 import { v4 as uuidv4 } from "uuid";
 import { createPagesBrowserClient } from "@supabase/auth-helpers-nextjs";
 import { logProductEvent } from "@/../utils/productEvents";
+import { normalizeWebsiteUrl } from "@/../utils/normalizeWebsiteUrl";
 
 function CreateOfferPageInner() {
   const router = useRouter();
@@ -348,6 +349,20 @@ function CreateOfferPageInner() {
 
     if (!userEmail) return;
 
+    const trimmedWebsite = website.trim();
+    const normalizedWebsiteUrl = trimmedWebsite
+      ? normalizeWebsiteUrl(trimmedWebsite)
+      : "";
+    if (trimmedWebsite && !normalizedWebsiteUrl) {
+      void logProductEvent({
+        eventType: "offer_publish_failed",
+        actorRole: "business",
+        meta: { reason: "website_url_invalid", step },
+      });
+      alert("Enter a valid website address, such as yourstore.com.");
+      return;
+    }
+
     void logProductEvent({
       eventType: "offer_publish_clicked",
       actorRole: "business",
@@ -463,7 +478,7 @@ function CreateOfferPageInner() {
       title: businessName,
       description,
       business_email: userEmail,
-      website,
+      website: normalizedWebsiteUrl,
       commission: Number(commission),
       created_at: new Date().toISOString(),
       meta_ad_account_id: metaAdAccountId,
@@ -664,9 +679,15 @@ function CreateOfferPageInner() {
                   type="url"
                   value={website}
                   onChange={(e) => setWebsite(e.target.value)}
+                  onBlur={(e) => {
+                    const normalized = normalizeWebsiteUrl(e.target.value);
+                    if (normalized) setWebsite(normalized);
+                  }}
                   placeholder="https://yourwebsite.com"
-
                 />
+                <p className="mt-1 text-xs text-white/50">
+                  Enter a domain or full link. We’ll add https:// if it’s missing.
+                </p>
               </div>
 
               <div>
