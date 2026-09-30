@@ -98,7 +98,8 @@ export async function POST(req: Request) {
 
 export async function GET(req: Request) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const cookieStore = await cookies();
+    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
     const {
       data: { user },
       error: authError,

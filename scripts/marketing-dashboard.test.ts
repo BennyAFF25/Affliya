@@ -49,7 +49,8 @@ const data: DashboardData = {
 const business = audienceData(data, "business");
 assert.equal(business.counts.pageViews, 2);
 assert.equal(business.bySource.reddit, undefined, "affiliate source rows cannot leak into a business report");
-assert.equal(business.byPlacement.hero.pageViews, 2);
+assert.equal(business.byPlacement.hero.pageViews, 1);
+assert.equal(business.byPlacement.unknown.pageViews, 1);
 assert.equal(audienceData(data, "all").bySource.reddit.pageViews, 1);
 const missing = audienceData({ ...data, audienceBreakdowns: {}, byAudience: {} }, "affiliate");
 assert.deepEqual(missing.counts, { pageViews: 0, createAccountStarts: 0, businessDemoCtaClicks: 0 });
