@@ -64,6 +64,8 @@ assert.equal(sourceLabel("https://facebook.com.evil.example/path"), "facebook.co
 assert.equal(sourceLabel("https://example.com/google-campaign"), "example.com");
 assert.equal(sourceLabel("https://www.nettmark.com/create-account"), "Direct / Nettmark");
 assert.equal(sourceLabel("unknown"), "Unattributed");
+assert.equal(sourceLabel("__proto__"), "__proto__");
+assert.equal(sourceLabel("constructor"), "constructor");
 assert.equal(percent(0, 0), "—");
 assert.equal(percent(2, 4), "50.0%");
 assert.equal(percent(6, 4), "150.0%", "click frequency can exceed 100%; it is not a conversion rate");

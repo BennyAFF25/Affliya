@@ -117,7 +117,7 @@ export function sourceLabel(input: string): string {
     google: "Google", tiktok: "TikTok", reddit: "Reddit", direct: "Direct / Nettmark",
     "create-account": "Direct / Nettmark", email: "Email",
   };
-  if (aliases[value]) return aliases[value];
+  if (Object.prototype.hasOwnProperty.call(aliases, value)) return aliases[value];
   try {
     const host = new URL(value.includes("://") ? value : `https://${value}`).hostname.replace(/^www\./, "");
     const domainIs = (domain: string) => host === domain || host.endsWith(`.${domain}`);

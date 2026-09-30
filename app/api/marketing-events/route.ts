@@ -98,8 +98,7 @@ export async function POST(req: Request) {
 
 export async function GET(req: Request) {
   try {
-    const cookieStore = await cookies();
-    const supabase = createRouteHandlerClient({ cookies: () => cookieStore });
+    const supabase = createRouteHandlerClient({ cookies });
     const {
       data: { user },
       error: authError,
@@ -289,7 +288,7 @@ export async function GET(req: Request) {
     // A trial can begin weeks after the business first created its account.
     const trialCohort = ((entitlementsResult?.data || []) as typeof entitlementRows).filter((row) =>
       row.growth_trial_used && row.growth_trial_started_at &&
-      (!fromIso || row.growth_trial_started_at >= fromIso),
+      (!fromIso || row.growth_trial_started_at >= fromIso) && row.growth_trial_started_at <= generatedAt,
     );
     const trialing = trialCohort.filter((row) => row.billing_status === "subscription_trialing");
     const cancellationMarked = trialing.filter((row) => Boolean(row.subscription_cancelled_at)).length;
@@ -429,7 +428,11 @@ export async function GET(req: Request) {
       const email = normalizeEmail(profile.email);
       const businessOffers = offerRows.filter((row) => normalizeEmail(row.business_email) === email);
       const businessProductRows = productRows.filter((row) => normalizeEmail(row.actor_email) === email);
-      const lastEvent = businessProductRows[0];
+      const lastEvent = [
+        { event_type: "signup", created_at: profile.created_at },
+        ...businessProductRows.slice(0, 1),
+        ...businessOffers.slice(0, 1).map((row) => ({ event_type: "offer_published", created_at: row.created_at })),
+      ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())[0];
       const firstDashboardAction = firstDashboardActionByEmail.get(email) || null;
       const planChoice = planGrowthClicked.has(email) ? "growth" : planFreeClicked.has(email) ? "free" : null;
 
@@ -460,7 +463,7 @@ export async function GET(req: Request) {
       { key: "publish_clicked", label: "Publish attempted", count: publishClickedCount },
       { key: "offer_live", label: "Offer published", count: offerPublishedCount },
       { key: "affiliate_request", label: "Affiliate request received", count: affiliateRequestCount },
-      { key: "meta_enabled", label: "Paid promotion enabled", count: metaEnabledCount },
+      { key: "meta_enabled", label: "Meta connected", count: metaEnabledCount },
     ].map((step, index, arr) => ({
       ...step,
       rateFromPrevious:
