@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../../../utils/supabase/pages-client';
 import { getActivationSubsidyBadgeLabel, getActivationSubsidyRemaining } from '../../../../utils/activationSubsidies';
+import { normalizeWebsiteUrl } from '../../../../utils/normalizeWebsiteUrl';
 
 type Offer = {
   id: string;
@@ -274,6 +275,7 @@ export default function AffiliateOfferProfilePage() {
     );
   }
 
+  const destinationUrl = normalizeWebsiteUrl(offer.website || '');
   const displayBusinessName = offer.business_name || (offer as any).businessName || offer.title || 'Unnamed business';
   const commissionLabel = typeof offer.commission === 'number' ? `${offer.commission}% commission` : 'Commission set by business';
   const offerTypeLabel = offer.type === 'recurring' ? 'Recurring' : offer.type === 'one_time' ? 'One-time' : offer.type || 'Standard';
@@ -485,7 +487,7 @@ export default function AffiliateOfferProfilePage() {
               </div>
             </section>
 
-            {offer.website && (
+            {destinationUrl && (
               <section className="rounded-[24px] border border-white/10 bg-white/[0.035] p-5 sm:p-6">
                 <div className="flex items-center gap-2 text-sm font-semibold text-[#7ff5fb]">
                   <Link2 className="h-4 w-4" />
@@ -495,10 +497,10 @@ export default function AffiliateOfferProfilePage() {
 
                 <div className="mt-4 flex flex-col gap-3 sm:flex-row xl:flex-col 2xl:flex-row">
                   <div className="min-w-0 flex-1 rounded-xl border border-white/10 bg-black/20 px-3.5 py-3 text-xs text-white/70">
-                    <span className="block truncate">{offer.website}</span>
+                    <span className="block truncate">{destinationUrl}</span>
                   </div>
                   <a
-                    href={offer.website}
+                    href={destinationUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-[#00C2CB] px-4 py-3 text-xs font-bold text-[#061113] transition hover:bg-[#20d4df]"
