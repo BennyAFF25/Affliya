@@ -349,8 +349,11 @@ function CreateOfferPageInner() {
 
     if (!userEmail) return;
 
-    const normalizedWebsiteUrl = normalizeWebsiteUrl(website);
-    if (!normalizedWebsiteUrl) {
+    const trimmedWebsite = website.trim();
+    const normalizedWebsiteUrl = trimmedWebsite
+      ? normalizeWebsiteUrl(trimmedWebsite)
+      : "";
+    if (trimmedWebsite && !normalizedWebsiteUrl) {
       void logProductEvent({
         eventType: "offer_publish_failed",
         actorRole: "business",
