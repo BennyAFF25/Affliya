@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import supabaseAdmin from "@/../utils/supabase/server-client";
 import { canAccessMarketingDashboard } from "@/../utils/marketing/internalAccess";
+import { aggregateMarketingReport, aggregateFees } from "@/../utils/marketing/reporting";
 
 const ALLOWED_PAGE_PATHS = new Set([
   "/",
@@ -14,20 +15,6 @@ const ALLOWED_PAGE_PATHS = new Set([
 const ALLOWED_EVENT_TYPES = new Set(["page_view", "create_account_start", "business_demo_cta_click"]);
 // Current publicly listed Nettmark Business subscription price (AUD/month).
 const BUSINESS_MONTHLY_PRICE_AUD = 49;
-
-type MetricCounts = {
-  pageViews: number;
-  createAccountStarts: number;
-  businessDemoCtaClicks: number;
-};
-
-function emptyCounts(): MetricCounts {
-  return {
-    pageViews: 0,
-    createAccountStarts: 0,
-    businessDemoCtaClicks: 0,
-  };
-}
 
 function getRange(period: string) {
   const now = new Date();
@@ -41,7 +28,7 @@ function getRange(period: string) {
     }
     case "today": {
       const from = new Date(now);
-      from.setHours(0, 0, 0, 0);
+      from.setUTCHours(0, 0, 0, 0);
       return {
         label: "today",
         from,
@@ -125,6 +112,7 @@ export async function GET(req: Request) {
     const period = (url.searchParams.get("period") || "30d").toLowerCase();
     const range = getRange(period);
     const fromIso = range.from ? range.from.toISOString() : null;
+    const generatedAt = new Date().toISOString();
 
     const eventsQuery = (supabaseAdmin as any)
       .from("marketing_site_events")
@@ -193,17 +181,33 @@ export async function GET(req: Request) {
       productEventsResult,
       entitlementsResult,
     ] = await Promise.all([
-      fromIso ? eventsQuery.gte("created_at", fromIso) : eventsQuery,
-      fromIso ? revenueQuery.gte("accrued_at", fromIso) : revenueQuery,
-      fromIso ? profilesQuery.gte("created_at", fromIso) : profilesQuery,
-      fromIso ? affiliateProfilesQuery.gte("created_at", fromIso) : affiliateProfilesQuery,
-      fromIso ? offersQuery.gte("created_at", fromIso) : offersQuery,
-      fromIso ? affiliateRequestsQuery.gte("created_at", fromIso) : affiliateRequestsQuery,
-      fromIso ? liveCampaignsQuery.gte("created_at", fromIso) : liveCampaignsQuery,
-      fromIso ? productEventsQuery.gte("created_at", fromIso) : productEventsQuery,
+      fromIso ? eventsQuery.gte("created_at", fromIso).lte("created_at", generatedAt) : eventsQuery.lte("created_at", generatedAt),
+      fromIso ? revenueQuery.gte("accrued_at", fromIso).lte("accrued_at", generatedAt) : revenueQuery.lte("accrued_at", generatedAt),
+      fromIso ? profilesQuery.gte("created_at", fromIso).lte("created_at", generatedAt) : profilesQuery.lte("created_at", generatedAt),
+      fromIso ? affiliateProfilesQuery.gte("created_at", fromIso).lte("created_at", generatedAt) : affiliateProfilesQuery.lte("created_at", generatedAt),
+      fromIso ? offersQuery.gte("created_at", fromIso).lte("created_at", generatedAt) : offersQuery.lte("created_at", generatedAt),
+      fromIso ? affiliateRequestsQuery.gte("created_at", fromIso).lte("created_at", generatedAt) : affiliateRequestsQuery.lte("created_at", generatedAt),
+      fromIso ? liveCampaignsQuery.gte("created_at", fromIso).lte("created_at", generatedAt) : liveCampaignsQuery.lte("created_at", generatedAt),
+      fromIso ? productEventsQuery.gte("created_at", fromIso).lte("created_at", generatedAt) : productEventsQuery.lte("created_at", generatedAt),
       entitlementsQuery,
     ]);
 
+    const queryResults = [
+      ["Website events", eventsResult], ["Fee ledger", revenueResult],
+      ["Business profiles", profilesResult], ["Affiliate profiles", affiliateProfilesResult],
+      ["Offers", offersResult], ["Affiliate requests", affiliateRequestsResult],
+      ["Campaigns", liveCampaignsResult], ["Product events", productEventsResult],
+      ["Subscriptions", entitlementsResult],
+    ] as const;
+    const failed = queryResults.filter(([, result]) => result.error);
+    if (failed.length) {
+      console.error("[marketing-events][GET] data source errors", failed.map(([name]) => name));
+      return NextResponse.json(
+        { ok: false, error: `Could not load: ${failed.map(([name]) => name).join(", ")}. Please retry.` },
+        { status: 500 },
+      );
+    }
+    const limitedSources = queryResults.filter(([, result]) => (result.data?.length || 0) >= 5000).map(([name]) => name);
     const { data, error } = eventsResult;
 
     if (error) {
@@ -219,60 +223,13 @@ export async function GET(req: Request) {
       created_at: string;
     }>;
 
-    const totals = emptyCounts();
-    const byPage: Record<string, MetricCounts> = {};
-    const byAudience: Record<string, MetricCounts> = {};
-    const bySource: Record<string, MetricCounts> = {};
-    const byPlacement: Record<string, MetricCounts> = {};
-
-    for (const row of rows) {
-      const eventKey =
-        row.event_type === "create_account_start"
-          ? "createAccountStarts"
-          : row.event_type === "business_demo_cta_click"
-            ? "businessDemoCtaClicks"
-            : "pageViews";
-
-      totals[eventKey] += 1;
-
-      if (!byPage[row.page_path]) byPage[row.page_path] = emptyCounts();
-      byPage[row.page_path][eventKey] += 1;
-
-      const audienceKey = row.audience || "unknown";
-      if (!byAudience[audienceKey]) byAudience[audienceKey] = emptyCounts();
-      byAudience[audienceKey][eventKey] += 1;
-
-      const sourceKey =
-        typeof row.meta?.utm_source === "string"
-          ? row.meta.utm_source
-          : typeof row.meta?.source === "string"
-            ? row.meta.source
-            : typeof row.meta?.referrer === "string" && row.meta.referrer
-              ? row.meta.referrer
-              : "unknown";
-      if (!bySource[sourceKey]) bySource[sourceKey] = emptyCounts();
-      bySource[sourceKey][eventKey] += 1;
-
-      const placementKey =
-        typeof row.meta?.cta_placement === "string" && row.meta.cta_placement
-          ? row.meta.cta_placement
-          : "unknown";
-      if (!byPlacement[placementKey]) byPlacement[placementKey] = emptyCounts();
-      byPlacement[placementKey][eventKey] += 1;
-    }
-
-    const revenueRows = ((revenueResult?.data as Array<{
+    const revenueRows = ((revenueResult.data || []) as Array<{
       amount: number | string | null;
-      status: string | null;
       currency: string | null;
       accrued_at: string;
-    }>) || []).filter((row) => row?.accrued_at);
-
-    let revenueTotal = 0;
-    for (const row of revenueRows) {
-      const amount = Number(row.amount || 0);
-      if (Number.isFinite(amount)) revenueTotal += amount;
-    }
+    }>).filter((row) => row.accrued_at);
+    const fees = aggregateFees(revenueRows);
+    const revenueTotal = fees.total;
 
     const normalizeEmail = (value: unknown) => String(value || "").trim().toLowerCase();
     const businessProfiles = ((profilesResult?.data || []) as Array<{
@@ -283,6 +240,14 @@ export async function GET(req: Request) {
     }>).filter((row) => normalizeEmail(row.email));
 
     const cohortEmails = new Set(businessProfiles.map((row) => normalizeEmail(row.email)));
+    const { totals, byPage, bySource, byPlacement, byAudience, audienceBreakdowns, timeline } = aggregateMarketingReport({
+      events: rows,
+      businesses: businessProfiles,
+      affiliates: (affiliateProfilesResult.data || []) as Array<{ created_at: string }>,
+      from: fromIso,
+      to: generatedAt,
+      hourly: range.label === "24h" || range.label === "today",
+    });
 
     const offerRows = ((offersResult?.data || []) as Array<{
       id: string;
@@ -515,16 +480,18 @@ export async function GET(req: Request) {
     return NextResponse.json({
       ok: true,
       period: range.label,
+      generatedAt,
+      range: { from: fromIso, to: generatedAt, timezone: "UTC" },
+      dataQuality: { rowLimit: 5000, limitedSources },
+      timeline,
+      audienceBreakdowns,
       totals,
       byPage,
       byAudience,
       bySource,
       byPlacement,
       recentCount: rows.length,
-      revenue: {
-        total: Number(revenueTotal.toFixed(2)),
-        count: revenueRows.length,
-      },
+      revenue: fees,
       businessActivation: {
         steps,
         blockers,
@@ -538,6 +505,7 @@ export async function GET(req: Request) {
         growthCheckoutStarted: growthCheckoutCount,
         growthTrialStarted: growthTrialStartedCount,
         growthActivated: growthActivatedCount,
+        growthPaidActive: entitlementRows.filter((row) => row.billing_status === "subscription_active").length,
       },
       trialValue: {
         trialStarts: trialCohort.length,
@@ -556,12 +524,12 @@ export async function GET(req: Request) {
       growthSummary: {
         businessSignups: businessProfiles.length,
         affiliateSignups: ((affiliateProfilesResult?.data || []) as Array<unknown>).length,
-        offersPublished: offerRows.length,
-        affiliateRequests: requestRows.length,
+        offersPublished: (offersResult.data || []).length,
+        affiliateRequests: (affiliateRequestsResult.data || []).length,
         liveCampaigns: ((liveCampaignsResult?.data || []) as Array<unknown>).length,
         trackedRevenue: Number(revenueTotal.toFixed(2)),
       },
-    });
+    }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     console.error("[marketing-events][GET] unexpected error", error);
     return NextResponse.json({ ok: false, error: "Unexpected error" }, { status: 500 });
