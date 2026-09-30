@@ -1,0 +1,21 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "incremental": false,
+    "types": [
+      "node",
+      "next"
+    ]
+  },
+  "include": [
+    "next-env.d.ts",
+    "app/internal/marketing/**/*.ts",
+    "app/internal/marketing/**/*.tsx",
+    "utils/marketing/reporting.ts",
+    "app/api/marketing-events/route.ts",
+    "scripts/marketing-dashboard.test.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}

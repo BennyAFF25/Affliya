@@ -1,0 +1,31 @@
+name: Marketing dashboard checks
+on:
+  push:
+    branches: [codex/personal-marketing-dashboard]
+  pull_request:
+    paths:
+      - "app/internal/marketing/**"
+      - "app/api/marketing-events/**"
+      - "utils/marketing/reporting.ts"
+      - "scripts/marketing-dashboard.test.ts"
+      - "tsconfig.marketing.json"
+      - ".github/workflows/marketing-dashboard.yml"
+permissions:
+  contents: read
+jobs:
+  reporting-and-types:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install dependencies
+        run: |
+          corepack enable
+          corepack prepare yarn@1.22.22 --activate
+          yarn install --frozen-lockfile --ignore-scripts
+      - name: Check reporting behavior
+        run: yarn -s tsx scripts/marketing-dashboard.test.ts
+      - name: Type-check the marketing dashboard and API
+        run: yarn -s tsc --project tsconfig.marketing.json
