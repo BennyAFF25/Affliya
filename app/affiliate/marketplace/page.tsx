@@ -23,6 +23,7 @@ interface Offer {
   description: string;
   commission: number;
   type: string;
+  createdAt?: string;
   currency?: string;
   price?: number;
   commissionValue?: number;
@@ -278,6 +279,7 @@ export default function AffiliateMarketplace() {
       description?: string | null;
       commission: number | null;
       type: string;
+      created_at?: string | null;
       currency?: string | null;
       price?: number | null;
       commission_value?: number | null;
@@ -290,8 +292,8 @@ export default function AffiliateMarketplace() {
     };
 
     const fetchOffers = async () => {
-      const offerColumnsWithParticipationMode = `id,title,business_email,description,commission,type,currency,price,commission_value,logo_url,website,meta_page_id,meta_ad_account_id,meta_pixel_id,participation_mode`;
-      const offerColumnsFallback = `id,title,business_email,description,commission,type,currency,price,commission_value,logo_url,website,meta_page_id,meta_ad_account_id,meta_pixel_id`;
+      const offerColumnsWithParticipationMode = `id,title,business_email,description,commission,type,created_at,currency,price,commission_value,logo_url,website,meta_page_id,meta_ad_account_id,meta_pixel_id,participation_mode`;
+      const offerColumnsFallback = `id,title,business_email,description,commission,type,created_at,currency,price,commission_value,logo_url,website,meta_page_id,meta_ad_account_id,meta_pixel_id`;
 
       const offerPromise = (async () => {
         let result = await supabase.from("offers").select(offerColumnsWithParticipationMode);
@@ -335,6 +337,7 @@ export default function AffiliateMarketplace() {
         description: offer.description ?? "",
         commission: offer.commission ?? 0,
         type: offer.type,
+        createdAt: offer.created_at ?? undefined,
         currency: offer.currency ?? undefined,
         price: offer.price ?? undefined,
         commissionValue: offer.commission_value ?? undefined,
@@ -417,6 +420,13 @@ export default function AffiliateMarketplace() {
 
   const sorted = useMemo(() => {
     const next = [...filtered];
+    if (sortOrder === "Most Recent") {
+      next.sort((a, b) => {
+        const aCreatedAt = Date.parse(a.createdAt || "") || 0;
+        const bCreatedAt = Date.parse(b.createdAt || "") || 0;
+        return bCreatedAt - aCreatedAt || a.title.localeCompare(b.title);
+      });
+    }
     if (sortOrder === "Highest Commission") next.sort((a, b) => b.commission - a.commission);
     if (sortOrder === "Business Name") next.sort((a, b) => a.title.localeCompare(b.title));
     if (sortOrder === "Featured") next.sort((a, b) => Number(b.isTopCommission) - Number(a.isTopCommission) || b.commission - a.commission);
@@ -482,6 +492,7 @@ export default function AffiliateMarketplace() {
               <span className="whitespace-nowrap text-[11px] text-[var(--muted-foreground)]">Sort by</span>
               <select value={sortOrder} onChange={(event) => setSortOrder(event.target.value)} className="h-11 rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 text-xs text-[var(--foreground)] outline-none focus:border-[#00c2cb]/50 xl:min-w-[140px]">
                 <option value="Featured">Featured</option>
+                <option value="Most Recent">Most Recent</option>
                 <option value="Highest Commission">Highest Commission</option>
                 <option value="Business Name">Business Name</option>
               </select>
