@@ -1,0 +1,25 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "incremental": false,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "types": [
+      "node",
+      "next"
+    ]
+  },
+  "include": [
+    "next-env.d.ts",
+    "utils/affiliate/**/*.ts",
+    "lib/affiliate/**/*.ts",
+    "app/api/onboarding/affiliate-offers/route.ts",
+    "app/api/affiliate/offers/[offerId]/generate-promotion/route.ts",
+    "app/onboarding/for-partners/page.tsx",
+    "app/affiliate/dashboard/promote/components/AIPromotionPackPanel.tsx",
+    "scripts/affiliate-onboarding.test.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}

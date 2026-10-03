@@ -5,10 +5,12 @@ import supabaseAdmin from "@/../utils/supabase/server-client";
 import { ensureAffiliateOfferParticipation, normalizeOfferParticipationMode } from "@/../utils/approvals/enforcement";
 import { sendEmail } from "@/../lib/email/send";
 import { businessNewAffiliateRequestEmail } from "@/../lib/email/templates";
+import { UUID } from "@/../utils/affiliate/onboarding";
 
 export async function POST(_req: Request, context: { params: Promise<{ offerId: string }> }) {
   try {
     const { offerId } = await context.params;
+    if (!UUID.test(offerId)) return NextResponse.json({ ok: false, error: "Invalid offer." }, { status: 400 });
     const supabase = createRouteHandlerClient({ cookies });
     const {
       data: { user },
@@ -18,6 +20,10 @@ export async function POST(_req: Request, context: { params: Promise<{ offerId: 
     if (authError || !user?.email) {
       return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
     }
+
+    const { data: profile, error: profileError } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
+    if (profileError) return NextResponse.json({ ok: false, error: "Could not verify account role." }, { status: 503 });
+    if (profile?.role !== "affiliate") return NextResponse.json({ ok: false, error: "An affiliate account is required." }, { status: 403 });
 
     const offerSelectVariants = [
       "id, title, business_email, status, participation_mode",
@@ -64,6 +70,9 @@ export async function POST(_req: Request, context: { params: Promise<{ offerId: 
       return NextResponse.json({ ok: false, error: "offer_not_active", message: "This offer is not currently available." }, { status: 409 });
     }
 
+    if (offer.participation_mode != null && !["open", "approval_required", "private"].includes(String(offer.participation_mode).toLowerCase())) {
+      return NextResponse.json({ ok: false, error: "Offer access could not be verified." }, { status: 409 });
+    }
     const participationMode = normalizeOfferParticipationMode(offer.participation_mode);
 
     const participation = await ensureAffiliateOfferParticipation(supabaseAdmin as any, {

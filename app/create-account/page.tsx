@@ -7,6 +7,7 @@ import { supabase } from '@/../utils/supabase/pages-client';
 import MarketingPageTracker from '@/components/marketing/MarketingPageTracker';
 import { trackMetaStandardEvent } from '@/../utils/marketing/metaPixel';
 import { trackRedditConversion } from '@/../utils/marketing/redditConversions';
+import { affiliateOnboardingPath } from '@/../utils/affiliate/onboarding';
 
 function CreateAccountInner() {
   const sp = useSearchParams();
@@ -26,7 +27,7 @@ function CreateAccountInner() {
   const isBusiness = role === 'business';
 
   const onboardingPath =
-    role === 'affiliate' ? '/onboarding/for-partners' : '/onboarding/for-business';
+    role === 'affiliate' ? affiliateOnboardingPath(sp.get('offerId'), sp.get('mode')) : '/onboarding/for-business';
 
   useEffect(() => {
     try {
@@ -40,9 +41,10 @@ function CreateAccountInner() {
   const [showPwd, setShowPwd] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  const [confirmationSent, setConfirmationSent] = useState(false);
 
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
-  const redirectQuery = `post=${encodeURIComponent(onboardingPath)}&role=${role}`;
+  const redirectQuery = `returnTo=${encodeURIComponent(onboardingPath)}&role=${role}`;
   const authRedirect = `${origin}/auth-redirect?${redirectQuery}`;
 
   const baseUrl =
@@ -84,7 +86,7 @@ function CreateAccountInner() {
     const trimmedEmail = email.trim();
 
     try {
-      if (!trimmedUsername) throw new Error('Please choose a username.');
+      if (isBusiness && !trimmedUsername) throw new Error('Please enter your business name.');
       if (!trimmedEmail) throw new Error('Please enter an email.');
 
       console.log('[SIGNUP] starting', { role, email: trimmedEmail, username: trimmedUsername });
@@ -136,10 +138,15 @@ function CreateAccountInner() {
           })
         );
 
-        await Promise.allSettled(tasks);
-        console.log('[SIGNUP] email dispatch finished');
+        void Promise.allSettled(tasks);
       } catch (emailErr) {
         console.error('[SIGNUP] email dispatch failed:', emailErr);
+      }
+
+      if (role === 'affiliate' && !data?.session) {
+        setConfirmationSent(true);
+        trackMetaStandardEvent('CompleteRegistration', { role, signup_method: 'email' });
+        return;
       }
 
       if (data?.user?.id) {
@@ -345,7 +352,7 @@ function CreateAccountInner() {
                   <p className="mt-3 max-w-md text-sm leading-6 text-white/45">
                     {isBusiness
                       ? 'Start with the basics. Your offer and promotion settings come next.'
-                      : 'Start with the basics. You can browse and request offers immediately after onboarding.'}
+                      : 'Choose a brand and prepare your first promotion. You can add your public name and payout details later.'}
                   </p>
                 </div>
 
@@ -361,17 +368,23 @@ function CreateAccountInner() {
 
               <div className="mt-7 h-px w-full bg-gradient-to-r from-white/[0.08] via-white/[0.04] to-transparent" />
 
-              <form onSubmit={handleEmailSignup} className="mt-7 space-y-5">
-                <Field label={isBusiness ? 'Business name' : 'Username'} hint={isBusiness ? 'Shown on your Nettmark profile and offers' : 'Your public Nettmark handle'}>
+              {confirmationSent ? (
+                <div role="status" className="mt-7 space-y-4 rounded-2xl border border-[#00C2CB]/20 bg-[#00C2CB]/5 p-5">
+                  <h3 className="text-lg font-semibold">Check your email</h3>
+                  <p className="text-sm leading-6 text-white/65">Open the confirmation link sent to {email.trim()} to continue to your first promotion.</p>
+                  <a href={`/login/affiliate?next=${encodeURIComponent(onboardingPath)}`} className="inline-block text-sm text-[#00C2CB]">Already confirmed? Sign in</a>
+                </div>
+              ) : <form onSubmit={handleEmailSignup} className="mt-7 space-y-5">
+                {isBusiness && <Field label="Business name" hint="Shown on your Nettmark profile and offers">
                   <input
                     type="text"
                     required
-                    placeholder={isBusiness ? 'Your business name' : 'Your public handle'}
+                    placeholder="Your business name"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     className="w-full bg-transparent px-4 py-3.5 text-[15px] text-white outline-none placeholder:text-white/22"
                   />
-                </Field>
+                </Field>}
 
                 <Field label="Email" hint={isBusiness ? 'Use the email you manage the business with' : 'Used for your account and payout notifications'}>
                   <input
@@ -419,7 +432,7 @@ function CreateAccountInner() {
                   {submitting ? 'Creating account…' : 'Continue'}
                   {!submitting && <ArrowRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-0.5" />}
                 </button>
-              </form>
+              </form>}
 
               <div className="mt-7 flex items-start gap-3 border-t border-white/[0.06] pt-5 text-xs leading-5 text-white/32">
                 <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#00C2CB]/70" />

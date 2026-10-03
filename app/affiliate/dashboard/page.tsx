@@ -23,7 +23,6 @@ import {
 } from "lucide-react";
 import DashboardCard from "@/components/DashboardCard";
 import { buildTrackingUrl } from "@/../utils/tracking/buildTrackingUrl";
-import { isNettmarkPartnerProgrammeOffer } from "@/../utils/offers/firstPartyOffer";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -515,16 +514,14 @@ function AffiliateDashboardContent() {
   const checklistDismissedStorageKey = user
     ? `affiliate-checklist-dismissed-${user.id}`
     : null;
-  const approvedOffers = offers.filter((offer) =>
-    approvedIds.includes(offer.id),
-  );
-  const partnerProgrammeOffer = offers.find((offer: any) =>
-    isNettmarkPartnerProgrammeOffer(offer),
-  ) as (Offer & { id: string }) | undefined;
-  const partnerProgrammeApproved = !!partnerProgrammeOffer && approvedIds.includes(partnerProgrammeOffer.id);
-  const firstPartnerCampaign = partnerProgrammeOffer
-    ? (liveCampaigns || []).find((campaign: any) => campaign.offer_id === partnerProgrammeOffer.id) || null
-    : null;
+  const approvedOffers = offers.filter((offer) => approvedIds.includes(offer.id));
+  // Continue a real marketplace offer, preferring one with an existing organic campaign.
+  const firstOfferCampaign = (liveCampaigns || []).find((campaign: any) =>
+    approvedOffers.some(offer => offer.id === campaign.offer_id)) || null;
+  const firstPromotionOffer = (firstOfferCampaign
+    ? approvedOffers.find(offer => offer.id === firstOfferCampaign.offer_id)
+    : approvedOffers[0]) as (Offer & { id: string }) | undefined;
+  const firstOfferApproved = !!firstPromotionOffer;
   const activeCampaigns = (liveCampaigns || [])
     .map((camp: any) => {
       const matchedOffer = offers.find((offer) => offer.id === camp.offer_id);
@@ -538,7 +535,7 @@ function AffiliateDashboardContent() {
 
   useEffect(() => {
     const loadFirstPromotionSnapshot = async () => {
-      if (!session?.user?.email || !partnerProgrammeOffer?.id || !firstPartnerCampaign?.id) {
+      if (!session?.user?.email || !firstPromotionOffer?.id || !firstOfferCampaign?.id) {
         setFirstPromotionSnapshot(null);
         return;
       }
@@ -548,19 +545,19 @@ function AffiliateDashboardContent() {
           .from("campaign_tracking_events")
           .select("id")
           .eq("affiliate_id", session.user.email)
-          .eq("campaign_id", firstPartnerCampaign.id)
+          .eq("campaign_id", firstOfferCampaign.id)
           .in("event_type", ["click", "landing_view", "page_view"]),
         supabase
           .from("campaign_tracking_events")
           .select("id")
           .eq("affiliate_id", session.user.email)
-          .eq("campaign_id", firstPartnerCampaign.id)
+          .eq("campaign_id", firstOfferCampaign.id)
           .in("event_type", ["conversion", "purchase", "order", "checkout_completed"]),
         supabase
           .from("wallet_payouts")
           .select("amount")
           .eq("affiliate_email", session.user.email)
-          .eq("offer_id", partnerProgrammeOffer.id),
+          .eq("offer_id", firstPromotionOffer.id),
       ]);
 
       if (payoutError) {
@@ -573,10 +570,10 @@ function AffiliateDashboardContent() {
       }, 0);
 
       setFirstPromotionSnapshot({
-        offerTitle: partnerProgrammeOffer.title,
-        campaignId: firstPartnerCampaign.id,
+        offerTitle: firstPromotionOffer.title,
+        campaignId: firstOfferCampaign.id,
         trackingLink: buildTrackingUrl({
-          campaignId: firstPartnerCampaign.id,
+          campaignId: firstOfferCampaign.id,
           affiliateId: session.user.email,
         }),
         clicks: (clickRows || []).length,
@@ -586,7 +583,7 @@ function AffiliateDashboardContent() {
     };
 
     void loadFirstPromotionSnapshot();
-  }, [firstPartnerCampaign?.id, partnerProgrammeOffer?.id, partnerProgrammeOffer?.title, session?.user?.email]);
+  }, [firstOfferCampaign?.id, firstPromotionOffer?.id, firstPromotionOffer?.title, session?.user?.email]);
 
   const totalSpent = (liveAds || []).reduce((sum: number, ad: any) => {
     const val = Number(ad.spend || 0);
@@ -772,26 +769,18 @@ function AffiliateDashboardContent() {
 
   const activationTasks = [
     {
-      key: "payouts",
-      title: "Connect payouts",
-      description: "Add Stripe before your first withdrawal so commissions can be paid automatically.",
-      href: "/affiliate/settings#withdrawals",
-      done: checklistState.payouts,
-      icon: CreditCard,
-    },
-    {
       key: "request",
       title: "Get your first offer",
-      description: "Activate the Nettmark Partner Programme or request a third-party offer.",
-      href: "/affiliate/marketplace",
-      done: approvedOffers.length > 0 || requestCount > 0,
+      description: "Choose a marketplace brand and join an open offer or request access.",
+      href: "/onboarding/for-partners",
+      done: approvedOffers.length > 0,
       icon: Store,
     },
     {
       key: "launch",
       title: "Make your first promotion ready",
-      description: "Choose a creative and get a live tracking link you can share right away.",
-      href: partnerProgrammeOffer ? `/affiliate/dashboard/promote/${partnerProgrammeOffer.id}?mode=organic` : "/affiliate/dashboard",
+      description: "Prepare brand content or your own copy. Share your link once the promotion is approved.",
+      href: firstPromotionOffer ? `/affiliate/dashboard/promote/${firstPromotionOffer.id}?mode=organic` : "/onboarding/for-partners",
       done: activeCampaignCount > 0,
       icon: RocketLaunchIcon,
     },
@@ -880,21 +869,21 @@ function AffiliateDashboardContent() {
           </div>
         </section>
 
-        {partnerProgrammeApproved && (
+        {firstOfferApproved && (
           <section className="mb-7 overflow-hidden rounded-3xl border border-[#00C2CB]/18 bg-gradient-to-br from-[#0d1b1e] via-[#0f1318] to-[#0b0f10] p-5 md:p-6 shadow-[0_20px_50px_rgba(0,0,0,0.28)]">
             <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
               <div>
                 <div className="inline-flex items-center gap-2 rounded-full border border-[#00C2CB]/20 bg-[#00C2CB]/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#7ff5fb]">
                   <Sparkles className="h-3.5 w-3.5" />
-                  Nettmark Partner Programme
+                  {firstPromotionOffer?.title}
                 </div>
                 <h2 className="mt-3 text-2xl font-semibold text-white">
-                  {firstPromotionSnapshot ? "Your first promotion is ready" : "Your first Nettmark offer is approved"}
+                  {firstPromotionSnapshot ? "Your first promotion is ready" : "Your first offer is approved"}
                 </h2>
                 <p className="mt-2 max-w-2xl text-sm text-white/70">
                   {firstPromotionSnapshot
-                    ? "Share your first attributable Nettmark promotion now, then come back here to track clicks, conversions, and earnings."
-                    : "You already have approved access to the Nettmark Partner Programme. Pick a creative and get your first attributable promotion ready."}
+                    ? "Share your approved promotion, then come back to track clicks, conversions, and earnings."
+                    : "Your access is approved. Use brand content or prepare your own promotion for business review."}
                 </p>
               </div>
 
@@ -909,10 +898,10 @@ function AffiliateDashboardContent() {
                   </button>
                 ) : null}
                 <Link
-                  href={partnerProgrammeOffer ? `/affiliate/dashboard/promote/${partnerProgrammeOffer.id}?mode=organic` : "/affiliate/marketplace"}
+                  href={firstPromotionOffer ? `/affiliate/dashboard/promote/${firstPromotionOffer.id}?mode=organic` : "/affiliate/marketplace"}
                   className="rounded-full border border-white/10 bg-[#111317] px-4 py-2.5 text-sm font-semibold text-white/80 hover:bg-[#15191c]"
                 >
-                  Get more content
+                  Prepare promotion
                 </Link>
                 <Link
                   href="/affiliate/marketplace"

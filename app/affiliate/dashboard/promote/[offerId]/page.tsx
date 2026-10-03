@@ -40,6 +40,8 @@ import { AdCampaignWizard } from "../components/AdCampaignWizard";
 import { OrganicSubmissionForm } from "../components/OrganicSubmissionForm";
 import { PreviewSidebar } from "../components/PreviewSidebar";
 import { BrandCreativePicker } from "../components/BrandCreativePicker";
+import { AIPromotionPackPanel } from "../components/AIPromotionPackPanel";
+import { canUsePreapprovedOrganic } from "@/../utils/affiliate/onboarding";
 
 // --- Lightweight row types for Supabase queries
 type OfferRow = {
@@ -86,6 +88,7 @@ export default function PromoteOfferPage() {
   const [selectedAdBrandCreative, setSelectedAdBrandCreative] = useState<ContentLibraryAsset | null>(null);
   const [selectedOrganicBrandCreative, setSelectedOrganicBrandCreative] = useState<ContentLibraryAsset | null>(null);
   const [promotionStartedLogged, setPromotionStartedLogged] = useState(false);
+  const [aiOrganicCopyApplied, setAiOrganicCopyApplied] = useState(false);
 
   useEffect(() => {
     const requestedMode = (searchParams.get("mode") || "").toLowerCase();
@@ -205,6 +208,11 @@ export default function PromoteOfferPage() {
         if (cancelled) return;
         const nextAssets = (json.assets || []) as ContentLibraryAsset[];
         setBrandCreatives(nextAssets);
+        // An empty library still permits a reviewed draft with the affiliate's own copy/media.
+        if (nextAssets.length === 0) {
+          if (mode === "ad") setAdCreativeSource("upload");
+          else setOrganicCreativeSource("upload");
+        }
 
         if (mode === "ad") {
           setSelectedAdBrandCreative((prev) => prev && nextAssets.some((asset) => asset.id === prev.id) ? prev : nextAssets[0] || null);
@@ -898,14 +906,8 @@ export default function PromoteOfferPage() {
 
       const usingBrandContent = organicCreativeSource === "brand" && !!selectedOrganicBrandCreative;
       const selectedCreativeId = usingBrandContent ? selectedOrganicBrandCreative?.id || null : null;
-      const normalizedSelectedCaption = String(selectedOrganicBrandCreative?.caption || "").trim();
-      const normalizedCurrentCaption = String(ogCaption || "").trim();
       const canAutoLaunchPreapprovedOrganic =
-        usingBrandContent &&
-        !!selectedOrganicBrandCreative?.organic_preapproved &&
-        !!selectedOrganicBrandCreative?.allow_organic &&
-        ogMethod === "social" &&
-        normalizedCurrentCaption === normalizedSelectedCaption;
+        canUsePreapprovedOrganic(usingBrandContent, selectedOrganicBrandCreative, ogMethod, ogCaption, aiOrganicCopyApplied);
 
       if (canAutoLaunchPreapprovedOrganic && selectedCreativeId) {
         const response = await fetch(`/api/affiliate/offers/${offerId}/ready-organic-promotion`, {
@@ -1050,6 +1052,7 @@ export default function PromoteOfferPage() {
         meta: { source: usingBrandContent ? "brand" : "upload", platform },
       });
       // Reset organic fields
+      setAiOrganicCopyApplied(false);
       setOgCaption("");
       setOgContent("");
       setOgFile(null);
@@ -1500,6 +1503,24 @@ export default function PromoteOfferPage() {
             </button>
           </div>
         </div>
+        <AIPromotionPackPanel
+          key={offerId + ":" + mode}
+          offerId={offerId}
+          mode={mode === "ad" ? "paid" : "organic"}
+          creativeId={mode === "ad"
+            ? adCreativeSource === "brand" ? selectedAdBrandCreative?.id : null
+            : organicCreativeSource === "brand" ? selectedOrganicBrandCreative?.id : null}
+          hasExistingCopy={mode === "ad" ? !!(form.caption || form.headline) : !!(ogCaption || ogContent)}
+          onApply={(pack) => {
+            if (mode === "ad") {
+              setForm(previous => ({ ...previous, caption: pack.primaryAdCopy, headline: pack.headline, call_to_action: pack.cta }));
+            } else {
+              setAiOrganicCopyApplied(true);
+              setOgMethod("social");
+              setOgCaption(pack.organicCaption);
+            }
+          }}
+        />
         {/* LEFT: single card wizard */}
         {mode === "ad" && (
           <div className="space-y-4">
@@ -1618,6 +1639,7 @@ export default function PromoteOfferPage() {
               ogFile={ogFile}
               setOgFile={setOgFile}
               selectedBrandCreative={selectedOrganicBrandCreative}
+              forceReview={aiOrganicCopyApplied}
               usingBrandContent={organicCreativeSource === "brand"}
               onSwitchToBrandContent={() => setOrganicCreativeSource("brand")}
               onSwitchToUploadOwn={() => setOrganicCreativeSource("upload")}

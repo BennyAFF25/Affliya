@@ -57,8 +57,13 @@ async function trackOnboardingOfferConversion(user: { id: string; email?: string
 
 export async function POST() {
   const supabase = createRouteHandlerClient({ cookies });
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user?.email) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
+  if (authError || !user?.email) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+
+  const { data: profile, error: profileError } = await supabase.from('profiles')
+    .select('role').eq('id', user.id).maybeSingle();
+  if (profileError) return NextResponse.json({ error: 'Could not verify account role.' }, { status: 503 });
+  if (!profile || !['affiliate', 'business'].includes(profile.role)) return NextResponse.json({ error: 'Invalid account role.' }, { status: 403 });
 
   const { error } = await supabase
     .from('profiles')
@@ -66,6 +71,10 @@ export async function POST() {
     .eq('id', user.id);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+  // Affiliate completion records onboarding progress, never campaign activation,
+  // a business CreateOffer conversion, or a business billing gate.
+  if (profile.role === 'affiliate') return NextResponse.json({ ok: true });
 
   // This endpoint is called immediately after the onboarding offer insert succeeds.
   // Reddit tracking is best-effort and must never break onboarding completion.
