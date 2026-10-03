@@ -24,6 +24,7 @@ For any substantial request involving simplification, optimisation, product beha
 |---|---|
 | Simplification, optimisation, product behaviour, UX, onboarding, billing, marketplace changes, AI features, or workflow changes | [VISION.md](docs/VISION.md) and [PRODUCT_PRINCIPLES.md](docs/PRODUCT_PRINCIPLES.md) |
 | Product behaviour | [VISION.md](docs/VISION.md), [PRODUCT_PRINCIPLES.md](docs/PRODUCT_PRINCIPLES.md), [PRODUCT.md](docs/PRODUCT.md), and [BUSINESS_RULES.md](docs/BUSINESS_RULES.md) |
+| Substantial UI/UX work | [UI_DESIGN_SYSTEM.md](docs/UI_DESIGN_SYSTEM.md), plus the founder and product context required above |
 | Architecture and system boundaries | [ARCHITECTURE.md](docs/ARCHITECTURE.md) |
 | Database queries, schema, policies, or migrations | [DATABASE.md](docs/DATABASE.md) |
 | Payments, Stripe, wallets, or commissions | [MONEY_FLOW.md](docs/MONEY_FLOW.md) |
@@ -48,6 +49,12 @@ This rule is mandatory for any substantial feature change, simplification, optim
 5. If the requested change conflicts with established product intent or introduces meaningful trade-offs, stop before implementing the conflicting change. Explain the conflict, the likely user/product impact, and a better alternative supported by evidence. For founder-level decisions listed below, resolve the intended outcome with the founder before proceeding; for other decisions, resolve it with the user. Do not guess intent or substitute a different feature without agreement.
 6. Prefer preserving the intended product outcome over literal implementation of a narrow prompt. Explicit founder decisions can revise prior documented intent; record the agreed change rather than treating historical documentation as immutable.
 7. Act as a product and engineering partner: assess outcomes and consequences as well as implementation details.
+
+### Canonical visual reference
+
+For substantial UI/UX work, read [UI_DESIGN_SYSTEM.md](docs/UI_DESIGN_SYSTEM.md) and inspect the canonical mobile Business Overview in `app/business/my-business/page.tsx`, `app/business/my-business/MobileBusinessOverview.tsx`, and `app/business/my-business/mobile-business.css`, including relevant supporting theme styles, before creating new UI patterns.
+
+Prefer extending its existing visual language over creating new styles. Flag significant deviations and their product impact before implementation. Obtain explicit founder approval before changing Nettmark's core visual language; explicit founder direction approving the specific change satisfies this requirement. Document existing inconsistencies rather than silently normalising them.
 
 ### Founder approval boundaries
 
