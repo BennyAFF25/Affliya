@@ -14,6 +14,57 @@ This repository is Nettmark. The package manifest retains the name `falconx`; do
 
 Verify relevant files and installed versions before making decisions. A dependency declaration alone does not establish how a feature works.
 
+## Context loading before substantial work
+
+Before substantial investigation, planning, or implementation, read the relevant documents under the repository's `docs/` directory. Load every applicable row when work spans multiple systems.
+
+For any substantial request involving simplification, optimisation, product behaviour, UX, onboarding, billing, marketplace changes, AI features, or workflow changes, agents must read both [VISION.md](docs/VISION.md) and [PRODUCT_PRINCIPLES.md](docs/PRODUCT_PRINCIPLES.md) before investigation, planning, or implementation.
+
+| Work type | Required context |
+|---|---|
+| Simplification, optimisation, product behaviour, UX, onboarding, billing, marketplace changes, AI features, or workflow changes | [VISION.md](docs/VISION.md) and [PRODUCT_PRINCIPLES.md](docs/PRODUCT_PRINCIPLES.md) |
+| Product behaviour | [VISION.md](docs/VISION.md), [PRODUCT_PRINCIPLES.md](docs/PRODUCT_PRINCIPLES.md), [PRODUCT.md](docs/PRODUCT.md), and [BUSINESS_RULES.md](docs/BUSINESS_RULES.md) |
+| Architecture and system boundaries | [ARCHITECTURE.md](docs/ARCHITECTURE.md) |
+| Database queries, schema, policies, or migrations | [DATABASE.md](docs/DATABASE.md) |
+| Payments, Stripe, wallets, or commissions | [MONEY_FLOW.md](docs/MONEY_FLOW.md) |
+| Tracking or attribution | [TRACKING.md](docs/TRACKING.md) |
+| Meta advertising or account connection | [META_ADS.md](docs/META_ADS.md) |
+| Historical product decisions | [DECISIONS.md](docs/DECISIONS.md) |
+
+Follow the documents' source references into current code, utilities, routes, and migrations. Documentation is context, not proof of deployed behavior. If documentation conflicts with current code, note the conflicting statements and source paths in the plan or completion summary. Do not resolve conflicts by guessing intent; mark unresolved questions as needing verification.
+
+For substantial feature work, follow [plans/README.md](plans/README.md): inspect any relevant active plan, then create or update a short implementation plan before editing application code. Keep its status and validation evidence current and move completed plans to `plans/completed/`.
+
+Do not invent founder vision, branding, roadmap, customer strategy, or product philosophy. Use only verified repository evidence or explicit user instructions.
+
+## Product alignment before implementation
+
+This rule is mandatory for any substantial feature change, simplification, optimisation, refactor, workflow change, billing change, money-flow change, onboarding change, or user-facing behaviour change.
+
+1. First determine the intended product outcome from explicit user instructions and verified repository evidence. Distinguish the requested outcome from a proposed implementation; mark undocumented intent as unknown rather than inventing founder vision.
+2. Read the relevant product and business documentation, including `docs/PRODUCT.md` and `docs/BUSINESS_RULES.md`, plus the applicable context documents above. Check their claims against the existing implementation.
+3. Evaluate whether the requested change aligns with Nettmark's documented product intent, user experience, commercial model, business rules, existing architecture, and downstream workflows. Record the assessment in the implementation plan.
+4. Do not interpret words such as "simplify", "improve", "clean up", or "optimise" as permission to change behaviour blindly.
+5. If the requested change conflicts with established product intent or introduces meaningful trade-offs, stop before implementing the conflicting change. Explain the conflict, the likely user/product impact, and a better alternative supported by evidence. For founder-level decisions listed below, resolve the intended outcome with the founder before proceeding; for other decisions, resolve it with the user. Do not guess intent or substitute a different feature without agreement.
+6. Prefer preserving the intended product outcome over literal implementation of a narrow prompt. Explicit founder decisions can revise prior documented intent; record the agreed change rather than treating historical documentation as immutable.
+7. Act as a product and engineering partner: assess outcomes and consequences as well as implementation details.
+
+### Founder approval boundaries
+
+Pause before implementation and obtain explicit founder approval for changes involving:
+
+- major UX changes
+- strategy or positioning
+- the business model
+- pricing or the commercial model
+- approval authority
+- attribution rules
+- who carries financial risk
+- major downstream-flow changes or meaningful downstream technical effects
+- significant changes to user control
+
+Explain the intended outcome, product impact, trade-offs, and downstream effects, and resolve these founder-level decisions with the founder before proceeding. Explicit founder instructions approving the specific change satisfy this requirement; do not request the same approval again.
+
 ## Inspect before changing
 
 Read the existing implementation, callers, related utilities, tests, configuration, and relevant documentation before editing. Check Git status and preserve unrelated work.
