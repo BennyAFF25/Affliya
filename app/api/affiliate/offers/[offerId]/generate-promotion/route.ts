@@ -51,6 +51,8 @@ export async function POST(request: Request, context: RouteContext) {
   const started = Date.now();
   let release: (() => Promise<void>) | undefined;
   try {
+    const origin = request.headers.get("origin");
+    if (origin && origin !== new URL(request.url).origin) throw new PromotionAIError(403, "Invalid request origin.");
     const { user, offer } = await authorize(context);
     const config = getPromotionAIConfig();
     if (!config) throw new PromotionAIError(503, "AI drafts aren’t available yet. You can still write your promotion manually.");

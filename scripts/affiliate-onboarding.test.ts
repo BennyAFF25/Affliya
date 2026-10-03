@@ -39,6 +39,7 @@ async function main() {
   ]).map(row => row.id), ["approved", "ready", "request", "pending"]);
 
   assert.equal(canUsePreapprovedOrganic(true, asset, "social", asset.caption), true);
+  assert.equal(canUsePreapprovedOrganic(true, asset, "social", asset.caption, true), false);
   assert.equal(canUsePreapprovedOrganic(true, asset, "social", "Edited copy"), false);
   assert.equal(canUsePreapprovedOrganic(true, asset, "email", asset.caption), false);
   assert.equal(canUsePreapprovedOrganic(false, asset, "social", asset.caption), false);
@@ -53,7 +54,7 @@ async function main() {
   for (const forbidden of ["exclude-secret", "exclude-billing", "exclude-other-brand", "brand@example.test", "bottle.jpg", '"commission"']) assert.ok(!JSON.stringify(context.context).includes(forbidden));
   assert.equal(buildPromotionContext({ ...offer, description: "" }, null, [], "organic").hasContext, false);
   assert.equal(validatePromotionPack(pack).hooks.length, 3);
-  for (const invalid of [{ ...pack, hooks: ["one"] }, { ...pack, cta: "DELETE" }, { ...pack, headline: "x".repeat(121) }, { ...pack, primaryAdCopy: " " }, { ...pack, approved: true }]) assert.throws(() => validatePromotionPack(invalid));
+  for (const invalid of [{ ...pack, hooks: ["one"] }, { ...pack, cta: "DELETE" }, { ...pack, cta: ["LEARN_MORE"] }, { ...pack, headline: "x".repeat(121) }, { ...pack, primaryAdCopy: " " }, { ...pack, approved: true }]) assert.throws(() => validatePromotionPack(invalid));
 
   const env: NodeJS.ProcessEnv = { NODE_ENV: "test", NETTMARK_AFFILIATE_AI_ENABLED: "true", OPENAI_API_KEY: "unit-test-key", UPSTASH_REDIS_REST_URL: "https://quota.example.test", UPSTASH_REDIS_REST_TOKEN: "unit-test-token" };
   const config = getPromotionAIConfig(env)!;
@@ -162,6 +163,8 @@ async function main() {
       assert.ok(!payload.input.includes("exclude-secret"));
       return Response.json(responseBody);
     };
+    reset();
+    assert.equal((await route.POST(new Request("https://nettmark.test/api/generate", { method: "POST", headers: { origin: "https://foreign.test" }, body: '{"mode":"organic"}' }), routeContext)).status, 403);
     reset(); user = null;
     assert.equal((await route.POST(request(), routeContext)).status, 401);
     reset(); authError = { message: "invalid session" };

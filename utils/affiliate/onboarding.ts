@@ -74,7 +74,8 @@ export function canUsePreapprovedOrganic(
   creative: { allow_organic?: boolean; organic_preapproved?: boolean; caption?: string | null } | null | undefined,
   method: string,
   caption: string,
+  forceReview = false,
 ) {
-  return !!usingBrandContent && !!creative?.allow_organic && !!creative?.organic_preapproved &&
+  return !forceReview && !!usingBrandContent && !!creative?.allow_organic && !!creative?.organic_preapproved &&
     method === "social" && caption.trim() === String(creative.caption || "").trim();
 }

@@ -75,7 +75,7 @@ export function OrganicSubmissionForm({
   handleOrganicSubmit,
 }: OrganicSubmissionFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const canLaunchInstantly = !forceReview && canUsePreapprovedOrganic(usingBrandContent, selectedBrandCreative, ogMethod, ogCaption);
+  const canLaunchInstantly = canUsePreapprovedOrganic(usingBrandContent, selectedBrandCreative, ogMethod, ogCaption, forceReview);
 
   const [uploadPreviewUrl, setUploadPreviewUrl] = useState<string | null>(null);
 

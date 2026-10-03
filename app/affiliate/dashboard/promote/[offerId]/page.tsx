@@ -88,7 +88,7 @@ export default function PromoteOfferPage() {
   const [selectedAdBrandCreative, setSelectedAdBrandCreative] = useState<ContentLibraryAsset | null>(null);
   const [selectedOrganicBrandCreative, setSelectedOrganicBrandCreative] = useState<ContentLibraryAsset | null>(null);
   const [promotionStartedLogged, setPromotionStartedLogged] = useState(false);
-  const [aiCopyApplied, setAiCopyApplied] = useState(false);
+  const [aiOrganicCopyApplied, setAiOrganicCopyApplied] = useState(false);
 
   useEffect(() => {
     const requestedMode = (searchParams.get("mode") || "").toLowerCase();
@@ -906,8 +906,8 @@ export default function PromoteOfferPage() {
 
       const usingBrandContent = organicCreativeSource === "brand" && !!selectedOrganicBrandCreative;
       const selectedCreativeId = usingBrandContent ? selectedOrganicBrandCreative?.id || null : null;
-      const canAutoLaunchPreapprovedOrganic = !aiCopyApplied &&
-        canUsePreapprovedOrganic(usingBrandContent, selectedOrganicBrandCreative, ogMethod, ogCaption);
+      const canAutoLaunchPreapprovedOrganic =
+        canUsePreapprovedOrganic(usingBrandContent, selectedOrganicBrandCreative, ogMethod, ogCaption, aiOrganicCopyApplied);
 
       if (canAutoLaunchPreapprovedOrganic && selectedCreativeId) {
         const response = await fetch(`/api/affiliate/offers/${offerId}/ready-organic-promotion`, {
@@ -1511,10 +1511,10 @@ export default function PromoteOfferPage() {
             : organicCreativeSource === "brand" ? selectedOrganicBrandCreative?.id : null}
           hasExistingCopy={mode === "ad" ? !!(form.caption || form.headline) : !!(ogCaption || ogContent)}
           onApply={(pack) => {
-            setAiCopyApplied(true);
             if (mode === "ad") {
               setForm(previous => ({ ...previous, caption: pack.primaryAdCopy, headline: pack.headline, call_to_action: pack.cta }));
             } else {
+              setAiOrganicCopyApplied(true);
               setOgMethod("social");
               setOgCaption(pack.organicCaption);
             }
@@ -1638,7 +1638,7 @@ export default function PromoteOfferPage() {
               ogFile={ogFile}
               setOgFile={setOgFile}
               selectedBrandCreative={selectedOrganicBrandCreative}
-              forceReview={aiCopyApplied}
+              forceReview={aiOrganicCopyApplied}
               usingBrandContent={organicCreativeSource === "brand"}
               onSwitchToBrandContent={() => setOrganicCreativeSource("brand")}
               onSwitchToUploadOwn={() => setOrganicCreativeSource("upload")}

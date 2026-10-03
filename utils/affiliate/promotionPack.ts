@@ -33,7 +33,7 @@ export function validatePromotionPack(value: unknown): PromotionPack {
   }
   if (!Array.isArray(row.hooks) || row.hooks.length !== 3 ||
     row.hooks.some(hook => typeof hook !== "string" || !hook.trim() || hook.length > 180)) throw new Error("Invalid hooks");
-  if (!["LEARN_MORE", "SHOP_NOW", "SIGN_UP"].includes(String(row.cta))) throw new Error("Invalid CTA");
+  if (typeof row.cta !== "string" || !["LEARN_MORE", "SHOP_NOW", "SIGN_UP"].includes(row.cta)) throw new Error("Invalid CTA");
   return row as PromotionPack;
 }
 
