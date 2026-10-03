@@ -1,0 +1,51 @@
+name: Affiliate onboarding checks
+on:
+  push:
+    branches: [codex/affiliate-onboarding-ai-v1]
+  pull_request:
+    paths:
+      - "app/onboarding/for-partners/**"
+      - "app/create-account/**"
+      - "app/auth-redirect/**"
+      - "app/login/affiliate/**"
+      - "app/affiliate/dashboard/**"
+      - "app/api/onboarding/affiliate-offers/**"
+      - "app/api/affiliate/offers/**"
+      - "app/api/profile/onboarding-complete/**"
+      - "utils/affiliate/**"
+      - "lib/affiliate/**"
+      - "scripts/*affiliate*"
+      - "tsconfig.affiliate-onboarding.json"
+      - "eslint.affiliate-onboarding.config.mjs"
+      - ".github/workflows/affiliate-onboarding.yml"
+permissions:
+  contents: read
+jobs:
+  regression-and-types:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install dependencies
+        run: |
+          corepack enable
+          corepack prepare yarn@1.22.22 --activate
+          yarn install --frozen-lockfile --ignore-scripts
+      - name: Check onboarding, approval and AI failure behavior
+        run: yarn -s tsx scripts/affiliate-onboarding.test.ts
+      - name: Strict typecheck new feature code
+        run: yarn -s tsc --project tsconfig.affiliate-onboarding.json
+      - name: Check existing integration files for new type errors
+        run: yarn -s tsx scripts/check-affiliate-types.ts cb511b0301fb071aa3299528c706840b4ed09d2e
+      - name: Lint new feature code
+        run: yarn -s eslint --no-config-lookup --config eslint.affiliate-onboarding.config.mjs utils/affiliate lib/affiliate app/api/onboarding/affiliate-offers "app/api/affiliate/offers/[offerId]/generate-promotion" app/onboarding/for-partners app/affiliate/dashboard/promote/components/AIPromotionPackPanel.tsx
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: affiliate-typecheck-report
+          path: affiliate-typecheck-report.json
+          if-no-files-found: ignore

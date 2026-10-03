@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import MarketingHeader from "@/components/marketing/MarketingHeader";
 import { supabase } from "@/../utils/supabase/pages-client";
+import { roleReturnTo } from "@/../utils/affiliate/onboarding";
 
 export default function AffiliateLogin() {
   const router = useRouter();
@@ -51,14 +52,8 @@ export default function AffiliateLogin() {
       }
 
       const next = new URLSearchParams(window.location.search).get("next");
-      const safeNext =
-        next &&
-        (next === "/affiliate/dashboard" || next.startsWith("/affiliate/")) &&
-        !next.startsWith("//")
-          ? next
-          : null;
-
-      router.push(safeNext || "/auth-redirect");
+      const safeNext = roleReturnTo(next, "affiliate");
+      router.push(safeNext ? "/auth-redirect?returnTo=" + encodeURIComponent(safeNext) : "/auth-redirect");
     } catch (err: any) {
       console.error("[Affiliate login] unexpected error", err);
       setError("Login failed. Please try again.");

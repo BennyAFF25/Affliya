@@ -4,16 +4,12 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/../utils/supabase/pages-client";
 import Image from "next/image";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { safeInternalReturnTo, roleReturnTo } from "@/../utils/affiliate/onboarding";
 
 type Profile = { role?: string | null };
-
-function safeInternalReturnTo(value: string | null) {
-  const raw = String(value || "").trim();
-  if (!raw || !raw.startsWith("/") || raw.startsWith("//") || raw.includes("\\")) {
-    return null;
-  }
-  return raw.slice(0, 500);
-}
+// The checked-in Database type only contains an example users table.
+const profileClient = supabase as unknown as SupabaseClient;
 
 export default function AuthRedirect() {
   const router = useRouter();
@@ -21,7 +17,7 @@ export default function AuthRedirect() {
 
   useEffect(() => {
     const returnTo = safeInternalReturnTo(
-      new URLSearchParams(window.location.search).get("returnTo"),
+      new URLSearchParams(window.location.search).get("returnTo") || new URLSearchParams(window.location.search).get("post"),
     );
 
     const handleRedirect = async () => {
@@ -30,40 +26,48 @@ export default function AuthRedirect() {
       } = await supabase.auth.getUser();
 
       if (!user) {
-        const loginPath = returnTo
-          ? `/login?returnTo=${encodeURIComponent(returnTo)}`
-          : "/login";
+        const loginPath = roleReturnTo(returnTo, "affiliate")
+          ? `/login/affiliate?next=${encodeURIComponent(returnTo!)}`
+          : returnTo ? `/login?returnTo=${encodeURIComponent(returnTo)}` : "/login";
         return startFade(() => router.replace(loginPath));
       }
 
-      const { data: profile, error } = await supabase
+      let { data: profile, error } = await profileClient
         .from("profiles")
         .select("role")
         .eq("id", user.id)
-        .single<Profile>();
+        .maybeSingle<Profile>();
+
+      // Email-confirmed affiliates can arrive before a client profile insert.
+      // Existing persisted roles remain authoritative; never overwrite them from metadata.
+      if (!error && !profile && user.user_metadata?.role === "affiliate" && user.email) {
+        const recovered = await profileClient.from("profiles")
+          .insert({ id: user.id, email: user.email, role: "affiliate" })
+          .select("role").single<Profile>();
+        if (recovered.error?.code === "23505") {
+          const existing = await profileClient.from("profiles").select("role").eq("id", user.id).maybeSingle<Profile>();
+          profile = existing.data; error = existing.error;
+        } else { profile = recovered.data; error = recovered.error; }
+      }
 
       if (error) {
         console.error("[PROFILE ERROR]", error);
-        const loginPath = returnTo
-          ? `/login?returnTo=${encodeURIComponent(returnTo)}`
-          : "/login";
+        const loginPath = roleReturnTo(returnTo, "affiliate")
+          ? `/login/affiliate?next=${encodeURIComponent(returnTo!)}`
+          : returnTo ? `/login?returnTo=${encodeURIComponent(returnTo)}` : "/login";
         return startFade(() => router.replace(loginPath));
       }
 
       if (profile?.role === "affiliate") {
-        const destination = returnTo?.startsWith("/affiliate/")
-          ? returnTo
-          : "/affiliate/dashboard";
+        const destination = roleReturnTo(returnTo, profile.role) || "/affiliate/dashboard";
         startFade(() => router.replace(destination));
       } else if (profile?.role === "business") {
-        const destination = returnTo?.startsWith("/business/")
-          ? returnTo
-          : "/business/dashboard";
+        const destination = roleReturnTo(returnTo, profile.role) || "/business/dashboard";
         startFade(() => router.replace(destination));
       } else {
-        const loginPath = returnTo
-          ? `/login?returnTo=${encodeURIComponent(returnTo)}`
-          : "/login";
+        const loginPath = roleReturnTo(returnTo, "affiliate")
+          ? `/login/affiliate?next=${encodeURIComponent(returnTo!)}`
+          : returnTo ? `/login?returnTo=${encodeURIComponent(returnTo)}` : "/login";
         startFade(() => router.replace(loginPath));
       }
     };

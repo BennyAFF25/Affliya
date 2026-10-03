@@ -17,6 +17,7 @@ import {
   Youtube,
 } from "lucide-react";
 import { Disclosure } from "./AdFormFields";
+import { canUsePreapprovedOrganic } from "@/../utils/affiliate/onboarding";
 
 interface OrganicSubmissionFormProps {
   ogMethod: "social" | "email" | "forum" | "other";
@@ -39,6 +40,7 @@ interface OrganicSubmissionFormProps {
     organic_preapproved?: boolean;
   } | null;
   usingBrandContent?: boolean;
+  forceReview?: boolean;
   onSwitchToBrandContent?: () => void;
   onSwitchToUploadOwn?: () => void;
   handleOrganicSubmit: () => Promise<void>;
@@ -67,13 +69,13 @@ export function OrganicSubmissionForm({
   setOgFile,
   selectedBrandCreative,
   usingBrandContent,
+  forceReview = false,
   onSwitchToBrandContent,
   onSwitchToUploadOwn,
   handleOrganicSubmit,
 }: OrganicSubmissionFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const canLaunchInstantly =
-    !!usingBrandContent && !!selectedBrandCreative?.allow_organic && !!selectedBrandCreative?.organic_preapproved;
+  const canLaunchInstantly = !forceReview && canUsePreapprovedOrganic(usingBrandContent, selectedBrandCreative, ogMethod, ogCaption);
 
   const [uploadPreviewUrl, setUploadPreviewUrl] = useState<string | null>(null);
 
@@ -124,19 +126,19 @@ export function OrganicSubmissionForm({
   const applyTemplate = (kind: "social" | "email" | "forum") => {
     if (kind === "social") {
       setOgMethod("social");
-      setOgCaption("Tried this and genuinely impressed. If you're curious, check it here 👇");
+      setOgCaption("Explore {{product}} from {{brand}}. {{verified_benefit}}. Affiliate link: {{tracking_link}}");
       setOgContent("");
       return;
     }
     if (kind === "email") {
       setOgMethod("email");
       setOgCaption("Quick recommendation for you");
-      setOgContent("Hey {{first_name}},\n\nFound something that might help with {{pain_point}}.\n\nWhy I liked it:\n- {{benefit_1}}\n- {{benefit_2}}\n\nWorth checking out here: {{tracking_link}}\n\n— {{your_name}}");
+      setOgContent("Hey {{first_name}},\n\nFound something that might help with {{pain_point}}.\n\nOffer details:\n- {{verified_benefit_1}}\n- {{verified_benefit_2}}\n\nWorth checking out here: {{tracking_link}}\n\n— {{your_name}}");
       return;
     }
     setOgMethod("forum");
     setOgCaption("reddit.com/r/yourcommunity");
-    setOgContent("I tested this for {{timeframe}}.\n\nWhat worked:\n- {{result_1}}\n- {{result_2}}\n\nIf anyone wants to look at the exact one I used: {{tracking_link}}");
+    setOgContent("Sharing {{product}} from {{brand}}, where community promotion is allowed.\n\nOffer details:\n- {{verified_feature_1}}\n- {{verified_feature_2}}\n\nAffiliate link: {{tracking_link}}");
   };
 
   const onSubmitClick = async () => {
