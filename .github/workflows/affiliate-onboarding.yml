@@ -23,6 +23,7 @@ permissions:
 jobs:
   regression-and-types:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
@@ -43,9 +44,26 @@ jobs:
         run: yarn -s tsx scripts/check-affiliate-types.ts cb511b0301fb071aa3299528c706840b4ed09d2e
       - name: Lint new feature code
         run: yarn -s eslint --no-config-lookup --config eslint.affiliate-onboarding.config.mjs utils/affiliate lib/affiliate app/api/onboarding/affiliate-offers "app/api/affiliate/offers/[offerId]/generate-promotion" app/onboarding/for-partners app/affiliate/dashboard/promote/components/AIPromotionPackPanel.tsx
+      - name: Install temporary browser tooling
+        run: |
+          npm install --prefix "$RUNNER_TEMP/nettmark-onboarding-browser" --no-package-lock --ignore-scripts playwright@1.58.2
+          google-chrome --version
+      - name: Check mobile and desktop onboarding
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+        run: NODE_PATH="$RUNNER_TEMP/nettmark-onboarding-browser/node_modules" node scripts/affiliate-onboarding.browser.cjs
+      - name: Check policy reading and acceptance continuity
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+        run: NODE_PATH="$RUNNER_TEMP/nettmark-onboarding-browser/node_modules" node scripts/legal-navigation.browser.cjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: affiliate-typecheck-report
-          path: affiliate-typecheck-report.json
+          path: |
+            affiliate-typecheck-report.json
+            affiliate-next-step-mobile.png
+            affiliate-next-step-server.log
+            legal-policy-mobile.png
+            legal-navigation-server.log
           if-no-files-found: ignore

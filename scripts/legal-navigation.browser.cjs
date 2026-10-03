@@ -94,8 +94,8 @@ async function main() {
   await initial.waitFor({ state: "detached" });
   assert.equal(writes.length, 2);
   assert.equal(page.url(), origin + setup);
-  assert.equal(await page.getByRole("button", { name: /Test brand/ }).getAttribute("aria-pressed"), "true");
-  assert.equal(await page.getByRole("button", { name: "Paid campaign", exact: true }).getAttribute("aria-pressed"), "true");
+  assert.equal(await page.getByRole("region", { name: "Selected brand", exact: true }).getByRole("heading", { name: "Test brand", exact: true }).count(), 1);
+  assert.equal(await page.getByRole("button", { name: /^Paid campaign/ }).getAttribute("aria-pressed"), "true");
 
   await page.goto(origin + "/legal/privacy/cookies?returnTo=" + encodeURIComponent(setup));
   const returnLink = page.getByRole("link", { name: "Back to onboarding", exact: true });
