@@ -60,13 +60,13 @@ async function main() {
   });
   await page.goto(origin + setup);
   const initial = page.getByRole("dialog", { name: "Accept terms to continue", exact: true });
-  await initial.waitFor({ state: "visible" });
+  await initial.getByRole("heading", { name: "Accept terms to continue", exact: true }).waitFor({ state: "visible" });
   assert.equal(await initial.getByRole("button", { name: "Accept & Continue", exact: true }).isEnabled(), false);
   await initial.getByRole("checkbox", { name: termsText, exact: true }).check();
   for (const label of ["Terms of Service", "Privacy Policy", "Cookie Policy"]) {
     await page.getByRole("button", { name: label, exact: true }).click();
     const reader = page.getByRole("dialog", { name: label, exact: true });
-    await reader.waitFor({ state: "visible" });
+    await reader.getByRole("heading", { name: label, exact: true }).waitFor({ state: "visible" });
     assert.equal(page.url(), origin + setup);
     assert.equal(writes.length, 0, "Reading must not record acceptance");
     const back = reader.getByRole("button", { name: "Back to terms", exact: true });
@@ -75,12 +75,12 @@ async function main() {
     assert.ok(backBox && backBox.y >= 0 && backBox.y + backBox.height <= 650, "Reader exit fits the mobile viewport");
     if (label === "Cookie Policy") await page.screenshot({ path: "legal-policy-mobile.png", fullPage: true });
     await back.click();
-    await initial.waitFor({ state: "visible" });
+    await initial.getByRole("heading", { name: "Accept terms to continue", exact: true }).waitFor({ state: "visible" });
     assert.equal(await initial.getByRole("checkbox", { name: termsText, exact: true }).isChecked(), true);
   }
   await page.getByRole("button", { name: "Cookie Policy", exact: true }).click();
   await page.keyboard.press("Escape");
-  await initial.waitFor({ state: "visible" });
+  await initial.getByRole("heading", { name: "Accept terms to continue", exact: true }).waitFor({ state: "visible" });
   assert.equal(await initial.getByRole("checkbox", { name: termsText, exact: true }).isChecked(), true);
   await initial.getByRole("button", { name: "Accept & Continue", exact: true }).click();
   await initial.getByRole("alert").waitFor({ state: "visible" });
@@ -91,7 +91,7 @@ async function main() {
   assert.equal(page.url(), origin + setup);
   failAcceptance = false;
   await initial.getByRole("button", { name: "Accept & Continue", exact: true }).click();
-  await initial.waitFor({ state: "hidden" });
+  await initial.waitFor({ state: "detached" });
   assert.equal(writes.length, 2);
   assert.equal(page.url(), origin + setup);
   assert.equal(await page.getByRole("button", { name: /Test brand/ }).getAttribute("aria-pressed"), "true");
@@ -102,7 +102,7 @@ async function main() {
   await returnLink.waitFor({ state: "visible" });
   assert.equal(await returnLink.getAttribute("href"), setup);
   await returnLink.click();
-  await initial.waitFor({ state: "visible" });
+  await initial.getByRole("heading", { name: "Accept terms to continue", exact: true }).waitFor({ state: "visible" });
   assert.equal(page.url(), origin + setup);
   await page.goto(origin + "/legal/privacy?returnTo=" + encodeURIComponent("https://foreign.test"));
   const fallback = page.getByRole("link", { name: "Back to Nettmark", exact: true });
