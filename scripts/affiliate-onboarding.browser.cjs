@@ -87,6 +87,7 @@ async function main() {
     if (viewport.width === 390) await page.screenshot({ path: "affiliate-next-step-mobile.png", fullPage: true });
     await page.getByRole("button", { name: "Choose another brand", exact: true }).click();
     await page.getByRole("heading", { name: "Who would you like to promote?", exact: true }).waitFor();
+    await page.waitForURL(url => url.pathname === setup && !url.searchParams.has("offerId"));
     assert.equal(new URL(page.url()).searchParams.has("offerId"), false);
     const search = page.getByRole("textbox", { name: "Search offers" });
     await search.fill("Last brand");
@@ -114,8 +115,10 @@ async function main() {
     failComplete = false;
     const destination = page.waitForRequest(request => new URL(request.url()).pathname === "/affiliate/dashboard/promote/" + openId);
     await action.click();
-    await destination;
-    assert.equal(destinations[0], "/affiliate/dashboard/promote/" + openId + "?mode=ad&source=onboarding");
+    const handoff = new URL((await destination).url());
+    assert.equal(handoff.pathname, "/affiliate/dashboard/promote/" + openId);
+    assert.equal(handoff.searchParams.get("mode"), "ad");
+    assert.equal(handoff.searchParams.get("source"), "onboarding");
     assert.ok(startCalls.every(call => call.method === "POST"));
 
     await page.goto(origin + setup + "?offerId=" + restrictedId);
