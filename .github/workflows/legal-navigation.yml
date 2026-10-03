@@ -1,0 +1,53 @@
+name: Terms policy navigation checks
+on:
+  push:
+    branches: [codex/fix-terms-policy-navigation]
+  pull_request:
+    paths:
+      - "app/components/AcceptTermsModal.tsx"
+      - "app/components/legal/**"
+      - "app/legal/privacy/**"
+      - "utils/legal/**"
+      - "scripts/legal-navigation*"
+      - "tsconfig.legal-navigation.json"
+      - ".github/workflows/legal-navigation.yml"
+permissions:
+  contents: read
+jobs:
+  policy-navigation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install existing dependencies
+        run: |
+          corepack enable
+          corepack prepare yarn@1.22.22 --activate
+          yarn install --frozen-lockfile --ignore-scripts
+      - name: Check safe returns and unchanged policy wording
+        run: yarn -s tsx scripts/legal-navigation.test.ts
+      - name: Typecheck modal, readers and legal pages
+        run: yarn -s tsc --project tsconfig.legal-navigation.json
+      - name: Lint changed UI and navigation
+        run: yarn -s eslint --no-config-lookup --config eslint.affiliate-onboarding.config.mjs app/components/AcceptTermsModal.tsx app/components/legal app/legal/privacy/page.tsx app/legal/privacy/cookies/page.tsx app/legal/privacy/terms-of-service/page.tsx utils/legal/navigation.ts
+      - name: Install temporary browser test tooling
+        run: |
+          npm install --prefix "$RUNNER_TEMP/nettmark-policy-browser" --no-package-lock --ignore-scripts playwright@1.58.2
+          google-chrome --version
+      - name: Check mobile reading and acceptance in Chromium
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+        run: NODE_PATH="$RUNNER_TEMP/nettmark-policy-browser/node_modules" node scripts/legal-navigation.browser.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: legal-navigation-browser
+          path: |
+            legal-policy-mobile.png
+            legal-navigation-server.log
+          if-no-files-found: ignore
