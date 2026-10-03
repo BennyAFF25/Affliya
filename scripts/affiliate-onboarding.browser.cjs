@@ -18,7 +18,7 @@ const server = spawn(process.execPath, ["node_modules/next/dist/bin/next", "dev"
   env: { ...process.env, NEXT_PUBLIC_SUPABASE_URL: "https://policy-fixture.supabase.co", NEXT_PUBLIC_SUPABASE_ANON_KEY: "onboarding-ui-test-key" },
   stdio: ["ignore", "pipe", "pipe"],
 });
-let serverLog = "", browser;
+let serverLog = "", browser, diagnosticPage;
 server.stdout.on("data", chunk => { serverLog += chunk; });
 server.stderr.on("data", chunk => { serverLog += chunk; });
 async function ready() {
@@ -40,6 +40,7 @@ async function main() {
   for (const viewport of [{ width: 390, height: 650 }, { width: 320, height: 568 }, { width: 1280, height: 800 }]) {
     const context = await browser.newContext({ viewport, isMobile: viewport.width < 768, hasTouch: viewport.width < 768 });
     const page = await context.newPage();
+    diagnosticPage = page;
     page.setDefaultTimeout(30000);
     await page.route("**/*", async route => {
       const request = route.request(), url = new URL(request.url());
@@ -68,12 +69,12 @@ async function main() {
 
     startCalls = []; completions = 0; destinations = [];
     await page.goto(origin + setup);
-    const card = page.getByRole("button", { name: /^Last brand/ });
+    const card = page.getByRole("button", { name: /Last brand/ });
     await card.click(); // Playwright scrolls to the last card, simulating the reported long-list case.
     const heading = page.getByRole("heading", { name: "How would you like to promote?", exact: true });
     await heading.waitFor();
     assert.equal(await heading.evaluate(node => node === document.activeElement), true, "Selection moves keyboard focus into the next step");
-    assert.equal(await page.getByRole("button", { name: /^Brand 1 / }).count(), 0, "Grid no longer competes with the next action");
+    assert.equal(await page.getByRole("button", { name: /Brand 1 / }).count(), 0, "Grid no longer competes with the next action");
     const action = page.getByRole("button", { name: "Create my promotion", exact: true });
     await insideViewport(action, page);
     assert.equal(await page.getByRole("button", { name: /^Organic post/ }).getAttribute("aria-pressed"), "true");
@@ -89,7 +90,7 @@ async function main() {
     assert.equal(new URL(page.url()).searchParams.has("offerId"), false);
     const search = page.getByRole("textbox", { name: "Search offers" });
     await search.fill("Last brand");
-    await page.getByRole("button", { name: /^Last brand/ }).click();
+    await page.getByRole("button", { name: /Last brand/ }).click();
     await heading.waitFor();
     await page.getByRole("button", { name: "Choose another brand", exact: true }).click();
     assert.equal(await search.inputValue(), "Last brand", "Comparing brands preserves the filter");
@@ -140,7 +141,11 @@ async function main() {
   await browser.close(); browser = null;
   console.log("Onboarding selection, visible next action, back, intent, approval, retry and handoff browser checks passed");
 }
-main().catch(error => {
+main().catch(async error => {
+  if (diagnosticPage && !diagnosticPage.isClosed()) {
+    console.error("Fixture page URL:", diagnosticPage.url());
+    console.error("Fixture headings/buttons:", await diagnosticPage.locator("h1,h2,button").allTextContents());
+  }
   console.error(error);
   writeFileSync("affiliate-next-step-server.log", serverLog);
   process.exitCode = 1;
