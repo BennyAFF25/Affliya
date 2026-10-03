@@ -55,7 +55,7 @@ async function main() {
   assert.equal(validatePromotionPack(pack).hooks.length, 3);
   for (const invalid of [{ ...pack, hooks: ["one"] }, { ...pack, cta: "DELETE" }, { ...pack, headline: "x".repeat(121) }, { ...pack, primaryAdCopy: " " }, { ...pack, approved: true }]) assert.throws(() => validatePromotionPack(invalid));
 
-  const env: NodeJS.ProcessEnv = { NETTMARK_AFFILIATE_AI_ENABLED: "true", OPENAI_API_KEY: "unit-test-key", UPSTASH_REDIS_REST_URL: "https://quota.example.test", UPSTASH_REDIS_REST_TOKEN: "unit-test-token" };
+  const env: NodeJS.ProcessEnv = { NODE_ENV: "test", NETTMARK_AFFILIATE_AI_ENABLED: "true", OPENAI_API_KEY: "unit-test-key", UPSTASH_REDIS_REST_URL: "https://quota.example.test", UPSTASH_REDIS_REST_TOKEN: "unit-test-token" };
   const config = getPromotionAIConfig(env)!;
   assert.ok(config);
   assert.equal(getPromotionAIConfig({ ...env, NETTMARK_AFFILIATE_AI_ENABLED: "false" }), null);
@@ -221,7 +221,7 @@ async function main() {
     const pending = await startRoute.POST(request(), routeContext);
     assert.equal(pending.status, 200);
     assert.equal((await pending.json()).promotePath, null);
-    assert.ok(!writes.includes("live_campaigns"));
+    assert.ok(!writes.some(table => table === "live_campaigns"));
     reset(); tables.affiliate_requests[0].status = "rejected";
     assert.equal((await startRoute.POST(request(), routeContext)).status, 403);
   } finally {

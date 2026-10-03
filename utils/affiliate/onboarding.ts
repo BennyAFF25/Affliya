@@ -8,13 +8,17 @@ export function affiliateOnboardingPath(offerId: string | null, mode: string | n
   return "/onboarding/for-partners" + (query.size ? "?" + query.toString() : "");
 }
 
+function hasUnsafePathCharacters(value: string) {
+  return [...value].some(character => character === "\\" || character.charCodeAt(0) <= 32);
+}
+
 export function safeInternalReturnTo(value: string | null): string | null {
   const raw = String(value || "").trim();
-  if (!raw.startsWith("/") || raw.startsWith("//") || /[\\\u0000-\u0020]/.test(raw) || raw.length > 500) return null;
+  if (!raw.startsWith("/") || raw.startsWith("//") || hasUnsafePathCharacters(raw) || raw.length > 500) return null;
   // Reject encoded separators/dot segments before role checks.
   let decoded: string;
   try { decoded = decodeURIComponent(raw); } catch { return null; }
-  if (/[\\\u0000-\u0020]/.test(decoded.split("?")[0]) || decoded.startsWith("//")) return null;
+  if (hasUnsafePathCharacters(decoded.split("?")[0]) || decoded.startsWith("//")) return null;
   const url = new URL(raw, "https://nettmark.local");
   if (url.origin !== "https://nettmark.local" || url.pathname !== raw.split(/[?#]/)[0]) return null;
   if (/%(?:2f|5c|2e)/i.test(url.pathname)) return null;

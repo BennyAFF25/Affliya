@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowRight, Check, Loader2, Search } from "lucide-react";
 import AcceptTermsModal from "@/components/AcceptTermsModal";
+import { logProductEvent } from "@/../utils/productEvents";
 import {
   affiliateOnboardingPath, isApproved, type OnboardingOffer, type PromotionMode,
 } from "@/../utils/affiliate/onboarding";
@@ -31,6 +32,7 @@ function AffiliateOnboarding() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
+  const startedRef = useRef(false);
   const [error, setError] = useState("");
   const [pendingTitle, setPendingTitle] = useState("");
   const [termsAccepted, setTermsAccepted] = useState(false);
@@ -59,6 +61,10 @@ function AffiliateOnboarding() {
         setOffers(data.offers);
         setUserId(data.userId);
         setTermsAccepted(data.termsAccepted);
+        if (!startedRef.current) {
+          startedRef.current = true;
+          void logProductEvent({ eventType: "onboarding_started", actorRole: "affiliate", meta: { source: "marketplace_onboarding_v1" } });
+        }
       } catch (failure) {
         if (!controller.signal.aborted) setError(failure instanceof Error ? failure.message : "Could not load marketplace offers.");
       } finally { if (!controller.signal.aborted) setLoading(false); }
@@ -80,9 +86,14 @@ function AffiliateOnboarding() {
     router.replace(affiliateOnboardingPath(offer.id, mode), { scroll: false });
   }
 
-  async function complete() {
+  async function complete(destination: "promote" | "dashboard") {
     const response = await fetch("/api/profile/onboarding-complete", { method: "POST" });
     if (!response.ok) throw new Error("Could not save your progress. Please try again.");
+    void logProductEvent({
+      eventType: "onboarding_completed", actorRole: "affiliate",
+      offerId: selected?.id || null, promotionType: mode === "ad" ? "paid" : "organic",
+      meta: { source: "marketplace_onboarding_v1", destination },
+    });
   }
 
   async function continuePromotion() {
@@ -99,7 +110,7 @@ function AffiliateOnboarding() {
         setOffers(current => current.map(offer => offer.id === selected.id ? { ...offer, requestStatus: "pending" } : offer));
         setPendingTitle(selected.title);
       } else if (isApproved(status)) {
-        await complete();
+        await complete("promote");
         router.push("/affiliate/dashboard/promote/" + selected.id + "?mode=" + mode + "&source=onboarding");
       } else { throw new Error("Could not verify offer access. Please try again."); }
     } catch (failure) { setError(failure instanceof Error ? failure.message : "Please try again."); }
@@ -111,7 +122,7 @@ function AffiliateOnboarding() {
     busyRef.current = true;
     setBusy(true);
     setError("");
-    try { await complete(); router.push("/affiliate/dashboard"); }
+    try { await complete("dashboard"); router.push("/affiliate/dashboard"); }
     catch (failure) { setError(failure instanceof Error ? failure.message : "Please try again."); }
     finally { busyRef.current = false; setBusy(false); }
   }
