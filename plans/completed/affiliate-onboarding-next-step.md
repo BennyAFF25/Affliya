@@ -1,6 +1,6 @@
 # Affiliate onboarding: make the next action obvious
 
-Status: in progress.
+Status: completed.
 
 ## Problem and intended outcome
 The founder reports selecting an offer leaves the next action hidden below the entire marketplace list. Current app/onboarding/for-partners/page.tsx confirms the selection panel is appended after all filtered offers. Selection should immediately reveal what happens next without searching or scrolling.
@@ -31,4 +31,16 @@ Update the current page only. Extend browser coverage with large lists, small sc
 Focused selection requires an explicit back action to compare offers but removes competing choices around the next step. It does not promise activation gains without measurement. Live Supabase behavior and original device are unverified; browser fixtures validate UI and API contracts, not production database state. Footer and content must not overlap on small viewports. Existing Promote remains the editor rather than duplicating it.
 
 ## Validation
-Planned: existing affiliate regression tests, scoped strict types and lint, existing policy browser regression, actual Chromium at mobile/small-mobile/desktop sizes; Vercel build. Record results before completion.
+Validated code/test head: d31320eb94f76bbc1b2a991950fea693859a412a.
+- Affiliate checks passed: https://github.com/BennyAFF25/Affliya/actions/runs/37106058329 (job 111154694533).
+- Existing affiliate/approval/AI regressions passed; strict scoped typecheck and lint passed.
+- Existing integration comparison: baseline 9 diagnostics, current 9, new 0. This is not a clean full-repository typecheck claim.
+- Actual Chromium passed at 390x650, 320x568 and 1280x800 with 26 offers: selecting last card, focus, viewport-visible fixed CTA, final content unobscured, back and retained search, paid intent and reload, failed start, failed completion/retry, pending requests, server-authoritative approval and requested editor handoff.
+- Existing policy reader, failed-acceptance retry and standalone return checks passed in both workflows. Separate workflow: https://github.com/BennyAFF25/Affliya/actions/runs/37106058338.
+- Vercel preview build passed. Screenshot artifact affiliate-next-step-mobile.png.
+- Browser fixtures mock authentication/data and stop at the editor route request; live database writes and full production Promote editor are not exercised. Policy acceptance behavior and wording were preserved.
+- Early browser runs found test selector and router-timing/handoff isolation issues; fixed in the test harness. Application code was unchanged during those corrections.
+
+Files: app/onboarding/for-partners/page.tsx (focused selection, CTA, back/focus/query continuity); scripts/affiliate-onboarding.browser.cjs (interaction regression); scripts/legal-navigation.browser.cjs (selected-screen assertions); .github/workflows/affiliate-onboarding.yml (browser checks and artifacts); this completed plan.
+No database/schema/migrations/package dependencies or remote configuration changes.
+Remaining follow-up: founder production usability test and activation measurement; replacement of the terms modal remains a separate proposal. No implementation blockers remain.
