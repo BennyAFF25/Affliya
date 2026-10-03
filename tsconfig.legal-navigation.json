@@ -1,0 +1,25 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "incremental": false,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "types": [
+      "node",
+      "next"
+    ]
+  },
+  "include": [
+    "next-env.d.ts",
+    "app/components/AcceptTermsModal.tsx",
+    "app/components/legal/**/*.tsx",
+    "app/legal/privacy/page.tsx",
+    "app/legal/privacy/cookies/page.tsx",
+    "app/legal/privacy/terms-of-service/page.tsx",
+    "utils/legal/navigation.ts",
+    "scripts/legal-navigation.test.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}
