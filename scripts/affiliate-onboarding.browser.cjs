@@ -113,13 +113,6 @@ async function main() {
     await page.getByText("Could not save your progress. Please try again.", { exact: false }).waitFor();
     assert.equal(destinations.length, 0, "Failed completion must not navigate");
     failComplete = false;
-    const destination = page.waitForRequest(request => new URL(request.url()).pathname === "/affiliate/dashboard/promote/" + openId);
-    await action.click();
-    const handoff = new URL((await destination).url());
-    assert.equal(handoff.pathname, "/affiliate/dashboard/promote/" + openId);
-    assert.equal(handoff.searchParams.get("mode"), "ad");
-    assert.equal(handoff.searchParams.get("source"), "onboarding");
-    assert.ok(startCalls.every(call => call.method === "POST"));
 
     await page.goto(origin + setup + "?offerId=" + restrictedId);
     const requestAction = page.getByRole("button", { name: "Request access", exact: true });
@@ -139,17 +132,29 @@ async function main() {
     await action.waitFor(); await action.click();
     await page.getByRole("heading", { name: "Your request is pending", exact: true }).waitFor();
     forceApproval = false;
+
+    await page.goto(origin + setup + "?offerId=" + openId + "&mode=ad");
+    await action.waitFor();
+    failComplete = false;
+    const destination = page.waitForRequest(request => new URL(request.url()).pathname === "/affiliate/dashboard/promote/" + openId);
+    await action.click({ noWaitAfter: true });
+    const handoff = new URL((await destination).url());
+    assert.equal(handoff.pathname, "/affiliate/dashboard/promote/" + openId);
+    assert.equal(handoff.searchParams.get("mode"), "ad");
+    assert.equal(handoff.searchParams.get("source"), "onboarding");
+    assert.ok(startCalls.every(call => call.method === "POST"));
+
     await context.close();
   }
   await browser.close(); browser = null;
   console.log("Onboarding selection, visible next action, back, intent, approval, retry and handoff browser checks passed");
 }
 main().catch(async error => {
+  console.error(error);
   if (diagnosticPage && !diagnosticPage.isClosed()) {
     console.error("Fixture page URL:", diagnosticPage.url());
-    console.error("Fixture headings/buttons:", await diagnosticPage.locator("h1,h2,button").allTextContents());
+    try { console.error("Fixture headings/buttons:", await diagnosticPage.locator("h1,h2,button").allTextContents()); } catch {}
   }
-  console.error(error);
   writeFileSync("affiliate-next-step-server.log", serverLog);
   process.exitCode = 1;
 }).finally(async () => { if (browser) await browser.close(); server.kill("SIGTERM"); });
