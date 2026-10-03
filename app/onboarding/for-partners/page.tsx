@@ -38,7 +38,7 @@ function AffiliateOnboarding() {
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [userId, setUserId] = useState("");
   const [reload, setReload] = useState(0);
-  const intent = affiliateOnboardingPath(params.get("offerId"), params.get("mode"));
+  const entryIntent = useRef(affiliateOnboardingPath(params.get("offerId"), params.get("mode")));
 
   useEffect(() => {
     const controller = new AbortController();
@@ -48,6 +48,7 @@ function AffiliateOnboarding() {
       try {
         const response = await fetch("/api/onboarding/affiliate-offers", { cache: "no-store", signal: controller.signal });
         if (response.status === 401) {
+          const intent = entryIntent.current;
           const query = new URLSearchParams({ role: "affiliate" });
           const requestedId = new URL(intent, "https://nettmark.local").searchParams.get("offerId");
           if (requestedId) query.set("offerId", requestedId);
@@ -57,6 +58,7 @@ function AffiliateOnboarding() {
         }
         if (response.status === 403) { router.replace("/auth-redirect"); return; }
         const data = await response.json();
+        if (controller.signal.aborted) return;
         if (!response.ok) throw new Error(data.error || "Could not load marketplace offers.");
         setOffers(data.offers);
         setUserId(data.userId);
@@ -70,7 +72,7 @@ function AffiliateOnboarding() {
       } finally { if (!controller.signal.aborted) setLoading(false); }
     })();
     return () => controller.abort();
-  }, [intent, reload, router]);
+  }, [reload, router]);
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();

@@ -1,6 +1,6 @@
 # Affiliate onboarding and AI promotion pack V1
 
-Status: in progress. Base: cb511b0301fb071aa3299528c706840b4ed09d2e. Founder authorized implementation on a separate branch for testing; no main merge, deployment, remote configuration or migration is authorized.
+Status: implementation complete; founder browser acceptance pending. Base: cb511b0301fb071aa3299528c706840b4ed09d2e. Founder authorized implementation on a separate branch for testing; no main merge, deployment, remote configuration or migration is authorized.
 
 ## Problem and product intent
 The existing affiliate wizard collects preferences but always activates Nettmark's system offer. The marketplace now has multiple offers and most businesses may have no brand content. Move users directly from choosing a real offer to preparing a useful promotion, following docs/VISION.md and docs/PRODUCT_PRINCIPLES.md (value before setup, quiet AI assistance, business control).
@@ -22,6 +22,7 @@ Replace the welcome/preference/system-offer wizard with authenticated marketplac
 Session-authenticated API -> active offer/access verification -> server-side context allowlist -> distributed quota reservation -> bounded OpenAI Responses request -> runtime-validated pack. No model access to credentials or financial/customer records. No tools, scraping or autonomous actions. AI is disabled unless feature flag, provider key and shared Redis quota configuration are present. No new dependencies or database writes for generation. Existing submission types receive applied text on explicit submit. Existing launch/tracking/payment checks remain authoritative.
 
 ## Validation
+Recorded on 31ca6b6b76f28c60eee01ea947863f387409c7a4: GitHub Actions regression tests, strict new-feature types, new-feature ESLint and integration diagnostic comparison all passed. Existing integration dependency graph has 9 diagnostics on main and 9 here, with zero new errors. Vercel preview build succeeded. Final UI polish preserves the same required checks. Browser, live RLS/schema/population and real provider calls remain unverified; founder tests the preview. No main merge, migration, dependency or remote configuration change.
 Add behavioral tests for offer visibility/ranking, access, internal return destinations, context exclusion, exact pack structure, changed-caption review, provider failures/timeouts and atomic quota rejection. Add focused GitHub Actions tests/typechecking because this session has no shell/test runner. Review the complete diff and CI output; report browser/production checks unavailable. Add a manual testing/configuration guide and sanitized operational metrics.
 
 ## Risks and trade-offs
@@ -29,3 +30,6 @@ No live schema, policy or populated context verification yet; use existing entit
 
 ## Success criteria
 Affiliate can select a third-party offer and continue to a useful promotion without a survey, first-party enrollment or payout setup. Pending/rejected/private restrictions remain intact. AI returns exactly one angle, three hooks, primary copy, headline, CTA, organic caption and explanation, and cannot change approval state or budgets. Missing AI configuration leaves manual promotion usable. Branch tests and focused checks pass, with limitations recorded.
+
+## Delivery
+Branch: codex/affiliate-onboarding-ai-v1. Draft PR: https://github.com/BennyAFF25/Affliya/pull/10. Test and configuration guide: docs/AFFILIATE_ONBOARDING_V1.md. Preview: https://affliya-git-codex-affiliate-onboa-8f948f-bens-projects-28b82cca.vercel.app/onboarding/for-partners. AI remains off until server credentials and shared quota storage are configured; onboarding/manual drafts work independently. No outstanding founder product decision blocks this authorized V1; pricing, Pro, batch requests and approval changes are separate decisions.

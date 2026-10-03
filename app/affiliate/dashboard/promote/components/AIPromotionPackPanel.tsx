@@ -72,7 +72,7 @@ export function AIPromotionPackPanel({ offerId, mode, creativeId, hasExistingCop
     if (!pack) return;
     if (hasExistingCopy && !confirmReplace) { setConfirmReplace(true); return; }
     onApply(pack); setConfirmReplace(false);
-    setStatus("Draft added to your form. Check the facts and edit it before submitting for business review.");
+    setStatus("Draft added to your form. Check the facts, replace placeholders and edit it before submitting for business review.");
   }
 
   if (!available) return null;

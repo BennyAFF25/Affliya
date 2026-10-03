@@ -1052,6 +1052,7 @@ export default function PromoteOfferPage() {
         meta: { source: usingBrandContent ? "brand" : "upload", platform },
       });
       // Reset organic fields
+      setAiOrganicCopyApplied(false);
       setOgCaption("");
       setOgContent("");
       setOgFile(null);
