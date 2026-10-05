@@ -58,6 +58,19 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
   const [businessFilter, setBusinessFilter] = useState("all");
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const cohort = new URLSearchParams();
+    for (const key of ["signupFrom", "signupTo", "observedThrough"]) {
+      const value = params.get(key);
+      if (value) cohort.set(key, value);
+    }
+    setSignupFrom(cohort.get("signupFrom") || "");
+    setSignupTo(cohort.get("signupTo") || "");
+    setObservedThrough(cohort.get("observedThrough") || "");
+    if (cohort.size) setCohortQuery("&" + cohort.toString());
+  }, []);
+
+  useEffect(() => {
     const controller = new AbortController();
     setLoading(true);
     setError(null);
@@ -198,6 +211,7 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
                   if (signupTo) params.set("signupTo", signupTo);
                   if (observedThrough) params.set("observedThrough", observedThrough);
                   setCohortQuery(params.size ? "&" + params.toString() : "");
+                  window.history.replaceState(null, "", window.location.pathname + (params.size ? "?" + params.toString() : ""));
                   setRefresh(n => n + 1);
                 }}>
                   <label>Signup from (UTC)<input type="date" value={signupFrom} onChange={e => setSignupFrom(e.target.value)} className="mt-2 min-h-11 w-full rounded-xl border border-white/10 bg-transparent px-3" /></label>

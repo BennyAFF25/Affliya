@@ -203,7 +203,7 @@ export async function GET(req: Request) {
     ] = await Promise.all([
       fromIso ? eventsQuery.gte("created_at", fromIso).lte("created_at", generatedAt) : eventsQuery.lte("created_at", generatedAt),
       fromIso ? revenueQuery.gte("accrued_at", fromIso).lte("accrued_at", generatedAt) : revenueQuery.lte("accrued_at", generatedAt),
-      signupFrom ? profilesQuery.gte("created_at", signupFrom).lt("created_at", signupTo) : profilesQuery.lt("created_at", signupTo),
+      signupFrom ? profilesQuery.gte("created_at", signupFrom).lt("created_at", signupTo).lte("created_at", observedThrough) : profilesQuery.lt("created_at", signupTo).lte("created_at", observedThrough),
       fromIso ? affiliateProfilesQuery.gte("created_at", fromIso).lte("created_at", generatedAt) : affiliateProfilesQuery.lte("created_at", generatedAt),
       outcomes(offersQuery),
       outcomes(affiliateRequestsQuery),
@@ -493,14 +493,11 @@ export async function GET(req: Request) {
       { key: "offer_live", label: "Offer published", count: offerPublishedCount },
       { key: "affiliate_request", label: "Affiliate request received", count: affiliateRequestCount },
       { key: "meta_enabled", label: "Meta connected", count: metaEnabledCount },
-    ].map((step, index, arr) => ({
+    ].map((step) => ({
       ...step,
-      rateFromPrevious:
-        index === 0 || !arr[index - 1].count
-          ? null
-          : Number(((step.count / arr[index - 1].count) * 100).toFixed(1)),
-      dropOffFromPrevious:
-        index === 0 ? 0 : Math.max(0, arr[index - 1].count - step.count),
+      // These are independent signup-cohort milestones, not adjacent conversions.
+      rateFromPrevious: null,
+      dropOffFromPrevious: 0,
     }));
 
     const planReachedCount = countIn(planChoiceReached);

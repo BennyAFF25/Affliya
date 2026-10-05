@@ -67,7 +67,7 @@ async function main() {
       if (url.pathname === "/api/business-subscription/choose-free") { writes.push("confirmed_free"); return json({ ok: true }); }
       if (url.pathname === "/api/business-subscription/get-session") return json({ error: "Checkout not found" }, 403);
       if (url.pathname === "/api/profile/onboarding-complete") { writes.push("complete"); return failComplete ? json({ error: "Your offer is saved. Please retry to finish setup." }, 503) : json({ ok: true, treatment: true, offerId }); }
-      if (url.pathname.startsWith("/business/my-business")) return route.abort();
+      if (url.pathname.startsWith("/business/my-business")) return route.fulfill({ status: 200, contentType: "text/html", body: "<p>Business dashboard handoff</p>" });
       if (url.pathname.startsWith("/api/")) return json({});
       return route.continue();
     });
@@ -92,6 +92,7 @@ async function main() {
     await page.getByRole("alert").filter({ hasText: "No paid checkout" }).waitFor();
     assert.equal(writes.length, 1); assert.equal(writes[0].requireTrial, true);
     await free.click();
+    await page.waitForURL(url => url.pathname === "/business/my-business");
     assert.ok(writes.includes("confirmed_free")); failCheckout = false;
 
     variant = { ...contextData, price: null, trialEligible: null, billingError: "Pricing could not be verified." }; writes = [];

@@ -155,7 +155,7 @@ export default function BusinessOnboardingPage() {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ offerId }),
       });
       const result = await response.json().catch(() => null);
-      if (!response.ok) throw new Error(result?.error || "Your offer is saved. Please retry to finish setup.");
+      if (!response.ok) throw new Error(result?.error?.startsWith("Your offer is saved") ? result.error : `Your offer is saved. ${result?.error || "Please retry to finish setup."}`);
       if (result?.treatment) router.replace("/business/choose-plan");
       else setStep(5);
     };
@@ -783,6 +783,7 @@ export default function BusinessOnboardingPage() {
                 <button
                   type="button"
                   onClick={() => setStep(3)}
+                  disabled={submitting || Boolean(savedOfferId.current)}
                   className="rounded-2xl border border-white/10 px-4 py-3.5 text-sm font-semibold text-white/70 transition hover:bg-white/[0.03]"
                 >
                   Edit

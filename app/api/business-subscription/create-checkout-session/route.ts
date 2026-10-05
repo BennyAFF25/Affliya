@@ -26,6 +26,10 @@ import { getBusinessFunnelMetadata } from "../../../../utils/businessOnboardingS
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+function clearPlanChoice(response: NextResponse) {
+  for (const name of ["nettmark_business_plan_choice", "nettmark_business_plan_choice_v2"]) response.cookies.set(name, "", { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: 0 });
+  return response;
+}
 function safeReturnPath(value: unknown) {
   const raw = typeof value === "string" ? value.trim() : "";
   if (!raw || !raw.startsWith("/")) return "/business/settings";
@@ -61,7 +65,7 @@ export async function POST(req: Request) {
 
     const entitlement = await getEntitlementOrThrow({ supabase: admin, businessId: business.id });
     if (entitlement.isGrandfathered) {
-      return NextResponse.json({ status: "grandfathered", message: "This business is grandfathered and does not require a Nettmark Business subscription.", entitlement });
+      return clearPlanChoice(NextResponse.json({ status: "grandfathered", message: "This business is grandfathered and does not require a Nettmark Business subscription.", entitlement }));
     }
     if (!isBusinessSubscriptionCheckoutEnabled()) {
       return NextResponse.json({ status: "checkout_disabled", message: "Business subscription checkout is disabled.", entitlement }, { status: 403 });
@@ -90,7 +94,7 @@ export async function POST(req: Request) {
     const customerId = await ensureSubscriptionCustomer({ stripe, supabase: admin, business, entitlement, userId: user.id });
     const existingSubscription = await findExistingLiveSubscription({ stripe, customerId, subscriptionId: entitlement.stripeSubscriptionId });
     if (existingSubscription) {
-      return NextResponse.json({ status: "already_subscribed", stripeSubscriptionId: existingSubscription.id, billingStatus: resolveBillingStatusFromSubscription(existingSubscription), currentPeriodEnd: getSubscriptionCurrentPeriodEnd(existingSubscription) });
+      return clearPlanChoice(NextResponse.json({ status: "already_subscribed", stripeSubscriptionId: existingSubscription.id, billingStatus: resolveBillingStatusFromSubscription(existingSubscription), currentPeriodEnd: getSubscriptionCurrentPeriodEnd(existingSubscription) }));
     }
 
     const historicalSubscriptions = await stripe.subscriptions.list({

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
-import { createServerSupabaseClient, getOwnedBusinessForUser } from "../../../../utils/businessSubscriptions";
+import { createServerSupabaseClient, getOwnedBusinessForUser, getEntitlementOrThrow } from "../../../../utils/businessSubscriptions";
 import { recordBusinessFunnelEvent } from "../../../../utils/businessOnboardingServer";
 export async function POST(req?: Request) {
   const userClient = createRouteHandlerClient({ cookies });
@@ -11,7 +11,8 @@ export async function POST(req?: Request) {
   const admin = createServerSupabaseClient();
   const business = await getOwnedBusinessForUser({ supabase: admin, businessId: body?.businessId || user.id, userId: user.id, userEmail: user.email });
   if (!business) return NextResponse.json({ error: "Business not found" }, { status: 403 });
-  await recordBusinessFunnelEvent(admin, {
+  const entitlement = await getEntitlementOrThrow({ supabase: admin, businessId: business.id });
+  if (!entitlement.stripeSubscriptionId && !entitlement.isGrandfathered) await recordBusinessFunnelEvent(admin, {
     eventType: "plan_free_clicked", businessId: business.id, email: business.business_email,
     meta: { source: "plan_choice", choice_confirmed: true },
   });
