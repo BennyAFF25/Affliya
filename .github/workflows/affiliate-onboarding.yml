@@ -43,7 +43,7 @@ jobs:
       - name: Check existing integration files for new type errors
         run: yarn -s tsx scripts/check-affiliate-types.ts cb511b0301fb071aa3299528c706840b4ed09d2e
       - name: Lint new feature code
-        run: yarn -s eslint --no-config-lookup --config eslint.affiliate-onboarding.config.mjs utils/affiliate lib/affiliate app/api/onboarding/affiliate-offers "app/api/affiliate/offers/[offerId]/generate-promotion" app/onboarding/for-partners app/affiliate/dashboard/promote/components/AIPromotionPackPanel.tsx
+        run: yarn -s eslint --no-config-lookup --config eslint.affiliate-onboarding.config.mjs utils/affiliate lib/affiliate app/api/onboarding/affiliate-offers "app/api/affiliate/offers/[offerId]/generate-promotion" app/onboarding/for-partners app/affiliate/dashboard/promote/components/AIPromotionPackPanel.tsx app/affiliate/dashboard/promote/components/PromotionBackLink.tsx
       - name: Install temporary browser tooling
         run: |
           npm install --prefix "$RUNNER_TEMP/nettmark-onboarding-browser" --no-package-lock --ignore-scripts playwright@1.58.2
@@ -52,6 +52,10 @@ jobs:
         env:
           NEXT_TELEMETRY_DISABLED: "1"
         run: NODE_PATH="$RUNNER_TEMP/nettmark-onboarding-browser/node_modules" node scripts/affiliate-onboarding.browser.cjs
+      - name: Check actual Promote editor return navigation
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+        run: NODE_PATH="$RUNNER_TEMP/nettmark-onboarding-browser/node_modules" node scripts/affiliate-promote-back.browser.cjs
       - name: Check policy reading and acceptance continuity
         env:
           NEXT_TELEMETRY_DISABLED: "1"
@@ -64,6 +68,8 @@ jobs:
             affiliate-typecheck-report.json
             affiliate-next-step-mobile.png
             affiliate-next-step-server.log
+            affiliate-promote-back-mobile.png
+            affiliate-promote-back-server.log
             legal-policy-mobile.png
             legal-navigation-server.log
           if-no-files-found: ignore

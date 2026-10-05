@@ -41,6 +41,7 @@ import { OrganicSubmissionForm } from "../components/OrganicSubmissionForm";
 import { PreviewSidebar } from "../components/PreviewSidebar";
 import { BrandCreativePicker } from "../components/BrandCreativePicker";
 import { AIPromotionPackPanel } from "../components/AIPromotionPackPanel";
+import { PromotionBackLink } from "../components/PromotionBackLink";
 import { canUsePreapprovedOrganic } from "@/../utils/affiliate/onboarding";
 
 // --- Lightweight row types for Supabase queries
@@ -1467,6 +1468,9 @@ export default function PromoteOfferPage() {
 
   return (
     <div className="promote-theme min-h-screen bg-[var(--background)] px-6 py-10 pb-8 text-[var(--foreground)]">
+      <nav aria-label="Promotion navigation" className="mx-auto mb-6 max-w-6xl">
+        <PromotionBackLink fromOnboarding={searchParams.get("source") === "onboarding"} mode={mode} />
+      </nav>
       <div
         className={
           mode === "ad"
