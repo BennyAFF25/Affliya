@@ -1,6 +1,6 @@
 # Onboarding commission amounts
 
-Status: in progress.
+Status: completed.
 
 ## Problem and product intent
 The founder requested dollar commission amounts alongside percentages in affiliate onboarding. The current local commissionLabel in app/onboarding/for-partners/page.tsx hides commission_value whenever commission exists. Clear, truthful economics support early activation (docs/VISION.md and docs/PRODUCT_PRINCIPLES.md) while preserving existing business terms and money flow.
@@ -15,4 +15,4 @@ Both offer cards and selected-brand panels show currency-labelled amounts and re
 Add optional DTO fields and a shared display helper; reuse existing card typography and surfaces. Cover stored-value rounding/staleness, currency/missing-data fallbacks, and recurring term/payout semantics. Extend existing browser coverage at 320px, 390px, and desktop to verify both views and retained navigation. No new dependency, migration, approval, attribution, pricing, or configuration change. docs/PRODUCT.md describes older first-party onboarding; current marketplace flow is authoritative for this change.
 
 ## Validation and risks
-Run existing GitHub Actions regression tests, scoped strict typecheck, integration type diagnostic comparison, lint, and browser checks; inspect Vercel build and production status. Repository cannot be executed locally in this tool environment. Unknown production offer completeness falls back safely; estimates are not guaranteed earnings. Record results before completion. No founder decision needed for this explicitly requested display-only improvement.
+Run existing GitHub Actions regression tests, scoped strict typecheck, integration type diagnostic comparison, lint, and browser checks; inspect Vercel build and production status. Repository cannot be executed locally in this tool environment. Unknown production offer completeness falls back safely; estimates are not guaranteed earnings. All regression checks passed on application commit dd70013cab4d3f8e5a68462481eb92531c0fedbf: https://github.com/BennyAFF25/Affliya/actions/runs/37248185700. This includes unit/API failure and authorization coverage, scoped strict typecheck, unchanged integration diagnostics, feature lint, actual Promote return navigation, commission display in both onboarding views at 320x568/390x650/1280x800, and policy-reading continuity. Vercel preview build passed. Production status will be verified after the authorized main merge. No live payout or production database mutation was tested or performed. No founder decision needed for this explicitly requested display-only improvement.
