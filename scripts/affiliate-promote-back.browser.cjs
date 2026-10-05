@@ -83,6 +83,7 @@ async function main() {
       await page.getByRole("heading", { name: "Who would you like to promote?", exact: true }).waitFor();
       await page.getByRole("button", { name: /Another brand/ }).click();
       await page.getByRole("region", { name: "Selected brand", exact: true }).getByRole("heading", { name: "Another brand", exact: true }).waitFor();
+      await page.waitForURL(url => url.pathname === "/onboarding/for-partners" && url.searchParams.get("offerId") === otherId);
       assert.equal(await page.getByRole("button", { name: mode === "ad" ? /^Paid campaign/ : /^Organic post/ }).getAttribute("aria-pressed"), "true");
       assert.deepEqual(writes, [], "Returning and choosing a different brand must not submit or fund anything");
     }
@@ -92,7 +93,10 @@ async function main() {
     await page.getByRole("button", { name: "Submit Organic", exact: true }).click();
     assert.equal(await back.getAttribute("href"), "/onboarding/for-partners", "Return uses the currently selected promotion mode");
 
-    await page.goto(origin + "/affiliate/dashboard/promote/" + offerId + "?mode=organic");
+    // Exercise the regular-entry URL in the established fixture session.
+    // Next.js native history integration updates useSearchParams without restarting auth hydration.
+    await page.evaluate(path => window.history.replaceState(null, "", path), "/affiliate/dashboard/promote/" + offerId + "?mode=organic");
+    await page.waitForFunction(() => document.querySelector('nav[aria-label="Promotion navigation"] a')?.getAttribute("href") === "/affiliate/marketplace");
     await back.waitFor(); await visibleInViewport(back, page);
     assert.equal(await back.getAttribute("href"), "/affiliate/marketplace", "Regular entries return to marketplace");
     await back.click(); await page.waitForURL(url => url.pathname === "/affiliate/marketplace");
