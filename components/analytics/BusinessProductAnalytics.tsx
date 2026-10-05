@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
+import { useSessionContext } from "@supabase/auth-helpers-react";
 import { logProductEvent } from "@/../utils/productEvents";
 
 function compactLabel(element: HTMLElement) {
@@ -44,29 +45,19 @@ export default function BusinessProductAnalytics() {
   const pathname = usePathname();
   const lastViewedPath = useRef<string | null>(null);
 
+  const { session, isLoading } = useSessionContext();
   useEffect(() => {
-    if (!pathname || lastViewedPath.current === pathname) return;
-    lastViewedPath.current = pathname;
-
-    if (pathname === "/business/choose-plan") {
-      void logProductEvent({
-        eventType: "plan_choice_viewed",
-        actorRole: "business",
-        meta: { source: "business_onboarding", pathname },
-      });
-    }
-
-    if (pathname === "/business/my-business") {
-      void logProductEvent({
-        eventType: "business_dashboard_viewed",
-        actorRole: "business",
-        meta: { source: "business_dashboard", pathname },
-      });
-    }
-  }, [pathname]);
+    if (isLoading || !session?.user?.email || pathname !== "/business/my-business") return;
+    const key = session.user.id + ":" + pathname;
+    if (lastViewedPath.current === key) return;
+    let cancelled = false;
+    void logProductEvent({ eventType: "business_dashboard_viewed", actorRole: "business", meta: { source: "business_dashboard", pathname } })
+      .then(ok => { if (ok && !cancelled) lastViewedPath.current = key; });
+    return () => { cancelled = true; };
+  }, [pathname, isLoading, session?.user?.id, session?.user?.email]);
 
   useEffect(() => {
-    if (pathname !== "/business/choose-plan" && pathname !== "/business/my-business") return;
+    if (isLoading || !session?.user?.email || pathname !== "/business/my-business") return;
 
     const onClick = (event: MouseEvent) => {
       const target = event.target;
@@ -78,27 +69,6 @@ export default function BusinessProductAnalytics() {
       const label = compactLabel(clickable);
       const destination = clickable instanceof HTMLAnchorElement ? clickable.getAttribute("href") : null;
       if (!label && !destination) return;
-
-      if (pathname === "/business/choose-plan") {
-        const lower = label.toLowerCase();
-        if (lower.includes("continue free")) {
-          void logProductEvent({
-            eventType: "plan_free_clicked",
-            actorRole: "business",
-            meta: { source: "plan_choice", label, pathname },
-          });
-          return;
-        }
-
-        if (lower.includes("start 14-day free trial") || lower.includes("continue subscription")) {
-          void logProductEvent({
-            eventType: "plan_growth_clicked",
-            actorRole: "business",
-            meta: { source: "plan_choice", label, pathname },
-          });
-        }
-        return;
-      }
 
       const action = normaliseAction(label, destination);
       const meta = {
@@ -119,7 +89,7 @@ export default function BusinessProductAnalytics() {
 
     document.addEventListener("click", onClick, true);
     return () => document.removeEventListener("click", onClick, true);
-  }, [pathname]);
+  }, [pathname, isLoading, session?.user?.email]);
 
   return null;
 }

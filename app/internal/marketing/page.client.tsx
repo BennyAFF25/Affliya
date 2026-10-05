@@ -42,6 +42,10 @@ function Status({ yes, label }: { yes: boolean; label: string }) {
 }
 
 export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail: string }) {
+  const [signupFrom, setSignupFrom] = useState("");
+  const [signupTo, setSignupTo] = useState("");
+  const [observedThrough, setObservedThrough] = useState("");
+  const [cohortQuery, setCohortQuery] = useState("");
   const [period, setPeriod] = useState<Period>("7d");
   const [audience, setAudience] = useState<Audience>("all");
   const [data, setData] = useState<DashboardData | null>(null);
@@ -54,13 +58,26 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
   const [businessFilter, setBusinessFilter] = useState("all");
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const cohort = new URLSearchParams();
+    for (const key of ["signupFrom", "signupTo", "observedThrough"]) {
+      const value = params.get(key);
+      if (value) cohort.set(key, value);
+    }
+    setSignupFrom(cohort.get("signupFrom") || "");
+    setSignupTo(cohort.get("signupTo") || "");
+    setObservedThrough(cohort.get("observedThrough") || "");
+    if (cohort.size) setCohortQuery("&" + cohort.toString());
+  }, []);
+
+  useEffect(() => {
     const controller = new AbortController();
     setLoading(true);
     setError(null);
     setData(null);
     async function load() {
       try {
-        const response = await fetch("/api/marketing-events?period=" + period, { cache: "no-store", signal: controller.signal });
+        const response = await fetch("/api/marketing-events?period=" + period + cohortQuery, { cache: "no-store", signal: controller.signal });
         const result = await response.json();
         if (!response.ok || !result?.ok) throw new Error(result?.error || "Unable to load analytics (" + response.status + ")");
         if (!controller.signal.aborted) setData(result);
@@ -72,7 +89,7 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
     }
     void load();
     return () => controller.abort();
-  }, [period, refresh]);
+  }, [period, refresh, cohortQuery]);
 
   useEffect(() => {
     if (!data) return;
@@ -185,7 +202,34 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
             </section>
 
             <section id="activation" className={s.section}>
-              <div className={s.sectionHead}><div><span className={s.eyebrow}>02 / ACTIVATION</span><h2>What happens after signup.</h2><p>Businesses signed up in this period · recorded milestones, rather than a strict sequential funnel.</p></div></div>
+              <div className={s.sectionHead}><div><span className={s.eyebrow}>02 / ACTIVATION</span><h2>What happens after signup.</h2><p>Selected business signup cohort · outcomes followed through the observation date.</p></div></div>
+              <Panel title="Business onboarding experiment" subtitle="Trial-first vs plan choice · fixed signup cohort, followed through the observation date">
+                <form className={s.planGrid} onSubmit={event => {
+                  event.preventDefault();
+                  const params = new URLSearchParams();
+                  if (signupFrom) params.set("signupFrom", signupFrom);
+                  if (signupTo) params.set("signupTo", signupTo);
+                  if (observedThrough) params.set("observedThrough", observedThrough);
+                  setCohortQuery(params.size ? "&" + params.toString() : "");
+                  window.history.replaceState(null, "", window.location.pathname + (params.size ? "?" + params.toString() : ""));
+                  setRefresh(n => n + 1);
+                }}>
+                  <label>Signup from (UTC)<input type="date" value={signupFrom} onChange={e => setSignupFrom(e.target.value)} className="mt-2 min-h-11 w-full rounded-xl border border-white/10 bg-transparent px-3" /></label>
+                  <label>Signup to (exclusive)<input type="date" value={signupTo} onChange={e => setSignupTo(e.target.value)} className="mt-2 min-h-11 w-full rounded-xl border border-white/10 bg-transparent px-3" /></label>
+                  <label>Observe through (UTC)<input type="date" max={new Date().toISOString().slice(0, 10)} value={observedThrough} onChange={e => setObservedThrough(e.target.value)} className="mt-2 min-h-11 w-full rounded-xl border border-white/10 bg-transparent px-3" /></label>
+                  <button type="submit" className="min-h-11 self-end rounded-full border border-white/10 px-4">Apply cohort dates</button>
+                </form>
+                {data.businessFunnel && <>
+                  <p className={s.helper}>Signups: {data.businessFunnel.signupWindow.from ? fullDate(data.businessFunnel.signupWindow.from) : "all time"} → {fullDate(data.businessFunnel.signupWindow.toExclusive)} (exclusive). Outcomes through {fullDate(data.businessFunnel.observedThrough)}. Leave observation blank to keep following a fixed signup window. Allocation starts {fullDate(data.businessFunnel.rolloutAt)}.</p>
+                  <div className={s.tableScroll}><table className={s.table}><caption className={s.srOnly}>Business onboarding experiment comparison</caption>
+                    <thead><tr><th>Milestone / source</th>{data.businessFunnel.groups.map(group => <th key={group.version}>{group.version === "pre_experiment" ? "Historical" : group.version === "plan_choice_v1" ? "Control" : "Trial-first"}</th>)}</tr></thead>
+                    <tbody>{data.businessFunnel.metrics.map(metric => <tr key={metric.key}><td>{metric.label}<br /><small className={s.muted}>{metric.source}</small></td>{data.businessFunnel!.groups.map(group => <td key={group.version}>{number(group.counts[metric.key])} <small className={s.muted}>({group.counts.signups ? group.rates[metric.key] + "%" : "—"})</small></td>)}</tr>)}
+                      <tr><td>Trials past full trial duration</td>{data.businessFunnel.groups.map(group => <td key={group.version}>{group.matureTrials}</td>)}</tr>
+                    </tbody>
+                  </table></div>
+                  {data.businessFunnel.notes.map(note => <p key={note} className={s.helper}>{note}</p>)}
+                </>}
+              </Panel>
               <div className={s.twoColumns}>
                 <Panel title="Business milestones" subtitle="Each percentage is a share of this signup cohort.">
                   {signupCount > 0 ? <div className={s.milestones}>{activation?.steps.map((step, index) => <div key={step.key} className={s.milestone}><div className={s.milestoneLabel}><span className={s.step}>{String(index + 1).padStart(2, "0")}</span><span>{step.label}</span><strong>{number(step.count)}</strong><span className={s.muted}>{percent(step.count, signupCount)}</span></div><div className={s.track}><span style={{ width: Math.min(100, step.count / signupCount * 100) + "%" }} /></div></div>)}</div> : <Empty>No new businesses in this period.</Empty>}
@@ -198,11 +242,15 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
               <div className={s.twoColumns}>
                 <Panel title="Plans & trials" subtitle="Plan activity for the business signup cohort.">
                   <div className={s.planGrid}>{[
-                    ["Plan screen reached", plan?.reached ?? 0], ["Free selected", plan?.freeClicked ?? 0],
-                    ["Growth selected", plan?.growthClicked ?? 0], ["Checkout started", plan?.growthCheckoutStarted ?? 0],
+                    ["Plan screen reached", plan?.reached ?? 0], ["Free click / confirmed choice", plan?.freeClicked ?? 0],
+                    ["Growth clicked", plan?.growthClicked ?? 0], ["Checkout started", plan?.growthCheckoutStarted ?? 0],
                     ["Trial started", plan?.growthTrialStarted ?? 0], ["Paid active now", plan?.growthPaidActive ?? 0],
                   ].map(([label, value]) => <div key={String(label)}><span>{label}</span><strong>{number(Number(value))}</strong></div>)}</div>
-                  <div className={s.trialBox}><div><span className={s.eyebrow}>TRIAL REVENUE POTENTIAL</span><strong>{money(trials?.withoutCancellationMonthlyAud ?? 0)}<small> / month</small></strong></div><p>{number(trials?.withoutCancellation ?? 0)} currently trialing without cancellation marked, at {money(trials?.monthlyPriceAud ?? 49)} / month.</p><p className={s.helper}>Scenario if those trials convert, using trials started in the selected period. Potential revenue, not collected revenue or current MRR.</p><details className={s.details}><summary>Trial breakdown</summary><div className={s.activityRow}><span>Trials started</span><strong>{number(trials?.trialStarts ?? 0)}</strong></div><div className={s.activityRow}><span>Currently trialing</span><strong>{number(trials?.trialing ?? 0)}</strong></div><div className={s.activityRow}><span>Cancellation marked</span><strong>{number(trials?.cancellationMarked ?? 0)}</strong></div><div className={s.activityRow}><span>If all current trials convert / month</span><strong>{money(trials?.fullConversionMonthlyAud ?? 0)}</strong></div></details></div>
+                  <div className={s.trialBox}><div><span className={s.eyebrow}>CURRENT TRIALS</span><strong>{number(trials?.trialing ?? 0)}</strong></div>
+                    <p>{trials?.price ? `Configured Growth price: ${trials.price.formatted} / ${trials.price.intervalCount === 1 ? trials.price.interval : trials.price.intervalCount + " " + trials.price.interval + "s"}.` : "Configured Growth price could not be verified."}</p>
+                    <p className={s.helper}>Current entitlement snapshot for trials started in the selected activity period. Active status is not evidence of payment. Use signed invoice conversion and cancellation facts in the experiment table.</p>
+                    <details className={s.details}><summary>Trial breakdown</summary><div className={s.activityRow}><span>Trials started in activity period</span><strong>{number(trials?.trialStarts ?? 0)}</strong></div><div className={s.activityRow}><span>Currently trialing</span><strong>{number(trials?.trialing ?? 0)}</strong></div></details>
+                  </div>
                 </Panel>
                 <Panel title="Dashboard actions" subtitle={number(data.dashboardBehavior?.totalClickers ?? 0) + " businesses · " + number(data.dashboardBehavior?.totalClicks ?? 0) + " recorded clicks in this signup cohort"}>
                   {data.dashboardBehavior?.actions.length ? <div className={s.tableScroll}><table className={s.table}><caption className={s.srOnly}>Business dashboard actions</caption><thead><tr><th>Action</th><th>Businesses</th><th>Clicks</th></tr></thead><tbody>{data.dashboardBehavior.actions.map((action) => <tr key={action.action}><td title={action.destination || undefined}>{action.label}</td><td>{number(action.uniqueBusinesses)}</td><td>{number(action.count)}</td></tr>)}</tbody></table></div> : <Empty>No dashboard actions recorded for this cohort.</Empty>}

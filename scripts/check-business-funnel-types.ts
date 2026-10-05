@@ -8,13 +8,22 @@ const cwd = process.cwd();
 const base = process.argv[2];
 if (!base || !/^[a-f0-9]{40}$/i.test(base)) throw new Error("Pass an immutable base commit SHA");
 const files = [
-  "app/affiliate/layout.tsx",
-  "app/create-account/page.tsx", "app/auth-redirect/page.tsx", "app/login/affiliate/page.tsx",
-  "app/api/profile/onboarding-complete/route.ts", "app/api/affiliate/offers/[offerId]/start/route.ts",
-  "app/affiliate/dashboard/page.tsx", "app/affiliate/dashboard/promote/[offerId]/page.tsx",
-  "app/affiliate/dashboard/promote/components/OrganicSubmissionForm.tsx",
+  "app/business/choose-plan/page.tsx",
+  "app/onboarding/for-business/page.tsx",
+  "app/create-account/page.tsx",
+  "app/api/profile/onboarding-complete/route.ts",
+  "app/api/product-events/route.ts",
+  "components/analytics/BusinessProductAnalytics.tsx",
+  "app/api/business-subscription/create-checkout-session/route.ts",
+  "app/api/business-subscription/get-session/route.ts",
+  "app/api/business-subscription/choose-free/route.ts",
+  "app/api/business-subscription/webhook/route.ts",
+  "app/api/business-subscription/trial-eligibility/route.ts",
+  "app/api/marketing-events/route.ts",
+  "app/internal/marketing/page.client.tsx",
+  "utils/businessSubscriptions.ts"
 ];
-const temporary = path.join(tmpdir(), "nettmark-affiliate-types-" + process.pid);
+const temporary = path.join(tmpdir(), "nettmark-business-funnel-types-" + process.pid);
 mkdirSync(temporary);
 execFileSync("git", ["archive", base, "--output", path.join(temporary, "base.tar")], { cwd });
 execFileSync("tar", ["-xf", path.join(temporary, "base.tar"), "-C", temporary]);
@@ -46,7 +55,7 @@ const added = after.filter(diagnostic => {
   if (count > 0) { remaining.set(diagnostic.key, count - 1); return false; }
   return true;
 });
-writeFileSync("affiliate-typecheck-report.json", JSON.stringify({ base, baselineErrors: before.length, currentErrors: after.length, newErrors: added }, null, 2));
+writeFileSync("business-funnel-typecheck-report.json", JSON.stringify({ base, baselineErrors: before.length, currentErrors: after.length, newErrors: added }, null, 2));
 console.log("Existing integration files: baseline " + before.length + " diagnostics; current " + after.length + "; new " + added.length + ".");
 for (const error of added) console.error(error.file + ":" + error.line + " TS" + error.code + " " + error.message);
 if (added.length) process.exitCode = 1;

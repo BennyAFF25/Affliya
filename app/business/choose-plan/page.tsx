@@ -1,123 +1,107 @@
 "use client";
-
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSessionContext } from "@supabase/auth-helpers-react";
-import {
-  Check,
-  CreditCard,
-  Megaphone,
-  ShieldCheck,
-  Sparkles,
-  Zap,
-} from "lucide-react";
+import { Check, CreditCard, Megaphone, ShieldCheck, Sparkles, Zap } from "lucide-react";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabase } from "utils/supabase/pages-client";
+import { logProductEvent } from "../../../utils/productEvents";
+import BusinessTrialFirstContinuation, { growthPricePeriod, type BusinessContinuationContext } from "../../../components/business/BusinessTrialFirstContinuation";
 
 export default function ChooseBusinessPlanPage() {
   const router = useRouter();
   const { session, isLoading } = useSessionContext();
   const [businessId, setBusinessId] = useState<string | null>(null);
+  const [context, setContext] = useState<BusinessContinuationContext | null>(null);
   const [busy, setBusy] = useState<"free" | "growth" | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [resumeSubscription, setResumeSubscription] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    setResumeSubscription(new URLSearchParams(window.location.search).get("resume") === "1");
-  }, []);
+  const [reload, setReload] = useState(0);
+  const [returnPending, setReturnPending] = useState(false);
+  const viewed = useRef<string | null>(null);
+  const resumeSubscription = context?.trialEligible === false;
 
   useEffect(() => {
     if (isLoading) return;
-    if (!session?.user?.email) {
-      router.replace("/login?role=business&next=/business/choose-plan");
-      return;
-    }
-
+    if (!session?.user?.email) { router.replace("/login?role=business&next=/business/choose-plan"); return; }
+    let cancelled = false;
+    setContext(null);
+    setError(null);
     void (async () => {
-      const { data, error: profileError } = await supabase
-        .from("business_profiles")
-        .select("id")
-        .eq("business_email", session.user.email)
-        .limit(1)
-        .maybeSingle();
-
-      if (profileError || !data?.id) {
-        setError("We couldn't find your business profile. Please refresh and try again.");
-        return;
-      }
-
-      setBusinessId(data.id);
-
       try {
-        const eligibilityRes = await fetch(
-          `/api/business-subscription/trial-eligibility?businessId=${encodeURIComponent(data.id)}`,
-          { cache: "no-store" },
-        );
-        const eligibility = await eligibilityRes.json().catch(() => null);
-        if (eligibilityRes.ok && eligibility?.trialEligible === false) {
-          setResumeSubscription(true);
+        const { data, error: profileError } = await (supabase as unknown as SupabaseClient).from("business_profiles").select("id")
+          .eq("business_email", session.user.email).limit(1).maybeSingle();
+        if (profileError || !data?.id) throw new Error("We couldn't find your business profile. Please retry.");
+        const response = await fetch(`/api/business-subscription/trial-eligibility?businessId=${encodeURIComponent(data.id)}`, { cache: "no-store" });
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "Could not load Growth details.");
+        if (cancelled) return;
+        setBusinessId(data.id);
+        setContext(result);
+        if (viewed.current !== data.id) {
+          const logged = await logProductEvent({ eventType: "plan_choice_viewed", actorRole: "business", offerId: result.offerId,
+            meta: { source: "business_onboarding", screen: result.treatment ? "trial_first" : "plan_choice", pathname: "/business/choose-plan" } });
+          if (logged && !cancelled) viewed.current = data.id;
         }
-      } catch (eligibilityError) {
-        console.warn("[choose-plan] failed to load Growth trial eligibility", eligibilityError);
-      }
+      } catch (err) { if (!cancelled) setError(err instanceof Error ? err.message : "Could not load your business."); }
     })();
-  }, [isLoading, router, session?.user?.email]);
+    return () => { cancelled = true; };
+  }, [isLoading, session?.user?.email, router, reload]);
 
   useEffect(() => {
-    const subscription = new URLSearchParams(window.location.search).get("subscription");
-    if (subscription !== "checkout_returned") return;
-
-    void fetch("/api/business-subscription/choose-free", { method: "POST" }).finally(() => {
-      router.replace("/business/my-business?trial=started");
-    });
-  }, [router]);
+    if (!businessId || !context) return;
+    const query = new URLSearchParams(window.location.search);
+    if (query.get("subscription") !== "checkout_returned") return;
+    const sessionId = query.get("session_id");
+    if (!sessionId) { setError("Missing checkout confirmation. No trial has been confirmed."); return; }
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    setReturnPending(true);
+    let attempts = 0;
+    const verify = async () => {
+      try {
+        const response = await fetch(`/api/business-subscription/get-session?session_id=${encodeURIComponent(sessionId)}`, { cache: "no-store" });
+        const result = await response.json();
+        if (!response.ok || result.status !== "complete") throw new Error(result.error || "Checkout is not complete. You can retry or continue with Free.");
+        if (cancelled) return;
+        if (result.billingStatus === "subscription_trialing" || result.billingStatus === "subscription_active") {
+          router.replace(`/business/my-business?subscription=${result.billingStatus === "subscription_trialing" ? "trial_confirmed" : "active"}`);
+          return;
+        }
+        if (++attempts < 8) { timer = setTimeout(() => void verify(), 1500); return; }
+        router.replace("/business/my-business?subscription=processing");
+      } catch (err) {
+        if (!cancelled) { setReturnPending(false); setError(err instanceof Error ? err.message : "Could not verify checkout. Please retry."); }
+      }
+    };
+    void verify();
+    return () => { cancelled = true; if (timer) clearTimeout(timer); };
+  }, [businessId, context, router]);
 
   const chooseFree = async () => {
-    setBusy("free");
-    setError(null);
-
+    if (busy || returnPending) return;
+    setBusy("free"); setError(null);
     try {
-      const res = await fetch("/api/business-subscription/choose-free", { method: "POST" });
-      if (!res.ok) throw new Error("Could not select the free plan.");
+      const response = await fetch("/api/business-subscription/choose-free", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessId }) });
+      if (!response.ok) throw new Error("Could not select Free. Please retry.");
       router.replace("/business/my-business");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not select the free plan.");
-      setBusy(null);
-    }
+    } catch (err) { setError(err instanceof Error ? err.message : "Could not select Free."); setBusy(null); }
   };
-
   const chooseGrowth = async () => {
-    if (!businessId) return;
-    setBusy("growth");
-    setError(null);
-
+    if (!businessId || busy || returnPending || !context?.price || context.trialEligible === null) return;
+    setBusy("growth"); setError(null);
+    void logProductEvent({ eventType: "plan_growth_clicked", actorRole: "business", offerId: context.offerId, meta: { source: "plan_choice", intended_action: resumeSubscription ? "paid_subscription" : "free_trial" } });
     try {
-      const res = await fetch("/api/business-subscription/create-checkout-session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          businessId,
-          returnTo: "/business/choose-plan",
-          intendedAction: resumeSubscription ? "continue_growth_subscription" : "start_growth_trial",
-        }),
-      });
-
-      const json = await res.json();
-      if (json?.status === "already_subscribed") {
-        router.replace("/business/my-business");
-        return;
-      }
-      if (!res.ok || !json?.url) {
-        throw new Error(json?.error || json?.message || "Could not start checkout.");
-      }
-
-      window.location.assign(json.url);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not start checkout.");
-      setBusy(null);
-    }
+      const response = await fetch("/api/business-subscription/create-checkout-session", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId, returnTo: "/business/choose-plan", requireTrial: !resumeSubscription, intendedAction: resumeSubscription ? "continue_growth_subscription" : "start_growth_trial" }) });
+      const result = await response.json();
+      if (result.status === "already_subscribed" || result.status === "grandfathered") { router.replace("/business/my-business"); return; }
+      if (!response.ok || !result.url) throw new Error(result.error || result.message || "Could not start checkout.");
+      window.location.assign(result.url);
+    } catch (err) { setError(err instanceof Error ? err.message : "Could not start checkout."); setBusy(null); }
   };
-
+  if (returnPending) return <main className="min-h-screen p-6"><p role="status">Confirming your checkout… Your offer is saved.</p></main>;
+  if (!context) return <main className="min-h-screen p-6"><p role={error ? "alert" : "status"}>{error || "Loading your next step…"}</p>{error && <button className="mt-4 min-h-11 rounded-full border px-5" onClick={() => setReload(n => n + 1)}>Retry</button>}</main>;
+  if (context.treatment && context.trialEligible !== false) return <BusinessTrialFirstContinuation context={context} busy={busy} error={error} onGrowth={() => void chooseGrowth()} onFree={() => void chooseFree()} onRetry={() => setReload(n => n + 1)} />;
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#121212] px-4 py-10 text-[#f5f7f8] sm:px-6 lg:px-8">
       <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
@@ -130,7 +114,7 @@ export default function ChooseBusinessPlanPage() {
         <div className="plan-enter plan-enter-1 text-center">
           <div className="inline-flex items-center gap-2 rounded-full border border-[#16c8d5]/35 bg-[#16c8d5]/[0.06] px-4 py-2 text-[11px] font-bold uppercase tracking-[0.2em] text-[#20d4df] shadow-[0_0_28px_rgba(22,200,213,0.08)]">
             <span className="h-1.5 w-1.5 rounded-full bg-[#20d4df] shadow-[0_0_10px_rgba(32,212,223,0.9)]" />
-            {resumeSubscription ? "Your Growth trial ended" : "Your offer is live"}
+            {resumeSubscription ? "Continue with Growth" : context.offerId ? "Your offer is live" : "Your business is ready"}
           </div>
 
           <h1 className="mt-5 text-3xl font-semibold tracking-[-0.035em] text-white sm:text-[42px] sm:leading-[1.08]">
@@ -188,7 +172,7 @@ export default function ChooseBusinessPlanPage() {
           <section className="plan-card plan-growth-card plan-enter plan-enter-3 relative flex min-h-[500px] flex-col overflow-hidden rounded-[24px] border border-[#16c8d5]/70 bg-[#191b1c]/95 p-6 shadow-[0_22px_75px_rgba(0,0,0,0.28),0_0_45px_rgba(22,200,213,0.08)] sm:p-7">
             <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-[#16c8d5]/[0.08] blur-3xl" />
             <div className="absolute right-6 top-6 rounded-full border border-[#16c8d5]/55 bg-[#0f292b]/80 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-[#22d6e1]">
-              Most popular
+              Growth
             </div>
 
             <div className="relative flex items-center gap-3">
@@ -196,16 +180,16 @@ export default function ChooseBusinessPlanPage() {
                 <Sparkles className="h-5 w-5" />
               </div>
               <span className="text-xs font-semibold text-[#28d8e2]">
-                {resumeSubscription ? "Continue Growth" : "14 days free"}
+                {resumeSubscription ? "Continue Growth" : `${context?.trialDays || ""} days free`}
               </span>
             </div>
 
             <div className="relative mt-7">
               <h2 className="text-[23px] font-semibold tracking-tight text-white">Organic + Paid</h2>
               <div className="mt-1 flex items-end gap-2">
-                <span className="text-[38px] font-semibold leading-none tracking-[-0.04em] text-white">$49</span>
+                <span className="text-[38px] font-semibold leading-none tracking-[-0.04em] text-white">{context?.price?.formatted || "Pricing unavailable"}</span>
                 <span className="pb-1 text-sm text-[#7f8790]">
-                  {resumeSubscription ? "/ month" : "/ month after trial"}
+                  {resumeSubscription ? `/ ${context?.price ? growthPricePeriod(context.price) : "billing period"}` : `/ ${context?.price ? growthPricePeriod(context.price) : "billing period"} after trial`}
                 </span>
               </div>
               <p className="mt-5 max-w-sm text-sm leading-6 text-[#a0a7af]">
@@ -220,7 +204,7 @@ export default function ChooseBusinessPlanPage() {
                 "Everything in Organic",
                 "Affiliate-funded paid advertising",
                 "You approve campaigns before launch",
-                "More reach without funding the ad spend",
+                "Review paid campaigns before they go live",
               ].map((item) => (
                 <p key={item} className="flex items-center gap-3">
                   <Check className="h-4 w-4 shrink-0 text-[#1fd0dc]" strokeWidth={2.4} />
@@ -231,7 +215,7 @@ export default function ChooseBusinessPlanPage() {
 
             <button
               onClick={chooseGrowth}
-              disabled={!!busy || !businessId}
+              disabled={!!busy || !businessId || !context?.price || context.trialEligible === null || !context.checkoutEnabled}
               className="plan-primary relative mt-auto w-full overflow-hidden rounded-[14px] bg-[#16c8d5] px-5 py-3.5 text-sm font-bold text-[#061113] shadow-[0_10px_32px_rgba(22,200,213,0.18)] transition disabled:cursor-not-allowed disabled:opacity-50"
             >
               <span className="relative z-10">
@@ -239,13 +223,13 @@ export default function ChooseBusinessPlanPage() {
                   ? "Opening secure checkout..."
                   : resumeSubscription
                     ? "Continue subscription"
-                    : "Start 14-day free trial"}
+                    : `Start ${context?.trialDays || ""}-day free trial`}
               </span>
             </button>
             <p className="relative mt-3 text-center text-[11px] text-[#7d858d]">
               {resumeSubscription
-                ? "Continue at $49/month. Cancel anytime."
-                : "Card required. $0 today. Then $49/month unless cancelled."}
+                ? `Continue at ${context?.price?.formatted || "the verified checkout price"}/${context?.price ? growthPricePeriod(context.price) : "billing period"}. Cancel anytime.`
+                : `Card required. ${context?.trialDays || ""} days free. Then ${context?.price?.formatted || "pricing unavailable"}/${context?.price ? growthPricePeriod(context.price) : "billing period"} unless cancelled. ${context?.price?.taxNotice || ""}`}
             </p>
           </section>
         </div>
@@ -283,6 +267,7 @@ export default function ChooseBusinessPlanPage() {
           ))}
         </div>
 
+        {context?.billingError && <p className="mt-5 text-center text-sm text-amber-200" role="status">{context.billingError} <button className="min-h-11 underline" onClick={() => setReload(n => n + 1)}>Retry</button></p>}
         {error && (
           <p className="plan-enter mt-5 text-center text-sm text-red-400" role="alert">
             {error}

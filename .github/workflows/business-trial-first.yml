@@ -1,0 +1,70 @@
+name: Business trial-first checks
+on:
+  pull_request:
+    paths:
+      - "app/business/choose-plan/**"
+      - "app/onboarding/for-business/**"
+      - "app/api/business-subscription/**"
+      - "app/api/profile/onboarding-complete/**"
+      - "app/api/product-events/**"
+      - "app/api/marketing-events/**"
+      - "components/business/BusinessTrialFirstContinuation.tsx"
+      - "components/analytics/BusinessProductAnalytics.tsx"
+      - "utils/businessOnboarding*.ts"
+      - "utils/businessSubscriptions.ts"
+      - "utils/marketing/**"
+      - "scripts/business*"
+      - "scripts/check-business-funnel-types.ts"
+      - "tsconfig.business-funnel.json"
+      - ".github/workflows/business-trial-first.yml"
+permissions:
+  contents: read
+jobs:
+  regression-types-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install dependencies
+        run: |
+          corepack enable
+          corepack prepare yarn@1.22.22 --activate
+          yarn install --frozen-lockfile --ignore-scripts
+      - name: Check cohorts and durable outcomes
+        run: yarn -s tsx scripts/business-onboarding-funnel.test.ts
+      - name: Check billing and business route failures
+        run: yarn -s tsx scripts/business-funnel-routes.test.ts
+      - name: Preserve subscription and campaign safeguards
+        run: |
+          yarn -s test:business-subscriptions
+          yarn -s test:business-entitlements
+          yarn -s test:business-subscription-gate
+          yarn -s test:business-payment-gate-placement
+          yarn -s test:business-billing-profile
+          yarn -s tsx scripts/marketing-dashboard.test.ts
+      - name: Strict typecheck new feature modules
+        run: yarn -s tsc --project tsconfig.business-funnel.json
+      - name: No new errors in touched integration files
+        run: yarn -s tsx scripts/check-business-funnel-types.ts a37832223c8b345ffcc4cc73e6170a1b63f8bad5
+      - name: Lint new feature modules
+        run: yarn -s eslint --no-config-lookup --config eslint.affiliate-onboarding.config.mjs utils/businessOnboardingFunnel.ts utils/businessOnboardingServer.ts utils/marketing/businessFunnel.ts components/business/BusinessTrialFirstContinuation.tsx scripts/business-onboarding-funnel.test.ts
+      - name: Install temporary browser tooling
+        run: npm install --prefix "$RUNNER_TEMP/nettmark-business-browser" --no-package-lock --ignore-scripts playwright@1.58.2
+      - name: Check actual mobile and desktop continuation
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+        run: NODE_PATH="$RUNNER_TEMP/nettmark-business-browser/node_modules" node scripts/business-trial-first.browser.cjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: business-funnel-validation
+          path: |
+            business-funnel-typecheck-report.json
+            business-trial-first-mobile.png
+            business-trial-first-server.log
+          if-no-files-found: ignore

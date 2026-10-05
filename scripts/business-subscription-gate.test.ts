@@ -144,7 +144,7 @@ async function run() {
 
   // Checkout preserves the return route instead of granting entitlement in-browser.
   assert.match(checkoutRoute, /safeReturnPath/);
-  assert.match(checkoutRoute, /success_url: `\$\{baseUrl\}\$\{returnTo\}/);
+  assert.match(checkoutRoute, /success_url: appendReturnQuery/);
   assert.match(checkoutRoute, /entitlement\.isGrandfathered/);
   assert.match(checkoutRoute, /subscription_checkout_started/);
   assert.match(checkoutRoute, /campaignId/);

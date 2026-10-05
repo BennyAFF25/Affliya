@@ -1,4 +1,5 @@
 import Stripe from "stripe";
+import { formatGrowthPrice } from "./businessOnboardingFunnel";
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import {
   BusinessBillingStatus,
@@ -7,6 +8,8 @@ import {
   getBusinessEntitlement,
 } from "./businessEntitlements";
 import { STRIPE_API_VERSION, buildStripeMetadata, createStripeClient } from "./stripe";
+
+export const BUSINESS_GROWTH_TRIAL_DAYS = 14;
 
 export const BUSINESS_SUBSCRIPTION_PRICE_ENV = "STRIPE_NETTMARK_BUSINESS_MONTHLY_PRICE_ID";
 
@@ -390,3 +393,42 @@ export async function getEntitlementOrThrow(params: {
 }
 
 export { STRIPE_API_VERSION };
+
+/** Read-only. Never creates a customer or changes trial history. */
+export async function getGrowthTrialEligibility(params: {
+  stripe: Stripe; supabase: SupabaseClient; business: BusinessProfileForSubscription; entitlement: BusinessEntitlement;
+}) {
+  const { data, error } = await params.supabase.from("business_entitlements")
+    .select("growth_trial_used,growth_trial_started_at").eq("business_id", params.business.id).maybeSingle();
+  if (error) throw new Error("Could not verify Growth trial history.");
+  if (data?.growth_trial_used || data?.growth_trial_started_at || params.entitlement.stripeSubscriptionId || params.entitlement.isGrandfathered) return false;
+  let customerId = params.entitlement.subscriptionStripeCustomerId;
+  if (!customerId) {
+    const email = params.business.billing_email || params.business.business_email;
+    const customers = await params.stripe.customers.search({ query: `email:'${email.replace(/'/g, "\\'")}'`, limit: 100 });
+    // Evaluate all matching customers; checkout itself remains final authority.
+    for (const customer of customers.data) {
+      const history = await params.stripe.subscriptions.list({ customer: customer.id, status: "all", limit: 100 });
+      if (history.has_more || history.data.some(sub => sub.metadata?.nettmark_action === "business_subscription" || sub.metadata?.business_id === params.business.id)) return false;
+    }
+    if (customers.has_more) return false;
+    return true;
+  }
+  const history = await params.stripe.subscriptions.list({ customer: customerId, status: "all", limit: 100 });
+  return !history.has_more && !history.data.some(sub => sub.metadata?.nettmark_action === "business_subscription" || sub.metadata?.business_id === params.business.id);
+}
+
+export async function getGrowthSubscriptionPrice(stripe = createBusinessSubscriptionStripeClient()) {
+  const priceId = getBusinessSubscriptionPriceId();
+  if (!priceId) throw new Error("Growth pricing is temporarily unavailable.");
+  const price = await stripe.prices.retrieve(priceId);
+  if (!price.active || price.type !== "recurring" || price.unit_amount == null || price.billing_scheme !== "per_unit" || price.recurring?.usage_type !== "licensed") {
+    throw new Error("Growth pricing could not be verified.");
+  }
+  return {
+    amount: price.unit_amount, currency: price.currency.toUpperCase(),
+    interval: price.recurring.interval, intervalCount: price.recurring.interval_count,
+    formatted: formatGrowthPrice(price.unit_amount, price.currency),
+    taxNotice: price.tax_behavior === "exclusive" ? "Applicable tax is shown in checkout." : "Your final total is shown in checkout.",
+  };
+}

@@ -7,6 +7,8 @@ import { supabase } from '@/../utils/supabase/pages-client';
 import MarketingPageTracker from '@/components/marketing/MarketingPageTracker';
 import { trackMetaStandardEvent } from '@/../utils/marketing/metaPixel';
 import { trackRedditConversion } from '@/../utils/marketing/redditConversions';
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { logProductEvent } from "@/../utils/productEvents";
 import { affiliateOnboardingPath } from '@/../utils/affiliate/onboarding';
 
 function CreateAccountInner() {
@@ -150,7 +152,7 @@ function CreateAccountInner() {
       }
 
       if (data?.user?.id) {
-        const { error: profileError } = await supabase
+        const { error: profileError } = await (supabase as unknown as SupabaseClient)
           .from('profiles')
           .upsert(
             {
@@ -164,6 +166,10 @@ function CreateAccountInner() {
         if (profileError) {
           console.error('[PROFILE INSERT ERROR]', profileError);
           throw profileError;
+        }
+
+        if (role === 'business' && data.session) {
+          void logProductEvent({ eventType: 'business_signup_completed', actorRole: 'business', meta: { source: 'email_signup' } });
         }
 
         const { data: preRevenueRow, error: preErr } = await supabase

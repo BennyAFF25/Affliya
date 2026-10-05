@@ -13,8 +13,8 @@ const ALLOWED_PAGE_PATHS = new Set([
 ]);
 
 const ALLOWED_EVENT_TYPES = new Set(["page_view", "create_account_start", "business_demo_cta_click"]);
-// Current publicly listed Nettmark Business subscription price (AUD/month).
-const BUSINESS_MONTHLY_PRICE_AUD = 49;
+import { aggregateBusinessFunnel } from "../../../utils/marketing/businessFunnel";
+import { BUSINESS_GROWTH_TRIAL_DAYS, getGrowthSubscriptionPrice } from "../../../utils/businessSubscriptions";
 
 function getRange(period: string) {
   const now = new Date();
@@ -113,6 +113,23 @@ export async function GET(req: Request) {
     const range = getRange(period);
     const fromIso = range.from ? range.from.toISOString() : null;
     const generatedAt = new Date().toISOString();
+    const parseDate = (name: string) => {
+      const value = url.searchParams.get(name);
+      if (!value) return null;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || (!Number.isFinite(Date.parse(value + "T00:00:00.000Z")) || new Date(value + "T00:00:00.000Z").toISOString().slice(0, 10) !== value)) throw new Error("invalid cohort date");
+      return value + "T00:00:00.000Z";
+    };
+    let signupFrom: string | null, signupTo: string, observedThrough: string;
+    try {
+      signupFrom = parseDate("signupFrom") || fromIso;
+      signupTo = parseDate("signupTo") || generatedAt;
+      observedThrough = parseDate("observedThrough") || generatedAt;
+      if ((signupFrom && signupFrom >= signupTo) || observedThrough > generatedAt) throw new Error("invalid range");
+    } catch { return NextResponse.json({ ok: false, error: "Use valid UTC signup dates (end exclusive) and an observation date no later than today." }, { status: 400 }); }
+    const outcomes = (query: any) => signupFrom ? query.gte("created_at", signupFrom).lte("created_at", observedThrough) : query.lte("created_at", observedThrough);
+    const metaConnectionsQuery = (supabaseAdmin as any).from("meta_connections").select("business_email,ad_account_id,page_id,created_at").order("created_at", { ascending: false }).limit(5000);
+    const paidCampaignsQuery = (supabaseAdmin as any).from("live_ads").select("id,business_id,business_email,meta_ad_id,meta_campaign_id,spend,created_at").order("created_at", { ascending: false }).limit(5000);
+    const stripeEventsQuery = (supabaseAdmin as any).from("business_subscription_stripe_events").select("business_id,event_type,processing_status,metadata,received_at").order("received_at", { ascending: false }).limit(5000);
 
     const eventsQuery = (supabaseAdmin as any)
       .from("marketing_site_events")
@@ -167,7 +184,7 @@ export async function GET(req: Request) {
 
     const entitlementsQuery = (supabaseAdmin as any)
       .from("business_entitlements")
-      .select("business_email,billing_status,subscription_started_at,growth_trial_used,growth_trial_started_at,subscription_cancelled_at")
+      .select("business_id,business_email,billing_status,subscription_started_at,growth_trial_used,growth_trial_started_at,subscription_cancelled_at")
       .limit(5000);
 
     const [
@@ -180,16 +197,22 @@ export async function GET(req: Request) {
       liveCampaignsResult,
       productEventsResult,
       entitlementsResult,
+      metaConnectionsResult,
+      paidCampaignsResult,
+      stripeEventsResult,
     ] = await Promise.all([
       fromIso ? eventsQuery.gte("created_at", fromIso).lte("created_at", generatedAt) : eventsQuery.lte("created_at", generatedAt),
       fromIso ? revenueQuery.gte("accrued_at", fromIso).lte("accrued_at", generatedAt) : revenueQuery.lte("accrued_at", generatedAt),
-      fromIso ? profilesQuery.gte("created_at", fromIso).lte("created_at", generatedAt) : profilesQuery.lte("created_at", generatedAt),
+      signupFrom ? profilesQuery.gte("created_at", signupFrom).lt("created_at", signupTo).lte("created_at", observedThrough) : profilesQuery.lt("created_at", signupTo).lte("created_at", observedThrough),
       fromIso ? affiliateProfilesQuery.gte("created_at", fromIso).lte("created_at", generatedAt) : affiliateProfilesQuery.lte("created_at", generatedAt),
-      fromIso ? offersQuery.gte("created_at", fromIso).lte("created_at", generatedAt) : offersQuery.lte("created_at", generatedAt),
-      fromIso ? affiliateRequestsQuery.gte("created_at", fromIso).lte("created_at", generatedAt) : affiliateRequestsQuery.lte("created_at", generatedAt),
+      outcomes(offersQuery),
+      outcomes(affiliateRequestsQuery),
       fromIso ? liveCampaignsQuery.gte("created_at", fromIso).lte("created_at", generatedAt) : liveCampaignsQuery.lte("created_at", generatedAt),
-      fromIso ? productEventsQuery.gte("created_at", fromIso).lte("created_at", generatedAt) : productEventsQuery.lte("created_at", generatedAt),
+      outcomes(productEventsQuery),
       entitlementsQuery,
+      outcomes(metaConnectionsQuery),
+      outcomes(paidCampaignsQuery),
+      signupFrom ? stripeEventsQuery.gte("received_at", signupFrom).lte("received_at", observedThrough) : stripeEventsQuery.lte("received_at", observedThrough),
     ]);
 
     const queryResults = [
@@ -197,7 +220,7 @@ export async function GET(req: Request) {
       ["Business profiles", profilesResult], ["Affiliate profiles", affiliateProfilesResult],
       ["Offers", offersResult], ["Affiliate requests", affiliateRequestsResult],
       ["Campaigns", liveCampaignsResult], ["Product events", productEventsResult],
-      ["Subscriptions", entitlementsResult],
+      ["Subscriptions", entitlementsResult], ["Meta connections", metaConnectionsResult], ["Paid campaigns", paidCampaignsResult], ["Signed subscription events", stripeEventsResult],
     ] as const;
     const failed = queryResults.filter(([, result]) => result.error);
     if (failed.length) {
@@ -238,6 +261,14 @@ export async function GET(req: Request) {
       role: string | null;
       created_at: string;
     }>).filter((row) => normalizeEmail(row.email));
+
+    const businessFunnel = aggregateBusinessFunnel({
+      businesses: businessProfiles, offers: offersResult.data || [], events: productEventsResult.data || [],
+      requests: affiliateRequestsResult.data || [], metaConnections: metaConnectionsResult.data || [],
+      paidCampaigns: paidCampaignsResult.data || [], entitlements: entitlementsResult.data || [], stripeEvents: stripeEventsResult.data || [],
+      signupFrom, signupTo, observedThrough, trialDays: BUSINESS_GROWTH_TRIAL_DAYS,
+    });
+    const currentPrice = await getGrowthSubscriptionPrice().catch(() => null);
 
     const cohortEmails = new Set(businessProfiles.map((row) => normalizeEmail(row.email)));
     const { totals, byPage, bySource, byPlacement, byAudience, audienceBreakdowns, timeline } = aggregateMarketingReport({
@@ -326,22 +357,20 @@ export async function GET(req: Request) {
         .map((row) => normalizeEmail(row.business_email))
         .filter(Boolean),
     );
-    for (const email of growthActivatedByEvent) growthActiveByEntitlement.add(email);
+    // Current active/trialing status is distinct from historical activation.
 
     const offerPublishedEmails = new Set(
       offerRows.map((row) => normalizeEmail(row.business_email)).filter(Boolean),
     );
-    for (const email of publishedByEvent) offerPublishedEmails.add(email);
+    // Persisted offers, not client events, prove publication.
 
     const affiliateRequestEmails = new Set(
       requestRows.map((row) => normalizeEmail(row.business_email)).filter(Boolean),
     );
 
-    const metaEnabledEmails = new Set(
-      offerRows
-        .filter((row) => Boolean(row.meta_page_id && row.meta_ad_account_id))
-        .map((row) => normalizeEmail(row.business_email))
-        .filter(Boolean),
+    const metaEnabledEmails = new Set<string>(
+      (metaConnectionsResult.data || []).filter((row: any) => row.ad_account_id && row.page_id && cohortEmails.has(normalizeEmail(row.business_email)))
+        .map((row: any) => normalizeEmail(row.business_email)),
     );
 
     const signupCount = businessProfiles.length;
@@ -464,14 +493,11 @@ export async function GET(req: Request) {
       { key: "offer_live", label: "Offer published", count: offerPublishedCount },
       { key: "affiliate_request", label: "Affiliate request received", count: affiliateRequestCount },
       { key: "meta_enabled", label: "Meta connected", count: metaEnabledCount },
-    ].map((step, index, arr) => ({
+    ].map((step) => ({
       ...step,
-      rateFromPrevious:
-        index === 0 || !arr[index - 1].count
-          ? null
-          : Number(((step.count / arr[index - 1].count) * 100).toFixed(1)),
-      dropOffFromPrevious:
-        index === 0 ? 0 : Math.max(0, arr[index - 1].count - step.count),
+      // These are independent signup-cohort milestones, not adjacent conversions.
+      rateFromPrevious: null,
+      dropOffFromPrevious: 0,
     }));
 
     const planReachedCount = countIn(planChoiceReached);
@@ -487,6 +513,7 @@ export async function GET(req: Request) {
       generatedAt,
       range: { from: fromIso, to: generatedAt, timezone: "UTC" },
       dataQuality: { rowLimit: 5000, limitedSources },
+      businessFunnel,
       timeline,
       audienceBreakdowns,
       totals,
@@ -516,9 +543,10 @@ export async function GET(req: Request) {
         trialing: trialing.length,
         cancellationMarked,
         withoutCancellation,
-        monthlyPriceAud: BUSINESS_MONTHLY_PRICE_AUD,
-        fullConversionMonthlyAud: trialing.length * BUSINESS_MONTHLY_PRICE_AUD,
-        withoutCancellationMonthlyAud: withoutCancellation * BUSINESS_MONTHLY_PRICE_AUD,
+        price: currentPrice,
+        monthlyPriceAud: currentPrice?.currency === "AUD" && currentPrice.interval === "month" && currentPrice.intervalCount === 1 ? currentPrice.amount / 100 : null,
+        fullConversionMonthlyAud: currentPrice?.currency === "AUD" && currentPrice.interval === "month" && currentPrice.intervalCount === 1 ? trialing.length * currentPrice.amount / 100 : null,
+        withoutCancellationMonthlyAud: currentPrice?.currency === "AUD" && currentPrice.interval === "month" && currentPrice.intervalCount === 1 ? withoutCancellation * currentPrice.amount / 100 : null,
       },
       dashboardBehavior: {
         totalClickers: new Set(dashboardActionRows.map((row) => normalizeEmail(row.actor_email)).filter(Boolean)).size,
@@ -528,9 +556,9 @@ export async function GET(req: Request) {
       growthSummary: {
         businessSignups: businessProfiles.length,
         affiliateSignups: ((affiliateProfilesResult?.data || []) as Array<unknown>).length,
-        offersPublished: (offersResult.data || []).length,
-        affiliateRequests: (affiliateRequestsResult.data || []).length,
-        liveCampaigns: ((liveCampaignsResult?.data || []) as Array<unknown>).length,
+        offersPublished: (offersResult.data || []).filter((row: any) => (!fromIso || row.created_at >= fromIso) && row.created_at <= generatedAt).length,
+        affiliateRequests: (affiliateRequestsResult.data || []).filter((row: any) => (!fromIso || row.created_at >= fromIso) && row.created_at <= generatedAt).length,
+        liveCampaigns: ((liveCampaignsResult?.data || []) as Array<unknown>).length + (paidCampaignsResult.data || []).filter((row: any) => (!fromIso || row.created_at >= fromIso) && row.created_at <= generatedAt && row.meta_ad_id && row.meta_campaign_id).length,
         trackedRevenue: Number(revenueTotal.toFixed(2)),
       },
     }, { headers: { "Cache-Control": "private, no-store" } });

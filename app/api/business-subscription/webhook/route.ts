@@ -102,6 +102,13 @@ export async function POST(req: Request) {
   const supabase = createServerSupabaseClient();
   const eventObject = event.data.object as StripeWebhookObject;
   const metadata = eventObject?.metadata || {};
+  const invoice = eventObject.object === "invoice" ? event.data.object as Stripe.Invoice : null;
+  const auditFacts = {
+    livemode: event.livemode,
+    apiVersion: event.api_version || null,
+    stripe_created_at: toIsoFromStripeSeconds(event.created),
+    ...(invoice ? { invoice_id: invoice.id, invoice_amount_paid: invoice.amount_paid, invoice_currency: invoice.currency, invoice_billing_reason: invoice.billing_reason } : {}),
+  };
   const initialCustomerId = getCustomerIdFromObject(eventObject);
   const initialSubscriptionId =
     eventObject.object === "subscription" ? eventObject.id || null : getRefId(eventObject.subscription);
@@ -115,8 +122,7 @@ export async function POST(req: Request) {
     user_id: metadata.user_id || null,
     processing_status: "processing",
     metadata: {
-      livemode: event.livemode,
-      apiVersion: event.api_version || null,
+      ...auditFacts,
     },
   });
 
@@ -145,7 +151,7 @@ export async function POST(req: Request) {
         status: "processed",
         stripeCustomerId: initialCustomerId,
         stripeSubscriptionId: getSubscriptionIdFromInvoice(invoice),
-        metadata: { eventType: event.type, creatorCommissionReversal: true },
+        metadata: { ...auditFacts, eventType: event.type, creatorCommissionReversal: true },
       });
       return NextResponse.json({ received: true });
     }
@@ -161,7 +167,7 @@ export async function POST(req: Request) {
         stripeEventId: event.id,
         status: "processed",
         stripeCustomerId: getRefId(charge.customer as StripeObjectRef),
-        metadata: { eventType: event.type, creatorCommissionReversal: true },
+        metadata: { ...auditFacts, eventType: event.type, creatorCommissionReversal: true },
       });
       return NextResponse.json({ received: true });
     }
@@ -199,7 +205,7 @@ export async function POST(req: Request) {
         errorMessage: ignoredReason,
         stripeCustomerId: initialCustomerId,
         stripeSubscriptionId: initialSubscriptionId,
-        metadata: { reason: ignoredReason, eventType: event.type },
+        metadata: { ...auditFacts, reason: ignoredReason, eventType: event.type },
       });
       return NextResponse.json({ received: true, ignored: true });
     }
@@ -271,6 +277,9 @@ export async function POST(req: Request) {
           actor_email: syncResult.businessEmail,
           actor_role: "business",
           meta: {
+            business_id: syncResult.businessId,
+            business_onboarding_funnel: subscription.metadata?.business_onboarding_funnel || null,
+            ...auditFacts,
             source: "stripe_webhook",
             stripeEventId: event.id,
             stripeEventType: event.type,
@@ -297,7 +306,15 @@ export async function POST(req: Request) {
       stripeCustomerId: syncResult.stripeCustomerId || getStripeCustomerIdFromSubscription(subscription),
       stripeSubscriptionId: syncResult.stripeSubscriptionId || subscription.id,
       metadata: {
+        ...auditFacts,
         eventType: event.type,
+        business_onboarding_funnel: subscription.metadata?.business_onboarding_funnel || null,
+        business_onboarding_rollout_at: subscription.metadata?.business_onboarding_rollout_at || null,
+        trial_started_at: toIsoFromStripeSeconds(subscription.trial_start),
+        trial_ends_at: toIsoFromStripeSeconds(subscription.trial_end),
+        cancellation_requested: Boolean(subscription.cancel_at_period_end || subscription.canceled_at),
+        cancelled_at: toIsoFromStripeSeconds(subscription.canceled_at),
+        stripe_status: subscription.status,
         billingStatus: syncResult.billingStatus,
         subscriptionRequired: syncResult.subscriptionRequired,
       },
@@ -320,7 +337,7 @@ export async function POST(req: Request) {
       userId: metadata.user_id || null,
       stripeCustomerId: initialCustomerId,
       stripeSubscriptionId: initialSubscriptionId,
-      metadata: { eventType: event.type },
+      metadata: { ...auditFacts, eventType: event.type },
     });
 
     await supabase.from("business_entitlement_events").insert({
