@@ -93,18 +93,31 @@ async function main() {
     await page.getByRole("button", { name: "Submit Organic", exact: true }).click();
     assert.equal(await back.getAttribute("href"), "/onboarding/for-partners", "Return uses the currently selected promotion mode");
 
-    // Exercise the regular-entry URL in the established fixture session.
-    // Next.js native history integration updates useSearchParams without restarting auth hydration.
-    await page.evaluate(path => window.history.replaceState(null, "", path), "/affiliate/dashboard/promote/" + offerId + "?mode=organic");
-    await page.waitForFunction(() => document.querySelector('nav[aria-label="Promotion navigation"] a')?.getAttribute("href") === "/affiliate/marketplace");
+    await page.goto(origin + "/affiliate/dashboard/promote/" + offerId + "?mode=organic");
     await back.waitFor(); await visibleInViewport(back, page);
     assert.equal(await back.getAttribute("href"), "/affiliate/marketplace", "Regular entries return to marketplace");
     await back.click(); await page.waitForURL(url => url.pathname === "/affiliate/marketplace");
     assert.deepEqual(writes, []);
     await context.close();
   }
+  const anonymous = await browser.newContext({ viewport: { width: 390, height: 650 } });
+  const loggedOut = await anonymous.newPage(); activePage = loggedOut;
+  await loggedOut.route("**/*", async route => {
+    const url = new URL(route.request().url());
+    if (url.hostname === "policy-fixture.supabase.co") return route.fulfill({ status: 401, contentType: "application/json", body: JSON.stringify({ message: "No session" }) });
+    if (url.origin !== origin) return route.abort();
+    if (url.pathname.startsWith("/api/")) return route.fulfill({ status: 401, contentType: "application/json", body: "{}" });
+    return route.continue();
+  });
+  const attempted = "/affiliate/dashboard/promote/" + offerId + "?mode=organic&source=onboarding";
+  await loggedOut.goto(origin + attempted);
+  await loggedOut.waitForURL(url => url.pathname === "/login/affiliate");
+  await loggedOut.getByRole("heading", { name: "Affiliate Login", exact: true }).waitFor();
+  assert.equal(new URL(loggedOut.url()).searchParams.get("next"), attempted);
+  assert.equal(await loggedOut.getByRole("link", { name: "Back to offers", exact: true }).count(), 0, "Unauthenticated users never receive the protected editor");
+  await anonymous.close();
   await browser.close(); browser = null;
-  console.log("Actual organic/paid Promote return, refresh, direct entry, mode switch, alternate offer and mobile/desktop browser checks passed");
+  console.log("Actual organic/paid Promote return, refresh, direct entry, mode switch, alternate offer, unauthenticated gate and mobile/desktop browser checks passed");
 }
 main().catch(async error => {
   console.error(error);

@@ -8,6 +8,7 @@ const cwd = process.cwd();
 const base = process.argv[2];
 if (!base || !/^[a-f0-9]{40}$/i.test(base)) throw new Error("Pass an immutable base commit SHA");
 const files = [
+  "app/affiliate/layout.tsx",
   "app/create-account/page.tsx", "app/auth-redirect/page.tsx", "app/login/affiliate/page.tsx",
   "app/api/profile/onboarding-complete/route.ts", "app/api/affiliate/offers/[offerId]/start/route.ts",
   "app/affiliate/dashboard/page.tsx", "app/affiliate/dashboard/promote/[offerId]/page.tsx",
