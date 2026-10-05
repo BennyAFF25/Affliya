@@ -1,0 +1,23 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "incremental": false,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "types": [
+      "node",
+      "next"
+    ]
+  },
+  "include": [
+    "next-env.d.ts",
+    "utils/businessOnboardingFunnel.ts",
+    "utils/businessOnboardingServer.ts",
+    "utils/marketing/businessFunnel.ts",
+    "components/business/BusinessTrialFirstContinuation.tsx",
+    "scripts/business-onboarding-funnel.test.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}

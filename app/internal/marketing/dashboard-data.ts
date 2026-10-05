@@ -10,7 +10,11 @@ export type GrowthSummary = {
   trackedRevenue: number;
 };
 
+import type { BusinessFunnelReport } from "../../../utils/marketing/businessFunnel";
+import type { GrowthPrice } from "../../../utils/businessOnboardingFunnel";
+
 export type DashboardData = {
+  businessFunnel?: BusinessFunnelReport;
   ok: boolean;
   period: "24h" | "today" | "7d" | "30d" | "90d" | "all" | string;
   generatedAt: string;
@@ -45,9 +49,10 @@ export type DashboardData = {
     trialing: number;
     cancellationMarked: number;
     withoutCancellation: number;
-    monthlyPriceAud: number;
-    fullConversionMonthlyAud: number;
-    withoutCancellationMonthlyAud: number;
+    price: GrowthPrice | null;
+    monthlyPriceAud: number | null;
+    fullConversionMonthlyAud: number | null;
+    withoutCancellationMonthlyAud: number | null;
   };
   dashboardBehavior?: {
     totalClickers: number;

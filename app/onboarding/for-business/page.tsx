@@ -1,6 +1,6 @@
 "use client";
 
-import React, { ChangeEvent, useMemo, useState } from "react";
+import React, { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSessionContext } from "@supabase/auth-helpers-react";
 import {
@@ -14,6 +14,9 @@ import {
   Store,
 } from "lucide-react";
 import { supabase } from "utils/supabase/pages-client";
+
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { logProductEvent } from "../../../utils/productEvents";
 
 function safeStorageFileName(name: string) {
   const normalized = name
@@ -32,6 +35,18 @@ export default function BusinessOnboardingPage() {
   const { session, isLoading } = useSessionContext();
 
   const [step, setStep] = useState(1);
+  const savedOfferId = useRef<string | null>(null);
+  const candidateOfferId = useRef<string | null>(null);
+  const openedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (isLoading || !session?.user?.id) return;
+    if (openedFor.current !== session.user.id) {
+      void logProductEvent({ eventType: "offer_create_viewed", actorRole: "business", meta: { source: "business_onboarding" } })
+        .then(ok => { if (ok) openedFor.current = session.user.id; });
+    }
+    void logProductEvent({ eventType: "offer_create_step", actorRole: "business", meta: { source: "business_onboarding", step } });
+  }, [isLoading, session?.user?.id, step]);
+
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [advancedOpen, setAdvancedOpen] = useState(false);
@@ -132,10 +147,22 @@ export default function BusinessOnboardingPage() {
 
   const handlePublish = async () => {
     if (!session?.user?.email || !session.user.id) return;
+    if (submitting) return;
     setSubmitting(true);
     setError(null);
+    const complete = async (offerId: string) => {
+      const response = await fetch("/api/profile/onboarding-complete", {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ offerId }),
+      });
+      const result = await response.json().catch(() => null);
+      if (!response.ok) throw new Error(result?.error || "Your offer is saved. Please retry to finish setup.");
+      if (result?.treatment) router.replace("/business/choose-plan");
+      else setStep(5);
+    };
+    void logProductEvent({ eventType: "offer_publish_clicked", actorRole: "business", meta: { source: "business_onboarding", retry_completion: Boolean(savedOfferId.current) } });
 
     try {
+      if (savedOfferId.current) { await complete(savedOfferId.current); return; }
       let uploadedLogoUrl: string | null = null;
       if (logoFile) {
         const logoPath = `${session.user.id}/logos/${Date.now()}_${safeStorageFileName(logoFile.name)}`;
@@ -204,7 +231,9 @@ export default function BusinessOnboardingPage() {
         );
       }
 
+      if (!candidateOfferId.current) candidateOfferId.current = crypto.randomUUID();
       const payload: Record<string, unknown> = {
+        id: candidateOfferId.current,
         title: offerName.trim(),
         description: description.trim(),
         business_email: session.user.email,
@@ -239,15 +268,16 @@ export default function BusinessOnboardingPage() {
         .insert([payload]);
 
       if (insertError) {
-        throw new Error(insertError.message || "Could not publish offer.");
+        // A lost response may hide a successful insert; never create another offer.
+        const { data: persisted } = await (supabase as unknown as SupabaseClient).from("offers").select("id")
+          .eq("id", candidateOfferId.current).eq("business_email", session.user.email).maybeSingle();
+        if (!persisted) throw new Error(insertError.message || "Could not publish offer.");
       }
-
-      await fetch("/api/profile/onboarding-complete", { method: "POST" }).catch(
-        () => null,
-      );
-
-      setStep(5);
+      savedOfferId.current = candidateOfferId.current;
+      await complete(candidateOfferId.current);
     } catch (err: unknown) {
+      void logProductEvent({ eventType: "offer_publish_failed", actorRole: "business", offerId: savedOfferId.current,
+        meta: { source: "business_onboarding", stage: savedOfferId.current ? "completion" : "save" } });
       setError(err instanceof Error ? err.message : "Could not publish offer.");
     } finally {
       setSubmitting(false);
@@ -762,7 +792,7 @@ export default function BusinessOnboardingPage() {
                   disabled={submitting}
                   className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#00C2CB] px-5 py-3.5 text-sm font-semibold text-black transition hover:bg-[#28d3da] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {submitting ? "Publishing..." : "Publish offer"}
+                  {submitting ? "Saving…" : savedOfferId.current ? "Finish setup" : "Publish offer"}
                 </button>
               </div>
             </section>
@@ -777,7 +807,7 @@ export default function BusinessOnboardingPage() {
                 Your offer is live
               </h2>
               <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-white/64">
-                Affiliates can now discover it, promote it and bring new customers to your business.
+                Your offer is saved. Continue to choose how affiliates can promote your business.
               </p>
               <button
                 onClick={() => router.replace("/business/my-business")}

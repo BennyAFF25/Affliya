@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 
+import { businessFunnelVersion } from '../../../../utils/businessOnboardingFunnel';
+
 const PLAN_CHOICE_COOKIE = 'nettmark_business_plan_choice_v2';
 const LEGACY_PLAN_CHOICE_COOKIE = 'nettmark_business_plan_choice';
 const REDDIT_PIXEL_ID = 'a2_jpxi5jrkyvlx';
@@ -55,7 +57,7 @@ async function trackOnboardingOfferConversion(user: { id: string; email?: string
   }
 }
 
-export async function POST() {
+export async function POST(req?: Request) {
   const supabase = createRouteHandlerClient({ cookies });
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user?.email) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
@@ -64,6 +66,20 @@ export async function POST() {
     .select('role').eq('id', user.id).maybeSingle();
   if (profileError) return NextResponse.json({ error: 'Could not verify account role.' }, { status: 503 });
   if (!profile || !['affiliate', 'business'].includes(profile.role)) return NextResponse.json({ error: 'Invalid account role.' }, { status: 403 });
+
+  let offer: { id: string } | null = null;
+  let treatment = false;
+  if (profile.role === 'business') {
+    const body = await req?.json().catch(() => ({}));
+    let offerQuery = supabase.from('offers').select('id').eq('business_email', user.email);
+    if (body?.offerId) offerQuery = offerQuery.eq('id', String(body.offerId));
+    const { data: ownedOffer, error: offerError } = await offerQuery.order('created_at', { ascending: true }).limit(1).maybeSingle();
+    if (offerError || !ownedOffer) return NextResponse.json({ error: 'Your offer must be saved before continuing.' }, { status: 409 });
+    offer = ownedOffer;
+    const { data: signup, error: signupError } = await supabase.from('profiles').select('created_at').eq('id', user.id).maybeSingle();
+    if (signupError) return NextResponse.json({ error: 'Could not verify onboarding. Your offer is saved; please retry.' }, { status: 503 });
+    treatment = businessFunnelVersion(user.id, signup?.created_at || '') === 'trial_first_v1';
+  }
 
   const { error } = await supabase
     .from('profiles')
@@ -87,10 +103,22 @@ export async function POST() {
     .limit(1)
     .maybeSingle();
 
+  // Only business completion loads the server helpers; affiliate completion stays unchanged.
+  try {
+    const { createServerSupabaseClient } = await import('../../../../utils/businessSubscriptions');
+    const { recordBusinessFunnelEvent } = await import('../../../../utils/businessOnboardingServer');
+    await recordBusinessFunnelEvent(createServerSupabaseClient(), {
+      eventType: 'offer_published', businessId: user.id, email: user.email, offerId: offer?.id,
+      meta: { source: 'business_onboarding', persisted_offer: true },
+    });
+  } catch { /* Analytics must never block a saved offer. */ }
+
   const isLegacyDeferred = entitlement?.billing_entry_mode === 'legacy_deferred';
   const response = NextResponse.json({
     ok: true,
     billingEntryMode: isLegacyDeferred ? 'legacy_deferred' : 'plan_choice',
+    treatment: treatment && !isLegacyDeferred,
+    offerId: offer?.id || null,
   });
 
   // Old accounts must never be surprised by the new post-offer pricing gate.

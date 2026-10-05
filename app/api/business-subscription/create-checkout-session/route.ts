@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import {
+  BUSINESS_GROWTH_TRIAL_DAYS,
   buildBusinessSubscriptionMetadata,
   createBusinessSubscriptionStripeClient,
   createServerSupabaseClient,
@@ -9,6 +10,8 @@ import {
   findExistingLiveSubscription,
   getBusinessSubscriptionBaseUrl,
   getBusinessSubscriptionPriceId,
+  getGrowthTrialEligibility,
+  getGrowthSubscriptionPrice,
   getEntitlementOrThrow,
   getSubscriptionCurrentPeriodEnd,
   getOwnedBusinessForUser,
@@ -17,6 +20,8 @@ import {
   toIsoFromStripeSeconds,
 } from "../../../../utils/businessSubscriptions";
 import { trackBusinessSubscriptionAnalytics } from "../../../../utils/businessSubscriptionAnalytics";
+
+import { getBusinessFunnelMetadata } from "../../../../utils/businessOnboardingServer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -76,6 +81,12 @@ export async function POST(req: Request) {
     if (!priceId) return NextResponse.json({ error: "Missing STRIPE_NETTMARK_BUSINESS_MONTHLY_PRICE_ID" }, { status: 500 });
 
     const stripe = createBusinessSubscriptionStripeClient();
+    if (body?.requireTrial === true) {
+      const eligible = await getGrowthTrialEligibility({ stripe, supabase: admin, business, entitlement });
+      if (!eligible) return NextResponse.json({ status: "trial_unavailable", error: "This business is no longer eligible for a free trial. No checkout was created. Refresh to see your options." }, { status: 409 });
+      // Verify the same configured price advertised on the continuation screen.
+      await getGrowthSubscriptionPrice(stripe);
+    }
     const customerId = await ensureSubscriptionCustomer({ stripe, supabase: admin, business, entitlement, userId: user.id });
     const existingSubscription = await findExistingLiveSubscription({ stripe, customerId, subscriptionId: entitlement.stripeSubscriptionId });
     if (existingSubscription) {
@@ -94,7 +105,8 @@ export async function POST(req: Request) {
     }) || null;
 
     const trialPreviouslyUsed = Boolean(trialHistory?.growth_trial_used) || Boolean(priorNettmarkSubscription);
-    const trialEligible = !trialPreviouslyUsed;
+    const trialEligible = !trialPreviouslyUsed && !historicalSubscriptions.has_more;
+    if (body?.requireTrial === true && !trialEligible) return NextResponse.json({ status: "trial_unavailable", error: "A free trial is no longer available. No paid checkout was created." }, { status: 409 });
 
     if (priorNettmarkSubscription && !trialHistory?.growth_trial_used) {
       const inferredTrialStartedAt =
@@ -118,7 +130,9 @@ export async function POST(req: Request) {
     }
 
     const baseUrl = getBusinessSubscriptionBaseUrl();
+    const cohort = await getBusinessFunnelMetadata(admin, business.id).catch(() => ({ business_id: business.id, business_onboarding_funnel: "unverified" }));
     const metadata = {
+      ...cohort,
       ...buildBusinessSubscriptionMetadata({ businessId: business.id, userId: user.id, businessEmail: business.business_email }),
       returnTo,
       intendedAction: intendedAction || "",
@@ -130,7 +144,7 @@ export async function POST(req: Request) {
     const subscriptionData = trialEligible
       ? {
           metadata,
-          trial_period_days: 14,
+          trial_period_days: BUSINESS_GROWTH_TRIAL_DAYS,
           trial_settings: { end_behavior: { missing_payment_method: "cancel" as const } },
         }
       : { metadata };
@@ -167,7 +181,7 @@ export async function POST(req: Request) {
       submissionId,
       returnTo,
       attribution: attribution as Record<string, unknown>,
-      metadata: { source: "checkout_endpoint", checkoutSessionId: session.id, stripeCustomerId: customerId, userId: user.id, trialDays: trialEligible ? 14 : 0, trialEligible },
+      metadata: { ...cohort, source: "checkout_endpoint", checkoutSessionId: session.id, stripeCustomerId: customerId, userId: user.id, trialDays: trialEligible ? BUSINESS_GROWTH_TRIAL_DAYS : 0, trialEligible },
     });
 
     await admin.from("business_entitlement_events").insert({
@@ -175,7 +189,7 @@ export async function POST(req: Request) {
       business_email: business.business_email,
       event_type: "business_subscription_checkout_created",
       billing_status: entitlement.billingStatus,
-      metadata: { source: "checkout_endpoint", checkoutSessionId: session.id, stripeCustomerId: customerId, userId: user.id, returnTo, intendedAction, campaignId, submissionId, attribution, trialDays: trialEligible ? 14 : 0, trialEligible },
+      metadata: { source: "checkout_endpoint", checkoutSessionId: session.id, stripeCustomerId: customerId, userId: user.id, returnTo, intendedAction, campaignId, submissionId, attribution, trialDays: trialEligible ? BUSINESS_GROWTH_TRIAL_DAYS : 0, trialEligible },
     });
 
     const { error: productEventError } = await admin.from("product_events").insert({
@@ -183,10 +197,11 @@ export async function POST(req: Request) {
       actor_email: business.business_email,
       actor_role: "business",
       meta: {
+        ...cohort,
         source: "checkout_endpoint",
         checkoutSessionId: session.id,
         trialEligible,
-        trialDays: trialEligible ? 14 : 0,
+        trialDays: trialEligible ? BUSINESS_GROWTH_TRIAL_DAYS : 0,
         intendedAction,
         returnTo,
       },
@@ -204,7 +219,7 @@ export async function POST(req: Request) {
       url: session.url,
       sessionId: session.id,
       trialEligible,
-      trialDays: trialEligible ? 14 : 0,
+      trialDays: trialEligible ? BUSINESS_GROWTH_TRIAL_DAYS : 0,
     });
   } catch (err: unknown) {
     console.error("[business-subscription/create-checkout-session]", err);

@@ -60,13 +60,15 @@ export async function logProductEvent(payload: {
   trackRedditProductConversion(payload);
 
   try {
-    await fetch("/api/product-events", {
+    const response = await fetch("/api/product-events", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       keepalive: true,
       body: JSON.stringify(payload),
     });
+    if (!response.ok) console.warn("[product-events] event rejected", { eventType: payload.eventType, status: response.status });
+    return response.ok;
   } catch {
-    // best-effort only
+    return false;
   }
 }

@@ -3,6 +3,8 @@ import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import supabaseAdmin from "@/../utils/supabase/server-client";
 
+import { getBusinessFunnelMetadata } from "../../../utils/businessOnboardingServer";
+
 const ALLOWED_EVENT_TYPES = new Set([
   "content_library_asset_uploaded",
   "content_library_asset_updated",
@@ -62,7 +64,7 @@ export async function POST(req: Request) {
       ? String(body.businessCreativeId).trim()
       : null;
     const promotionType = body?.promotionType ? String(body.promotionType).trim() : null;
-    const meta = body?.meta && typeof body.meta === "object" && !Array.isArray(body.meta) ? body.meta : {};
+    const rawMeta = body?.meta && typeof body.meta === "object" && !Array.isArray(body.meta) ? body.meta : {};
 
     const { data: businessProfile, error: businessProfileError } = await (supabaseAdmin as any)
       .from("business_profiles")
@@ -76,6 +78,17 @@ export async function POST(req: Request) {
     }
 
     const actorRole = businessProfile?.id ? "business" : "affiliate";
+    const meta = { ...rawMeta };
+    // Confirmed choices and billing facts originate only in their server handlers.
+    for (const key of ["business_id", "business_onboarding_funnel", "business_onboarding_rollout_at", "choice_confirmed", "livemode", "invoice_amount_paid"]) delete meta[key];
+    if (businessProfile?.id) {
+      if (["plan_growth_checkout_started", "plan_growth_activated", "plan_free_clicked"].includes(eventType)) return NextResponse.json({ ok: false, error: "Server-only milestone" }, { status: 400 });
+      Object.assign(meta, await getBusinessFunnelMetadata(supabaseAdmin as any, businessProfile.id));
+      if (eventType === "offer_published") {
+        const { data: offer } = await (supabaseAdmin as any).from("offers").select("id").eq("id", offerId).eq("business_email", user.email).maybeSingle();
+        if (!offer) return NextResponse.json({ ok: false, error: "Offer not found" }, { status: 403 });
+      }
+    }
 
     const { error } = await (supabaseAdmin as any).from("product_events").insert({
       event_type: eventType,
