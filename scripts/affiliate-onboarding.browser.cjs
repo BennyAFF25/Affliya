@@ -105,7 +105,7 @@ async function main() {
     assert.equal(await page.getByRole("button", { name: /^Paid campaign/ }).getAttribute("aria-pressed"), "true");
     failStart = true;
     await action.click();
-    await page.getByRole("alert").waitFor();
+    await page.getByRole("alert").filter({ hasText: "Access could not be started. Try again." }).waitFor();
     assert.equal(completions, 0);
     assert.equal(await action.isEnabled(), true, "Failed access request can retry");
     failStart = false; failComplete = true;

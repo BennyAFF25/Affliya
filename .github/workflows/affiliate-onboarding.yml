@@ -48,14 +48,14 @@ jobs:
         run: |
           npm install --prefix "$RUNNER_TEMP/nettmark-onboarding-browser" --no-package-lock --ignore-scripts playwright@1.58.2
           google-chrome --version
-      - name: Check mobile and desktop onboarding
-        env:
-          NEXT_TELEMETRY_DISABLED: "1"
-        run: NODE_PATH="$RUNNER_TEMP/nettmark-onboarding-browser/node_modules" node scripts/affiliate-onboarding.browser.cjs
       - name: Check actual Promote editor return navigation
         env:
           NEXT_TELEMETRY_DISABLED: "1"
         run: NODE_PATH="$RUNNER_TEMP/nettmark-onboarding-browser/node_modules" node scripts/affiliate-promote-back.browser.cjs
+      - name: Check mobile and desktop onboarding
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+        run: NODE_PATH="$RUNNER_TEMP/nettmark-onboarding-browser/node_modules" node scripts/affiliate-onboarding.browser.cjs
       - name: Check policy reading and acceptance continuity
         env:
           NEXT_TELEMETRY_DISABLED: "1"
