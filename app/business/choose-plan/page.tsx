@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSessionContext } from "@supabase/auth-helpers-react";
 import { Check, CreditCard, Megaphone, ShieldCheck, Sparkles, Zap } from "lucide-react";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabase } from "utils/supabase/pages-client";
 import { logProductEvent } from "../../../utils/productEvents";
 import BusinessTrialFirstContinuation, { growthPricePeriod, type BusinessContinuationContext } from "../../../components/business/BusinessTrialFirstContinuation";
@@ -27,7 +28,7 @@ export default function ChooseBusinessPlanPage() {
     setError(null);
     void (async () => {
       try {
-        const { data, error: profileError } = await supabase.from("business_profiles").select("id")
+        const { data, error: profileError } = await (supabase as unknown as SupabaseClient).from("business_profiles").select("id")
           .eq("business_email", session.user.email).limit(1).maybeSingle();
         if (profileError || !data?.id) throw new Error("We couldn't find your business profile. Please retry.");
         const response = await fetch(`/api/business-subscription/trial-eligibility?businessId=${encodeURIComponent(data.id)}`, { cache: "no-store" });

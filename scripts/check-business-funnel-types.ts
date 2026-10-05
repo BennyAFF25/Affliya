@@ -33,7 +33,7 @@ function diagnostics(root: string) {
   const config = ts.readConfigFile(path.join(root, "tsconfig.json"), ts.sys.readFile);
   if (config.error) throw new Error(ts.flattenDiagnosticMessageText(config.error.messageText, "\n"));
   const parsed = ts.parseJsonConfigFileContent(config.config, ts.sys, root, {
-    incremental: false, noEmit: true, target: ts.ScriptTarget.ES2018, module: ts.ModuleKind.ESNext, moduleResolution: ts.ModuleResolutionKind.Bundler,
+    incremental: false, noEmit: true, noErrorTruncation: true, target: ts.ScriptTarget.ES2018, module: ts.ModuleKind.ESNext, moduleResolution: ts.ModuleResolutionKind.Bundler,
   });
   const program = ts.createProgram(files.map(file => path.join(root, file)).filter(existsSync), parsed.options);
   return ts.getPreEmitDiagnostics(program).map(diagnostic => {
@@ -41,7 +41,7 @@ function diagnostics(root: string) {
     // TS can reorder equivalent literal unions when new callers are imported.
     // Compare the same members rather than treating display order as a new error.
     const message = ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n")
-      .replace(/"[^"]*"(?: \\| "[^"]*")+/g, value => value.split(" | ").sort().join(" | "));
+      .replace(/"[^"]*"(?: \| "[^"]*")+/g, value => value.split(" | ").sort().join(" | "));
     const line = diagnostic.file && diagnostic.start != null ? diagnostic.file.getLineAndCharacterOfPosition(diagnostic.start).line + 1 : 0;
     return { key: file + ":" + diagnostic.code + ":" + message, file, code: diagnostic.code, message, line };
   });
