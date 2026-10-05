@@ -17,7 +17,8 @@
     "app/api/affiliate/offers/[offerId]/generate-promotion/route.ts",
     "app/onboarding/for-partners/page.tsx",
     "app/affiliate/dashboard/promote/components/AIPromotionPackPanel.tsx",
-    "scripts/affiliate-onboarding.test.ts"
+    "scripts/affiliate-onboarding.test.ts",
+    "app/affiliate/dashboard/promote/components/PromotionBackLink.tsx"
   ],
   "exclude": [
     "node_modules"

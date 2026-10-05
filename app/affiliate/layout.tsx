@@ -7,7 +7,7 @@ import {
   MobileNavSlider,
   MobileNavTab,
 } from "@/components/navigation/MobileNavSlider";
-import { useSession } from "@supabase/auth-helpers-react";
+import { useSessionContext } from "@supabase/auth-helpers-react";
 import {
   LayoutDashboard,
   Store,
@@ -29,7 +29,7 @@ export default function AffiliateLayout({
 }
 
 function AffiliateLayoutShell({ children }: { children: React.ReactNode }) {
-  const session = useSession();
+  const { session, isLoading } = useSessionContext();
   const userEmail = session?.user?.email || "";
   const router = useRouter();
   const pathname = usePathname();
@@ -37,14 +37,14 @@ function AffiliateLayoutShell({ children }: { children: React.ReactNode }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   useEffect(() => {
-    if (session !== null) return;
+    if (isLoading || session !== null) return;
 
     const queryString = window.location.search;
     const next = `${pathname}${queryString}`;
     router.replace(`/login/affiliate?next=${encodeURIComponent(next)}`);
-  }, [session, pathname, router]);
+  }, [isLoading, session, pathname, router]);
 
-  if (session === undefined) {
+  if (isLoading) {
     return (
       <div className="trial-theme flex min-h-screen items-center justify-center bg-[var(--background)] text-[var(--foreground)]">
         Loading…
