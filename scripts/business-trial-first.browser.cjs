@@ -79,6 +79,14 @@ async function main() {
     assert.ok(events.some(e => e.eventType === "plan_choice_viewed" && e.meta.screen === "trial_first"));
     const terms = page.getByTestId("billing-terms");
     assert.match(await terms.textContent(), /AUD 72.00\/month/);
+    assert.equal((await page.getByTestId("trial-today-price").innerText()).replace(/\\s+/g, " ").trim(), "$0 Today");
+    await page.getByText("Start your Growth trial to unlock paid affiliate campaigns.", { exact: true }).waitFor();
+    for (const benefit of ["Approve paid affiliate campaigns", "Launch through your connected Meta account", "Review campaigns before they go live"]) {
+      await page.getByText(benefit, { exact: true }).waitFor();
+    }
+    await page.getByText("How affiliate-funded advertising works", { exact: true }).click();
+    await page.getByText(/Meta bills your ad account; Nettmark reimburses eligible spend/).waitFor();
+    await page.getByText("How affiliate-funded advertising works", { exact: true }).click();
     assert.match(await terms.textContent(), /14-day/);
     assert.match(await terms.textContent(), /Card required/);
     assert.match(await terms.textContent(), /cancel before the trial ends/);
