@@ -21,6 +21,8 @@ import {
 } from "../../../../utils/businessSubscriptions";
 import { trackBusinessSubscriptionAnalytics } from "../../../../utils/businessSubscriptionAnalytics";
 
+import { checkoutMatching, excludedTrialEmail } from "../../../../utils/marketing/startTrial";
+
 import { getBusinessFunnelMetadata } from "../../../../utils/businessOnboardingServer";
 
 export const runtime = "nodejs";
@@ -184,7 +186,7 @@ export async function POST(req: Request) {
       intendedAction,
       submissionId,
       returnTo,
-      attribution: attribution as Record<string, unknown>,
+      attribution: { ...attribution, meta_capi_matching: trialEligible && process.env.VERCEL_ENV === "production" && !excludedTrialEmail(business.business_email) ? checkoutMatching(req) : {} },
       metadata: { ...cohort, source: "checkout_endpoint", checkoutSessionId: session.id, stripeCustomerId: customerId, userId: user.id, trialDays: trialEligible ? BUSINESS_GROWTH_TRIAL_DAYS : 0, trialEligible },
     });
 

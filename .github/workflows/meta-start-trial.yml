@@ -1,0 +1,72 @@
+name: Meta StartTrial checks
+on:
+  pull_request:
+    paths:
+      - "utils/marketing/startTrial*"
+      - "utils/marketing/meta*"
+      - "app/api/business-subscription/**"
+      - "app/api/marketing/meta-start-trial-delivery/**"
+      - "app/api/internal/meta-start-trial/**"
+      - "supabase/migrations/20261005082312_meta_start_trial_delivery.sql"
+      - "scripts/*meta-start-trial*"
+      - "tsconfig.meta-start-trial.json"
+      - ".github/workflows/meta-start-trial.yml"
+      - "vercel.json"
+permissions:
+  contents: read
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: fixture-password
+          POSTGRES_DB: nettmark_meta_fixture
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: fixture-password
+      PGDATABASE: nettmark_meta_fixture
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install dependencies
+        run: |
+          corepack enable
+          corepack prepare yarn@1.22.22 --activate
+          yarn install --frozen-lockfile --ignore-scripts
+      - name: Isolated migration and concurrency checks
+        run: |
+          psql -X -v ON_ERROR_STOP=1 -c "CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role; CREATE TABLE public.business_profiles(id uuid PRIMARY KEY);"
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261005082312_meta_start_trial_delivery.sql
+          yarn -s tsx scripts/meta-start-trial-sql.test.ts
+      - name: Payload and failure regression
+        run: |
+          yarn -s tsx scripts/meta-start-trial.test.ts
+          yarn -s tsx scripts/meta-start-trial-server.test.ts
+          yarn -s tsx scripts/business-funnel-routes.test.ts
+          yarn -s test:business-subscriptions
+          yarn -s test:business-entitlements
+          yarn -s test:business-subscription-gate
+      - name: Strict focused type checks and integration comparison
+        run: |
+          yarn -s tsc --project tsconfig.meta-start-trial.json
+          yarn -s tsx scripts/check-meta-start-trial-types.ts c945ea663d91422ef84cc85d44e89366d72b3315
+      - name: Lint new implementation
+        run: yarn -s eslint --no-config-lookup --config eslint.affiliate-onboarding.config.mjs utils/marketing/startTrial.ts utils/marketing/startTrialServer.ts utils/marketing/metaConfig.ts scripts/meta-start-trial.test.ts scripts/meta-start-trial-server.test.ts scripts/meta-start-trial-sql.test.ts app/api/marketing/meta-start-trial-delivery/route.ts app/api/internal/meta-start-trial/test/route.ts
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: meta-start-trial-validation
+          path: meta-start-trial-typecheck-report.json
+          if-no-files-found: ignore

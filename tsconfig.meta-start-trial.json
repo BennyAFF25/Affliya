@@ -1,0 +1,22 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "incremental": false,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "target": "es2018",
+    "types": [
+      "node"
+    ]
+  },
+  "include": [
+    "utils/marketing/startTrial.ts",
+    "utils/marketing/metaConfig.ts",
+    "scripts/meta-start-trial.test.ts",
+    "scripts/meta-start-trial-server.test.ts",
+    "scripts/meta-start-trial-sql.test.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}
