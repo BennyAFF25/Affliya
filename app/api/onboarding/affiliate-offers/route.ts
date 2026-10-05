@@ -39,6 +39,10 @@ export async function GET() {
     description: textOrNull(row.description) || "", logoUrl: textOrNull(row.logo_url),
     commission: numberOrNull(row.commission), commissionValue: numberOrNull(row.commission_value),
     currency: textOrNull(row.currency), type: textOrNull(row.type),
+    price: numberOrNull(row.price),
+    recurringMonthlyCommissionValue: numberOrNull(row.recurring_monthly_commission_value),
+    recurringTermMonths: numberOrNull(row.recurring_term_months), payoutCycles: numberOrNull(row.payout_cycles),
+    payoutMode: textOrNull(row.payout_mode), payoutInterval: textOrNull(row.payout_interval),
     participationMode: (row.participation_mode || "open") as OnboardingOffer["participationMode"],
     requestStatus: requests.get(String(row.id)) || null,
     readyOrganicCount: assets === null ? null : assets.filter(asset =>

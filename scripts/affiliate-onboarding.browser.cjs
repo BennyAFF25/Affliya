@@ -8,8 +8,8 @@ const userId = "33333333-3333-4333-8333-333333333333";
 const openId = "11111111-1111-4111-8111-111111111111";
 const restrictedId = "22222222-2222-4222-8222-222222222222";
 const setup = "/onboarding/for-partners";
-const dto = { description: "A brand offer with clear details.", logoUrl: null, commission: 20, commissionValue: null, currency: "USD", type: "one-time", requestStatus: null, readyOrganicCount: 0 };
-let offers = [...Array.from({ length: 24 }, (_, i) => ({ ...dto, id: "aaaaaaaa-aaaa-4aaa-8aaa-" + String(i).padStart(12, "0"), title: "Brand " + (i + 1), participationMode: "open" })),
+const dto = { description: "A brand offer with clear details.", logoUrl: null, commission: 20, commissionValue: 20, price: 100, currency: "USD", type: "one-time", requestStatus: null, readyOrganicCount: 0 };
+let offers = [...Array.from({ length: 24 }, (_, i) => ({ ...dto, id: "aaaaaaaa-aaaa-4aaa-8aaa-" + String(i).padStart(12, "0"), title: "Brand " + (i + 1), participationMode: "open", ...(i < 2 ? { type: "recurring", recurringMonthlyCommissionValue: 20, recurringTermMonths: 12, payoutMode: i === 0 ? "spread" : "upfront", payoutInterval: "monthly" } : {}) })),
   { ...dto, id: restrictedId, title: "Approval brand", participationMode: "approval_required" },
   { ...dto, id: openId, title: "Last brand", participationMode: "open" }];
 let startCalls = [], completions = 0, failStart = false, failComplete = false, forceApproval = false;
@@ -70,9 +70,29 @@ async function main() {
     startCalls = []; completions = 0; destinations = [];
     await page.goto(origin + setup);
     const card = page.getByRole("button", { name: /Last brand/ });
+    const normalizedText = async locator => (await locator.textContent()).replace(/\u00a0/g, " ");
+    assert.ok((await normalizedText(card)).includes("USD 20.00 est. per sale · 20%"));
+    assert.ok((await normalizedText(card)).includes("Based on a sale of USD 100.00."));
+    for (const [title, amount, terms] of [
+      ["Brand 1", "USD 20.00/month · 20%", "Paid monthly"],
+      ["Brand 2", "USD 240.00 per referral · 20%", "Paid upfront"],
+    ]) {
+      const recurringCard = page.getByRole("button").filter({ has: page.getByRole("heading", { name: title, exact: true }) });
+      assert.ok((await normalizedText(recurringCard)).includes(amount));
+      await recurringCard.click();
+      const selectedBrand = page.getByRole("region", { name: "Selected brand" });
+      await selectedBrand.waitFor();
+      assert.ok((await normalizedText(selectedBrand)).includes(amount));
+      assert.ok((await normalizedText(selectedBrand)).includes("USD 20.00/month for 12 months"));
+      assert.ok((await normalizedText(selectedBrand)).includes(terms));
+      await insideViewport(page.getByRole("button", { name: "Create my promotion", exact: true }), page);
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, "Commission amounts fit narrow screens");
+      await page.getByRole("button", { name: "Choose another brand", exact: true }).click();
+    }
     await card.click(); // Playwright scrolls to the last card, simulating the reported long-list case.
     const heading = page.getByRole("heading", { name: "How would you like to promote?", exact: true });
     await heading.waitFor();
+    assert.ok((await normalizedText(page.getByRole("region", { name: "Selected brand" }))).includes("USD 20.00 est. per sale · 20%"));
     assert.equal(await heading.evaluate(node => node === document.activeElement), true, "Selection moves keyboard focus into the next step");
     assert.equal(await page.getByRole("button", { name: /Brand 1 / }).count(), 0, "Grid no longer competes with the next action");
     const action = page.getByRole("button", { name: "Create my promotion", exact: true });

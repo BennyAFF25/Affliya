@@ -7,19 +7,17 @@ import { ArrowLeft, ArrowRight, Check, Loader2, Search } from "lucide-react";
 import AcceptTermsModal from "@/components/AcceptTermsModal";
 import { logProductEvent } from "@/../utils/productEvents";
 import {
-  affiliateOnboardingPath, isApproved, type OnboardingOffer, type PromotionMode,
+  affiliateOnboardingPath, isApproved, onboardingCommission, type OnboardingOffer, type PromotionMode,
 } from "@/../utils/affiliate/onboarding";
 
 const primary = "inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#00C2CB] px-6 py-3 text-sm font-semibold text-black transition hover:bg-[#19d1d8] disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#00C2CB]";
 
-function commissionLabel(offer: OnboardingOffer) {
-  if (offer.commission != null && offer.commission > 0) return offer.commission + "% commission";
-  if (offer.commissionValue != null && offer.commissionValue > 0 && offer.currency) {
-    try {
-      return new Intl.NumberFormat("en", { style: "currency", currency: offer.currency }).format(offer.commissionValue) + " commission";
-    } catch { return offer.currency + " " + offer.commissionValue + " commission"; }
-  }
-  return "See offer terms";
+function CommissionSummary({ offer }: { offer: OnboardingOffer }) {
+  const commission = onboardingCommission(offer);
+  return <>
+    <p className="text-sm font-medium text-[#00C2CB]">{commission.label}</p>
+    {commission.detail && <p className="mt-1 text-xs leading-5 text-white/55">{commission.detail}</p>}
+  </>;
 }
 
 function AffiliateOnboarding() {
@@ -189,7 +187,7 @@ function AffiliateOnboarding() {
               </div>
               <div className="min-w-0">
                 <h2 className="text-lg font-semibold tracking-tight">{selected.title}</h2>
-                <p className="mt-1 text-sm font-medium text-[#00C2CB]">{commissionLabel(selected)}{selected.type === "recurring" ? " · Recurring offer" : ""}</p>
+                <div className="mt-1"><CommissionSummary offer={selected} /></div>
               </div>
             </div>
             <p className="mt-4 text-sm leading-6 text-white/55">{selected.description || "Prepare a promotion around this offer."}</p>
@@ -238,7 +236,7 @@ function AffiliateOnboarding() {
                       <h2 className="text-base font-semibold">{offer.title}</h2>
                     </div>
                     <p className="mt-3 line-clamp-2 text-sm leading-6 text-white/55">{offer.description || "Choose this brand to prepare your promotion."}</p>
-                    <p className="mt-4 text-sm font-medium text-[#00C2CB]">{commissionLabel(offer)}</p>
+                    <div className="mt-4"><CommissionSummary offer={offer} /></div>
                     <p className="mt-2 text-xs text-white/55">{approved ? "Access approved" : pending ? "Approval pending" : offer.participationMode === "open" ? "Open to affiliates" : "Business approval required"}</p>
                     <span className="mt-4 flex items-center justify-between border-t border-white/[0.07] pt-4 text-sm font-semibold">{pending ? "View request" : "Choose brand"}<ArrowRight className="h-4 w-4 text-[#00C2CB]" aria-hidden="true" /></span>
                   </button>
