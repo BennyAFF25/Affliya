@@ -1,7 +1,7 @@
 # Meta StartTrial server delivery
 
 ## Status
-In progress. Production secret configured by founder. No database migration or deployment authorised in this implementation step; prepare and validate a reviewable branch before requesting the required rollout approval.
+Blocked on production rollout approval for the additive database migration. Implementation and automated validation are complete on PR #17. The founder configured the production secret. No production migration, Meta conversion or deployment has been performed.
 
 ## Problem and product intent
 The founder wants history of genuine business Growth trials on Meta's existing Dataset, without changing CompleteRegistration acquisition campaigns. This supports measurable distribution and dependable commercial infrastructure (docs/VISION.md, docs/PRODUCT_PRINCIPLES.md). No pricing, subscription creation, entitlements, UX, merchant attribution, or revenue behaviour changes.
@@ -19,7 +19,7 @@ Add one private delivery table and atomic lease RPC migration (prepare, do not a
 A small private delivery table is required for durable retries and uniqueness; existing analytics tables do not enforce conversion uniqueness. Meta delivery is at least once; Meta event ID deduplicates ambiguous acknowledgements within a bounded retry window. No billing replay changes. Unknown accounts cannot be recognised as internal without an explicit identity policy; reuse existing internal dashboard allowlist and suppress reserved test domains. Production credentials/domain/Dataset permission require external verification. Test Events validation is not proof of later optimisation eligibility.
 
 ## Validation
-Pending CI and isolated PostgreSQL migration tests. No genuine Stripe checkout or Meta conversion sent during implementation. Preserve prior business regression suite. Production rollout must apply additive migration before deploying code; token alone does not enable events.
+Passed on application commit 84b738e0c4734b08b3ab1e5cf46f0457fbdcc743: Meta StartTrial workflow run 37282562411 (payload/matching, live-mode/internal guards, persisted retries, concurrent worker tests, isolated PostgreSQL migration/RLS/lease/expiry checks, strict feature typecheck, no new integration diagnostics, lint). Business workflow run 37282562330 passed billing/ownership/checkout regressions, entitlement/launch safeguards, marketing report checks and mobile/desktop continuation browser checks. Vercel preview build succeeded. An initial test-only TypeScript narrowing error was fixed before these passing runs. No genuine Stripe checkout or Meta conversion sent during implementation; live CAPI credential permissions and matching quality remain unverified. Production rollout must apply the additive migration before deploying code; token alone does not enable events. Exact controlled test steps are in docs/META_START_TRIAL.md.
 
 ## Rollback
 Redeploy previous application revision and stop delivery cron. Retain delivery ledger for deduplication/audit; avoid dropping it after sending events. No subscriptions or charges created by this feature.
