@@ -1,5 +1,5 @@
 // Immutable signup cohort: never derive assignment from current subscription state.
-export const BUSINESS_FUNNEL_ROLLOUT_AT = "2026-10-05T05:00:00.000Z";
+export const BUSINESS_FUNNEL_ROLLOUT_AT = "2026-10-05T06:00:00.000Z";
 export type BusinessFunnelVersion = "plan_choice_v1" | "trial_first_v1";
 export function businessFunnelVersion(businessId: string, signedUpAt: string): BusinessFunnelVersion | null {
   if (!businessId || !Number.isFinite(Date.parse(signedUpAt)) || Date.parse(signedUpAt) < Date.parse(BUSINESS_FUNNEL_ROLLOUT_AT)) return null;
