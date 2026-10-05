@@ -44,7 +44,7 @@ export async function GET(req: Request) {
       billingError = "We couldn't verify Growth pricing and trial eligibility. Please retry, or continue with Free.";
     }
     return NextResponse.json({
-      ...cohort, treatment, offerId: offer?.id || null, participationMode: offer?.participation_mode || "open",
+      ...cohort, treatment: treatment && trialEligible !== false, offerId: offer?.id || null, participationMode: offer?.participation_mode || "open",
       trialEligible, trialDays: BUSINESS_GROWTH_TRIAL_DAYS, price, billingError,
       checkoutEnabled: isBusinessSubscriptionCheckoutEnabled(),
     }, { headers: { "Cache-Control": "private, no-store" } });

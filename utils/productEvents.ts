@@ -59,16 +59,21 @@ export async function logProductEvent(payload: {
 }) {
   trackRedditProductConversion(payload);
 
-  try {
-    const response = await fetch("/api/product-events", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      keepalive: true,
-      body: JSON.stringify(payload),
-    });
-    if (!response.ok) console.warn("[product-events] event rejected", { eventType: payload.eventType, status: response.status });
-    return response.ok;
-  } catch {
-    return false;
+  const attempts = payload.actorRole === "business" ? 3 : 1;
+  for (let attempt = 0; attempt < attempts; attempt++) {
+    try {
+      const response = await fetch("/api/product-events", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        keepalive: true, body: JSON.stringify(payload),
+      });
+      if (response.ok) return true;
+      if (response.status !== 401 && response.status < 500) {
+        console.warn("[product-events] event rejected", { eventType: payload.eventType, status: response.status });
+        return false;
+      }
+    } catch { /* Best effort; retry a transient business session/transport failure. */ }
+    if (attempt + 1 < attempts) await new Promise(resolve => setTimeout(resolve, 250 * (attempt + 1)));
   }
+  console.warn("[product-events] event unavailable", { eventType: payload.eventType });
+  return false;
 }

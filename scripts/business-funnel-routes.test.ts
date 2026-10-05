@@ -27,7 +27,7 @@ const stripe = {
   prices: { retrieve: async () => ({ id: "price_test", active: true, type: "recurring", unit_amount: 7200, currency: "aud", billing_scheme: "per_unit", tax_behavior: "inclusive", recurring: { usage_type: "licensed", interval: "month", interval_count: 1 } }) },
   customers: { search: async () => ({ data: [], has_more: false }) },
   subscriptions: { list: async () => ({ data: historical, has_more: false }) },
-  checkout: { sessions: { retrieve: async () => session, create: async (body: Row) => { sessionsCreated++; assert.equal(body.payment_method_collection, "always"); assert.equal(body.subscription_data.trial_period_days, helpers.BUSINESS_GROWTH_TRIAL_DAYS); assert.equal(body.metadata.business_onboarding_funnel, "trial_first_v1"); return { id: "cs_test", url: "https://checkout.stripe.test/session" }; } } },
+  checkout: { sessions: { retrieve: async () => session, create: async (body: Row) => { sessionsCreated++; assert.equal(body.payment_method_collection, "always"); assert.match(body.success_url, /\/business\/choose-plan\?subscription=checkout_returned&session_id=/); assert.equal(body.subscription_data.trial_period_days, helpers.BUSINESS_GROWTH_TRIAL_DAYS); assert.equal(body.metadata.business_onboarding_funnel, "trial_first_v1"); return { id: "cs_test", url: "https://checkout.stripe.test/session" }; } } },
 };
 function reset() {
   user = { id, email: "business@example.test" }; writes = []; errors = {}; historical = []; sessionsCreated = 0; customersEnsured = 0;

@@ -113,7 +113,7 @@ export default function ChooseBusinessPlanPage() {
         <div className="plan-enter plan-enter-1 text-center">
           <div className="inline-flex items-center gap-2 rounded-full border border-[#16c8d5]/35 bg-[#16c8d5]/[0.06] px-4 py-2 text-[11px] font-bold uppercase tracking-[0.2em] text-[#20d4df] shadow-[0_0_28px_rgba(22,200,213,0.08)]">
             <span className="h-1.5 w-1.5 rounded-full bg-[#20d4df] shadow-[0_0_10px_rgba(32,212,223,0.9)]" />
-            {resumeSubscription ? "Your Growth trial ended" : "Your offer is live"}
+            {resumeSubscription ? "Continue with Growth" : context.offerId ? "Your offer is live" : "Your business is ready"}
           </div>
 
           <h1 className="mt-5 text-3xl font-semibold tracking-[-0.035em] text-white sm:text-[42px] sm:leading-[1.08]">
