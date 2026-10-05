@@ -1,6 +1,6 @@
 import * as assert from "node:assert/strict";
 import Module from "node:module";
-import { affiliateOnboardingPath, roleReturnTo, visibleOnboardingOffer, rankOnboardingOffers, canUsePreapprovedOrganic, type OnboardingOffer } from "../utils/affiliate/onboarding";
+import { affiliateOnboardingPath, roleReturnTo, visibleOnboardingOffer, rankOnboardingOffers, onboardingCommission, canUsePreapprovedOrganic, type OnboardingOffer } from "../utils/affiliate/onboarding";
 import { buildPromotionContext, eligibleCreative, validatePromotionPack } from "../utils/affiliate/promotionPack";
 import { getPromotionAIConfig, generatePromotionPack, reservePromotionQuota, PromotionAIError } from "../lib/affiliate/promotionAI";
 
@@ -37,6 +37,37 @@ async function main() {
     { ...dto, id: "ready", readyOrganicCount: 1 },
     { ...dto, id: "approved", requestStatus: "approved" },
   ]).map(row => row.id), ["approved", "ready", "request", "pending"]);
+
+  const summary = (overrides: Partial<OnboardingOffer>) => {
+    const result = onboardingCommission({ ...dto, ...overrides });
+    return { label: result.label.replace(/\u00a0/g, " "), detail: result.detail?.replace(/\u00a0/g, " ") ?? null };
+  };
+  assert.deepEqual(summary({ price: 49.99, commissionValue: 15, currency: "AUD" }), {
+    label: "AUD 15.00 est. per sale · 30%",
+    detail: "Based on a sale of AUD 49.99. Actual commission depends on eligible sale value.",
+  });
+  assert.equal(summary({ price: 200, commissionValue: 15 }).label, "USD 60.00 est. per sale · 30%", "Current price supersedes stale stored estimates");
+  assert.equal(summary({ price: 9.99, commission: 15, commissionValue: 1 }).label, "USD 1.50 est. per sale · 15%", "Use cents rather than rounded business-onboarding value");
+  assert.equal(summary({ commissionValue: 15 }).label, "USD 15.00 est. per sale · 30%", "Legacy stored estimate remains labelled as an estimate");
+  for (const overrides of [{}, { price: 0, commissionValue: 15 }, { price: -1 }, { price: NaN }, { price: Infinity }, { price: 100, currency: null }, { price: 100, currency: "invalid" }, { commissionValue: -20 }]) {
+    assert.equal(summary(overrides).label, "30% commission");
+  }
+  assert.equal(summary({ price: 100, commission: 0, commissionValue: 15 }).label, "See offer terms");
+  assert.equal(summary({ price: 100, commission: null, commissionValue: 15 }).label, "See offer terms");
+  const recurring: Partial<OnboardingOffer> = { type: "recurring", commissionValue: 10, recurringMonthlyCommissionValue: 20, recurringTermMonths: 12, payoutMode: "upfront" };
+  assert.deepEqual(summary(recurring), {
+    label: "USD 240.00 per referral · 30%",
+    detail: "USD 20.00/month for 12 months · Paid upfront · Offer terms apply",
+  });
+  assert.deepEqual(summary({ ...recurring, payoutMode: "spread" }), {
+    label: "USD 20.00/month · 30%",
+    detail: "USD 20.00/month for 12 months · Paid monthly · Offer terms apply",
+  });
+  assert.equal(summary({ ...recurring, recurringMonthlyCommissionValue: null, recurringTermMonths: null, payoutCycles: 3 }).label, "USD 30.00 per referral · 30%");
+  assert.equal(summary({ type: "recurring", commissionValue: 10 }).label, "USD 10.00 per referral · 30%", "Legacy processor defaults to one month, not twelve");
+  for (const overrides of [{ recurringTermMonths: -1 }, { recurringTermMonths: 1.5 }, { recurringTermMonths: Infinity }, { payoutMode: "unknown" }, { payoutInterval: "weekly" }, { recurringMonthlyCommissionValue: 0 }, { recurringMonthlyCommissionValue: NaN }]) {
+    assert.equal(summary({ ...recurring, ...overrides }).label, "30% commission", "Malformed recurring terms must not imply earnings");
+  }
 
   assert.equal(canUsePreapprovedOrganic(true, asset, "social", asset.caption), true);
   assert.equal(canUsePreapprovedOrganic(true, asset, "social", asset.caption, true), false);
@@ -203,6 +234,24 @@ async function main() {
     const listed = await (await listRoute.GET()).json();
     assert.equal(listed.offers[0].id, offerId);
     assert.equal(listed.offers[0].readyOrganicCount, 1);
+    tables.offers[0] = { ...offer, price: "49.99", currency: "AUD", commission_value: "15",
+      recurring_monthly_commission_value: "20", recurring_term_months: "12", payout_cycles: "12",
+      payout_mode: "spread", payout_interval: "monthly" };
+    const amounts = (await (await listRoute.GET()).json()).offers[0];
+    assert.equal(amounts.price, 49.99);
+    assert.equal(amounts.commissionValue, 15);
+    assert.equal(amounts.currency, "AUD");
+    assert.equal(amounts.recurringMonthlyCommissionValue, 20);
+    assert.equal(amounts.recurringTermMonths, 12);
+    assert.equal(amounts.payoutCycles, 12);
+    assert.equal(amounts.payoutMode, "spread");
+    assert.equal(amounts.payoutInterval, "monthly");
+    assert.ok(!JSON.stringify(amounts).includes("exclude-secret"));
+    tables.offers[0] = { ...offer, price: "bad", commission_value: Infinity };
+    const missingAmounts = (await (await listRoute.GET()).json()).offers[0];
+    assert.equal(missingAmounts.price, null);
+    assert.equal(missingAmounts.commissionValue, null);
+
     assert.ok(!JSON.stringify(listed).includes(offer.business_email));
     errors.offers = { message: "database failed" };
     assert.equal((await listRoute.GET()).status, 503);

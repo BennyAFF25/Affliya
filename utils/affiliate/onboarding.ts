@@ -41,12 +41,58 @@ export type OnboardingOffer = {
   logoUrl: string | null;
   commission: number | null;
   commissionValue: number | null;
+  price?: number | null;
+  recurringMonthlyCommissionValue?: number | null;
+  recurringTermMonths?: number | null;
+  payoutCycles?: number | null;
+  payoutMode?: string | null;
+  payoutInterval?: string | null;
   currency: string | null;
   type: string | null;
   participationMode: "open" | "approval_required" | "private";
   requestStatus: string | null;
   readyOrganicCount: number | null;
 };
+
+/** Display only: actual payouts remain authoritative in process-conversion. */
+export function onboardingCommission(offer: OnboardingOffer): { label: string; detail: string | null } {
+  const positive = (value: number | null | undefined): value is number =>
+    typeof value === "number" && Number.isFinite(value) && value > 0;
+  const rate = positive(offer.commission) ? offer.commission + "% commission" : "See offer terms";
+  const fallback = { label: rate, detail: offer.type === "recurring" ? "Recurring offer · See payment terms" : null };
+  if (!positive(offer.commission) || !offer.currency || !/^[A-Za-z]{3}$/.test(offer.currency)) return fallback;
+  const currency = offer.currency.toUpperCase();
+  const money = (amount: number) => new Intl.NumberFormat("en", {
+    style: "currency", currency, currencyDisplay: "code",
+  }).format(amount);
+  const priceEstimate = positive(offer.price) ? offer.price * offer.commission / 100 : null;
+  const suffix = " · " + offer.commission + "%";
+  if (offer.type === "recurring") {
+    // Mirror the processor's monthly-value precedence and legacy one-month default.
+    const savedMonthly = offer.recurringMonthlyCommissionValue ?? offer.commissionValue;
+    const monthly = savedMonthly;
+    const term = offer.recurringTermMonths ?? offer.payoutCycles ?? 1;
+    const mode = offer.payoutMode ?? "upfront";
+    if (!positive(monthly) || !Number.isInteger(term) || term < 1 ||
+        !["upfront", "spread"].includes(mode) || (offer.payoutInterval ?? "monthly") !== "monthly") return fallback;
+    const upfront = mode === "upfront";
+    const total = monthly * term;
+    if (!Number.isFinite(total)) return fallback;
+    return {
+      label: money(upfront ? total : monthly) + (upfront ? " per referral" : "/month") + suffix,
+      detail: money(monthly) + "/month for " + term + (term === 1 ? " month" : " months") +
+        (upfront ? " · Paid upfront" : " · Paid monthly") + " · Offer terms apply",
+    };
+  }
+  // commission_value may be rounded or stale after editing; prefer the current listed price.
+  const estimate = offer.price == null ? offer.commissionValue : priceEstimate;
+  if (!positive(estimate)) return fallback;
+  return {
+    label: money(estimate) + " est. per sale" + suffix,
+    detail: (positive(offer.price) ? "Based on a sale of " + money(offer.price) + ". " : "") +
+      "Actual commission depends on eligible sale value.",
+  };
+}
 
 export function isApproved(status: unknown) {
   return ["approved", "active", "accepted"].includes(String(status || "").toLowerCase());
