@@ -6,6 +6,7 @@ import {
   getOwnedBusinessForUser, getEntitlementOrThrow, getGrowthTrialEligibility, getGrowthSubscriptionPrice,
   isBusinessSubscriptionCheckoutEnabled,
 } from "../../../../utils/businessSubscriptions";
+import { isTrialFirstBusinessFunnel } from "../../../../utils/businessOnboardingFunnel";
 import { getBusinessFunnelMetadata } from "../../../../utils/businessOnboardingServer";
 
 export const runtime = "nodejs";
@@ -30,7 +31,7 @@ export async function GET(req: Request) {
     if (offerError || entryError || choiceError) throw new Error("Could not verify onboarding progress.");
     const onboardingEligible = Boolean(offer && entry?.billing_entry_mode === "plan_choice" && !freeChoice && !entitlement.isGrandfathered && !entitlement.stripeSubscriptionId &&
       !["subscription_active", "subscription_trialing", "subscription_past_due", "subscription_unpaid", "subscription_incomplete"].includes(entitlement.billingStatus));
-    const treatment = onboardingEligible && cohort.business_onboarding_funnel === "trial_first_v1";
+    const treatment = onboardingEligible && isTrialFirstBusinessFunnel(cohort.business_onboarding_funnel);
     let price: Awaited<ReturnType<typeof getGrowthSubscriptionPrice>> | null = null;
     let trialEligible: boolean | null = null;
     let billingError: string | null = null;

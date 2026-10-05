@@ -13,7 +13,7 @@ const token = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString
 const session = { access_token: token, refresh_token: "fixture-refresh", token_type: "bearer", expires_in: 86400, expires_at: expiresAt, user };
 
 const contextData = {
-  business_onboarding_funnel: "trial_first_v1", treatment: true, offerId,
+  business_onboarding_funnel: "trial_first_v1_100", treatment: true, offerId,
   participationMode: "open", trialEligible: true, trialDays: 14, checkoutEnabled: true, billingError: null,
   price: { amount: 7200, currency: "AUD", interval: "month", intervalCount: 1, formatted: "AUD 72.00", taxNotice: "Your final total is shown in checkout." },
 };
@@ -75,6 +75,7 @@ async function main() {
     await page.goto(origin + "/business/choose-plan");
     await page.getByRole("heading", { name: "Your offer is live.", exact: true }).waitFor();
     assert.deepEqual(writes, [], "Visits never create trials/customers/charges");
+    assert.equal(await page.locator('[data-funnel="trial_first_v1_100"]').count(), 1);
     assert.ok(events.some(e => e.eventType === "plan_choice_viewed" && e.meta.screen === "trial_first"));
     const terms = page.getByTestId("billing-terms");
     assert.match(await terms.textContent(), /AUD 72.00\/month/);

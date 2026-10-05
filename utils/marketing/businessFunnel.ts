@@ -1,4 +1,4 @@
-import { businessFunnelVersion, BUSINESS_FUNNEL_ROLLOUT_AT } from "../businessOnboardingFunnel";
+import { businessFunnelVersion, BUSINESS_FUNNEL_ROLLOUT_AT, BUSINESS_FUNNEL_FULL_ROLLOUT_AT } from "../businessOnboardingFunnel";
 type Row = { created_at?: string; business_email?: string | null; business_id?: string | null; [key: string]: unknown };
 type EventRow = Row & { event_type: string; actor_email?: string | null; meta?: Record<string, unknown> | null };
 type StripeRow = Row & { event_type: string; processing_status: string; received_at: string; metadata?: Record<string, unknown> | null };
@@ -34,7 +34,7 @@ export function aggregateBusinessFunnel(input: {
   const businesses = input.businesses.filter(b => Number.isFinite(time(b.created_at)) &&
     (!input.signupFrom || time(b.created_at) >= time(input.signupFrom)) && time(b.created_at) < time(input.signupTo) && time(b.created_at) <= observed);
   const empty = () => Object.fromEntries(FUNNEL_METRICS.map(([key]) => [key, 0])) as FunnelCounts;
-  const groups: FunnelGroup[] = ["pre_experiment", "plan_choice_v1", "trial_first_v1"].map(version => ({ version, counts: empty(), rates: empty(), matureTrials: 0 }));
+  const groups: FunnelGroup[] = ["pre_experiment", "plan_choice_v1", "trial_first_v1", "trial_first_v1_100"].map(version => ({ version, counts: empty(), rates: empty(), matureTrials: 0 }));
   const detail = businesses.map(b => {
     const identity = email(b.email);
     const afterSignup = (at: unknown) => Number.isFinite(time(at)) && time(at) >= time(b.created_at) && time(at) <= observed;
@@ -80,11 +80,13 @@ export function aggregateBusinessFunnel(input: {
   });
   for (const group of groups) for (const [key] of FUNNEL_METRICS) group.rates[key] = group.counts.signups ? Number((group.counts[key] / group.counts.signups * 100).toFixed(1)) : 0;
   return {
-    rolloutAt: BUSINESS_FUNNEL_ROLLOUT_AT, allocation: "50/50 deterministic business UUID",
+    rolloutAt: BUSINESS_FUNNEL_ROLLOUT_AT, fullRolloutAt: BUSINESS_FUNNEL_FULL_ROLLOUT_AT,
+    allocation: "50/50 before full rollout; 100% trial-first for signups from full rollout",
     signupWindow: { from: input.signupFrom, toExclusive: input.signupTo }, observedThrough: input.observedThrough,
     metrics: FUNNEL_METRICS.map(([key, label, source]) => ({ key, label, source })),
     groups, detail,
     notes: [
+      "Full rollout has no concurrent randomized control; compare equally mature cohorts without claiming causal uplift.",
       "All signup-cohort businesses are included, even without events or screen exposure. Rates use that same signup denominator.",
       "Missing historical events are unknown behaviour. Durable milestones are independent; no strict sequential conversion is implied.",
       "A paid Meta runtime row with Meta ad/campaign IDs establishes campaign creation. Current spend > 0 is delivery evidence, not a historical as-of spend snapshot.",
