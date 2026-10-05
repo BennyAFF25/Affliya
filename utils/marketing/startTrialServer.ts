@@ -41,7 +41,7 @@ export async function recordConfirmedGrowthTrial(params: {
     if (!profile || profile.role !== "business" ||
         profile.email?.trim().toLowerCase() !== entitlement.business_email?.trim().toLowerCase()) return;
     const { data: matchingEvent, error: matchingError } = await supabase.from("business_subscription_gate_events")
-      .select("attribution")
+      .select("id,attribution")
       .eq("event_type", "subscription_checkout_started").eq("business_id", businessId)
       .eq("metadata->>userId", userId)
       .eq("metadata->>stripeCustomerId", typeof subscription.customer === "string" ? subscription.customer : subscription.customer.id)
@@ -61,6 +61,14 @@ export async function recordConfirmedGrowthTrial(params: {
       stripe_event_id: event.id, event_id: payload.event_id, event_time: payload.event_time, payload,
     }, { onConflict: "business_id", ignoreDuplicates: true });
     if (insertError) throw insertError;
+    // The delivery record now owns the temporary matching snapshot.
+    if (matchingEvent?.id && matchingEvent.attribution) {
+      const attribution = { ...matchingEvent.attribution };
+      delete attribution.meta_capi_matching;
+      const { error: cleanupError } = await supabase.from("business_subscription_gate_events")
+        .update({ attribution }).eq("id", matchingEvent.id);
+      if (cleanupError) reportingError("matching_cleanup");
+    }
   } catch { reportingError("record"); }
 }
 export async function deliverPendingGrowthTrials(supabase: SupabaseClient, businessId?: string) {
@@ -75,6 +83,7 @@ export async function deliverPendingGrowthTrials(supabase: SupabaseClient, busin
     });
     const { error: updateError } = await supabase.from("meta_start_trial_delivery").update({
       status: result.ok ? "sent" : "pending",
+      ...(result.ok ? { payload: { event_name: row.payload.event_name, event_id: row.payload.event_id, event_time: row.payload.event_time } } : {}),
       sent_at: result.ok ? new Date().toISOString() : null,
       next_attempt_at: new Date(Date.now() + retryDelaySeconds(row.attempts) * 1000).toISOString(),
       lease_token: null, lease_until: null, last_error: result.error,
@@ -93,15 +102,17 @@ export async function reconcileGrowthTrialReporting(supabase: SupabaseClient) {
     .eq("event_type", "customer.subscription.created")
     .eq("metadata->>livemode", "true")
     .gte("received_at", new Date(Date.now() - 6 * 86400_000).toISOString())
-    .order("received_at", { ascending: false }).limit(50);
+    .order("received_at", { ascending: false }).limit(500);
   if (error) { reportingError("reconcile_read"); return; }
+  const businesses = [...new Set((data || []).map(row => row.business_id).filter(Boolean))];
+  if (!businesses.length) return;
+  const { data: deliveries, error: deliveryError } = await supabase.from("meta_start_trial_delivery")
+    .select("business_id").in("business_id", businesses);
+  if (deliveryError) { reportingError("reconcile_delivery"); return; }
+  const recorded = new Set((deliveries || []).map(row => row.business_id));
+  const missing = (data || []).filter(row => row.business_id && !recorded.has(row.business_id)).slice(0, 20);
   const stripe = createBusinessSubscriptionStripeClient();
-  for (const row of data || []) {
-    if (!row.business_id) continue;
-    const { data: delivery, error: deliveryError } = await supabase.from("meta_start_trial_delivery")
-      .select("business_id").eq("business_id", row.business_id).maybeSingle();
-    if (deliveryError) { reportingError("reconcile_delivery"); return; }
-    if (delivery) continue;
+  for (const row of missing) {
     try {
       const event = await stripe.events.retrieve(row.stripe_event_id);
       await recordConfirmedGrowthTrial({ supabase, event });

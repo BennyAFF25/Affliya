@@ -30,7 +30,7 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 BEGIN
   -- Keep ambiguous acknowledgement retries inside Meta's deduplication window.
   UPDATE public.meta_start_trial_delivery
-     SET status = 'expired', lease_token = NULL, lease_until = NULL, last_error = 'delivery_window_expired'
+     SET status = 'expired', payload = payload - 'user_data', lease_token = NULL, lease_until = NULL, last_error = 'delivery_window_expired'
    WHERE status IN ('pending','sending')
      AND (to_timestamp(event_time) < now() - interval '6 days'
        OR first_attempt_at < now() - interval '24 hours');

@@ -73,6 +73,7 @@ async function run() {
   assert.equal(tables.meta_start_trial_delivery.length, 1);
   await Promise.all([server.deliverPendingGrowthTrials(database), server.deliverPendingGrowthTrials(database)]);
   assert.equal(requestCount, 1); assert.equal(tables.meta_start_trial_delivery[0].status, "sent");
+  assert.ok(!("user_data" in (tables.meta_start_trial_delivery[0].payload as Record<string, unknown>)));
   await server.recordConfirmedGrowthTrial({ supabase: database, event });
   await server.deliverPendingGrowthTrials(database);
   assert.equal(requestCount, 1);
