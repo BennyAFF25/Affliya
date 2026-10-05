@@ -9,6 +9,7 @@ on:
       - "app/auth-redirect/**"
       - "app/login/affiliate/**"
       - "app/affiliate/dashboard/**"
+      - "app/affiliate/marketplace/**"
       - "app/api/onboarding/affiliate-offers/**"
       - "app/api/affiliate/offers/**"
       - "app/api/profile/onboarding-complete/**"
