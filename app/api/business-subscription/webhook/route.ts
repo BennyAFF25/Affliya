@@ -13,6 +13,8 @@ import {
   reverseCreatorCommissionByInvoiceId,
 } from "../../../../utils/creatorReferrals";
 
+import { recordConfirmedGrowthTrial, deliverPendingGrowthTrials } from "../../../../utils/marketing/startTrialServer";
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -128,6 +130,8 @@ export async function POST(req: Request) {
 
   if (insertEvent.error) {
     if (insertEvent.error.code === "23505") {
+      await recordConfirmedGrowthTrial({ supabase, event });
+      await deliverPendingGrowthTrials(supabase).catch(() => console.warn("[meta-start-trial] reporting replay delivery failed"));
       return NextResponse.json({ received: true, replay: true });
     }
 
@@ -217,6 +221,8 @@ export async function POST(req: Request) {
       fallbackUserId: metadata.user_id || subscription.metadata?.user_id || null,
       sourceEventType: event.type,
     });
+
+    await recordConfirmedGrowthTrial({ supabase, event, subscription });
 
     const consumedTrial =
       subscription.status === "trialing" || subscription.metadata?.trialEligibleAtCheckout === "true";
@@ -320,6 +326,7 @@ export async function POST(req: Request) {
       },
     });
 
+    await deliverPendingGrowthTrials(supabase).catch(() => console.warn("[meta-start-trial] reporting delivery failed"));
     return NextResponse.json({ received: true });
   } catch (err: unknown) {
     const errorMessage = safeErrorMessage(err);

@@ -7,6 +7,10 @@
     {
       "path": "/api/ad-spend/process-transfer-batches",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/marketing/meta-start-trial-delivery",
+      "schedule": "*/5 * * * *"
     }
   ]
 }
