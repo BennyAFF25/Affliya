@@ -1,5 +1,5 @@
 # Business trial-first full rollout
-Status: in progress. Founder requested 100% new-business rollout on 2026-10-05.
+Status: completed. Founder requested 100% new-business rollout on 2026-10-05.
 
 ## Problem and product intent
 The initial 50/50 experiment leaves half of new businesses on the old equal-plan decision. Founder prefers faster exposure and iteration while acquisition is strong, accepting weaker causal evidence from historical comparisons. This explicit direction revises the earlier allocation decision, aligned with VISION.md and PRODUCT_PRINCIPLES.md simplicity/value-first goals. Free, explicit checkout confirmation, existing pricing and meaningful financial control remain intact.
@@ -17,7 +17,15 @@ New eligible businesses publish an offer, then see the existing trial-first cont
 100% removes a concurrent randomized comparison for future signups. Compare activation, cancellation and positive payment over equally mature cohorts; do not attribute change causally or optimize trial starts alone. Rollback must preserve actual subscriptions and historical assignments; use a future allocation cutoff rather than reassigning existing businesses. Deploy before the prospective cutoff; adjust it before enrollment if release is delayed.
 
 ## Validation
-Planned: deterministic boundaries/all UUIDs; durable reporting separation; actual eligibility/completion route cases for the previously-control UUID, existing Free and subscribed exclusions; existing business billing/type/browser CI and marketing checks. Live Stripe testing remains founder-owned. No production charges.
+Passed on 51974f3485640b7876a4c525a6fac1de61df2918:
+- Business run 37271138588: all 256 UUID suffixes get treatment after full cutoff; one-millisecond boundary preserves prior assignments; four cohorts stay separate in durable reporting. Actual eligibility/completion and explicit checkout tests retain new version metadata and prior-trial/Free/subscribed exclusions.
+- Existing billing/entitlement/gate/payment-profile suites, new strict typecheck, touched-integration baseline comparison and lint passed.
+- Actual authenticated Next browser checks passed at 320x568, 390x650 and 1280x800 using full-rollout context; pricing/card/cancellation terms, visible Free, unavailable pricing, trial rejection, foreign returns and saved-offer retry remain covered.
+- Marketing run 37271138604 passed reporting and dashboard/API strict types.
+- Affiliate run 37271138392 passed existing regressions/types/lint/browser checks.
+- Vercel preview build succeeded. Production deployment is verified after merge.
 
-## Remaining work
-Implement, run scoped CI, merge and verify production deployment before full-rollout enrollment.
+No migrations, database changes, remote configuration or pricing changes. Live Stripe testing remains founder-owned; no production charges were made. Full-repository pre-existing type debt is outside scope; scoped checks passed. Remaining measurement risk: no concurrent randomized control after full rollout; full trial follow-up still required.
+
+## Delivery
+Merge to main under persistent user authorization and verify production deployment before full-rollout enrollment. Completed feature validation is recorded above; deployment status is reported to the founder after release.
