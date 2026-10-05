@@ -60,7 +60,7 @@ export default function BusinessTrialFirstContinuation({ context, busy, error, o
         {context.price && (
           <div className="mt-5" data-testid="billing-terms">
             <p className="flex flex-wrap items-baseline gap-x-2 text-[32px] font-semibold leading-tight tracking-[-0.025em] sm:text-[38px]" data-testid="trial-today-price">
-              <span className="text-[#00C2CB]">$0</span><span>Today</span>
+              <span className="text-[#00C2CB]">$0</span>{" "}<span>Today</span>
             </p>
             <p className="mt-1 text-sm leading-5 text-[#94a3b8]">
               {context.trialDays}-day free trial <span aria-hidden="true">•</span> then {context.price.formatted}/{growthPricePeriod(context.price)}
