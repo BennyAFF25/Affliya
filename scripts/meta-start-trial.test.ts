@@ -52,7 +52,7 @@ async function run() {
   assert.deepEqual(await sendStartTrial({ payload, token: "fixture-secret", pixelId: "465823834246251", fetcher }), { ok: true, error: null });
   assert.deepEqual(sent, { data: [payload] });
   await sendStartTrial({ payload, token: "fixture-secret", pixelId: "465823834246251", testEventCode: "TEST_fixture", fetcher });
-  assert.equal(sent?.test_event_code, "TEST_fixture");
+  assert.equal((sent as Record<string, unknown> | undefined)?.test_event_code, "TEST_fixture");
   assert.equal((await sendStartTrial({ payload, token: "fixture-secret", pixelId: "465823834246251", fetcher: async () => new Response("secret error", { status: 500 }) })).error, "meta_http_500");
   assert.equal((await sendStartTrial({ payload, token: "fixture-secret", pixelId: "465823834246251", fetcher: async () => Response.json({}) })).error, "meta_ack_missing");
   assert.equal((await sendStartTrial({ payload, token: "fixture-secret", pixelId: "465823834246251", fetcher: async () => { throw new Error("secret"); } })).error, "meta_request_failed");

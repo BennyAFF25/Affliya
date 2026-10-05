@@ -64,6 +64,7 @@ function reset() {
   process.env.VERCEL_ENV = "production"; process.env.META_CAPI_ACCESS_TOKEN = "fixture-secret";
 }
 async function run() {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const server = require("../utils/marketing/startTrialServer");
   global.fetch = async () => { requestCount++; return shouldFail ? new Response("", { status: 500 }) : Response.json({ events_received: 1 }); };
   reset();

@@ -43,6 +43,8 @@ export function sanitizeMatching(input: Record<string, unknown>, now = Date.now(
   return {
     ...(fbp ? { fbp } : {}), ...(fbc ? { fbc } : {}),
     ...(isIP(ip) ? { client_ip_address: ip } : {}),
+    // Reject control characters in user-agent input.
+    // eslint-disable-next-line no-control-regex
     ...(ua && !/[\u0000-\u001f\u007f]/.test(ua) ? { client_user_agent: ua } : {}),
   };
 }
