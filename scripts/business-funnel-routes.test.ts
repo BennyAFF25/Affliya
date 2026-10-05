@@ -130,6 +130,10 @@ async function main() {
     assert.ok(!writes.some(w => w.table === "offers"), "Completion retries never insert another offer");
     reset(); errors.product_events = { message: "telemetry unavailable" };
     assert.equal((await completion.POST(post({ offerId }))).status, 200, "Telemetry failure cannot block saved offers");
+    reset(); errors.business_entitlements = { message: "temporary failure" };
+    const failedEntry = await completion.POST(post({ offerId }));
+    assert.equal(failedEntry.status, 503); assert.equal(failedEntry.headers.get("set-cookie"), null);
+    assert.ok(!writes.some(w => w.table === "offers"), "A failed billing-context read leaves the saved offer intact");
     const webhook = require("../app/api/business-subscription/webhook/route");
     reset();
     signedEvent = { id: "evt_fixture", type: "invoice.paid", livemode: true, created: 1791176500, api_version: "fixture",

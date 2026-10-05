@@ -1,5 +1,5 @@
 # Business trial-first experiment
-Status: in progress. Founder approved reviewed proposal on 2026-10-05.
+Status: completed. Founder approved reviewed proposal on 2026-10-05.
 
 ## Problem and product intent
 65 recent business signups produced about 37 offers but very few trials and no paid conversions. Test whether making affiliate-funded paid distribution the natural next step improves campaign activation and paid conversion, preserving Free, approvals and financial control. Grounded in docs/VISION.md, PRODUCT_PRINCIPLES.md, PRODUCT.md, BUSINESS_RULES.md, UI_DESIGN_SYSTEM.md, ARCHITECTURE.md, DATABASE.md, MONEY_FLOW.md, TRACKING.md and META_ADS.md.
@@ -20,4 +20,15 @@ Extend existing marketing report with fixed signup dates, observation-through da
 50/50 samples are small: evaluate signup-to-campaign-to-paid outcomes, not trial starts alone; allow full trial follow-up. Free retains requests, organic and setup; Growth enables paid approval/launch, not exclusive Meta connection/tracking. Meta bills business accounts and Nettmark reimburses separately; no risk transfer claims. Failed analytics cannot block offer save/billing. Stripe unavailable => trial action disabled with visible retry/Free, never unverified pricing. Cancellation requested versus ended and test versus live invoices must be distinct. Reporting caps warn rather than silently claim complete data. No pricing/env/database/advertising changes.
 
 ## Validation
-Planned: deterministic cohort and signup-window tests; historical outcomes/repeated invoices/test invoices/missing events/cancellation tests; mocked ownership, checkout and retry failures; subscription/gate/payment/affiliate regressions; scoped strict type checks, lint and mobile/desktop browser checks; PR/Vercel builds. Record actual results before completion.
+Passed on implementation commit 7b7b9ecf3364734ef8022819a6ac0bc13a1a62a8:
+- Business checks run 37265129982: deterministic 50/50 allocation, cutoff/dropouts/fixed signup-follow-up, durable offer/request/Meta/paid-ad/spend/trial/cancellation, duplicate/zero/test/unknown invoices; actual mocked handler authentication/ownership, no visit-time financial writes, prior-trial rejection, grandfathering, Free preservation, incomplete/foreign returns, saved-offer retries, signed webhook audit facts and replay.
+- Existing subscription, entitlement, paid-gate, commission-payment placement and billing-profile suites passed. Existing acquisition/fee-reporting tests passed.
+- Strict new-module types and lint passed. Touched integration comparison against a378322 found baseline 11 diagnostics/current 6/new 0. Existing affiliate comparison found no added errors; literal union messages are compared in full and normalized by member order, and both snapshots use a modern JS target.
+- Actual Next.js browser fixtures passed at 320x568, 390x650, 1280x800: treatment/control, verified price/duration/card/cancellation terms, available Free, unavailable billing safety, rejected trial checkout, foreign return, builder instrumentation and completion retry without duplicate offers.
+- Marketing checks run 37265129969 passed tests and strict API/dashboard types.
+- Affiliate checks run 37265130024 passed unit/types/lint plus existing Promote navigation, affiliate onboarding and legal continuity browser suites.
+- Vercel preview builds passed during PR validation. Final guard for failed entitlement lookup has route regression coverage and is checked again before merge.
+
+Final files: business continuation component/page; read-only trial eligibility route; existing signup/builder/completion/product-event/Free/checkout/return/webhook paths; shared cohort/server/price helpers; internal marketing API/dashboard with independent milestone comparison and fixed URL cohort windows; scoped tests/workflow/type configs; docs/experiments/business-trial-first-v1.md. Existing stale gate test now recognizes the already-existing safe appendReturnQuery implementation.
+
+Limits: browser/routes use isolated fake clients, not production charges. Live Stripe Price, portal configuration, and subscription-gate runtime settings cannot be read with the connected credentials; UI verifies the configured price at request time and fails safely to Retry/Free. Whole-repository types remain outside scope; no new errors in compared integrations. Historical absent events/invoice facts cannot be reconstructed. Source caps are surfaced. Existing RLS findings and webhook failed-replay recovery remain separate follow-ups. No migrations, remote configuration, pricing, financial rules or affiliate product changes.

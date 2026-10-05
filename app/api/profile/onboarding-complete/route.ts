@@ -96,12 +96,16 @@ export async function POST(req?: Request) {
   // Reddit tracking is best-effort and must never break onboarding completion.
   await trackOnboardingOfferConversion({ id: user.id, email: user.email });
 
-  const { data: entitlement } = await supabase
+  const { data: entitlement, error: entitlementError } = await supabase
     .from('business_entitlements')
     .select('billing_entry_mode')
     .eq('business_email', user.email)
     .limit(1)
     .maybeSingle();
+
+  if (entitlementError || !entitlement) {
+    return NextResponse.json({ error: 'Your offer is saved. Could not verify your next step; please retry.' }, { status: 503 });
+  }
 
   // Only business completion loads the server helpers; affiliate completion stays unchanged.
   try {
