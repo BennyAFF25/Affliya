@@ -1,7 +1,7 @@
 # Nettmark StartTrial reporting
 
 ## Status and rollout
-Migration applied to production with founder approval on 2026-10-05 (Supabase version 20261005082312). Sender release is in progress on PR #17; events begin only after the production application deployment. META_CAPI_ACCESS_TOKEN is a sensitive server-only Vercel Production variable; never expose or commit its value. Existing public NEXT_PUBLIC_META_PIXEL_ID selects the same Dataset as the browser Pixel (fallback 465823834246251). Existing CompleteRegistration campaigns stay unchanged.
+Migration applied to production with founder approval on 2026-10-05 (Supabase version 20261005082312). Sender shipped through PR #17; the production deployment succeeded on 2026-10-05. Actual Meta receipt/token permission still require the controlled Test Events check below. META_CAPI_ACCESS_TOKEN is a sensitive server-only Vercel Production variable; never expose or commit its value. Existing public NEXT_PUBLIC_META_PIXEL_ID selects the same Dataset as the browser Pixel (fallback 465823834246251). Existing CompleteRegistration campaigns stay unchanged.
 
 Apply supabase/migrations/20261005082312_meta_start_trial_delivery.sql before deploying. Verify the private table/RPC and existing CRON_SECRET. Never replay billing to repair a Meta delivery. No new subscriptions, trials or charges are created by reporting.
 

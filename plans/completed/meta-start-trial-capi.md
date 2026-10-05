@@ -1,7 +1,7 @@
 # Meta StartTrial server delivery
 
 ## Status
-Production rollout in progress. Founder approved the migration/release; private delivery migration applied 2026-10-05, version 20261005082312. Verified RLS, client denial, server RPC access and uniqueness; zero delivery rows before deployment. Implementation and automated validation are complete on PR #17. The founder configured the production secret. No controlled Meta conversion has been sent.
+Completed implementation and production deployment. Founder approved the migration/release; private delivery migration applied 2026-10-05, version 20261005082312. Verified RLS, client denial, server RPC access and uniqueness; zero delivery rows before deployment. Implementation and automated validation are complete on PR #17. The founder configured the production secret. PR #17 merged as d9916eb06464647128e8438e5961364141f8e42c; Vercel production deployment 1ncBuFvXci4mqGiQqLUkPHCuPzzu reported success. No controlled Meta conversion has been sent. Vercel connector permissions prevented authenticated live-route/log inspection; Meta token permissions and receipt still require the documented controlled Test Events check.
 
 ## Problem and product intent
 The founder wants history of genuine business Growth trials on Meta's existing Dataset, without changing CompleteRegistration acquisition campaigns. This supports measurable distribution and dependable commercial infrastructure (docs/VISION.md, docs/PRODUCT_PRINCIPLES.md). No pricing, subscription creation, entitlements, UX, merchant attribution, or revenue behaviour changes.
@@ -23,3 +23,6 @@ Passed on application commit 84b738e0c4734b08b3ab1e5cf46f0457fbdcc743: Meta Star
 
 ## Rollback
 Redeploy previous application revision and stop delivery cron. Retain delivery ledger for deduplication/audit; avoid dropping it after sending events. No subscriptions or charges created by this feature.
+
+## Final production verification
+Founder authorised the migration/release on 2026-10-05. Production schema version 20261005082312 matches the repository migration filename. RLS enabled, anon/authenticated table access denied, authenticated claim denied, server claim enabled, business/event uniqueness verified; empty queue RPC returned zero. Both final CI runs passed on 8fb353e58157d75f3c1b05921a9ad23eaca1470d: Meta 37283441244 and business 37283441245. Vercel production deployment succeeded after merge. Delivery ledger remained empty during the initial readiness check; no claim of actual Meta receipt or campaign optimisation eligibility is made. Controlled testing remains in docs/META_START_TRIAL.md. Billing, onboarding UX, existing campaigns and CompleteRegistration optimisation are unchanged.
