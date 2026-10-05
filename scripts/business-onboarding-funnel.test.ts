@@ -1,5 +1,5 @@
 import * as assert from "node:assert/strict";
-import { businessFunnelVersion, BUSINESS_FUNNEL_ROLLOUT_AT, formatGrowthPrice } from "../utils/businessOnboardingFunnel";
+import { businessFunnelVersion, BUSINESS_FUNNEL_ROLLOUT_AT, BUSINESS_FUNNEL_FULL_ROLLOUT_AT, isTrialFirstBusinessFunnel, formatGrowthPrice } from "../utils/businessOnboardingFunnel";
 import { aggregateBusinessFunnel } from "../utils/marketing/businessFunnel";
 const treatment = "11111111-1111-4111-8111-111111111110", control = "11111111-1111-4111-8111-111111111111";
 const signup = BUSINESS_FUNNEL_ROLLOUT_AT;
@@ -10,6 +10,22 @@ assert.equal(businessFunnelVersion("garbage", signup), null);
 let allocated = 0;
 for (let i = 0; i < 256; i++) if (businessFunnelVersion("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa" + i.toString(16).padStart(2, "0"), signup) === "trial_first_v1") allocated++;
 assert.equal(allocated, 128);
+const fullRollout = BUSINESS_FUNNEL_FULL_ROLLOUT_AT;
+const beforeFullRollout = new Date(Date.parse(fullRollout) - 1).toISOString();
+assert.equal(businessFunnelVersion(treatment, beforeFullRollout), "trial_first_v1");
+assert.equal(businessFunnelVersion(control, beforeFullRollout), "plan_choice_v1");
+assert.equal(businessFunnelVersion(control, fullRollout), "trial_first_v1_100");
+assert.equal(businessFunnelVersion("garbage", fullRollout), null);
+assert.equal(businessFunnelVersion(control, "invalid"), null);
+assert.equal(isTrialFirstBusinessFunnel("trial_first_v1"), true);
+assert.equal(isTrialFirstBusinessFunnel("trial_first_v1_100"), true);
+assert.equal(isTrialFirstBusinessFunnel("plan_choice_v1"), false);
+assert.equal(isTrialFirstBusinessFunnel(null), false);
+for (let i = 0; i < 256; i++) {
+  const uuid = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaa" + i.toString(16).padStart(2, "0");
+  assert.equal(businessFunnelVersion(uuid, fullRollout), "trial_first_v1_100");
+  assert.equal(businessFunnelVersion(uuid, new Date(Date.parse(fullRollout) + 86400000).toISOString()), "trial_first_v1_100");
+}
 assert.equal(formatGrowthPrice(4900, "AUD").replace(/\u00a0/g, " "), "AUD 49.00");
 assert.equal(formatGrowthPrice(4900, "JPY").replace(/\u00a0/g, " "), "JPY 4,900");
 const later = new Date(Date.parse(signup) + 86400000).toISOString();
@@ -48,4 +64,20 @@ assert.equal(cancels.trialCancellationRequested, 1); assert.equal(cancels.trialC
 const ends = aggregateBusinessFunnel({ ...base, stripeEvents: [{ ...cancellation, event_type: "customer.subscription.deleted", metadata: { ...cancellation.metadata, stripe_status: "canceled" } }] }).groups[2].counts;
 assert.equal(ends.trialCancelled, 1);
 assert.equal(aggregateBusinessFunnel({ ...base, paidCampaigns: [{ ...base.paidCampaigns[0], meta_ad_id: null }] }).groups[2].counts.campaignCreated, 0);
+const fullBusiness = "22222222-2222-4222-8222-222222222223";
+const rolloutReport = aggregateBusinessFunnel({
+  ...base, businesses: [...base.businesses, { id: fullBusiness, email: "full@example.test", created_at: fullRollout }],
+  events: [...base.events, { event_type: "plan_choice_viewed", actor_email: "full@example.test", created_at: fullRollout, meta: { business_id: fullBusiness, business_onboarding_funnel: "plan_choice_v1", screen: "trial_first" } }],
+  offers: [...base.offers, { business_id: fullBusiness, created_at: fullRollout }],
+  stripeEvents: [...base.stripeEvents, { ...invoice(), business_id: fullBusiness }],
+});
+assert.equal(rolloutReport.groups.length, 4);
+assert.equal(rolloutReport.groups[1].counts.signups, 1, "Preserve earlier control");
+assert.equal(rolloutReport.groups[2].counts.signups, 1, "Preserve earlier randomized treatment");
+const fullGroup = rolloutReport.groups.find(g => g.version === "trial_first_v1_100")!;
+assert.equal(fullGroup.counts.signups, 1); assert.equal(fullGroup.counts.offerPublished, 1);
+assert.equal(fullGroup.counts.trialScreenReached, 1); assert.equal(fullGroup.counts.paidConversion, 1);
+assert.equal(fullGroup.rates.offerPublished, 100);
+assert.equal(rolloutReport.fullRolloutAt, fullRollout);
+assert.equal(aggregateBusinessFunnel({ ...base, businesses: [], signupFrom: fullRollout }).groups[3].counts.signups, 0);
 console.log("Business funnel allocation and durable milestone tests passed");

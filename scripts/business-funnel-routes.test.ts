@@ -1,13 +1,14 @@
 import * as assert from "node:assert/strict";
 import Module from "node:module";
 import * as helpers from "../utils/businessSubscriptions";
-import { BUSINESS_FUNNEL_ROLLOUT_AT } from "../utils/businessOnboardingFunnel";
+import { BUSINESS_FUNNEL_ROLLOUT_AT, BUSINESS_FUNNEL_FULL_ROLLOUT_AT } from "../utils/businessOnboardingFunnel";
 type Row = Record<string, any>;
 const id = "11111111-1111-4111-8111-111111111110", offerId = "22222222-2222-4222-8222-222222222222";
 let user: { id: string; email: string } | null;
 let tables: Record<string, Row[]>, writes: Array<{ table: string; value: unknown }>, errors: Record<string, any>;
 let sessionsCreated = 0, customersEnsured = 0, historical: Row[] = [], session: Row;
 let signedEvent: Row, syncCalls = 0;
+let expectedCheckoutFunnel = "trial_first_v1";
 const stripeEventIds = new Set<string>();
 const database = {
   auth: { getUser: async () => ({ data: { user }, error: null }) },
@@ -42,9 +43,10 @@ const stripe = {
       metadata: { business_id: id, user_id: id, business_onboarding_funnel: "trial_first_v1", trialEligibleAtCheckout: "true" } }),
   },
   webhooks: { constructEvent: (_body: unknown, signature: string) => { if (signature !== "verified-fixture") throw new Error("invalid signature"); return signedEvent; } },
-  checkout: { sessions: { retrieve: async () => session, create: async (body: Row) => { sessionsCreated++; assert.equal(body.payment_method_collection, "always"); assert.match(body.success_url, /\/business\/choose-plan\?subscription=checkout_returned&session_id=/); assert.equal(body.subscription_data.trial_period_days, helpers.BUSINESS_GROWTH_TRIAL_DAYS); assert.equal(body.metadata.business_onboarding_funnel, "trial_first_v1"); return { id: "cs_test", url: "https://checkout.stripe.test/session" }; } } },
+  checkout: { sessions: { retrieve: async () => session, create: async (body: Row) => { sessionsCreated++; assert.equal(body.payment_method_collection, "always"); assert.match(body.success_url, /\/business\/choose-plan\?subscription=checkout_returned&session_id=/); assert.equal(body.subscription_data.trial_period_days, helpers.BUSINESS_GROWTH_TRIAL_DAYS); assert.equal(body.metadata.business_onboarding_funnel, expectedCheckoutFunnel); return { id: "cs_test", url: "https://checkout.stripe.test/session" }; } } },
 };
 function reset() {
+  expectedCheckoutFunnel = "trial_first_v1";
   user = { id, email: "business@example.test" }; writes = []; errors = {}; historical = []; sessionsCreated = 0; customersEnsured = 0; syncCalls = 0; stripeEventIds.clear();
   tables = { profiles: [{ id, email: user.email, role: "business", created_at: BUSINESS_FUNNEL_ROLLOUT_AT }],
     business_profiles: [{ id, business_email: user.email }],
@@ -84,6 +86,30 @@ async function main() {
     const context = await initial.json();
     assert.equal(context.treatment, true); assert.equal(context.price.amount, 7200); assert.match(context.price.formatted, /72/);
     assert.deepEqual(writes, []); assert.equal(customersEnsured, 0); assert.equal(sessionsCreated, 0);
+    // Both previously-control and treatment UUIDs get the full rollout after its cutoff.
+    for (const fullId of [id, "11111111-1111-4111-8111-111111111111"]) {
+      const enrollFull = () => {
+        reset(); user!.id = fullId;
+        tables.profiles[0].id = fullId; tables.profiles[0].created_at = BUSINESS_FUNNEL_FULL_ROLLOUT_AT;
+        tables.business_profiles[0].id = fullId; tables.business_entitlements[0].business_id = fullId;
+      };
+      enrollFull();
+      const fullContext = await (await eligibility.GET(get("businessId=" + fullId))).json();
+      assert.equal(fullContext.treatment, true);
+      assert.equal(fullContext.business_onboarding_funnel, "trial_first_v1_100");
+      assert.deepEqual(writes, []); assert.equal(customersEnsured, 0); assert.equal(sessionsCreated, 0);
+      const completed = await completion.POST(post({ offerId }));
+      assert.equal(completed.status, 200); assert.equal((await completed.json()).treatment, true);
+      enrollFull(); tables.product_events = [{ id: "free", actor_email: user!.email, event_type: "plan_free_clicked", meta: { choice_confirmed: true } }];
+      assert.equal((await (await eligibility.GET(get("businessId=" + fullId))).json()).treatment, false);
+      enrollFull(); tables.business_entitlements[0].billing_status = "subscription_active";
+      assert.equal((await (await eligibility.GET(get("businessId=" + fullId))).json()).treatment, false);
+      enrollFull(); tables.business_entitlements[0].growth_trial_used = true;
+      assert.equal((await (await eligibility.GET(get("businessId=" + fullId))).json()).treatment, false);
+    }
+    reset(); tables.profiles[0].created_at = BUSINESS_FUNNEL_FULL_ROLLOUT_AT; expectedCheckoutFunnel = "trial_first_v1_100";
+    assert.equal((await checkout.POST(post({ businessId: id, requireTrial: true, returnTo: "/business/choose-plan" }))).status, 200);
+    assert.equal(sessionsCreated, 1);
     reset(); tables.profiles[0].created_at = "2026-01-01T00:00:00Z";
     assert.equal((await (await eligibility.GET(get("businessId=" + id))).json()).treatment, false);
     reset(); tables.business_entitlements[0].billing_entry_mode = "legacy_deferred";

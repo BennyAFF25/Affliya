@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 
-import { businessFunnelVersion } from '../../../../utils/businessOnboardingFunnel';
+import { businessFunnelVersion, isTrialFirstBusinessFunnel } from '../../../../utils/businessOnboardingFunnel';
 
 const PLAN_CHOICE_COOKIE = 'nettmark_business_plan_choice_v2';
 const LEGACY_PLAN_CHOICE_COOKIE = 'nettmark_business_plan_choice';
@@ -78,7 +78,7 @@ export async function POST(req?: Request) {
     offer = ownedOffer;
     const { data: signup, error: signupError } = await supabase.from('profiles').select('created_at').eq('id', user.id).maybeSingle();
     if (signupError) return NextResponse.json({ error: 'Could not verify onboarding. Your offer is saved; please retry.' }, { status: 503 });
-    treatment = businessFunnelVersion(user.id, signup?.created_at || '') === 'trial_first_v1';
+    treatment = isTrialFirstBusinessFunnel(businessFunnelVersion(user.id, signup?.created_at || ''));
   }
 
   const { error } = await supabase

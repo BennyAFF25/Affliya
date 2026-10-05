@@ -16,7 +16,7 @@ type Props = {
 export default function BusinessTrialFirstContinuation({ context, busy, error, onGrowth, onFree, onRetry }: Props) {
   const ready = Boolean(context.price && context.trialEligible === true && context.checkoutEnabled);
   return <main className="min-h-screen bg-[var(--background)] px-4 py-6 sm:px-6" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
-    <section className="mx-auto max-w-lg rounded-[24px] border border-white/[0.09] bg-[#151718] p-5 shadow-[0_22px_60px_rgba(0,0,0,0.22)] sm:p-6" data-funnel="trial_first_v1" style={{ color: "#f5f7f8" }}>
+    <section className="mx-auto max-w-lg rounded-[24px] border border-white/[0.09] bg-[#151718] p-5 shadow-[0_22px_60px_rgba(0,0,0,0.22)] sm:p-6" data-funnel={context.business_onboarding_funnel} style={{ color: "#f5f7f8" }}>
       <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#00C2CB] text-[#0f0f0f]" aria-hidden="true">✓</div>
       <h1 className="mt-4 text-[25px] font-semibold tracking-[-0.025em]">Your offer is live.</h1>
       <p className="mt-2 text-sm leading-5 text-[#94a3b8]">{context.participationMode === "private"
