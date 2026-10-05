@@ -1,7 +1,7 @@
 # Meta StartTrial server delivery
 
 ## Status
-Blocked on production rollout approval for the additive database migration. Implementation and automated validation are complete on PR #17. The founder configured the production secret. No production migration, Meta conversion or deployment has been performed.
+Production rollout in progress. Founder approved the migration/release; private delivery migration applied 2026-10-05, version 20261005082312. Verified RLS, client denial, server RPC access and uniqueness; zero delivery rows before deployment. Implementation and automated validation are complete on PR #17. The founder configured the production secret. No controlled Meta conversion has been sent.
 
 ## Problem and product intent
 The founder wants history of genuine business Growth trials on Meta's existing Dataset, without changing CompleteRegistration acquisition campaigns. This supports measurable distribution and dependable commercial infrastructure (docs/VISION.md, docs/PRODUCT_PRINCIPLES.md). No pricing, subscription creation, entitlements, UX, merchant attribution, or revenue behaviour changes.

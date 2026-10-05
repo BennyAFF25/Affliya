@@ -1,9 +1,9 @@
 # Nettmark StartTrial reporting
 
 ## Status and rollout
-Prepared on codex/meta-start-trial-capi. Not live until the additive delivery migration is explicitly approved/applied and the application is deployed. META_CAPI_ACCESS_TOKEN is a sensitive server-only Vercel Production variable; never expose or commit its value. Existing public NEXT_PUBLIC_META_PIXEL_ID selects the same Dataset as the browser Pixel (fallback 465823834246251). Existing CompleteRegistration campaigns stay unchanged.
+Migration applied to production with founder approval on 2026-10-05 (Supabase version 20261005082312). Sender release is in progress on PR #17; events begin only after the production application deployment. META_CAPI_ACCESS_TOKEN is a sensitive server-only Vercel Production variable; never expose or commit its value. Existing public NEXT_PUBLIC_META_PIXEL_ID selects the same Dataset as the browser Pixel (fallback 465823834246251). Existing CompleteRegistration campaigns stay unchanged.
 
-Apply supabase/migrations/20261005080000_meta_start_trial_delivery.sql before deploying. Verify the private table/RPC and existing CRON_SECRET. Never replay billing to repair a Meta delivery. No new subscriptions, trials or charges are created by reporting.
+Apply supabase/migrations/20261005082312_meta_start_trial_delivery.sql before deploying. Verify the private table/RPC and existing CRON_SECRET. Never replay billing to repair a Meta delivery. No new subscriptions, trials or charges are created by reporting.
 
 ## Event definition
 Standard server-only StartTrial: first live-mode business Growth trial, actual configured price, Stripe trialing snapshot with the configured 14-day dates, correct Nettmark/business/user metadata, verified business profile and a confirmed matching Nettmark entitlement subscription. Signature-verified subscription.created is primary. Verified checkout.completed with a retrieved actual trial subscription can recover the same event. Current trial-used flags, page visits, CTA clicks and checkout creation are not triggers.

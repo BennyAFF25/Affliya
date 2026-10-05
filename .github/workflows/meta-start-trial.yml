@@ -7,7 +7,7 @@ on:
       - "app/api/business-subscription/**"
       - "app/api/marketing/meta-start-trial-delivery/**"
       - "app/api/internal/meta-start-trial/**"
-      - "supabase/migrations/20261005080000_meta_start_trial_delivery.sql"
+      - "supabase/migrations/20261005082312_meta_start_trial_delivery.sql"
       - "scripts/*meta-start-trial*"
       - "tsconfig.meta-start-trial.json"
       - ".github/workflows/meta-start-trial.yml"
@@ -48,7 +48,7 @@ jobs:
       - name: Isolated migration and concurrency checks
         run: |
           psql -X -v ON_ERROR_STOP=1 -c "CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role; CREATE TABLE public.business_profiles(id uuid PRIMARY KEY);"
-          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261005080000_meta_start_trial_delivery.sql
+          psql -X -v ON_ERROR_STOP=1 -f supabase/migrations/20261005082312_meta_start_trial_delivery.sql
           yarn -s tsx scripts/meta-start-trial-sql.test.ts
       - name: Payload and failure regression
         run: |
