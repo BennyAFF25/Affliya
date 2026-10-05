@@ -7,30 +7,45 @@ const id = "11111111-1111-4111-8111-111111111110", offerId = "22222222-2222-4222
 let user: { id: string; email: string } | null;
 let tables: Record<string, Row[]>, writes: Array<{ table: string; value: unknown }>, errors: Record<string, any>;
 let sessionsCreated = 0, customersEnsured = 0, historical: Row[] = [], session: Row;
+let signedEvent: Row, syncCalls = 0;
+const stripeEventIds = new Set<string>();
 const database = {
   auth: { getUser: async () => ({ data: { user }, error: null }) },
   from(table: string) {
-    let rows = [...(tables[table] || [])], mutation = false;
+    let rows = [...(tables[table] || [])], mutation = false, queryError: any = null;
     const builder = {
       select: () => builder,
       eq: (key: string, value: unknown) => { rows = rows.filter(row => row[key] === value); return builder; },
       contains: (key: string, value: Row) => { rows = rows.filter(row => Object.entries(value).every(([k,v]) => row[key]?.[k] === v)); return builder; },
       order: () => builder, limit: (n: number) => { rows = rows.slice(0,n); return builder; },
-      insert: (value: unknown) => { mutation = true; writes.push({ table, value }); return builder; },
+      insert: (value: any) => {
+        mutation = true;
+        if (table === "business_subscription_stripe_events") {
+          if (stripeEventIds.has(value.stripe_event_id)) queryError = { code: "23505" };
+          else stripeEventIds.add(value.stripe_event_id);
+        }
+        writes.push({ table, value }); return builder;
+      },
       update: (value: unknown) => { mutation = true; writes.push({ table, value }); return builder; },
       maybeSingle: async () => ({ data: rows[0] || null, error: errors[table] || null }),
-      then: (resolve: (value: unknown) => unknown) => Promise.resolve({ data: mutation ? null : rows, error: errors[table] || null }).then(resolve),
+      then: (resolve: (value: unknown) => unknown) => Promise.resolve({ data: mutation ? null : rows, error: queryError || errors[table] || null }).then(resolve),
     }; return builder;
   },
 };
 const stripe = {
   prices: { retrieve: async () => ({ id: "price_test", active: true, type: "recurring", unit_amount: 7200, currency: "aud", billing_scheme: "per_unit", tax_behavior: "inclusive", recurring: { usage_type: "licensed", interval: "month", interval_count: 1 } }) },
   customers: { search: async () => ({ data: [], has_more: false }) },
-  subscriptions: { list: async () => ({ data: historical, has_more: false }) },
+  subscriptions: {
+    list: async () => ({ data: historical, has_more: false }),
+    retrieve: async () => ({ id: "sub_test", customer: "cus_test", status: "trialing",
+      trial_start: 1791176400, trial_end: 1792386000, cancel_at_period_end: true, canceled_at: 1791176401,
+      metadata: { business_id: id, user_id: id, business_onboarding_funnel: "trial_first_v1", trialEligibleAtCheckout: "true" } }),
+  },
+  webhooks: { constructEvent: (_body: unknown, signature: string) => { if (signature !== "verified-fixture") throw new Error("invalid signature"); return signedEvent; } },
   checkout: { sessions: { retrieve: async () => session, create: async (body: Row) => { sessionsCreated++; assert.equal(body.payment_method_collection, "always"); assert.match(body.success_url, /\/business\/choose-plan\?subscription=checkout_returned&session_id=/); assert.equal(body.subscription_data.trial_period_days, helpers.BUSINESS_GROWTH_TRIAL_DAYS); assert.equal(body.metadata.business_onboarding_funnel, "trial_first_v1"); return { id: "cs_test", url: "https://checkout.stripe.test/session" }; } } },
 };
 function reset() {
-  user = { id, email: "business@example.test" }; writes = []; errors = {}; historical = []; sessionsCreated = 0; customersEnsured = 0;
+  user = { id, email: "business@example.test" }; writes = []; errors = {}; historical = []; sessionsCreated = 0; customersEnsured = 0; syncCalls = 0; stripeEventIds.clear();
   tables = { profiles: [{ id, email: user.email, role: "business", created_at: BUSINESS_FUNNEL_ROLLOUT_AT }],
     business_profiles: [{ id, business_email: user.email }],
     business_entitlements: [{ business_id: id, business_email: user.email, billing_status: "free", is_grandfathered: false, growth_trial_used: false, billing_entry_mode: "plan_choice" }],
@@ -43,16 +58,18 @@ const env = { ...process.env };
 loader._load = function (name, parent, isMain) {
   if (name === "@supabase/auth-helpers-nextjs") return { createRouteHandlerClient: () => database };
   if (name === "next/headers") return { cookies: () => ({}) };
+  if (name.includes("utils/creatorReferrals")) return { createCreatorCommissionFromPaidInvoice: async () => {}, reverseCreatorCommissionByInvoiceId: async () => {} };
   if (name.includes("utils/businessSubscriptions")) return {
     ...helpers, createServerSupabaseClient: () => database,
     createBusinessSubscriptionStripeClient: () => stripe,
     ensureSubscriptionCustomer: async () => { customersEnsured++; return "cus_test"; },
     findExistingLiveSubscription: async () => null,
+    syncBusinessEntitlementFromStripeSubscription: async () => { syncCalls++; return { businessId: id, businessEmail: user?.email, billingStatus: "subscription_trialing", stripeSubscriptionId: "sub_test", stripeCustomerId: "cus_test", subscriptionRequired: false }; },
   };
   return originalLoad.call(this, name, parent, isMain);
 };
 async function main() {
-  Object.assign(process.env, { BUSINESS_SUBSCRIPTION_CHECKOUT_ENABLED: "true", STRIPE_NETTMARK_BUSINESS_MONTHLY_PRICE_ID: "price_test" });
+  Object.assign(process.env, { BUSINESS_SUBSCRIPTION_CHECKOUT_ENABLED: "true", STRIPE_NETTMARK_BUSINESS_MONTHLY_PRICE_ID: "price_test", STRIPE_BUSINESS_SUBSCRIPTION_WEBHOOK_SECRET: "whsec_fixture" });
   try {
     const eligibility = require("../app/api/business-subscription/trial-eligibility/route");
     const checkout = require("../app/api/business-subscription/create-checkout-session/route");
@@ -113,7 +130,22 @@ async function main() {
     assert.ok(!writes.some(w => w.table === "offers"), "Completion retries never insert another offer");
     reset(); errors.product_events = { message: "telemetry unavailable" };
     assert.equal((await completion.POST(post({ offerId }))).status, 200, "Telemetry failure cannot block saved offers");
-    console.log("Business continuation ownership, checkout and retry tests passed");
+    const webhook = require("../app/api/business-subscription/webhook/route");
+    reset();
+    signedEvent = { id: "evt_fixture", type: "invoice.paid", livemode: true, created: 1791176500, api_version: "fixture",
+      data: { object: { id: "in_fixture", object: "invoice", amount_paid: 7200, currency: "aud", billing_reason: "subscription_cycle", customer: "cus_test", subscription: "sub_test" } } };
+    const webhookRequest = (signature = "verified-fixture") => new Request("https://nettmark.test/api/webhook", { method: "POST", headers: { "stripe-signature": signature }, body: "{}" });
+    assert.equal((await webhook.POST(webhookRequest("invalid"))).status, 401);
+    assert.deepEqual(writes, []);
+    assert.equal((await webhook.POST(webhookRequest())).status, 200);
+    const recorded = writes.filter(w => w.table === "business_subscription_stripe_events").map(w => w.value as Row);
+    const facts = recorded.find(row => row.processing_status === "processed")!.metadata;
+    assert.equal(facts.livemode, true); assert.equal(facts.invoice_amount_paid, 7200); assert.equal(facts.invoice_currency, "aud"); assert.equal(facts.invoice_id, "in_fixture");
+    assert.equal(facts.business_onboarding_funnel, "trial_first_v1"); assert.equal(facts.cancellation_requested, true); assert.ok(facts.trial_started_at && facts.trial_ends_at);
+    assert.equal(syncCalls, 1);
+    assert.equal((await (await webhook.POST(webhookRequest())).json()).replay, true);
+    assert.equal(syncCalls, 1, "Replayed events preserve existing billing idempotency");
+    console.log("Business continuation ownership, checkout, signed audit facts and retry tests passed");
   } finally {
     loader._load = originalLoad;
     for (const key of Object.keys(process.env)) if (!(key in env)) delete process.env[key];
