@@ -244,6 +244,14 @@ export async function GET(req: Request) {
         { status: 500 },
       );
     }
+    const totalUsersResult = await (supabaseAdmin as any)
+      .from("profiles")
+      .select("id", { count: "exact", head: true });
+    if (totalUsersResult.error) {
+      console.error("[marketing-events][GET] total user count error", totalUsersResult.error);
+      return NextResponse.json({ ok: false, error: "Could not load total user count. Please retry." }, { status: 500 });
+    }
+
     const limitedSources = queryResults.filter(([, result]) => (result.data?.length || 0) >= 5000).map(([name]) => name);
     const { data, error } = eventsResult;
 
@@ -534,6 +542,7 @@ export async function GET(req: Request) {
       generatedAt,
       range: { from: fromIso, to: generatedAt, timezone: "UTC" },
       dataQuality: { rowLimit: 5000, limitedSources },
+      platformSummary: { totalUsers: totalUsersResult.count ?? 0 },
       businessFunnel,
       timeline,
       audienceBreakdowns,

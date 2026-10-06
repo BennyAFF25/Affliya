@@ -37,6 +37,9 @@ export type DashboardData = {
     byCurrency: Record<string, number>;
   };
   growthSummary?: GrowthSummary;
+  platformSummary?: {
+    totalUsers: number;
+  };
   planSelection?: {
     reached: number;
     freeClicked: number;

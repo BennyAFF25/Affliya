@@ -12,6 +12,11 @@ export default function MarketingOverview({ data, openSection }: { data: Dashboa
   const { milestones, opportunities } = overviewSignals(data);
   const potential = data.trialValue?.fullConversionMonthlyAud;
   return <div className={s.commandOverview}>
+    <div className={s.platformStat} aria-label="All-time Nettmark users">
+      <span className={s.metricIcon}><Users size={19} strokeWidth={1.8} aria-hidden="true" /></span>
+      <span className={s.platformStatBody}><span>Total users</span><strong>{number(data.platformSummary?.totalUsers)}</strong></span>
+      <small>ALL TIME</small>
+    </div>
     <div className={s.primaryMetrics}>
       {[
         { label: "Website views", value: data.totals.pageViews, note: "Recorded events · activity period", icon: Eye, section: "acquisition" },

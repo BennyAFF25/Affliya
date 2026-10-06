@@ -263,6 +263,12 @@
 .menu button:hover, .menu a:hover { background: #202729; }
 .menu span { display: flex; align-items: center; gap: 6px; font-size: 10px; color: var(--muted); padding: 8px; overflow-wrap: anywhere; }
 .commandOverview { display: grid; gap: 12px; }
+.platformStat { display: flex; align-items: center; gap: 11px; min-width: 0; min-height: 64px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 20px; background: radial-gradient(ellipse at 100% 0%,rgba(0,194,203,.06),transparent 65%),#151718; }
+.platformStat .metricIcon { width: 34px; height: 34px; }
+.platformStatBody { display: block; flex: 1; min-width: 0; }
+.platformStatBody > span { display: block; color: #a8bbce; font-size: 11px; font-weight: 500; }
+.platformStatBody strong { display: block; margin-top: 1px; color: var(--ink); font-size: 24px; font-weight: 600; line-height: 1.1; letter-spacing: -.5px; font-variant-numeric: tabular-nums; }
+.platformStat > small { flex-shrink: 0; padding: 5px 8px; border: 1px solid rgba(0,194,203,.2); border-radius: 999px; color: #63e8ee; background: rgba(0,194,203,.06); font-size: 8px; font-weight: 600; letter-spacing: .14em; }
 .primaryMetrics { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
 .primaryMetric { display: flex; gap: 12px; align-items: center; min-width: 0; padding: 18px; text-align: left; color: var(--ink); border: 1px solid var(--line); border-radius: 22px; background: #151718; }
 .primaryMetric:hover { border-color: #397174; }
