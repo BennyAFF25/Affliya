@@ -80,7 +80,8 @@ async function main() {
     const terms = page.getByTestId("billing-terms");
     assert.match(await terms.textContent(), /AUD 72.00\/month/);
     assert.equal((await page.getByTestId("trial-today-price").innerText()).replace(/\s+/g, " ").trim(), "$0 Today");
-    await page.getByText("Start your Growth trial to unlock paid affiliate campaigns.", { exact: true }).waitFor();
+    await page.getByText("Final setup step", { exact: true }).waitFor();
+    await page.getByText("Finish setup by starting Growth to unlock paid affiliate campaigns. Free remains available.", { exact: true }).waitFor();
     for (const benefit of ["Approve paid affiliate campaigns", "Launch through your connected Meta account", "Review campaigns before they go live"]) {
       await page.getByText(benefit, { exact: true }).waitFor();
     }

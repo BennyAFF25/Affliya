@@ -73,9 +73,9 @@ export default function BusinessOnboardingPage() {
   const [productImageFiles, setProductImageFiles] = useState<File[]>([]);
   const [productImagePreviews, setProductImagePreviews] = useState<string[]>([]);
 
-  const progressItems = ["Product", "Commission", "Go live"];
+  const progressItems = ["Product", "Commission", "Publish"];
   const progressPercent =
-    step === 1 ? 8 : step === 2 ? 34 : step === 3 ? 67 : step === 4 ? 100 : 100;
+    step === 1 ? 8 : step === 2 ? 34 : step === 3 ? 67 : step === 4 ? 88 : 100;
 
   if (!isLoading && !session?.user) {
     router.replace("/login?role=business&next=/onboarding/for-business");
@@ -332,7 +332,7 @@ export default function BusinessOnboardingPage() {
                 Put your first product in front of affiliates
               </h1>
               <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-white/64 sm:text-base">
-                Show affiliates what to promote, choose what they earn, then go live.
+                Show affiliates what to promote, choose what they earn, then publish your offer.
               </p>
               <button
                 onClick={() => setStep(2)}
@@ -696,13 +696,13 @@ export default function BusinessOnboardingPage() {
                   <Rocket className="h-5 w-5" />
                 </div>
                 <p className="mt-4 text-xs font-semibold uppercase tracking-[0.22em] text-[#7ff5fb]">
-                  Go live
+                  Publish
                 </p>
                 <h2 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">
                   Here&apos;s what affiliates will see
                 </h2>
                 <p className="mt-2 text-sm leading-6 text-white/58">
-                  One final look, then your offer is live on Nettmark.
+                  One final look, then publish your offer and choose how to activate it on Nettmark.
                 </p>
               </div>
 

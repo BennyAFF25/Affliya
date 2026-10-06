@@ -325,7 +325,7 @@ function CreateAccountInner() {
 
             <div className="mt-7 flex items-center gap-3 text-xs text-white/34">
               <ShieldCheck className="h-4 w-4 text-[#00C2CB]/65" strokeWidth={1.6} />
-              No card required to create an account.
+              {isBusiness ? 'No card required to create your account or publish your offer.' : 'No card required to create an account.'}
             </div>
           </div>
         </section>
@@ -443,7 +443,9 @@ function CreateAccountInner() {
               <div className="mt-7 flex items-start gap-3 border-t border-white/[0.06] pt-5 text-xs leading-5 text-white/32">
                 <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#00C2CB]/70" />
                 <p>
-                  No card required to join. By continuing, you agree to our Terms and Privacy Policy. Fee-based charges only apply later when money moves through wallets or payouts.
+                  {isBusiness
+                    ? 'No card required to create your account or publish your offer. Growth is optional and starts with a free trial before its monthly subscription begins. By continuing, you agree to our Terms and Privacy Policy.'
+                    : 'No card required to join. By continuing, you agree to our Terms and Privacy Policy. Fee-based charges only apply later when money moves through wallets or payouts.'}
                 </p>
               </div>
             </div>

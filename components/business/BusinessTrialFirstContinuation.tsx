@@ -33,11 +33,12 @@ export default function BusinessTrialFirstContinuation({ context, busy, error, o
         <div className="grid h-9 w-9 place-items-center rounded-full bg-[#00C2CB] text-[#0f0f0f]" aria-hidden="true">
           <Check className="h-5 w-5" strokeWidth={2} />
         </div>
-        <h1 className="mt-4 text-[28px] font-semibold leading-[1.15] tracking-[-0.025em] sm:text-[34px]">Your offer is live.</h1>
+        <p className="mt-4 text-[10px] font-bold uppercase tracking-[0.2em] text-[#5ae5eb]">Final setup step</p>
+        <h1 className="mt-2 text-[28px] font-semibold leading-[1.15] tracking-[-0.025em] sm:text-[34px]">Your offer is live.</h1>
         <p className="mt-2 text-base leading-6 text-[#94a3b8]">
           {context.participationMode === "private"
-            ? "Start your Growth trial to unlock paid campaigns with your invited affiliates."
-            : "Start your Growth trial to unlock paid affiliate campaigns."}
+            ? "Finish setup by starting Growth to unlock paid campaigns with your invited affiliates. Free remains available."
+            : "Finish setup by starting Growth to unlock paid affiliate campaigns. Free remains available."}
         </p>
 
         <div className="mt-5 rounded-[19px] border border-[#00C2CB]/25 bg-[#101415] p-4 shadow-[inset_0_0_24px_rgba(0,194,203,0.025)] sm:p-5">
