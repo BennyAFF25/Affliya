@@ -7,7 +7,14 @@ on:
       - "app/internal/marketing/**"
       - "app/api/marketing-events/**"
       - "utils/marketing/reporting.ts"
+      - "utils/marketing/**"
+      - "utils/productEvents.ts"
+      - "components/analytics/BusinessProductAnalytics.tsx"
+      - "app/create-account/**"
+      - "app/onboarding/for-business/**"
+      - "app/business/choose-plan/**"
       - "scripts/marketing-dashboard.test.ts"
+      - "scripts/marketing-funnel.test.ts"
       - "tsconfig.marketing.json"
       - ".github/workflows/marketing-dashboard.yml"
 permissions:
@@ -26,6 +33,8 @@ jobs:
           corepack prepare yarn@1.22.22 --activate
           yarn install --frozen-lockfile --ignore-scripts
       - name: Check reporting behavior
-        run: yarn -s tsx scripts/marketing-dashboard.test.ts
+        run: |
+          yarn -s tsx scripts/marketing-dashboard.test.ts
+          yarn -s tsx scripts/marketing-funnel.test.ts
       - name: Type-check the marketing dashboard and API
         run: yarn -s tsc --project tsconfig.marketing.json

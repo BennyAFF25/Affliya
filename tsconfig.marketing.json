@@ -13,8 +13,17 @@
     "app/internal/marketing/**/*.ts",
     "app/internal/marketing/**/*.tsx",
     "utils/marketing/reporting.ts",
+    "utils/marketing/businessFunnel.ts",
+    "utils/marketing/visitor.ts",
+    "utils/marketing/logEvent.ts",
+    "utils/marketing/reportRows.ts",
+    "utils/productEvents.ts",
+    "components/analytics/BusinessProductAnalytics.tsx",
+    "app/onboarding/for-business/page.tsx",
+    "app/business/choose-plan/page.tsx",
     "app/api/marketing-events/route.ts",
-    "scripts/marketing-dashboard.test.ts"
+    "scripts/marketing-dashboard.test.ts",
+    "scripts/marketing-funnel.test.ts"
   ],
   "exclude": [
     "node_modules"

@@ -3,9 +3,10 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { ArrowUpRight, Check, ChevronRight, CircleAlert, LockKeyhole, RefreshCw, Search } from "lucide-react";
+import { ArrowUpRight, Check, CircleAlert, LockKeyhole, RefreshCw, Search } from "lucide-react";
 import { audienceData, EMPTY_COUNTS, groupSources, percent, type Audience, type DashboardData, type Period } from "./dashboard-data";
 import s from "./marketing.module.css";
+import BusinessFunnel from "./BusinessFunnel";
 
 const PERIODS: { value: Period; label: string }[] = [
   { value: "24h", label: "24 hours" }, { value: "today", label: "Today" },
@@ -17,8 +18,8 @@ const AUDIENCES: { value: Audience; label: string }[] = [
   { value: "affiliate", label: "Affiliates" }, { value: "unknown", label: "Unassigned" },
 ];
 const NAV = [
-  { id: "overview", label: "Overview" }, { id: "acquisition", label: "Acquisition" },
-  { id: "activation", label: "Activation" }, { id: "businesses", label: "Businesses" },
+  { id: "overview", label: "Business journey" }, { id: "acquisition", label: "Website detail" },
+  { id: "activation", label: "All signups" }, { id: "businesses", label: "Business directory" },
 ];
 const number = (value: number) => new Intl.NumberFormat("en-AU").format(value);
 const money = (value: number) => new Intl.NumberFormat("en-AU", { style: "currency", currency: "AUD", maximumFractionDigits: 2 }).format(value);
@@ -122,10 +123,7 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
   const plan = data?.planSelection;
   const trials = data?.trialValue;
   const signupCount = activation?.steps.find((step) => step.key === "signup")?.count ?? 0;
-  const publishedCount = activation?.steps.find((step) => step.key === "offer_live")?.count ?? 0;
   const gaps = activation ? [
-    { label: "No dashboard visit recorded", count: activation.blockers.neverReachedDashboard },
-    { label: "Dashboard visited, no offer start", count: activation.blockers.dashboardNoOfferStart },
     { label: "Offer started, no publish recorded", count: activation.blockers.offerStartedNoPublish },
     { label: "Publish failure recorded", count: activation.blockers.publishFailures },
     { label: "Offer live, no affiliate request", count: activation.blockers.publishedNoAffiliateRequest },
@@ -142,12 +140,12 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
     <div className={s.dashboard}>
       <a className={s.skip} href="#overview">Skip to analytics</a>
       <header className={s.topbar}>
-        <Link className={s.brand} href="/"><span className={s.brandMark}>n<span>.</span></span><span>Nettmark<span className={s.brandDivider}>/</span><span className={s.brandContext}>Personal analytics</span></span></Link>
+        <Link className={s.brand} href="/"><span className={s.brandMark}>n<span>.</span></span><span>Nettmark<span className={s.brandDivider}>/</span><span className={s.brandContext}>Internal marketing</span></span></Link>
         <div className={s.private}><LockKeyhole size={13} aria-hidden="true" />Private workspace</div>
       </header>
       <main className={s.main}>
         <div className={s.heading}>
-          <div><div className={s.eyebrow}>YOUR MARKETING, AT A GLANCE</div><h1>Marketing<span className={s.headingDot}>.</span></h1><p>A clearer view of the people finding Nettmark, and what happens next.</p></div>
+          <div><div className={s.eyebrow}>NETTMARK / INTERNAL MARKETING</div><h1>Marketing<span className={s.headingDot}>.</span></h1><p>See who reaches your landing page, publishes an offer and starts a trial.</p></div>
           <div className={s.controls}><label className={s.srOnly} htmlFor="marketing-period">Reporting period</label><select id="marketing-period" value={period} onChange={(event) => setPeriod(event.target.value as Period)} className={s.select}>{PERIODS.map((item) => <option value={item.value} key={item.value}>{item.label}</option>)}</select><button className={s.iconButton} onClick={() => setRefresh((value) => value + 1)} disabled={loading} aria-label="Refresh analytics" title="Refresh analytics"><RefreshCw size={17} className={loading ? s.spin : ""} /></button></div>
         </div>
         <div className={s.navbar}><nav aria-label="Dashboard sections">{NAV.map(({ id, label }) => <button type="button" key={id} onClick={() => scrollTo(id)} className={activeSection === id ? s.navActive : ""} aria-current={activeSection === id ? "location" : undefined}>{label}</button>)}</nav><span className={s.updated}>{data ? "Updated " + date(data.generatedAt, true) + " UTC" : "Reporting in UTC"}</span></div>
@@ -156,31 +154,15 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
           : data ? <>
             {!!data.dataQuality.limitedSources.length && <div className={s.notice} role="status"><CircleAlert size={16} /><p>Partial report: {data.dataQuality.limitedSources.join(", ")} reached the {number(data.dataQuality.rowLimit)} row limit. Choose a shorter period for a more complete view.</p></div>}
             <section id="overview" className={s.section}>
-              <div className={s.metricGrid}>
-                <Metric label="Website views" value={number(data.totals.pageViews)} note="Recorded page views · all audiences" accent />
-                <Metric label="New businesses" value={number(growth?.businessSignups ?? signupCount)} note={"Signed up · " + periodLabel.toLowerCase()} />
-                <Metric label="New affiliates" value={number(growth?.affiliateSignups ?? 0)} note={"Signed up · " + periodLabel.toLowerCase()} />
-                <Metric label="Tracked fees" value={money(growth?.trackedRevenue ?? data.revenue?.total ?? 0)} note="AUD fee ledger · accrued in period" />
-              </div>
-              <div className={s.overviewGrid}>
-                <Panel title="The next thing to look at" subtitle="Signals from businesses that signed up in this period.">
-                  <div className={s.focus}><span className={s.focusNumber}>{signupCount ? percent(publishedCount, signupCount) : "—"}</span><div><h4>{signupCount === 0 ? "A quiet period." : publishedCount > 0 ? number(publishedCount) + (publishedCount === 1 ? " business has an offer live." : " businesses have an offer live.") : "The first offer is the next milestone."}</h4><p>{signupCount ? "Share of this signup cohort with a published offer recorded." : "New signups will appear here as they arrive."}</p></div></div>
-                  {activation?.instrumentationStarted && gaps[0]?.count > 0 ? <button type="button" className={s.focusLink} onClick={() => scrollTo("activation")}><span><strong>{number(gaps[0].count)}</strong> · {gaps[0].label}</span><ChevronRight size={17} /></button> : <p className={s.helper}>{signupCount ? "There is not enough recorded activity to identify a gap yet." : "Try a longer reporting period to see more activity."}</p>}
-                </Panel>
-                <Panel title="Marketplace activity" subtitle="Created in the selected period, across all businesses.">
-                  <div className={s.activityRow}><span>Offers created</span><strong>{number(growth?.offersPublished ?? 0)}</strong></div>
-                  <div className={s.activityRow}><span>Affiliate requests</span><strong>{number(growth?.affiliateRequests ?? 0)}</strong></div>
-                  <div className={s.activityRow}><span>Campaigns created</span><strong>{number(growth?.liveCampaigns ?? 0)}</strong></div>
-                </Panel>
-              </div>
+              {data.landingFunnel ? <BusinessFunnel key={period} report={data.landingFunnel} /> : <Empty>The business journey report is unavailable. Refresh to try again.</Empty>}
             </section>
 
             <section id="acquisition" className={s.section}>
-              <div className={s.sectionHead}><div><span className={s.eyebrow}>01 / ACQUISITION</span><h2>From first visit to first click.</h2></div><div><label className={s.srOnly} htmlFor="marketing-audience">Website audience</label><select id="marketing-audience" className={s.select} value={audience} onChange={(event) => setAudience(event.target.value as Audience)}>{AUDIENCES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></div></div>
+              <div className={s.sectionHead}><div><span className={s.eyebrow}>02 / WEBSITE DETAIL</span><h2>Broader website activity.</h2></div><div><label className={s.srOnly} htmlFor="marketing-audience">Website audience</label><select id="marketing-audience" className={s.select} value={audience} onChange={(event) => setAudience(event.target.value as Audience)}>{AUDIENCES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></div></div>
               <div className={s.chartGrid}>
                 <Panel title="Website activity" subtitle={(hourly ? "Hourly" : "Daily") + " recorded events · UTC · " + AUDIENCES.find((item) => item.value === audience)?.label} aside={<div className={s.segmented} aria-label="Chart metric">{(["pageViews", "createAccountStarts"] as const).map((metric) => <button type="button" key={metric} aria-pressed={chartMetric === metric} className={chartMetric === metric ? s.segmentActive : ""} onClick={() => setChartMetric(metric)}>{metric === "pageViews" ? "Views" : "Account starts"}</button>)}</div>}>
                   <div className={s.chartTotal}><strong>{number(website?.counts[chartMetric] ?? 0)}</strong><span>{chartMetric === "pageViews" ? "page views" : "account-start clicks"}</span></div>
-                  {chart.some((bucket) => bucket[chartMetric] > 0) ? <div className={s.chart} role="img" aria-label="Website activity over time. Exact values are available in the chart data table below."><ResponsiveContainer width="100%" height="100%"><AreaChart data={chart} margin={{ top: 10, right: 8, left: -20, bottom: 0 }}><defs><linearGradient id="marketingArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#007aff" stopOpacity={0.17} /><stop offset="100%" stopColor="#007aff" stopOpacity={0.01} /></linearGradient></defs><CartesianGrid vertical={false} stroke="#eceef1" strokeDasharray="3 5" /><XAxis dataKey="at" tickFormatter={(value: string) => date(value, hourly)} axisLine={false} tickLine={false} minTickGap={35} tick={{ fill: "#85858c", fontSize: 11 }} /><YAxis allowDecimals={false} axisLine={false} tickLine={false} tick={{ fill: "#85858c", fontSize: 11 }} /><Tooltip labelFormatter={(value) => fullDate(String(value)) + " UTC"} formatter={(value) => [number(Number(value)), chartMetric === "pageViews" ? "Page views" : "Account starts"]} contentStyle={{ border: "1px solid #eceef1", borderRadius: 14, boxShadow: "0 8px 30px #0000000a", fontSize: 12, color: "#1d1d1f" }} /><Area type="linear" dataKey={chartMetric} stroke="#007aff" strokeWidth={2.5} fill="url(#marketingArea)" dot={chart.length === 1} activeDot={{ r: 4, strokeWidth: 3, stroke: "#fff" }} isAnimationActive={false} /></AreaChart></ResponsiveContainer></div> : <Empty>No recorded {chartMetric === "pageViews" ? "page views" : "account starts"} for this audience and period.</Empty>}
+                  {chart.some((bucket) => bucket[chartMetric] > 0) ? <div className={s.chart} role="img" aria-label="Website activity over time. Exact values are available in the chart data table below."><ResponsiveContainer width="100%" height="100%"><AreaChart data={chart} margin={{ top: 10, right: 8, left: -20, bottom: 0 }}><defs><linearGradient id="marketingArea" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#00C2CB" stopOpacity={0.17} /><stop offset="100%" stopColor="#00C2CB" stopOpacity={0.01} /></linearGradient></defs><CartesianGrid vertical={false} stroke="#2a3033" strokeDasharray="3 5" /><XAxis dataKey="at" tickFormatter={(value: string) => date(value, hourly)} axisLine={false} tickLine={false} minTickGap={35} tick={{ fill: "#94a3b8", fontSize: 11 }} /><YAxis allowDecimals={false} axisLine={false} tickLine={false} tick={{ fill: "#94a3b8", fontSize: 11 }} /><Tooltip labelFormatter={(value) => fullDate(String(value)) + " UTC"} formatter={(value) => [number(Number(value)), chartMetric === "pageViews" ? "Page views" : "Account starts"]} contentStyle={{ border: "1px solid #2a3033", borderRadius: 14, boxShadow: "0 8px 30px #0000000a", fontSize: 12, color: "#f5f7f8", backgroundColor: "#151718" }} /><Area type="linear" dataKey={chartMetric} stroke="#00C2CB" strokeWidth={2.5} fill="url(#marketingArea)" dot={chart.length === 1} activeDot={{ r: 4, strokeWidth: 3, stroke: "#151718" }} isAnimationActive={false} /></AreaChart></ResponsiveContainer></div> : <Empty>No recorded {chartMetric === "pageViews" ? "page views" : "account starts"} for this audience and period.</Empty>}
                   <details className={s.details}><summary>View chart data</summary><div className={s.tableScroll}><table className={s.table}><caption className={s.srOnly}>Website events over time</caption><thead><tr><th>Period (UTC)</th><th>Views</th><th>Starts</th><th>Demo</th></tr></thead><tbody>{chart.map((bucket) => <tr key={bucket.at}><td>{fullDate(bucket.at)}</td><td>{number(bucket.pageViews)}</td><td>{number(bucket.createAccountStarts)}</td><td>{number(bucket.businessDemoCtaClicks)}</td></tr>)}</tbody></table></div></details>
                 </Panel>
                 <Panel title="Intent signals" subtitle="Clicks recorded on your marketing pages.">
@@ -201,8 +183,20 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
               </div>
             </section>
 
+            <section className={s.section} aria-label="Other platform activity">
+              <details className={s.secondaryDetails}><summary>Other platform activity <span>Affiliates, marketplace activity and accrued fees</span></summary>
+                <div className={s.metricGrid}>
+                  <Metric label="New businesses" value={number(growth?.businessSignups ?? signupCount)} note={"All business signups · " + periodLabel.toLowerCase()} />
+                  <Metric label="New affiliates" value={number(growth?.affiliateSignups ?? 0)} note={"Signed up · " + periodLabel.toLowerCase()} />
+                  <Metric label="Offers created" value={number(growth?.offersPublished ?? 0)} note="All businesses · selected period" />
+                  <Metric label="Accrued fees" value={money(growth?.trackedRevenue ?? data.revenue?.total ?? 0)} note="AUD fee ledger · accrued in period" />
+                </div>
+                <p className={s.helper}>{number(growth?.affiliateRequests ?? 0)} affiliate requests · {number(growth?.liveCampaigns ?? 0)} campaigns created in this period, across all businesses.</p>
+              </details>
+            </section>
+
             <section id="activation" className={s.section}>
-              <div className={s.sectionHead}><div><span className={s.eyebrow}>02 / ACTIVATION</span><h2>What happens after signup.</h2><p>Selected business signup cohort · outcomes followed through the observation date.</p></div></div>
+              <div className={s.sectionHead}><div><span className={s.eyebrow}>03 / ALL SIGNUPS</span><h2>What happens after signup.</h2><p>Selected business signup cohort · outcomes followed through the observation date.</p></div></div>
               <Panel title="Business onboarding experiment" subtitle="Trial-first vs plan choice · fixed signup cohort, followed through the observation date">
                 <form className={s.planGrid} onSubmit={event => {
                   event.preventDefault();
@@ -260,13 +254,13 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
             </section>
 
             <section id="businesses" className={s.section}>
-              <div className={s.sectionHead}><div><span className={s.eyebrow}>03 / BUSINESSES</span><h2>The people behind the numbers.</h2><p>Up to 30 most recent businesses signed up in the selected period.</p></div></div>
+              <div className={s.sectionHead}><div><span className={s.eyebrow}>04 / BUSINESS DIRECTORY</span><h2>All recent business accounts.</h2><p>Up to 30 most recent businesses signed up in the selected period.</p></div></div>
               <Panel title="Recent businesses" aside={<span className={s.countBadge}>{businesses.length} shown</span>}>
                 <div className={s.businessControls}><div className={s.search}><Search size={15} aria-hidden="true" /><label className={s.srOnly} htmlFor="business-search">Search businesses by email</label><input id="business-search" placeholder="Search email…" value={search} onChange={(event) => setSearch(event.target.value)} /></div><label className={s.srOnly} htmlFor="business-filter">Business status</label><select id="business-filter" className={s.select} value={businessFilter} onChange={(event) => setBusinessFilter(event.target.value)}><option value="all">All statuses</option><option value="no-offer">No offer recorded</option><option value="published">Offer published</option><option value="trial">Trial started</option></select></div>
-                {businesses.length ? <div className={s.tableScroll}><table className={s.table + " " + s.businessTable}><caption className={s.srOnly}>Recent business signup activity</caption><thead><tr><th>Business / signup</th><th>Progress</th><th>Plan</th><th>Latest activity</th></tr></thead><tbody>{businesses.map((business) => <tr key={business.email}><td><div className={s.businessEmail}>{business.email}</div><span className={s.small} title={fullDate(business.signedUpAt) + " UTC"}>{date(business.signedUpAt)} · {number(business.offerCount)} {business.offerCount === 1 ? "offer" : "offers"}</span></td><td><div className={s.statuses}><Status yes={business.dashboardReached} label="Dashboard" /><Status yes={business.offerStarted} label="Builder" /><Status yes={business.offerPublished} label="Published" /></div><details className={s.businessDetails}><summary>More activity</summary><div className={s.statuses}><Status yes={business.publishClicked} label="Publish click" /><Status yes={business.affiliateRequest} label="Request" /><Status yes={business.metaEnabled} label="Meta" /></div><p className={s.helper}>First dashboard action: {business.firstDashboardAction?.label || "Not recorded"}</p></details></td><td><span className={s.planBadge}>{business.growthActivated ? "Growth enabled" : business.growthTrialStarted ? "Trial started" : business.planChoice ? human(business.planChoice) : "Unrecorded"}</span>{business.growthCheckoutStarted && <div className={s.small}>Checkout started</div>}</td><td><span>{human(business.lastEvent)}</span><div className={s.small}>{date(business.lastEventAt, true)} · {date(business.lastEventAt)} UTC</div></td></tr>)}</tbody></table></div> : <Empty>{search || businessFilter !== "all" ? "No businesses match these filters." : "No new businesses in this period."}</Empty>}
+                {businesses.length ? <div className={s.tableScroll}><table className={s.table + " " + s.businessTable}><caption className={s.srOnly}>Recent business signup activity</caption><thead><tr><th>Business / signup</th><th>Progress</th><th>Plan activity</th><th>Latest activity</th></tr></thead><tbody>{businesses.map((business) => <tr key={business.email}><td><div className={s.businessEmail}>{business.email}</div><span className={s.small} title={fullDate(business.signedUpAt) + " UTC"}>{date(business.signedUpAt)} · {number(business.offerCount)} {business.offerCount === 1 ? "offer" : "offers"}</span></td><td><div className={s.statuses}><Status yes={business.dashboardReached} label="Dashboard" /><Status yes={business.offerStarted} label="Builder" /><Status yes={business.offerPublished} label="Published" /></div><details className={s.businessDetails}><summary>More activity</summary><div className={s.statuses}><Status yes={business.publishClicked} label="Publish click" /><Status yes={business.affiliateRequest} label="Request" /><Status yes={business.metaEnabled} label="Meta" /></div><p className={s.helper}>First dashboard action: {business.firstDashboardAction?.label || "Not recorded"}</p></details></td><td><span className={s.planBadge}>{business.growthActivated ? "Growth enabled" : business.growthTrialStarted ? "Trial started" : business.planChoice ? human(business.planChoice) + " event" : "Unrecorded"}</span>{business.growthCheckoutStarted && <div className={s.small}>Checkout started</div>}</td><td><span>{human(business.lastEvent)}</span><div className={s.small}>{date(business.lastEventAt, true)} · {date(business.lastEventAt)} UTC</div></td></tr>)}</tbody></table></div> : <Empty>{search || businessFilter !== "all" ? "No businesses match these filters." : "No new businesses in this period."}</Empty>}
               </Panel>
             </section>
-            <details className={s.details + " " + s.methodology}><summary>About these numbers</summary><p>Periods use UTC. Website analytics count recorded events, not unique visitors. Signup and marketplace counts describe activity in the selected period. Activation and dashboard actions describe businesses that signed up in that period; milestones are observed within the same reporting window. Current subscription statuses and Meta connections are snapshots.</p><p>Acquisition uses recorded UTM, source and referrer data. It does not link individual marketing visits to completed signups. Source gaps and missing product events can limit conclusions. Reports read up to {number(data.dataQuality.rowLimit)} rows per source and flag sources that reach that limit.</p><p>Reporting window: {data.range.from ? fullDate(data.range.from) : "All available history"} → {fullDate(data.range.to)} UTC.</p></details>
+            <details className={s.details + " " + s.methodology}><summary>About these numbers</summary><p>Periods use UTC. Website analytics count recorded events, not unique visitors. Signup and marketplace counts describe activity in the selected period. Activation and dashboard actions describe businesses that signed up in that period; these secondary milestones are observed within the same reporting window. Current subscription statuses and Meta connections are snapshots.</p><p>Acquisition uses recorded UTM, source and referrer data. These broader website totals do not link individual visits to completed signups. The business journey above uses browser linkage where available. Source gaps and missing product events can limit conclusions. Reports read up to {number(data.dataQuality.rowLimit)} rows per source and flag sources that reach that limit.</p><p>Reporting window: {data.range.from ? fullDate(data.range.from) : "All available history"} → {fullDate(data.range.to)} UTC.</p></details>
           </> : null}
         <footer className={s.footer}><span><LockKeyhole size={12} aria-hidden="true" />Personal workspace · {viewerEmail}</span><Link href="/">Back to Nettmark <ArrowUpRight size={13} /></Link></footer>
       </main>

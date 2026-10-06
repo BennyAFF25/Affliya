@@ -1,3 +1,4 @@
+import { getMarketingVisitorId } from "./marketing/visitor";
 import { trackRedditConversion } from "./marketing/redditConversions";
 
 function trackRedditProductConversion(payload: {
@@ -59,12 +60,13 @@ export async function logProductEvent(payload: {
 }) {
   trackRedditProductConversion(payload);
 
+  const trackedPayload = { ...payload, meta: { ...payload.meta, visitor_id: getMarketingVisitorId() } };
   const attempts = payload.actorRole === "business" ? 3 : 1;
   for (let attempt = 0; attempt < attempts; attempt++) {
     try {
       const response = await fetch("/api/product-events", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        keepalive: true, body: JSON.stringify(payload),
+        keepalive: true, body: JSON.stringify(trackedPayload),
       });
       if (response.ok) return true;
       if (response.status !== 401 && response.status < 500) {

@@ -1,4 +1,5 @@
 import type { MetricCounts, Breakdown, TimelineBucket } from "@/../utils/marketing/reporting";
+import type { LandingFunnelReport } from "@/../utils/marketing/landingFunnel";
 export type { MetricCounts, Breakdown, TimelineBucket } from "@/../utils/marketing/reporting";
 
 export type GrowthSummary = {
@@ -28,6 +29,7 @@ export type DashboardData = {
   bySource: Record<string, MetricCounts>;
   byPlacement: Record<string, MetricCounts>;
   recentCount: number;
+  landingFunnel?: LandingFunnelReport;
   revenue?: {
     total: number;
     count: number;

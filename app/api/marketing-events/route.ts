@@ -1,3 +1,5 @@
+import { buildBusinessFunnel } from "@/../utils/marketing/landingFunnel";
+import { readReportRows } from "@/../utils/marketing/reportRows";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
@@ -187,6 +189,13 @@ export async function GET(req: Request) {
       .select("business_id,business_email,billing_status,subscription_started_at,growth_trial_used,growth_trial_started_at,subscription_cancelled_at")
       .limit(5000);
 
+    const landingRows = (table: string, columns: string, roleColumn?: string) => {
+      let query = (supabaseAdmin as any).from(table).select(columns).order("created_at", { ascending: false }).order("id");
+      if (roleColumn) query = query.eq(roleColumn, "business");
+      if (fromIso) query = query.gte("created_at", fromIso);
+      return query.lte("created_at", generatedAt);
+    };
+
     const [
       eventsResult,
       revenueResult,
@@ -200,6 +209,7 @@ export async function GET(req: Request) {
       metaConnectionsResult,
       paidCampaignsResult,
       stripeEventsResult,
+      landingProfilesResult, landingProductsResult, landingOffersResult,
     ] = await Promise.all([
       fromIso ? eventsQuery.gte("created_at", fromIso).lte("created_at", generatedAt) : eventsQuery.lte("created_at", generatedAt),
       fromIso ? revenueQuery.gte("accrued_at", fromIso).lte("accrued_at", generatedAt) : revenueQuery.lte("accrued_at", generatedAt),
@@ -213,7 +223,10 @@ export async function GET(req: Request) {
       outcomes(metaConnectionsQuery),
       outcomes(paidCampaignsQuery),
       signupFrom ? stripeEventsQuery.gte("received_at", signupFrom).lte("received_at", observedThrough) : stripeEventsQuery.lte("received_at", observedThrough),
-    ]);
+      landingRows("profiles", "id,email,role,created_at", "role"),
+      landingRows("product_events", "event_type,actor_email,actor_role,offer_id,meta,created_at", "actor_role"),
+      landingRows("offers", "id,business_email,created_at"),
+    ].map(query => readReportRows<any>(query)));
 
     const queryResults = [
       ["Website events", eventsResult], ["Fee ledger", revenueResult],
@@ -221,6 +234,7 @@ export async function GET(req: Request) {
       ["Offers", offersResult], ["Affiliate requests", affiliateRequestsResult],
       ["Campaigns", liveCampaignsResult], ["Product events", productEventsResult],
       ["Subscriptions", entitlementsResult], ["Meta connections", metaConnectionsResult], ["Paid campaigns", paidCampaignsResult], ["Signed subscription events", stripeEventsResult],
+      ["Landing business profiles", landingProfilesResult], ["Landing product events", landingProductsResult], ["Landing offers", landingOffersResult],
     ] as const;
     const failed = queryResults.filter(([, result]) => result.error);
     if (failed.length) {
@@ -507,7 +521,14 @@ export async function GET(req: Request) {
     const growthTrialStartedCount = countIn(growthTrialStartedByEntitlement);
     const growthActivatedCount = countIn(growthActiveByEntitlement);
 
+    const landingFunnel = buildBusinessFunnel({
+      events: eventsResult.data || [], products: landingProductsResult.data || [],
+      profiles: landingProfilesResult.data || [], offers: landingOffersResult.data || [],
+      entitlements: entitlementsResult.data || [], from: fromIso, to: generatedAt,
+    });
+
     return NextResponse.json({
+      landingFunnel,
       ok: true,
       period: range.label,
       generatedAt,
