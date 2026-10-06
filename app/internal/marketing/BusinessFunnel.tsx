@@ -55,21 +55,14 @@ export default function BusinessFunnel({ report }: { report: LandingFunnelReport
 
   return <>
     <div className={s.funnelHeading}>
-      <div><span className={s.eyebrow}>01 / BUSINESS JOURNEY</span><h2>From landing page to first trial.</h2><p><code>{LANDING_PATH}</code> · arrivals in the selected period · progress through the latest update</p></div>
+      <div><span className={s.eyebrow}>LINKED LANDING JOURNEY</span><h2>From landing page to first trial.</h2><p><code>{LANDING_PATH}</code> · arrivals in the selected period · progress through the latest update</p></div>
       <div className={s.funnelFilters}>
         <label>Source<select aria-label="Source" className={s.select} value={source} onChange={(event) => setSource(event.target.value)}><option value="all">All sources</option>{sourceOptions.map((label) => <option key={label} value={label}>{label}</option>)}</select></label>
         <label>Campaign<select aria-label="Campaign" className={s.select} value={campaign} onChange={(event) => setCampaign(event.target.value)}><option value="all">All campaigns</option>{campaignOptions.map((label) => <option key={label} value={label}>{label}</option>)}</select></label>
       </div>
     </div>
     {report.unlinkedViews > 0 && <p className={s.coverageNote}><strong>{number(report.landingViews)} recorded landing-page views</strong> in this period, including repeats. {number(report.unlinkedViews)} have no visitor identity, so their unique visitors and later outcomes are unknown. The journey below shows the linked portion.</p>}
-    <div className={s.metricGrid}>
-      {[
-        ["Landing visitors", total, "Distinct tracked browsers"],
-        ["Onboarding offers published", summary.measuredOffers, "Saved offers from linked new businesses"],
-        ["Plan page reached", planMeasured, "Linked new businesses viewing plan choice"],
-        ["Growth trials started", summary.measuredTrials, "Confirmed trial history, including ended trials"],
-      ].map(([label, value, note], index) => <div className={s.metric + (index === 0 || index === 3 ? " " + s.metricAccent : "")} key={String(label)}><span className={s.eyebrow}>{label}</span><strong>{number(Number(value))}</strong><p>{note}</p></div>)}
-    </div>
+    <p className={s.scopeNote}>{number(total)} tracked browsers · {number(summary.measuredOffers)} verified onboarding offers · {number(planMeasured)} plan-page visitors · {number(summary.measuredTrials)} confirmed trials</p>
     <section className={s.panel + " " + s.funnelPanel} aria-label="Ordered business funnel">
       <div className={s.panelHead}><div><h3>The complete journey</h3><p>Each stage requires the preceding stages in order. Select a stage to inspect its linked businesses.</p></div><span className={s.countBadge}>Tracked visitors</span></div>
       <ol className={s.funnelStages}>

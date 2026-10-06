@@ -3,10 +3,11 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { ArrowUpRight, Check, CircleAlert, LockKeyhole, RefreshCw, Search } from "lucide-react";
+import { ArrowUpRight, Check, CircleAlert, LockKeyhole, RefreshCw, Search, CalendarDays, Menu } from "lucide-react";
 import { audienceData, EMPTY_COUNTS, groupSources, percent, type Audience, type DashboardData, type Period } from "./dashboard-data";
 import s from "./marketing.module.css";
 import BusinessFunnel from "./BusinessFunnel";
+import MarketingOverview from "./MarketingOverview";
 
 const PERIODS: { value: Period; label: string }[] = [
   { value: "24h", label: "24 hours" }, { value: "today", label: "Today" },
@@ -18,8 +19,8 @@ const AUDIENCES: { value: Audience; label: string }[] = [
   { value: "affiliate", label: "Affiliates" }, { value: "unknown", label: "Unassigned" },
 ];
 const NAV = [
-  { id: "overview", label: "Business journey" }, { id: "acquisition", label: "Website detail" },
-  { id: "activation", label: "All signups" }, { id: "businesses", label: "Business directory" },
+  { id: "overview", label: "Overview" }, { id: "acquisition", label: "Acquisition" },
+  { id: "activation", label: "Activation" }, { id: "revenue", label: "Revenue" },
 ];
 const number = (value: number) => new Intl.NumberFormat("en-AU").format(value);
 const money = (value: number) => new Intl.NumberFormat("en-AU", { style: "currency", currency: "AUD", maximumFractionDigits: 2 }).format(value);
@@ -31,9 +32,6 @@ const human = (value: string) => value.replace(/_/g, " ").replace(/^./, (c) => c
 
 function Panel({ title, subtitle, children, aside }: { title: string; subtitle?: string; children: ReactNode; aside?: ReactNode }) {
   return <section className={s.panel}><div className={s.panelHead}><div><h3>{title}</h3>{subtitle && <p>{subtitle}</p>}</div>{aside}</div>{children}</section>;
-}
-function Metric({ label, value, note, accent = false }: { label: string; value: string; note: string; accent?: boolean }) {
-  return <div className={s.metric + (accent ? " " + s.metricAccent : "")}><span className={s.eyebrow}>{label}</span><strong>{value}</strong><p>{note}</p></div>;
 }
 function Empty({ children }: { children: ReactNode }) {
   return <div className={s.empty}>{children}</div>;
@@ -92,19 +90,6 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
     return () => controller.abort();
   }, [period, refresh, cohortQuery]);
 
-  useEffect(() => {
-    if (!data) return;
-    const observer = new IntersectionObserver((entries) => {
-      const visible = entries.filter((entry) => entry.isIntersecting).sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-      if (visible[0]) setActiveSection(visible[0].target.id);
-    }, { rootMargin: "-100px 0px -55% 0px" });
-    NAV.forEach(({ id }) => {
-      const section = document.getElementById(id);
-      if (section) observer.observe(section);
-    });
-    return () => observer.disconnect();
-  }, [data]);
-
   const website = useMemo(() => data ? audienceData(data, audience) : null, [data, audience]);
   const sources = useMemo(() => groupSources(website?.bySource || {}), [website]);
   const chart = useMemo(() => (data?.timeline || []).map((bucket) => ({
@@ -129,36 +114,39 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
     { label: "Offer live, no affiliate request", count: activation.blockers.publishedNoAffiliateRequest },
     { label: "Offer live, Meta not connected", count: activation.blockers.publishedNoMeta },
   ].sort((a, b) => b.count - a.count) : [];
-  const periodLabel = PERIODS.find((item) => item.value === period)?.label || period;
   const hourly = period === "24h" || period === "today";
-  const scrollTo = (id: string) => {
-    setActiveSection(id);
-    document.getElementById(id)?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+  const openSection = (id: string) => {
+    setActiveSection(id === "businesses" ? "activation" : id);
+    requestAnimationFrame(() => document.getElementById(id === "businesses" ? "businesses" : "dashboard-tabs")?.scrollIntoView({
+      behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start",
+    }));
   };
 
   return (
     <div className={s.dashboard}>
-      <a className={s.skip} href="#overview">Skip to analytics</a>
+      <a className={s.skip} href="#dashboard-tabs">Skip to analytics</a>
       <header className={s.topbar}>
-        <Link className={s.brand} href="/"><span className={s.brandMark}>n<span>.</span></span><span>Nettmark<span className={s.brandDivider}>/</span><span className={s.brandContext}>Internal marketing</span></span></Link>
-        <div className={s.private}><LockKeyhole size={13} aria-hidden="true" />Private workspace</div>
+        <Link className={s.brand} href="/" aria-label="Nettmark home"><span className={s.logoCrop}><img src="/nettmark-logo.png" alt="Nettmark" width="1080" height="1080" /></span></Link>
+        <div className={s.controls}><label className={s.periodControl}><CalendarDays size={17} aria-hidden="true" /><span className={s.srOnly}>Reporting period</span><select value={period} onChange={event => setPeriod(event.target.value as Period)}>{PERIODS.map(item => <option value={item.value} key={item.value}>{item.label}</option>)}</select></label>
+          <details className={s.menu}><summary aria-label="Workspace menu"><Menu size={20} /></summary><div><button type="button" onClick={event => { setRefresh(value => value + 1); event.currentTarget.closest("details")?.removeAttribute("open"); }} disabled={loading}><RefreshCw size={15} />Refresh analytics</button><button type="button" onClick={event => { openSection("businesses"); event.currentTarget.closest("details")?.removeAttribute("open"); }}>Business directory</button><span><LockKeyhole size={12} />Private · {viewerEmail}</span><Link href="/">Back to Nettmark</Link></div></details>
+        </div>
       </header>
       <main className={s.main}>
-        <div className={s.heading}>
-          <div><div className={s.eyebrow}>NETTMARK / INTERNAL MARKETING</div><h1>Marketing<span className={s.headingDot}>.</span></h1><p>See who reaches your landing page, publishes an offer and starts a trial.</p></div>
-          <div className={s.controls}><label className={s.srOnly} htmlFor="marketing-period">Reporting period</label><select id="marketing-period" value={period} onChange={(event) => setPeriod(event.target.value as Period)} className={s.select}>{PERIODS.map((item) => <option value={item.value} key={item.value}>{item.label}</option>)}</select><button className={s.iconButton} onClick={() => setRefresh((value) => value + 1)} disabled={loading} aria-label="Refresh analytics" title="Refresh analytics"><RefreshCw size={17} className={loading ? s.spin : ""} /></button></div>
-        </div>
-        <div className={s.navbar}><nav aria-label="Dashboard sections">{NAV.map(({ id, label }) => <button type="button" key={id} onClick={() => scrollTo(id)} className={activeSection === id ? s.navActive : ""} aria-current={activeSection === id ? "location" : undefined}>{label}</button>)}</nav><span className={s.updated}>{data ? "Updated " + date(data.generatedAt, true) + " UTC" : "Reporting in UTC"}</span></div>
+        <div className={s.heading}><div><h1>Internal Marketing</h1><p>Track growth and business activation across Nettmark.</p></div></div>
+        <div className={s.navbar} id="dashboard-tabs" tabIndex={-1}><nav role="tablist" aria-label="Dashboard sections">{NAV.map(({ id, label }, index) => <button type="button" role="tab" id={"tab-" + id} aria-controls={id} aria-selected={activeSection === id} tabIndex={activeSection === id ? 0 : -1} key={id} onClick={() => setActiveSection(id)} onKeyDown={event => {
+          const next = event.key === "ArrowRight" ? (index + 1) % NAV.length : event.key === "ArrowLeft" ? (index + NAV.length - 1) % NAV.length : event.key === "Home" ? 0 : event.key === "End" ? NAV.length - 1 : null;
+          if (next !== null) { event.preventDefault(); setActiveSection(NAV[next].id); document.getElementById("tab-" + NAV[next].id)?.focus(); }
+        }} className={activeSection === id ? s.navActive : ""}>{label}</button>)}</nav></div>
         {loading ? <div className={s.loading} role="status"><span className={s.srOnly}>Loading your analytics</span><div className={s.skeletonCards}>{[1, 2, 3, 4].map((key) => <div key={key} className={s.skeleton} />)}</div><div className={s.skeleton + " " + s.skeletonChart} /></div>
           : error ? <div className={s.error} role="alert"><CircleAlert size={20} /><div><h2>Analytics couldn’t load</h2><p>{error}</p><button className={s.textButton} onClick={() => setRefresh((value) => value + 1)}>Try again <ArrowUpRight size={14} /></button></div></div>
           : data ? <>
             {!!data.dataQuality.limitedSources.length && <div className={s.notice} role="status"><CircleAlert size={16} /><p>Partial report: {data.dataQuality.limitedSources.join(", ")} reached the {number(data.dataQuality.rowLimit)} row limit. Choose a shorter period for a more complete view.</p></div>}
-            <section id="overview" className={s.section}>
-              {data.landingFunnel ? <BusinessFunnel key={period} report={data.landingFunnel} /> : <Empty>The business journey report is unavailable. Refresh to try again.</Empty>}
+            <section id="overview" role="tabpanel" tabIndex={0} aria-labelledby="tab-overview" hidden={activeSection !== "overview"} className={s.section}>
+              <MarketingOverview data={data} openSection={openSection} />
             </section>
 
-            <section id="acquisition" className={s.section}>
-              <div className={s.sectionHead}><div><span className={s.eyebrow}>02 / WEBSITE DETAIL</span><h2>Broader website activity.</h2></div><div><label className={s.srOnly} htmlFor="marketing-audience">Website audience</label><select id="marketing-audience" className={s.select} value={audience} onChange={(event) => setAudience(event.target.value as Audience)}>{AUDIENCES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></div></div>
+            <section id="acquisition" role="tabpanel" tabIndex={0} aria-labelledby="tab-acquisition" hidden={activeSection !== "acquisition"} className={s.section}>
+              <div className={s.sectionHead}><div><span className={s.eyebrow}>WEBSITE ACTIVITY</span><h2>Acquisition</h2></div><div><label className={s.srOnly} htmlFor="marketing-audience">Website audience</label><select id="marketing-audience" className={s.select} value={audience} onChange={(event) => setAudience(event.target.value as Audience)}>{AUDIENCES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></div></div>
               <div className={s.chartGrid}>
                 <Panel title="Website activity" subtitle={(hourly ? "Hourly" : "Daily") + " recorded events · UTC · " + AUDIENCES.find((item) => item.value === audience)?.label} aside={<div className={s.segmented} aria-label="Chart metric">{(["pageViews", "createAccountStarts"] as const).map((metric) => <button type="button" key={metric} aria-pressed={chartMetric === metric} className={chartMetric === metric ? s.segmentActive : ""} onClick={() => setChartMetric(metric)}>{metric === "pageViews" ? "Views" : "Account starts"}</button>)}</div>}>
                   <div className={s.chartTotal}><strong>{number(website?.counts[chartMetric] ?? 0)}</strong><span>{chartMetric === "pageViews" ? "page views" : "account-start clicks"}</span></div>
@@ -183,20 +171,11 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
               </div>
             </section>
 
-            <section className={s.section} aria-label="Other platform activity">
-              <details className={s.secondaryDetails}><summary>Other platform activity <span>Affiliates, marketplace activity and accrued fees</span></summary>
-                <div className={s.metricGrid}>
-                  <Metric label="New businesses" value={number(growth?.businessSignups ?? signupCount)} note={"All business signups · " + periodLabel.toLowerCase()} />
-                  <Metric label="New affiliates" value={number(growth?.affiliateSignups ?? 0)} note={"Signed up · " + periodLabel.toLowerCase()} />
-                  <Metric label="Offers created" value={number(growth?.offersPublished ?? 0)} note="All businesses · selected period" />
-                  <Metric label="Accrued fees" value={money(growth?.trackedRevenue ?? data.revenue?.total ?? 0)} note="AUD fee ledger · accrued in period" />
-                </div>
-                <p className={s.helper}>{number(growth?.affiliateRequests ?? 0)} affiliate requests · {number(growth?.liveCampaigns ?? 0)} campaigns created in this period, across all businesses.</p>
+            <section id="activation" role="tabpanel" tabIndex={0} aria-labelledby="tab-activation" hidden={activeSection !== "activation"} className={s.section}>
+              <div className={s.sectionHead}><div><span className={s.eyebrow}>BUSINESS ACTIVATION</span><h2>Business activation</h2><p>Selected business signup cohort · outcomes followed through the observation date.</p></div></div>
+              <details className={s.secondaryDetails}><summary>Landing-page journey <span>Source filters, ordered funnel and linked business drilldowns</span></summary>
+                {data.landingFunnel ? <BusinessFunnel key={period} report={data.landingFunnel} /> : <Empty>The landing journey report is unavailable.</Empty>}
               </details>
-            </section>
-
-            <section id="activation" className={s.section}>
-              <div className={s.sectionHead}><div><span className={s.eyebrow}>03 / ALL SIGNUPS</span><h2>What happens after signup.</h2><p>Selected business signup cohort · outcomes followed through the observation date.</p></div></div>
               <Panel title="Business onboarding experiment" subtitle="Trial-first vs plan choice · fixed signup cohort, followed through the observation date">
                 <form className={s.planGrid} onSubmit={event => {
                   event.preventDefault();
@@ -224,6 +203,7 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
                   {data.businessFunnel.notes.map(note => <p key={note} className={s.helper}>{note}</p>)}
                 </>}
               </Panel>
+              <details className={s.secondaryDetails}><summary>Milestones & tracking gaps</summary>
               <div className={s.twoColumns}>
                 <Panel title="Business milestones" subtitle="Each percentage is a share of this signup cohort.">
                   {signupCount > 0 ? <div className={s.milestones}>{activation?.steps.map((step, index) => <div key={step.key} className={s.milestone}><div className={s.milestoneLabel}><span className={s.step}>{String(index + 1).padStart(2, "0")}</span><span>{step.label}</span><strong>{number(step.count)}</strong><span className={s.muted}>{percent(step.count, signupCount)}</span></div><div className={s.track}><span style={{ width: Math.min(100, step.count / signupCount * 100) + "%" }} /></div></div>)}</div> : <Empty>No new businesses in this period.</Empty>}
@@ -233,6 +213,7 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
                   {signupCount > 0 && activation?.instrumentationStarted ? gaps.map((gap) => <div key={gap.label} className={s.gap}><span className={gap.count > 0 ? s.gapDot : s.zeroDot} /><span>{gap.label}</span><strong>{number(gap.count)}</strong></div>) : <Empty>{signupCount ? "Product tracking has no events for this cohort yet." : "Gaps will appear when businesses sign up."}</Empty>}
                 </Panel>
               </div>
+              </details>
               <div className={s.twoColumns}>
                 <Panel title="Plans & trials" subtitle="Plan activity for the business signup cohort.">
                   <div className={s.planGrid}>{[
@@ -240,28 +221,45 @@ export default function MarketingDashboardClient({ viewerEmail }: { viewerEmail:
                     ["Growth clicked", plan?.growthClicked ?? 0], ["Checkout started", plan?.growthCheckoutStarted ?? 0],
                     ["Trial started", plan?.growthTrialStarted ?? 0], ["Paid active now", plan?.growthPaidActive ?? 0],
                   ].map(([label, value]) => <div key={String(label)}><span>{label}</span><strong>{number(Number(value))}</strong></div>)}</div>
-                  <div className={s.trialBox}><div><span className={s.eyebrow}>CURRENT TRIALS</span><strong>{number(trials?.trialing ?? 0)}</strong></div>
-                    <p>{trials?.price ? `Configured Growth price: ${trials.price.formatted} / ${trials.price.intervalCount === 1 ? trials.price.interval : trials.price.intervalCount + " " + trials.price.interval + "s"}.` : "Configured Growth price could not be verified."}</p>
-                    <p className={s.helper}>Current entitlement snapshot for trials started in the selected activity period. Active status is not evidence of payment. Use signed invoice conversion and cancellation facts in the experiment table.</p>
-                    <details className={s.details}><summary>Trial breakdown</summary><div className={s.activityRow}><span>Trials started in activity period</span><strong>{number(trials?.trialStarts ?? 0)}</strong></div><div className={s.activityRow}><span>Currently trialing</span><strong>{number(trials?.trialing ?? 0)}</strong></div></details>
-                  </div>
+
                 </Panel>
                 <Panel title="Dashboard actions" subtitle={number(data.dashboardBehavior?.totalClickers ?? 0) + " businesses · " + number(data.dashboardBehavior?.totalClicks ?? 0) + " recorded clicks in this signup cohort"}>
                   {data.dashboardBehavior?.actions.length ? <div className={s.tableScroll}><table className={s.table}><caption className={s.srOnly}>Business dashboard actions</caption><thead><tr><th>Action</th><th>Businesses</th><th>Clicks</th></tr></thead><tbody>{data.dashboardBehavior.actions.map((action) => <tr key={action.action}><td title={action.destination || undefined}>{action.label}</td><td>{number(action.uniqueBusinesses)}</td><td>{number(action.count)}</td></tr>)}</tbody></table></div> : <Empty>No dashboard actions recorded for this cohort.</Empty>}
-                  {data.revenue && <details className={s.details}><summary>Fee ledger by currency</summary>{Object.entries(data.revenue.byCurrency).map(([currency, value]) => <div className={s.activityRow} key={currency}><span>{currency}</span><strong>{number(Math.round(value * 100) / 100)}</strong></div>)}<p className={s.helper}>Accrued amounts including adjustments, rather than cash received. Currencies are kept separate.</p></details>}
+
                 </Panel>
               </div>
-            </section>
 
-            <section id="businesses" className={s.section}>
-              <div className={s.sectionHead}><div><span className={s.eyebrow}>04 / BUSINESS DIRECTORY</span><h2>All recent business accounts.</h2><p>Up to 30 most recent businesses signed up in the selected period.</p></div></div>
+            <section id="businesses" className={s.directory}>
+              <div className={s.sectionHead}><div><span className={s.eyebrow}>BUSINESS DIRECTORY</span><h2>All recent business accounts.</h2><p>Up to 30 most recent businesses in the selected signup cohort.</p></div></div>
               <Panel title="Recent businesses" aside={<span className={s.countBadge}>{businesses.length} shown</span>}>
                 <div className={s.businessControls}><div className={s.search}><Search size={15} aria-hidden="true" /><label className={s.srOnly} htmlFor="business-search">Search businesses by email</label><input id="business-search" placeholder="Search email…" value={search} onChange={(event) => setSearch(event.target.value)} /></div><label className={s.srOnly} htmlFor="business-filter">Business status</label><select id="business-filter" className={s.select} value={businessFilter} onChange={(event) => setBusinessFilter(event.target.value)}><option value="all">All statuses</option><option value="no-offer">No offer recorded</option><option value="published">Offer published</option><option value="trial">Trial started</option></select></div>
                 {businesses.length ? <div className={s.tableScroll}><table className={s.table + " " + s.businessTable}><caption className={s.srOnly}>Recent business signup activity</caption><thead><tr><th>Business / signup</th><th>Progress</th><th>Plan activity</th><th>Latest activity</th></tr></thead><tbody>{businesses.map((business) => <tr key={business.email}><td><div className={s.businessEmail}>{business.email}</div><span className={s.small} title={fullDate(business.signedUpAt) + " UTC"}>{date(business.signedUpAt)} · {number(business.offerCount)} {business.offerCount === 1 ? "offer" : "offers"}</span></td><td><div className={s.statuses}><Status yes={business.dashboardReached} label="Dashboard" /><Status yes={business.offerStarted} label="Builder" /><Status yes={business.offerPublished} label="Published" /></div><details className={s.businessDetails}><summary>More activity</summary><div className={s.statuses}><Status yes={business.publishClicked} label="Publish click" /><Status yes={business.affiliateRequest} label="Request" /><Status yes={business.metaEnabled} label="Meta" /></div><p className={s.helper}>First dashboard action: {business.firstDashboardAction?.label || "Not recorded"}</p></details></td><td><span className={s.planBadge}>{business.growthActivated ? "Growth enabled" : business.growthTrialStarted ? "Trial started" : business.planChoice ? human(business.planChoice) + " event" : "Unrecorded"}</span>{business.growthCheckoutStarted && <div className={s.small}>Checkout started</div>}</td><td><span>{human(business.lastEvent)}</span><div className={s.small}>{date(business.lastEventAt, true)} · {date(business.lastEventAt)} UTC</div></td></tr>)}</tbody></table></div> : <Empty>{search || businessFilter !== "all" ? "No businesses match these filters." : "No new businesses in this period."}</Empty>}
               </Panel>
             </section>
-            <details className={s.details + " " + s.methodology}><summary>About these numbers</summary><p>Periods use UTC. Website analytics count recorded events, not unique visitors. Signup and marketplace counts describe activity in the selected period. Activation and dashboard actions describe businesses that signed up in that period; these secondary milestones are observed within the same reporting window. Current subscription statuses and Meta connections are snapshots.</p><p>Acquisition uses recorded UTM, source and referrer data. These broader website totals do not link individual visits to completed signups. The business journey above uses browser linkage where available. Source gaps and missing product events can limit conclusions. Reports read up to {number(data.dataQuality.rowLimit)} rows per source and flag sources that reach that limit.</p><p>Reporting window: {data.range.from ? fullDate(data.range.from) : "All available history"} → {fullDate(data.range.to)} UTC.</p></details>
+            </section>
+            <section id="revenue" role="tabpanel" tabIndex={0} aria-labelledby="tab-revenue" hidden={activeSection !== "revenue"} className={s.section}>
+              <div className={s.sectionHead}><div><h2>Revenue & trials</h2><p>Activity-period trial history and accrued fees.</p></div></div>
+              <Panel title="Trial status & potential" subtitle="Scenario based on current trial state, not collected revenue">
+                  <div className={s.trialBox}><div><span className={s.eyebrow}>CURRENT TRIALS</span><strong>{number(trials?.trialing ?? 0)}</strong></div>
+                    <p>{trials?.price ? `Configured Growth price: ${trials.price.formatted} / ${trials.price.intervalCount === 1 ? trials.price.interval : trials.price.intervalCount + " " + trials.price.interval + "s"}.` : "Configured Growth price could not be verified."}</p>
+                    <p className={s.helper}>Current entitlement snapshot for trials started in the selected activity period. Active status is not evidence of payment. Use signed invoice conversion and cancellation facts in the experiment table.</p>
+                    <details className={s.details}><summary>Trial breakdown</summary><div className={s.activityRow}><span>Trials started in activity period</span><strong>{number(trials?.trialStarts ?? 0)}</strong></div><div className={s.activityRow}><span>Currently trialing</span><strong>{number(trials?.trialing ?? 0)}</strong></div></details>
+                  </div>
+                <div className={s.planGrid}>{[
+                  ["Cancellation marked", trials?.cancellationMarked ?? 0], ["No cancellation marked", trials?.withoutCancellation ?? 0],
+                ].map(([label, value]) => <div key={String(label)}><span>{label}</span><strong>{number(Number(value))}</strong></div>)}</div>
+                {trials?.fullConversionMonthlyAud != null && <p className={s.helper}>Full trial conversion potential: {money(trials.fullConversionMonthlyAud)}/month AUD. Without marked cancellations: {money(trials.withoutCancellationMonthlyAud ?? 0)}/month AUD. These are scenarios, not MRR.</p>}
+              </Panel>
+              <Panel title="Accrued platform fees" subtitle="Activity period · currencies kept separate"><div className={s.chartTotal}><strong>{money(data.revenue?.byCurrency.AUD ?? 0)}</strong><span>AUD accrued, not cash received</span></div>
+                  {data.revenue && <details className={s.details}><summary>Fee ledger by currency</summary>{Object.entries(data.revenue.byCurrency).map(([currency, value]) => <div className={s.activityRow} key={currency}><span>{currency}</span><strong>{number(Math.round(value * 100) / 100)}</strong></div>)}<p className={s.helper}>Accrued amounts including adjustments, rather than cash received. Currencies are kept separate.</p></details>}
+              </Panel>
+              <details className={s.secondaryDetails}><summary>Other platform activity</summary><div className={s.planGrid}>{[
+                ["New affiliates", growth?.affiliateSignups ?? 0], ["Affiliate requests", growth?.affiliateRequests ?? 0], ["Campaigns created", growth?.liveCampaigns ?? 0],
+              ].map(([label, value]) => <div key={String(label)}><span>{label}</span><strong>{number(Number(value))}</strong></div>)}</div><p className={s.helper}>All platform activity in the selected reporting period. Campaigns include organic and paid.</p></details>
+            </section>
+            <details className={s.details + " " + s.methodology}><summary>About these numbers</summary><p>Periods use UTC. Website analytics count recorded events, not unique visitors. Signup and marketplace counts describe activity in the selected period. Activation and dashboard actions describe the selected signup cohort, with outcomes followed through its observation date. Cohort date controls are independent of the activity period. Current subscription statuses and Meta connections are snapshots.</p><p>Acquisition uses recorded UTM, source and referrer data. These broader website totals do not link individual visits to completed signups. The landing journey in Activation uses browser linkage where available. Source gaps and missing product events can limit conclusions. Reports read up to {number(data.dataQuality.rowLimit)} rows per source and flag sources that reach that limit.</p><p>Reporting window: {data.range.from ? fullDate(data.range.from) : "All available history"} → {fullDate(data.range.to)} UTC.</p></details>
           </> : null}
+        <p className={s.updated}>{data ? "Updated " + date(data.generatedAt, true) + " UTC" : "Reporting in UTC"}</p>
         <footer className={s.footer}><span><LockKeyhole size={12} aria-hidden="true" />Personal workspace · {viewerEmail}</span><Link href="/">Back to Nettmark <ArrowUpRight size={13} /></Link></footer>
       </main>
     </div>

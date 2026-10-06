@@ -1,5 +1,7 @@
 
 import assert from "node:assert/strict";
+import { overviewSignals } from "../app/internal/marketing/overview-data";
+import { aggregateBusinessFunnel } from "../utils/marketing/businessFunnel";
 import { aggregateFees, aggregateMarketingReport, type MarketingEvent } from "../utils/marketing/reporting";
 import { audienceData, groupSources, percent, sourceLabel, type DashboardData } from "../app/internal/marketing/dashboard-data";
 
@@ -95,3 +97,24 @@ const oddKeys = aggregateMarketingReport({
 assert.equal(oddKeys.bySource["__proto__"].pageViews, 1);
 assert.equal(oddKeys.byAudience["__proto__"].pageViews, 1);
 console.log("Marketing reporting checks passed: audience isolation, totals, UTC timelines, source grouping, and currency separation.");
+
+const cohort = aggregateBusinessFunnel({
+  businesses: ["a", "b", "c"].map(id => ({ id, email: id + "@example.test", created_at: from })),
+  offers: [{ business_email: "a@example.test", created_at: to }, { business_email: "b@example.test", created_at: to }],
+  entitlements: [{ business_email: "b@example.test", growth_trial_used: true, growth_trial_started_at: to }],
+  events: [], requests: [], metaConnections: [], paidCampaigns: [], stripeEvents: [],
+  signupFrom: from, signupTo: to, observedThrough: to, trialDays: 14,
+});
+const signalInput = { businessFunnel: cohort, dataQuality: { rowLimit: 5000, limitedSources: [] as string[] } };
+const signals = overviewSignals(signalInput);
+assert.deepEqual(signals.milestones, { signups: 3, offers: 2, trials: 1, campaigns: 0 }, "overview uses durable cohort facts without requiring event exposure");
+assert.deepEqual(signals.opportunities.map(item => item.count), [1, 1, 1], "gap rules count actual businesses, not differences between unrelated totals");
+const emptySignals = overviewSignals({ ...signalInput, businessFunnel: { ...cohort, detail: [] } });
+assert.equal(emptySignals.milestones, null);
+assert.deepEqual(emptySignals.opportunities, []);
+assert.deepEqual(overviewSignals({ ...signalInput, dataQuality: { rowLimit: 5000, limitedSources: ["Offers"] } }).opportunities, [], "partial reports must not rank apparent gaps");
+const divergent = { ...cohort, detail: cohort.detail.map((business, index) => ({ ...business, flags: { ...business.flags, trialStarted: index === 2, campaignCreated: index === 2 } })) };
+const divergentSignals = overviewSignals({ ...signalInput, businessFunnel: divergent });
+assert.equal(divergentSignals.opportunities.find(item => item.title === "Review the trial step")?.count, 2, "independent milestones cannot be subtracted as if trials were a subset of offers");
+assert.equal(divergentSignals.opportunities.some(item => item.title === "Help trials reach a campaign"), false);
+console.log("Overview signal checks passed: durable sources, empty cohorts, independent outcomes and partial-report handling.");
