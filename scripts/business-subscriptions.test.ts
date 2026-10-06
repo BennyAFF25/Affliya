@@ -3,6 +3,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import {
   entitlementAllowsBillingAccess,
+  getSubscriptionCurrentPeriodEnd,
   isLiveStripeSubscription,
   mapStripeSubscriptionStatus,
   resolveBillingStatusFromSubscription,
@@ -73,24 +74,35 @@ function run() {
   assert.equal(mapStripeSubscriptionStatus('unpaid'), 'subscription_unpaid');
   assert.match(webhookRoute, /invoice\.payment_failed/);
 
-  // 8. Cancellation preserves access until period end.
+  // 8. Basil subscriptions read the billing period from subscription items, with legacy fallback.
   const future = Math.floor(Date.now() / 1000) + 86400;
+  const staleTopLevel = future - 43200;
   assert.equal(
-    shouldPreserveAccessUntilPeriodEnd({ id: 'sub_2', status: 'canceled', cancel_at_period_end: true, current_period_end: future }),
+    getSubscriptionCurrentPeriodEnd({ id: 'sub_period', status: 'active', current_period_end: staleTopLevel, items: { data: [{ current_period_end: future }] } }),
+    new Date(future * 1000).toISOString(),
+  );
+  assert.equal(
+    getSubscriptionCurrentPeriodEnd({ id: 'sub_legacy', status: 'active', current_period_end: future }),
+    new Date(future * 1000).toISOString(),
+  );
+
+  // 9. Cancellation preserves access until the item-level period end.
+  assert.equal(
+    shouldPreserveAccessUntilPeriodEnd({ id: 'sub_2', status: 'canceled', cancel_at_period_end: true, items: { data: [{ current_period_end: future }] } }),
     true,
   );
   assert.equal(
-    resolveBillingStatusFromSubscription({ id: 'sub_2', status: 'canceled', cancel_at_period_end: true, current_period_end: future }),
+    resolveBillingStatusFromSubscription({ id: 'sub_2', status: 'canceled', cancel_at_period_end: true, items: { data: [{ current_period_end: future }] } }),
     'subscription_active',
   );
 
-  // 9. Webhook replay is idempotent.
+  // 10. Webhook replay is idempotent.
   assert.match(migrationSql, /stripe_event_id text NOT NULL/);
   assert.match(migrationSql, /UNIQUE \(stripe_event_id\)/);
   assert.match(webhookRoute, /insert\(\{[\s\S]*stripe_event_id: event\.id/);
   assert.match(webhookRoute, /insertEvent\.error\.code === "23505"/);
 
-  // 10. Unauthorised user cannot create Checkout for another business.
+  // 11. Unauthorised user cannot create Checkout for another business.
   assert.match(checkoutRoute, /auth\.getUser\(\)/);
   assert.match(checkoutRoute, /getOwnedBusinessForUser/);
   assert.match(helper, /\.eq\("id", params\.businessId\)[\s\S]*\.eq\("business_email", params\.userEmail\)/);

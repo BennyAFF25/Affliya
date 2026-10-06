@@ -46,6 +46,7 @@ type StripeSubscriptionLike = {
   metadata?: Stripe.Metadata | null;
   created?: number | null;
   current_period_end?: number | null;
+  items?: { data?: Array<{ current_period_end?: number | null }> } | null;
   trial_end?: number | null;
   canceled_at?: number | null;
   cancel_at_period_end?: boolean | null;
@@ -140,9 +141,18 @@ export function entitlementAllowsBillingAccess(entitlement: BusinessEntitlement 
   );
 }
 
+export function getSubscriptionCurrentPeriodEndSeconds(subscription: StripeSubscriptionLike) {
+  const itemPeriodEnds = (subscription.items?.data || [])
+    .map((item) => item?.current_period_end)
+    .filter((value): value is number => typeof value === "number" && Number.isFinite(value) && value > 0);
+
+  if (itemPeriodEnds.length > 0) return Math.max(...itemPeriodEnds);
+  return subscription.current_period_end || subscription.trial_end || subscription.cancel_at || null;
+}
+
 export function shouldPreserveAccessUntilPeriodEnd(subscription: StripeSubscriptionLike, now = new Date()) {
   if (!subscription.cancel_at_period_end) return false;
-  const endSeconds = subscription.current_period_end || subscription.cancel_at || null;
+  const endSeconds = getSubscriptionCurrentPeriodEndSeconds(subscription);
   if (!endSeconds) return false;
   return endSeconds * 1000 > now.getTime();
 }
@@ -168,7 +178,7 @@ export function resolveBillingStatusFromSubscription(subscription: StripeSubscri
 }
 
 export function getSubscriptionCurrentPeriodEnd(subscription: StripeSubscriptionLike) {
-  return toIsoFromStripeSeconds(subscription.current_period_end || subscription.trial_end || subscription.cancel_at || null);
+  return toIsoFromStripeSeconds(getSubscriptionCurrentPeriodEndSeconds(subscription));
 }
 
 export function buildBusinessSubscriptionMetadata(params: {
