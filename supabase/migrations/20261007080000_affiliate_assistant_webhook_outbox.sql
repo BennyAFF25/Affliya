@@ -110,7 +110,7 @@ begin
     elsif tg_op = 'UPDATE' then
       select coalesce(jsonb_agg(key order by key), '[]'::jsonb)
       into v_changed
-      from jsonb_object_keys(j_new) key
+      from jsonb_object_keys(j_new) as changed(key)
       where key = any(array['business_name','country','avatar_url'])
         and j_old->key is distinct from j_new->key;
 
@@ -140,7 +140,7 @@ begin
     elsif tg_op = 'UPDATE' then
       select coalesce(jsonb_agg(key order by key), '[]'::jsonb)
       into v_changed
-      from jsonb_object_keys(j_new) key
+      from jsonb_object_keys(j_new) as changed(key)
       where key <> 'created_at'
         and j_old->key is distinct from j_new->key;
 
