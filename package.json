@@ -19,7 +19,9 @@
     "test:ad-ideas-review-ui": "tsx scripts/ad-ideas-review-ui.test.ts",
     "test:creator-referrals": "tsx scripts/creator-referrals.test.ts",
     "test:launch-fund": "tsx scripts/launch-fund.test.ts",
-    "codemod:insert-header": "tsx scripts/codemods/insertMarketingHeader.ts"
+    "codemod:insert-header": "tsx scripts/codemods/insertMarketingHeader.ts",
+    "test:affiliate-assistant-webhook": "tsx scripts/affiliate-assistant-webhook.test.ts",
+    "affiliate-webhook:send-test": "tsx scripts/send-affiliate-webhook-test.ts"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.2",

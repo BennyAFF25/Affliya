@@ -6,6 +6,7 @@ import { assertAdIdeaLaunchApproved, assertAffiliateOfferApproved } from '@/../u
 import { tryWriteMoneyFlowAudit } from '@/../utils/moneyFlowAudit';
 import { computeEligibleConversionAmount, resolveOfferScopeConfig } from '@/../utils/offers/conversionScope';
 import { quarantineBillableEvent } from '@/../utils/tracking/quarantine';
+import { enqueueAffiliateWebhookEvent } from '@/../utils/affiliateAssistantWebhook';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -352,7 +353,7 @@ export async function POST(req: NextRequest) {
 
     const { data: offer, error: offerErr } = await supabase
       .from('offers')
-      .select('id, commission, commission_value, business_email, type, payout_mode, payout_interval, payout_cycles, recurring_term_months, recurring_monthly_commission_value, conversion_scope, eligible_product_ids, eligible_variant_ids')
+      .select('id, commission, commission_value, business_email, currency, type, payout_mode, payout_interval, payout_cycles, recurring_term_months, recurring_monthly_commission_value, conversion_scope, eligible_product_ids, eligible_variant_ids')
       .eq('id', resolvedOfferId)
       .maybeSingle();
 
@@ -533,6 +534,22 @@ export async function POST(req: NextRequest) {
     if (processedConvError) {
       console.error('[process-conversion] processed_conversions insert error', processedConvError);
     }
+
+    await enqueueAffiliateWebhookEvent({
+      supabase,
+      eventType: 'sale.attributed',
+      businessEmail: offer.business_email,
+      offerId: resolvedOfferId,
+      affiliateEmail: campaign.affiliate_email,
+      entityId: event_id,
+      dedupeKey: 'sale.attributed:' + event_id,
+      data: {
+        campaign_id: event.campaign_id,
+        amount: gross,
+        currency: event.currency || offer.currency || 'AUD',
+        commission: affiliatePayout,
+      },
+    });
 
     return NextResponse.json({
       ok: true,

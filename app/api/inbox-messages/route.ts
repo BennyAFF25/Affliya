@@ -5,6 +5,8 @@ import {
   maskEmail,
   sendInboxNotificationEmail,
 } from "../../../utils/email/sendInboxNotificationEmail";
+import { createServerSupabaseClient } from "../../../utils/businessSubscriptions";
+import { enqueueAffiliateWebhookEvent } from "../../../utils/affiliateAssistantWebhook";
 
 const REQUIRED_FIELDS = [
   "sender_email",
@@ -112,6 +114,27 @@ export async function POST(request: Request) {
   if (error) {
     console.error("[inbox-messages] insert failed", error);
     return NextResponse.json({ error: "insert_failed" }, { status: 400 });
+  }
+
+  if (row.sender_role === "business" && row.recipient_role === "affiliate") {
+    const admin = createServerSupabaseClient();
+    await enqueueAffiliateWebhookEvent({
+      supabase: admin,
+      eventType: "message.received",
+      businessEmail: row.sender_email,
+      offerId: row.offer_id,
+      affiliateEmail: row.recipient_email,
+      entityId: data?.id || null,
+      dedupeKey: data?.id ? "message.received:" + data.id : null,
+      data: {
+        thread_id: body.thread_id || body.metadata?.thread_id || null,
+        message_id: data?.id || null,
+        body: row.body,
+        attachments: Array.isArray(body.metadata?.attachments)
+          ? body.metadata.attachments
+          : [],
+      },
+    });
   }
 
   if (!body.suppressEmail) {

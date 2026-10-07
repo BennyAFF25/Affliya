@@ -11,6 +11,10 @@
     {
       "path": "/api/marketing/meta-start-trial-delivery",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/affiliate-assistant/webhook-delivery",
+      "schedule": "* * * * *"
     }
   ]
 }
