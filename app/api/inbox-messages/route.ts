@@ -6,7 +6,7 @@ import {
   sendInboxNotificationEmail,
 } from "../../../utils/email/sendInboxNotificationEmail";
 import { createServerSupabaseClient } from "../../../utils/businessSubscriptions";
-import { enqueueAffiliateWebhookEvent } from "../../../utils/affiliateAssistantWebhook";
+import { enqueueAffiliateWebhookEvent, isAffiliateAssistantEmail } from "../../../utils/affiliateAssistantWebhook";
 
 const REQUIRED_FIELDS = [
   "sender_email",
@@ -116,7 +116,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "insert_failed" }, { status: 400 });
   }
 
-  if (row.sender_role === "business" && row.recipient_role === "affiliate") {
+  if (
+    row.sender_role === "business" &&
+    row.recipient_role === "affiliate" &&
+    isAffiliateAssistantEmail(row.recipient_email)
+  ) {
     const admin = createServerSupabaseClient();
     await enqueueAffiliateWebhookEvent({
       supabase: admin,

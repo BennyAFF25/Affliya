@@ -30,6 +30,7 @@ create table if not exists public.affiliate_webhook_outbox (
 
 alter table public.affiliate_webhook_outbox enable row level security;
 revoke all on table public.affiliate_webhook_outbox from anon, authenticated;
+grant select, insert, update, delete on table public.affiliate_webhook_outbox to service_role;
 
 create index if not exists affiliate_webhook_outbox_pending_idx
   on public.affiliate_webhook_outbox (status, next_attempt_at, created_at)
@@ -208,7 +209,9 @@ begin
       where lower(bp.business_email) = lower(v_business_email)
       limit 1;
 
-    if (j_old->>'business_viewed_at') is null and (j_new->>'business_viewed_at') is not null then
+    if lower(coalesce(v_affiliate_email, '')) = 'jamesmarkets@gmail.com'
+      and (j_old->>'business_viewed_at') is null
+      and (j_new->>'business_viewed_at') is not null then
       perform private.queue_affiliate_webhook_event(
         'proposal.viewed', v_business_id, v_business_email, v_offer_id, v_affiliate_email,
         j_new->>'id',
@@ -221,7 +224,8 @@ begin
       );
     end if;
 
-    if (j_old->>'status') is distinct from (j_new->>'status') then
+    if lower(coalesce(v_affiliate_email, '')) = 'jamesmarkets@gmail.com'
+      and (j_old->>'status') is distinct from (j_new->>'status') then
       if lower(coalesce(j_new->>'status','')) = 'approved' then
         perform private.queue_affiliate_webhook_event(
           'proposal.approved', v_business_id, v_business_email, v_offer_id, v_affiliate_email,

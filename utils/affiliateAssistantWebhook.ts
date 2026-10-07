@@ -19,6 +19,27 @@ export type AffiliateWebhookEventType =
   | "sale.attributed"
   | "brand.inactive";
 
+export type AffiliateWebhookBrand = {
+  id: string;
+  name: string;
+  website: string | null;
+  contact_first_name: string | null;
+  timezone: string | null;
+  country: string | null;
+  plan: "free" | "growth";
+  meta_connected: boolean;
+  signed_up_at: string | null;
+  dashboard_url: string;
+};
+
+export type AffiliateWebhookPayload = {
+  event_id: string;
+  type: AffiliateWebhookEventType;
+  occurred_at: string;
+  brand: AffiliateWebhookBrand;
+  data: Record<string, unknown>;
+};
+
 type OutboxRow = {
   id: string;
   event_id: string;
@@ -33,6 +54,8 @@ type OutboxRow = {
   lease_token: string | null;
   created_at: string;
 };
+
+export const AFFILIATE_ASSISTANT_EMAIL = "jamesmarkets@gmail.com";
 
 const ASSISTANT_SCOPED_TYPES = new Set<AffiliateWebhookEventType>([
   "proposal.viewed",
@@ -62,10 +85,12 @@ function siteUrl() {
   ).replace(/\/+$/, "");
 }
 
-function assistantEmail() {
-  return String(process.env.AFFILIATE_ASSISTANT_EMAIL || "")
-    .trim()
-    .toLowerCase();
+function isoWithOffset(value: string | number | Date) {
+  return new Date(value).toISOString().replace(/Z$/, "+00:00");
+}
+
+export function isAffiliateAssistantEmail(value: string | null | undefined) {
+  return String(value || "").trim().toLowerCase() === AFFILIATE_ASSISTANT_EMAIL;
 }
 
 export function affiliateWebhookRetryDelayMs(attemptCount: number) {
@@ -78,11 +103,11 @@ export function affiliateWebhookRetryDelayMs(attemptCount: number) {
 export function affiliateWebhookScopeDecision(
   eventType: AffiliateWebhookEventType,
   affiliateEmail: string | null | undefined,
-  configuredAssistantEmail: string | null | undefined,
+  targetAffiliateEmail = AFFILIATE_ASSISTANT_EMAIL,
 ) {
   if (!ASSISTANT_SCOPED_TYPES.has(eventType)) return "deliver" as const;
 
-  const expected = String(configuredAssistantEmail || "")
+  const expected = String(targetAffiliateEmail || "")
     .trim()
     .toLowerCase();
   if (!expected) return "missing_assistant" as const;
@@ -200,7 +225,7 @@ async function loadBrandSnapshot(supabase: SupabaseClient, row: OutboxRow) {
     meta_connected: Array.isArray(metaRows) && metaRows.length > 0,
     signed_up_at: brand.created_at || null,
     dashboard_url: siteUrl() + "/business/my-business",
-  };
+  } satisfies AffiliateWebhookBrand;
 }
 
 async function loadOfferSnapshot(
@@ -252,7 +277,10 @@ async function loadOfferSnapshot(
   };
 }
 
-async function buildPayload(supabase: SupabaseClient, row: OutboxRow) {
+async function buildPayload(
+  supabase: SupabaseClient,
+  row: OutboxRow,
+): Promise<AffiliateWebhookPayload> {
   const brand = await loadBrandSnapshot(supabase, row);
   if (!brand) throw new Error("Business snapshot unavailable");
 
@@ -282,7 +310,7 @@ async function buildPayload(supabase: SupabaseClient, row: OutboxRow) {
   return {
     event_id: row.event_id,
     type: row.event_type,
-    occurred_at: row.created_at,
+    occurred_at: isoWithOffset(row.created_at),
     brand,
     data,
   };
@@ -315,35 +343,136 @@ async function updateOutbox(
   }
 }
 
-async function postWebhook(url: string, key: string, payload: unknown) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 10_000);
+export async function sendAffiliateEvent(payload: AffiliateWebhookPayload) {
+  const url = process.env.AFFILIATE_WEBHOOK_URL;
+  const authorization = process.env.AFFILIATE_WEBHOOK_AUTH;
 
-  try {
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        authorization: "Bearer " + key,
-        "content-type": "application/json; charset=utf-8",
-      },
-      body: JSON.stringify(payload),
-      signal: controller.signal,
+  if (!url?.trim() || !authorization?.trim()) {
+    const missing = [
+      !url?.trim() ? "AFFILIATE_WEBHOOK_URL" : null,
+      !authorization?.trim() ? "AFFILIATE_WEBHOOK_AUTH" : null,
+    ].filter(Boolean);
+
+    console.warn("[affiliate-webhook] delivery disabled; missing env", {
+      missing,
+      eventId: payload.event_id,
+      eventType: payload.type,
     });
 
     return {
-      ok: response.ok,
-      status: response.status,
-      error: response.ok ? null : "HTTP " + response.status,
+      ok: false as const,
+      status: null as number | null,
+      error: "missing_webhook_configuration",
+      disabled: true as const,
+      attempts: 0,
+      missing,
     };
-  } catch (error) {
-    return {
-      ok: false,
-      status: null,
-      error: error instanceof Error ? error.message : String(error),
-    };
-  } finally {
-    clearTimeout(timeout);
   }
+
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10_000);
+
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: authorization,
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+
+      console[response.ok ? "info" : "warn"]("[affiliate-webhook] response", {
+        eventId: payload.event_id,
+        eventType: payload.type,
+        attempt,
+        status: response.status,
+      });
+
+      if (response.ok) {
+        return {
+          ok: true as const,
+          status: response.status,
+          error: null,
+          disabled: false as const,
+          attempts: attempt,
+          missing: [] as string[],
+        };
+      }
+
+      if (attempt < 2) {
+        await new Promise((resolve) => setTimeout(resolve, 250));
+        continue;
+      }
+
+      return {
+        ok: false as const,
+        status: response.status,
+        error: "HTTP " + response.status,
+        disabled: false as const,
+        attempts: attempt,
+        missing: [] as string[],
+      };
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : String(error);
+
+      console.warn("[affiliate-webhook] request failed", {
+        eventId: payload.event_id,
+        eventType: payload.type,
+        attempt,
+        message,
+      });
+
+      return {
+        ok: false as const,
+        status: null as number | null,
+        error: message,
+        disabled: false as const,
+        attempts: attempt,
+        missing: [] as string[],
+      };
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+
+  return {
+    ok: false as const,
+    status: null as number | null,
+    error: "webhook_delivery_failed",
+    disabled: false as const,
+    attempts: 2,
+    missing: [] as string[],
+  };
+}
+
+export function createAffiliateWebhookTestPayload(): AffiliateWebhookPayload {
+  const now = isoWithOffset(new Date());
+
+  return {
+    event_id: "evt_test_" + Date.now(),
+    type: "brand.signed_up",
+    occurred_at: now,
+    brand: {
+      id: "webhook-test",
+      name: "Webhook Test",
+      website: "https://www.nettmark.com",
+      contact_first_name: "Webhook",
+      timezone: "Australia/Adelaide",
+      country: "AU",
+      plan: "free",
+      meta_connected: false,
+      signed_up_at: now,
+      dashboard_url: "https://www.nettmark.com/business/my-business",
+    },
+    data: {
+      signup_source: "admin_test",
+      category: "test",
+    },
+  };
 }
 
 export async function enqueueInactiveBrandEvents(
@@ -369,21 +498,18 @@ export async function deliverPendingAffiliateWebhookEvents(
   supabase: SupabaseClient,
   options?: { limit?: number },
 ) {
-  const url = String(process.env.AFFILIATE_WEBHOOK_URL || "").trim();
-  const key = String(process.env.AFFILIATE_WEBHOOK_KEY || "").trim();
-  const configuredAssistantEmail = assistantEmail();
+  const missing = [
+    !process.env.AFFILIATE_WEBHOOK_URL?.trim() ? "AFFILIATE_WEBHOOK_URL" : null,
+    !process.env.AFFILIATE_WEBHOOK_AUTH?.trim() ? "AFFILIATE_WEBHOOK_AUTH" : null,
+  ].filter(Boolean);
 
-  if (!url || !key || !configuredAssistantEmail) {
+  if (missing.length > 0) {
     return {
       sent: 0,
       skipped: 0,
       failed: 0,
       disabled: true,
-      missing: [
-        !url ? "AFFILIATE_WEBHOOK_URL" : null,
-        !key ? "AFFILIATE_WEBHOOK_KEY" : null,
-        !configuredAssistantEmail ? "AFFILIATE_ASSISTANT_EMAIL" : null,
-      ].filter(Boolean),
+      missing,
     };
   }
 
@@ -417,7 +543,6 @@ export async function deliverPendingAffiliateWebhookEvents(
     const decision = affiliateWebhookScopeDecision(
       raw.event_type,
       raw.affiliate_email,
-      configuredAssistantEmail,
     );
 
     if (decision === "skip") {
@@ -432,7 +557,7 @@ export async function deliverPendingAffiliateWebhookEvents(
 
     try {
       const payload = await buildPayload(supabase, raw);
-      const result = await postWebhook(url, key, payload);
+      const result = await sendAffiliateEvent(payload);
 
       if (result.ok) {
         sent += 1;

@@ -17,8 +17,8 @@ No new UI. Existing business and affiliate flows continue normally. Eligible eve
 - Added route-level queueing for brand-to-affiliate inbox messages and verified attributed sales.
 - Added seven-day inactivity enqueueing from Supabase Auth `last_sign_in_at`.
 - Added current brand/offer enrichment at delivery time.
-- Added Grok webhook POST delivery using `Authorization: Bearer <AFFILIATE_WEBHOOK_KEY>`, a 10-second timeout, stable `event_id`, and retry delays of 1m, 5m, 30m, 2h and 12h before failure.
-- Added `AFFILIATE_ASSISTANT_EMAIL` scoping so proposal/message/campaign/sale events for other affiliates are skipped.
+- Added Grok webhook POST delivery using the exact `AFFILIATE_WEBHOOK_AUTH` value as the `Authorization` header, a 10-second timeout, one immediate retry on non-2xx, stable `event_id`, and durable retry delays of 1m, 5m, 30m, 2h and 12h before failure.
+- Hard-scoped affiliate-specific assistant events to `jamesmarkets@gmail.com`; proposal and message events for other affiliates are not enqueued/delivered.
 - Added a one-minute CRON worker and a manual webhook test sender.
 - No Meta access tokens, Stripe secrets or Nettmark credentials are included in webhook payloads.
 
@@ -51,11 +51,19 @@ Repository work deliberately does not apply the production database migration or
 1. Apply `20261007080000_affiliate_assistant_webhook_outbox.sql` to the Nettmark Supabase project.
 2. Configure Vercel production env:
    - `AFFILIATE_WEBHOOK_URL`
-   - `AFFILIATE_WEBHOOK_KEY`
-   - `AFFILIATE_ASSISTANT_EMAIL`
-3. Send a real or scripted `brand.signed_up` test and confirm Grok Bot returns HTTP 200 / starts the routine.
+   - `AFFILIATE_WEBHOOK_AUTH` (full header value, for example `Bearer …`)
+3. Call the admin-only `/api/admin/test-affiliate-webhook` route and confirm the downstream webhook returns a 2xx status.
 
 ## Remaining known limits
 - Current business data does not reliably store contact first name, general brand timezone or structured product lists; webhook payloads use null/empty values rather than inventing them.
 - `offers` has no verified status column in the live schema, so an existing offer snapshot is represented as active.
 - `inbox_messages` is referenced by app code but was absent from the verified live public schema; message webhook queueing occurs only after that existing route successfully inserts a message.
+
+
+## 2026-10-07 verification pass
+- Production Supabase inspection found the webhook outbox migration had not yet been applied at the start of verification.
+- Live business/profile/offer/Meta/entitlement/proposal/ad table columns were checked against the migration before activation.
+- The sender was updated to use `AFFILIATE_WEBHOOK_AUTH` exactly as configured instead of constructing a Bearer value.
+- The payload timestamp is normalized to ISO 8601 with an explicit `+00:00` offset.
+- Added an admin-only production test route reusing the same sender helper.
+- `inbox_messages` is absent from the live public schema, so the existing business-message feature cannot currently complete in production; its webhook call site remains correctly scoped for when that table exists.
