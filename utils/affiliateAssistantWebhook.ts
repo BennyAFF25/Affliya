@@ -393,6 +393,17 @@ export async function deliverPendingAffiliateWebhookEvents(
   );
 
   if (error) {
+    const code = String(error.code || "");
+    if (["PGRST202", "42883", "42P01"].includes(code)) {
+      return {
+        sent: 0,
+        skipped: 0,
+        failed: 0,
+        disabled: true,
+        missing: ["affiliate webhook database migration"],
+      };
+    }
+
     throw new Error(
       "Could not claim affiliate webhook deliveries: " + error.message,
     );
