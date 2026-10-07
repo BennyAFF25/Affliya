@@ -43,7 +43,7 @@ function adminAuthorized(req: Request) {
   return safeEqual(digest, TEMP_TEST_TOKEN_SHA256);
 }
 
-export async function POST(req: Request) {
+async function handleTest(req: Request) {
   if (!adminAuthorized(req)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -72,3 +72,7 @@ export async function POST(req: Request) {
     { status: result.ok ? 200 : 502 },
   );
 }
+
+
+export const POST = handleTest;
+export const GET = handleTest;
