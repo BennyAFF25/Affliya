@@ -15,6 +15,10 @@
     {
       "path": "/api/affiliate-assistant/webhook-delivery",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/admin/test-affiliate-webhook",
+      "schedule": "* * * * *"
     }
   ]
 }
