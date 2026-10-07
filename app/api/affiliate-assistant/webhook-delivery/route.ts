@@ -1,10 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "../../../../utils/businessSubscriptions";
-import {
-  deliverPendingAffiliateWebhookEvents,
-  enqueueInactiveBrandEvents,
-} from "../../../../utils/affiliateAssistantWebhook";
+import { deliverPendingAffiliateWebhookEvents } from "../../../../utils/affiliateAssistantWebhook";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,9 +26,8 @@ export async function GET(req: Request) {
 
   try {
     const supabase = createServerSupabaseClient();
-    const inactiveQueued = await enqueueInactiveBrandEvents(supabase, 7);
     const delivery = await deliverPendingAffiliateWebhookEvents(supabase);
-    return NextResponse.json({ ok: true, inactiveQueued, ...delivery });
+    return NextResponse.json({ ok: true, ...delivery });
   } catch (error) {
     console.warn("[affiliate-webhook] worker failed", {
       message: error instanceof Error ? error.message : String(error),

@@ -13,11 +13,7 @@ export type AffiliateWebhookEventType =
   | "proposal.approved"
   | "proposal.rejected"
   | "proposal.changes_requested"
-  | "message.received"
-  | "campaign.launched"
-  | "campaign.paused"
-  | "sale.attributed"
-  | "brand.inactive";
+  | "message.received";
 
 export type AffiliateWebhookBrand = {
   id: string;
@@ -63,9 +59,6 @@ const ASSISTANT_SCOPED_TYPES = new Set<AffiliateWebhookEventType>([
   "proposal.rejected",
   "proposal.changes_requested",
   "message.received",
-  "campaign.launched",
-  "campaign.paused",
-  "sale.attributed",
 ]);
 
 const RETRY_DELAYS_MS = [
@@ -473,25 +466,6 @@ export function createAffiliateWebhookTestPayload(): AffiliateWebhookPayload {
       category: "test",
     },
   };
-}
-
-export async function enqueueInactiveBrandEvents(
-  supabase: SupabaseClient,
-  inactiveDays = 7,
-) {
-  try {
-    const { data, error } = await supabase.rpc(
-      "enqueue_inactive_affiliate_webhook_events",
-      { p_inactive_days: inactiveDays },
-    );
-    if (error) throw error;
-    return Number(data || 0);
-  } catch (error) {
-    console.warn("[affiliate-webhook] inactive scan failed", {
-      message: error instanceof Error ? error.message : String(error),
-    });
-    return 0;
-  }
 }
 
 export async function deliverPendingAffiliateWebhookEvents(

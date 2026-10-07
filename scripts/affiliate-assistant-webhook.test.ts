@@ -96,6 +96,12 @@ function run() {
 
   assert.match(worker, /CRON_SECRET/);
   assert.match(worker, /deliverPendingAffiliateWebhookEvents/);
+  assert.doesNotMatch(worker, /enqueueInactiveBrandEvents/);
+
+  assert.doesNotMatch(helper, /brand\.inactive/);
+  assert.doesNotMatch(helper, /campaign\.launched/);
+  assert.doesNotMatch(helper, /campaign\.paused/);
+  assert.doesNotMatch(helper, /sale\.attributed/);
 
   const adminRoute = fs.readFileSync(
     path.join(

@@ -23,9 +23,9 @@ No new UI. Existing business and affiliate flows continue normally. Eligible eve
 - No Meta access tokens, Stripe secrets or Nettmark credentials are included in webhook payloads.
 
 ## Event coverage
-Implemented: `brand.signed_up`, `brand.profile_updated`, `offer.created`, `offer.updated`, `meta.connected`, `meta.disconnected`, `plan.upgraded`, `plan.downgraded`, `proposal.viewed`, `proposal.approved`, `proposal.rejected`, `proposal.changes_requested`, `message.received`, `campaign.launched`, `campaign.paused`, `sale.attributed`, `brand.inactive`.
+Implemented: `brand.signed_up`, `brand.profile_updated`, `offer.created`, `offer.updated`, `meta.connected`, `meta.disconnected`, `plan.upgraded`, `plan.downgraded`, `proposal.viewed`, `proposal.approved`, `proposal.rejected`, `proposal.changes_requested`, `message.received`.
 
-Paid campaign events are sourced from `live_ads`, where business-side approval/termination is observable. Organic campaign pause/launch events are not emitted because the current schema does not reliably identify the actor and the webhook spec says not to echo the assistant's own actions.
+Proposal and message events are scoped to `jamesmarkets@gmail.com`. Older inactivity/campaign/sale webhook events were retired during production verification because they are outside the current requested contract.
 
 ## Files
 - `supabase/migrations/20261007080000_affiliate_assistant_webhook_outbox.sql`
@@ -67,3 +67,5 @@ Repository work deliberately does not apply the production database migration or
 - The payload timestamp is normalized to ISO 8601 with an explicit `+00:00` offset.
 - Added an admin-only production test route reusing the same sender helper.
 - `inbox_messages` is absent from the live public schema, so the existing business-message feature cannot currently complete in production; its webhook call site remains correctly scoped for when that table exists.
+
+- During activation, the legacy inactivity scan queued 99 historical `brand.inactive` rows. They were marked `skipped` before delivery, and the inactivity/campaign/sale extras were removed from the final contract.
