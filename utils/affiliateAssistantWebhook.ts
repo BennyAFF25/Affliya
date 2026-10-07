@@ -75,7 +75,9 @@ function siteUrl() {
     process.env.NEXT_PUBLIC_APP_URL ||
     process.env.NEXT_PUBLIC_BASE_URL ||
     "https://www.nettmark.com"
-  ).replace(/\/+$/, "");
+  )
+    .trim()
+    .replace(/\/+$/, "");
 }
 
 function isoWithOffset(value: string | number | Date) {
@@ -207,10 +209,30 @@ async function loadBrandSnapshot(supabase: SupabaseClient, row: OutboxRow) {
     ? "growth"
     : "free";
 
+  const website = String(latestOffer?.website || "").trim() || null;
+  let fallbackName = "";
+  if (website) {
+    try {
+      const normalized = /^https?:\/\//i.test(website) ? website : "https://" + website;
+      const hostname = new URL(normalized).hostname.replace(/^www\./i, "");
+      const rootLabel = hostname.split(".")[0] || "";
+      fallbackName = rootLabel
+        .split(/[-_]+/)
+        .filter(Boolean)
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(" ");
+    } catch {
+      fallbackName = "";
+    }
+  }
+
   return {
     id: brand.id,
-    name: brand.business_name || brand.business_email,
-    website: latestOffer?.website || null,
+    name:
+      String(brand.business_name || "").trim() ||
+      fallbackName ||
+      brand.business_email,
+    website,
     contact_first_name: null,
     timezone: null,
     country: brand.country || null,

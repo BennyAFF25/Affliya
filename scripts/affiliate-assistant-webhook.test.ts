@@ -56,6 +56,8 @@ function run() {
   );
 
   assert.match(helper, /AFFILIATE_WEBHOOK_AUTH/);
+  assert.match(helper, /\.trim\(\)[\s\S]{0,80}\.replace\(\/\\\/\+\$\/,\"\\"\)|\.trim\(\)[\s\S]{0,80}\.replace/);
+  assert.match(helper, /fallbackName/);
   assert.doesNotMatch(helper, /AFFILIATE_WEBHOOK_KEY/);
   assert.match(helper, /Authorization: authorization/);
   assert.match(helper, /"Content-Type": "application\/json"/);
@@ -114,6 +116,13 @@ function run() {
   assert.match(adminRoute, /CRON_SECRET/);
   assert.match(adminRoute, /WebhookTestPayload/);
   assert.match(adminRoute, /webhook_status/);
+
+  const providers = fs.readFileSync(
+    path.join(process.cwd(), "app/Providers.tsx"),
+    "utf8",
+  );
+  assert.match(providers, /utils\/supabase\/pages-client/);
+  assert.doesNotMatch(providers, /createPagesBrowserClient/);
 
   console.log("affiliate assistant webhook tests passed");
 }
