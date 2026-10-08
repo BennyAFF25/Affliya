@@ -1,164 +1,175 @@
-type Base = {
-  appName: string;
-  brandColor: string; // #00C2CB
-  supportEmail?: string;
-};
+import { renderNettmarkEmail } from "../../utils/email/renderNettmarkEmail";
 
-const base: Base = {
-  appName: "Nettmark",
-  brandColor: "#00C2CB",
-  supportEmail: "contact@nettmark.com",
-};
-
-function layout(title: string, bodyHtml: string) {
-  return `
-  <div style="font-family: Arial, sans-serif; background:#0e0e0e; padding:24px;">
-    <div style="max-width:640px; margin:0 auto; background:#141414; border:1px solid #222; border-radius:14px; overflow:hidden;">
-      <div style="padding:18px 20px; border-bottom:1px solid #222;">
-        <div style="font-size:12px; letter-spacing:0.16em; text-transform:uppercase; color:#9ca3af;">${base.appName}</div>
-        <div style="margin-top:6px; font-size:20px; color:${base.brandColor}; font-weight:700;">${title}</div>
-      </div>
-
-      <div style="padding:18px 20px; color:#e5e7eb; font-size:14px; line-height:1.6;">
-        ${bodyHtml}
-      </div>
-
-      <div style="padding:14px 20px; border-top:1px solid #222; color:#9ca3af; font-size:12px;">
-        Need help? Reply to this email or contact <span style="color:${base.brandColor};">${base.supportEmail}</span>
-      </div>
-    </div>
-  </div>
-  `;
-}
+const APP_URL = "https://www.nettmark.com";
 
 export function affiliateWelcomeEmail(params: { affiliateEmail: string }) {
-  const subject = "Welcome to Nettmark — you’re early 👀";
-  const html = layout(
-    "Welcome, affiliate",
-    `
-    <p>You’re officially in Nettmark.</p>
-
-    <p><b>Early access:</b> we’re letting the <b>first 150 users</b> use Nettmark <b>free for life</b> in exchange for honest feedback while we tighten everything.</p>
-
-    <p><b>How it works:</b></p>
-    <ul>
-      <li>You can run Facebook ads inside Nettmark on <b>brand-owned ad accounts</b> (no messing with Meta Ads Manager).</li>
-      <li>Nettmark handles the tracking + approvals + payout flow <b>under one roof</b>.</li>
-      <li>You earn <b>commission on sales</b> you generate.</li>
-    </ul>
-
-    <p>Log in and head to your dashboard → Marketplace → request an offer → once approved you’ll see it in Manage Campaigns.</p>
-
-    <p style="margin-top:16px;">
-      <span style="display:inline-block; background:${base.brandColor}; color:#000; padding:10px 14px; border-radius:10px; font-weight:700;">
-        You’re early. Let’s build this properly.
-      </span>
-    </p>
-    `
-  );
+  const subject = "Welcome to Nettmark — your affiliate account is live";
+  const html = renderNettmarkEmail({
+    previewText: "Your affiliate account is ready. Browse offers and start promoting.",
+    badge: { text: "Affiliate account", tone: "success" },
+    heading: "Welcome to Nettmark",
+    body:
+      "Your affiliate account is ready. You can browse offers, request access where required, and start building organic or paid promotion from one place.",
+    rows: [{ label: "Login email", value: params.affiliateEmail }],
+    notice: {
+      title: "What happens next",
+      body: "Open the marketplace, choose an offer that makes sense for you, and follow the promotion flow. Nettmark will surface the setup you need only when it becomes relevant.",
+      tone: "info",
+    },
+    cta: { label: "Open affiliate dashboard", href: `${APP_URL}/affiliate/dashboard` },
+    secondaryCta: { label: "Browse marketplace", href: `${APP_URL}/affiliate/marketplace` },
+    footerNote: "If you did not create a Nettmark account, you can ignore this email.",
+  });
   return { subject, html };
 }
 
 export function businessWelcomeEmail(params: { businessEmail: string }) {
-  const subject = "Welcome to Nettmark — let’s get your first affiliates running";
-  const html = layout(
-    "Welcome, business",
-    `
-    <p>You’re officially in Nettmark.</p>
-
-    <p><b>What makes Nettmark different:</b> affiliates can run Facebook ads through Nettmark directly on <b>your brand-owned ad account</b>, while Nettmark handles tracking, approvals, and payments inside the platform.</p>
-
-    <p><b>Early access:</b> the first <b>150 users</b> get Nettmark <b>free for life</b> while we gather feedback and polish flows.</p>
-
-    <p>Next steps:</p>
-    <ol>
-      <li>Create your offer</li>
-      <li>Connect Meta</li>
-      <li>Approve affiliates + approve ads</li>
-      <li>Watch spend + performance inside Manage Campaigns</li>
-    </ol>
-    `
-  );
+  const subject = "Welcome to Nettmark — publish your first offer";
+  const html = renderNettmarkEmail({
+    previewText: "Your business account is ready. Publish your first offer to become discoverable.",
+    badge: { text: "Business account", tone: "success" },
+    heading: "Your Nettmark account is ready",
+    body:
+      "Start by publishing the offer affiliates will promote. You can choose your commission and marketplace access first; Meta, tracking, and other setup only become necessary when the next action actually needs them.",
+    rows: [{ label: "Login email", value: params.businessEmail }],
+    notice: {
+      title: "First milestone",
+      body: "Publish your first offer so affiliates can discover your business and decide whether they want to promote it.",
+      tone: "info",
+    },
+    cta: { label: "Create your first offer", href: `${APP_URL}/onboarding/for-business` },
+    secondaryCta: { label: "Open Nettmark", href: `${APP_URL}/login/business` },
+    footerNote: "Free remains available. Growth can be activated later when you want access to affiliate-funded paid advertising.",
+  });
   return { subject, html };
 }
 
 export function adminNewUserEmail(params: { userEmail: string; role: "affiliate" | "business" }) {
-  const subject = `🚨 New ${params.role} signup: ${params.userEmail}`;
-  const html = layout(
-    "New user signup",
-    `
-    <p><b>Role:</b> ${params.role}</p>
-    <p><b>Email:</b> ${params.userEmail}</p>
-    <p style="color:#9ca3af; font-size:12px; margin-top:14px;">Sent automatically by Nettmark.</p>
-    `
-  );
+  const subject = `🚀 New ${params.role} signup: ${params.userEmail}`;
+  const html = renderNettmarkEmail({
+    previewText: `New ${params.role} signup on Nettmark.`,
+    badge: { text: "Founder alert", tone: "info" },
+    heading: `New ${params.role} signup`,
+    body: "A new user has entered Nettmark.",
+    rows: [
+      { label: "Role", value: params.role },
+      { label: "Email", value: params.userEmail },
+    ],
+    cta: { label: "Open Nettmark", href: APP_URL },
+    recipientNote: "Internal Nettmark notification.",
+  });
   return { subject, html };
 }
 
 export function adminNewOfferEmail(params: { businessEmail: string; offerTitle?: string; offerId?: string }) {
   const subject = `📦 New offer submitted: ${params.offerTitle || "(untitled)"}`;
-  const html = layout(
-    "New offer submitted",
-    `
-    <p><b>Business:</b> ${params.businessEmail}</p>
-    <p><b>Offer:</b> ${params.offerTitle || "(untitled)"}</p>
-    ${params.offerId ? `<p><b>Offer ID:</b> ${params.offerId}</p>` : ""}
-    `
-  );
+  const offerHref = params.offerId
+    ? `${APP_URL}/affiliate/marketplace/${encodeURIComponent(params.offerId)}`
+    : `${APP_URL}/affiliate/marketplace`;
+  const html = renderNettmarkEmail({
+    previewText: "A new offer has been published on Nettmark.",
+    badge: { text: "Founder alert", tone: "info" },
+    heading: "New offer published",
+    body: "A business has published an offer to the Nettmark marketplace.",
+    rows: [
+      { label: "Business", value: params.businessEmail },
+      { label: "Offer", value: params.offerTitle || "(untitled)" },
+      ...(params.offerId ? [{ label: "Offer ID", value: params.offerId }] : []),
+    ],
+    cta: { label: "View offer", href: offerHref },
+    recipientNote: "Internal Nettmark notification.",
+  });
   return { subject, html };
 }
 
-export function businessNewAffiliateRequestEmail(params: { businessEmail: string; affiliateEmail: string; offerTitle?: string; notes?: string }) {
-  const subject = `🧲 New affiliate request: ${params.affiliateEmail}`;
-  const html = layout(
-    "New affiliate request",
-    `
-    <p><b>Affiliate:</b> ${params.affiliateEmail}</p>
-    ${params.offerTitle ? `<p><b>Offer:</b> ${params.offerTitle}</p>` : ""}
-    ${params.notes ? `<p><b>Notes:</b><br/>${escapeHtml(params.notes).replace(/\n/g, "<br/>")}</p>` : ""}
-    <p>Open Nettmark → Affiliate Requests to approve or reject.</p>
-    `
-  );
+export function businessNewAffiliateRequestEmail(params: {
+  businessEmail: string;
+  affiliateEmail: string;
+  offerTitle?: string;
+  notes?: string;
+}) {
+  const subject = `New affiliate request${params.offerTitle ? ` — ${params.offerTitle}` : ""}`;
+  const html = renderNettmarkEmail({
+    previewText: "An affiliate wants to promote one of your offers.",
+    badge: { text: "Affiliate request", tone: "info" },
+    heading: "An affiliate wants to promote your offer",
+    body: "Review the request and decide whether this affiliate should be able to promote your business.",
+    rows: [
+      { label: "Offer", value: params.offerTitle || "Your offer" },
+      { label: "Affiliate", value: params.affiliateEmail },
+      ...(params.notes ? [{ label: "Notes", value: params.notes }] : []),
+    ],
+    cta: {
+      label: "Review request",
+      href: `${APP_URL}/business/my-business/affiliate-requests`,
+    },
+    footerNote: "Approving a request gives that affiliate access to the promotion flow for this offer.",
+  });
   return { subject, html };
 }
 
-export function affiliateRequestDecisionEmail(params: { affiliateEmail: string; offerTitle?: string; decision: "approved" | "rejected"; note?: string }) {
-  const subject = params.decision === "approved"
-    ? `✅ Approved to promote: ${params.offerTitle || "an offer"}`
-    : `❌ Not approved: ${params.offerTitle || "an offer"}`;
+export function affiliateRequestDecisionEmail(params: {
+  affiliateEmail: string;
+  offerTitle?: string;
+  decision: "approved" | "rejected";
+  note?: string;
+}) {
+  const approved = params.decision === "approved";
+  const subject = approved
+    ? `Approved to promote ${params.offerTitle || "this offer"}`
+    : `Promotion request update — ${params.offerTitle || "Nettmark offer"}`;
 
-  const html = layout(
-    "Affiliate request update",
-    `
-    <p>Your request to promote <b>${params.offerTitle || "the offer"}</b> was <b>${params.decision.toUpperCase()}</b>.</p>
-    ${params.note ? `<p><b>Business note:</b><br/>${escapeHtml(params.note).replace(/\n/g, "<br/>")}</p>` : ""}
-    <p>Log in to Nettmark → Dashboard → Manage Campaigns.</p>
-    `
-  );
+  const html = renderNettmarkEmail({
+    previewText: approved
+      ? "Your request was approved. You can continue into the promotion flow."
+      : "The business has reviewed your promotion request.",
+    badge: {
+      text: approved ? "Request approved" : "Request declined",
+      tone: approved ? "success" : "neutral",
+    },
+    heading: approved ? "You're approved to promote" : "Your request wasn't approved",
+    body: approved
+      ? "The business approved your request. Open the offer to continue into organic or paid promotion."
+      : "The business has decided not to approve this promotion request right now.",
+    rows: [
+      { label: "Offer", value: params.offerTitle || "Nettmark offer" },
+      ...(params.note ? [{ label: "Business note", value: params.note }] : []),
+    ],
+    cta: approved
+      ? { label: "Open offer", href: `${APP_URL}/affiliate/dashboard` }
+      : { label: "Browse other offers", href: `${APP_URL}/affiliate/marketplace` },
+  });
   return { subject, html };
 }
 
-export function adDecisionEmail(params: { affiliateEmail: string; offerTitle?: string; decision: "approved" | "rejected"; note?: string }) {
-  const subject = params.decision === "approved"
-    ? `✅ Ad approved: ${params.offerTitle || "your campaign"}`
-    : `❌ Ad rejected: ${params.offerTitle || "your campaign"}`;
+export function adDecisionEmail(params: {
+  affiliateEmail: string;
+  offerTitle?: string;
+  decision: "approved" | "rejected";
+  note?: string;
+}) {
+  const approved = params.decision === "approved";
+  const subject = approved
+    ? `Ad approved — ${params.offerTitle || "your campaign"}`
+    : `Ad review update — ${params.offerTitle || "your campaign"}`;
 
-  const html = layout(
-    "Ad review update",
-    `
-    <p>Your ad for <b>${params.offerTitle || "the offer"}</b> was <b>${params.decision.toUpperCase()}</b>.</p>
-    ${params.note ? `<p><b>Note:</b><br/>${escapeHtml(params.note).replace(/\n/g, "<br/>")}</p>` : ""}
-    <p>Open Nettmark → Manage Campaigns to view status.</p>
-    `
-  );
+  const html = renderNettmarkEmail({
+    previewText: approved
+      ? "Your ad was approved by the business."
+      : "The business has reviewed your ad.",
+    badge: {
+      text: approved ? "Ad approved" : "Ad rejected",
+      tone: approved ? "success" : "danger",
+    },
+    heading: approved ? "Your ad is approved" : "Your ad wasn't approved",
+    body: approved
+      ? "The business approved your creative. Open Nettmark to continue with the campaign."
+      : "The business has rejected this ad creative. Review any feedback before creating the next version.",
+    rows: [
+      { label: "Offer", value: params.offerTitle || "Nettmark offer" },
+      ...(params.note ? [{ label: "Business note", value: params.note }] : []),
+    ],
+    cta: { label: "Open Nettmark", href: `${APP_URL}/affiliate/dashboard` },
+  });
   return { subject, html };
-}
-
-function escapeHtml(input: string) {
-  return input
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
 }

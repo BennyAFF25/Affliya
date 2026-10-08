@@ -1,16 +1,8 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
+import { renderNettmarkEmail } from "../../../../utils/email/renderNettmarkEmail";
 
 export const runtime = "nodejs";
-
-function escapeHtml(input: any) {
-  return String(input ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
 
 export async function POST(req: Request) {
   try {
@@ -24,119 +16,51 @@ export async function POST(req: Request) {
     if (!to || !affiliateEmail || !businessEmail || !offerTitle || !decision) {
       return NextResponse.json(
         { ok: false, error: "Missing required fields" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     const resend = new Resend(process.env.RESEND_API_KEY);
     const fromEmail = process.env.RESEND_FROM_EMAIL || "no-reply@nettmark.com";
     const fromName = process.env.RESEND_FROM_NAME || "Nettmark";
-
-    const safeOffer = escapeHtml(offerTitle);
-    const safeDecision = String(decision).toLowerCase() === "approved" ? "APPROVED" : "REJECTED";
-
-    const appUrl =
-      (process.env.NEXT_PUBLIC_APP_URL ||
-        process.env.NEXT_PUBLIC_SITE_URL ||
-        process.env.NEXT_PUBLIC_BASE_URL ||
-        "https://www.nettmark.com").replace(/\/$/, "");
-    const LOGO_URL = `${appUrl}/icon.png`;
-    const subject = `Affiliate request ${safeDecision}`;
+    const approved = String(decision).toLowerCase() === "approved";
+    const appUrl = (
+      process.env.NEXT_PUBLIC_APP_URL ||
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      process.env.NEXT_PUBLIC_BASE_URL ||
+      "https://www.nettmark.com"
+    ).trim().replace(/\/$/, "");
     const ctaPath =
-      safeDecision === "APPROVED" && body?.offerId
+      approved && body?.offerId
         ? `/affiliate/dashboard/promote/${encodeURIComponent(String(body.offerId))}`
         : "/affiliate/dashboard";
     const ctaUrl = `${appUrl}${ctaPath}`;
-    const helpEmail = "support@nettmark.com";
+    const subject = approved ? "Affiliate request approved" : "Affiliate request rejected";
 
-    const html = `
-<!doctype html>
-<html>
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>${subject}</title>
-</head>
-<body style="margin:0;padding:0;background:#f4f4f7;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f7;padding:28px 12px;">
-    <tr>
-      <td align="center">
-        <table width="640" cellpadding="0" cellspacing="0" style="max-width:640px;width:100%;">
-
-          <!-- Header -->
-          <tr>
-            <td style="padding:6px 6px 14px 6px;">
-              <table cellpadding="0" cellspacing="0">
-                <tr>
-                  <td style="padding-right:10px;">
-                    <img src="${LOGO_URL}" width="38" height="38" style="border-radius:10px;display:block;" alt="Nettmark" />
-                  </td>
-                  <td style="font-family:Arial,Helvetica,sans-serif;">
-                    <div style="font-size:18px;font-weight:700;color:#0b0b0b;line-height:1;">Nettmark</div>
-                    <div style="font-size:12px;color:#6b7280;margin-top:3px;">Affiliate notifications</div>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-
-          <!-- Card -->
-          <tr>
-            <td style="padding:0 6px;">
-              <table width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;border:1px solid #e7e7ee;border-radius:16px;">
-                <tr>
-                  <td style="padding:22px;font-family:Arial,Helvetica,sans-serif;color:#0b0b0b;">
-                    <div style="font-size:22px;font-weight:800;">Affiliate request ${safeDecision}</div>
-
-                    <div style="margin-top:12px;font-size:14px;line-height:1.6;color:#111827;">
-                      The affiliate request for <b>${safeOffer}</b> has been <b>${safeDecision.toLowerCase()}</b>.
-                    </div>
-
-                    <div style="margin-top:16px;background:#f8fafc;border:1px solid #eef2f7;border-radius:12px;padding:14px;">
-                      <div style="font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:#6b7280;font-weight:700;">
-                        Request details
-                      </div>
-                      <div style="margin-top:8px;font-size:14px;line-height:1.6;color:#111827;">
-                        <div><b>Offer:</b> ${safeOffer}</div>
-                      </div>
-                    </div>
-
-                    <table cellpadding="0" cellspacing="0" style="margin-top:18px;">
-                      <tr>
-                        <td>
-                          <a href="${ctaUrl}" style="display:inline-block;background:#00C2CB;color:#001015;text-decoration:none;font-weight:700;font-size:14px;padding:12px 16px;border-radius:12px;">
-                            View in dashboard
-                          </a>
-                        </td>
-                      </tr>
-                    </table>
-
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-
-          <!-- Footer -->
-          <tr>
-            <td style="padding:16px 8px 0 8px;font-family:Arial,Helvetica,sans-serif;color:#6b7280;">
-              <div style="font-size:12px;">
-                Need help? Use the Nettmark chatbot inside the app or email
-                <a href="mailto:${helpEmail}" style="color:#0ea5a4;font-weight:700;text-decoration:none;">
-                  ${helpEmail}
-                </a>.
-              </div>
-              <div style="margin-top:6px;font-size:12px;">© 2026 Nettmark. All rights reserved.</div>
-            </td>
-          </tr>
-
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
-    `.trim();
+    const html = renderNettmarkEmail({
+      previewText: approved
+        ? "Your request was approved. You can continue into the promotion flow."
+        : "The business has reviewed your affiliate request.",
+      badge: {
+        text: approved ? "Request approved" : "Request declined",
+        tone: approved ? "success" : "neutral",
+      },
+      heading: approved ? "You're approved to promote" : "Your request wasn't approved",
+      body: approved
+        ? "The business approved your request. Open the offer to continue into the promotion flow."
+        : "The business has decided not to approve this promotion request right now.",
+      rows: [
+        { label: "Offer", value: String(offerTitle) },
+        { label: "Business", value: String(businessEmail) },
+      ],
+      cta: {
+        label: approved ? "Continue to promotion" : "Open dashboard",
+        href: ctaUrl,
+      },
+      secondaryCta: approved
+        ? undefined
+        : { label: "Browse marketplace", href: `${appUrl}/affiliate/marketplace` },
+    });
 
     const result = await resend.emails.send({
       from: `${fromName} <${fromEmail}>`,
@@ -150,7 +74,7 @@ export async function POST(req: Request) {
     console.error("[emails/affiliate-request-decision] error:", e);
     return NextResponse.json(
       { ok: false, error: e?.message || "Unknown error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

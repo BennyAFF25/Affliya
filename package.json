@@ -22,7 +22,8 @@
     "codemod:insert-header": "tsx scripts/codemods/insertMarketingHeader.ts",
     "test:affiliate-assistant-webhook": "tsx scripts/affiliate-assistant-webhook.test.ts",
     "affiliate-webhook:send-test": "tsx scripts/send-affiliate-webhook-test.ts",
-    "test:business-offer-integrity": "tsx scripts/business-offer-integrity.test.ts"
+    "test:business-offer-integrity": "tsx scripts/business-offer-integrity.test.ts",
+    "test:email-ui": "tsx scripts/email-ui-unification.test.ts"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.2",
