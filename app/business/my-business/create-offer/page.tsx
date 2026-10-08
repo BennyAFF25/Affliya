@@ -103,6 +103,8 @@ function CreateOfferPageInner() {
   const [recurringTermMonths, setRecurringTermMonths] = useState<number>(12);
 
   const [step, setStep] = useState(1);
+  const [isPublishing, setIsPublishing] = useState(false);
+  const candidateOfferIdRef = React.useRef<string | null>(null);
   const offerCreateViewedRef = React.useRef(false);
   const seenStepsRef = React.useRef<Set<number>>(new Set());
 
@@ -383,6 +385,10 @@ function CreateOfferPageInner() {
       return;
     }
 
+    if (isPublishing) return;
+    if (!candidateOfferIdRef.current) candidateOfferIdRef.current = uuidv4();
+    setIsPublishing(true);
+
     let uploadedLogoUrl: string | null = null;
 
     if (logoFile) {
@@ -459,7 +465,7 @@ function CreateOfferPageInner() {
     const finalPayoutCycles = type === "recurring" ? recurringTermMonths : null;
 
     const newOffer = {
-      id: uuidv4(),
+      id: candidateOfferIdRef.current,
       title: businessName,
       description,
       business_email: userEmail,
@@ -497,7 +503,7 @@ function CreateOfferPageInner() {
 
     const { error: insertError } = await supabase
       .from("offers")
-      .insert([newOffer]);
+      .upsert([newOffer], { onConflict: "id" });
     if (insertError) {
       console.error("[❌ Offer Insert Error]", insertError.message);
       void logProductEvent({
@@ -506,6 +512,7 @@ function CreateOfferPageInner() {
         offerId: newOffer.id,
         meta: { reason: "offer_insert_error", message: insertError.message },
       });
+      setIsPublishing(false);
       return;
     }
 
@@ -549,6 +556,8 @@ function CreateOfferPageInner() {
     }
 
     if (isOnboard) {
+      candidateOfferIdRef.current = null;
+      setIsPublishing(false);
       router.replace(
         `/business/setup-tracking?offerId=${newOffer.id}&onboard=1`,
       );
@@ -584,6 +593,8 @@ function CreateOfferPageInner() {
     setSelectedAdAccount("");
     setSelectedPixel("");
 
+    candidateOfferIdRef.current = null;
+    setIsPublishing(false);
     router.push("/business/my-business");
   };
 
@@ -1257,9 +1268,10 @@ function CreateOfferPageInner() {
               <Button
                 type="button"
                 onClick={handleSubmit}
+                disabled={isPublishing}
                 className="ml-auto"
               >
-                Submit Offer
+                {isPublishing ? "Publishing…" : "Submit Offer"}
               </Button>
             )}
           </div>

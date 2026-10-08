@@ -19,6 +19,11 @@ type OfferRow = {
 type StepKey = "offer" | "install" | "verify" | "meta";
 type StepState = "current" | "done" | "ready" | "locked";
 
+function normalizeSiteHost(host?: string | null) {
+  if (!host || host === "Custom site") return "Custom/Other";
+  return host;
+}
+
 export default function SetupTrackingContent() {
   const session = useSession();
   const user = session?.user;
@@ -62,8 +67,12 @@ export default function SetupTrackingContent() {
         .eq("business_email", user.email);
 
       if (error || !data) return;
-      setOffers(data as OfferRow[]);
-      if (data.length > 0) setSelectedOffer((data as OfferRow[])[0]);
+      const normalizedOffers = (data as OfferRow[]).map((offer) => ({
+        ...offer,
+        site_host: normalizeSiteHost(offer.site_host),
+      }));
+      setOffers(normalizedOffers);
+      if (normalizedOffers.length > 0) setSelectedOffer(normalizedOffers[0]);
     };
 
     fetchOffers();
@@ -261,7 +270,7 @@ analytics.subscribe('checkout_completed', async (event) => {
 
     const { error: hostError } = await supabase
       .from("offers")
-      .update({ site_host: selectedOffer?.site_host || "Custom site" })
+      .update({ site_host: normalizeSiteHost(selectedOffer?.site_host) })
       .eq("id", offerId)
       .eq("business_email", businessEmail);
 
@@ -490,7 +499,7 @@ analytics.subscribe('checkout_completed', async (event) => {
                     Platform / Host
                   </label>
                   <select
-                    value={selectedOffer?.site_host || "Custom site"}
+                    value={normalizeSiteHost(selectedOffer?.site_host)}
                     onChange={(e) => void updateOfferHost(e.target.value)}
                     disabled={!selectedOffer || savingHost}
                     className="mt-3 w-full rounded-xl border border-[var(--border)] bg-[var(--card)] px-4 py-3 text-[var(--foreground)] outline-none ring-2 ring-[var(--primary)]/5 transition focus:ring-[var(--ring)] disabled:opacity-60"
@@ -498,7 +507,7 @@ analytics.subscribe('checkout_completed', async (event) => {
                     <option value="Shopify">Shopify</option>
                     <option value="WooCommerce">WooCommerce</option>
                     <option value="Wix">Wix</option>
-                    <option value="Custom site">Custom site</option>
+                    <option value="Custom/Other">Custom/Other</option>
                   </select>
                   <p className="mt-2 text-xs text-[var(--muted-foreground)]">
                     {savingHost
@@ -693,7 +702,7 @@ analytics.subscribe('checkout_completed', async (event) => {
               type="button"
               onClick={async () => {
                 if (selectedOffer && !selectedOffer.site_host) {
-                  await updateOfferHost("Custom site");
+                  await updateOfferHost("Custom/Other");
                 }
                 setTrackingInstalled(true);
               }}

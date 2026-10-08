@@ -955,7 +955,7 @@ export default function MyBusinessPage() {
       ? [{ title: "Organic post ideas submitted", details: `${pendingPostIdeaCount} organic post idea${pendingPostIdeaCount === 1 ? "" : "s"} pending approval.`, href: "/business/my-business/post-ideas" }]
       : []),
     ...(offers.length > 0
-      ? [{ title: "Offers available", details: `${offers.length} marketplace offer${offers.length === 1 ? "" : "s"} available for affiliates.`, href: "/business/my-business" }]
+      ? [{ title: "Offers available", details: `${offers.length} marketplace offer${offers.length === 1 ? "" : "s"} available for affiliates.`, href: "/business/my-business/edit-offer" }]
       : []),
   ].slice(0, 4);
 
@@ -1068,14 +1068,14 @@ export default function MyBusinessPage() {
                     <IconPlus className="h-4 w-4" /> Create new offer
                   </Link>
                   <div className="grid grid-cols-2 gap-2">
-                    <Link href="/business/my-business" prefetch={false} className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-2 text-center text-xs font-semibold text-slate-200 hover:border-[#00C2CB]/35">View offers</Link>
+                    <Link href="/business/my-business/edit-offer" prefetch={false} className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-2 text-center text-xs font-semibold text-slate-200 hover:border-[#00C2CB]/35">Manage offers</Link>
                     <Link href="/business/manage-campaigns" prefetch={false} className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-2 text-center text-xs font-semibold text-slate-200 hover:border-[#00C2CB]/35">Performance</Link>
                   </div>
                 </div>
-                <div className="mt-5 flex items-center justify-between border-t border-white/[0.07] pt-4 text-sm">
+                <Link href="/business/my-business/edit-offer" prefetch={false} className="mt-5 flex items-center justify-between border-t border-white/[0.07] pt-4 text-sm transition hover:text-[#7ff5fb]">
                   <span className="text-slate-500">Active offers</span>
                   <span className="font-bold text-white">{liveOfferLabel} →</span>
-                </div>
+                </Link>
               </div>
 
               <div className="rounded-[22px] border border-white/[0.08] bg-[#151718] p-5 shadow-2xl shadow-black/20 2xl:col-span-1">
@@ -1166,8 +1166,8 @@ export default function MyBusinessPage() {
                       {hasAnyOffer ? "Ready" : "Available"}
                     </span>
                   </div>
-                  <Link href="/business/my-business/create-offer" prefetch={false} className="mt-4 inline-flex min-h-[38px] w-full items-center justify-center rounded-full border border-white/10 bg-white/[0.03] px-4 text-xs font-bold text-slate-200 hover:border-[#00C2CB]/35">
-                    Open offers
+                  <Link href="/business/my-business/edit-offer" prefetch={false} className="mt-4 inline-flex min-h-[38px] w-full items-center justify-center rounded-full border border-white/10 bg-white/[0.03] px-4 text-xs font-bold text-slate-200 hover:border-[#00C2CB]/35">
+                    Manage offers
                   </Link>
                 </div>
 

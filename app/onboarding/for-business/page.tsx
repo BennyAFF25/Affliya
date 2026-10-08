@@ -242,7 +242,8 @@ export default function BusinessOnboardingPage() {
         price: priceValue,
         currency,
         participation_mode: participationMode,
-        commission_value: Math.round((priceValue * commissionValue) / 100),
+        commission_value:
+          Math.round((((priceValue * commissionValue) / 100) + Number.EPSILON) * 100) / 100,
         type: offerType,
         conversion_scope: conversionScope,
         eligible_product_ids:
