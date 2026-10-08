@@ -43,7 +43,6 @@ export async function POST(req: Request) {
         : "Your Nettmark account is ready",
       body:
         "Start by publishing the offer affiliates will promote. Choose what you are offering, what affiliates earn, and who can access it. Meta and tracking can wait until the next action actually needs them.",
-      rows: [{ label: "Login email", value: String(businessEmail) }],
       notice: {
         title: "First milestone",
         body:

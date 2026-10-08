@@ -224,7 +224,7 @@ const ManageCampaignsBusiness = () => {
       return {
         affiliate_email: email,
         handle: handleSlug,
-        displayHandle: rawHandle || email?.split("@")[0] || "Shop",
+        displayHandle: rawHandle || "Nettmark affiliate",
         avatar_url: profile?.avatar_url || null,
         offers: offerCount[email] || 0,
         views24h: metrics[email]?.views || 0,
@@ -655,7 +655,7 @@ const ManageCampaignsBusiness = () => {
                               : placement.displayHandle}
                           </p>
                           <p className="text-xs text-white/60">
-                            {placement.affiliate_email}
+                            Nettmark affiliate
                           </p>
                         </div>
                       </div>

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import { renderNettmarkEmail } from "../../../../utils/email/renderNettmarkEmail";
+import { createServerSupabaseClient } from "../../../../utils/businessSubscriptions";
+import { getBusinessDisplayName } from "../../../../utils/profileIdentity";
 
 export const runtime = "nodejs";
 
@@ -35,6 +37,10 @@ export async function POST(req: Request) {
         ? `/affiliate/dashboard/promote/${encodeURIComponent(String(body.offerId))}`
         : "/affiliate/dashboard";
     const ctaUrl = `${appUrl}${ctaPath}`;
+    const businessName = await getBusinessDisplayName(
+      createServerSupabaseClient() as any,
+      String(businessEmail),
+    );
     const subject = approved ? "Affiliate request approved" : "Affiliate request rejected";
 
     const html = renderNettmarkEmail({
@@ -51,7 +57,7 @@ export async function POST(req: Request) {
         : "The business has decided not to approve this promotion request right now.",
       rows: [
         { label: "Offer", value: String(offerTitle) },
-        { label: "Business", value: String(businessEmail) },
+        { label: "Business", value: businessName },
       ],
       cta: {
         label: approved ? "Continue to promotion" : "Open dashboard",

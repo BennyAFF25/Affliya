@@ -116,6 +116,7 @@ export default function PostIdeasPage() {
   const [posts, setPosts] = useState<PostIdea[]>([]);
   const [offersMap, setOffersMap] = useState<Record<string, string>>({});
   const [avatarMap, setAvatarMap] = useState<Record<string, string | null>>({});
+  const [usernameMap, setUsernameMap] = useState<Record<string, string>>({});
   const [selectedPost, setSelectedPost] = useState<PostIdea | null>(null);
   const [showRecent, setShowRecent] = useState(false);
   const [showContextDetails, setShowContextDetails] = useState(false);
@@ -210,21 +211,41 @@ export default function PostIdeasPage() {
 
         if (uniqueEmails.length === 0) return;
 
-        const { data: profileRows, error: profileError } = await (supabase as any)
-          .from("affiliate_profiles")
-          .select("email, avatar_url")
-          .in("email", uniqueEmails);
+        const [
+          { data: profileRows, error: profileError },
+          { data: usernameRows, error: usernameError },
+        ] = await Promise.all([
+          (supabase as any)
+            .from("affiliate_profiles")
+            .select("email, avatar_url")
+            .in("email", uniqueEmails),
+          (supabase as any)
+            .from("profiles")
+            .select("email, username")
+            .in("email", uniqueEmails),
+        ]);
 
         if (profileError) {
           console.error("[❌ Error fetching profile avatars]", profileError);
-          return;
+        } else {
+          const map: Record<string, string | null> = {};
+          (profileRows as ProfileRow[] | null)?.forEach((profile) => {
+            map[profile.email] = profile.avatar_url;
+          });
+          setAvatarMap(map);
         }
 
-        const map: Record<string, string | null> = {};
-        (profileRows as ProfileRow[] | null)?.forEach((profile) => {
-          map[profile.email] = profile.avatar_url;
-        });
-        setAvatarMap(map);
+        if (usernameError) {
+          console.error("[❌ Error fetching affiliate usernames]", usernameError);
+        } else {
+          const names: Record<string, string> = {};
+          for (const row of usernameRows || []) {
+            const email = String((row as any).email || "").trim().toLowerCase();
+            const username = String((row as any).username || "").trim().replace(/^@+/, "");
+            if (email) names[email] = username ? `@${username}` : "Nettmark affiliate";
+          }
+          setUsernameMap(names);
+        }
       } catch (err) {
         console.error("[❌ Unexpected error fetching posts]", err);
       }
@@ -351,7 +372,9 @@ export default function PostIdeasPage() {
   const reviewedPosts = posts.filter((p) => p.status !== "pending");
   const approvedCount = posts.filter((p) => p.status === "approved").length;
   const selectedKind = selectedPost ? inferPostKind(selectedPost) : null;
-  const selectedHandle = selectedPost?.affiliate_email.split("@")[0] || "";
+  const selectedHandle = selectedPost
+    ? (usernameMap[selectedPost.affiliate_email.toLowerCase()] || "@affiliate").replace(/^@/, "")
+    : "";
   const selectedAvatarUrl = selectedPost
     ? avatarMap[selectedPost.affiliate_email] || null
     : null;
@@ -426,7 +449,7 @@ export default function PostIdeasPage() {
                               <StatusBadge status={post.status} />
                             </div>
                             <p className="mt-2 text-sm text-white/60">
-                              Submitted by <span className="font-medium text-white/80">{post.affiliate_email}</span> · {formatIdeaDate(post.created_at)}
+                              Submitted by <span className="font-medium text-white/80">{usernameMap[post.affiliate_email.toLowerCase()] || "Nettmark affiliate"}</span> · {formatIdeaDate(post.created_at)}
                             </p>
                             <div className="mt-3 flex flex-wrap gap-2 text-xs text-white/70">
                               <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">{kindLabel(kind, post.platform)}</span>
@@ -515,7 +538,7 @@ export default function PostIdeasPage() {
                               <StatusBadge status={post.status} />
                             </div>
                             <p className="mt-2 text-sm text-white/60">
-                              {post.affiliate_email} · {formatIdeaDate(post.created_at)}
+                              {usernameMap[post.affiliate_email.toLowerCase()] || "Nettmark affiliate"} · {formatIdeaDate(post.created_at)}
                             </p>
                             <p className="mt-2 text-sm text-white/55">{kindLabel(kind, post.platform)}</p>
                           </div>
@@ -653,7 +676,7 @@ export default function PostIdeasPage() {
                       <div className="mb-1 text-[11px] text-white/50">Email draft</div>
                       <div className="mb-1 text-sm font-semibold text-white">{subject}</div>
                       <div className="text-[11px] text-white/50">
-                        From: {selectedPost.affiliate_email} • To: audience segment
+                        From: {usernameMap[selectedPost.affiliate_email.toLowerCase()] || "Nettmark affiliate"} • To: audience segment
                       </div>
                     </div>
                     <div className="border-t border-[#151b1f] px-5 pb-4 pt-3 text-sm whitespace-pre-wrap text-gray-200">
@@ -715,7 +738,7 @@ export default function PostIdeasPage() {
                     <div className="grid gap-3 border-t border-white/10 px-4 py-4 sm:grid-cols-2">
                       <div className="rounded-xl border border-white/10 bg-black/20 p-3">
                         <div className="text-[11px] uppercase tracking-[0.16em] text-white/45">Affiliate</div>
-                        <div className="mt-2 text-sm text-white/80">{selectedPost.affiliate_email}</div>
+                        <div className="mt-2 text-sm text-white/80">{usernameMap[selectedPost.affiliate_email.toLowerCase()] || "Nettmark affiliate"}</div>
                       </div>
                       <div className="rounded-xl border border-white/10 bg-black/20 p-3">
                         <div className="text-[11px] uppercase tracking-[0.16em] text-white/45">Offer</div>

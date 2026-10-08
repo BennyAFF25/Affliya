@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import { renderNettmarkEmail } from "../../../../utils/email/renderNettmarkEmail";
+import { createServerSupabaseClient } from "../../../../utils/businessSubscriptions";
+import { getAffiliateUsername } from "../../../../utils/profileIdentity";
 
 export const runtime = "nodejs";
 
@@ -77,6 +79,10 @@ export async function POST(req: Request) {
           ? `?requestId=${encodeURIComponent(String(requestId))}`
           : "");
 
+    const affiliateName = await getAffiliateUsername(
+      createServerSupabaseClient() as any,
+      { email: String(affiliateEmail) },
+    );
     const subject = "New affiliate request";
     const html = renderNettmarkEmail({
       previewText: "An affiliate wants to promote one of your offers.",
@@ -86,7 +92,7 @@ export async function POST(req: Request) {
         "Review the request and decide whether this affiliate should be able to promote your business.",
       rows: [
         { label: "Offer", value: String(offerTitle || "Your offer") },
-        { label: "Affiliate", value: String(affiliateEmail) },
+        { label: "Affiliate", value: affiliateName },
         ...(notes ? [{ label: "Notes", value: String(notes) }] : []),
       ],
       cta: { label: "Review request", href: ctaUrl },

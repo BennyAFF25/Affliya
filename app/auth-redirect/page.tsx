@@ -42,7 +42,12 @@ export default function AuthRedirect() {
       // Existing persisted roles remain authoritative; never overwrite them from metadata.
       if (!error && !profile && user.user_metadata?.role === "affiliate" && user.email) {
         const recovered = await profileClient.from("profiles")
-          .insert({ id: user.id, email: user.email, role: "affiliate" })
+          .insert({
+            id: user.id,
+            email: user.email,
+            role: "affiliate",
+            username: String(user.user_metadata?.username || "").trim() || null,
+          })
           .select("role").single<Profile>();
         if (recovered.error?.code === "23505") {
           const existing = await profileClient.from("profiles").select("role").eq("id", user.id).maybeSingle<Profile>();

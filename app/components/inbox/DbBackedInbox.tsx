@@ -283,7 +283,7 @@ export function DbBackedInbox({
       const ctaHref = row.cta_url || null;
       const ctaLabel = row.cta_label || "View details";
       const sender =
-        row.sender_name || row.sender_email || roleLabel(row.sender_role);
+        row.sender_name || roleLabel(row.sender_role);
 
       return {
         id: `db-${row.id}`,

@@ -70,7 +70,6 @@ export async function sendInboxNotificationEmail(args: SendInboxNotificationEmai
     badge: { text: "Inbox update", tone: "info" },
     heading: title,
     body: messageBody,
-    rows: [{ label: "Recipient", value: to }],
     cta: { label: "Open inbox update", href: toAbsoluteUrl(args.linkUrl) },
     footerNote: "This email mirrors a Nettmark inbox notification so you do not miss important campaign updates.",
   });

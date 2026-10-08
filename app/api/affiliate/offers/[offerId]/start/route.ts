@@ -6,6 +6,7 @@ import { ensureAffiliateOfferParticipation, normalizeOfferParticipationMode } fr
 import { sendEmail } from "@/../lib/email/send";
 import { businessNewAffiliateRequestEmail } from "@/../lib/email/templates";
 import { UUID } from "@/../utils/affiliate/onboarding";
+import { getAffiliateUsername } from "@/../utils/profileIdentity";
 
 export async function POST(_req: Request, context: { params: Promise<{ offerId: string }> }) {
   try {
@@ -21,7 +22,7 @@ export async function POST(_req: Request, context: { params: Promise<{ offerId: 
       return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
     }
 
-    const { data: profile, error: profileError } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
+    const { data: profile, error: profileError } = await supabase.from("profiles").select("role,username").eq("id", user.id).maybeSingle();
     if (profileError) return NextResponse.json({ ok: false, error: "Could not verify account role." }, { status: 503 });
     if (profile?.role !== "affiliate") return NextResponse.json({ ok: false, error: "An affiliate account is required." }, { status: 403 });
 
@@ -106,9 +107,14 @@ export async function POST(_req: Request, context: { params: Promise<{ offerId: 
 
     if (participation.created) {
       try {
+        const affiliateName = await getAffiliateUsername(supabaseAdmin as any, {
+          userId: user.id,
+          email: user.email,
+        });
         const email = businessNewAffiliateRequestEmail({
           businessEmail: offer.business_email,
           affiliateEmail: user.email,
+          affiliateName,
           offerTitle: offer.title || undefined,
           notes:
             participation.status === "approved"

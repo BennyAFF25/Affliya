@@ -7,6 +7,7 @@ import {
 } from "../../../utils/email/sendInboxNotificationEmail";
 import { createServerSupabaseClient } from "../../../utils/businessSubscriptions";
 import { enqueueAffiliateWebhookEvent, isAffiliateAssistantEmail } from "../../../utils/affiliateAssistantWebhook";
+import { getAffiliateUsername, getBusinessDisplayName } from "../../../utils/profileIdentity";
 
 const REQUIRED_FIELDS = [
   "sender_email",
@@ -86,10 +87,18 @@ export async function POST(request: Request) {
     );
   }
 
+  const admin = createServerSupabaseClient();
+  const resolvedSenderName =
+    body.sender_role === "affiliate"
+      ? await getAffiliateUsername(admin as any, { userId: user.id, email: user.email })
+      : body.sender_role === "business"
+        ? await getBusinessDisplayName(admin as any, user.email)
+        : "Nettmark";
+
   const row = {
     sender_email: body.sender_email,
     sender_role: body.sender_role,
-    sender_name: body.sender_name || null,
+    sender_name: resolvedSenderName,
     recipient_email: body.recipient_email,
     recipient_role: body.recipient_role,
     message_type: body.message_type,
@@ -121,7 +130,6 @@ export async function POST(request: Request) {
     row.recipient_role === "affiliate" &&
     isAffiliateAssistantEmail(row.recipient_email)
   ) {
-    const admin = createServerSupabaseClient();
     await enqueueAffiliateWebhookEvent({
       supabase: admin,
       eventType: "message.received",

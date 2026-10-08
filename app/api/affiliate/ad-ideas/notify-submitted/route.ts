@@ -3,6 +3,8 @@ import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { Resend } from "resend";
 import { createServerSupabaseClient } from "../../../../../utils/businessSubscriptions";
+import { getAffiliateUsername } from "../../../../../utils/profileIdentity";
+import { renderNettmarkEmail } from "../../../../../utils/email/renderNettmarkEmail";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -81,9 +83,12 @@ export async function POST(req: Request) {
     const resend = new Resend(process.env.RESEND_API_KEY);
     const fromEmail = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
     const fromName = process.env.RESEND_FROM_NAME || "Nettmark";
-    const offerTitle = escapeHtml(offer?.title || "your offer");
-    const affiliate = escapeHtml(affiliateEmail);
-    const campaignName = escapeHtml(idea.campaign_name || "Paid campaign proposal");
+    const affiliateName = await getAffiliateUsername(admin as any, {
+      userId: user.id,
+      email: affiliateEmail,
+    });
+    const offerTitle = String(offer?.title || "your offer");
+    const campaignName = String(idea.campaign_name || "Paid campaign proposal");
     const reviewUrl = `https://www.nettmark.com/business/my-business/ad-ideas?proposal=${encodeURIComponent(adIdeaId)}`;
     const budget = Number(idea.budget_amount || 0) > 0
       ? (Number(idea.budget_amount) / 100).toFixed(2)
@@ -92,25 +97,26 @@ export async function POST(req: Request) {
       ? "lifetime"
       : "daily";
 
+    const html = renderNettmarkEmail({
+      previewText: "A funded campaign proposal is ready for your review.",
+      badge: { text: "Paid proposal", tone: "info" },
+      heading: "A funded campaign is ready for review",
+      body: `${affiliateName} submitted a paid campaign proposal for ${offerTitle}. Nothing launches until you review it and all launch requirements are complete.`,
+      rows: [
+        { label: "Affiliate", value: affiliateName },
+        { label: "Campaign", value: campaignName },
+        ...(budget ? [{ label: "Affiliate budget", value: `${budget} ${budgetType}` }] : []),
+        { label: "Your ad spend", value: "$0" },
+      ],
+      cta: { label: "Review campaign", href: reviewUrl },
+      footerNote: "Communication stays inside Nettmark. Affiliate contact details are not shared.",
+    });
+
     await resend.emails.send({
       from: `${fromName} <${fromEmail}>`,
       to: [businessEmail],
       subject: `An affiliate wants to fund ads for ${offer?.title || "your offer"}`,
-      html: `
-        <div style="font-family:Arial,sans-serif;line-height:1.55;color:#111827;max-width:620px;margin:0 auto">
-          <h2 style="margin:0 0 12px">A real paid campaign is ready for your review</h2>
-          <p><strong>${affiliate}</strong> submitted an actual campaign proposal for <strong>${offerTitle}</strong>.</p>
-          <div style="margin:18px 0;padding:16px;border:1px solid #e5e7eb;border-radius:12px;background:#f9fafb">
-            <div><strong>Campaign:</strong> ${campaignName}</div>
-            ${budget ? `<div style="margin-top:6px"><strong>Affiliate budget:</strong> $${budget} ${budgetType}</div>` : ""}
-            <div style="margin-top:6px"><strong>Your ad spend:</strong> $0</div>
-          </div>
-          <p>You can review or reject the proposal before completing any paid-promotion setup. Nothing launches until all Nettmark launch requirements are satisfied and you approve it.</p>
-          <p style="margin-top:22px">
-            <a href="${reviewUrl}" style="display:inline-block;background:#00C2CB;color:#001015;text-decoration:none;font-weight:700;padding:12px 16px;border-radius:10px">Review campaign</a>
-          </p>
-        </div>
-      `,
+      html,
     });
 
     return NextResponse.json({ success: true });

@@ -36,7 +36,6 @@ export async function POST(req: Request) {
       heading: username ? `Welcome, ${String(username)}` : "Welcome to Nettmark",
       body:
         "Your affiliate account is ready. Browse the marketplace, choose an offer that makes sense for you, and follow the promotion flow from there.",
-      rows: [{ label: "Login email", value: String(affiliateEmail) }],
       notice: {
         title: "What happens next",
         body:

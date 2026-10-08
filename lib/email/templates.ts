@@ -10,7 +10,6 @@ export function affiliateWelcomeEmail(params: { affiliateEmail: string }) {
     heading: "Welcome to Nettmark",
     body:
       "Your affiliate account is ready. You can browse offers, request access where required, and start building organic or paid promotion from one place.",
-    rows: [{ label: "Login email", value: params.affiliateEmail }],
     notice: {
       title: "What happens next",
       body: "Open the marketplace, choose an offer that makes sense for you, and follow the promotion flow. Nettmark will surface the setup you need only when it becomes relevant.",
@@ -31,7 +30,6 @@ export function businessWelcomeEmail(params: { businessEmail: string }) {
     heading: "Your Nettmark account is ready",
     body:
       "Start by publishing the offer affiliates will promote. You can choose your commission and marketplace access first; Meta, tracking, and other setup only become necessary when the next action actually needs them.",
-    rows: [{ label: "Login email", value: params.businessEmail }],
     notice: {
       title: "First milestone",
       body: "Publish your first offer so affiliates can discover your business and decide whether they want to promote it.",
@@ -85,6 +83,7 @@ export function adminNewOfferEmail(params: { businessEmail: string; offerTitle?:
 export function businessNewAffiliateRequestEmail(params: {
   businessEmail: string;
   affiliateEmail: string;
+  affiliateName?: string;
   offerTitle?: string;
   notes?: string;
 }) {
@@ -96,7 +95,7 @@ export function businessNewAffiliateRequestEmail(params: {
     body: "Review the request and decide whether this affiliate should be able to promote your business.",
     rows: [
       { label: "Offer", value: params.offerTitle || "Your offer" },
-      { label: "Affiliate", value: params.affiliateEmail },
+      { label: "Affiliate", value: params.affiliateName || "Nettmark affiliate" },
       ...(params.notes ? [{ label: "Notes", value: params.notes }] : []),
     ],
     cta: {

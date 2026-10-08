@@ -88,7 +88,12 @@ function CreateAccountInner() {
     const trimmedEmail = email.trim();
 
     try {
-      if (isBusiness && !trimmedUsername) throw new Error('Please enter your business name.');
+      if (!trimmedUsername) {
+        throw new Error(isBusiness ? 'Please enter your business name.' : 'Please choose a username.');
+      }
+      if (!isBusiness && !/^[A-Za-z0-9._-]{3,24}$/.test(trimmedUsername)) {
+        throw new Error('Username must be 3–24 characters using letters, numbers, dots, underscores or hyphens.');
+      }
       if (!trimmedEmail) throw new Error('Please enter an email.');
 
       console.log('[SIGNUP] starting', { role, email: trimmedEmail, username: trimmedUsername });
@@ -159,6 +164,7 @@ function CreateAccountInner() {
               id: data.user.id,
               email: trimmedEmail,
               role,
+              username: trimmedUsername,
             },
             { onConflict: 'id' }
           );
@@ -381,16 +387,24 @@ function CreateAccountInner() {
                   <a href={`/login/affiliate?next=${encodeURIComponent(onboardingPath)}`} className="inline-block text-sm text-[#00C2CB]">Already confirmed? Sign in</a>
                 </div>
               ) : <form onSubmit={handleEmailSignup} className="mt-7 space-y-5">
-                {isBusiness && <Field label="Business name" hint="Shown on your Nettmark profile and offers">
+                <Field
+                  label={isBusiness ? "Business name" : "Username"}
+                  hint={
+                    isBusiness
+                      ? "Shown on your Nettmark profile and offers"
+                      : "Shown to businesses instead of your email address"
+                  }
+                >
                   <input
                     type="text"
                     required
-                    placeholder="Your business name"
+                    placeholder={isBusiness ? "Your business name" : "e.g. jamesmarkets"}
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     className="w-full bg-transparent px-4 py-3.5 text-[15px] text-white outline-none placeholder:text-white/22"
+                    autoComplete={isBusiness ? "organization" : "username"}
                   />
-                </Field>}
+                </Field>
 
                 <Field label="Email" hint={isBusiness ? 'Use the email you manage the business with' : 'Used for your account and payout notifications'}>
                   <input

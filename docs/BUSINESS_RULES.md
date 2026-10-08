@@ -32,3 +32,12 @@ Currencies are selectable/stored in offers/events; `/api/run-payout` uses AUD. C
 ## Safe change checklist
 
 Trace every applicable entrypoint, including direct browser writes, API handlers, SQL triggers, compatibility fallbacks, and webhook retries. Validate authorization, scope, amount units, idempotency, and partial failures. Local migration intent is not proof the rule is active in the deployed database.
+
+
+## Marketplace identity and communication
+
+- User email addresses are private account infrastructure for authentication, billing, payout, security, and transactional delivery. They are not marketplace identity.
+- Affiliates are presented to businesses by their Nettmark username. Businesses are presented to affiliates by their business/brand name.
+- Counterparties must not be shown one another's raw email address in marketplace UI, proposals, request cards, inbox sender labels, campaign management, or transactional notification content.
+- Business-to-affiliate and affiliate-to-business communication stays inside Nettmark inbox/workflows. Product changes must not create a direct-contact bypass around Nettmark.
+- Internal services may continue using email as a backend key where legacy schema requires it, but new user-facing features should use stable user/business IDs plus public display identities.

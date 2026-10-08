@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import { renderNettmarkEmail } from "../../../../utils/email/renderNettmarkEmail";
+import { createServerSupabaseClient } from "../../../../utils/businessSubscriptions";
+import { getBusinessDisplayName } from "../../../../utils/profileIdentity";
 
 export const runtime = "nodejs";
 
@@ -29,6 +31,10 @@ export async function POST(req: Request) {
     const offerUrl = offerId
       ? `${siteUrl}/affiliate/marketplace/${encodeURIComponent(String(offerId))}`
       : `${siteUrl}/affiliate/marketplace`;
+    const businessName = await getBusinessDisplayName(
+      createServerSupabaseClient() as any,
+      String(businessEmail),
+    );
     const subject = "New offer is live on Nettmark";
 
     const html = renderNettmarkEmail({
@@ -39,7 +45,7 @@ export async function POST(req: Request) {
         "Take a look at the offer and decide whether it fits the kind of distribution you want to run.",
       rows: [
         { label: "Offer", value: String(offerTitle) },
-        { label: "Business", value: String(businessEmail) },
+        { label: "Business", value: businessName },
       ],
       cta: { label: "View offer", href: offerUrl },
       secondaryCta: {

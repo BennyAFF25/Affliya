@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
 import { renderNettmarkEmail } from "../../../../utils/email/renderNettmarkEmail";
+import { createServerSupabaseClient } from "../../../../utils/businessSubscriptions";
+import { getBusinessDisplayName } from "../../../../utils/profileIdentity";
 
 export const runtime = "nodejs";
 
@@ -26,6 +28,11 @@ export async function POST(req: Request) {
     const normalizedDecision = String(decision).toLowerCase();
     const approved = normalizedDecision === "approved";
     const paused = normalizedDecision === "paused";
+
+    const businessName = await getBusinessDisplayName(
+      createServerSupabaseClient() as any,
+      String(businessEmail),
+    );
 
     const subject = approved
       ? "Ad approved"
@@ -56,8 +63,7 @@ export async function POST(req: Request) {
       rows: [
         { label: "Offer", value: String(offerTitle) },
         ...(adTitle ? [{ label: "Ad", value: String(adTitle) }] : []),
-        { label: "Affiliate", value: String(affiliateEmail) },
-        { label: "Business", value: String(businessEmail) },
+        { label: "Business", value: businessName },
         ...(note ? [{ label: "Business note", value: String(note) }] : []),
       ],
       cta: {

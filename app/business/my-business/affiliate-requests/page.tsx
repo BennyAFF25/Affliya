@@ -70,6 +70,7 @@ export default function AffiliateRequestsPage() {
   const [requests, setRequests] = useState<AffiliateRequest[]>([]);
   const [shopRequests, setShopRequests] = useState<ShopRequest[]>([]);
   const [starterSpendByOfferId, setStarterSpendByOfferId] = useState<Record<string, { status: string; reservedForAffiliateEmail?: string | null }>>({});
+  const [affiliateNames, setAffiliateNames] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!session) return;
@@ -156,6 +157,36 @@ export default function AffiliateRequestsPage() {
         );
       } else {
         setShopRequests((shopData || []) as ShopRequest[]);
+      }
+
+      const affiliateEmails = Array.from(
+        new Set(
+          [
+            ...(((data || []) as AffiliateRequest[]).map((row) => row.affiliate_email)),
+            ...(((shopData || []) as ShopRequest[]).map((row) => row.affiliate_email)),
+          ].filter((value): value is string => Boolean(value)),
+        ),
+      );
+
+      if (affiliateEmails.length > 0) {
+        const { data: profileRows, error: profileError } = await supabase
+          .from("profiles")
+          .select("email, username")
+          .in("email", affiliateEmails);
+
+        if (profileError) {
+          console.error("[affiliate-requests] username lookup failed:", profileError.message);
+        } else {
+          const names: Record<string, string> = {};
+          for (const row of profileRows || []) {
+            const email = String((row as any).email || "").trim().toLowerCase();
+            const username = String((row as any).username || "").trim().replace(/^@+/, "");
+            if (email) names[email] = username ? `@${username}` : "Nettmark affiliate";
+          }
+          setAffiliateNames(names);
+        }
+      } else {
+        setAffiliateNames({});
       }
     };
 
@@ -356,7 +387,7 @@ export default function AffiliateRequestsPage() {
                         Affiliate
                       </div>
                       <div className="mt-2 break-all text-sm font-medium text-[var(--foreground)]">
-                        {req.affiliate_email}
+                        {affiliateNames[req.affiliate_email.toLowerCase()] || "Nettmark affiliate"}
                       </div>
                     </div>
                     <div className="rounded-xl border border-[var(--border)] bg-[var(--secondary)]/60 px-4 py-3">
@@ -458,7 +489,7 @@ export default function AffiliateRequestsPage() {
                         Affiliate
                       </div>
                       <div className="mt-2 break-all text-sm font-medium text-[var(--foreground)]">
-                        {req.affiliate_email}
+                        {affiliateNames[req.affiliate_email.toLowerCase()] || "Nettmark affiliate"}
                       </div>
                     </div>
                     <div className="rounded-xl border border-[var(--border)] bg-[var(--secondary)]/60 px-4 py-3">
@@ -534,7 +565,7 @@ export default function AffiliateRequestsPage() {
                 </p>
                 <div className="mt-3 grid gap-3 text-sm text-[var(--foreground)]/80 sm:grid-cols-3">
                   <p>Type: {req.offer?.type}</p>
-                  <p>Affiliate: {req.affiliate_email}</p>
+                  <p>Affiliate: {affiliateNames[req.affiliate_email.toLowerCase()] || "Nettmark affiliate"}</p>
                   <p>Requested: {formatWhen(req.created_at)}</p>
                   {req.notes && <p className="italic">“{req.notes}”</p>}
                 </div>

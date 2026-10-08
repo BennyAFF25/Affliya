@@ -144,6 +144,7 @@ function ProposalStatus({ state }: { state: ProposalState }) {
 export default function AdIdeasPage() {
   const [ideas, setIdeas] = useState<AdIdea[]>([]);
   const [offersMap, setOffersMap] = useState<Record<string, string>>({});
+  const [affiliateNames, setAffiliateNames] = useState<Record<string, string>>({});
   const [businessId, setBusinessId] = useState<string | null>(null);
   const [reviewReadiness, setReviewReadiness] = useState<ReviewReadiness | null>(null);
   const [reviewReadinessLoading, setReviewReadinessLoading] = useState(false);
@@ -263,6 +264,25 @@ export default function AdIdeasPage() {
 
       const rows = (data || []) as AdIdea[];
       setIdeas(rows);
+
+      const affiliateEmails = Array.from(
+        new Set(rows.map((idea) => idea.affiliate_email).filter(Boolean)),
+      );
+      if (affiliateEmails.length > 0) {
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("email, username")
+          .in("email", affiliateEmails);
+        const names: Record<string, string> = {};
+        for (const row of profiles || []) {
+          const email = String((row as any).email || "").trim().toLowerCase();
+          const username = String((row as any).username || "").trim().replace(/^@+/, "");
+          if (email) names[email] = username ? `@${username}` : "Nettmark affiliate";
+        }
+        setAffiliateNames(names);
+      } else {
+        setAffiliateNames({});
+      }
 
       rows.filter((idea) => idea.status === "pending").forEach((idea) => {
         const dedupeKey = `nettmark:analytics:campaign_received_by_business:${idea.id}`;
@@ -424,7 +444,7 @@ export default function AdIdeasPage() {
                             <h2 className="truncate text-xl font-semibold tracking-tight sm:text-2xl">
                               {offersMap[idea.offer_id] || "Campaign proposal"}
                             </h2>
-                            <p className="mt-1 truncate text-sm text-slate-400">From: {idea.affiliate_email}</p>
+                            <p className="mt-1 truncate text-sm text-slate-400">From: {affiliateNames[idea.affiliate_email.toLowerCase()] || "Nettmark affiliate"}</p>
                           </div>
                           <ProposalStatus state={state} />
                         </div>
