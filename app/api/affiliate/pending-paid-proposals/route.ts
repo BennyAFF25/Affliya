@@ -92,9 +92,12 @@ export async function GET() {
           affiliateEmail,
           offerId,
           adIdea: proposal,
+        }).catch((error) => {
+          console.warn("[affiliate/pending-paid-proposals] funding unavailable", error);
+          return null;
         });
 
-        const state = !growthReady
+        const state = !funding ? "funding_unavailable" : !growthReady
           ? "waiting_for_business"
           : !funding.ready
             ? "funding_required"
@@ -110,11 +113,11 @@ export async function GET() {
           createdAt: proposal.created_at,
           state,
           growthReady,
-          funding: {
+          funding: funding ? {
             ready: funding.ready,
             requiredAmount: funding.requiredAmount,
             deficit: funding.deficit,
-          },
+          } : null,
         };
       }),
     );

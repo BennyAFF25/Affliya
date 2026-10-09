@@ -114,6 +114,7 @@ export default function PromoteOfferPage() {
   const [walletLoading, setWalletLoading] = useState<boolean>(true);
   const [starterSpendRemaining, setStarterSpendRemaining] = useState<number>(0);
   const [starterSpendLabel, setStarterSpendLabel] = useState<string | null>(null);
+  const [starterSpendError, setStarterSpendError] = useState<string | null>(null);
   // ─────────────────────────────
   // Wallet balance loader
   // ─────────────────────────────
@@ -122,6 +123,7 @@ export default function PromoteOfferPage() {
 
     const loadWallet = async () => {
       setWalletLoading(true);
+      setStarterSpendError(null);
       const { data, error } = await (supabase as any)
         .from("wallet_topups")
         .select("amount_net, credited_amount, amount_refunded, status")
@@ -157,6 +159,7 @@ export default function PromoteOfferPage() {
 
       if (subsidyErr) {
         console.error("[starter spend load error]", subsidyErr);
+        setStarterSpendError("Starter ad spend could not be checked. Funding is verified before launch.");
         setStarterSpendRemaining(0);
         setStarterSpendLabel(null);
       } else {
@@ -1674,6 +1677,7 @@ export default function PromoteOfferPage() {
           </div>
         )}
 
+        {starterSpendError && <p role="alert" className="rounded-2xl border border-amber-400/20 p-4 text-sm">{starterSpendError}</p>}
         {/* RIGHT: Preview / Metrics */}
         {mode === "ad" && (
           <PreviewSidebar

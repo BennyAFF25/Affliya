@@ -81,6 +81,7 @@ export default function AffiliateOfferProfilePage() {
   const [requestSuccess, setRequestSuccess] = useState<string | null>(null);
   const [requestStatus, setRequestStatus] = useState<'approved' | 'pending' | 'rejected' | null>(null);
   const [starterSpendLabel, setStarterSpendLabel] = useState<string | null>(null);
+  const [starterSpendError, setStarterSpendError] = useState<string | null>(null);
   const [starterSpendRemaining, setStarterSpendRemaining] = useState<number>(0);
   const [currentSlide, setCurrentSlide] = useState(0);
 
@@ -159,6 +160,9 @@ export default function AffiliateOfferProfilePage() {
     let cancelled = false;
 
     const loadStarterSpend = async () => {
+      setStarterSpendError(null);
+      setStarterSpendLabel(null);
+      setStarterSpendRemaining(0);
       const { data, error } = await (supabase as any)
         .from('business_activation_subsidies')
         .select('id, status, subsidy_amount, consumed_amount')
@@ -170,6 +174,7 @@ export default function AffiliateOfferProfilePage() {
       if (cancelled) return;
       if (error && error.code !== 'PGRST116') {
         console.warn('[starter spend offer load warn]', error);
+        setStarterSpendError('Starter ad spend could not be checked. You can still promote this offer.');
         return;
       }
 
@@ -365,6 +370,7 @@ export default function AffiliateOfferProfilePage() {
               </div>
 
               <div className="p-5 sm:p-6 lg:p-7">
+                {starterSpendError && <p role="alert" className="mb-4 text-sm text-amber-200">{starterSpendError}</p>}
                 <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
                   <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-[#00C2CB]/35 bg-[#071416] shadow-[0_0_30px_rgba(0,194,203,0.08)] sm:h-20 sm:w-20">
                     {heroImage ? (

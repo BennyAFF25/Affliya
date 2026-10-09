@@ -52,13 +52,13 @@ type PendingPaidProposal = {
   campaignName?: string | null;
   objective?: string | null;
   createdAt?: string | null;
-  state: "waiting_for_business" | "funding_required" | "funded_waiting_for_business";
+  state: "waiting_for_business" | "funding_required" | "funded_waiting_for_business" | "funding_unavailable";
   growthReady: boolean;
   funding: {
     ready: boolean;
     requiredAmount: number;
     deficit: number;
-  };
+  } | null;
 };
 
 type CampaignItem =
@@ -121,6 +121,7 @@ export default function AffiliateManageCampaignsPage() {
   const [paidMeta, setPaidMeta] = useState<LiveAdRow[]>([]);
   const [organic, setOrganic] = useState<LiveCampaignRow[]>([]);
   const [pendingPaid, setPendingPaid] = useState<PendingPaidProposal[]>([]);
+  const [pendingError, setPendingError] = useState<string | null>(null);
 
   // per-row spend sync loading (paid meta only)
   const [syncing, setSyncing] = useState<Record<string, boolean>>({});
@@ -132,6 +133,7 @@ export default function AffiliateManageCampaignsPage() {
   async function fetchAll() {
     setLoading(true);
     setError(null);
+    setPendingError(null);
 
     try {
       const { data: userRes, error: userErr } = await supabase.auth.getUser();
@@ -157,7 +159,7 @@ export default function AffiliateManageCampaignsPage() {
         setPendingPaid((pendingJson.proposals || []) as PendingPaidProposal[]);
       } catch (pendingError) {
         console.warn("[affiliate/manage-campaigns] pending proposals unavailable", pendingError);
-        setPendingPaid([]);
+        setPendingError("Your proposals could not be loaded. Please try again.");
       }
 
       // ----------------------------
@@ -497,7 +499,7 @@ export default function AffiliateManageCampaignsPage() {
         </section>
 
         <section className="mb-7 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-6">
-          <StatCard label="Pending proposals" value={pendingCount.toString()} icon={<Megaphone className="h-4 w-4" />} tone="primary" />
+          <StatCard label="Pending proposals" value={pendingError ? "—" : pendingCount.toString()} icon={<Megaphone className="h-4 w-4" />} tone="primary" />
           <StatCard label="Live campaigns" value={activeCount.toString()} icon={<Activity className="h-4 w-4" />} tone="primary" />
           <StatCard label="Archived" value={archivedCount.toString()} icon={<Archive className="h-4 w-4" />} tone="muted" />
           <StatCard label="Total paid spend" value={`$${fmtMoney(totalPaidSpend)}`} icon={<Wallet className="h-4 w-4" />} tone="primary" />
@@ -511,6 +513,7 @@ export default function AffiliateManageCampaignsPage() {
           </div>
         )}
 
+        {pendingError && <div role="alert" className="mb-4 rounded-2xl border border-amber-400/20 p-4 text-sm"><p>{pendingError}</p><button onClick={() => void fetchAll()} className="mt-2 text-[var(--primary)]">Try again</button></div>}
         {/* Pending paid proposals */}
         <Card className="mb-6 p-5 md:p-6" variant="elevated">
           <SectionHeader
@@ -637,14 +640,14 @@ function PendingProposalRow({ proposal }: { proposal: PendingPaidProposal }) {
   const funded = proposal.state === "funded_waiting_for_business";
   const title = proposal.campaignName || proposal.offerTitle;
 
-  const statusLabel = fundingRequired
+  const statusLabel = proposal.state === "funding_unavailable" ? "FUNDING NOT CHECKED" : fundingRequired
     ? "FUNDING REQUIRED"
     : funded
       ? "FUNDED"
       : "WAITING FOR BUSINESS";
 
-  const description = fundingRequired
-    ? `The business has enabled paid promotion. Add $${proposal.funding.deficit.toFixed(2)} to prepare this campaign for launch.`
+  const description = proposal.state === "funding_unavailable" ? "Proposal saved. Funding could not be checked; it will be verified before launch." : fundingRequired
+    ? `The business has enabled paid promotion. Add $${(proposal.funding?.deficit || 0).toFixed(2)} to prepare this campaign for launch.`
     : funded
       ? "Campaign funding is ready. Waiting for the business to finish setup and approve the campaign."
       : "Proposal sent. No deposit is required while the business decides whether to enable paid promotion.";
@@ -667,7 +670,7 @@ function PendingProposalRow({ proposal }: { proposal: PendingPaidProposal }) {
               {proposal.offerTitle}
             </span>
             <span className="rounded-full bg-[var(--card)]/60 px-3 py-1">
-              Required at launch: ${proposal.funding.requiredAmount.toFixed(2)}
+              {proposal.funding ? `Required at launch: ${proposal.funding.requiredAmount.toFixed(2)}` : "Funding not checked"}
             </span>
             {proposal.createdAt ? (
               <span className="rounded-full bg-[var(--card)]/60 px-3 py-1">
