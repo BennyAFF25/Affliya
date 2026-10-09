@@ -131,7 +131,7 @@ export default function MyShopPage() {
     const load = async () => {
       setLoading(true);
       try {
-        const offerIds = await loadApprovedOfferIds(supabase, session.user.email);
+        const offerIds = await loadApprovedOfferIds(supabase, session.user.email || "");
 
         if (offerIds.length === 0) {
           setOffers([]);

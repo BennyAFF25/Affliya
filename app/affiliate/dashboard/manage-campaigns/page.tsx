@@ -392,8 +392,8 @@ export default function AffiliateManageCampaignsPage() {
 
         <section className="mb-7 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-6">
           <StatCard label="Pending proposals" value={pendingError ? "—" : pendingCount.toString()} icon={<Megaphone className="h-4 w-4" />} tone="primary" />
-          <StatCard label="Live campaigns" value={activeCount.toString()} icon={<Activity className="h-4 w-4" />} tone="primary" />
-          <StatCard label="Archived" value={archivedCount.toString()} icon={<Archive className="h-4 w-4" />} tone="muted" />
+          <StatCard label="Live campaigns" value={error ? "—" : activeCount.toString()} icon={<Activity className="h-4 w-4" />} tone="primary" />
+          <StatCard label="Archived" value={error ? "—" : archivedCount.toString()} icon={<Archive className="h-4 w-4" />} tone="muted" />
           <StatCard label="Total paid spend" value={formatMoney(totalPaidSpend)} icon={<Wallet className="h-4 w-4" />} tone="primary" />
           <StatCard label="Unsettled spend" value={formatMoney(totalUnpaidSpend)} icon={<Wallet className="h-4 w-4" />} tone="muted" />
           <StatCard label="Organic campaigns" value={organicCount.toString()} icon={<Megaphone className="h-4 w-4" />} tone="muted" />
@@ -418,8 +418,8 @@ export default function AffiliateManageCampaignsPage() {
               <LoadingSkeleton lines={2} />
             ) : pendingProposals.length === 0 ? (
               <EmptyState
-                title="No pending paid proposals"
-                description="Submit a paid campaign proposal from an offer and it will wait here until launch."
+                title="No pending proposals"
+                description="Submit a paid or organic proposal from an offer to send it for business review."
                 className="py-7"
               />
             ) : (

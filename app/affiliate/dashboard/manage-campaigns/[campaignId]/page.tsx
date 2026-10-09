@@ -159,7 +159,7 @@ export default function ManageCampaignPage() {
       return;
     }
 
-    const cur = data?.ad_account_currency;
+    const cur = (data as { ad_account_currency?: string | null } | null)?.ad_account_currency;
     if (cur) setMetaCurrency(String(cur).toUpperCase());
   }
 
