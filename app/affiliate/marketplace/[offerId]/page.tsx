@@ -279,7 +279,8 @@ export default function AffiliateOfferProfilePage() {
   const isApprovalRequired = participationMode === 'approval_required';
   const isPending = requestStatus === 'pending';
   const bio = String(offer.profile_bio || '').trim();
-  const brandCopy = bio && bio !== String(offer.description || '').trim() ? bio : null;
+  const description = String(offer.description || '').trim();
+  const brandCopy = bio || description || 'This business has not added a full brand description yet.';
   const destination = normalizeOfferDestination(offer.website);
   const brandHeadline = offer.profile_headline || 'About this brand';
   const heroImage = images[currentSlide] || null;
@@ -401,7 +402,7 @@ export default function AffiliateOfferProfilePage() {
                       )}
                     </div>
 
-                    {brandCopy && <p className="mt-4 max-w-3xl text-sm leading-6 text-white/58 sm:text-[15px]">{brandCopy}</p>}
+
                   </div>
                 </div>
               </div>
@@ -454,6 +455,7 @@ export default function AffiliateOfferProfilePage() {
                 {brandHeadline}
               </div>
               <p className="mt-4 whitespace-pre-line text-sm leading-6 text-white/65">{brandCopy}</p>
+              {description && description !== brandCopy && <p className="mt-4 whitespace-pre-line text-sm leading-6 text-white/65">{description}</p>}
 
               <div className="mt-5 space-y-3 border-t border-white/8 pt-5">
                 <div className="flex items-start gap-3">
