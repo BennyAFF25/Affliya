@@ -235,8 +235,6 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
                 <option value="OUTCOME_ENGAGEMENT">Engagement</option>
                 <option value="OUTCOME_LEADS">Leads</option>
                 <option value="OUTCOME_SALES">Sales</option>
-                <option value="OUTCOME_VIDEO_VIEWS">Video Views</option>
-                <option value="OUTCOME_REACH">Reach</option>
               </select>
             </label>
           </div>
@@ -669,17 +667,17 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
             {(reachDaily !== null || reachMonthly !== null) && (
               <div className="mt-2 p-3 rounded-xl border border-[#2a2a2a] bg-[#0f0f0f]">
                 <div className="text-xs text-gray-400 mb-1">
-                  Estimated Reach (unique users)
+                  Potential audience (Meta estimate)
                 </div>
                 <div className="flex items-center gap-6">
                   <div>
-                    <div className="text-[11px] text-gray-400">Daily</div>
+                    <div className="text-[11px] text-gray-400">Lower bound</div>
                     <div className="text-lg font-bold text-[#00C2CB]">
                       {reachDaily !== null ? reachDaily.toLocaleString() : "—"}
                     </div>
                   </div>
                   <div>
-                    <div className="text-[11px] text-gray-400">Monthly</div>
+                    <div className="text-[11px] text-gray-400">Upper bound</div>
                     <div className="text-lg font-bold text-[#00C2CB]">
                       {reachMonthly !== null
                         ? reachMonthly.toLocaleString()
@@ -1087,7 +1085,7 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
               {isSubmitting ? (
                 <>
                   <span className="h-4 w-4 rounded-full border-2 border-gray-500 border-t-[#00C2CB] animate-spin" />
-                  Submitting…
+                  Uploading and saving…
                 </>
               ) : (
                 "Submit Campaign Proposal"
