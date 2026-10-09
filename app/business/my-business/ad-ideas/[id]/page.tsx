@@ -114,6 +114,13 @@ function formatDate(value?: string | null) {
   });
 }
 
+function asLocalDateTime(value?: string | null) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+}
+
 function affiliateLabel(username: string) {
   const raw = String(username || "").trim().replace(/^@+/, "");
   return raw ? `@${raw}` : "Nettmark affiliate";
@@ -243,6 +250,9 @@ export default function AdIdeaProposalDetailPage() {
   const [billingClientSecret, setBillingClientSecret] = useState<string | null>(null);
   const [billingSetupBusy, setBillingSetupBusy] = useState(false);
   const [partialCleanupBusy, setPartialCleanupBusy] = useState(false);
+  const [rescheduleBusy, setRescheduleBusy] = useState(false);
+  const [scheduleStart, setScheduleStart] = useState("");
+  const [scheduleEnd, setScheduleEnd] = useState("");
 
   const canonicalPath = useMemo(
     () => `/business/my-business/ad-ideas/${encodeURIComponent(proposalId)}`,
@@ -290,6 +300,8 @@ export default function AdIdeaProposalDetailPage() {
 
       const loaded = proposalJson.proposal as Proposal;
       setProposal(loaded);
+      setScheduleStart(asLocalDateTime(loaded.start_time));
+      setScheduleEnd(asLocalDateTime(loaded.end_time));
       setReadiness({
         billing: readinessJson.billing,
         subscription: readinessJson.subscription,
@@ -431,6 +443,30 @@ export default function AdIdeaProposalDetailPage() {
       setError(err instanceof Error ? err.message : "Could not clean up the partial Meta campaign.");
     } finally {
       setPartialCleanupBusy(false);
+    }
+  };
+
+  const reschedule = async () => {
+    if (!proposal || rescheduleBusy || campaignReadiness?.partialMetaState) return;
+    setRescheduleBusy(true);
+    setError(null);
+    try {
+      const startTime = new Date(scheduleStart).toISOString();
+      const endTime = new Date(scheduleEnd).toISOString();
+      const res = await fetch("/api/business/ad-ideas/reschedule", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ adIdeaId: proposal.id, startTime, endTime }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.success) {
+        throw new Error(json?.message || "Campaign schedule could not be updated.");
+      }
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Enter valid new campaign dates.");
+    } finally {
+      setRescheduleBusy(false);
     }
   };
 
@@ -714,7 +750,21 @@ export default function AdIdeaProposalDetailPage() {
                   <div>
                     <div className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-300">Campaign update needed</div>
                     <h2 className="mt-1 text-xl font-bold">Campaign timing needs attention</h2>
-                    <p className="mt-1.5 text-sm leading-6 text-slate-400">The current campaign dates are no longer launch-ready. The proposal will stay pending until they are corrected.</p>
+                    <p className="mt-1.5 text-sm leading-6 text-slate-400">Update the start and end dates to launch this pending proposal. Creative, affiliate targeting and budget remain unchanged.</p>
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                      <label className="text-xs font-medium text-slate-300">New start
+                        <input type="datetime-local" value={scheduleStart} onChange={(event) => setScheduleStart(event.target.value)}
+                          className="mt-1 block w-full rounded-xl border border-white/15 bg-[#080b0d] px-3 py-3 text-sm text-white" />
+                      </label>
+                      <label className="text-xs font-medium text-slate-300">New end
+                        <input type="datetime-local" value={scheduleEnd} onChange={(event) => setScheduleEnd(event.target.value)}
+                          className="mt-1 block w-full rounded-xl border border-white/15 bg-[#080b0d] px-3 py-3 text-sm text-white" />
+                      </label>
+                    </div>
+                    <button type="button" onClick={() => void reschedule()} disabled={rescheduleBusy || !scheduleStart || !scheduleEnd}
+                      className="mt-3 rounded-xl bg-[#57c7d1] px-5 py-3 text-sm font-bold text-[#061113] disabled:opacity-50">
+                      {rescheduleBusy ? "Updating schedule…" : "Update campaign schedule"}
+                    </button>
                   </div>
                 </div>
               ) : !fundingReady ? (
