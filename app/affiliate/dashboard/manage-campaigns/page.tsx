@@ -102,6 +102,11 @@ function shortDate(iso?: string | null) {
 }
 
 export default function AffiliateManageCampaignsPage() {
+  const [newProposalId, setNewProposalId] = useState("");
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("submitted") || "";
+    if (/^[0-9a-f-]{36}$/i.test(id)) setNewProposalId(id);
+  }, []);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -390,6 +395,13 @@ export default function AffiliateManageCampaignsPage() {
           </div>
         </section>
 
+        {newProposalId && (
+          <div role="status" className="mb-5 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-4 text-sm text-emerald-100">
+            <strong>Campaign proposal submitted successfully.</strong> The business can now review it.
+            No wallet funds have been reserved.
+            <span className="ml-2 text-xs opacity-70">Reference: {newProposalId.slice(0, 8)}</span>
+          </div>
+        )}
         <section className="mb-7 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-6">
           <StatCard label="Pending proposals" value={pendingError ? "—" : pendingCount.toString()} icon={<Megaphone className="h-4 w-4" />} tone="primary" />
           <StatCard label="Live campaigns" value={error ? "—" : activeCount.toString()} icon={<Activity className="h-4 w-4" />} tone="primary" />
