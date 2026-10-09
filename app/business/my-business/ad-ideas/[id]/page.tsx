@@ -53,6 +53,7 @@ type Proposal = {
   call_to_action?: string | null;
   cta?: string | null;
   budget_amount?: number | null;
+  currency?: string | null;
   budget_type?: string | null;
   daily_budget?: number | null;
   age_range?: [number, number] | null;
@@ -73,6 +74,7 @@ type CampaignReadiness = {
   tracking?: { ready: boolean; error?: string | null };
   pixel?: { required: boolean; ready: boolean };
   timing?: { ready: boolean; error?: string | null; message?: string | null };
+  configuration?: { ready: boolean; errors?: string[] };
 };
 
 type ReviewReadiness = {
@@ -98,7 +100,9 @@ function formatBudget(proposal: Proposal) {
   const suffix = String(proposal.budget_type || "DAILY").toUpperCase() === "LIFETIME"
     ? " total"
     : "/day";
-  return `$${amount.toLocaleString("en-AU", { maximumFractionDigits: 2 })}${suffix}`;
+  const currency = /^[A-Z]{3}$/.test(String(proposal.currency || "")) ? String(proposal.currency) : "AUD";
+  const formatted = new Intl.NumberFormat("en-AU", { style: "currency", currency }).format(amount);
+  return `${formatted}${suffix}`;
 }
 
 function formatDate(value?: string | null) {
@@ -269,9 +273,10 @@ export default function AdIdeaProposalDetailPage() {
   const fundingReady = Boolean(campaignReadiness?.funding?.ready);
   const pixelReady = !campaignReadiness?.pixel?.required || Boolean(campaignReadiness.pixel.ready);
   const timingReady = campaignReadiness?.timing?.ready !== false;
+  const configurationReady = campaignReadiness?.configuration?.ready !== false;
   const metaSetupReady = metaReady && pixelReady;
   const allReady = Boolean(
-    campaignReadiness?.ready && subscriptionReady && billingReady && metaReady && trackingReady && pixelReady && timingReady && fundingReady,
+    campaignReadiness?.ready && subscriptionReady && billingReady && metaReady && trackingReady && pixelReady && timingReady && configurationReady && fundingReady,
   );
 
   const load = useCallback(async () => {
@@ -542,6 +547,9 @@ export default function AdIdeaProposalDetailPage() {
     if (!trackingReady) {
       return { label: "Tracking required", className: "border-amber-400/25 bg-amber-400/10 text-amber-300" };
     }
+    if (!configurationReady) {
+      return { label: "Proposal changes required", className: "border-amber-400/25 bg-amber-400/10 text-amber-300" };
+    }
     if (!timingReady) {
       return { label: "Timing update required", className: "border-amber-400/25 bg-amber-400/10 text-amber-300" };
     }
@@ -765,6 +773,20 @@ export default function AdIdeaProposalDetailPage() {
                       className="mt-3 rounded-xl bg-[#57c7d1] px-5 py-3 text-sm font-bold text-[#061113] disabled:opacity-50">
                       {rescheduleBusy ? "Updating schedule…" : "Update campaign schedule"}
                     </button>
+                  </div>
+                </div>
+              ) : !configurationReady ? (
+                <div className="flex items-start gap-3.5">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-amber-400/10 text-amber-300">
+                    <Clock3 className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-300">Campaign configuration needs attention</div>
+                    <h2 className="mt-1 text-xl font-bold">Affiliate proposal requires revision</h2>
+                    <p className="mt-1.5 text-sm leading-6 text-slate-400">
+                      {campaignReadiness?.configuration?.errors?.[0] || "Meta cannot launch these campaign settings."}
+                      {" "}Do not approve this proposal. Ask the affiliate to submit a corrected one with verified Meta interests and compatible settings.
+                    </p>
                   </div>
                 </div>
               ) : !fundingReady ? (
