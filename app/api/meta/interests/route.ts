@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
-import { createServerSupabaseClient } from "../../../../../utils/businessSubscriptions";
+import { createServerSupabaseClient } from "../../../../utils/businessSubscriptions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
