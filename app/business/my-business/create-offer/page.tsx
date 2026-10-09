@@ -2,6 +2,7 @@
 
 import "@/globals.css";
 import React, { useState, useEffect, Suspense } from "react";
+import { normalizeOfferDestination } from "../../../../utils/offers/presentation";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button, Card, Input, PageHeader, Select, Textarea } from "@/../components/ui";
@@ -385,6 +386,8 @@ function CreateOfferPageInner() {
       return;
     }
 
+    const destination = normalizeOfferDestination(website);
+    if (!destination) { alert("Enter a complete website or product URL."); return; }
     if (isPublishing) return;
     if (!candidateOfferIdRef.current) candidateOfferIdRef.current = uuidv4();
     setIsPublishing(true);
@@ -469,7 +472,7 @@ function CreateOfferPageInner() {
       title: businessName,
       description,
       business_email: userEmail,
-      website,
+      website: destination,
       commission: Number(commission),
       created_at: new Date().toISOString(),
       meta_ad_account_id: metaAdAccountId,

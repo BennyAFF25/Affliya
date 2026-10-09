@@ -22,6 +22,7 @@ import {
   MessageCircle,
 } from "lucide-react";
 import { loadApprovedOfferIds, loadAffiliatePaidCampaigns, isArchivedCampaignStatus } from "utils/affiliate/portalData";
+import { getOfferPayoutTypeLabel } from "utils/offers/presentation";
 import DashboardCard from "@/components/DashboardCard";
 import { buildTrackingUrl } from "@/../utils/tracking/buildTrackingUrl";
 import {
@@ -57,7 +58,7 @@ interface Offer {
   description: string;
   commission: number;
   type: string;
-  payoutType: string;
+  payoutType?: string;
   ideaId?: string; // optional idea ID for active campaign tracking
 }
 
@@ -1572,8 +1573,8 @@ function AffiliateDashboardContent() {
                         <div className="flex items-center">
                           <RocketLaunchIcon className="w-5 h-5 text-[#00C2CB] mr-2" />
                           <span className="truncate text-sm text-white/70">
-                            Commission: {offer.commission}% | Type:{" "}
-                            {offer.payoutType}
+                            Commission: {offer.commission}%
+                            {getOfferPayoutTypeLabel(offer) ? ` | Type: ${getOfferPayoutTypeLabel(offer)}` : ""}
                           </span>
                         </div>
                       </div>

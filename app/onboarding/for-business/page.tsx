@@ -1,6 +1,7 @@
 "use client";
 
 import React, { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
+import { normalizeOfferDestination } from "../../../utils/offers/presentation";
 import { useRouter } from "next/navigation";
 import { useSessionContext } from "@supabase/auth-helpers-react";
 import {
@@ -163,6 +164,8 @@ export default function BusinessOnboardingPage() {
 
     try {
       if (savedOfferId.current) { await complete(savedOfferId.current); return; }
+      const destination = normalizeOfferDestination(websiteUrl);
+      if (!destination) throw new Error("Enter a complete website or product URL.");
       let uploadedLogoUrl: string | null = null;
       if (logoFile) {
         const logoPath = `${session.user.id}/logos/${Date.now()}_${safeStorageFileName(logoFile.name)}`;
@@ -237,7 +240,7 @@ export default function BusinessOnboardingPage() {
         title: offerName.trim(),
         description: description.trim(),
         business_email: session.user.email,
-        website: websiteUrl.trim(),
+        website: destination,
         commission: commissionValue,
         price: priceValue,
         currency,
