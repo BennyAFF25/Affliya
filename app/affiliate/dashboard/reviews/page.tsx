@@ -313,7 +313,7 @@ export default function AffiliateReviewsPage() {
 
                     <div className="flex lg:justify-end">
                       <Link
-                        href={`/affiliate/dashboard/promote/${item.offerId}`}
+                        href={`/affiliate/dashboard/reviews/${item.kind}/${item.id}`}
                         className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2.5 text-sm font-medium text-[var(--foreground)] transition hover:border-[var(--primary)]/30 hover:bg-[var(--primary)]/[0.06] lg:w-auto"
                       >
                         View details

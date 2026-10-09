@@ -575,6 +575,7 @@ function PendingProposalRow({ proposal }: { proposal: PendingProposal }) {
             ) : null}
           </div>
         </div>
+        <Button href={`/affiliate/dashboard/reviews/${proposal.kind}/${proposal.id}`} variant="outline" className="rounded-full">View proposal</Button>
         {fundingRequired ? (
           <Button href="/affiliate/wallet" className="rounded-full">
             Top up wallet
