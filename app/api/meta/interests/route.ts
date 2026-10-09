@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
     if (!connection?.access_token) {
       return NextResponse.json({ error: "The business must reconnect Meta before interests can be searched." }, { status: 409 });
     }
-    const url = new URL("https://graph.facebook.com/v19.0/search");
+    const url = new URL("https://graph.facebook.com/v26.0/search");
     url.searchParams.set("type", "adinterest");
     url.searchParams.set("q", q);
     url.searchParams.set("limit", "15");
