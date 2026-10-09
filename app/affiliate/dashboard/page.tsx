@@ -21,6 +21,7 @@ import {
   ChevronUp,
   MessageCircle,
 } from "lucide-react";
+import { loadApprovedOfferIds, loadAffiliatePaidCampaigns, isArchivedCampaignStatus } from "utils/affiliate/portalData";
 import DashboardCard from "@/components/DashboardCard";
 import { buildTrackingUrl } from "@/../utils/tracking/buildTrackingUrl";
 import {
@@ -48,10 +49,6 @@ interface Profile {
   role: string | null;
   onboarding_completed: boolean | null;
   username?: string | null;
-}
-
-interface ApprovedRequest {
-  offer_id: string;
 }
 
 interface Offer {
@@ -142,6 +139,8 @@ function AffiliateDashboardContent() {
 
   // live ads + payouts
   const [liveAds, setLiveAds] = useState<any[]>([]);
+  const [activePaidCount, setActivePaidCount] = useState<number | null>(null);
+  const [organicLoadFailed, setOrganicLoadFailed] = useState(false);
   const [walletPayouts, setWalletPayouts] = useState<any[]>([]);
 
   // chart series
@@ -295,16 +294,8 @@ function AffiliateDashboardContent() {
         setOffers(liveOffers || []);
       }
 
-      // Approved requests for this affiliate
-      const { data: approved, error: approvedError } = (await (supabase as any)
-        .from("affiliate_requests")
-        .select("offer_id")
-        .eq("affiliate_email", session.user?.email || "")
-        .in("status", ["approved", "active", "accepted"])) as {
-        data: ApprovedRequest[] | null;
-        error: any;
-      };
-
+      try { setApprovedIds(await loadApprovedOfferIds(supabase, session.user?.email || "")); }
+      catch(error) { console.error("[approved offers]",error); }
       const { data: allRequests, error: requestErr } = await supabase
         .from("affiliate_requests")
         .select("id")
@@ -314,16 +305,6 @@ function AffiliateDashboardContent() {
         console.error("[❌ Failed to fetch affiliate requests]", requestErr);
       } else {
         setRequestCount((allRequests || []).length);
-      }
-
-      if (approvedError) {
-        console.error("[❌ Failed to fetch approved requests]", approvedError);
-      } else {
-        const ids = Array.from(
-          new Set((approved || []).map((r: ApprovedRequest) => r.offer_id)),
-        );
-        setApprovedIds(ids);
-        console.log("[✅ Approved IDs]", ids);
       }
 
       // Approved ad ideas for this affiliate
@@ -359,11 +340,17 @@ function AffiliateDashboardContent() {
         }
 
         setLiveCampaigns(liveJson.campaigns || []);
+        setOrganicLoadFailed(false);
       } catch (liveErr) {
         console.error("[❌ Failed to fetch live_campaigns]", liveErr);
         setLiveCampaigns([]);
+        setOrganicLoadFailed(true);
       }
 
+      try {
+        const campaigns = await loadAffiliatePaidCampaigns(supabase, session.user?.email || "");
+        setActivePaidCount(campaigns.filter(row => !isArchivedCampaignStatus(row.status as string | null)).length);
+      } catch(error) { console.error("[active campaigns]",error); setActivePaidCount(null); }
       // Live ads (Meta paid) for this affiliate within Ad Spend window
       let adsQuery = supabase
         .from("live_ads")
@@ -523,6 +510,7 @@ function AffiliateDashboardContent() {
     : approvedOffers[0]) as (Offer & { id: string }) | undefined;
   const firstOfferApproved = !!firstPromotionOffer;
   const activeCampaigns = (liveCampaigns || [])
+    .filter((campaign: any) => !isArchivedCampaignStatus(campaign.status))
     .map((camp: any) => {
       const matchedOffer = offers.find((offer) => offer.id === camp.offer_id);
       return matchedOffer ? { ...matchedOffer, ideaId: camp.id } : null; // reusing ideaId for campaignId
@@ -531,7 +519,7 @@ function AffiliateDashboardContent() {
 
   // Derived metrics for stat cards
   const activeCampaignCount =
-    (activeCampaigns?.length || 0) + (liveAds?.length || 0);
+    (liveCampaigns || []).filter((campaign: any) => !isArchivedCampaignStatus(campaign.status)).length + (activePaidCount || 0);
 
   useEffect(() => {
     const loadFirstPromotionSnapshot = async () => {
@@ -1097,7 +1085,7 @@ function AffiliateDashboardContent() {
                   Active Campaigns
                 </p>
                 <h2 className="text-3xl font-bold text-white">
-                  {activeCampaignCount}
+                  {activePaidCount === null || organicLoadFailed ? "—" : activeCampaignCount}
                 </h2>
               </div>
             </div>
