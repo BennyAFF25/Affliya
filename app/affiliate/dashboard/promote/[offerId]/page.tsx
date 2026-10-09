@@ -63,7 +63,7 @@ type MetaConnectionRow = {
   access_token?: string | null;
   ad_account_id?: string | null;
   page_id?: string | null;
-  updated_at?: string | null;
+  created_at?: string | null;
 };
 
 export default function PromoteOfferPage() {
@@ -86,6 +86,9 @@ export default function PromoteOfferPage() {
   const [organicCreativeSource, setOrganicCreativeSource] = useState<"brand" | "upload">("brand");
   const [brandCreatives, setBrandCreatives] = useState<ContentLibraryAsset[]>([]);
   const [brandContentLoading, setBrandContentLoading] = useState(false);
+  const [brandContentError, setBrandContentError] = useState<string | null>(null);
+  const [brandContentLoaded, setBrandContentLoaded] = useState(false);
+  const [brandContentReload, setBrandContentReload] = useState(0);
   const [selectedAdBrandCreative, setSelectedAdBrandCreative] = useState<ContentLibraryAsset | null>(null);
   const [selectedOrganicBrandCreative, setSelectedOrganicBrandCreative] = useState<ContentLibraryAsset | null>(null);
   const [promotionStartedLogged, setPromotionStartedLogged] = useState(false);
@@ -194,24 +197,30 @@ export default function PromoteOfferPage() {
   }, [session, router]);
 
   useEffect(() => {
-    if (!offerId || !userEmail) return;
+    if (!offerId || !userEmail) { setBrandContentLoading(false); return; }
 
     const flowMode = mode === "ad" ? "paid" : "organic";
     const currentSource = mode === "ad" ? adCreativeSource : organicCreativeSource;
-    if (currentSource !== "brand") return;
+    if (currentSource !== "brand") { setBrandContentLoading(false); return; }
 
     let cancelled = false;
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 10000);
     const loadBrandContent = async () => {
       setBrandContentLoading(true);
+      setBrandContentError(null);
+      setBrandContentLoaded(false);
+      setBrandCreatives([]);
       try {
-        const res = await fetch(`/api/affiliate/offers/${offerId}/brand-content?mode=${flowMode}`, { cache: "no-store" });
-        const json = await res.json();
+        const res = await fetch(`/api/affiliate/offers/${offerId}/brand-content?mode=${flowMode}`, { cache: "no-store", signal: controller.signal });
+        const json = await res.json().catch(() => null);
         if (!res.ok || !json?.ok) {
           throw new Error(json?.message || json?.error || "Failed to load brand content");
         }
         if (cancelled) return;
         const nextAssets = (json.assets || []) as ContentLibraryAsset[];
         setBrandCreatives(nextAssets);
+        setBrandContentLoaded(true);
         // An empty library still permits a reviewed draft with the affiliate's own copy/media.
         if (nextAssets.length === 0) {
           if (mode === "ad") setAdCreativeSource("upload");
@@ -229,11 +238,13 @@ export default function PromoteOfferPage() {
       } catch (error: any) {
         console.error("[brand content] load error", error);
         if (!cancelled) {
+          setBrandContentError(controller.signal.aborted ? "Brand content took too long to load. Try again or upload your own creative." : "Brand content could not be loaded. Try again or upload your own creative.");
           setBrandCreatives([]);
           if (mode === "ad") setSelectedAdBrandCreative(null);
           if (mode === "organic") setSelectedOrganicBrandCreative(null);
         }
       } finally {
+        window.clearTimeout(timeout);
         if (!cancelled) setBrandContentLoading(false);
       }
     };
@@ -241,8 +252,10 @@ export default function PromoteOfferPage() {
     void loadBrandContent();
     return () => {
       cancelled = true;
+      window.clearTimeout(timeout);
+      controller.abort();
     };
-  }, [adCreativeSource, mode, offerId, organicCreativeSource, userEmail]);
+  }, [adCreativeSource, mode, offerId, organicCreativeSource, userEmail, brandContentReload]);
 
   useEffect(() => {
     if (selectedAdBrandCreative && adCreativeSource === "brand") {
@@ -492,9 +505,9 @@ export default function PromoteOfferPage() {
       if (offer?.business_email) {
         const { data: mcRows, error: mcErr } = await (supabase as any)
           .from("meta_connections")
-          .select("access_token, ad_account_id, page_id, updated_at")
+          .select("access_token, ad_account_id, page_id, created_at")
           .eq("business_email", offer.business_email as string)
-          .order("updated_at", { ascending: false });
+          .order("created_at", { ascending: false });
 
         if (mcErr) {
           console.warn("[meta_connections fetch warn]", mcErr);
@@ -1605,6 +1618,8 @@ export default function PromoteOfferPage() {
                 mode="ad"
                 assets={brandCreatives}
                 loading={brandContentLoading}
+                error={brandContentError}
+                onRetry={() => setBrandContentReload(value => value + 1)}
                 selectedId={selectedAdBrandCreative?.id || null}
                 onChooseUploadOwn={() => setAdCreativeSource("upload")}
                 onSelect={(asset) => {
@@ -1658,6 +1673,8 @@ export default function PromoteOfferPage() {
                 mode="organic"
                 assets={brandCreatives}
                 loading={brandContentLoading}
+                error={brandContentError}
+                onRetry={() => setBrandContentReload(value => value + 1)}
                 selectedId={selectedOrganicBrandCreative?.id || null}
                 onChooseUploadOwn={() => setOrganicCreativeSource("upload")}
                 onSelect={(asset) => {
@@ -1678,6 +1695,7 @@ export default function PromoteOfferPage() {
         )}
 
         {starterSpendError && <p role="alert" className="rounded-2xl border border-amber-400/20 p-4 text-sm">{starterSpendError}</p>}
+        {brandContentLoaded && !brandCreatives.length && !brandContentError && <p className="rounded-2xl border border-[var(--border)] p-4 text-sm text-[var(--muted-foreground)]">No brand content yet. You can submit your own copy and creative for business review.</p>}
         {/* RIGHT: Preview / Metrics */}
         {mode === "ad" && (
           <PreviewSidebar
