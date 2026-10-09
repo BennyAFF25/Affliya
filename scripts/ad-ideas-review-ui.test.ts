@@ -10,6 +10,7 @@ const metaUploadRoute = readFileSync('app/api/meta/callback/upload-video/route.t
 const businessLogin = readFileSync('app/login/business/page.tsx', 'utf8');
 const affiliateLogin = readFileSync('app/login/affiliate/page.tsx', 'utf8');
 const webhookDedupeMigration = readFileSync('supabase/migrations/20261009095838_dedupe_proposal_approved_webhooks.sql', 'utf8');
+const webhookLaunchMigration = readFileSync('supabase/migrations/20261009102230_emit_proposal_approved_only_after_live_launch.sql', 'utf8');
 
 // Business review remains proposal-first: the business can inspect pending proposals,
 // see current derived launch blockers, reject at any time, and only launch when ready.
@@ -77,5 +78,10 @@ assert.doesNotMatch(affiliateLogin, /auth\.signOut\(\)/);
 // Proposal approval webhook is one-time per proposal, even after launch retries.
 assert.match(webhookDedupeMigration, /proposal\.approved:/);
 assert.match(webhookDedupeMigration, /before insert on public\.affiliate_webhook_outbox/);
+assert.match(metaUploadRoute, /enqueueAffiliateWebhookEvent/);
+assert.match(metaUploadRoute, /eventType:\s*"proposal\.approved"/);
+assert.match(metaUploadRoute, /live_ad_id:/);
+assert.match(webhookLaunchMigration, /not exists[\s\S]*public\.live_ads/);
+assert.match(webhookLaunchMigration, /return null/);
 
 console.log('ad ideas review UI tests passed');

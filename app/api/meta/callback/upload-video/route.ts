@@ -29,6 +29,7 @@ import {
   getExistingPaidCampaignLaunch,
   validatePaidCampaignTiming,
 } from "@/../utils/paidCampaignLaunchReadiness";
+import { enqueueAffiliateWebhookEvent } from "@/../utils/affiliateAssistantWebhook";
 
 const supabase = createClient(
   process.env.SUPABASE_URL!,
@@ -1034,6 +1035,22 @@ export async function POST(req: Request) {
             }
 
             liveAdRow = insertedLiveAdRow;
+
+            await enqueueAffiliateWebhookEvent({
+              supabase,
+              eventType: "proposal.approved",
+              businessEmail,
+              offerId: String(prefer(offerId, adIdea?.offer_id, "") || "") || null,
+              affiliateEmail,
+              entityId: adIdeaId,
+              data: {
+                proposal_id: adIdeaId,
+                offer_id: prefer(offerId, adIdea?.offer_id, null),
+                live_ad_id: insertedLiveAdRow.id,
+                meta_campaign_id: campaignData.id,
+              },
+              dedupeKey: `proposal.approved:${adIdeaId}`,
+            });
 
             if (affiliateEmail && prefer(offerId, adIdea?.offer_id, null)) {
               await markLaunchFundCampaignWentLive({
