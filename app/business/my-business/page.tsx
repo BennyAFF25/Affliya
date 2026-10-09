@@ -507,25 +507,19 @@ export default function MyBusinessPage() {
         setBusinessCustomerId(customerId);
 
         try {
-          const key = `nm_has_card_${customerId}`;
-          const cached = key ? localStorage.getItem(key) : null;
-          if (cached === "true") {
-            setHasCard(true);
-          } else {
-            const cardRes = await fetch("/api/stripe/check-customer-card", {
-              method: "POST",
-            });
-            const cardJson = await parseJsonSafe(cardRes);
-            if (cardRes.ok && cardJson?.hasCard) {
-              setHasCard(true);
-              localStorage.setItem(key, "true");
-            } else {
-              setHasCard(false);
-            }
-          }
+          const cardRes = await fetch("/api/stripe/check-customer-card", {
+            method: "POST",
+            cache: "no-store",
+          });
+          const cardJson = await parseJsonSafe(cardRes);
+          setHasCard(Boolean(cardRes.ok && cardJson?.hasCard));
         } catch (e) {
+          setHasCard(false);
           console.warn("[billing status check failed]", e);
         }
+      } else {
+        setBusinessCustomerId(null);
+        setHasCard(false);
       }
       if (data?.stripe_account_id)
         setBusinessAccountId(data.stripe_account_id as string);
@@ -869,16 +863,20 @@ export default function MyBusinessPage() {
         if (result.error) {
           toast.error(result.error.message || "Card setup failed");
         } else {
-          toast.success("Card saved");
-          try {
-            const cust = businessCustomerId
-              ? `nm_has_card_${businessCustomerId}`
-              : null;
-            if (cust) localStorage.setItem(cust, "true");
-          } catch (storageErr) {
-            console.warn("[billing] could not cache card status", storageErr);
+          const cardRes = await fetch("/api/stripe/check-customer-card", {
+            method: "POST",
+            cache: "no-store",
+          });
+          const cardJson = await parseJsonSafe(cardRes);
+          const billingReady = Boolean(cardRes.ok && cardJson?.hasCard);
+
+          setHasCard(billingReady);
+          if (!billingReady) {
+            toast.error("Card saved, but billing readiness could not be confirmed yet.");
+            return;
           }
-          setHasCard(true);
+
+          toast.success("Card saved");
           onComplete();
         }
       } catch (err) {
