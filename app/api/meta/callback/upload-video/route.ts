@@ -387,7 +387,7 @@ export async function POST(req: Request) {
     // 2. Lookup the access token for the exact Page + Ad Account selected on this offer.
     let { data: connection, error: connectionError } = await supabase
       .from("meta_connections")
-      .select("access_token, created_at")
+      .select("access_token, created_at, ad_account_currency")
       .eq("business_email", businessEmail)
       .eq("page_id", selectedPageId)
       .eq("ad_account_id", selectedAdAccountId)
@@ -407,6 +407,14 @@ export async function POST(req: Request) {
     }
 
     const { access_token } = connection as any;
+    const metaCurrency = String((connection as any).ad_account_currency || "").trim().toUpperCase();
+    const proposalCurrency = String((adIdea as any).currency || (offer as any).currency || "").trim().toUpperCase();
+    if (metaCurrency && proposalCurrency !== metaCurrency) {
+      return NextResponse.json({
+        success: false, error: "META_CURRENCY_MISMATCH", stage: "configuration",
+        message: "The campaign currency does not match the connected Meta ad account. Update the business connection before approving.",
+      }, { status: 409 });
+    }
     cleanupAccessToken = access_token || null;
 
     if (!access_token) {
