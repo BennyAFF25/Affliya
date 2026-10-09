@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSessionContext } from "@supabase/auth-helpers-react";
 import { supabase } from "@/../utils/supabase/pages-client";
+import { loadApprovedOfferIds } from "@/../utils/affiliate/portalData";
 import {
   SHOP_THEMES,
   type ShopThemeKey,
@@ -130,23 +131,18 @@ export default function MyShopPage() {
     const load = async () => {
       setLoading(true);
       try {
-        const { data: approved } = await supabase
-          .from("affiliate_requests")
-          .select("offer_id")
-          .eq("affiliate_email", session.user.email)
-          .eq("status", "approved");
-
-        const offerIds = approved?.map((row) => row.offer_id) || [];
+        const offerIds = await loadApprovedOfferIds(supabase, session.user.email || "");
 
         if (offerIds.length === 0) {
           setOffers([]);
           setOverrides({});
         } else {
-          const { data: offerRows } = await supabase
+          const { data: offerRows, error: offerError } = await supabase
             .from("offers")
             .select("id, title, description, logo_url, business_email")
             .in("id", offerIds);
 
+          if (offerError) throw offerError;
           const { data: overrideRows } = await supabase
             .from("affiliate_shop_items")
             .select(
