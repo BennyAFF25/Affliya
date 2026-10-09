@@ -725,15 +725,16 @@ export default function PromoteOfferPage() {
         return null;
       }
 
-      const dau = extractEstimate(first?.estimate_dau);
-      const mau = extractEstimate(first?.estimate_mau);
+      // Meta v26 supplies potential audience bounds, not daily/monthly reach.
+      const dau = extractEstimate(first?.users_lower_bound);
+      const mau = extractEstimate(first?.users_upper_bound);
 
       setReachDaily(dau);
       setReachMonthly(mau);
 
       if (dau !== null || mau !== null) {
         setReachStatus("ready");
-        setReachMessage("Estimate updated from Meta delivery data.");
+        setReachMessage("Potential audience range estimated by Meta.");
       } else {
         setReachStatus("unavailable");
         setReachMessage("Meta returned no estimate for this targeting.");
