@@ -80,13 +80,74 @@ async function sendEmailSafe(args: {
   }
 }
 
-export async function POST(req: Request) {
+function metaFailureMessage(payload: any, fallback: string) {
+  return (
+    payload?.error?.error_user_msg ||
+    payload?.error?.message ||
+    payload?.message ||
+    fallback
+  );
+}
+
+async function cleanupPartialMetaCampaign(params: {
+  campaignId: string;
+  accessToken: string;
+  adIdeaId: string;
+}) {
+  const { campaignId, accessToken, adIdeaId } = params;
   try {
-    let liveAdRow: any = null; // will hold inserted live_ads row for response
+    const response = await fetch(
+      `https://graph.facebook.com/v19.0/${campaignId}`,
+      {
+        method: "DELETE",
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      },
+    );
+    const payload = await safeParse(response);
+    const cleaned = response.ok && payload?.success !== false;
+
+    if (!cleaned) {
+      console.error("[meta-cleanup] campaign cleanup failed", {
+        campaignId,
+        status: response.status,
+        payload,
+      });
+      return false;
+    }
+
+    const { error: clearError } = await supabase
+      .from("ad_ideas")
+      .update({ meta_campaign_id: null, meta_status: null })
+      .eq("id", adIdeaId)
+      .eq("meta_campaign_id", campaignId);
+
+    if (clearError) {
+      console.error("[meta-cleanup] failed clearing stored campaign id", clearError);
+      return false;
+    }
+
+    console.log("[meta-cleanup] removed partial campaign", campaignId);
+    return true;
+  } catch (error) {
+    console.error("[meta-cleanup] unexpected cleanup error", error);
+    return false;
+  }
+}
+
+export async function POST(req: Request) {
+  let liveAdRow: any = null;
+  let createdCampaignId: string | null = null;
+  let cleanupAccessToken: string | null = null;
+  let cleanupAdIdeaId: string | null = null;
+
+  try {
     const body = await req.json();
     console.log("[meta-upload] request body", body);
 
     const { adIdeaId, offerId, ...rest } = body;
+    cleanupAdIdeaId = String(adIdeaId || "").trim() || null;
 
     // Fetch the ad_ideas row (we'll use it as fallback for dynamic fields)
     const { data: adIdea, error: adIdeaError } = await supabase
@@ -331,6 +392,7 @@ export async function POST(req: Request) {
     }
 
     const { access_token } = connection as any;
+    cleanupAccessToken = access_token || null;
 
     if (!access_token) {
       console.error("[❌ Missing Access Token]");
@@ -498,7 +560,10 @@ export async function POST(req: Request) {
         body: JSON.stringify({
           name: campaignName || "Affliya Campaign",
           objective: mappedObjective,
-          status: "ACTIVE",
+          // Keep the parent campaign paused until every child object and the
+          // local live_ads row are durable. This prevents untracked spend if a
+          // downstream Meta or database step fails.
+          status: "PAUSED",
           special_ad_categories: [payload.special_ad_category || "NONE"],
           // Required by current Meta Marketing API when budget lives on the ad set.
           // Keep sharing disabled so the affiliate's configured ad-set budget remains explicit.
@@ -525,6 +590,7 @@ export async function POST(req: Request) {
     }
 
     console.log("[✅ Campaign Created]", campaignData);
+    createdCampaignId = String(campaignData.id);
 
     // Update ad_ideas with the new Meta campaign ID
     const updateRes = await supabase
@@ -537,9 +603,22 @@ export async function POST(req: Request) {
         "[❌ Failed to Update Campaign ID in Supabase]",
         updateRes.error.message,
       );
-    } else {
-      console.log("[✅ Campaign ID Updated in Supabase]", updateRes.data);
+      const cleanupSucceeded = await cleanupPartialMetaCampaign({
+        campaignId: String(campaignData.id),
+        accessToken: access_token,
+        adIdeaId,
+      });
+      return NextResponse.json(
+        {
+          success: false,
+          error: "CAMPAIGN_STATE_PERSIST_FAILED",
+          message: "Meta created the campaign, but Nettmark could not safely persist its ID. The partial campaign was cleaned up where possible.",
+          cleanupSucceeded,
+        },
+        { status: 500 },
+      );
     }
+    console.log("[✅ Campaign ID Updated in Supabase]", updateRes.data);
 
     // --- Build Ad Set targeting ---
     const countryMap: Record<string, string> = {
@@ -686,20 +765,35 @@ export async function POST(req: Request) {
       advantageAudienceRaw === 1 ||
       advantageAudienceRaw === "enable";
 
+    const requestedAgeMin = parseInt(
+      (payload as any).age_range?.[0] ||
+        (adIdea as any)?.age_range?.[0] ||
+        "18",
+      10,
+    );
+    const requestedAgeMax = parseInt(
+      (payload as any).age_range?.[1] ||
+        (adIdea as any)?.age_range?.[1] ||
+        "65",
+      10,
+    );
+
+    // Meta requires max age 65+ when Advantage+ Audience is enabled.
+    // Preserve the affiliate's explicit age range rather than silently widening it.
+    const useAdvantageAudience =
+      advantageAudienceFlag && requestedAgeMax >= 65;
+
+    if (advantageAudienceFlag && !useAdvantageAudience) {
+      console.log("[meta-upload] Advantage Audience disabled to preserve explicit age controls", {
+        requestedAgeMin,
+        requestedAgeMax,
+      });
+    }
+
     const targetingPayload = {
       geo_locations: { countries },
-      age_min: parseInt(
-        (payload as any).age_range?.[0] ||
-          (adIdea as any)?.age_range?.[0] ||
-          "18",
-        10,
-      ),
-      age_max: parseInt(
-        (payload as any).age_range?.[1] ||
-          (adIdea as any)?.age_range?.[1] ||
-          "65",
-        10,
-      ),
+      age_min: requestedAgeMin,
+      age_max: requestedAgeMax,
       genders:
         (payload as any).gender === "Male"
           ? [1]
@@ -715,7 +809,7 @@ export async function POST(req: Request) {
       ...(instagram_positions.length ? { instagram_positions } : {}),
       ...(flexible_spec ? { flexible_spec } : {}),
       targeting_automation: {
-        advantage_audience: advantageAudienceFlag ? 1 : 0,
+        advantage_audience: useAdvantageAudience ? 1 : 0,
       },
     };
 
@@ -768,6 +862,40 @@ export async function POST(req: Request) {
 
     console.log("[meta-upload] adset params", adsetParams);
 
+    const validationParams = new URLSearchParams(adsetParams);
+    validationParams.set("execution_options", JSON.stringify(["validate_only"]));
+    const adSetValidation = await fetch(
+      `https://graph.facebook.com/v19.0/${cleanAdAccountId}/adsets`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${access_token}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: validationParams,
+      },
+    ).then((res) => safeParse(res));
+
+    if (!adSetValidation?.success) {
+      console.error("[❌ Ad Set Validation Failed]", adSetValidation);
+      const cleanupSucceeded = await cleanupPartialMetaCampaign({
+        campaignId: String(campaignData.id),
+        accessToken: access_token,
+        adIdeaId,
+      });
+      return NextResponse.json(
+        {
+          success: false,
+          error: "AD_SET_VALIDATION_FAILED",
+          stage: "ad_set_validation",
+          message: metaFailureMessage(adSetValidation, "Meta rejected the ad set configuration."),
+          meta: adSetValidation,
+          cleanupSucceeded,
+        },
+        { status: 400 },
+      );
+    }
+
     const adSetRes = await fetch(
       `https://graph.facebook.com/v19.0/${cleanAdAccountId}/adsets`,
       {
@@ -783,6 +911,22 @@ export async function POST(req: Request) {
 
     if (!adSetRes?.id) {
       console.error("[❌ Ad Set Creation Failed]", adSetRes);
+      const cleanupSucceeded = await cleanupPartialMetaCampaign({
+        campaignId: String(campaignData.id),
+        accessToken: access_token,
+        adIdeaId,
+      });
+      return NextResponse.json(
+        {
+          success: false,
+          error: "AD_SET_CREATION_FAILED",
+          stage: "ad_set",
+          message: metaFailureMessage(adSetRes, "Meta rejected ad set creation."),
+          meta: adSetRes,
+          cleanupSucceeded,
+        },
+        { status: 400 },
+      );
     } else {
       console.log("[✅ Ad Set Created]", adSetRes);
 
@@ -823,11 +967,19 @@ export async function POST(req: Request) {
 
         if (!image_hash) {
           console.error("[❌ Image Upload to Meta Failed]", imageUploadRes);
+          const cleanupSucceeded = await cleanupPartialMetaCampaign({
+            campaignId: String(campaignData.id),
+            accessToken: access_token,
+            adIdeaId,
+          });
           return NextResponse.json(
             {
               success: false,
-              error: "Image upload failed",
+              error: "IMAGE_UPLOAD_FAILED",
+              stage: "image_upload",
+              message: metaFailureMessage(imageUploadRes, "Meta rejected the image upload."),
               meta: imageUploadRes,
+              cleanupSucceeded,
             },
             { status: 400 },
           );
@@ -883,11 +1035,19 @@ export async function POST(req: Request) {
 
         if (!videoUploadRes?.id) {
           console.error("[❌ Video Upload to Meta Failed]", videoUploadRes);
+          const cleanupSucceeded = await cleanupPartialMetaCampaign({
+            campaignId: String(campaignData.id),
+            accessToken: access_token,
+            adIdeaId,
+          });
           return NextResponse.json(
             {
               success: false,
-              error: "Video upload failed",
+              error: "VIDEO_UPLOAD_FAILED",
+              stage: "video_upload",
+              message: metaFailureMessage(videoUploadRes, "Meta rejected the video upload."),
               meta: videoUploadRes,
+              cleanupSucceeded,
             },
             { status: 400 },
           );
@@ -937,6 +1097,22 @@ export async function POST(req: Request) {
 
       if (!creativeRes?.id) {
         console.error("[❌ Ad Creative Creation Failed]", creativeRes);
+        const cleanupSucceeded = await cleanupPartialMetaCampaign({
+          campaignId: String(campaignData.id),
+          accessToken: access_token,
+          adIdeaId,
+        });
+        return NextResponse.json(
+          {
+            success: false,
+            error: "AD_CREATIVE_CREATION_FAILED",
+            stage: "creative",
+            message: metaFailureMessage(creativeRes, "Meta rejected ad creative creation."),
+            meta: creativeRes,
+            cleanupSucceeded,
+          },
+          { status: 400 },
+        );
       } else {
         console.log("[✅ Ad Creative Created]", creativeRes);
 
@@ -962,6 +1138,22 @@ export async function POST(req: Request) {
 
         if (!adRes?.id) {
           console.error("[❌ Ad Creation Failed]", adRes);
+          const cleanupSucceeded = await cleanupPartialMetaCampaign({
+            campaignId: String(campaignData.id),
+            accessToken: access_token,
+            adIdeaId,
+          });
+          return NextResponse.json(
+            {
+              success: false,
+              error: "AD_CREATION_FAILED",
+              stage: "ad",
+              message: metaFailureMessage(adRes, "Meta rejected ad creation."),
+              meta: adRes,
+              cleanupSucceeded,
+            },
+            { status: 400 },
+          );
         } else {
           console.log("[✅ Ad Created]", adRes);
 
@@ -975,7 +1167,7 @@ export async function POST(req: Request) {
             creative_id: creativeRes.id,
             affiliate_email: affiliateEmail,
             business_email: businessEmail,
-            status: "active",
+            status: "paused",
             spend: 0,
             clicks: 0,
             conversions: 0,
@@ -996,19 +1188,37 @@ export async function POST(req: Request) {
 
           if (liveAdErr) {
             console.error("[❌ live_ads insert error]", liveAdErr);
+            const cleanupSucceeded = await cleanupPartialMetaCampaign({
+              campaignId: String(campaignData.id),
+              accessToken: access_token,
+              adIdeaId,
+            });
             if (isSubscriptionRequiredError(liveAdErr)) {
               return NextResponse.json(
-                buildSubscriptionRequiredResponse({
-                  entitlement: null,
-                  returnTo: "/business/my-business/ad-ideas",
-                  intendedAction: "launch_paid_meta_ad",
-                  campaignId: adIdeaId,
-                  submissionId: adIdeaId,
-                  attribution: { source: "meta_upload_db_backstop" },
-                }),
+                {
+                  ...buildSubscriptionRequiredResponse({
+                    entitlement: null,
+                    returnTo: "/business/my-business/ad-ideas",
+                    intendedAction: "launch_paid_meta_ad",
+                    campaignId: adIdeaId,
+                    submissionId: adIdeaId,
+                    attribution: { source: "meta_upload_db_backstop" },
+                  }),
+                  cleanupSucceeded,
+                },
                 { status: 402 },
               );
             }
+            return NextResponse.json(
+              {
+                success: false,
+                error: "LIVE_AD_PERSIST_FAILED",
+                stage: "database",
+                message: "Meta objects were created, but Nettmark could not safely save the live campaign. The Meta campaign was cleaned up where possible.",
+                cleanupSucceeded,
+              },
+              { status: 500 },
+            );
           } else if (insertedLiveAdRow?.id) {
             console.log("[live_ads] insert success", insertedLiveAdRow);
 
@@ -1032,6 +1242,55 @@ export async function POST(req: Request) {
                 "[live_ads] campaign_id synced",
                 insertedLiveAdRow.id,
               );
+            }
+
+            const activateCampaignResponse = await fetch(
+              `https://graph.facebook.com/v19.0/${campaignData.id}`,
+              {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${access_token}`,
+                  "Content-Type": "application/x-www-form-urlencoded",
+                },
+                body: new URLSearchParams({ status: "ACTIVE" }),
+              },
+            );
+            const activateCampaignPayload = await safeParse(activateCampaignResponse);
+
+            if (
+              !activateCampaignResponse.ok ||
+              activateCampaignPayload?.success === false
+            ) {
+              console.error("[❌ Campaign Activation Failed]", activateCampaignPayload);
+              await supabase.from("live_ads").delete().eq("id", insertedLiveAdRow.id);
+              const cleanupSucceeded = await cleanupPartialMetaCampaign({
+                campaignId: String(campaignData.id),
+                accessToken: access_token,
+                adIdeaId,
+              });
+              return NextResponse.json(
+                {
+                  success: false,
+                  error: "CAMPAIGN_ACTIVATION_FAILED",
+                  stage: "activation",
+                  message: metaFailureMessage(
+                    activateCampaignPayload,
+                    "Meta created the campaign but could not activate it.",
+                  ),
+                  meta: activateCampaignPayload,
+                  cleanupSucceeded,
+                },
+                { status: 409 },
+              );
+            }
+
+            const { error: activateLocalError } = await supabase
+              .from("live_ads")
+              .update({ status: "active" })
+              .eq("id", insertedLiveAdRow.id);
+
+            if (activateLocalError) {
+              console.error("[live_ads] failed to mark campaign active", activateLocalError);
             }
 
             liveAdRow = insertedLiveAdRow;
@@ -1126,12 +1385,20 @@ export async function POST(req: Request) {
     }
 
     if (!liveAdRow?.id) {
+      const cleanupSucceeded = await cleanupPartialMetaCampaign({
+        campaignId: String(campaignData.id),
+        accessToken: access_token,
+        adIdeaId,
+      });
       return NextResponse.json(
         {
           success: false,
           error: "PARTIAL_META_LAUNCH",
-          message: "Meta campaign creation did not fully complete. The campaign was not marked live and automatic retry is blocked from duplicating the partial Meta campaign.",
-          metaCampaignId: campaignData.id,
+          message: cleanupSucceeded
+            ? "Meta did not fully create the campaign. The partial campaign was cleaned up and this proposal can be retried safely."
+            : "Meta did not fully create the campaign and automatic cleanup failed. Retry remains blocked to prevent duplication.",
+          metaCampaignId: cleanupSucceeded ? null : campaignData.id,
+          cleanupSucceeded,
         },
         { status: 409 },
       );
@@ -1144,8 +1411,27 @@ export async function POST(req: Request) {
     });
   } catch (err: any) {
     console.error("[❌ Upload API Error]", err.message);
+
+    let cleanupSucceeded: boolean | null = null;
+    if (
+      createdCampaignId &&
+      cleanupAccessToken &&
+      cleanupAdIdeaId &&
+      !liveAdRow?.id
+    ) {
+      cleanupSucceeded = await cleanupPartialMetaCampaign({
+        campaignId: createdCampaignId,
+        accessToken: cleanupAccessToken,
+        adIdeaId: cleanupAdIdeaId,
+      });
+    }
+
     return NextResponse.json(
-      { success: false, error: err.message },
+      {
+        success: false,
+        error: err.message,
+        cleanupSucceeded,
+      },
       { status: 500 },
     );
   }

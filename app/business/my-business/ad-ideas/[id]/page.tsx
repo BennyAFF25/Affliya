@@ -66,6 +66,7 @@ type Proposal = {
 type CampaignReadiness = {
   ready: boolean;
   alreadyLive?: boolean;
+  partialMetaState?: boolean;
   blockers?: string[];
   funding?: { ready: boolean; requiredAmount: number; deficit: number };
   meta?: { ready: boolean; pageReady: boolean; adAccountReady: boolean };
@@ -455,6 +456,9 @@ export default function AdIdeaProposalDetailPage() {
     if (!proposal) return { label: "Checking", className: "border-white/10 bg-white/[0.04] text-slate-300" };
     if (proposal.status !== "pending") {
       return { label: proposal.status, className: "border-white/10 bg-white/[0.04] text-slate-300" };
+    }
+    if (campaignReadiness?.partialMetaState) {
+      return { label: "Meta cleanup required", className: "border-red-400/25 bg-red-500/10 text-red-200" };
     }
     if (allReady) {
       return { label: "Ready to launch", className: "border-emerald-400/20 bg-emerald-500/10 text-emerald-300" };

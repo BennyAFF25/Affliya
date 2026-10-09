@@ -68,3 +68,28 @@ Repair:
 - pre-login global Supabase sign-outs were removed because login must not revoke unrelated active sessions.
 
 The Meta route still contains hard-coded Graph API v19 URLs. That version drift is tracked as follow-up technical debt rather than changed during the first live-money launch repair.
+
+
+## Follow-up: second live launch — Advantage Audience conflict
+The next real launch reached Meta campaign creation successfully, then failed before creating any ad set. Production verification found:
+- proposal `5685c237-8a5d-4529-bc5c-9b97f41a4b7c`;
+- partial Meta campaign `120251749965860679`;
+- zero ad sets and zero ads under that campaign;
+- no `live_ads` row in Nettmark.
+
+A validation-only replay of the exact ad-set payload returned Meta code 100 / subcode 1870189:
+`With ad sets that use Advantage+ audience, the maximum age audience control can't be set to lower than 65.`
+
+The proposal requested ages 25–55 while `advantage_audience` was enabled. Re-validating the same payload with `advantage_audience: 0` returned `200 { success: true }`.
+
+Repair:
+- preserve explicit affiliate age ranges by disabling Advantage Audience when max age is below 65;
+- validate the ad set with Meta before creating it;
+- create the parent campaign PAUSED;
+- create the local `live_ads` row as paused;
+- activate the Meta campaign only after the local live row is durable;
+- clean up partial Meta campaigns and clear `ad_ideas.meta_campaign_id` on downstream Meta/database failures;
+- surface stage-specific Meta errors;
+- show `Meta cleanup required` instead of a generic `Checking` state if cleanup ever fails.
+
+This keeps campaign intent authoritative and prevents untracked Meta spend during partial launches.

@@ -66,6 +66,15 @@ assert.match(launchRoute, /validatePaidCampaignTiming/);
 // Meta v24+ requires an explicit ad-set budget sharing decision for ad-set budgets.
 assert.match(metaUploadRoute, /is_adset_budget_sharing_enabled:\s*false/);
 assert.match(metaUploadRoute, /error_user_msg/);
+assert.match(metaUploadRoute, /status:\s*"PAUSED"/);
+assert.match(metaUploadRoute, /execution_options/);
+assert.match(metaUploadRoute, /validate_only/);
+assert.match(metaUploadRoute, /requestedAgeMax >= 65/);
+assert.match(metaUploadRoute, /advantage_audience:\s*useAdvantageAudience \? 1 : 0/);
+assert.match(metaUploadRoute, /cleanupPartialMetaCampaign/);
+assert.match(metaUploadRoute, /status:\s*"paused"/);
+assert.match(metaUploadRoute, /new URLSearchParams\(\{ status: "ACTIVE" \}\)/);
+assert.match(detailPage, /Meta cleanup required/);
 
 // Failed launch errors must survive the readiness refresh so users see the real Meta failure.
 assert.match(detailPage, /const launchError/);
