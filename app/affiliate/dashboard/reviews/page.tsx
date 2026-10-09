@@ -18,27 +18,10 @@ import {
   XCircle,
 } from "lucide-react";
 import { supabase } from "utils/supabase/pages-client";
+import { loadAffiliateSubmissions, cleanSubmissionStatus as cleanStatus, isAwaitingProposalReview, type AffiliateSubmission as Submission } from "utils/affiliate/portalData";
 
-type SubmissionKind = "paid" | "organic";
 type ReviewFilter = "all" | "paid" | "organic";
 type SortOrder = "recent" | "oldest";
-
-type Submission = {
-  id: string;
-  kind: SubmissionKind;
-  offerId: string;
-  offerTitle: string;
-  status: string;
-  createdAt: string | null;
-  businessViewedAt: string | null;
-  title: string;
-  previewUrl: string | null;
-  platform?: string | null;
-};
-
-function cleanStatus(value: unknown) {
-  return String(value || "pending").trim().toLowerCase();
-}
 
 function statusMeta(status: string, viewed: boolean) {
   const normalized = cleanStatus(status);
@@ -121,78 +104,7 @@ export default function AffiliateReviewsPage() {
     setError(null);
 
     try {
-      const [adsResult, organicResult] = await Promise.all([
-        (supabase as any)
-          .from("ad_ideas")
-          .select("id,offer_id,status,created_at,business_viewed_at,headline,caption,file_url")
-          .eq("affiliate_email", email)
-          .order("created_at", { ascending: false })
-          .limit(50),
-        (supabase as any)
-          .from("organic_posts")
-          .select("id,offer_id,status,created_at,business_viewed_at,caption,platform,image_url,video_url")
-          .eq("affiliate_email", email)
-          .order("created_at", { ascending: false })
-          .limit(50),
-      ]);
-
-      if (adsResult.error) throw adsResult.error;
-      if (organicResult.error) throw organicResult.error;
-
-      const ads = adsResult.data || [];
-      const organic = organicResult.data || [];
-      const offerIds = Array.from(
-        new Set(
-          [...ads, ...organic]
-            .map((row: any) => String(row.offer_id || ""))
-            .filter(Boolean),
-        ),
-      );
-
-      const offerTitleById = new Map<string, string>();
-      if (offerIds.length) {
-        const { data: offers, error: offersError } = await (supabase as any)
-          .from("offers")
-          .select("id,title")
-          .in("id", offerIds);
-
-        if (offersError) throw offersError;
-
-        for (const offer of offers || []) {
-          offerTitleById.set(String(offer.id), String(offer.title || "Offer"));
-        }
-      }
-
-      const normalized: Submission[] = [
-        ...ads.map((row: any) => ({
-          id: String(row.id),
-          kind: "paid" as const,
-          offerId: String(row.offer_id || ""),
-          offerTitle: offerTitleById.get(String(row.offer_id || "")) || "Offer",
-          status: cleanStatus(row.status),
-          createdAt: row.created_at || null,
-          businessViewedAt: row.business_viewed_at || null,
-          title: String(row.headline || row.caption || "Paid ad submission"),
-          previewUrl: row.file_url || null,
-        })),
-        ...organic.map((row: any) => ({
-          id: String(row.id),
-          kind: "organic" as const,
-          offerId: String(row.offer_id || ""),
-          offerTitle: offerTitleById.get(String(row.offer_id || "")) || "Offer",
-          status: cleanStatus(row.status),
-          createdAt: row.created_at || null,
-          businessViewedAt: row.business_viewed_at || null,
-          title: String(row.caption || "Organic promotion submission"),
-          previewUrl: row.image_url || row.video_url || null,
-          platform: row.platform || null,
-        })),
-      ].sort((a, b) => {
-        const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-        const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-        return bTime - aTime;
-      });
-
+      const normalized = await loadAffiliateSubmissions(supabase, email);
       setSubmissions(normalized);
     } catch (err: any) {
       console.error("[affiliate reviews]", err);
@@ -211,7 +123,7 @@ export default function AffiliateReviewsPage() {
   }, [session?.user?.email, loadSubmissions]);
 
   const pendingCount = useMemo(
-    () => submissions.filter((item) => cleanStatus(item.status) === "pending" && !item.businessViewedAt).length,
+    () => submissions.filter((item) => isAwaitingProposalReview(item.status) && !item.businessViewedAt).length,
     [submissions],
   );
 
@@ -401,7 +313,7 @@ export default function AffiliateReviewsPage() {
 
                     <div className="flex lg:justify-end">
                       <Link
-                        href={`/affiliate/dashboard/promote/${item.offerId}`}
+                        href={`/affiliate/dashboard/reviews/${item.kind}/${item.id}`}
                         className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-2.5 text-sm font-medium text-[var(--foreground)] transition hover:border-[var(--primary)]/30 hover:bg-[var(--primary)]/[0.06] lg:w-auto"
                       >
                         View details

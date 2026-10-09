@@ -8,6 +8,12 @@ const cwd = process.cwd();
 const base = process.argv[2];
 if (!base || !/^[a-f0-9]{40}$/i.test(base)) throw new Error("Pass an immutable base commit SHA");
 const files = [
+  "app/components/inbox/DbBackedInbox.tsx", "app/affiliate/AffiliateSidebar.tsx",
+  "app/affiliate/marketplace/[offerId]/page.tsx", "app/affiliate/dashboard/my-shop/page.tsx",
+  "app/affiliate/dashboard/manage-campaigns/page.tsx", "app/affiliate/dashboard/manage-campaigns/[campaignId]/page.tsx",
+  "app/affiliate/dashboard/reviews/page.tsx", "app/affiliate/dashboard/reviews/[kind]/[proposalId]/page.tsx",
+  "app/api/affiliate/proposals/[kind]/[proposalId]/route.ts", "app/api/affiliate/pending-paid-proposals/route.ts",
+  "app/affiliate/support/page.tsx", "app/affiliate/wallet/page.tsx", "app/business/my-business/create-offer/page.tsx", "app/onboarding/for-business/page.tsx",
   "app/affiliate/layout.tsx", "app/affiliate/marketplace/page.tsx",
   "app/create-account/page.tsx", "app/auth-redirect/page.tsx", "app/login/affiliate/page.tsx",
   "app/api/profile/onboarding-complete/route.ts", "app/api/affiliate/offers/[offerId]/start/route.ts",

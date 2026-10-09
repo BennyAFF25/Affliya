@@ -15,7 +15,9 @@ import {
   Tag,
   Users,
 } from 'lucide-react';
+import { formatMoney } from '../../../../utils/currency';
 import { supabase } from '../../../../utils/supabase/pages-client';
+import { normalizeOfferDestination } from '../../../../utils/offers/presentation';
 import { getActivationSubsidyBadgeLabel, getActivationSubsidyRemaining } from '../../../../utils/activationSubsidies';
 
 type Offer = {
@@ -81,6 +83,7 @@ export default function AffiliateOfferProfilePage() {
   const [requestSuccess, setRequestSuccess] = useState<string | null>(null);
   const [requestStatus, setRequestStatus] = useState<'approved' | 'pending' | 'rejected' | null>(null);
   const [starterSpendLabel, setStarterSpendLabel] = useState<string | null>(null);
+  const [starterSpendError, setStarterSpendError] = useState<string | null>(null);
   const [starterSpendRemaining, setStarterSpendRemaining] = useState<number>(0);
   const [currentSlide, setCurrentSlide] = useState(0);
 
@@ -114,43 +117,31 @@ export default function AffiliateOfferProfilePage() {
     if (!offerId) return;
     let cancelled = false;
 
+    const controller = new AbortController();
     const fetchOffer = async () => {
-      setLoading(true);
-      setLoadError(null);
-      const { data, error } = await (supabase as any)
-        .from('offers')
-        .select('*')
-        .eq('id', offerId)
-        .maybeSingle();
-
-      if (cancelled) return;
-
-      if (error) {
-        console.error('[Error fetching offer profile]', error);
-        setLoadError(error.message || 'Failed to load offer.');
-        setOffer(null);
-      } else {
-        const nextOffer = data as Offer;
+      setLoading(true);setLoadError(null);setOffer(null);setCurrentSlide(0);
+      try {
+        const {data,error}=await (supabase as any).from('offers').select('*').eq('id',offerId).maybeSingle();
+        if(cancelled) return;
+        if(error) throw error;
+        if(!data) throw new Error('This offer is unavailable or has been removed.');
+        setOffer(data as Offer);
+        setLoading(false); // Optional readiness must not hold the entire offer page.
+        const timeout=window.setTimeout(()=>controller.abort(),8000);
         try {
-          const readinessRes = await fetch(`/api/offers/content-readiness?offerIds=${offerId}`, { cache: 'no-store' });
-          const readinessJson = await readinessRes.json().catch(() => null);
-          const readiness = readinessJson?.ok ? readinessJson.readiness?.[offerId] : null;
-          if (readiness) {
-            nextOffer.readyCreativeCount = Number(readiness.total || 0);
-            nextOffer.readyOrganicCreativeCount = Number(readiness.organic || 0);
-            nextOffer.readyPaidCreativeCount = Number(readiness.paid || 0);
-          }
-        } catch {
-          // Best effort only.
-        }
-        setOffer(nextOffer);
-      }
-      setLoading(false);
+          const res=await fetch(`/api/offers/content-readiness?offerIds=${encodeURIComponent(offerId)}`,{cache:'no-store',signal:controller.signal});
+          const body=await res.json().catch(()=>null),readiness=body?.ok?body.readiness?.[offerId]:null;
+          if(!cancelled && res.ok && readiness) setOffer(current=>current?.id===offerId?{...current,readyCreativeCount:Number(readiness.total || 0),readyOrganicCreativeCount:Number(readiness.organic || 0),readyPaidCreativeCount:Number(readiness.paid || 0)}:current);
+        } catch { /* Best-effort readiness never hides the authoritative offer. */ }
+        finally {window.clearTimeout(timeout);}
+      } catch(error:unknown) {if(!cancelled)setLoadError(error instanceof Error?error.message:'Could not load this offer.');}
+      finally {if(!cancelled)setLoading(false);}
     };
 
     void fetchOffer();
     return () => {
       cancelled = true;
+      controller.abort();
     };
   }, [offerId]);
 
@@ -159,6 +150,9 @@ export default function AffiliateOfferProfilePage() {
     let cancelled = false;
 
     const loadStarterSpend = async () => {
+      setStarterSpendError(null);
+      setStarterSpendLabel(null);
+      setStarterSpendRemaining(0);
       const { data, error } = await (supabase as any)
         .from('business_activation_subsidies')
         .select('id, status, subsidy_amount, consumed_amount')
@@ -170,6 +164,7 @@ export default function AffiliateOfferProfilePage() {
       if (cancelled) return;
       if (error && error.code !== 'PGRST116') {
         console.warn('[starter spend offer load warn]', error);
+        setStarterSpendError('Starter ad spend could not be checked. You can still promote this offer.');
         return;
       }
 
@@ -189,6 +184,8 @@ export default function AffiliateOfferProfilePage() {
     let cancelled = false;
 
     const checkRequest = async () => {
+      setRequested(false);
+      setRequestStatus(null);
       const { data, error } = await (supabase as any)
         .from('affiliate_requests')
         .select('id,status,created_at')
@@ -249,7 +246,7 @@ export default function AffiliateOfferProfilePage() {
     }
   };
 
-  if (loading) {
+  if (loading || (offer && offer.id !== offerId)) {
     return (
       <div className="min-h-screen bg-surface text-white flex items-center justify-center">
         <p className="text-sm text-gray-400">Loading offer…</p>
@@ -281,7 +278,10 @@ export default function AffiliateOfferProfilePage() {
   const isPrivate = participationMode === 'private';
   const isApprovalRequired = participationMode === 'approval_required';
   const isPending = requestStatus === 'pending';
-  const brandCopy = offer.profile_bio || offer.description || 'This business has not added a full brand description yet.';
+  const bio = String(offer.profile_bio || '').trim();
+  const description = String(offer.description || '').trim();
+  const brandCopy = bio || description || 'This business has not added a full brand description yet.';
+  const destination = normalizeOfferDestination(offer.website);
   const brandHeadline = offer.profile_headline || 'About this brand';
   const heroImage = images[currentSlide] || null;
 
@@ -365,6 +365,7 @@ export default function AffiliateOfferProfilePage() {
               </div>
 
               <div className="p-5 sm:p-6 lg:p-7">
+                {starterSpendError && <p role="alert" className="mb-4 text-sm text-amber-200">{starterSpendError}</p>}
                 <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
                   <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-[#00C2CB]/35 bg-[#071416] shadow-[0_0_30px_rgba(0,194,203,0.08)] sm:h-20 sm:w-20">
                     {heroImage ? (
@@ -401,9 +402,7 @@ export default function AffiliateOfferProfilePage() {
                       )}
                     </div>
 
-                    <p className="mt-4 max-w-3xl text-sm leading-6 text-white/58 sm:text-[15px]">
-                      {brandCopy}
-                    </p>
+
                   </div>
                 </div>
               </div>
@@ -456,6 +455,7 @@ export default function AffiliateOfferProfilePage() {
                 {brandHeadline}
               </div>
               <p className="mt-4 whitespace-pre-line text-sm leading-6 text-white/65">{brandCopy}</p>
+              {description && description !== brandCopy && <p className="mt-4 whitespace-pre-line text-sm leading-6 text-white/65">{description}</p>}
 
               <div className="mt-5 space-y-3 border-t border-white/8 pt-5">
                 <div className="flex items-start gap-3">
@@ -476,7 +476,7 @@ export default function AffiliateOfferProfilePage() {
                       <p className="text-xs font-semibold text-white/78">{starterSpendLabel}</p>
                       <p className="mt-1 text-xs leading-5 text-white/42">
                         {starterSpendRemaining > 0
-                          ? `$${starterSpendRemaining.toFixed(0)} of starter ad spend remains available for eligible affiliates.`
+                          ? `${formatMoney(starterSpendRemaining, "AUD")} of starter ad spend remains available for eligible affiliates.`
                           : 'Starter ad spend may be available when you begin promoting.'}
                       </p>
                     </div>
@@ -485,7 +485,7 @@ export default function AffiliateOfferProfilePage() {
               </div>
             </section>
 
-            {offer.website && (
+            {destination && (
               <section className="rounded-[24px] border border-white/10 bg-white/[0.035] p-5 sm:p-6">
                 <div className="flex items-center gap-2 text-sm font-semibold text-[#7ff5fb]">
                   <Link2 className="h-4 w-4" />
@@ -495,10 +495,10 @@ export default function AffiliateOfferProfilePage() {
 
                 <div className="mt-4 flex flex-col gap-3 sm:flex-row xl:flex-col 2xl:flex-row">
                   <div className="min-w-0 flex-1 rounded-xl border border-white/10 bg-black/20 px-3.5 py-3 text-xs text-white/70">
-                    <span className="block truncate">{offer.website}</span>
+                    <span className="block break-all">{destination}</span>
                   </div>
                   <a
-                    href={offer.website}
+                    href={destination!}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-[#00C2CB] px-4 py-3 text-xs font-bold text-[#061113] transition hover:bg-[#20d4df]"
