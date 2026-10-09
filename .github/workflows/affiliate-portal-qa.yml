@@ -1,7 +1,7 @@
 name: Affiliate portal QA repairs
 on:
   push:
-    branches: [codex/affiliate-qa-validation, codex/affiliate-qa-repairs]
+    branches: [codex/affiliate-qa-validation, codex/affiliate-qa-repairs, codex/affiliate-qa-release]
   pull_request:
     paths: ["app/affiliate/**", "app/components/inbox/**", "app/api/affiliate/**", "utils/affiliate/**", "utils/currency.ts", "utils/offers/presentation.ts", "scripts/*affiliate*", "supabase/migrations/20261009010*.sql", ".github/workflows/affiliate-portal-qa.yml"]
 permissions:
