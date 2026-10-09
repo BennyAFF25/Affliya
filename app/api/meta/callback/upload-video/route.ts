@@ -1,3 +1,4 @@
+import { validateCampaignIntent } from "../../../../../utils/meta/campaignConfiguration";
 /// app/api/meta/callback/upload-video/route.ts
 if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
   throw new Error(
@@ -97,7 +98,7 @@ async function cleanupPartialMetaCampaign(params: {
   const { campaignId, accessToken, adIdeaId } = params;
   try {
     const response = await fetch(
-      `https://graph.facebook.com/v19.0/${campaignId}`,
+      `https://graph.facebook.com/v26.0/${campaignId}`,
       {
         method: "DELETE",
         headers: {
@@ -265,7 +266,7 @@ export async function POST(req: Request) {
     const { data: offer, error: offerError } = await supabase
       .from("offers")
       .select(
-        "business_email, website, meta_pixel_id, meta_page_id, meta_ad_account_id, title",
+        "business_email, website, currency, meta_pixel_id, meta_page_id, meta_ad_account_id, title",
       )
       .eq("id", offerId)
       .single();
@@ -279,6 +280,20 @@ export async function POST(req: Request) {
         { success: false, error: "Offer lookup failed" },
         { status: 400 },
       );
+    }
+
+    // Same campaign intent contract used when the affiliate submitted it.
+    // Run before creating ANY remote Meta resources, never silently alter
+    // the selected audience, budget, creative or other business-approved data.
+    const intentCheck = validateCampaignIntent(adIdea as any, {
+      currency: String((offer as any).currency || ""),
+      requireMedia: true,
+    });
+    if (!intentCheck.ok) {
+      return NextResponse.json({
+        success: false, error: "CAMPAIGN_CONFIGURATION_INVALID",
+        stage: "configuration", message: intentCheck.errors[0], errors: intentCheck.errors,
+      }, { status: 409 });
     }
 
     const gate = await requireBusinessCampaignLaunchEntitlement({
@@ -479,10 +494,10 @@ export async function POST(req: Request) {
       "",
     );
     const ctaType = prefer(
-      body.call_to_action,
-      (body as any).cta,
       adIdea?.call_to_action,
       (adIdea as any)?.cta,
+      body.call_to_action,
+      (body as any).cta,
       "LEARN_MORE",
     );
 
@@ -498,12 +513,12 @@ export async function POST(req: Request) {
 
     // Media
     const mediaType = String(
-      prefer((body as any).media_type, adIdea?.media_type, "VIDEO") ||
+      prefer(adIdea?.media_type, (body as any).media_type, "VIDEO") ||
         "VIDEO",
     ).toUpperCase();
     const fileUrl = prefer(
-      (body as any).file_url,
       adIdea?.file_url,
+      (body as any).file_url,
       rest.file_url,
       (body as any).videoUrl,
     );
@@ -578,7 +593,7 @@ export async function POST(req: Request) {
         continue;
       }
       const interestResponse = await fetch(
-        `https://graph.facebook.com/v19.0/search?type=adinterest&q=${encodeURIComponent(suppliedId)}&limit=100`,
+        `https://graph.facebook.com/v26.0/search?type=adinterest&q=${encodeURIComponent(suppliedId)}&limit=100`,
         { headers: { Authorization: `Bearer ${access_token}` } },
       );
       const interestPayload = await safeParse(interestResponse);
@@ -613,7 +628,7 @@ export async function POST(req: Request) {
     console.log("[meta-upload] clean_ad_account_id", cleanAdAccountId);
 
     const createCampaignRes = await fetch(
-      `https://graph.facebook.com/v19.0/${cleanAdAccountId}/campaigns`,
+      `https://graph.facebook.com/v26.0/${cleanAdAccountId}/campaigns`,
       {
         method: "POST",
         headers: {
@@ -905,7 +920,7 @@ export async function POST(req: Request) {
     const validationParams = new URLSearchParams(adsetParams);
     validationParams.set("execution_options", JSON.stringify(["validate_only"]));
     const adSetValidation = await fetch(
-      `https://graph.facebook.com/v19.0/${cleanAdAccountId}/adsets`,
+      `https://graph.facebook.com/v26.0/${cleanAdAccountId}/adsets`,
       {
         method: "POST",
         headers: {
@@ -937,7 +952,7 @@ export async function POST(req: Request) {
     }
 
     const adSetRes = await fetch(
-      `https://graph.facebook.com/v19.0/${cleanAdAccountId}/adsets`,
+      `https://graph.facebook.com/v26.0/${cleanAdAccountId}/adsets`,
       {
         method: "POST",
         headers: {
@@ -984,7 +999,7 @@ export async function POST(req: Request) {
         }
 
         const imageUploadRes = await fetch(
-          `https://graph.facebook.com/v19.0/${cleanAdAccountId}/adimages`,
+          `https://graph.facebook.com/v26.0/${cleanAdAccountId}/adimages`,
           {
             method: "POST",
             headers: {
@@ -1058,7 +1073,7 @@ export async function POST(req: Request) {
         }
 
         const videoUploadRes = await fetch(
-          `https://graph.facebook.com/v19.0/${cleanAdAccountId}/advideos`,
+          `https://graph.facebook.com/v26.0/${cleanAdAccountId}/advideos`,
           {
             method: "POST",
             headers: {
@@ -1123,7 +1138,7 @@ export async function POST(req: Request) {
 
       // --- Create Ad Creative ---
       const creativeRes = await fetch(
-        `https://graph.facebook.com/v19.0/${cleanAdAccountId}/adcreatives`,
+        `https://graph.facebook.com/v26.0/${cleanAdAccountId}/adcreatives`,
         {
           method: "POST",
           headers: {
@@ -1158,7 +1173,7 @@ export async function POST(req: Request) {
 
         // --- Create Ad ---
         const adRes = await fetch(
-          `https://graph.facebook.com/v19.0/${cleanAdAccountId}/ads`,
+          `https://graph.facebook.com/v26.0/${cleanAdAccountId}/ads`,
           {
             method: "POST",
             headers: {
@@ -1285,7 +1300,7 @@ export async function POST(req: Request) {
             }
 
             const activateCampaignResponse = await fetch(
-              `https://graph.facebook.com/v19.0/${campaignData.id}`,
+              `https://graph.facebook.com/v26.0/${campaignData.id}`,
               {
                 method: "POST",
                 headers: {
