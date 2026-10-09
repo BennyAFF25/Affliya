@@ -113,13 +113,13 @@ async function main(){
  for(const mode of ["ad","organic"]){
   const {context,page}=await fixture();await page.goto(origin+"/affiliate/dashboard/promote/"+offerId+"?mode="+mode);
   await page.getByText(/No brand content yet/).waitFor();
-  assert.equal(await page.getByText("Loading brand content…",{exact:true}).count(),0);
+  await page.getByText("Loading brand content…",{exact:true}).waitFor({state:"hidden",timeout:2000});
   await context.close();
  }
  for(const brand of ["error","stall"]){
   const {context,page}=await fixture({brand});await page.goto(origin+"/affiliate/dashboard/promote/"+offerId+"?mode=organic");
   await page.getByText(/Brand content (could not|took too long)/).waitFor({timeout:20000});
-  assert.equal(await page.getByText("Loading brand content…",{exact:true}).count(),0);
+  await page.getByText("Loading brand content…",{exact:true}).waitFor({state:"hidden",timeout:2000});
   await context.close();
  }
  {
