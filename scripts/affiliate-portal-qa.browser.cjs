@@ -90,6 +90,7 @@ async function main(){
   const {context,page}=await fixture();
   await page.goto(origin+"/affiliate/dashboard/manage-campaigns");
   await page.getByRole("heading",{name:"Pending proposals",exact:true}).waitFor();
+  await page.getByRole("link",{name:"View proposal",exact:true}).first().waitFor();
   assert.equal(await page.getByRole("link",{name:"View proposal",exact:true}).count(),2,"Funding failure cannot hide pending/viewed proposals");
   await page.goto(origin+"/affiliate/dashboard/reviews");
   const details=page.getByRole("link",{name:/View details/}).first();await details.waitFor();
