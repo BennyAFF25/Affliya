@@ -42,7 +42,7 @@ export async function POST(req: Request) {
     const admin = createServerSupabaseClient();
     const { data: idea, error: ideaError } = await admin
       .from("ad_ideas")
-      .select("id,offer_id,business_email,meta_campaign_id")
+      .select("id,offer_id,business_email,status,meta_campaign_id")
       .eq("id", adIdeaId)
       .maybeSingle();
 
@@ -75,6 +75,13 @@ export async function POST(req: Request) {
         },
         { status: 409 },
       );
+    }
+
+    if (idea.status !== "pending") {
+      return NextResponse.json({
+        success: false, error: "INVALID_PROPOSAL_STATE",
+        message: "Only pending proposals can recover a partial Meta campaign.",
+      }, { status: 409 });
     }
 
     const metaCampaignId = String(idea.meta_campaign_id || "").trim();
@@ -122,6 +129,34 @@ export async function POST(req: Request) {
       );
     }
 
+    // Verify the exact Meta object is an orphan in the expected ad account.
+    // Do not delete a running campaign or one with any ad sets / ads.
+    const inspectResponse = await fetch(
+      `https://graph.facebook.com/v19.0/${encodeURIComponent(metaCampaignId)}?fields=id,account_id,status,effective_status,adsets.limit(1){id},ads.limit(1){id}`,
+      { headers: { Authorization: `Bearer ${connection.access_token}` } },
+    );
+    const metaCampaign = await safeParse(inspectResponse);
+    if (!inspectResponse.ok || metaCampaign?.error) {
+      return NextResponse.json({
+        success: false, error: "META_INSPECTION_FAILED",
+        message: "Nettmark could not verify the Meta campaign before cleanup. Check Ads Manager before retrying.",
+      }, { status: 409 });
+    }
+    const expectedAccount = String(selectedAdAccountId).replace(/^act_/, "");
+    const actualAccount = String(metaCampaign?.account_id || "").replace(/^act_/, "");
+    if (
+      String(metaCampaign?.id || "") !== metaCampaignId ||
+      actualAccount !== expectedAccount ||
+      String(metaCampaign?.status || "").toUpperCase() !== "PAUSED" ||
+      (metaCampaign?.adsets?.data?.length ?? 0) > 0 ||
+      (metaCampaign?.ads?.data?.length ?? 0) > 0
+    ) {
+      return NextResponse.json({
+        success: false, error: "META_CLEANUP_UNSAFE",
+        message: "Meta campaign ownership, paused state or empty children could not be confirmed. Nothing was deleted; review it in Ads Manager.",
+      }, { status: 409 });
+    }
+
     const deleteResponse = await fetch(
       `https://graph.facebook.com/v19.0/${encodeURIComponent(metaCampaignId)}`,
       {
@@ -148,15 +183,22 @@ export async function POST(req: Request) {
       );
     }
 
-    const { error: clearError } = await admin
+    const { data: cleared, error: clearError } = await admin
       .from("ad_ideas")
       .update({ meta_campaign_id: null, meta_status: null })
       .eq("id", adIdeaId)
       .eq("business_email", user.email)
-      .eq("meta_campaign_id", metaCampaignId);
+      .eq("status", "pending")
+      .eq("meta_campaign_id", metaCampaignId)
+      .select("id")
+      .maybeSingle();
 
-    if (clearError) {
-      throw new Error(`Meta campaign was removed but Nettmark could not clear the stored ID: ${clearError.message}`);
+    if (clearError || !cleared?.id) {
+      console.error("[business/ad-ideas/cleanup-partial] Meta removed but DB state update not confirmed", clearError);
+      return NextResponse.json({
+        success: false, error: "META_CLEANUP_STATE_UNCONFIRMED",
+        message: "Meta confirmed deletion, but Nettmark could not confirm its saved state. Do not retry; contact support.",
+      }, { status: 409 });
     }
 
     return NextResponse.json({
