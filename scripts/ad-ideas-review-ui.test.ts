@@ -11,6 +11,7 @@ const businessLogin = readFileSync('app/login/business/page.tsx', 'utf8');
 const affiliateLogin = readFileSync('app/login/affiliate/page.tsx', 'utf8');
 const webhookDedupeMigration = readFileSync('supabase/migrations/20261009095838_dedupe_proposal_approved_webhooks.sql', 'utf8');
 const webhookLaunchMigration = readFileSync('supabase/migrations/20261009102230_emit_proposal_approved_only_after_live_launch.sql', 'utf8');
+const cleanupPartialRoute = readFileSync('app/api/business/ad-ideas/cleanup-partial/route.ts', 'utf8');
 
 // Business review remains proposal-first: the business can inspect pending proposals,
 // see current derived launch blockers, reject at any time, and only launch when ready.
@@ -75,6 +76,12 @@ assert.match(metaUploadRoute, /cleanupPartialMetaCampaign/);
 assert.match(metaUploadRoute, /status:\s*"paused"/);
 assert.match(metaUploadRoute, /new URLSearchParams\(\{ status: "ACTIVE" \}\)/);
 assert.match(detailPage, /Meta cleanup required/);
+assert.match(detailPage, /Clean up partial campaign/);
+assert.match(detailPage, /\/api\/business\/ad-ideas\/cleanup-partial/);
+assert.match(cleanupPartialRoute, /auth\.getUser/);
+assert.match(cleanupPartialRoute, /live_ads/);
+assert.match(cleanupPartialRoute, /method:\s*"DELETE"/);
+assert.match(cleanupPartialRoute, /meta_campaign_id:\s*null/);
 
 // Failed launch errors must survive the readiness refresh so users see the real Meta failure.
 assert.match(detailPage, /const launchError/);

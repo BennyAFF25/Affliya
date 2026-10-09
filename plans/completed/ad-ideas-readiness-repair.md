@@ -93,3 +93,15 @@ Repair:
 - show `Meta cleanup required` instead of a generic `Checking` state if cleanup ever fails.
 
 This keeps campaign intent authoritative and prevents untracked Meta spend during partial launches.
+
+
+### Partial-campaign recovery UX
+Direct external deletion is intentionally not performed by tooling. Nettmark now exposes an authenticated business recovery action for verified partial launches:
+- it verifies the proposal belongs to the signed-in business;
+- refuses cleanup if a `live_ads` row exists;
+- resolves the exact connected Meta account for the offer;
+- deletes only the stored partial Meta campaign;
+- clears `ad_ideas.meta_campaign_id` after Meta confirms deletion;
+- reloads readiness so the proposal returns to a normal retryable state.
+
+The proposal UI shows `Meta cleanup required` and a `Clean up partial campaign` action instead of falling through to `Checking`.

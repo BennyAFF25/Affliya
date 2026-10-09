@@ -242,6 +242,7 @@ export default function AdIdeaProposalDetailPage() {
   const [subscriptionOpen, setSubscriptionOpen] = useState(false);
   const [billingClientSecret, setBillingClientSecret] = useState<string | null>(null);
   const [billingSetupBusy, setBillingSetupBusy] = useState(false);
+  const [partialCleanupBusy, setPartialCleanupBusy] = useState(false);
 
   const canonicalPath = useMemo(
     () => `/business/my-business/ad-ideas/${encodeURIComponent(proposalId)}`,
@@ -411,8 +412,38 @@ export default function AdIdeaProposalDetailPage() {
     }
   };
 
+  const cleanupPartialCampaign = async () => {
+    if (!proposal || partialCleanupBusy) return;
+    setPartialCleanupBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/business/ad-ideas/cleanup-partial", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ adIdeaId: proposal.id }),
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.success) {
+        throw new Error(json?.message || json?.error || "Could not clean up the partial Meta campaign.");
+      }
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not clean up the partial Meta campaign.");
+    } finally {
+      setPartialCleanupBusy(false);
+    }
+  };
+
   const businessNextAction = (() => {
     if (!proposal || proposal.status !== "pending") return null;
+    if (campaignReadiness?.partialMetaState) {
+      return {
+        label: "Clean up partial campaign",
+        title: "Clean up partial Meta campaign",
+        description: "A previous launch created a Meta campaign shell but no live Nettmark campaign. Remove that orphan before retrying.",
+        onClick: () => void cleanupPartialCampaign(),
+      };
+    }
     if (!subscriptionReady) {
       return {
         label: "Start free trial",
@@ -653,11 +684,15 @@ export default function AdIdeaProposalDetailPage() {
                   <button
                     type="button"
                     onClick={businessNextAction.onClick}
-                    disabled={billingSetupBusy}
+                    disabled={billingSetupBusy || partialCleanupBusy}
                     className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#57c7d1] px-4 py-3.5 text-sm font-bold text-[#061113] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {billingSetupBusy ? "Preparing secure billing…" : businessNextAction.label}
-                    {!billingSetupBusy ? <ArrowRight className="h-4 w-4" /> : null}
+                    {partialCleanupBusy
+                      ? "Cleaning up Meta campaign…"
+                      : billingSetupBusy
+                        ? "Preparing secure billing…"
+                        : businessNextAction.label}
+                    {!billingSetupBusy && !partialCleanupBusy ? <ArrowRight className="h-4 w-4" /> : null}
                   </button>
                   {billingClientSecret && !billingReady ? (
                     <Elements key={billingClientSecret} stripe={stripePromise} options={{ clientSecret: billingClientSecret }}>
