@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
+import { formatMoney } from "../../../utils/currency";
 import { supabase } from '@/../utils/supabase/pages-client';
 import { useSession } from '@supabase/auth-helpers-react';
 import { useUserSettings } from '@/../utils/hooks/useUserSettings';
@@ -74,12 +75,6 @@ type AffiliateBillingStatus = {
   error?: string;
 };
 
-const currencySymbols: Record<string, string> = {
-  USD: '$',
-  EUR: '€',
-  AUD: 'A$',
-};
-
 const CARD_SHELL = 'rounded-3xl border border-[var(--border)] bg-[var(--card)] shadow-[0_25px_70px_rgba(0,0,0,0.08)]';
 const PANEL_CARD = 'rounded-2xl border border-[var(--border)] bg-[var(--card)] shadow-[0_20px_55px_rgba(0,0,0,0.08)]';
 const INPUT_CLASS = 'w-full rounded-2xl border border-[var(--border)] bg-[var(--input-background)] text-[var(--foreground)] placeholder-[var(--muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--ring)]';
@@ -92,10 +87,6 @@ function toMoney(value: number | string | null | undefined) {
   const n = Number(value ?? 0);
   if (!Number.isFinite(n)) return 0;
   return Math.round(n * 100) / 100;
-}
-
-function formatMoney(amount: number, currency: string) {
-  return `${currencySymbols[currency] ?? '$'}${toMoney(amount).toFixed(2)}`;
 }
 
 function calculateChargeOnTopPreview(principalAmount: number) {
@@ -650,7 +641,7 @@ export default function AffiliateWalletPage() {
               <div className="rounded-2xl bg-black/20 p-4 backdrop-blur-sm">
                 <p className="text-xs font-semibold uppercase tracking-wide text-white/60">Wallet health</p>
                 <p className="mt-2 text-sm font-medium text-white">
-                  {refundLockState.locked ? 'Some funds are temporarily locked' : 'Funds are clear for refunds'}
+                  {availableToRefund > 0 ? 'Funds are clear for refunds' : refundableBalance > 0 && refundLockState.locked ? 'Some funds are temporarily locked' : 'No refundable funds'}
                 </p>
                 <p className="mt-2 text-xs leading-5 text-white/75">{refundBlockReason}</p>
               </div>

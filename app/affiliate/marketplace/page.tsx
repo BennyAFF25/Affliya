@@ -1,5 +1,6 @@
 "use client";
 
+import { formatMoney } from "../../../utils/currency";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -45,19 +46,6 @@ type RequestStatus = "approved" | "pending" | "rejected";
 type MarketplaceStatus = "all" | "ads" | "organic" | "pending";
 
 const PAGE_SIZE = 8;
-
-function formatMoney(amount: number, currency?: string) {
-  const normalizedCurrency = (currency || "USD").toUpperCase();
-  try {
-    return new Intl.NumberFormat("en-AU", {
-      style: "currency",
-      currency: normalizedCurrency,
-      maximumFractionDigits: amount >= 100 ? 0 : 2,
-    }).format(amount);
-  } catch {
-    return `${normalizedCurrency} ${amount.toFixed(2)}`;
-  }
-}
 
 function MarketplaceRow({
   offer,
@@ -168,11 +156,11 @@ function MarketplaceRow({
 
         <div>
           <p className="text-sm font-semibold text-[var(--foreground)]">
-            {estimatedPayout != null ? formatMoney(estimatedPayout, offer.currency) : "—"}
+            {estimatedPayout != null ? formatMoney(estimatedPayout, offer.currency ?? null) : "—"}
           </p>
           <p className="mt-0.5 text-[11px] text-[var(--muted-foreground)]">Typical payout</p>
           {offer.price ? (
-            <p className="mt-0.5 truncate text-[10px] text-[var(--muted-foreground)]">Based on order value of {formatMoney(offer.price, offer.currency)}</p>
+            <p className="mt-0.5 truncate text-[10px] text-[var(--muted-foreground)]">Based on order value of {formatMoney(offer.price, offer.currency ?? null)}</p>
           ) : null}
         </div>
 

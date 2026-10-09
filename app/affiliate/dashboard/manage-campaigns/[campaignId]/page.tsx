@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState, useCallback } from "react";
+import { formatMoney as formatCurrencyAmount } from "../../../../../utils/currency";
 import { Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -141,29 +142,13 @@ export default function ManageCampaignPage() {
     return labels;
   }
 
-  const formatMoney = useCallback(
-    (val: any) => {
-      const n = Number(val);
-      const safe = Number.isFinite(n) ? n : 0;
-      const currency = String(metaCurrency || "AUD").toUpperCase();
-      try {
-        return new Intl.NumberFormat("en-AU", {
-          style: "currency",
-          currency,
-        }).format(safe);
-      } catch {
-        return `A$${safe.toFixed(2)}`;
-      }
-    },
-    [metaCurrency],
-  );
-
+  const formatMoney = useCallback((value: number) => formatCurrencyAmount(value, metaCurrency || "AUD"), [metaCurrency]);
   async function loadMetaCurrencyForBusiness(businessEmail?: string | null) {
     if (!businessEmail) return;
 
     const { data, error: connErr } = await supabase
       .from("meta_connections")
-      .select("currency, account_currency, ad_account_currency, created_at")
+      .select("ad_account_currency, created_at")
       .eq("business_email", businessEmail)
       .order("created_at", { ascending: false })
       .limit(1)
@@ -174,10 +159,7 @@ export default function ManageCampaignPage() {
       return;
     }
 
-    const cur =
-      (data as any)?.currency ||
-      (data as any)?.account_currency ||
-      (data as any)?.ad_account_currency;
+    const cur = (data as { ad_account_currency?: string | null } | null)?.ad_account_currency;
     if (cur) setMetaCurrency(String(cur).toUpperCase());
   }
 

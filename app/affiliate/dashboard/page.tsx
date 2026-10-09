@@ -37,13 +37,7 @@ import {
   ReferenceLine,
 } from "recharts";
 
-// Currency formatter helper
-const formatCurrency = (value: number) => {
-  return `$${value.toLocaleString("en-US", {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  })}`;
-};
+import { formatMoney as formatCurrency } from "utils/currency";
 
 interface Profile {
   id: string;
@@ -1020,7 +1014,7 @@ function AffiliateDashboardContent() {
                           }`}>{task.description}</p>
                           {isUpcoming && (
                             <p className="mt-1 text-[11px] text-white/56">
-                              Finish the earlier step first so this makes sense.
+                              Complete the steps above, then return here to continue.
                             </p>
                           )}
                         </div>

@@ -118,6 +118,8 @@ export default function AffiliateSupportPage() {
               return (
                 <div key={faq.question} className={PANEL_CARD}>
                   <button
+                    aria-expanded={open}
+                    aria-controls={`affiliate-faq-${index}`}
                     onClick={() => setOpenIndex(open ? null : index)}
                     className="w-full flex items-start justify-between gap-4 px-5 py-4 text-left"
                   >
@@ -125,12 +127,10 @@ export default function AffiliateSupportPage() {
                       <span className={ICON_BADGE}>{open ? "–" : "+"}</span>
                       <p className="font-semibold text-base">{faq.question}</p>
                     </div>
-                    <span className="text-[var(--primary)] text-xl hidden sm:inline">
-                      {open ? "–" : "+"}
-                    </span>
+
                   </button>
                   {open && (
-                    <div className="px-5 pb-5 text-sm text-[var(--muted-foreground)] leading-relaxed">
+                    <div id={`affiliate-faq-${index}`} className="px-5 pb-5 text-sm text-[var(--muted-foreground)] leading-relaxed">
                       {faq.answer}
                     </div>
                   )}
@@ -176,7 +176,7 @@ export default function AffiliateSupportPage() {
                   Use the in-app chat bubble (bottom-right) for live triage.
                 </li>
                 <li>
-                  Ping @nettmark-support inside the VS Code Live Share session.
+                  Email <a href="mailto:contact@nettmark.com" className="text-[var(--primary)] underline">contact@nettmark.com</a> with the page and issue.
                 </li>
               </ul>
             </div>
