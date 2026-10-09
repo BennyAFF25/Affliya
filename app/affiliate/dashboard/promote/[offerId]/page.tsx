@@ -60,13 +60,6 @@ type OfferBusinessEmailRow = {
   business_email: string | null;
 };
 
-type MetaConnectionRow = {
-  access_token?: string | null;
-  ad_account_id?: string | null;
-  page_id?: string | null;
-  created_at?: string | null;
-};
-
 export default function PromoteOfferPage() {
   // Advanced bidding accordion state
   // Removed loading states
@@ -421,10 +414,7 @@ export default function PromoteOfferPage() {
   }, [videoPreviewUrl, thumbPreviewUrl]);
 
   // Meta business connection (for reach estimate)
-  const [biz, setBiz] = useState<{
-    access_token: string;
-    ad_account_id: string;
-  } | null>(null);
+
   const [participationMode, setParticipationMode] = useState<"open" | "approval_required" | "private">("open");
   const [participationStatus, setParticipationStatus] = useState<"approved" | "pending" | "rejected" | null>(null);
 
@@ -497,42 +487,8 @@ export default function PromoteOfferPage() {
         }));
       }
 
-      // 2) Meta creds by business_email (from meta_connections)
-      // AppleDash + similar cases can have multiple rows per business_email (different pages/ad accounts).
-      // Pick the row that matches offer.meta_page_id first, then fallback to most recent valid row.
-      setBiz(null);
-      if (offer?.business_email) {
-        const { data: mcRows, error: mcErr } = await (supabase as any)
-          .from("meta_connections")
-          .select("access_token, ad_account_id, page_id, created_at")
-          .eq("business_email", offer.business_email as string)
-          .order("created_at", { ascending: false });
-
-        if (mcErr) {
-          console.warn("[meta_connections fetch warn]", mcErr);
-        } else {
-          const rows = (mcRows || []) as MetaConnectionRow[];
-          const valid = rows.filter(
-            (r) => !!r?.access_token && !!r?.ad_account_id,
-          );
-          const offerPageId = String(
-            (offer as OfferRow)?.meta_page_id || "",
-          ).trim();
-
-          const matchedByPage = offerPageId
-            ? valid.find((r) => String(r.page_id || "").trim() === offerPageId)
-            : null;
-
-          const chosen = matchedByPage || valid[0] || null;
-
-          if (chosen?.access_token && chosen?.ad_account_id) {
-            setBiz({
-              access_token: chosen.access_token,
-              ad_account_id: chosen.ad_account_id,
-            });
-          }
-        }
-      }
+      // Meta tokens must stay on the server. Reach estimates resolve the
+      // exact connected account from the offer in the authenticated API.
 
       if (userEmail) {
         const { data: requestRow } = await (supabase as any)
@@ -711,11 +667,6 @@ export default function PromoteOfferPage() {
 
   const triggerReach = useDebounce(async () => {
     try {
-      // We prefer client-resolved biz creds when available, but server can fallback via offer_id.
-      const numericAd = biz?.ad_account_id
-        ? String(biz.ad_account_id).replace(/^act_/, "")
-        : "";
-
       const countries = form.location_countries
         .split(",")
         .map((c) => c.trim())
@@ -755,8 +706,6 @@ export default function PromoteOfferPage() {
       const placementSpec = buildPlacementTargeting(form.placements);
 
       const est = await fetchReachEstimate({
-        access_token: biz?.access_token,
-        ad_account_id: numericAd,
         offer_id: offerId,
         countries,
         age_min,
@@ -826,7 +775,6 @@ export default function PromoteOfferPage() {
     triggerReach();
     // include placements so toggling them updates estimate
   }, [
-    biz,
     offerId,
     form.location_countries,
     form.age_min,
