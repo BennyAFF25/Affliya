@@ -50,15 +50,6 @@ export default function BusinessLogin() {
     }
 
     try {
-      await supabase.auth.signOut();
-    } catch (signOutErr) {
-      console.warn(
-        "[Business login] signOut before login failed (safe to ignore)",
-        signOutErr,
-      );
-    }
-
-    try {
       const { data, error: signInError } =
         await supabase.auth.signInWithPassword({
           email: trimmedEmail,

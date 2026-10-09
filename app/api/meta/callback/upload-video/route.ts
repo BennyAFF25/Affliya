@@ -499,6 +499,9 @@ export async function POST(req: Request) {
           objective: mappedObjective,
           status: "ACTIVE",
           special_ad_categories: [payload.special_ad_category || "NONE"],
+          // Required by current Meta Marketing API when budget lives on the ad set.
+          // Keep sharing disabled so the affiliate's configured ad-set budget remains explicit.
+          is_adset_budget_sharing_enabled: false,
         }),
       },
     );
@@ -510,6 +513,10 @@ export async function POST(req: Request) {
         {
           success: false,
           error: "Campaign creation failed",
+          message:
+            campaignData?.error?.error_user_msg ||
+            campaignData?.error?.message ||
+            "Meta rejected campaign creation.",
           meta: campaignData,
         },
         { status: 400 },

@@ -340,8 +340,10 @@ export default function AdIdeaProposalDetailPage() {
       clearPaidCampaignResume(proposal.id);
       router.push("/business/manage-campaigns");
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not launch this campaign.");
+      const launchError =
+        err instanceof Error ? err.message : "Could not launch this campaign.";
       await load();
+      setError(launchError);
     } finally {
       setBusy(false);
     }

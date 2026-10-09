@@ -6,6 +6,10 @@ const route = readFileSync('app/api/business/ad-ideas/review-readiness/route.ts'
 const launchRoute = readFileSync('app/api/business/ad-ideas/launch/route.ts', 'utf8');
 const detailPage = readFileSync('app/business/my-business/ad-ideas/[id]/page.tsx', 'utf8');
 const reviewRoute = readFileSync('app/api/business/ad-ideas/[adIdeaId]/review/route.ts', 'utf8');
+const metaUploadRoute = readFileSync('app/api/meta/callback/upload-video/route.ts', 'utf8');
+const businessLogin = readFileSync('app/login/business/page.tsx', 'utf8');
+const affiliateLogin = readFileSync('app/login/affiliate/page.tsx', 'utf8');
+const webhookDedupeMigration = readFileSync('supabase/migrations/20261009095838_dedupe_proposal_approved_webhooks.sql', 'utf8');
 
 // Business review remains proposal-first: the business can inspect pending proposals,
 // see current derived launch blockers, reject at any time, and only launch when ready.
@@ -57,5 +61,21 @@ assert.match(launchRoute, /assertOfferTrackingReady/);
 assert.match(launchRoute, /requireBusinessCampaignLaunchEntitlement/);
 assert.match(launchRoute, /assertBusinessPaymentReadyForCommission/);
 assert.match(launchRoute, /validatePaidCampaignTiming/);
+
+// Meta v24+ requires an explicit ad-set budget sharing decision for ad-set budgets.
+assert.match(metaUploadRoute, /is_adset_budget_sharing_enabled:\s*false/);
+assert.match(metaUploadRoute, /error_user_msg/);
+
+// Failed launch errors must survive the readiness refresh so users see the real Meta failure.
+assert.match(detailPage, /const launchError/);
+assert.match(detailPage, /await load\(\);\s*setError\(launchError\)/);
+
+// Login must never globally revoke an existing session just to switch accounts.
+assert.doesNotMatch(businessLogin, /auth\.signOut\(\)/);
+assert.doesNotMatch(affiliateLogin, /auth\.signOut\(\)/);
+
+// Proposal approval webhook is one-time per proposal, even after launch retries.
+assert.match(webhookDedupeMigration, /proposal\.approved:/);
+assert.match(webhookDedupeMigration, /before insert on public\.affiliate_webhook_outbox/);
 
 console.log('ad ideas review UI tests passed');

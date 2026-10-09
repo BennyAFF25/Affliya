@@ -29,15 +29,6 @@ export default function AffiliateLogin() {
     }
 
     try {
-      await supabase.auth.signOut();
-    } catch (signOutErr) {
-      console.warn(
-        "[Affiliate login] signOut before login failed (safe to ignore)",
-        signOutErr,
-      );
-    }
-
-    try {
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email: trimmedEmail,
         password: trimmedPassword,

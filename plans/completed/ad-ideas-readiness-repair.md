@@ -49,3 +49,22 @@ The proposal detail now:
 - shows only the affiliate's Nettmark username, with rejection notification delivery resolved server-side rather than exposing the affiliate email to the proposal review client.
 
 No subscription pricing, commission calculation, wallet funding, Meta launch, or settlement logic changed.
+
+
+## Follow-up: first live Meta launch failure
+The first real campaign launch reached Meta successfully but Meta rejected campaign creation before creating any campaign object. The returned error was code 100 / subcode 4834011: ad-set-budget campaigns must explicitly set `is_adset_budget_sharing_enabled`.
+
+Production state was verified before retry:
+- proposal `701f7447-be06-474b-9d2f-dfc237eaa88f` returned to `pending`;
+- `meta_campaign_id` remained null;
+- no `live_ads` row exists;
+- therefore a single retry after the payload fix is safe.
+
+Repair:
+- campaign creation now sends `is_adset_budget_sharing_enabled: false`;
+- Meta's user-facing rejection message is returned to the UI;
+- launch UI refreshes readiness and then restores the launch error instead of clearing it;
+- proposal approval webhook inserts are deduplicated by proposal ID;
+- pre-login global Supabase sign-outs were removed because login must not revoke unrelated active sessions.
+
+The Meta route still contains hard-coded Graph API v19 URLs. That version drift is tracked as follow-up technical debt rather than changed during the first live-money launch repair.
