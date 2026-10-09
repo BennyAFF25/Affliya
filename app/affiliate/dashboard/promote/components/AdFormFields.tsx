@@ -192,7 +192,7 @@ export function DateTimeField({
     )}:${pad(d.getMinutes())}`;
 
   const daysInMonth = (y: number, m: number) => new Date(y, m + 1, 0).getDate();
-  const startWeekday = (y: number, m: number) => new Date(y, m, 1).getDay();
+  const startWeekday = (y: number, m: number) => (new Date(y, m, 1).getDay() + 6) % 7;
 
   const y = view.getFullYear();
   const m = view.getMonth();
@@ -229,6 +229,8 @@ export function DateTimeField({
 
   const selectDay = (d: number) => {
     const base = sel ? new Date(sel) : new Date();
+    if (!sel) base.setHours(8, 0, 0, 0);
+    base.setDate(1); // avoid rollover when switching from day 31 to a shorter month
     base.setFullYear(y);
     base.setMonth(m);
     base.setDate(d);
@@ -246,7 +248,7 @@ export function DateTimeField({
         onClick={() => setOpen((o) => !o)}
       >
         {value ? (
-          new Date(value).toLocaleString()
+          new Date(value).toLocaleString('en-AU', { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' })
         ) : (
           <span className="text-gray-500">dd/mm/yyyy, --:-- --</span>
         )}
@@ -278,7 +280,7 @@ export function DateTimeField({
             </div>
           </div>
           <div className="grid grid-cols-7 gap-1 p-3 text-center">
-            {[...'SMTWTFS'].map((c, i) => (
+            {['M','T','W','T','F','S','S'].map((c, i) => (
               <div key={i} className="text-[11px] text-gray-400">
                 {c}
               </div>
