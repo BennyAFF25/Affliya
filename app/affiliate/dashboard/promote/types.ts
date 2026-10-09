@@ -1,3 +1,5 @@
+import type { MetaInterest } from "../../../../utils/meta/campaignConfiguration";
+
 export type GenderOpt = "" | "1" | "2"; // 1=Male, 2=Female
 
 export type PlacementKey =
@@ -19,7 +21,7 @@ export type AdFormState = {
   age_min: number;
   age_max: number;
   gender: GenderOpt;
-  interests_csv: string;
+  interests: MetaInterest[];
   placements: Record<PlacementKey, boolean>;
   headline: string;
   caption: string;
