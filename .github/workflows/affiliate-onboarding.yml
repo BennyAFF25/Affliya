@@ -42,7 +42,7 @@ jobs:
       - name: Strict typecheck new feature code
         run: yarn -s tsc --project tsconfig.affiliate-onboarding.json
       - name: Check existing integration files for new type errors
-        run: yarn -s tsx scripts/check-affiliate-types.ts cb511b0301fb071aa3299528c706840b4ed09d2e
+        run: yarn -s tsx scripts/check-affiliate-types.ts 8c589fa134ba941815415df861027f9266ccc50e
       - name: Lint new feature code
         run: yarn -s eslint --no-config-lookup --config eslint.affiliate-onboarding.config.mjs utils/affiliate lib/affiliate app/api/onboarding/affiliate-offers "app/api/affiliate/offers/[offerId]/generate-promotion" app/onboarding/for-partners app/affiliate/dashboard/promote/components/AIPromotionPackPanel.tsx app/affiliate/dashboard/promote/components/PromotionBackLink.tsx app/affiliate/layout.tsx
       - name: Install temporary browser tooling

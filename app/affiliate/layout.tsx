@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import AffiliateSidebar from "./AffiliateSidebar";
 import Topbar from "@/components/Topbar";
 import {
@@ -35,16 +35,21 @@ function AffiliateLayoutShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { toast, setToast, unreadCount } = useInboxNotifier(userEmail);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const draftRoute=useRef<string|null>(null);
+  if(!pathname.startsWith("/affiliate/dashboard/promote/"))draftRoute.current=null;
+  else if(session?.user)draftRoute.current=pathname;
+  const preserveDraft=draftRoute.current===pathname;
+
 
   useEffect(() => {
-    if (isLoading || session !== null) return;
+    if (isLoading || session !== null || preserveDraft) return;
 
     const queryString = window.location.search;
     const next = `${pathname}${queryString}`;
     router.replace(`/login/affiliate?next=${encodeURIComponent(next)}`);
-  }, [isLoading, session, pathname, router]);
+  }, [isLoading, session, pathname, router, preserveDraft]);
 
-  if (isLoading) {
+  if (isLoading && !preserveDraft) {
     return (
       <div className="trial-theme flex min-h-screen items-center justify-center bg-[var(--background)] text-[var(--foreground)]">
         Loading…
@@ -52,7 +57,7 @@ function AffiliateLayoutShell({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (session === null) {
+  if (session === null && !preserveDraft) {
     return (
       <div className="trial-theme flex min-h-screen items-center justify-center bg-[var(--background)] text-[var(--foreground)]">
         Redirecting to affiliate login…

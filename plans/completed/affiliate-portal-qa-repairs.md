@@ -17,4 +17,18 @@ HouseDesk currently has a correct website; Everbond has incomplete saved data wi
 ## Validation and delivery
 Use GitHub Actions disposable PostgreSQL RLS/replay checks, focused unit/browser tests, baseline integration typecheck, focused lint, and Vercel build. No local terminal is available. Validate on a temporary branch, deliver seven commits without rewriting history. Prepare targeted migration SQL/operator instructions; do not apply production migrations. Main/deploy explicitly authorized in session; no new environment variables expected.
 ## Status
-In progress. Latest founder approval permits resuming GitHub writes. Everbond destination and mixed-currency ledger are documented limitations.
+Completed implementation and targeted validation on 9 October 2026. Main/deployment authorized by the founder; production migrations are prepared for operator application, not executed.
+
+## Validation evidence
+Validation commit eee84b7126d43596652c031ce729046da99d1ae9:
+- GitHub Actions Affiliate portal QA repairs run 37881943948 passed: disposable PostgreSQL migration replay and Inbox RLS, shared-count pagination/errors, proposal ownership/amount units, complete URLs, display currencies and same-account session refresh/failure.
+- Actual browser checks passed for Inbox error/retry, pending/viewed proposals despite failed funding enrichment, saved read-only proposal details, early current-offer rendering, one description, empty/error/timeout brand content and expired-session draft/file preservation without writes.
+- Existing Promote return navigation, direct entry/authentication, mobile/desktop, onboarding/AI, webhook, private identity and business-offer integrity checks passed.
+- Focused lint and strict feature type checks passed. Baseline integration diagnostics: 34 before, 32 after, 0 new. Existing repository diagnostics remain; do not describe the repository as entirely type-clean.
+- Vercel preview build passed. Production browser QA remains required after rollout.
+
+## Remaining limits and rollout
+Apply only the two targeted SQL files documented in docs/AFFILIATE_QA_DATABASE_REPAIR.md; do not bulk-run the legacy automatic A$10 grant migration. Inbox will show a visible error until storage is installed. The compatibility table starts empty and grants no credits.
+HouseDesk's current production website is correct; the UI now rejects stale offer responses. Everbond's stored destination is incomplete; its real full URL is still needed and no production offer data was rewritten.
+Shared display formatting does not convert amounts. Full AUD-only wallet standardisation is intentionally not implemented: preferred-currency checkout and a ledger without stored currency/FX need a separate financial audit/decision. No charges, refunds, budgets, ad campaigns or Meta configuration changed.
+Use docs/AFFILIATE_QA_GROK_RETEST.md for a read-only production retest. Follow-up issues should distinguish missing migrations, existing incomplete data and unknown legacy currencies from regressions.
