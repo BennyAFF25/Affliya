@@ -1,3 +1,4 @@
+import { formatMoney } from "./currency";
 export type ActivationSubsidyStatus =
   | "awaiting_subscription"
   | "available"
@@ -39,5 +40,5 @@ export function isRevenueSubscriptionLive(status?: string | null) {
 export function getActivationSubsidyBadgeLabel(row?: Partial<ActivationSubsidyRow> | null) {
   const remaining = getActivationSubsidyRemaining(row);
   if (remaining <= 0) return null;
-  return `Includes $${remaining.toFixed(0)} starter ad spend`;
+  return `Includes ${formatMoney(remaining, "AUD")} starter ad spend`;
 }

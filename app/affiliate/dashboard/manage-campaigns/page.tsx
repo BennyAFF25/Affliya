@@ -1,5 +1,6 @@
 "use client";
 
+import { formatMoney } from "../../../../utils/currency";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/../utils/supabase/pages-client";
 import { loadAffiliateSubmissions, loadAffiliatePaidCampaigns, isAwaitingProposalReview, isArchivedCampaignStatus, type SubmissionKind } from "@/../utils/affiliate/portalData";
@@ -91,11 +92,6 @@ type CampaignItem =
 
 function normalizeStatus(s?: string | null) {
   return (s || "unknown").toLowerCase();
-}
-
-function fmtMoney(n?: number) {
-  const v = Number(n ?? 0) || 0;
-  return v.toFixed(2);
 }
 
 function shortDate(iso?: string | null) {
@@ -398,8 +394,8 @@ export default function AffiliateManageCampaignsPage() {
           <StatCard label="Pending proposals" value={pendingError ? "—" : pendingCount.toString()} icon={<Megaphone className="h-4 w-4" />} tone="primary" />
           <StatCard label="Live campaigns" value={error ? "—" : activeCount.toString()} icon={<Activity className="h-4 w-4" />} tone="primary" />
           <StatCard label="Archived" value={error ? "—" : archivedCount.toString()} icon={<Archive className="h-4 w-4" />} tone="muted" />
-          <StatCard label="Total paid spend" value={`$${fmtMoney(totalPaidSpend)}`} icon={<Wallet className="h-4 w-4" />} tone="primary" />
-          <StatCard label="Unsettled spend" value={`$${fmtMoney(totalUnpaidSpend)}`} icon={<Wallet className="h-4 w-4" />} tone="muted" />
+          <StatCard label="Total paid spend" value={formatMoney(totalPaidSpend)} icon={<Wallet className="h-4 w-4" />} tone="primary" />
+          <StatCard label="Unsettled spend" value={formatMoney(totalUnpaidSpend)} icon={<Wallet className="h-4 w-4" />} tone="muted" />
           <StatCard label="Organic campaigns" value={organicCount.toString()} icon={<Megaphone className="h-4 w-4" />} tone="muted" />
         </section>
 
@@ -543,7 +539,7 @@ function PendingProposalRow({ proposal }: { proposal: PendingProposal }) {
       : "WAITING FOR BUSINESS";
 
   const description = proposal.kind === "organic" ? "Organic proposal sent for business review. No ad funding is required." : proposal.state === "funding_unavailable" ? "Proposal saved. Funding could not be checked; it will be verified before launch." : fundingRequired
-    ? `The business has enabled paid promotion. Add $${(proposal.funding?.deficit || 0).toFixed(2)} to prepare this campaign for launch.`
+    ? `The business has enabled paid promotion. Add ${formatMoney(proposal.funding?.deficit || 0)} to prepare this campaign for launch.`
     : funded
       ? "Campaign funding is ready. Waiting for the business to finish setup and approve the campaign."
       : "Proposal sent. No deposit is required while the business decides whether to enable paid promotion.";
@@ -566,7 +562,7 @@ function PendingProposalRow({ proposal }: { proposal: PendingProposal }) {
               {proposal.offerTitle}
             </span>
             <span className="rounded-full bg-[var(--card)]/60 px-3 py-1">
-              {proposal.funding ? `Required at launch: ${proposal.funding.requiredAmount.toFixed(2)}` : "Funding not checked"}
+              {proposal.funding ? `Required at launch: ${formatMoney(proposal.funding.requiredAmount)}` : "Funding not checked"}
             </span>
             {proposal.createdAt ? (
               <span className="rounded-full bg-[var(--card)]/60 px-3 py-1">
@@ -624,7 +620,7 @@ function CampaignRow({
           ) : null}
           {typeof item.spend === "number" ? (
             <span className="rounded-full bg-[var(--primary)]/20 px-3 py-1 text-xs font-semibold text-[var(--primary)]">
-              Spend ${fmtMoney(item.spend)}
+              Spend {formatMoney(item.spend)}
             </span>
           ) : null}
         </div>

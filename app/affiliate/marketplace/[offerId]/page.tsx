@@ -15,6 +15,7 @@ import {
   Tag,
   Users,
 } from 'lucide-react';
+import { formatMoney } from '../../../../utils/currency';
 import { supabase } from '../../../../utils/supabase/pages-client';
 import { normalizeOfferDestination } from '../../../../utils/offers/presentation';
 import { getActivationSubsidyBadgeLabel, getActivationSubsidyRemaining } from '../../../../utils/activationSubsidies';
@@ -475,7 +476,7 @@ export default function AffiliateOfferProfilePage() {
                       <p className="text-xs font-semibold text-white/78">{starterSpendLabel}</p>
                       <p className="mt-1 text-xs leading-5 text-white/42">
                         {starterSpendRemaining > 0
-                          ? `$${starterSpendRemaining.toFixed(0)} of starter ad spend remains available for eligible affiliates.`
+                          ? `${formatMoney(starterSpendRemaining, "AUD")} of starter ad spend remains available for eligible affiliates.`
                           : 'Starter ad spend may be available when you begin promoting.'}
                       </p>
                     </div>
