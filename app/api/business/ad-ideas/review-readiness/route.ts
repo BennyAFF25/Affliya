@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { validateCampaignIntent } from "../../../../utils/meta/campaignConfiguration";
 import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { createServerSupabaseClient } from "@/../utils/businessSubscriptions";
@@ -59,7 +60,7 @@ export async function GET() {
       admin
         .from("ad_ideas")
         .select(
-          "id,offer_id,affiliate_email,business_email,status,objective,budget_amount,daily_budget,start_time,end_time,meta_campaign_id",
+          "*",
         )
         .eq("business_email", user.email)
         .eq("status", "pending")
@@ -113,12 +114,16 @@ export async function GET() {
               }),
               admin
                 .from("offers")
-                .select("id,business_email")
+                .select("id,business_email,currency")
                 .eq("id", offerId)
                 .maybeSingle(),
             ]);
 
           const timing = validatePaidCampaignTiming(idea);
+          const configuration = validateCampaignIntent(idea, {
+            currency: String(offerResult.data?.currency || ""),
+            requireMedia: true,
+          });
           const offerOwned = Boolean(
             offerResult.data?.id && offerResult.data.business_email === user.email,
           );
@@ -144,6 +149,7 @@ export async function GET() {
           if (!tracking.ok) blockers.push(tracking.error);
           if (!pixelReady) blockers.push("SALES_PIXEL_REQUIRED");
           if (!timing.ok) blockers.push(timing.error);
+          if (!configuration.ok) blockers.push("CAMPAIGN_CONFIGURATION_INVALID");
           if (partialMetaState) blockers.push("CAMPAIGN_PARTIAL_META_STATE");
 
           return [
@@ -170,6 +176,10 @@ export async function GET() {
               pixel: {
                 required: isSales,
                 ready: pixelReady,
+              },
+              configuration: {
+                ready: configuration.ok,
+                errors: configuration.errors,
               },
               timing: {
                 ready: timing.ok,
