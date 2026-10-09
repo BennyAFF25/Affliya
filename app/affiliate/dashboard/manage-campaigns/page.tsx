@@ -56,7 +56,8 @@ type PendingProposal = {
   campaignName?: string | null;
   objective?: string | null;
   createdAt?: string | null;
-  state: "waiting_for_business" | "funding_required" | "funded_waiting_for_business" | "funding_unavailable";
+  state: "waiting_for_business" | "funding_required" | "funded_waiting_for_business" | "funding_unavailable" | "timing_update_required" | "meta_cleanup_required";
+  timingMessage?: string | null;
   growthReady: boolean;
   funding: {
     ready: boolean;
@@ -542,15 +543,21 @@ export default function AffiliateManageCampaignsPage() {
 function PendingProposalRow({ proposal }: { proposal: PendingProposal }) {
   const fundingRequired = proposal.state === "funding_required";
   const funded = proposal.state === "funded_waiting_for_business";
+  const timingUpdate = proposal.state === "timing_update_required";
+  const metaCleanup = proposal.state === "meta_cleanup_required";
   const title = proposal.campaignName || proposal.title || proposal.offerTitle;
 
-  const statusLabel = proposal.kind === "organic" ? proposal.businessViewedAt ? "VIEWED" : "PENDING REVIEW" : proposal.state === "funding_unavailable" ? "FUNDING NOT CHECKED" : fundingRequired
+  const statusLabel = proposal.kind === "organic" ? proposal.businessViewedAt ? "VIEWED" : "PENDING REVIEW" : metaCleanup ? "META RECOVERY NEEDED" : timingUpdate ? "SCHEDULE UPDATE NEEDED" : proposal.state === "funding_unavailable" ? "FUNDING NOT CHECKED" : fundingRequired
     ? "FUNDING REQUIRED"
     : funded
       ? "FUNDED"
       : "WAITING FOR BUSINESS";
 
-  const description = proposal.kind === "organic" ? "Organic proposal sent for business review. No ad funding is required." : proposal.state === "funding_unavailable" ? "Proposal saved. Funding could not be checked; it will be verified before launch." : fundingRequired
+  const description = proposal.kind === "organic" ? "Organic proposal sent for business review. No ad funding is required." : metaCleanup
+    ? "A previous Meta launch partially completed. The business must safely recover the orphan campaign before retrying."
+    : timingUpdate
+      ? "The proposed campaign start or end date needs updating. The business can reschedule this proposal without changing your approved budget or creative."
+    : proposal.state === "funding_unavailable" ? "Proposal saved. Funding could not be checked; it will be verified before launch." : fundingRequired
     ? `The business has enabled paid promotion. Add ${formatMoney(proposal.funding?.deficit || 0)} to prepare this campaign for launch.`
     : funded
       ? "Campaign funding is ready. Waiting for the business to finish setup and approve the campaign."
@@ -562,7 +569,7 @@ function PendingProposalRow({ proposal }: { proposal: PendingProposal }) {
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-3">
             <div className="text-lg font-semibold">{title}</div>
-            <Badge variant={fundingRequired ? "warning" : funded ? "success" : "muted"}>
+            <Badge variant={fundingRequired || timingUpdate || metaCleanup ? "warning" : funded ? "success" : "muted"}>
               {statusLabel}
             </Badge>
           </div>
