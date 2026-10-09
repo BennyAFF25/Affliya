@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS public.business_activation_subsidies (
   expires_at timestamptz NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT business_activation_subsidies_consumed_amount_check CHECK (consumed_amount <= subsidy_amount)
+  CONSTRAINT business_activation_subsidies_consumption_limit_check CHECK (consumed_amount <= subsidy_amount)
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS business_activation_subsidies_business_email_key

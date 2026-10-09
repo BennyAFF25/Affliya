@@ -35,26 +35,34 @@ jobs:
           PGPASSWORD: fixture-only
         run: psql -h localhost -U postgres -d affiliate_qa_fixture -v ON_ERROR_STOP=1 -f scripts/affiliate-inbox-rls.test.sql
       - name: Counts, ownership, currencies, URL and session regressions
+        if: ${{ !cancelled() }}
         run: yarn -s tsx scripts/affiliate-portal-qa.test.ts
       - name: Existing product and private identity checks
+        if: ${{ !cancelled() }}
         run: |
           yarn -s tsx scripts/affiliate-onboarding.test.ts
           yarn -s tsx scripts/affiliate-assistant-webhook.test.ts
           yarn -s tsx scripts/private-marketplace-identities.test.ts
           yarn -s tsx scripts/business-offer-integrity.test.ts
       - name: Strict new feature types
+        if: ${{ !cancelled() }}
         run: yarn -s tsc --project tsconfig.affiliate-onboarding.json
       - name: No new integration type errors
+        if: ${{ !cancelled() }}
         run: yarn -s tsx scripts/check-affiliate-types.ts 8c589fa134ba941815415df861027f9266ccc50e
       - name: Focused lint
+        if: ${{ !cancelled() }}
         run: yarn -s eslint --no-config-lookup --config eslint.affiliate-onboarding.config.mjs utils/affiliate utils/currency.ts utils/offers/presentation.ts "app/api/affiliate/proposals/[kind]/[proposalId]" scripts/affiliate-portal-qa.test.ts app/affiliate/layout.tsx
       - name: Install temporary browser tooling
+        if: ${{ !cancelled() }}
         run: npm install --prefix "$RUNNER_TEMP/nettmark-affiliate-browser" --no-package-lock --ignore-scripts playwright@1.58.2
       - name: Actual editor return navigation
+        if: ${{ !cancelled() }}
         env:
           NEXT_TELEMETRY_DISABLED: "1"
         run: NODE_PATH="$RUNNER_TEMP/nettmark-affiliate-browser/node_modules" node scripts/affiliate-promote-back.browser.cjs
       - name: Errors, saved proposal, early offer rendering and expired draft
+        if: ${{ !cancelled() }}
         env:
           NEXT_TELEMETRY_DISABLED: "1"
         run: NODE_PATH="$RUNNER_TEMP/nettmark-affiliate-browser/node_modules" node scripts/affiliate-portal-qa.browser.cjs

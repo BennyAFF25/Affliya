@@ -562,7 +562,7 @@ function PendingProposalRow({ proposal }: { proposal: PendingProposal }) {
               {proposal.offerTitle}
             </span>
             <span className="rounded-full bg-[var(--card)]/60 px-3 py-1">
-              {proposal.funding ? `Required at launch: ${proposal.funding.requiredAmount.toFixed(2)}` : "Funding not checked"}
+              {proposal.funding ? `Required at launch: ${formatMoney(proposal.funding.requiredAmount)}` : "Funding not checked"}
             </span>
             {proposal.createdAt ? (
               <span className="rounded-full bg-[var(--card)]/60 px-3 py-1">

@@ -1,3 +1,4 @@
+import { formatMoney } from "../currency";
 export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export type PromotionMode = "organic" | "ad";
 
@@ -62,9 +63,7 @@ export function onboardingCommission(offer: OnboardingOffer): { label: string; d
   const fallback = { label: rate, detail: offer.type === "recurring" ? "Recurring offer · See payment terms" : null };
   if (!positive(offer.commission) || !offer.currency || !/^[A-Za-z]{3}$/.test(offer.currency)) return fallback;
   const currency = offer.currency.toUpperCase();
-  const money = (amount: number) => new Intl.NumberFormat("en", {
-    style: "currency", currency, currencyDisplay: "code",
-  }).format(amount);
+  const money = (amount: number) => formatMoney(amount, currency);
   const priceEstimate = positive(offer.price) ? offer.price * offer.commission / 100 : null;
   const suffix = " · " + offer.commission + "%";
   if (offer.type === "recurring") {

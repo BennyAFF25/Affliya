@@ -198,50 +198,50 @@ export function DbBackedInbox({
       setLoading(true);
       setLoadError(null);
       try {
-      const [messageResult, notificationResult, offerResult] =
-        await Promise.all([
-          inboxSupabase
-            .from("inbox_messages")
-            .select<InboxMessageRow>("*")
-            .eq("recipient_email", user.email)
-            .order("created_at", { ascending: false }),
-          supabase
-            .from("notifications")
-            .select("id, title, body, link_url, read_at, created_at")
-            .eq("user_email", user.email)
-            .order("created_at", { ascending: false }),
-          supabase.from("offers").select("id, title"),
-        ]);
+        const [messageResult, notificationResult, offerResult] =
+          await Promise.all([
+            inboxSupabase
+              .from("inbox_messages")
+              .select<InboxMessageRow>("*")
+              .eq("recipient_email", user.email)
+              .order("created_at", { ascending: false }),
+            supabase
+              .from("notifications")
+              .select("id, title, body, link_url, read_at, created_at")
+              .eq("user_email", user.email)
+              .order("created_at", { ascending: false }),
+            supabase.from("offers").select("id, title"),
+          ]);
 
-      if (messageResult.error) {
-        console.error(
-          "[Inbox messages fetch failed]",
-          messageResult.error.message,
-        );
-        setLoadError("Your messages could not be loaded. Please try again.");
-      } else {
-        const rows = ((messageResult.data || []) as InboxMessageRow[]).filter(
-          (row) => row.recipient_role === audience,
-        );
-        setMessages(rows);
-      }
+        if (messageResult.error) {
+          console.error(
+            "[Inbox messages fetch failed]",
+            messageResult.error.message,
+          );
+          setLoadError("Your messages could not be loaded. Please try again.");
+        } else {
+          const rows = ((messageResult.data || []) as InboxMessageRow[]).filter(
+            (row) => row.recipient_role === audience,
+          );
+          setMessages(rows);
+        }
 
-      if (notificationResult.error) {
-        console.error(
-          "[Notifications fetch failed]",
-          notificationResult.error.message,
-        );
-        setLoadError("Your notifications could not be loaded. Please try again.");
-      } else {
-        setNotifications((notificationResult.data || []) as NotificationRow[]);
-      }
+        if (notificationResult.error) {
+          console.error(
+            "[Notifications fetch failed]",
+            notificationResult.error.message,
+          );
+          setLoadError("Your notifications could not be loaded. Please try again.");
+        } else {
+          setNotifications((notificationResult.data || []) as NotificationRow[]);
+        }
 
-      if (offerResult.error) {
-        console.error("[Offers fetch failed]", offerResult.error.message);
-        setOffers([]);
-      } else {
-        setOffers((offerResult.data || []) as OfferRow[]);
-      }
+        if (offerResult.error) {
+          console.error("[Offers fetch failed]", offerResult.error.message);
+          setOffers([]);
+        } else {
+          setOffers((offerResult.data || []) as OfferRow[]);
+        }
 
       } catch (error) {
         console.error("[Inbox load failed]", error);
