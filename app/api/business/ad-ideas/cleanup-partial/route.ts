@@ -135,7 +135,7 @@ export async function POST(req: Request) {
       `https://graph.facebook.com/v19.0/${encodeURIComponent(metaCampaignId)}?fields=id,account_id,status,effective_status,adsets.limit(1){id},ads.limit(1){id}`,
       { headers: { Authorization: `Bearer ${connection.access_token}` } },
     );
-    const metaCampaign = await safeParse(inspectResponse);
+    let metaCampaign = await safeParse(inspectResponse);
     if (!inspectResponse.ok || metaCampaign?.error) {
       return NextResponse.json({
         success: false, error: "META_INSPECTION_FAILED",
@@ -143,18 +143,53 @@ export async function POST(req: Request) {
       }, { status: 409 });
     }
     const expectedAccount = String(selectedAdAccountId).replace(/^act_/, "");
-    const actualAccount = String(metaCampaign?.account_id || "").replace(/^act_/, "");
-    if (
-      String(metaCampaign?.id || "") !== metaCampaignId ||
-      actualAccount !== expectedAccount ||
-      String(metaCampaign?.status || "").toUpperCase() !== "PAUSED" ||
-      (metaCampaign?.adsets?.data?.length ?? 0) > 0 ||
-      (metaCampaign?.ads?.data?.length ?? 0) > 0
-    ) {
+     const verifiedEmptyShell = (candidate: any) =>
+      String(candidate?.id || "") === metaCampaignId &&
+      String(candidate?.account_id || "").replace(/^act_/, "") === expectedAccount &&
+      Array.isArray(candidate?.adsets?.data) &&
+      candidate.adsets.data.length === 0 &&
+      Array.isArray(candidate?.ads?.data) &&
+      candidate.ads.data.length === 0;
+    if (!verifiedEmptyShell(metaCampaign)) {
       return NextResponse.json({
         success: false, error: "META_CLEANUP_UNSAFE",
-        message: "Meta campaign ownership, paused state or empty children could not be confirmed. Nothing was deleted; review it in Ads Manager.",
+        message: "This campaign could not be verified as an empty Meta shell. Nothing was deleted; review it in Ads Manager.",
       }, { status: 409 });
+    }
+
+    // Legacy partial shells were created ACTIVE before paused-by-default shipping.
+    // An explicit cleanup click may first pause an EMPTY shell, then re-inspect it.
+    if (String(metaCampaign.status || "").toUpperCase() !== "PAUSED") {
+      const pauseResponse = await fetch(
+        `https://graph.facebook.com/v19.0/${encodeURIComponent(metaCampaignId)}`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${connection.access_token}`,
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: new URLSearchParams({ status: "PAUSED" }),
+        },
+      );
+      const pausePayload = await safeParse(pauseResponse);
+      if (!pauseResponse.ok || pausePayload?.success !== true) {
+        return NextResponse.json({
+          success: false, error: "META_PAUSE_FAILED",
+          message: "Could not pause the legacy partial Meta campaign. Nothing was deleted.",
+        }, { status: 409 });
+      }
+      const verifyPause = await fetch(
+        `https://graph.facebook.com/v19.0/${encodeURIComponent(metaCampaignId)}?fields=id,account_id,status,effective_status,adsets.limit(1){id},ads.limit(1){id}`,
+        { headers: { Authorization: `Bearer ${connection.access_token}` } },
+      );
+      metaCampaign = await safeParse(verifyPause);
+      if (!verifyPause.ok || !verifiedEmptyShell(metaCampaign) ||
+          String(metaCampaign?.status || "").toUpperCase() !== "PAUSED") {
+        return NextResponse.json({
+          success: false, error: "META_PAUSE_UNCONFIRMED",
+          message: "Meta did not confirm the paused, empty campaign. Nothing was deleted.",
+        }, { status: 409 });
+      }
     }
 
     const deleteResponse = await fetch(
