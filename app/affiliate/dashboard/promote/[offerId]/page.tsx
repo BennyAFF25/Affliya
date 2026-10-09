@@ -28,6 +28,7 @@ import { useSessionContext } from "@supabase/auth-helpers-react";
 import { ensureSubmissionSession, isSubmissionSessionError } from "../../../../../utils/affiliate/submissionSession";
 import { supabase } from "../../../../../utils/supabase/pages-client";
 import { fetchReachEstimate } from "../../../../../utils/meta/fetchReachEstimate";
+import { validateCampaignIntent } from "../../../../../utils/meta/campaignConfiguration";
 import { getActivationSubsidyBadgeLabel, getActivationSubsidyRemaining } from "../../../../../utils/activationSubsidies";
 import { calculateWalletBalance } from "../../../../../utils/wallet/balance";
 import { logProductEvent } from "../../../../../utils/productEvents";
@@ -511,18 +512,6 @@ export default function PromoteOfferPage() {
 
     go();
   }, [offerId, session, userEmail]);
-
-  // Debounce helper – prevents spamming Graph while typing
-  function useDebounce(fn: (...args: any[]) => void, delay = 600) {
-    const t = useRef<number | null>(null);
-    return (...args: any[]) => {
-      if (t.current) window.clearTimeout(t.current);
-      t.current = window.setTimeout(
-        () => fn(...args),
-        delay,
-      ) as unknown as number;
-    };
-  }
 
   // Map our placements to Meta positions (publisher_platforms + *_positions)
   function buildPlacementTargeting(placements: Record<PlacementKey, boolean>) {
@@ -1084,6 +1073,30 @@ export default function PromoteOfferPage() {
         nmToast.error("The business needs to set a campaign currency before submitting.");
         return;
       }
+      // Validate the SAME campaign contract used by the server and Meta launch.
+      // Reject incompatible audience controls and dates before uploading media.
+      const previewValidation = validateCampaignIntent({
+        campaign_name: form.campaign_name,
+        objective: form.objective,
+        budget_amount: Math.round(Number(form.budget_amount_dollars || 0) * 100),
+        budget_type: form.budget_type,
+        currency: proposalCurrency,
+        start_time: form.start_time ? new Date(form.start_time).toISOString() : null,
+        end_time: form.end_time ? new Date(form.end_time).toISOString() : null,
+        location: form.location_countries,
+        age_range: [form.age_min, form.age_max],
+        interests: form.interests,
+        manual_placements: Object.entries(form.placements).filter(([, enabled]) => enabled).map(([key]) => key),
+        placements_type: "MANUAL",
+        advantage_audience: form.advantage_audience,
+        call_to_action: form.call_to_action,
+        bid_strategy: form.bid_strategy,
+        bid_cap: form.bid_strategy === "BID_CAP" ? Number(form.bid_cap_dollars) : null,
+      });
+      if (!previewValidation.ok) {
+        nmToast.error(previewValidation.errors[0]);
+        return;
+      }
 
       // Meta, Sales Pixel, Growth, tracking and wallet readiness are launch
       // requirements, not proposal requirements. The business can review the
@@ -1228,14 +1241,16 @@ export default function PromoteOfferPage() {
       });
 
       await requireSubmissionSession(); // Recheck after uploads without replaying any write.
-      const { data: insertedIdeas, error: insertErr } = await (
-        supabase.from("ad_ideas") as any
-      )
-        .insert([insertPayload as any])
-        .select("id");
-      if (insertErr) throw insertErr;
-
-      const createdIdeaId = insertedIdeas?.[0]?.id || null;
+      const submitResponse = await fetch("/api/affiliate/ad-ideas/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(insertPayload),
+      });
+      const submitJson = await submitResponse.json().catch(() => null);
+      if (!submitResponse.ok || !submitJson?.success) {
+        throw new Error(submitJson?.message || "Couldn't save this campaign proposal.");
+      }
+      const createdIdeaId = String(submitJson.id || "") || null;
       if (createdIdeaId) {
         void fetch("/api/affiliate/ad-ideas/notify-submitted", {
           method: "POST",
