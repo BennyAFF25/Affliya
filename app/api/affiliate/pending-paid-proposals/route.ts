@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { createServerSupabaseClient } from "../../../../utils/businessSubscriptions";
 import { getBusinessEntitlement } from "../../../../utils/businessEntitlements";
-import { getAffiliateCampaignFundingReadiness } from "../../../../utils/paidCampaignLaunchReadiness";
+import { getAffiliateCampaignFundingReadiness, validatePaidCampaignTiming } from "../../../../utils/paidCampaignLaunchReadiness";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -97,7 +97,8 @@ export async function GET() {
           return null;
         });
 
-        const state = !funding ? "funding_unavailable" : !growthReady
+        const timing = validatePaidCampaignTiming(proposal);
+        const state = proposal.meta_campaign_id ? "meta_cleanup_required" : !timing.ok ? "timing_update_required" : !funding ? "funding_unavailable" : !growthReady
           ? "waiting_for_business"
           : !funding.ready
             ? "funding_required"
@@ -112,6 +113,7 @@ export async function GET() {
           objective: proposal.objective || null,
           createdAt: proposal.created_at,
           state,
+          timingMessage: timing.ok ? null : timing.message,
           growthReady,
           funding: funding ? {
             ready: funding.ready,
