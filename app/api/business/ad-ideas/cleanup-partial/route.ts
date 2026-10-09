@@ -132,7 +132,7 @@ export async function POST(req: Request) {
     // Verify the exact Meta object is an orphan in the expected ad account.
     // Do not delete a running campaign or one with any ad sets / ads.
     const inspectResponse = await fetch(
-      `https://graph.facebook.com/v19.0/${encodeURIComponent(metaCampaignId)}?fields=id,account_id,status,effective_status,adsets.limit(1){id},ads.limit(1){id}`,
+      `https://graph.facebook.com/v26.0/${encodeURIComponent(metaCampaignId)}?fields=id,account_id,status,effective_status,adsets.limit(1){id},ads.limit(1){id}`,
       { headers: { Authorization: `Bearer ${connection.access_token}` } },
     );
     let metaCampaign = await safeParse(inspectResponse);
@@ -161,7 +161,7 @@ export async function POST(req: Request) {
     // An explicit cleanup click may first pause an EMPTY shell, then re-inspect it.
     if (String(metaCampaign.status || "").toUpperCase() !== "PAUSED") {
       const pauseResponse = await fetch(
-        `https://graph.facebook.com/v19.0/${encodeURIComponent(metaCampaignId)}`,
+        `https://graph.facebook.com/v26.0/${encodeURIComponent(metaCampaignId)}`,
         {
           method: "POST",
           headers: {
@@ -179,7 +179,7 @@ export async function POST(req: Request) {
         }, { status: 409 });
       }
       const verifyPause = await fetch(
-        `https://graph.facebook.com/v19.0/${encodeURIComponent(metaCampaignId)}?fields=id,account_id,status,effective_status,adsets.limit(1){id},ads.limit(1){id}`,
+        `https://graph.facebook.com/v26.0/${encodeURIComponent(metaCampaignId)}?fields=id,account_id,status,effective_status,adsets.limit(1){id},ads.limit(1){id}`,
         { headers: { Authorization: `Bearer ${connection.access_token}` } },
       );
       metaCampaign = await safeParse(verifyPause);
@@ -193,7 +193,7 @@ export async function POST(req: Request) {
     }
 
     const deleteResponse = await fetch(
-      `https://graph.facebook.com/v19.0/${encodeURIComponent(metaCampaignId)}`,
+      `https://graph.facebook.com/v26.0/${encodeURIComponent(metaCampaignId)}`,
       {
         method: "DELETE",
         headers: {
