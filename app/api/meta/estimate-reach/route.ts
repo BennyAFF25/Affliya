@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { cookies } from 'next/headers';
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const {
-      access_token,
-      ad_account_id,
       offer_id,
       countries = [],
       age_min = 18,
@@ -17,53 +17,48 @@ export async function POST(req: NextRequest) {
       placementSpec,
     } = body || {};
 
-    let token = String(access_token || '').trim();
-    let numeric = String(ad_account_id || '').replace(/^act_/, '').trim();
-
-    // Fallback: resolve Meta credentials by offer_id server-side (avoids client RLS constraints)
-    if ((!token || !numeric) && offer_id) {
-      const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
-      const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-      if (!supabaseUrl || !serviceKey) {
-        return NextResponse.json({ error: 'Server missing Supabase admin env for estimator fallback' }, { status: 500 });
-      }
-
-      const admin = createClient(supabaseUrl, serviceKey);
-
-      const { data: offer, error: offerErr } = await admin
-        .from('offers')
-        .select('business_email, meta_page_id')
-        .eq('id', offer_id)
-        .single();
-
-      if (offerErr || !offer?.business_email) {
-        return NextResponse.json({ error: 'Could not resolve offer/business for estimator' }, { status: 400 });
-      }
-
-      const { data: mcRows, error: mcErr } = await admin
-        .from('meta_connections')
-        .select('access_token, ad_account_id, page_id, updated_at')
-        .eq('business_email', offer.business_email)
-        .order('updated_at', { ascending: false });
-
-      if (mcErr) {
-        return NextResponse.json({ error: 'Could not resolve meta connection for offer' }, { status: 400 });
-      }
-
-      const rows = (mcRows || []) as Array<{ access_token?: string | null; ad_account_id?: string | null; page_id?: string | null }>;
-      const valid = rows.filter((r) => !!r.access_token && !!r.ad_account_id);
-      const offerPageId = String(offer.meta_page_id || '').trim();
-      const matchedByPage = offerPageId ? valid.find((r) => String(r.page_id || '').trim() === offerPageId) : null;
-      const chosen = matchedByPage || valid[0] || null;
-
-      token = String(chosen?.access_token || '').trim();
-      numeric = String(chosen?.ad_account_id || '').replace(/^act_/, '').trim();
+    // Do not accept Meta tokens/account IDs from the browser. They are
+    // business-owned credentials and must never be revealed to affiliates.
+    const userClient = createRouteHandlerClient({ cookies });
+    const { data: authData, error: authError } = await userClient.auth.getUser();
+    if (authError || !authData?.user?.email) {
+      return NextResponse.json({ error: 'Sign in to estimate campaign reach.' }, { status: 401 });
     }
-
-    // normalize id; add act_ exactly once
-    if (!token || !numeric) {
-      return NextResponse.json({ error: 'Missing token or ad_account_id (and fallback lookup failed)' }, { status: 400 });
+    if (!offer_id) {
+      return NextResponse.json({ error: 'An offer is required for estimates.' }, { status: 400 });
+    }
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!supabaseUrl || !serviceKey) {
+      return NextResponse.json({ error: 'Estimator configuration unavailable.' }, { status: 500 });
+    }
+    const admin = createClient(supabaseUrl, serviceKey);
+    const { data: offer, error: offerErr } = await admin
+      .from('offers')
+      .select('business_email,meta_page_id,meta_ad_account_id')
+      .eq('id', offer_id)
+      .maybeSingle();
+    if (offerErr || !offer?.business_email || !offer.meta_page_id || !offer.meta_ad_account_id) {
+      return NextResponse.json({ error: 'This offer has not connected a complete Meta account.' }, { status: 409 });
+    }
+    const { data: mcRows, error: mcErr } = await admin
+      .from('meta_connections')
+      .select('access_token,ad_account_id,page_id,created_at')
+      .eq('business_email', offer.business_email)
+      .eq('page_id', offer.meta_page_id)
+      .order('created_at', { ascending: false });
+    if (mcErr) {
+      console.error('[estimate-reach] Meta connection lookup failed', mcErr);
+      return NextResponse.json({ error: 'Cannot resolve this offer\'s connected Meta account.' }, { status: 409 });
+    }
+    const expectedAccount = String(offer.meta_ad_account_id).replace(/^act_/, '');
+    const chosen = (mcRows || []).find(
+      (r) => String(r.ad_account_id || '').replace(/^act_/, '') === expectedAccount && r.access_token,
+    );
+    const token = String(chosen?.access_token || '').trim();
+    const numeric = expectedAccount;
+    if (!token) {
+      return NextResponse.json({ error: 'Reconnect this offer\'s Meta account for estimates.' }, { status: 409 });
     }
 
     // Build targeting_spec
@@ -98,13 +93,12 @@ export async function POST(req: NextRequest) {
 
     // Note: `currency` is not a valid param for delivery_estimate; omit to avoid (#100)
     const params = new URLSearchParams({
-      access_token: token,
       optimization_goal,
       targeting_spec: JSON.stringify(targeting),
     });
 
     const url = `https://graph.facebook.com/v19.0/act_${numeric}/delivery_estimate?${params.toString()}`;
-    const r = await fetch(url, { method: 'GET' }); // <-- GET, not POST
+    const r = await fetch(url, { method: 'GET', headers: { Authorization: `Bearer ${token}` } });
     const json = await r.json();
 
     if (!r.ok) {
