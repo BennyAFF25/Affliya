@@ -12,6 +12,11 @@ const affiliateLogin = readFileSync('app/login/affiliate/page.tsx', 'utf8');
 const webhookDedupeMigration = readFileSync('supabase/migrations/20261009095838_dedupe_proposal_approved_webhooks.sql', 'utf8');
 const webhookLaunchMigration = readFileSync('supabase/migrations/20261009102230_emit_proposal_approved_only_after_live_launch.sql', 'utf8');
 const cleanupPartialRoute = readFileSync('app/api/business/ad-ideas/cleanup-partial/route.ts', 'utf8');
+const rescheduleRoute = readFileSync('app/api/business/ad-ideas/reschedule/route.ts', 'utf8');
+const affiliateNamesRoute = readFileSync('app/api/business/ad-ideas/affiliate-names/route.ts', 'utf8');
+const affiliatePromotePage = readFileSync('app/affiliate/dashboard/promote/[offerId]/page.tsx', 'utf8');
+const reachRoute = readFileSync('app/api/meta/estimate-reach/route.ts', 'utf8');
+const rlsMigration = readFileSync('supabase/migrations/20261009224000_lockdown_public_sensitive_tables.sql', 'utf8');
 
 // Business review remains proposal-first: the business can inspect pending proposals,
 // see current derived launch blockers, reject at any time, and only launch when ready.
@@ -99,5 +104,34 @@ assert.match(metaUploadRoute, /eventType:\s*"proposal\.approved"/);
 assert.match(metaUploadRoute, /live_ad_id:/);
 assert.match(webhookLaunchMigration, /not exists[\s\S]*public\.live_ads/);
 assert.match(webhookLaunchMigration, /return null/);
+
+// Paid targeting must never silently broaden or start Meta creation before interest validation.
+assert.match(metaUploadRoute, /META_INTEREST_UNRESOLVED/);
+assert.match(metaUploadRoute, /META_INTEREST_LOOKUP_FAILED/);
+assert.ok(metaUploadRoute.indexOf('Resolve every affiliate-selected interest') < metaUploadRoute.indexOf('const createCampaignRes'));
+
+// Partial cleanup must inspect the exact Meta ad account and zero children,
+// pausing old ACTIVE empty shells before deletion.
+assert.match(cleanupPartialRoute, /verifiedEmptyShell/);
+assert.match(cleanupPartialRoute, /META_CLEANUP_UNSAFE/);
+assert.match(cleanupPartialRoute, /META_PAUSE_UNCONFIRMED/);
+assert.match(cleanupPartialRoute, /META_CLEANUP_STATE_UNCONFIRMED/);
+
+// An expired, pending proposal can be rescheduled without changing funded intent.
+assert.match(detailPage, /\/api\/business\/ad-ideas\/reschedule/);
+assert.match(detailPage, /Update campaign schedule/);
+assert.match(rescheduleRoute, /validatePaidCampaignTiming/);
+assert.match(rescheduleRoute, /meta_campaign_id/);
+assert.match(rescheduleRoute, /CAMPAIGN_ALREADY_LIVE/);
+
+// Affiliate usernames come from an owner-scoped route; Meta access tokens never enter the browser.
+assert.match(affiliateNamesRoute, /auth\.getUser/);
+assert.doesNotMatch(affiliatePromotePage, /from\("meta_connections"\)/);
+assert.match(reachRoute, /userClient\.auth\.getUser/);
+assert.match(reachRoute, /\.eq\('page_id', offer\.meta_page_id\)/);
+assert.doesNotMatch(reachRoute, /access_token: token/);
+assert.match(rlsMigration, /meta_connections_owner_select/);
+assert.match(rlsMigration, /revoke all privileges on table/);
+assert.doesNotMatch(rlsMigration, /grant select\s*on public\.meta_connections/);
 
 console.log('ad ideas review UI tests passed');
