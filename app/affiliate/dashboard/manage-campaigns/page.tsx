@@ -1,7 +1,9 @@
 "use client";
 
+import { formatMoney } from "../../../../utils/currency";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/../utils/supabase/pages-client";
+import { loadAffiliateSubmissions, loadAffiliatePaidCampaigns, isAwaitingProposalReview, isArchivedCampaignStatus, type SubmissionKind } from "@/../utils/affiliate/portalData";
 import { Badge, Button, Card, EmptyState, LoadingSkeleton, SectionHeader, StatCard } from "@/../components/ui";
 import {
   Sparkles,
@@ -44,21 +46,23 @@ type LiveCampaignRow = {
   created_at?: string | null;
 };
 
-type PendingPaidProposal = {
+type PendingProposal = {
   id: string;
   offerId: string;
   offerTitle: string;
-  businessEmail: string;
+  kind: SubmissionKind;
+  businessViewedAt?: string | null;
+  title?: string;
   campaignName?: string | null;
   objective?: string | null;
   createdAt?: string | null;
-  state: "waiting_for_business" | "funding_required" | "funded_waiting_for_business";
+  state: "waiting_for_business" | "funding_required" | "funded_waiting_for_business" | "funding_unavailable";
   growthReady: boolean;
   funding: {
     ready: boolean;
     requiredAmount: number;
     deficit: number;
-  };
+  } | null;
 };
 
 type CampaignItem =
@@ -90,23 +94,6 @@ function normalizeStatus(s?: string | null) {
   return (s || "unknown").toLowerCase();
 }
 
-function isArchivedStatus(status: string) {
-  const s = normalizeStatus(status);
-  return [
-    "paused",
-    "archived",
-    "stopped",
-    "completed",
-    "ended",
-    "deleted",
-  ].includes(s);
-}
-
-function fmtMoney(n?: number) {
-  const v = Number(n ?? 0) || 0;
-  return v.toFixed(2);
-}
-
 function shortDate(iso?: string | null) {
   if (!iso) return "";
   const d = new Date(iso);
@@ -120,7 +107,8 @@ export default function AffiliateManageCampaignsPage() {
 
   const [paidMeta, setPaidMeta] = useState<LiveAdRow[]>([]);
   const [organic, setOrganic] = useState<LiveCampaignRow[]>([]);
-  const [pendingPaid, setPendingPaid] = useState<PendingPaidProposal[]>([]);
+  const [pendingProposals, setPendingProposals] = useState<PendingProposal[]>([]);
+  const [pendingError, setPendingError] = useState<string | null>(null);
 
   // per-row spend sync loading (paid meta only)
   const [syncing, setSyncing] = useState<Record<string, boolean>>({});
@@ -132,6 +120,7 @@ export default function AffiliateManageCampaignsPage() {
   async function fetchAll() {
     setLoading(true);
     setError(null);
+    setPendingError(null);
 
     try {
       const { data: userRes, error: userErr } = await supabase.auth.getUser();
@@ -141,126 +130,31 @@ export default function AffiliateManageCampaignsPage() {
       if (!email) {
         setPaidMeta([]);
         setOrganic([]);
-        setPendingPaid([]);
+        setPendingProposals([]);
         setError("No authenticated user email found.");
         return;
       }
 
       try {
-        const pendingRes = await fetch("/api/affiliate/pending-paid-proposals", {
-          cache: "no-store",
-        });
-        const pendingJson = await pendingRes.json().catch(() => null);
-        if (!pendingRes.ok || !pendingJson?.success) {
-          throw new Error(pendingJson?.message || pendingJson?.error || "Failed to load pending proposals");
-        }
-        setPendingPaid((pendingJson.proposals || []) as PendingPaidProposal[]);
+        const [submissions, enrichment] = await Promise.all([
+          loadAffiliateSubmissions(supabase,email),
+          fetch("/api/affiliate/pending-paid-proposals",{cache:"no-store",signal:AbortSignal.timeout(8000)}).then(async res=>res.ok?await res.json():null).catch(()=>null)
+        ]);
+        const fundingById = new Map<string, PendingProposal>((enrichment?.success?enrichment.proposals || []:[]).map((row:PendingProposal)=>[row.id,row]));
+        setPendingProposals(submissions.filter(row=>isAwaitingProposalReview(row.status)).map(row=>({
+          id:row.id,offerId:row.offerId,offerTitle:row.offerTitle,createdAt:row.createdAt,state:"funding_unavailable" as const,growthReady:false,funding:null,
+          ...(row.kind==="paid"?fundingById.get(row.id):{}),kind:row.kind,businessViewedAt:row.businessViewedAt,title:row.title
+        })));
+
       } catch (pendingError) {
         console.warn("[affiliate/manage-campaigns] pending proposals unavailable", pendingError);
-        setPendingPaid([]);
+        setPendingError("Your proposals could not be loaded. Please try again.");
       }
 
       // ----------------------------
       // Paid Meta campaigns (live_ads)
       // ----------------------------
-      // NOTE: Your schema differs across environments (some don’t have `ad_name` or `source`).
-      // We do a safe query with fallbacks so we don’t break what already works.
-      const selectWithNameFull =
-        "id, offer_id, ad_name, status, billing_state, meta_ad_id, meta_campaign_id, spend, spend_transferred, created_at";
-      const selectNoNameFull =
-        "id, offer_id, status, billing_state, meta_ad_id, meta_campaign_id, spend, spend_transferred, created_at";
-
-      const selectWithNameNoOffer =
-        "id, ad_name, status, billing_state, meta_ad_id, meta_campaign_id, spend, spend_transferred, created_at";
-      const selectNoNameNoOffer =
-        "id, status, billing_state, meta_ad_id, meta_campaign_id, spend, spend_transferred, created_at";
-
-      const runLiveAdsQuery = async (
-        selectStr: string,
-        withSourceFilter: boolean,
-      ) => {
-        let q = supabase
-          .from("live_ads")
-          .select(selectStr)
-          .eq("affiliate_email", email);
-        if (withSourceFilter) q = q.eq("source", "paid_meta");
-        return q.order("created_at", { ascending: false });
-      };
-
-      let liveAdsData: LiveAdRow[] = [];
-
-      try {
-        // Attempt 1: with ad_name + offer_id + source filter
-        let currentSelect = selectWithNameFull;
-        let withSource = true;
-
-        let liveAdsRes = await runLiveAdsQuery(currentSelect, withSource);
-        let liveAdsErr = liveAdsRes.error;
-        let liveAdsRows = (liveAdsRes.data as LiveAdRow[] | null) ?? [];
-
-        // If ad_name doesn't exist, drop it
-        if (liveAdsErr?.message?.includes("ad_name")) {
-          currentSelect = currentSelect.includes("offer_id")
-            ? selectNoNameFull
-            : selectNoNameNoOffer;
-          liveAdsRes = await runLiveAdsQuery(currentSelect, withSource);
-          liveAdsErr = liveAdsRes.error;
-          liveAdsRows = (liveAdsRes.data as LiveAdRow[] | null) ?? [];
-        }
-
-        // If offer_id doesn't exist, drop it (keep whether we include ad_name or not)
-        if (liveAdsErr?.message?.includes("offer_id")) {
-          const wantsName = currentSelect.includes("ad_name");
-          currentSelect = wantsName ? selectWithNameNoOffer : selectNoNameNoOffer;
-          liveAdsRes = await runLiveAdsQuery(currentSelect, withSource);
-          liveAdsErr = liveAdsRes.error;
-          liveAdsRows = (liveAdsRes.data as LiveAdRow[] | null) ?? [];
-
-          // After dropping offer_id, if ad_name still errors, drop it too
-          if (liveAdsErr?.message?.includes("ad_name")) {
-            currentSelect = selectNoNameNoOffer;
-            liveAdsRes = await runLiveAdsQuery(currentSelect, withSource);
-            liveAdsErr = liveAdsRes.error;
-            liveAdsRows = (liveAdsRes.data as LiveAdRow[] | null) ?? [];
-          }
-        }
-
-        // If source doesn't exist, retry without source filter (keep the currentSelect)
-        if (liveAdsErr?.message?.includes("source")) {
-          withSource = false;
-          liveAdsRes = await runLiveAdsQuery(currentSelect, withSource);
-          liveAdsErr = liveAdsRes.error;
-          liveAdsRows = (liveAdsRes.data as LiveAdRow[] | null) ?? [];
-
-          // If offer_id errors now, drop it
-          if (liveAdsErr?.message?.includes("offer_id")) {
-            const wantsName = currentSelect.includes("ad_name");
-            currentSelect = wantsName
-              ? selectWithNameNoOffer
-              : selectNoNameNoOffer;
-            liveAdsRes = await runLiveAdsQuery(currentSelect, withSource);
-            liveAdsErr = liveAdsRes.error;
-            liveAdsRows = (liveAdsRes.data as LiveAdRow[] | null) ?? [];
-          }
-
-          // If ad_name errors now, drop it
-          if (liveAdsErr?.message?.includes("ad_name")) {
-            currentSelect = selectNoNameNoOffer;
-            liveAdsRes = await runLiveAdsQuery(currentSelect, withSource);
-            liveAdsErr = liveAdsRes.error;
-            liveAdsRows = (liveAdsRes.data as LiveAdRow[] | null) ?? [];
-          }
-        }
-
-        if (liveAdsErr) {
-          console.warn("[affiliate/manage-campaigns] paid live_ads query failed; continuing without paid rows", liveAdsErr);
-        } else {
-          liveAdsData = liveAdsRows.filter(Boolean);
-        }
-      } catch (liveAdsFatalErr) {
-        console.warn("[affiliate/manage-campaigns] paid live_ads fetch crashed; continuing without paid rows", liveAdsFatalErr);
-      }
-
+      const liveAdsData = await loadAffiliatePaidCampaigns(supabase,email) as unknown as LiveAdRow[];
       setPaidMeta(liveAdsData);
 
       // ----------------------------
@@ -443,11 +337,11 @@ export default function AffiliateManageCampaignsPage() {
   }, [paidMeta, organic, offerNameById]);
 
   const activeItems = useMemo(
-    () => items.filter((i) => !isArchivedStatus(i.status)),
+    () => items.filter((i) => !isArchivedCampaignStatus(i.status)),
     [items],
   );
   const archivedItems = useMemo(
-    () => items.filter((i) => isArchivedStatus(i.status)),
+    () => items.filter((i) => isArchivedCampaignStatus(i.status)),
     [items],
   );
 
@@ -463,7 +357,7 @@ export default function AffiliateManageCampaignsPage() {
     return sum + Math.max(0, spend - transferred);
   }, 0);
   const organicCount = organic.length;
-  const pendingCount = pendingPaid.length;
+  const pendingCount = pendingProposals.length;
 
   return (
     <div className="min-h-screen bg-[var(--background)] p-6 text-[var(--foreground)]">
@@ -497,11 +391,11 @@ export default function AffiliateManageCampaignsPage() {
         </section>
 
         <section className="mb-7 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-6">
-          <StatCard label="Pending proposals" value={pendingCount.toString()} icon={<Megaphone className="h-4 w-4" />} tone="primary" />
+          <StatCard label="Pending proposals" value={pendingError ? "—" : pendingCount.toString()} icon={<Megaphone className="h-4 w-4" />} tone="primary" />
           <StatCard label="Live campaigns" value={activeCount.toString()} icon={<Activity className="h-4 w-4" />} tone="primary" />
           <StatCard label="Archived" value={archivedCount.toString()} icon={<Archive className="h-4 w-4" />} tone="muted" />
-          <StatCard label="Total paid spend" value={`$${fmtMoney(totalPaidSpend)}`} icon={<Wallet className="h-4 w-4" />} tone="primary" />
-          <StatCard label="Unsettled spend" value={`$${fmtMoney(totalUnpaidSpend)}`} icon={<Wallet className="h-4 w-4" />} tone="muted" />
+          <StatCard label="Total paid spend" value={formatMoney(totalPaidSpend)} icon={<Wallet className="h-4 w-4" />} tone="primary" />
+          <StatCard label="Unsettled spend" value={formatMoney(totalUnpaidSpend)} icon={<Wallet className="h-4 w-4" />} tone="muted" />
           <StatCard label="Organic campaigns" value={organicCount.toString()} icon={<Megaphone className="h-4 w-4" />} tone="muted" />
         </section>
 
@@ -511,6 +405,7 @@ export default function AffiliateManageCampaignsPage() {
           </div>
         )}
 
+        {pendingError && <div role="alert" className="mb-4 rounded-2xl border border-amber-400/20 p-4 text-sm"><p>{pendingError}</p><button onClick={() => void fetchAll()} className="mt-2 text-[var(--primary)]">Try again</button></div>}
         {/* Pending paid proposals */}
         <Card className="mb-6 p-5 md:p-6" variant="elevated">
           <SectionHeader
@@ -521,7 +416,7 @@ export default function AffiliateManageCampaignsPage() {
           <div className="mt-5">
             {loading ? (
               <LoadingSkeleton lines={2} />
-            ) : pendingPaid.length === 0 ? (
+            ) : pendingProposals.length === 0 ? (
               <EmptyState
                 title="No pending paid proposals"
                 description="Submit a paid campaign proposal from an offer and it will wait here until launch."
@@ -529,8 +424,8 @@ export default function AffiliateManageCampaignsPage() {
               />
             ) : (
               <div className="space-y-3">
-                {pendingPaid.map((proposal) => (
-                  <PendingProposalRow key={proposal.id} proposal={proposal} />
+                {pendingProposals.map((proposal) => (
+                  <PendingProposalRow key={proposal.kind + ":" + proposal.id} proposal={proposal} />
                 ))}
               </div>
             )}
@@ -632,19 +527,19 @@ export default function AffiliateManageCampaignsPage() {
   );
 }
 
-function PendingProposalRow({ proposal }: { proposal: PendingPaidProposal }) {
+function PendingProposalRow({ proposal }: { proposal: PendingProposal }) {
   const fundingRequired = proposal.state === "funding_required";
   const funded = proposal.state === "funded_waiting_for_business";
-  const title = proposal.campaignName || proposal.offerTitle;
+  const title = proposal.campaignName || proposal.title || proposal.offerTitle;
 
-  const statusLabel = fundingRequired
+  const statusLabel = proposal.kind === "organic" ? proposal.businessViewedAt ? "VIEWED" : "PENDING REVIEW" : proposal.state === "funding_unavailable" ? "FUNDING NOT CHECKED" : fundingRequired
     ? "FUNDING REQUIRED"
     : funded
       ? "FUNDED"
       : "WAITING FOR BUSINESS";
 
-  const description = fundingRequired
-    ? `The business has enabled paid promotion. Add $${proposal.funding.deficit.toFixed(2)} to prepare this campaign for launch.`
+  const description = proposal.kind === "organic" ? "Organic proposal sent for business review. No ad funding is required." : proposal.state === "funding_unavailable" ? "Proposal saved. Funding could not be checked; it will be verified before launch." : fundingRequired
+    ? `The business has enabled paid promotion. Add ${formatMoney(proposal.funding?.deficit || 0)} to prepare this campaign for launch.`
     : funded
       ? "Campaign funding is ready. Waiting for the business to finish setup and approve the campaign."
       : "Proposal sent. No deposit is required while the business decides whether to enable paid promotion.";
@@ -667,7 +562,7 @@ function PendingProposalRow({ proposal }: { proposal: PendingPaidProposal }) {
               {proposal.offerTitle}
             </span>
             <span className="rounded-full bg-[var(--card)]/60 px-3 py-1">
-              Required at launch: ${proposal.funding.requiredAmount.toFixed(2)}
+              {proposal.funding ? `Required at launch: ${proposal.funding.requiredAmount.toFixed(2)}` : "Funding not checked"}
             </span>
             {proposal.createdAt ? (
               <span className="rounded-full bg-[var(--card)]/60 px-3 py-1">
@@ -676,6 +571,7 @@ function PendingProposalRow({ proposal }: { proposal: PendingPaidProposal }) {
             ) : null}
           </div>
         </div>
+        <Button href={`/affiliate/dashboard/reviews/${proposal.kind}/${proposal.id}`} variant="outline" className="rounded-full">View proposal</Button>
         {fundingRequired ? (
           <Button href="/affiliate/wallet" className="rounded-full">
             Top up wallet
@@ -724,7 +620,7 @@ function CampaignRow({
           ) : null}
           {typeof item.spend === "number" ? (
             <span className="rounded-full bg-[var(--primary)]/20 px-3 py-1 text-xs font-semibold text-[var(--primary)]">
-              Spend ${fmtMoney(item.spend)}
+              Spend {formatMoney(item.spend)}
             </span>
           ) : null}
         </div>

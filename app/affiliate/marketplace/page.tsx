@@ -1,5 +1,6 @@
 "use client";
 
+import { formatMoney } from "../../../utils/currency";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -45,19 +46,6 @@ type RequestStatus = "approved" | "pending" | "rejected";
 type MarketplaceStatus = "all" | "ads" | "organic" | "pending";
 
 const PAGE_SIZE = 8;
-
-function formatMoney(amount: number, currency?: string) {
-  const normalizedCurrency = (currency || "USD").toUpperCase();
-  try {
-    return new Intl.NumberFormat("en-AU", {
-      style: "currency",
-      currency: normalizedCurrency,
-      maximumFractionDigits: amount >= 100 ? 0 : 2,
-    }).format(amount);
-  } catch {
-    return `${normalizedCurrency} ${amount.toFixed(2)}`;
-  }
-}
 
 function MarketplaceRow({
   offer,
@@ -168,11 +156,11 @@ function MarketplaceRow({
 
         <div>
           <p className="text-sm font-semibold text-[var(--foreground)]">
-            {estimatedPayout != null ? formatMoney(estimatedPayout, offer.currency) : "—"}
+            {estimatedPayout != null ? formatMoney(estimatedPayout, offer.currency ?? null) : "—"}
           </p>
           <p className="mt-0.5 text-[11px] text-[var(--muted-foreground)]">Typical payout</p>
           {offer.price ? (
-            <p className="mt-0.5 truncate text-[10px] text-[var(--muted-foreground)]">Based on order value of {formatMoney(offer.price, offer.currency)}</p>
+            <p className="mt-0.5 truncate text-[10px] text-[var(--muted-foreground)]">Based on order value of {formatMoney(offer.price, offer.currency ?? null)}</p>
           ) : null}
         </div>
 
@@ -246,6 +234,10 @@ function MarketplaceRow({
 
 export default function AffiliateMarketplace() {
   const [offers, setOffers] = useState<Offer[]>([]);
+  const [offersLoading, setOffersLoading] = useState(true);
+  const [offersError, setOffersError] = useState<string | null>(null);
+  const [starterSpendError, setStarterSpendError] = useState<string | null>(null);
+  const [reload, setReload] = useState(0);
   const [participatingIds, setParticipatingIds] = useState<string[]>([]);
   const [requestStatusByOfferId, setRequestStatusByOfferId] = useState<Record<string, RequestStatus>>({});
   const [search, setSearch] = useState("");
@@ -292,6 +284,10 @@ export default function AffiliateMarketplace() {
     };
 
     const fetchOffers = async () => {
+      setOffersLoading(true);
+      setOffersError(null);
+      setStarterSpendError(null);
+      try {
       const offerColumnsWithParticipationMode = `id,title,created_at,business_email,description,commission,type,currency,price,commission_value,logo_url,website,meta_page_id,meta_ad_account_id,meta_pixel_id,participation_mode`;
       const offerColumnsFallback = `id,title,created_at,business_email,description,commission,type,currency,price,commission_value,logo_url,website,meta_page_id,meta_ad_account_id,meta_pixel_id`;
 
@@ -309,14 +305,13 @@ export default function AffiliateMarketplace() {
       ]);
 
       if (error) {
-        console.error("[❌ Error fetching offers]", error.message);
-        return;
+        throw error;
       }
       if (!data) {
         setOffers([]);
         return;
       }
-      if (subsidyErr) console.error("[❌ Error fetching starter spend rows]", subsidyErr.message);
+      if (subsidyErr) setStarterSpendError("Starter ad spend could not be checked. Offer commissions remain available.");
 
       const subsidyMap = new Map<string, number>();
       for (const row of (subsidyRows || []) as any[]) {
@@ -363,10 +358,14 @@ export default function AffiliateMarketplace() {
         offer.readyPaidCreativeCount = Number(readiness.paid || 0);
       });
       setOffers(formatted);
+      } catch (error) {
+        console.error("[marketplace/offers]", error);
+        setOffersError("Offers could not be loaded. Please try again.");
+      } finally { setOffersLoading(false); }
     };
 
-    fetchOffers();
-  }, []);
+    void fetchOffers();
+  }, [reload]);
 
   useEffect(() => {
     const fetchRequests = async () => {
@@ -511,12 +510,13 @@ export default function AffiliateMarketplace() {
             <span>Brand / Offer</span><span>Offer Type</span><span>Earnings</span><span>Order Details</span><span>Status</span><span className="text-right">Actions</span>
           </div>
 
+          {(offersError || starterSpendError) && <div role="alert" className="p-4 text-sm"><p>{offersError || starterSpendError}</p><button type="button" onClick={() => setReload(value => value + 1)} className="mt-2 text-[var(--primary)]">Try again</button></div>}
           {visibleOffers.length ? visibleOffers.map((offer) => (
             <MarketplaceRow key={offer.id} offer={offer} alreadyRequested={participatingIds.includes(offer.id)} currentStatus={requestStatusByOfferId[offer.id] || null} />
           )) : (
             <div className="px-6 py-16 text-center">
-              <p className="text-sm font-medium text-[var(--foreground)]">No matching offers</p>
-              <p className="mt-1 text-xs text-[var(--muted-foreground)]">Try adjusting your search or filters.</p>
+              <p className="text-sm font-medium text-[var(--foreground)]">{offersLoading ? "Loading offers…" : offersError ? "Offers unavailable" : "No matching offers"}</p>
+              <p className="mt-1 text-xs text-[var(--muted-foreground)]">{offersError || (offersLoading ? "Fetching marketplace offers." : "Try adjusting your search or filters.")}</p>
             </div>
           )}
         </div>

@@ -24,7 +24,8 @@ import { useState, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { nmToast } from "@/components/ui/toast";
 import { FaSpinner } from "react-icons/fa";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
-import { useSession } from "@supabase/auth-helpers-react";
+import { useSessionContext } from "@supabase/auth-helpers-react";
+import { ensureSubmissionSession, isSubmissionSessionError } from "../../../../../utils/affiliate/submissionSession";
 import { supabase } from "../../../../../utils/supabase/pages-client";
 import { fetchReachEstimate } from "../../../../../utils/meta/fetchReachEstimate";
 import { getActivationSubsidyBadgeLabel, getActivationSubsidyRemaining } from "../../../../../utils/activationSubsidies";
@@ -63,7 +64,7 @@ type MetaConnectionRow = {
   access_token?: string | null;
   ad_account_id?: string | null;
   page_id?: string | null;
-  updated_at?: string | null;
+  created_at?: string | null;
 };
 
 export default function PromoteOfferPage() {
@@ -75,8 +76,16 @@ export default function PromoteOfferPage() {
   const offerId = params.offerId as string;
   const requestedMode = (searchParams.get("mode") || "").toLowerCase() === "organic" ? "organic" : "ad";
 
-  const session = useSession();
-  const userEmail = session?.user?.email || "";
+  const {session,isLoading:sessionLoading}=useSessionContext();
+  const draftOwner=useRef<{id:string;email:string}|null>(null);
+  const submissionInFlight=useRef(false);
+  const [sessionError,setSessionError]=useState<string|null>(null);
+  useEffect(()=>{if(session?.user?.email && !draftOwner.current)draftOwner.current={id:session.user.id,email:session.user.email};},[session?.user?.id,session?.user?.email]);
+  const userEmail=session?.user?.email || draftOwner.current?.email || "";
+  const requireSubmissionSession=async()=>{
+    try {const result=await ensureSubmissionSession(supabase,draftOwner.current?.id);setSessionError(null);return result.user;}
+    catch(error){setSessionError(error instanceof Error?error.message:"Sign in again. Your draft is still here.");throw error;}
+  };
 
   // ─────────────────────────────
   // Organic flow state (non-invasive)
@@ -86,6 +95,9 @@ export default function PromoteOfferPage() {
   const [organicCreativeSource, setOrganicCreativeSource] = useState<"brand" | "upload">("brand");
   const [brandCreatives, setBrandCreatives] = useState<ContentLibraryAsset[]>([]);
   const [brandContentLoading, setBrandContentLoading] = useState(false);
+  const [brandContentError, setBrandContentError] = useState<string | null>(null);
+  const [brandContentLoaded, setBrandContentLoaded] = useState(false);
+  const [brandContentReload, setBrandContentReload] = useState(0);
   const [selectedAdBrandCreative, setSelectedAdBrandCreative] = useState<ContentLibraryAsset | null>(null);
   const [selectedOrganicBrandCreative, setSelectedOrganicBrandCreative] = useState<ContentLibraryAsset | null>(null);
   const [promotionStartedLogged, setPromotionStartedLogged] = useState(false);
@@ -114,6 +126,7 @@ export default function PromoteOfferPage() {
   const [walletLoading, setWalletLoading] = useState<boolean>(true);
   const [starterSpendRemaining, setStarterSpendRemaining] = useState<number>(0);
   const [starterSpendLabel, setStarterSpendLabel] = useState<string | null>(null);
+  const [starterSpendError, setStarterSpendError] = useState<string | null>(null);
   // ─────────────────────────────
   // Wallet balance loader
   // ─────────────────────────────
@@ -122,6 +135,7 @@ export default function PromoteOfferPage() {
 
     const loadWallet = async () => {
       setWalletLoading(true);
+      setStarterSpendError(null);
       const { data, error } = await (supabase as any)
         .from("wallet_topups")
         .select("amount_net, credited_amount, amount_refunded, status")
@@ -157,6 +171,7 @@ export default function PromoteOfferPage() {
 
       if (subsidyErr) {
         console.error("[starter spend load error]", subsidyErr);
+        setStarterSpendError("Starter ad spend could not be checked. Funding is verified before launch.");
         setStarterSpendRemaining(0);
         setStarterSpendLabel(null);
       } else {
@@ -180,35 +195,31 @@ export default function PromoteOfferPage() {
   const [ogCaption, setOgCaption] = useState<string>(""); // social caption OR email subject OR forum title/url
   const [ogContent, setOgContent] = useState<string>(""); // email body / forum body
   const [ogFile, setOgFile] = useState<File | null>(null); // optional media for social
-  const userId = (session as any)?.user?.id as string | undefined;
-
-  // ─────────────────────────────
-  // Auth guard (avoid loop)
-  // ─────────────────────────────
   useEffect(() => {
-    if (session === undefined) return;
-    if (session === null) router.push("/");
-  }, [session, router]);
-
-  useEffect(() => {
-    if (!offerId || !userEmail) return;
+    if (!offerId || !userEmail) { setBrandContentLoading(false); return; }
 
     const flowMode = mode === "ad" ? "paid" : "organic";
     const currentSource = mode === "ad" ? adCreativeSource : organicCreativeSource;
-    if (currentSource !== "brand") return;
+    if (currentSource !== "brand") { setBrandContentLoading(false); return; }
 
     let cancelled = false;
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 10000);
     const loadBrandContent = async () => {
       setBrandContentLoading(true);
+      setBrandContentError(null);
+      setBrandContentLoaded(false);
+      setBrandCreatives([]);
       try {
-        const res = await fetch(`/api/affiliate/offers/${offerId}/brand-content?mode=${flowMode}`, { cache: "no-store" });
-        const json = await res.json();
+        const res = await fetch(`/api/affiliate/offers/${offerId}/brand-content?mode=${flowMode}`, { cache: "no-store", signal: controller.signal });
+        const json = await res.json().catch(() => null);
         if (!res.ok || !json?.ok) {
           throw new Error(json?.message || json?.error || "Failed to load brand content");
         }
         if (cancelled) return;
         const nextAssets = (json.assets || []) as ContentLibraryAsset[];
         setBrandCreatives(nextAssets);
+        setBrandContentLoaded(true);
         // An empty library still permits a reviewed draft with the affiliate's own copy/media.
         if (nextAssets.length === 0) {
           if (mode === "ad") setAdCreativeSource("upload");
@@ -226,11 +237,13 @@ export default function PromoteOfferPage() {
       } catch (error: any) {
         console.error("[brand content] load error", error);
         if (!cancelled) {
+          setBrandContentError(controller.signal.aborted ? "Brand content took too long to load. Try again or upload your own creative." : "Brand content could not be loaded. Try again or upload your own creative.");
           setBrandCreatives([]);
           if (mode === "ad") setSelectedAdBrandCreative(null);
           if (mode === "organic") setSelectedOrganicBrandCreative(null);
         }
       } finally {
+        window.clearTimeout(timeout);
         if (!cancelled) setBrandContentLoading(false);
       }
     };
@@ -238,8 +251,10 @@ export default function PromoteOfferPage() {
     void loadBrandContent();
     return () => {
       cancelled = true;
+      window.clearTimeout(timeout);
+      controller.abort();
     };
-  }, [adCreativeSource, mode, offerId, organicCreativeSource, userEmail]);
+  }, [adCreativeSource, mode, offerId, organicCreativeSource, userEmail, brandContentReload]);
 
   useEffect(() => {
     if (selectedAdBrandCreative && adCreativeSource === "brand") {
@@ -489,9 +504,9 @@ export default function PromoteOfferPage() {
       if (offer?.business_email) {
         const { data: mcRows, error: mcErr } = await (supabase as any)
           .from("meta_connections")
-          .select("access_token, ad_account_id, page_id, updated_at")
+          .select("access_token, ad_account_id, page_id, created_at")
           .eq("business_email", offer.business_email as string)
-          .order("updated_at", { ascending: false });
+          .order("created_at", { ascending: false });
 
         if (mcErr) {
           console.warn("[meta_connections fetch warn]", mcErr);
@@ -893,16 +908,10 @@ export default function PromoteOfferPage() {
   // Organic submit (direct insert to organic_posts)
   // ─────────────────────────────
   const handleOrganicSubmit = async () => {
+    if(submissionInFlight.current) return;
+    submissionInFlight.current=true;
     try {
-      if (!userEmail) {
-        nmToast.error("You must be signed in.");
-        return;
-      }
-      if (!userId) {
-        nmToast.error("Missing user session.");
-        return;
-      }
-
+      const submissionUser=await requireSubmissionSession();
       await ensurePromotionAccess();
 
       const usingBrandContent = organicCreativeSource === "brand" && !!selectedOrganicBrandCreative;
@@ -1023,14 +1032,15 @@ export default function PromoteOfferPage() {
         captionForInsert = `[OTHER]\nSummary: ${caption || "(no summary)"}\n\nDetails:\n${content || "(no details)"}`;
       }
 
+      await requireSubmissionSession(); // Uploads may outlive the old token.
       // Insert to organic_posts (RLS expects affiliate_email to match auth.email())
       const { error: insertErr } = await (
         supabase.from("organic_posts") as any
       ).insert([
         {
           offer_id: offerId,
-          user_id: userId,
-          affiliate_email: userEmail,
+          user_id: submissionUser.id,
+          affiliate_email: submissionUser.email,
           business_email,
           caption: captionForInsert,
           platform, // Facebook/Instagram/TikTok OR Email/Forum
@@ -1040,8 +1050,7 @@ export default function PromoteOfferPage() {
           status: "pending",
         } as any,
       ]);
-      if (insertErr)
-        throw new Error(insertErr.message || JSON.stringify(insertErr));
+      if (insertErr) throw insertErr;
 
       nmToast.success("Organic post submitted for review");
       void logProductEvent({
@@ -1060,8 +1069,9 @@ export default function PromoteOfferPage() {
     } catch (e: any) {
       const msg = e?.message || (typeof e === "string" ? e : JSON.stringify(e));
       console.error("[Organic Submit Error]", msg, e);
-      nmToast.error(msg || "Failed to submit organic post");
-    }
+      if(isSubmissionSessionError(e))setSessionError("Sign in again to submit. Your draft and selected files are still here.");
+      nmToast.error(isSubmissionSessionError(e)?"Sign in again; your draft has been kept.":msg || "Failed to submit organic post");
+    } finally {submissionInFlight.current=false;}
   };
 
   // ─────────────────────────────
@@ -1069,7 +1079,10 @@ export default function PromoteOfferPage() {
   // ─────────────────────────────
   const handleAdSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
+    if(submissionInFlight.current) return;
+    submissionInFlight.current=true;
     try {
+      const submissionUser=await requireSubmissionSession();
       await ensurePromotionAccess();
 
       // UI-side safety: if Bid Cap selected, require a value
@@ -1205,7 +1218,7 @@ export default function PromoteOfferPage() {
       // 4) Insert into ad_ideas
       const insertPayload: any = {
         offer_id: offerId,
-        affiliate_email: userEmail,
+        affiliate_email: submissionUser.email,
         business_email,
         // media
         file_url: creativePublicUrl,
@@ -1270,6 +1283,7 @@ export default function PromoteOfferPage() {
         bid_cap_saved_to_db: insertPayload.bid_cap,
       });
 
+      await requireSubmissionSession(); // Recheck after uploads without replaying any write.
       const { data: insertedIdeas, error: insertErr } = await (
         supabase.from("ad_ideas") as any
       )
@@ -1301,8 +1315,9 @@ export default function PromoteOfferPage() {
       router.push("/affiliate/dashboard/manage-campaigns");
     } catch (e: any) {
       console.error("[❌ Submit Error]", e);
-      nmToast.error(e?.message || "Failed to submit ad idea");
-    }
+      if(isSubmissionSessionError(e))setSessionError("Sign in again to submit. Your draft and selected files are still here.");
+      nmToast.error(isSubmissionSessionError(e)?"Sign in again; your draft has been kept.":e?.message || "Failed to submit ad idea");
+    } finally {submissionInFlight.current=false;}
   };
 
   // ─────────────────────────────
@@ -1468,6 +1483,7 @@ export default function PromoteOfferPage() {
 
   return (
     <div className="promote-theme min-h-screen bg-[var(--background)] px-6 py-10 pb-8 text-[var(--foreground)]">
+      {(sessionError || (!sessionLoading && !session && draftOwner.current)) && <div role="alert" className="mx-auto mb-6 max-w-6xl rounded-2xl border border-amber-400/25 p-4 text-sm text-amber-200"><p>{sessionError || "Your session expired. Your draft and selected files are still here."}</p><p className="mt-2">Keep this tab open, sign in again, then retry your submission here.</p><a href={`/login/affiliate?next=${encodeURIComponent("/affiliate/dashboard/promote/" + offerId)}`} target="_blank" rel="noopener noreferrer" className="mt-3 inline-block text-[#00C2CB]">Sign in in a new tab</a></div>}
       <nav aria-label="Promotion navigation" className="mx-auto mb-6 max-w-6xl">
         <PromotionBackLink fromOnboarding={searchParams.get("source") === "onboarding"} mode={mode} />
       </nav>
@@ -1602,6 +1618,8 @@ export default function PromoteOfferPage() {
                 mode="ad"
                 assets={brandCreatives}
                 loading={brandContentLoading}
+                error={brandContentError}
+                onRetry={() => setBrandContentReload(value => value + 1)}
                 selectedId={selectedAdBrandCreative?.id || null}
                 onChooseUploadOwn={() => setAdCreativeSource("upload")}
                 onSelect={(asset) => {
@@ -1655,6 +1673,8 @@ export default function PromoteOfferPage() {
                 mode="organic"
                 assets={brandCreatives}
                 loading={brandContentLoading}
+                error={brandContentError}
+                onRetry={() => setBrandContentReload(value => value + 1)}
                 selectedId={selectedOrganicBrandCreative?.id || null}
                 onChooseUploadOwn={() => setOrganicCreativeSource("upload")}
                 onSelect={(asset) => {
@@ -1674,6 +1694,8 @@ export default function PromoteOfferPage() {
           </div>
         )}
 
+        {starterSpendError && <p role="alert" className="rounded-2xl border border-amber-400/20 p-4 text-sm">{starterSpendError}</p>}
+        {brandContentLoaded && !brandCreatives.length && !brandContentError && <p className="rounded-2xl border border-[var(--border)] p-4 text-sm text-[var(--muted-foreground)]">No brand content yet. You can submit your own copy and creative for business review.</p>}
         {/* RIGHT: Preview / Metrics */}
         {mode === "ad" && (
           <PreviewSidebar

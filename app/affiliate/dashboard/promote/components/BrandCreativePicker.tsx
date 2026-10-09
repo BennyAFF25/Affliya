@@ -7,6 +7,8 @@ interface BrandCreativePickerProps {
   mode: "ad" | "organic";
   assets: ContentLibraryAsset[];
   loading: boolean;
+  error?: string | null;
+  onRetry?: () => void;
   selectedId: string | null;
   onSelect: (asset: ContentLibraryAsset) => void;
   onChooseUploadOwn: () => void;
@@ -16,7 +18,7 @@ function Badge({ children }: { children: ReactNode }) {
   return <span className="inline-flex rounded-full border border-[#2a2a2a] bg-[#141414] px-2.5 py-1 text-[11px] text-gray-300">{children}</span>;
 }
 
-export function BrandCreativePicker({ mode, assets, loading, selectedId, onSelect, onChooseUploadOwn }: BrandCreativePickerProps) {
+export function BrandCreativePicker({ mode, assets, loading, error, onRetry, selectedId, onSelect, onChooseUploadOwn }: BrandCreativePickerProps) {
   if (loading) {
     return (
       <div className="rounded-2xl border border-[#232323] bg-[#141414] p-5 text-sm text-gray-400">
@@ -43,9 +45,9 @@ export function BrandCreativePicker({ mode, assets, loading, selectedId, onSelec
         </button>
       </div>
 
-      {assets.length === 0 ? (
+      {error ? <div role="alert" className="rounded-2xl border border-amber-400/20 p-4 text-sm text-amber-200"><p>{error}</p>{onRetry && <button type="button" onClick={onRetry} className="mt-2 text-[#00C2CB]">Try again</button>}</div> : assets.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-[#2a2a2a] bg-[#101010] p-5 text-sm text-gray-400">
-          No brand content is available for this {mode === "ad" ? "paid" : "organic"} flow yet. You can still upload your own creative below.
+          No brand content yet for this {mode === "ad" ? "paid" : "organic"} flow yet. You can still upload your own creative below.
         </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">

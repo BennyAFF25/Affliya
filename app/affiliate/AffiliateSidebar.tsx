@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { supabase } from "utils/supabase/pages-client";
 import {
   Home,
@@ -24,12 +24,17 @@ export default function AffiliateSidebar() {
 
   const { session, isLoading } = useSessionContext();
   const router = useRouter();
+  const draftRoute=useRef<string|null>(null);
+  if(!pathname.startsWith("/affiliate/dashboard/promote/"))draftRoute.current=null;
+  else if(session?.user)draftRoute.current=pathname;
+  const preserveDraft=draftRoute.current===pathname;
+
 
   useEffect(() => {
-    if (!isLoading && !session) {
+    if (!isLoading && !session && !preserveDraft) {
       router.replace(`/login/affiliate?next=${encodeURIComponent(pathname)}`);
     }
-  }, [isLoading, pathname, session, router]);
+  }, [isLoading, pathname, session, router, preserveDraft]);
 
   const user = session?.user;
 
