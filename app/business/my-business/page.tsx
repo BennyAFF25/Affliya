@@ -830,7 +830,7 @@ export default function MyBusinessPage() {
 
     setBillingRequiredPrompt(true);
     setMobileView("setup");
-    toast("Add a payment method to approve this campaign. You are only charged when tracked commission/ad spend is due.", { icon: "💳" });
+    toast("Add a commission payment method to approve this campaign. Affiliate ad spend remains funded by the affiliate.", { icon: "💳" });
 
     if (businessCustomerId && !hasCard) {
       setBillingPromptHandled(true);
@@ -1216,8 +1216,8 @@ export default function MyBusinessPage() {
                         {billingReady ? <IconCheck className="h-4 w-4" /> : "4"}
                       </span>
                       <div>
-                        <h3 className="text-sm font-bold text-white">Billing</h3>
-                        <p className="mt-1 text-xs leading-5 text-slate-400">Save a payment method for campaign approvals that require billing readiness.</p>
+                        <h3 className="text-sm font-bold text-white">Commission billing</h3>
+                        <p className="mt-1 text-xs leading-5 text-slate-400">Save a payment method for tracked affiliate commissions. This is separate from your Growth subscription.</p>
                       </div>
                     </div>
                     <span className={`rounded-full border px-2.5 py-1 text-[10px] font-bold ${billingReady ? "border-emerald-400/35 bg-emerald-500/10 text-emerald-200" : "border-[#00C2CB]/25 bg-[#00C2CB]/10 text-[#7ff5fb]"}`}>
@@ -1227,7 +1227,7 @@ export default function MyBusinessPage() {
                   <div className="mt-4 grid gap-2 sm:grid-cols-2">
                     {!businessCustomerId ? (
                       <button onClick={handleConnectBilling} disabled={isSubmitting} className="inline-flex min-h-[38px] items-center justify-center rounded-full bg-[#00C2CB] px-4 text-xs font-black text-black hover:bg-[#14d5de] disabled:opacity-60">
-                        {isSubmitting ? "Connecting…" : "Connect billing"}
+                        {isSubmitting ? "Connecting…" : "Connect commission billing"}
                       </button>
                     ) : !hasCard ? (
                       <button onClick={handleAddPaymentMethod} disabled={loadingPaymentForm} className="inline-flex min-h-[38px] items-center justify-center rounded-full bg-[#00C2CB] px-4 text-xs font-black text-black hover:bg-[#14d5de] disabled:opacity-60">
@@ -1235,7 +1235,7 @@ export default function MyBusinessPage() {
                       </button>
                     ) : (
                       <Link href="/business/payouts" prefetch={false} className="inline-flex min-h-[38px] items-center justify-center rounded-full border border-emerald-400/30 bg-emerald-500/10 px-4 text-xs font-bold text-emerald-200">
-                        Billing ready
+                        Commission billing ready
                       </Link>
                     )}
                     <Link href="/business/payouts" prefetch={false} className="inline-flex min-h-[38px] items-center justify-center rounded-full border border-white/10 bg-white/[0.03] px-4 text-xs font-bold text-slate-200 hover:border-[#00C2CB]/35">
@@ -1284,8 +1284,8 @@ export default function MyBusinessPage() {
 
             {businessCustomerId && showPaymentForm && setupClientSecret && (
               <div className="rounded-[22px] border border-[#00C2CB]/25 bg-[#111314] p-5">
-                <h2 className="text-lg font-semibold text-white">Secure payment method</h2>
-                <p className="mt-1 text-sm text-slate-400">This appears because the current approval flow requires billing readiness.</p>
+                <h2 className="text-lg font-semibold text-white">Secure commission payment method</h2>
+                <p className="mt-1 text-sm text-slate-400">This card covers tracked affiliate commissions. It is separate from Growth subscription billing.</p>
                 <Elements key={setupClientSecret} stripe={stripePromise} options={{ clientSecret: setupClientSecret }}>
                   <AddCardForm onComplete={() => setShowPaymentForm(false)} />
                 </Elements>

@@ -3,6 +3,13 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useSession } from "@supabase/auth-helpers-react";
+import { loadStripe } from "@stripe/stripe-js";
+import {
+  Elements,
+  PaymentElement,
+  useElements,
+  useStripe,
+} from "@stripe/react-stripe-js";
 import {
   ArrowLeft,
   ArrowRight,
@@ -24,13 +31,16 @@ import {
   savePaidCampaignResume,
 } from "@/components/business/PaidCampaignResumeBanner";
 
+const stripePromise = loadStripe(
+  process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY as string,
+);
+
 type Proposal = {
   id: string;
   offer_id: string;
   offer_title: string;
   offer_website?: string | null;
-  affiliate_email: string;
-  business_email?: string | null;
+  affiliate_username: string;
   status: string;
   created_at: string;
   campaign_name?: string | null;
@@ -103,17 +113,14 @@ function formatDate(value?: string | null) {
   });
 }
 
-function affiliateLabel(email: string) {
-  const raw = String(email || "Affiliate").split("@")[0] || "Affiliate";
-  return raw
-    .replace(/[._-]+/g, " ")
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+function affiliateLabel(username: string) {
+  const raw = String(username || "").trim().replace(/^@+/, "");
+  return raw ? `@${raw}` : "Nettmark affiliate";
 }
 
-function affiliateInitials(email: string) {
-  const words = affiliateLabel(email).split(/\s+/).filter(Boolean);
-  if (words.length === 0) return "AF";
-  return words.slice(0, 2).map((word) => word[0]).join("").toUpperCase();
+function affiliateInitials(username: string) {
+  const raw = String(username || "").trim().replace(/^@+/, "").replace(/[^a-z0-9]/gi, "");
+  return raw ? raw.slice(0, 2).toUpperCase() : "AF";
 }
 
 function SetupStep({
@@ -140,6 +147,87 @@ function SetupStep({
   );
 }
 
+function CommissionBillingForm({
+  onComplete,
+  onCancel,
+}: {
+  onComplete: () => Promise<void> | void;
+  onCancel: () => void;
+}) {
+  const stripe = useStripe();
+  const elements = useElements();
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!stripe || !elements || submitting) return;
+
+    setSubmitting(true);
+    setFormError(null);
+    try {
+      const result = await stripe.confirmSetup({
+        elements,
+        confirmParams: { return_url: window.location.href },
+        redirect: "if_required",
+      });
+
+      if (result.error) {
+        throw new Error(result.error.message || "Card setup failed.");
+      }
+
+      const checkRes = await fetch("/api/stripe/check-customer-card", {
+        method: "POST",
+        cache: "no-store",
+      });
+      const checkJson = await checkRes.json().catch(() => null);
+      if (!checkRes.ok || !checkJson?.hasCard) {
+        throw new Error("Card saved, but commission billing could not be confirmed yet.");
+      }
+
+      await onComplete();
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : "Could not save commission billing.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <form onSubmit={submit} className="mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
+      <div className="mb-3">
+        <div className="text-sm font-semibold text-white">Commission payment method</div>
+        <p className="mt-1 text-xs leading-5 text-slate-400">
+          This card is only used when tracked affiliate commissions become payable. Affiliate ad spend is still $0 to you.
+        </p>
+      </div>
+      <PaymentElement />
+      {formError ? (
+        <div className="mt-3 rounded-xl border border-red-400/20 bg-red-500/10 px-3 py-2 text-xs text-red-200">
+          {formError}
+        </div>
+      ) : null}
+      <div className="mt-4 grid gap-2 sm:grid-cols-2">
+        <button
+          type="submit"
+          disabled={submitting || !stripe || !elements}
+          className="inline-flex min-h-[44px] items-center justify-center rounded-xl bg-[#57c7d1] px-4 text-sm font-bold text-[#061113] disabled:opacity-50"
+        >
+          {submitting ? "Saving…" : "Save commission card"}
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={submitting}
+          className="inline-flex min-h-[44px] items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] px-4 text-sm font-semibold text-slate-300 disabled:opacity-50"
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
+  );
+}
+
 export default function AdIdeaProposalDetailPage() {
   const params = useParams<{ id: string }>();
   const proposalId = String(params?.id || "").trim();
@@ -151,6 +239,8 @@ export default function AdIdeaProposalDetailPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [subscriptionOpen, setSubscriptionOpen] = useState(false);
+  const [billingClientSecret, setBillingClientSecret] = useState<string | null>(null);
+  const [billingSetupBusy, setBillingSetupBusy] = useState(false);
 
   const canonicalPath = useMemo(
     () => `/business/my-business/ad-ideas/${encodeURIComponent(proposalId)}`,
@@ -209,7 +299,6 @@ export default function AdIdeaProposalDetailPage() {
           proposalId: loaded.id,
           path: `/business/my-business/ad-ideas?proposal=${encodeURIComponent(loaded.id)}`,
           offerTitle: loaded.offer_title,
-          affiliateEmail: loaded.affiliate_email,
         });
       } else {
         clearPaidCampaignResume(loaded.id);
@@ -277,28 +366,45 @@ export default function AdIdeaProposalDetailPage() {
         throw new Error(json?.message || json?.error || "Could not reject this proposal.");
       }
 
-      void fetch("/api/emails/ad-rejected", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          type: "ad_rejected",
-          event: "ad_rejected",
-          to: proposal.affiliate_email,
-          affiliateEmail: proposal.affiliate_email,
-          businessEmail: session?.user?.email,
-          offerId: proposal.offer_id,
-          offerTitle: proposal.offer_title,
-          adIdeaId: proposal.id,
-          reason: "Rejected by business",
-        }),
-      }).catch(() => undefined);
-
       clearPaidCampaignResume(proposal.id);
       setProposal((current) => current ? { ...current, status: "rejected" } : current);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not reject this proposal.");
     } finally {
       setBusy(false);
+    }
+  };
+
+  const beginCommissionBilling = async () => {
+    if (billingSetupBusy) return;
+    setBillingSetupBusy(true);
+    setError(null);
+    try {
+      const profileRes = await fetch("/api/stripe/business-billing-profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const profileJson = await profileRes.json().catch(() => null);
+      const customerId = profileJson?.customerId || profileJson?.profile?.stripe_customer_id || null;
+      if (!profileRes.ok || !customerId) {
+        throw new Error(profileJson?.message || profileJson?.error || "Could not prepare commission billing.");
+      }
+
+      const setupRes = await fetch("/api/stripe/create-setup-intent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ customerId }),
+      });
+      const setupJson = await setupRes.json().catch(() => null);
+      if (!setupRes.ok || !setupJson?.clientSecret) {
+        throw new Error(setupJson?.error || "Could not open the secure card form.");
+      }
+
+      setBillingClientSecret(setupJson.clientSecret);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not prepare commission billing.");
+    } finally {
+      setBillingSetupBusy(false);
     }
   };
 
@@ -314,10 +420,10 @@ export default function AdIdeaProposalDetailPage() {
     }
     if (!billingReady) {
       return {
-        label: "Connect billing",
-        title: "Connect business billing",
-        description: "Add your payment method for tracked affiliate commissions and campaign charges.",
-        onClick: () => router.push(`/business/my-business?billing=required&returnTo=${encodeURIComponent(canonicalPath)}`),
+        label: "Add commission card",
+        title: "Add commission payment method",
+        description: "Your Growth trial is active. Nettmark uses a separate Stripe account for tracked affiliate commissions, so save a commission card once before launch. Your ad spend remains $0.",
+        onClick: () => void beginCommissionBilling(),
       };
     }
     if (!metaSetupReady) {
@@ -351,8 +457,20 @@ export default function AdIdeaProposalDetailPage() {
     if (allReady) {
       return { label: "Ready to launch", className: "border-emerald-400/20 bg-emerald-500/10 text-emerald-300" };
     }
-    if (businessNextAction || !timingReady) {
-      return { label: "Setup required", className: "border-amber-400/25 bg-amber-400/10 text-amber-300" };
+    if (!subscriptionReady) {
+      return { label: "Growth required", className: "border-amber-400/25 bg-amber-400/10 text-amber-300" };
+    }
+    if (!billingReady) {
+      return { label: "Commission billing required", className: "border-amber-400/25 bg-amber-400/10 text-amber-300" };
+    }
+    if (!metaSetupReady) {
+      return { label: "Meta setup required", className: "border-amber-400/25 bg-amber-400/10 text-amber-300" };
+    }
+    if (!trackingReady) {
+      return { label: "Tracking required", className: "border-amber-400/25 bg-amber-400/10 text-amber-300" };
+    }
+    if (!timingReady) {
+      return { label: "Timing update required", className: "border-amber-400/25 bg-amber-400/10 text-amber-300" };
     }
     if (!fundingReady) {
       return { label: "Waiting on affiliate", className: "border-[#57c7d1]/25 bg-[#57c7d1]/10 text-[#8ce5ed]" };
@@ -392,7 +510,6 @@ export default function AdIdeaProposalDetailPage() {
           attribution: {
             source: "ad_idea_proposal_detail",
             offerId: proposal.offer_id,
-            affiliateEmail: proposal.affiliate_email,
             campaignType: "paid_meta",
           },
         } : null}
@@ -428,11 +545,11 @@ export default function AdIdeaProposalDetailPage() {
               <div className="flex items-start justify-between gap-4">
                 <div className="flex min-w-0 items-center gap-3.5">
                   <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#57c7d1] text-sm font-black text-[#061113] sm:h-14 sm:w-14 sm:text-base">
-                    {affiliateInitials(proposal.affiliate_email)}
+                    {affiliateInitials(proposal.affiliate_username)}
                   </div>
                   <div className="min-w-0">
-                    <div className="truncate text-base font-semibold sm:text-lg">{affiliateLabel(proposal.affiliate_email)}</div>
-                    <div className="truncate text-sm text-slate-400">{proposal.affiliate_email}</div>
+                    <div className="truncate text-base font-semibold sm:text-lg">{affiliateLabel(proposal.affiliate_username)}</div>
+                    <div className="truncate text-sm text-slate-400">Affiliate partner</div>
                   </div>
                 </div>
                 <span className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold capitalize ${statusState.className}`}>
@@ -530,11 +647,23 @@ export default function AdIdeaProposalDetailPage() {
                   <button
                     type="button"
                     onClick={businessNextAction.onClick}
-                    className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#57c7d1] px-4 py-3.5 text-sm font-bold text-[#061113] transition hover:brightness-110"
+                    disabled={billingSetupBusy}
+                    className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#57c7d1] px-4 py-3.5 text-sm font-bold text-[#061113] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {businessNextAction.label}
-                    <ArrowRight className="h-4 w-4" />
+                    {billingSetupBusy ? "Preparing secure billing…" : businessNextAction.label}
+                    {!billingSetupBusy ? <ArrowRight className="h-4 w-4" /> : null}
                   </button>
+                  {billingClientSecret && !billingReady ? (
+                    <Elements key={billingClientSecret} stripe={stripePromise} options={{ clientSecret: billingClientSecret }}>
+                      <CommissionBillingForm
+                        onComplete={async () => {
+                          setBillingClientSecret(null);
+                          await load();
+                        }}
+                        onCancel={() => setBillingClientSecret(null)}
+                      />
+                    </Elements>
+                  ) : null}
                 </>
               ) : !timingReady ? (
                 <div className="flex items-start gap-3.5">
@@ -625,7 +754,7 @@ export default function AdIdeaProposalDetailPage() {
                   <div className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Business setup</div>
                   <div className="grid gap-2 sm:grid-cols-2">
                     <SetupStep label="Growth" ready={subscriptionReady} icon={<Rocket className="h-4 w-4" />} />
-                    <SetupStep label="Billing" ready={billingReady} icon={<CreditCard className="h-4 w-4" />} />
+                    <SetupStep label="Commission billing" ready={billingReady} icon={<CreditCard className="h-4 w-4" />} />
                     <SetupStep label="Meta" ready={metaSetupReady} icon={<Megaphone className="h-4 w-4" />} />
                     <SetupStep label="Tracking" ready={trackingReady} icon={<Link2 className="h-4 w-4" />} />
                   </div>

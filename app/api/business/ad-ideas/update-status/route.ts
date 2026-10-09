@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { createServerSupabaseClient } from "../../../../../utils/businessSubscriptions";
+import { sendEmail } from "../../../../../lib/email/send";
+import { adDecisionEmail } from "../../../../../lib/email/templates";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -44,7 +46,7 @@ export async function POST(req: Request) {
     const admin = createServerSupabaseClient();
     const { data: idea, error: lookupError } = await admin
       .from("ad_ideas")
-      .select("id,business_email,status")
+      .select("id,business_email,status,affiliate_email,offer_id,campaign_name")
       .eq("id", adIdeaId)
       .maybeSingle();
 
@@ -94,6 +96,30 @@ export async function POST(req: Request) {
 
     if (updateError) {
       throw new Error(`Failed to update ad idea: ${updateError.message}`);
+    }
+
+    if (status === "rejected" && idea.affiliate_email) {
+      try {
+        const { data: offer } = await admin
+          .from("offers")
+          .select("title")
+          .eq("id", idea.offer_id)
+          .maybeSingle();
+
+        const email = adDecisionEmail({
+          affiliateEmail: idea.affiliate_email,
+          offerTitle: offer?.title || idea.campaign_name || "your campaign",
+          decision: "rejected",
+          note: rejectionReason || undefined,
+        });
+        await sendEmail({
+          to: idea.affiliate_email,
+          subject: email.subject,
+          html: email.html,
+        });
+      } catch (emailError) {
+        console.warn("[business/ad-ideas/update-status] rejection email failed", emailError);
+      }
     }
 
     return NextResponse.json({ success: true, adIdea: updated });

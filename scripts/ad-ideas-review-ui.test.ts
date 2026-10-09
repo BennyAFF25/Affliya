@@ -4,6 +4,8 @@ import { readFileSync } from 'node:fs';
 const page = readFileSync('app/business/my-business/ad-ideas/page.tsx', 'utf8');
 const route = readFileSync('app/api/business/ad-ideas/review-readiness/route.ts', 'utf8');
 const launchRoute = readFileSync('app/api/business/ad-ideas/launch/route.ts', 'utf8');
+const detailPage = readFileSync('app/business/my-business/ad-ideas/[id]/page.tsx', 'utf8');
+const reviewRoute = readFileSync('app/api/business/ad-ideas/[adIdeaId]/review/route.ts', 'utf8');
 
 // Business review remains proposal-first: the business can inspect pending proposals,
 // see current derived launch blockers, reject at any time, and only launch when ready.
@@ -25,6 +27,16 @@ assert.match(page, /Previous Meta launch needs recovery before retry/);
 assert.match(page, /Approve &amp; launch/);
 assert.match(page, /disabled=\{reviewReadinessLoading \|\| !isCampaignReady\(idea\.id\)\}/);
 assert.match(page, />\s*Reject\s*</);
+
+// Proposal detail must explain the exact blocker and keep affiliate identity public-only.
+assert.match(detailPage, /Commission billing required/);
+assert.match(detailPage, /Add commission payment method/);
+assert.match(detailPage, /CommissionBillingForm/);
+assert.match(detailPage, /affiliate_username/);
+assert.doesNotMatch(detailPage, /proposal\.affiliate_email/);
+assert.doesNotMatch(detailPage, />Setup required</i);
+assert.match(reviewRoute, /affiliate_username/);
+assert.doesNotMatch(reviewRoute, /affiliate_email:\s*idea\.affiliate_email/);
 
 // Review readiness is derived from current server-side state rather than submission-time assumptions.
 assert.match(route, /getBusinessPaymentReadiness/);

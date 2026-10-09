@@ -36,3 +36,16 @@ Keep setup contextual and accurate. Users should see launch blockers only when t
 
 ## Remaining risk
 The commission-billing Stripe customer is intentionally separate from the Growth subscription customer. If the commission customer genuinely has no saved card, Ad Ideas should continue to show billing required; this is expected rather than a readiness bug.
+
+
+## Follow-up: duplicate Stripe billing clarity
+A live business test confirmed the original funding failure was repaired: the proposal correctly reported affiliate campaign funding ready. The remaining blocker was real commission billing. Nettmark deliberately uses a separate Stripe account for Business/Growth subscription billing and transaction/commission billing (historical commit `298e9aafb33ec68cb81a6e3cdb09e937755e66f9`). A payment method saved to one Stripe account cannot be reused as a customer payment method on the other account.
+
+The proposal detail now:
+- labels the blocker as `Commission billing required` instead of generic `Setup required`;
+- opens the transaction-account SetupIntent directly inside the proposal;
+- explains that Growth is already active and affiliate ad spend remains $0;
+- re-checks the canonical server-side Stripe payment readiness after card setup;
+- shows only the affiliate's Nettmark username, with rejection notification delivery resolved server-side rather than exposing the affiliate email to the proposal review client.
+
+No subscription pricing, commission calculation, wallet funding, Meta launch, or settlement logic changed.

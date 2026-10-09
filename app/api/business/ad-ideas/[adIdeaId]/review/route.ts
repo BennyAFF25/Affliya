@@ -49,24 +49,38 @@ export async function GET(
       );
     }
 
-    const { data: offer, error: offerError } = await admin
+    const [{ data: offer, error: offerError }, { data: affiliateProfile, error: affiliateProfileError }] = await Promise.all([
+      admin
       .from("offers")
       .select("id,title,website,business_email")
       .eq("id", idea.offer_id)
       .eq("business_email", user.email)
-      .maybeSingle();
+      .maybeSingle(),
+      admin
+        .from("profiles")
+        .select("username")
+        .eq("email", idea.affiliate_email)
+        .limit(1)
+        .maybeSingle(),
+    ]);
 
     if (offerError) {
       throw new Error(`Failed to load offer: ${offerError.message}`);
     }
+
+    if (affiliateProfileError) {
+      console.warn("[business/ad-ideas/review] affiliate username lookup failed", affiliateProfileError);
+    }
+
+    const username = String(affiliateProfile?.username || "").trim().replace(/^@+/, "");
+    const affiliateUsername = username ? `@${username}` : "Nettmark affiliate";
 
     return NextResponse.json({
       success: true,
       proposal: {
         id: idea.id,
         offer_id: idea.offer_id,
-        affiliate_email: idea.affiliate_email,
-        business_email: idea.business_email,
+        affiliate_username: affiliateUsername,
         status: idea.status,
         created_at: idea.created_at,
         campaign_name: idea.campaign_name || null,
