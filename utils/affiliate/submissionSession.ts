@@ -10,7 +10,9 @@ export function isSubmissionSessionError(error:unknown){
 }
 /** Same-account verification before writes. This helper never replays a mutation. */
 export async function ensureSubmissionSession(client:Pick<SupabaseClient,"auth">,expectedUserId?:string,now=Date.now()){
- let {data:{session},error}=await client.auth.getSession();
+ const initial=await client.auth.getSession();
+ let session=initial.data.session;
+ const error=initial.error;
  let refreshed=false;
  if(error || !session || !session.expires_at || session.expires_at*1000<=now+120000){
   const result=await client.auth.refreshSession();session=result.data.session;

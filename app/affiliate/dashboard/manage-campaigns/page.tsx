@@ -406,10 +406,10 @@ export default function AffiliateManageCampaignsPage() {
         )}
 
         {pendingError && <div role="alert" className="mb-4 rounded-2xl border border-amber-400/20 p-4 text-sm"><p>{pendingError}</p><button onClick={() => void fetchAll()} className="mt-2 text-[var(--primary)]">Try again</button></div>}
-        {/* Pending paid proposals */}
+        {/* Pending proposals */}
         <Card className="mb-6 p-5 md:p-6" variant="elevated">
           <SectionHeader
-            title="Pending paid proposals"
+            title="Pending proposals"
             description="Real campaigns you've submitted that have not launched yet."
             actions={<Badge variant="primary">{pendingCount} pending</Badge>}
           />
