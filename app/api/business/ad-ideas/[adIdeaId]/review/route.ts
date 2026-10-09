@@ -52,7 +52,7 @@ export async function GET(
     const [{ data: offer, error: offerError }, { data: affiliateProfile, error: affiliateProfileError }] = await Promise.all([
       admin
       .from("offers")
-      .select("id,title,website,business_email")
+      .select("id,title,website,business_email,currency")
       .eq("id", idea.offer_id)
       .eq("business_email", user.email)
       .maybeSingle(),
@@ -92,6 +92,7 @@ export async function GET(
         media_type: idea.media_type || null,
         call_to_action: idea.call_to_action || null,
         cta: idea.cta || null,
+        currency: idea.currency || offer?.currency || null,
         budget_amount: idea.budget_amount ?? null,
         budget_type: idea.budget_type || null,
         daily_budget: idea.daily_budget ?? null,
