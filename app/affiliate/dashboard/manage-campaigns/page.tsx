@@ -416,7 +416,7 @@ export default function AffiliateManageCampaignsPage() {
           <div className="mt-5">
             {loading ? (
               <LoadingSkeleton lines={2} />
-            ) : pendingProposals.length === 0 ? (
+            ) : pendingError ? (<p className="py-5 text-sm text-[var(--muted-foreground)]">Proposals unavailable. Please try again above.</p>) : pendingProposals.length === 0 ? (
               <EmptyState
                 title="No pending proposals"
                 description="Submit a paid or organic proposal from an offer to send it for business review."
@@ -443,7 +443,7 @@ export default function AffiliateManageCampaignsPage() {
           <div>
             {loading ? (
               <LoadingSkeleton lines={3} />
-            ) : activeItems.length === 0 ? (
+            ) : error ? (<p className="py-5 text-sm text-[var(--muted-foreground)]">Campaigns could not be loaded.</p>) : activeItems.length === 0 ? (
               <EmptyState
                 title="No active campaigns"
                 description="When you launch a campaign, it will show here."
@@ -495,7 +495,7 @@ export default function AffiliateManageCampaignsPage() {
             <div className="mt-5">
               {loading ? (
                 <LoadingSkeleton lines={3} />
-              ) : archivedItems.length === 0 ? (
+              ) : error ? (<p className="py-5 text-sm text-[var(--muted-foreground)]">Campaigns could not be loaded.</p>) : archivedItems.length === 0 ? (
                 <EmptyState
                   title="No archived campaigns yet"
                   description="Paused, completed, or stopped campaigns will stay here."
