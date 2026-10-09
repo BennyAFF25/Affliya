@@ -265,22 +265,13 @@ export default function AdIdeasPage() {
       const rows = (data || []) as AdIdea[];
       setIdeas(rows);
 
-      const affiliateEmails = Array.from(
-        new Set(rows.map((idea) => idea.affiliate_email).filter(Boolean)),
-      );
-      if (affiliateEmails.length > 0) {
-        const { data: profiles } = await supabase
-          .from("profiles")
-          .select("email, username")
-          .in("email", affiliateEmails);
-        const names: Record<string, string> = {};
-        for (const row of profiles || []) {
-          const email = String((row as any).email || "").trim().toLowerCase();
-          const username = String((row as any).username || "").trim().replace(/^@+/, "");
-          if (email) names[email] = username ? `@${username}` : "Nettmark affiliate";
-        }
-        setAffiliateNames(names);
-      } else {
+      // Only names belonging to this business's proposals are returned.
+      // The underlying profiles table remains self-readable, not world-readable.
+      try {
+        const namesRes = await fetch("/api/business/ad-ideas/affiliate-names", { cache: "no-store" });
+        const namesJson = await namesRes.json().catch(() => null);
+        setAffiliateNames(namesRes.ok && namesJson?.success ? namesJson.names || {} : {});
+      } catch {
         setAffiliateNames({});
       }
 
