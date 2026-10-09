@@ -189,62 +189,68 @@ export function DbBackedInbox({
   const [activeTab, setActiveTab] = useState("all");
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reload, setReload] = useState(0);
 
   useEffect(() => {
     const loadInbox = async () => {
       if (!user?.email) return;
       setLoading(true);
+      setLoadError(null);
+      try {
+        const [messageResult, notificationResult, offerResult] =
+          await Promise.all([
+            inboxSupabase
+              .from("inbox_messages")
+              .select<InboxMessageRow>("*")
+              .eq("recipient_email", user.email)
+              .order("created_at", { ascending: false }),
+            supabase
+              .from("notifications")
+              .select("id, title, body, link_url, read_at, created_at")
+              .eq("user_email", user.email)
+              .order("created_at", { ascending: false }),
+            supabase.from("offers").select("id, title"),
+          ]);
 
-      const [messageResult, notificationResult, offerResult] =
-        await Promise.all([
-          inboxSupabase
-            .from("inbox_messages")
-            .select<InboxMessageRow>("*")
-            .eq("recipient_email", user.email)
-            .order("created_at", { ascending: false }),
-          supabase
-            .from("notifications")
-            .select("id, title, body, link_url, read_at, created_at")
-            .eq("user_email", user.email)
-            .order("created_at", { ascending: false }),
-          supabase.from("offers").select("id, title"),
-        ]);
+        if (messageResult.error) {
+          console.error(
+            "[Inbox messages fetch failed]",
+            messageResult.error.message,
+          );
+          setLoadError("Your messages could not be loaded. Please try again.");
+        } else {
+          const rows = ((messageResult.data || []) as InboxMessageRow[]).filter(
+            (row) => row.recipient_role === audience,
+          );
+          setMessages(rows);
+        }
 
-      if (messageResult.error) {
-        console.error(
-          "[Inbox messages fetch failed]",
-          messageResult.error.message,
-        );
-        setMessages([]);
-      } else {
-        const rows = ((messageResult.data || []) as InboxMessageRow[]).filter(
-          (row) => row.recipient_role === audience,
-        );
-        setMessages(rows);
-      }
+        if (notificationResult.error) {
+          console.error(
+            "[Notifications fetch failed]",
+            notificationResult.error.message,
+          );
+          setLoadError("Your notifications could not be loaded. Please try again.");
+        } else {
+          setNotifications((notificationResult.data || []) as NotificationRow[]);
+        }
 
-      if (notificationResult.error) {
-        console.error(
-          "[Notifications fetch failed]",
-          notificationResult.error.message,
-        );
-        setNotifications([]);
-      } else {
-        setNotifications((notificationResult.data || []) as NotificationRow[]);
-      }
+        if (offerResult.error) {
+          console.error("[Offers fetch failed]", offerResult.error.message);
+          setOffers([]);
+        } else {
+          setOffers((offerResult.data || []) as OfferRow[]);
+        }
 
-      if (offerResult.error) {
-        console.error("[Offers fetch failed]", offerResult.error.message);
-        setOffers([]);
-      } else {
-        setOffers((offerResult.data || []) as OfferRow[]);
-      }
-
-      setLoading(false);
+      } catch (error) {
+        console.error("[Inbox load failed]", error);
+        setLoadError("Your inbox could not be loaded. Please try again.");
+      } finally { setLoading(false); }
     };
 
-    loadInbox();
-  }, [audience, user?.email]);
+    void loadInbox();
+  }, [audience, user?.email, reload]);
 
   useEffect(() => {
     if (!user?.email) return;
@@ -482,6 +488,7 @@ export function DbBackedInbox({
           </div>
         )}
 
+        {loadError && <div role="alert" className="mb-4 rounded-2xl border border-amber-400/20 p-4 text-sm"><p>{loadError}</p><button type="button" onClick={() => setReload(value => value + 1)} className="mt-2 text-[var(--primary)]">Try again</button></div>}
         <InboxTabs
           tabs={tabs}
           activeTab={activeTab}
@@ -493,11 +500,11 @@ export function DbBackedInbox({
             {displayedEntries.length === 0 ? (
               <EmptyState
                 icon={<InboxIcon className="h-5 w-5" />}
-                title={loading ? "Loading inbox…" : emptyTitle}
+                title={loading ? "Loading inbox…" : loadError ? "Inbox unavailable" : emptyTitle}
                 description={
                   loading
                     ? "Fetching your latest database-backed messages."
-                    : emptyDescription
+                    : loadError || emptyDescription
                 }
                 className="border-dashed"
               />
