@@ -72,18 +72,12 @@ export async function POST(req: NextRequest) {
       targeting.genders = genders.map((g: any) => Number(g));
     }
 
-    let interestsIgnored = false;
     if (Array.isArray(interests) && interests.length > 0) {
-      // Meta requires numeric interest IDs. If non-numeric provided, ignore for estimate (avoid zeroed results).
-      const numericId = (v: any) => typeof v === 'string' && /^\d+$/.test(v);
-      const mapped = interests
-        .map((i: any) => (typeof i === 'object' && i?.id && numericId(String(i.id)) ? { id: String(i.id) } : null))
-        .filter(Boolean);
-      if (mapped.length > 0) {
-        targeting.flexible_spec = [{ interests: mapped }];
-      } else {
-        interestsIgnored = true;
+      const selectedIds = interests.map((item: { id?: unknown }) => String(item?.id || "").trim());
+      if (selectedIds.some((id: string) => !/^\\d{2,30}$/.test(id))) {
+        return NextResponse.json({ error: "Choose valid Meta interests from the suggestions." }, { status: 409 });
       }
+      targeting.flexible_spec = [{ interests: selectedIds.map((id: string) => ({ id })) }];
     }
 
     // Merge placement spec if provided (publisher_platforms, *_positions, device_platforms, etc.)
@@ -91,36 +85,32 @@ export async function POST(req: NextRequest) {
       Object.assign(targeting, placementSpec);
     }
 
-    // Note: `currency` is not a valid param for delivery_estimate; omit to avoid (#100)
-    const params = new URLSearchParams({
-      optimization_goal,
-      targeting_spec: JSON.stringify(targeting),
+    // Meta removed daily-active-user estimates in v26; request truthful
+    // potential audience bounds rather than showing fake daily/monthly values.
+    const params = new URLSearchParams({ targeting_spec: JSON.stringify(targeting) });
+    const url = `https://graph.facebook.com/v26.0/act_${numeric}/reachestimate?${params.toString()}`;
+    const response = await fetch(url, {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: "no-store",
     });
-
-    const url = `https://graph.facebook.com/v19.0/act_${numeric}/delivery_estimate?${params.toString()}`;
-    const r = await fetch(url, { method: 'GET', headers: { Authorization: `Bearer ${token}` } });
-    const json = await r.json();
-
-    if (!r.ok) {
-      console.error('[Meta API Error]', json);
-      return NextResponse.json(json, { status: r.status });
+    const json = await response.json().catch(() => null);
+    if (!response.ok) {
+      console.error("[meta/estimate-reach] Meta rejected reach estimate", {
+        status: response.status, code: json?.error?.code, subcode: json?.error?.error_subcode,
+      });
+      return NextResponse.json({
+        error: json?.error?.message || "Meta could not estimate the audience.",
+      }, { status: 502 });
     }
-
-    const first = Array.isArray(json?.data) ? json.data[0] : null;
-    const shaped = first
-      ? [{
-          estimate_ready: first?.estimate_ready ?? true,
-          // Some API versions return numeric, others an object with bounds
-          estimate_dau: first?.estimate_dau ?? first?.users_dau ?? null,
-          estimate_mau: first?.estimate_mau ?? first?.users_mau ?? null,
-          estimate_dau_lower: first?.estimate_dau_lower ?? first?.estimate_dau?.lower_bound ?? null,
-          estimate_dau_upper: first?.estimate_dau_upper ?? first?.estimate_dau?.upper_bound ?? null,
-          estimate_mau_lower: first?.estimate_mau_lower ?? first?.estimate_mau?.lower_bound ?? null,
-          estimate_mau_upper: first?.estimate_mau_upper ?? first?.estimate_mau?.upper_bound ?? null,
-        }]
-      : [];
-
-    return NextResponse.json({ data: shaped, meta: { interests_ignored: typeof interestsIgnored === 'boolean' ? interestsIgnored : false } });
+    const data = Array.isArray(json?.data) ? json.data[0] : json?.data || json;
+    const lower = Number(data?.users_lower_bound);
+    const upper = Number(data?.users_upper_bound);
+    return NextResponse.json({
+      data: [{
+        users_lower_bound: Number.isFinite(lower) && lower >= 0 ? lower : null,
+        users_upper_bound: Number.isFinite(upper) && upper >= 0 ? upper : null,
+      }],
+    }, { headers: { "Cache-Control": "no-store" } });
   } catch (e) {
     console.error('[estimate-reach server error]', e);
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });
