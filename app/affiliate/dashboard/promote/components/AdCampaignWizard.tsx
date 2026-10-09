@@ -10,8 +10,10 @@ import {
   Disclosure,
 } from "./AdFormFields";
 import { INPUT } from "../constants";
+import { MetaInterestPicker } from "./MetaInterestPicker";
 
 interface AdCampaignWizardProps {
+  offerId: string;
   form: AdFormState;
   setForm: React.Dispatch<React.SetStateAction<AdFormState>>;
   onInput: (
@@ -63,6 +65,7 @@ interface AdCampaignWizardProps {
 
 export function AdCampaignWizard(props: AdCampaignWizardProps) {
   const {
+    offerId,
     form,
     setForm,
     onInput,
@@ -393,17 +396,11 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
                 </label>
               </div>
 
-              <label className="block">
-                <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">
-                  Interests (comma-separated)
-                </span>
-                <textarea
-                  className={`${INPUT} w-full text-base`}
-                  placeholder="fitness, skincare, ecom"
-                  value={form.interests_csv}
-                  onChange={onInput("interests_csv")}
-                />
-              </label>
+              <MetaInterestPicker
+                offerId={offerId}
+                value={form.interests}
+                onChange={(interests) => setForm((previous) => ({ ...previous, interests }))}
+              />
             </div>
 
             <div className="space-y-2">
@@ -418,7 +415,7 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
                       const defaults: Record<PlacementKey, boolean> = {
                         facebook_feed: true,
                         instagram_feed: true,
-                        instagram_reels: true,
+                        instagram_reels: false,
                         facebook_reels: false,
                         facebook_stories: false,
                         instagram_stories: false,
@@ -691,9 +688,8 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
                   </div>
                 </div>
                 {interestsIgnored && (
-                  <span className="block mt-1 text-[11px] text-gray-500">
-                    Some typed interests were ignored because they didn’t match
-                    official Meta interest IDs.
+                  <span className="block mt-1 text-[11px] text-amber-300">
+                    Meta could not use the selected interests for reach estimation.
                   </span>
                 )}
               </div>
@@ -995,10 +991,10 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
                       ? "Male"
                       : "Female"}
                 </div>
-                {form.interests_csv && (
+                {form.interests.length > 0 && (
                   <div className="text-sm text-gray-400 mt-1">
                     Interests:{" "}
-                    <span className="text-[#00C2CB]">{form.interests_csv}</span>
+                    <span className="text-[#00C2CB]">{form.interests.map((interest) => interest.name).join(", ")}</span>
                   </div>
                 )}
                 <div className="text-sm text-gray-400 mt-1">
