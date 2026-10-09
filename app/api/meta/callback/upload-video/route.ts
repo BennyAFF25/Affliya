@@ -542,6 +542,69 @@ export async function POST(req: Request) {
 
     console.log("[meta-upload] final payload", payload);
 
+    // Resolve every affiliate-selected interest *before creating a Meta campaign.
+    // Never silently drop free-text interests and broaden the funded audience.
+    let flexible_spec: { interests: { id: string }[] }[] | undefined;
+    const rawInterests = (payload as any).interests;
+    let selectedInterests: unknown[] = [];
+    try {
+      const parsed = typeof rawInterests === "string"
+        ? (rawInterests.trim() ? JSON.parse(rawInterests) : [])
+        : rawInterests ?? [];
+      if (!Array.isArray(parsed)) throw new Error("not an array");
+      selectedInterests = parsed;
+    } catch {
+      return NextResponse.json({
+        success: false,
+        error: "META_INTERESTS_INVALID",
+        stage: "targeting",
+        message: "The affiliate's interest targeting could not be read. Ask the affiliate to review their selected interests before launching.",
+      }, { status: 409 });
+    }
+
+    const resolvedInterests: { id: string }[] = [];
+    for (const entry of selectedInterests) {
+      const suppliedId = typeof entry === "object" && entry !== null
+        ? String((entry as { id?: unknown }).id ?? "").trim()
+        : String(entry ?? "").trim();
+      if (!suppliedId) {
+        return NextResponse.json({
+          success: false, error: "META_INTERESTS_INVALID", stage: "targeting",
+          message: "An empty interest was selected. Ask the affiliate to update their targeting.",
+        }, { status: 409 });
+      }
+      if (/^\d+$/.test(suppliedId)) {
+        resolvedInterests.push({ id: suppliedId });
+        continue;
+      }
+      const interestResponse = await fetch(
+        `https://graph.facebook.com/v19.0/search?type=adinterest&q=${encodeURIComponent(suppliedId)}&limit=100`,
+        { headers: { Authorization: `Bearer ${access_token}` } },
+      );
+      const interestPayload = await safeParse(interestResponse);
+      if (!interestResponse.ok || !Array.isArray(interestPayload?.data)) {
+        return NextResponse.json({
+          success: false, error: "META_INTEREST_LOOKUP_FAILED", stage: "targeting",
+          message: `Meta couldn't validate the interest "${suppliedId}". Try again after checking the Meta connection.`,
+        }, { status: 409 });
+      }
+      const match = interestPayload.data.find((candidate: { id?: string; name?: string }) =>
+        String(candidate.name || "").trim().toLocaleLowerCase("en") === suppliedId.toLocaleLowerCase("en")
+        && /^\d+$/.test(String(candidate.id || "")),
+      );
+      if (!match) {
+        return NextResponse.json({
+          success: false, error: "META_INTEREST_UNRESOLVED", stage: "targeting",
+          message: `Meta does not recognise the exact interest "${suppliedId}". Ask the affiliate to choose a valid Meta interest before launching.`,
+        }, { status: 409 });
+      }
+      resolvedInterests.push({ id: String(match.id) });
+    }
+    if (resolvedInterests.length) {
+      flexible_spec = [{ interests: Array.from(new Map(resolvedInterests.map((item) => [item.id, item])).values()) }];
+    }
+
+
     // 5. Create campaign
     const cleanAdAccountId = String(selectedAdAccountId).startsWith("act_")
       ? String(selectedAdAccountId)
@@ -669,68 +732,6 @@ export async function POST(req: Request) {
     const publisher_platforms: string[] = [];
     if (facebook_positions.length) publisher_platforms.push("facebook");
     if (instagram_positions.length) publisher_platforms.push("instagram");
-
-    // Resolve every affiliate-selected interest *before* creating a Meta campaign.
-    // Never silently drop free-text interests and broaden the funded audience.
-    let flexible_spec: { interests: { id: string }[] }[] | undefined;
-    const rawInterests = (payload as any).interests;
-    let selectedInterests: unknown[] = [];
-    try {
-      const parsed = typeof rawInterests === "string"
-        ? (rawInterests.trim() ? JSON.parse(rawInterests) : [])
-        : rawInterests ?? [];
-      if (!Array.isArray(parsed)) throw new Error("not an array");
-      selectedInterests = parsed;
-    } catch {
-      return NextResponse.json({
-        success: false,
-        error: "META_INTERESTS_INVALID",
-        stage: "targeting",
-        message: "The affiliate's interest targeting could not be read. Ask the affiliate to review their selected interests before launching.",
-      }, { status: 409 });
-    }
-
-    const resolvedInterests: { id: string }[] = [];
-    for (const entry of selectedInterests) {
-      const suppliedId = typeof entry === "object" && entry !== null
-        ? String((entry as { id?: unknown }).id ?? "").trim()
-        : String(entry ?? "").trim();
-      if (!suppliedId) {
-        return NextResponse.json({
-          success: false, error: "META_INTERESTS_INVALID", stage: "targeting",
-          message: "An empty interest was selected. Ask the affiliate to update their targeting.",
-        }, { status: 409 });
-      }
-      if (/^\d+$/.test(suppliedId)) {
-        resolvedInterests.push({ id: suppliedId });
-        continue;
-      }
-      const interestResponse = await fetch(
-        `https://graph.facebook.com/v19.0/search?type=adinterest&q=${encodeURIComponent(suppliedId)}&limit=100`,
-        { headers: { Authorization: `Bearer ${access_token}` } },
-      );
-      const interestPayload = await safeParse(interestResponse);
-      if (!interestResponse.ok || !Array.isArray(interestPayload?.data)) {
-        return NextResponse.json({
-          success: false, error: "META_INTEREST_LOOKUP_FAILED", stage: "targeting",
-          message: `Meta couldn't validate the interest "${suppliedId}". Try again after checking the Meta connection.`,
-        }, { status: 409 });
-      }
-      const match = interestPayload.data.find((candidate: { id?: string; name?: string }) =>
-        String(candidate.name || "").trim().toLocaleLowerCase("en") === suppliedId.toLocaleLowerCase("en")
-        && /^\d+$/.test(String(candidate.id || "")),
-      );
-      if (!match) {
-        return NextResponse.json({
-          success: false, error: "META_INTEREST_UNRESOLVED", stage: "targeting",
-          message: `Meta does not recognise the exact interest "${suppliedId}". Ask the affiliate to choose a valid Meta interest before launching.`,
-        }, { status: 409 });
-      }
-      resolvedInterests.push({ id: String(match.id) });
-    }
-    if (resolvedInterests.length) {
-      flexible_spec = [{ interests: Array.from(new Map(resolvedInterests.map((item) => [item.id, item])).values()) }];
-    }
 
     // ---- Optimisation & bidding (from ad_ideas) ----
     const optimisationGoal =
