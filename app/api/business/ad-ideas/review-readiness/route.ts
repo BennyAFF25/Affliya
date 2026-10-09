@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { validateCampaignIntent } from "../../../../utils/meta/campaignConfiguration";
+import { validateCampaignIntent } from "../../../../../utils/meta/campaignConfiguration";
 import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { createServerSupabaseClient } from "@/../utils/businessSubscriptions";
