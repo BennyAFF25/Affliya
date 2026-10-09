@@ -84,7 +84,7 @@ export default function PromoteOfferPage() {
   // Organic flow state (non-invasive)
   // ─────────────────────────────
   const [mode, setMode] = useState<"ad" | "organic">(requestedMode);
-  const [adCreativeSource, setAdCreativeSource] = useState<"brand" | "upload">("brand");
+  const [adCreativeSource, setAdCreativeSource] = useState<"brand" | "upload">("upload");
   const [organicCreativeSource, setOrganicCreativeSource] = useState<"brand" | "upload">("brand");
   const [brandCreatives, setBrandCreatives] = useState<ContentLibraryAsset[]>([]);
   const [brandContentLoading, setBrandContentLoading] = useState(false);
@@ -308,13 +308,13 @@ export default function PromoteOfferPage() {
     age_min: 18,
     age_max: 65,
     gender: "" as GenderOpt, // '' = All, '1'=Male, '2'=Female
-    interests_csv: "", // comma-separated
+    interests: [], // official Meta interest IDs, chosen from search
 
     // Placements (jsonb)
     placements: {
       facebook_feed: true,
       instagram_feed: true,
-      instagram_reels: true,
+      instagram_reels: false,
       facebook_reels: false,
       facebook_stories: false,
       instagram_stories: false,
@@ -665,7 +665,7 @@ export default function PromoteOfferPage() {
 
   const sparkPath = useMemo(() => buildSparkPath(sparkValues), [sparkValues]);
 
-  const triggerReach = useDebounce(async () => {
+  const triggerReach = async () => {
     try {
       const countries = form.location_countries
         .split(",")
@@ -694,13 +694,7 @@ export default function PromoteOfferPage() {
 
       const genders = form.gender === "" ? [] : [Number(form.gender)];
 
-      const interests = form.interests_csv
-        ? form.interests_csv
-            .split(",")
-            .map((s) => s.trim())
-            .filter(Boolean)
-            .map((i) => ({ id: i, name: i }))
-        : [];
+      const interests = form.interests;
 
       // (Future) placements – server can merge into targeting_spec if supported
       const placementSpec = buildPlacementTargeting(form.placements);
@@ -769,10 +763,11 @@ export default function PromoteOfferPage() {
         setReachMessage("Could not load estimate right now. Please try again.");
       }
     }
-  }, 600);
+  };
 
   useEffect(() => {
-    triggerReach();
+    const timer = window.setTimeout(() => { void triggerReach(); }, 600);
+    return () => window.clearTimeout(timer);
     // include placements so toggling them updates estimate
   }, [
     offerId,
@@ -780,7 +775,7 @@ export default function PromoteOfferPage() {
     form.age_min,
     form.age_max,
     form.gender,
-    form.interests_csv,
+    form.interests,
     form.placements.facebook_feed,
     form.placements.instagram_feed,
     form.placements.instagram_reels,
@@ -907,7 +902,7 @@ export default function PromoteOfferPage() {
       // Fetch business_email for this offer
       const { data: offerRow, error: offerErr } = await (supabase as any)
         .from("offers")
-        .select("business_email")
+        .select("business_email,currency")
         .eq("id", offerId)
         .single();
       if (offerErr || !offerRow?.business_email)
@@ -1084,6 +1079,11 @@ export default function PromoteOfferPage() {
         throw new Error("Failed to fetch offer/business email");
 
       const business_email = offerRow.business_email;
+      const proposalCurrency = String(offerRow.currency || "").trim().toUpperCase();
+      if (!/^[A-Z]{3}$/.test(proposalCurrency)) {
+        nmToast.error("The business needs to set a campaign currency before submitting.");
+        return;
+      }
 
       // Meta, Sales Pixel, Growth, tracking and wallet readiness are launch
       // requirements, not proposal requirements. The business can review the
@@ -1147,12 +1147,7 @@ export default function PromoteOfferPage() {
         form.objective === "OUTCOME_SALES" ? "WEBSITE" : null;
 
       // 3) Build normalized fields for DB
-      const interests = form.interests_csv
-        ? form.interests_csv
-            .split(",")
-            .map((s) => s.trim())
-            .filter(Boolean)
-        : [];
+      const interests = form.interests;
 
       const placements_selected = Object.entries(form.placements)
         .filter(([, v]) => v)
@@ -1182,6 +1177,7 @@ export default function PromoteOfferPage() {
         conversion_location,
         budget_amount: budget_amount || 0,
         budget_type: form.budget_type,
+        currency: proposalCurrency,
         start_time: form.start_time
           ? new Date(form.start_time).toISOString()
           : null,
@@ -1192,7 +1188,7 @@ export default function PromoteOfferPage() {
         age_range: [String(form.age_min), String(form.age_max)], // reuse column (text[])
         gender:
           form.gender === "" ? "All" : form.gender === "1" ? "Male" : "Female",
-        interests: interests, // jsonb in table
+        interests: JSON.stringify(interests), // existing text column stores Meta {id,name} selections
 
         // placements
         manual_placements: placements_selected, // jsonb in table
@@ -1259,8 +1255,8 @@ export default function PromoteOfferPage() {
         meta: { source: usingBrandContent ? "brand" : "upload", objective: form.objective },
       });
 
-      nmToast.success("Campaign proposal submitted — no wallet funds have been reserved.");
-      router.push("/affiliate/dashboard/manage-campaigns");
+      nmToast.success("Campaign proposal submitted — pending business review. No wallet funds reserved.");
+      router.push(`/affiliate/dashboard/manage-campaigns?submitted=${encodeURIComponent(createdIdeaId || "")}`);
     } catch (e: any) {
       console.error("[❌ Submit Error]", e);
       if(isSubmissionSessionError(e))setSessionError("Sign in again to submit. Your draft and selected files are still here.");
@@ -1542,6 +1538,7 @@ export default function PromoteOfferPage() {
               reachDaily={reachDaily}
               reachMonthly={reachMonthly}
               interestsIgnored={interestsIgnored}
+              offerId={offerId}
               videoFile={videoFile}
               setVideoFile={setVideoFile}
               imageFile={imageFile}
