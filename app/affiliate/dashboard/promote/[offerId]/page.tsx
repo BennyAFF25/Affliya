@@ -683,6 +683,8 @@ export default function PromoteOfferPage() {
 
       setReachStatus("loading");
       setReachMessage("Loading estimate…");
+      setReachDaily(null);
+      setReachMonthly(null);
 
       const genders = form.gender === "" ? [] : [Number(form.gender)];
 
