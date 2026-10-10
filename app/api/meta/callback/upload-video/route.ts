@@ -874,11 +874,11 @@ export async function POST(req: Request) {
             page_id: selectedPageId,
             link_data: {
               link: destinationLink,
-              message: caption || "",
-              name: headline || undefined,
+              message: caption,
+              name: headline,
               description: description || undefined,
               call_to_action: {
-                type: ctaType || "LEARN_MORE",
+                type: ctaType,
                 value: {
                   link: destinationLink,
                 },
@@ -943,11 +943,11 @@ export async function POST(req: Request) {
             page_id: selectedPageId,
             video_data: {
               video_id,
-              title: headline || undefined,
-              message: caption || "",
+              title: headline,
+              message: caption,
               link_description: description || undefined,
               call_to_action: {
-                type: ctaType || "LEARN_MORE",
+                type: ctaType,
                 value: {
                   link: destinationLink,
                 },
