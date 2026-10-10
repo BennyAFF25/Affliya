@@ -1,3 +1,4 @@
+import { validateLaunchProposal } from "../../../../../utils/meta/campaignConfiguration";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
@@ -122,7 +123,7 @@ export async function POST(req: Request) {
 
     const { data: offer, error: offerError } = await admin
       .from("offers")
-      .select("id,business_email,participation_mode,website,meta_page_id,meta_ad_account_id,meta_pixel_id,title")
+      .select("id,business_email,participation_mode,website,currency,meta_page_id,meta_ad_account_id,meta_pixel_id,title")
       .eq("id", offerId)
       .maybeSingle();
 
@@ -133,6 +134,15 @@ export async function POST(req: Request) {
         "The offer attached to this proposal is no longer available to this business.",
         409,
       );
+    }
+
+    // Fail before marking the proposal approved or creating ANY Meta resources.
+    // This same launch contract drives the business readiness UI and Meta builder.
+    const configuration = validateLaunchProposal(idea, { currency: String(offer.currency || "") });
+    if (!configuration.ok) {
+      return jsonError("CAMPAIGN_CONFIGURATION_INVALID", configuration.errors[0], 409, {
+        errors: configuration.errors,
+      });
     }
 
     const affiliateApproval = await assertAffiliateOfferApproved(
