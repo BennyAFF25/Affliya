@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { validateCampaignIntent, readMetaInterests } from "../utils/meta/campaignConfiguration";
 
 const start = new Date(Date.now() + 15 * 60_000).toISOString();
@@ -38,5 +39,21 @@ assert.equal(check({ manual_placements: ["unknown"] }).ok, false);
 assert.equal(check({ objective: "OUTCOME_VIDEO_VIEWS" }).ok, false);
 assert.equal(check({ interests: "[broken" }).ok, false);
 assert.equal(check({ call_to_action: "NO_BUTTON" }).ok, false);
+
+
+const source = (path: string) => readFileSync(path, "utf8");
+const estimateRoute = source("app/api/meta/estimate-reach/route.ts");
+assert.ok(estimateRoute.includes("!/^[0-9]{2,30}$/.test(id)"), "Meta numeric interests must be accepted");
+const affiliatePage = source("app/affiliate/dashboard/promote/[offerId]/page.tsx");
+assert.ok(affiliatePage.includes('.select("business_email,currency")'), "Affiliate submit must fetch offer currency");
+assert.ok(affiliatePage.includes("setSubmitError(message)"), "Submission errors must remain visible");
+assert.ok(affiliatePage.includes('fetch("/api/affiliate/ad-ideas/create"'), "Submission must reach the authenticated proposal endpoint");
+const wizard = source("app/affiliate/dashboard/promote/components/AdCampaignWizard.tsx");
+assert.ok(wizard.includes("Campaign not submitted:"), "Wizard should render persistent error feedback");
+assert.ok(wizard.includes("Starts:") && wizard.includes("Ends:") && wizard.includes("Placements:"),
+  "Review must display schedule and placement choices");
+const affiliateLayout = source("app/affiliate/layout.tsx");
+assert.ok(affiliateLayout.includes('affiliateRole !== "affiliate"'),
+  "Business accounts must not view affiliate screens");
 
 console.log("meta campaign configuration tests passed");
