@@ -555,6 +555,85 @@ export async function POST(req: Request) {
 
     console.log("[meta-upload] clean_ad_account_id", cleanAdAccountId);
 
+    // Validate and upload IMAGE media before creating Meta campaigns/ad sets.
+    // No failed creative upload should leave partially created ad objects.
+    if (mediaType === "IMAGE") {
+      const storageOrigin = new URL(process.env.SUPABASE_URL!).origin;
+      let imageUrl: URL;
+      try { imageUrl = new URL(String(fileUrl || "")); }
+      catch {
+        return NextResponse.json({
+          success: false, error: "INVALID_IMAGE_URL", stage: "image_preflight",
+          message: "Invalid creative image URL. No Meta campaign was created.",
+        }, { status: 409 });
+      }
+      if (imageUrl.origin !== storageOrigin ||
+        !imageUrl.pathname.startsWith("/storage/v1/object/public/ad-ideas-assets/")) {
+        return NextResponse.json({
+          success: false, error: "UNTRUSTED_IMAGE_URL", stage: "image_preflight",
+          message: "The image must be in Nettmark's verified creative library. No Meta campaign was created.",
+        }, { status: 409 });
+      }
+      try {
+        const downloaded = await fetch(imageUrl.toString(), {
+          cache: "no-store",
+          signal: AbortSignal.timeout(15000),
+        });
+        const maxBytes = 8 * 1024 * 1024;
+        const declaredSize = Number(downloaded.headers.get("content-length") || 0);
+        const mime = String(downloaded.headers.get("content-type") || "").split(";")[0].toLowerCase();
+        if (!downloaded.ok || declaredSize > maxBytes ||
+          !["image/png", "image/jpeg", "image/gif", "image/webp"].includes(mime)) {
+          throw new Error("The image is unavailable, too large, or has an unsupported format.");
+        }
+        const bytes = Buffer.from(await downloaded.arrayBuffer());
+        if (!bytes.byteLength || bytes.byteLength > maxBytes) {
+          throw new Error("The image is empty or exceeds the 8 MB upload limit.");
+        }
+        // Meta's adimages API accepts base64 image bytes. The previous
+        // URL-only call produced OAuthException #3 in this controlled test.
+        const imageResponse = await fetch(
+          "https://graph.facebook.com/v26.0/" + cleanAdAccountId + "/adimages",
+          {
+            method: "POST",
+            headers: {
+              Authorization: "Bearer " + access_token,
+              "Content-Type": "application/x-www-form-urlencoded",
+            },
+            body: new URLSearchParams({ bytes: bytes.toString("base64") }),
+          },
+        );
+        const imageResult = await safeParse(imageResponse);
+        const values = Object.values(imageResult?.images || {});
+        image_hash = (values[0] as any)?.hash || null;
+        if (!imageResponse.ok || !image_hash) {
+          const capabilityDenied = Number(imageResult?.error?.code) === 3;
+          console.error("[meta-upload] image preflight denied", {
+            status: imageResponse.status,
+            code: imageResult?.error?.code,
+            subcode: imageResult?.error?.error_subcode,
+            fbtraceId: imageResult?.error?.fbtrace_id,
+          });
+          return NextResponse.json({
+            success: false,
+            error: capabilityDenied ? "META_APP_CAPABILITY_REQUIRED" : "IMAGE_UPLOAD_FAILED",
+            stage: "image_preflight",
+            message: capabilityDenied
+              ? "Meta denied image upload due to app capability or permission restrictions. Check ads_management access, Marketing API tier and ad account access. No campaign or ad set was created."
+              : metaFailureMessage(imageResult, "Meta rejected the image upload. No campaign or ad set was created."),
+            metaCode: imageResult?.error?.code || null,
+            fbtraceId: imageResult?.error?.fbtrace_id || null,
+          }, { status: 409 });
+        }
+        console.log("[meta-upload] image preflight passed", { imageHashPresent: true });
+      } catch (imageError) {
+        return NextResponse.json({
+          success: false, error: "IMAGE_PREFLIGHT_FAILED", stage: "image_preflight",
+          message: imageError instanceof Error ? imageError.message : "Image upload could not be prepared.",
+        }, { status: 409 });
+      }
+    }
+
     const createCampaignRes = await fetch(
       `https://graph.facebook.com/v26.0/${cleanAdAccountId}/campaigns`,
       {
@@ -814,60 +893,7 @@ export async function POST(req: Request) {
       let creativePayload: any;
 
       if (mediaType === "IMAGE") {
-        if (!fileUrl) {
-          return NextResponse.json(
-            {
-              success: false,
-              error: "Image creative is missing a file URL",
-            },
-            { status: 400 },
-          );
-        }
-
-        const imageUploadRes = await fetch(
-          `https://graph.facebook.com/v26.0/${cleanAdAccountId}/adimages`,
-          {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${access_token}`,
-            },
-            body: new URLSearchParams({
-              url: fileUrl,
-            }),
-          },
-        ).then((res) => safeParse(res));
-        console.log(
-          "[HTTP] image",
-          (imageUploadRes as any)?.images ? 200 : 400,
-        );
-
-        const uploadedImages = (imageUploadRes as any)?.images || {};
-        image_hash = Object.values(uploadedImages)[0]
-          ? ((Object.values(uploadedImages)[0] as any).hash ?? null)
-          : null;
-
-        if (!image_hash) {
-          console.error("[❌ Image Upload to Meta Failed]", imageUploadRes);
-          const cleanupSucceeded = await cleanupPartialMetaCampaign({
-            campaignId: String(campaignData.id),
-            accessToken: access_token,
-            adIdeaId,
-          });
-          return NextResponse.json(
-            {
-              success: false,
-              error: "IMAGE_UPLOAD_FAILED",
-              stage: "image_upload",
-              message: metaFailureMessage(imageUploadRes, "Meta rejected the image upload."),
-              meta: imageUploadRes,
-              cleanupSucceeded,
-            },
-            { status: 400 },
-          );
-        }
-
-        console.log("[✅ Image Uploaded to Meta]", image_hash);
-
+        // image_hash was validated and uploaded in the safe preflight.
         creativePayload = {
           name: adName || `Creative – ${campaignData.id}`,
           object_story_spec: {
