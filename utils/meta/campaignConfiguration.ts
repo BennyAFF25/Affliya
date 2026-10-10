@@ -24,6 +24,11 @@ export type CampaignIntent = {
   media_type?: string | null;
   file_url?: string | null;
   call_to_action?: string | null;
+  headline?: string | null;
+  caption?: string | null;
+  gender?: string | null;
+  display_link?: string | null;
+  tracking_link?: string | null;
   bid_strategy?: string | null;
   bid_cap?: number | string | null;
 };
@@ -137,4 +142,88 @@ export function validateCampaignIntent(
     errors.push("Enter a valid bid cap.");
   }
   return { ok: errors.length === 0, errors, interests, currency, placements };
+}
+
+/**
+ * The launch-only contract is intentionally stricter than an editable draft.
+ * Called by the business readiness endpoint AND both launch routes before
+ * changing any campaign status or sending requests to Meta.
+ */
+export function validateLaunchProposal(
+  idea: CampaignIntent,
+  options: { currency?: string; now?: number } = {},
+): CampaignValidation {
+  const base = validateCampaignIntent(idea, { ...options, requireMedia: true });
+  const errors = [...base.errors];
+  if (!String(idea.objective || "").trim()) errors.push("Campaign objective is missing.");
+  if (!String(idea.headline || "").trim()) errors.push("Ad headline is missing. Ask the affiliate to submit a corrected proposal.");
+  if (!String(idea.caption || "").trim()) errors.push("Ad primary text is missing.");
+  if (!String(idea.call_to_action || "").trim()) errors.push("Ad call-to-action is missing.");
+  if (!["All", "Male", "Female"].includes(String(idea.gender || ""))) {
+    errors.push("Gender targeting is missing or unsupported.");
+  }
+  if (typeof idea.advantage_audience !== "boolean") errors.push("Advantage+ Audience setting is missing.");
+  if (!["MANUAL", "AUTOMATIC"].includes(String(idea.placements_type || ""))) {
+    errors.push("Placements selection is missing or unsupported.");
+  }
+  if (idea.placements_type === "MANUAL" && base.placements.length === 0) {
+    errors.push("Choose a supported ad placement.");
+  }
+  if (!["IMAGE", "VIDEO"].includes(String(idea.media_type || "").toUpperCase())) {
+    errors.push("Creative format must be an image or video.");
+  }
+  const isHttpUrl = (value: unknown) => {
+    try {
+      const url = new URL(String(value || ""));
+      return (url.protocol === "https:" || url.protocol === "http:") && Boolean(url.hostname);
+    } catch { return false; }
+  };
+  if (!isHttpUrl(idea.file_url)) errors.push("Creative file URL is missing or invalid.");
+  if (!isHttpUrl(idea.display_link)) errors.push("Ad destination URL is missing or invalid.");
+  if (!isHttpUrl(idea.tracking_link)) errors.push("Attribution tracking URL is missing or invalid.");
+  const accountCurrency = String(options.currency || "").toUpperCase();
+  if (accountCurrency && base.currency !== accountCurrency) {
+    errors.push("The saved campaign currency does not match the business Meta account.");
+  }
+  // A schema update must never cause a missing value to be silently defaulted
+  // by the Meta API builder. The proposal is immutable after submission.
+  return { ...base, ok: errors.length === 0, errors };
+}
+
+/** Pure, deterministic payload mapping. No network calls or side effects. */
+export function buildSavedMetaTargeting(idea: CampaignIntent) {
+  const countries = String(idea.location || "").split(",").map((s) => s.trim().toUpperCase()).filter(Boolean);
+  const age = Array.isArray(idea.age_range) ? idea.age_range.map(Number) : [];
+  const placements = Array.isArray(idea.manual_placements) ? idea.manual_placements : [];
+  const mapFb: Record<string, string> = { facebook_feed: "feed", facebook_stories: "story", facebook_reels: "reels" };
+  const mapIg: Record<string, string> = { instagram_feed: "stream", instagram_stories: "story", instagram_reels: "reels" };
+  const facebook_positions = placements.filter((item) => item in mapFb).map((item) => mapFb[item]);
+  const instagram_positions = placements.filter((item) => item in mapIg).map((item) => mapIg[item]);
+  const publisher_platforms = [
+    ...(facebook_positions.length > 0 ? ["facebook"] : []),
+    ...(instagram_positions.length > 0 ? ["instagram"] : []),
+  ];
+  const interests = readMetaInterests(idea.interests);
+  return {
+    geo_locations: { countries },
+    age_min: age[0],
+    age_max: age[1],
+    genders: idea.gender === "Male" ? [1] : idea.gender === "Female" ? [2] : [1, 2],
+    ...(publisher_platforms.length ? { publisher_platforms } : {}),
+    ...(facebook_positions.length ? { facebook_positions } : {}),
+    ...(instagram_positions.length ? { instagram_positions } : {}),
+    ...(interests.length ? { flexible_spec: [{ interests: interests.map(({ id }) => ({ id })) }] } : {}),
+    targeting_automation: { advantage_audience: idea.advantage_audience ? 1 : 0 },
+  };
+}
+
+/** Fields used by BOTH image link_data and video_data. Campaign name is deliberately excluded. */
+export function buildSavedMetaCreative(idea: CampaignIntent) {
+  return {
+    headline: String(idea.headline || "").trim(),
+    caption: String(idea.caption || "").trim(),
+    ctaType: String(idea.call_to_action || "").trim().toUpperCase(),
+    destinationLink: String(idea.tracking_link || "").trim(),
+    displayLink: String(idea.display_link || "").trim(),
+  };
 }
