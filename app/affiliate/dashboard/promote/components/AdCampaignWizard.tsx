@@ -59,7 +59,9 @@ interface AdCampaignWizardProps {
   usingBrandContent?: boolean;
   onSwitchToBrandContent?: () => void;
   onSwitchToUploadOwn?: () => void;
-  handleAdSubmit: () => Promise<void>;
+  handleAdSubmit: () => Promise<boolean>;
+  submitError?: string | null;
+  currency: string;
   onNavigateToWallet: () => void;
 }
 
@@ -99,6 +101,8 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
     onSwitchToBrandContent,
     onSwitchToUploadOwn,
     handleAdSubmit,
+    submitError,
+    currency,
     onNavigateToWallet,
   } = props;
 
@@ -148,9 +152,12 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
 
   const onSubmitClick = async () => {
     if (isSubmitting) return;
+    setIsSubmitting(true);
     try {
-      setIsSubmitting(true);
       await handleAdSubmit();
+    } catch (error) {
+      console.error("[affiliate/wizard] submission failed", error);
+      nmToast.error(error instanceof Error ? error.message : "Campaign submission failed.");
     } finally {
       setIsSubmitting(false);
     }
@@ -959,11 +966,18 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
                   Budget
                 </div>
                 <div className="text-lg font-semibold text-[#00C2CB]">
-                  ${Number(form.budget_amount_dollars || 0).toFixed(2)}
+                  {currency || "Currency not available"} {Number(form.budget_amount_dollars || 0).toFixed(2)}
                 </div>
                 <div className="text-sm text-gray-300">
                   Type:{" "}
                   <span className="text-[#00C2CB]">{form.budget_type}</span>
+                </div>
+                <div className="mt-1 text-xs text-gray-400">Campaign currency follows the business Meta account.</div>
+                <div className="mt-2 text-sm text-gray-300">
+                  Starts: <span className="text-[#00C2CB]">{form.start_time ? new Date(form.start_time).toLocaleString("en-AU") : "Not set"}</span>
+                </div>
+                <div className="mt-1 text-sm text-gray-300">
+                  Ends: <span className="text-[#00C2CB]">{form.end_time ? new Date(form.end_time).toLocaleString("en-AU") : "Not set"}</span>
                 </div>
                 {form.bid_strategy === "BID_CAP" && (
                   <div className="text-sm text-gray-300 mt-1">
@@ -995,6 +1009,12 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
                     <span className="text-[#00C2CB]">{form.interests.map((interest) => interest.name).join(", ")}</span>
                   </div>
                 )}
+                <div className="mt-2 text-sm text-gray-300">
+                  Placements: <span className="text-[#00C2CB]">{Object.entries(form.placements)
+                    .filter(([, enabled]) => enabled)
+                    .map(([key]) => key.replace(/_/g, " "))
+                    .join(", ") || "None selected"}</span>
+                </div>
                 <div className="text-sm text-gray-400 mt-1">
                   Advantage audience:{" "}
                   <span
@@ -1072,6 +1092,11 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
             </button>
           )}
 
+          {step === 4 && submitError && (
+            <p role="alert" aria-live="assertive" className="w-full rounded-xl border border-red-400/30 bg-red-400/10 p-3 text-sm text-red-200">
+              Campaign not submitted: {submitError}
+            </p>
+          )}
           {step === 4 && (
             <button
               onClick={onSubmitClick}
