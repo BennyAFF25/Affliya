@@ -134,4 +134,41 @@ assert.match(rlsMigration, /meta_connections_owner_select/);
 assert.match(rlsMigration, /revoke all privileges on table/);
 assert.doesNotMatch(rlsMigration, /grant select\s*on public\.meta_connections/);
 
+
+const dashboardPage = readFileSync('app/business/dashboard/page.tsx', 'utf8');
+const dashboardSummary = readFileSync('app/api/business/dashboard/summary/route.ts', 'utf8');
+const affiliateCampaigns = readFileSync('app/affiliate/dashboard/manage-campaigns/page.tsx', 'utf8');
+
+// Affiliate headline is what Meta and the business preview show; campaign name
+// must remain internal campaign metadata rather than leaked creative copy.
+assert.match(reviewRoute, /headline: idea\.headline/);
+assert.match(detailPage, /proposal\.headline \|\| "No ad headline provided"/);
+assert.match(metaUploadRoute, /const headline = prefer\(adIdea\?\.headline/);
+assert.match(metaUploadRoute, /name: headline \|\| undefined/);
+assert.match(metaUploadRoute, /title: headline \|\| undefined/);
+
+// Full targeting and readable proposal settings are available to the business.
+assert.match(reviewRoute, /age_range: idea\.age_range/);
+assert.match(reviewRoute, /advantage_audience: Boolean\(idea\.advantage_audience\)/);
+assert.match(reviewRoute, /business_viewed_at: idea\.business_viewed_at/);
+assert.match(detailPage, /interestNames\(proposal\.interests\)/);
+assert.match(detailPage, /proposal\.manual_placements\?\.map\(placementName\)/);
+assert.match(detailPage, /readableEnum\(proposal\.objective/);
+assert.match(detailPage, /currencyDisplay: "narrowSymbol"/);
+
+// Login is read-only: RLS-protected profiles are never upserted at sign-in.
+assert.doesNotMatch(businessLogin, /from\("profiles"\)\.upsert/);
+assert.match(businessLogin, /select\("role"\)/);
+assert.match(page, /router\.replace\(\x60\/business\/my-business\/ad-ideas\/\$\{encodeURIComponent\(proposalId\)\}\x60\)/);
+
+// Business dashboard counts are server-scoped and pending ad proposals are not
+// confused with affiliate membership requests.
+assert.match(dashboardSummary, /auth\.getUser/);
+assert.match(dashboardSummary, /profile\?\.role !== "business"/);
+assert.match(dashboardSummary, /pendingAdProposals/);
+assert.match(dashboardPage, /\/api\/business\/dashboard\/summary/);
+assert.match(dashboardPage, /Pending ad proposals/);
+assert.match(dashboardPage, /dashboardLoaded/);
+assert.match(affiliateCampaigns, /submittedRetryDone/);
+
 console.log('ad ideas review UI tests passed');
