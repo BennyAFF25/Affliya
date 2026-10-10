@@ -1,4 +1,4 @@
-import { validateCampaignIntent } from "../../../../../utils/meta/campaignConfiguration";
+import { validateLaunchProposal, buildSavedMetaCreative, buildSavedMetaTargeting } from "../../../../../utils/meta/campaignConfiguration";
 /// app/api/meta/callback/upload-video/route.ts
 if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
   throw new Error(
@@ -285,9 +285,8 @@ export async function POST(req: Request) {
     // Same campaign intent contract used when the affiliate submitted it.
     // Run before creating ANY remote Meta resources, never silently alter
     // the selected audience, budget, creative or other business-approved data.
-    const intentCheck = validateCampaignIntent(adIdea as any, {
+    const intentCheck = validateLaunchProposal(adIdea as any, {
       currency: String((offer as any).currency || ""),
-      requireMedia: true,
     });
     if (!intentCheck.ok) {
       return NextResponse.json({
@@ -492,32 +491,11 @@ export async function POST(req: Request) {
     const startTimeISO = prefer(adIdea?.start_time, body.start_time, null);
     const endTimeISO = prefer(adIdea?.end_time, body.end_time, null);
 
-    // Creative fields
-    const headline = prefer(adIdea?.headline, body.headline, "");
-    const caption = prefer(adIdea?.caption, body.caption, "");
-    const description = prefer(
-      body.description,
-      adIdea?.description,
-      adIdea?.caption,
-      "",
-    );
-    const ctaType = prefer(
-      adIdea?.call_to_action,
-      (adIdea as any)?.cta,
-      body.call_to_action,
-      (body as any).cta,
-      "LEARN_MORE",
-    );
-
-    // 🔗 LINKS: unified tracking vs display logic
-    const trackingLink =
-      (adIdea as any)?.tracking_link || (body as any)?.tracking_link || null;
-
-    const displayLink =
-      offerWebsite || (body as any)?.display_link || trackingLink || null;
-
-    const destinationLink =
-      trackingLink || offerWebsite || displayLink || "https://nettmark.com";
+    // All ad-facing fields come exclusively from the immutable saved
+    // affiliate proposal, never from request-body fallback or campaign name.
+    const { headline, caption, ctaType, destinationLink, displayLink } =
+      buildSavedMetaCreative(adIdea as any);
+    const description = prefer(adIdea?.description, adIdea?.caption, "");
 
     // Media
     const mediaType = String(
@@ -707,54 +685,10 @@ export async function POST(req: Request) {
     console.log("[✅ Campaign ID Updated in Supabase]", updateRes.data);
 
     // --- Build Ad Set targeting ---
-    const countryMap: Record<string, string> = {
-      Australia: "AU",
-      "United States": "US",
-      Canada: "CA",
-      "United Kingdom": "GB",
-      Germany: "DE",
-      France: "FR",
-      India: "IN",
-    };
-    const countries = (() => {
-      const src = (
-        payload.location ??
-        (adIdea as any)?.location ??
-        "AU"
-      ).toString();
-      return src
-        .split(/[\s,]+/)
-        .map((s: string) => s.trim())
-        .filter(Boolean)
-        .map((s: string) =>
-          s.length === 2 ? s.toUpperCase() : countryMap[s] || s.toUpperCase(),
-        );
-    })();
-
-    const rawPlacements: string[] = Array.isArray(
-      (payload as any).manual_placements,
-    )
-      ? (payload as any).manual_placements
-      : [];
-    const mapFB: Record<string, string> = {
-      facebook_feed: "feed",
-      facebook_stories: "story",
-      facebook_reels: "reels",
-    };
-    const mapIG: Record<string, string> = {
-      instagram_feed: "stream",
-      instagram_stories: "story",
-      instagram_reels: "reels",
-    };
-    const facebook_positions = rawPlacements
-      .filter((p) => p in mapFB)
-      .map((p) => mapFB[p]);
-    const instagram_positions = rawPlacements
-      .filter((p) => p in mapIG)
-      .map((p) => mapIG[p]);
-    const publisher_platforms: string[] = [];
-    if (facebook_positions.length) publisher_platforms.push("facebook");
-    if (instagram_positions.length) publisher_platforms.push("instagram");
+    // Every ad-set targeting parameter uses the same saved intent shown
+    // on business review. No request-body overrides, implicit broadening,
+    // or default countries/ages/placements are permitted after approval.
+    const targetingPayload = buildSavedMetaTargeting(adIdea as any);
 
     // ---- Optimisation & bidding (from ad_ideas) ----
     const optimisationGoal =
@@ -817,64 +751,6 @@ export async function POST(req: Request) {
     const metaBidStrategy = isBidCap
       ? "LOWEST_COST_WITH_BID_CAP"
       : "LOWEST_COST_WITHOUT_CAP";
-
-    const advantageAudienceRaw =
-      (payload as any)?.advantage_audience ??
-      (adIdea as any)?.advantage_audience ??
-      0;
-    const advantageAudienceFlag =
-      advantageAudienceRaw === true ||
-      advantageAudienceRaw === "1" ||
-      advantageAudienceRaw === 1 ||
-      advantageAudienceRaw === "enable";
-
-    const requestedAgeMin = parseInt(
-      (payload as any).age_range?.[0] ||
-        (adIdea as any)?.age_range?.[0] ||
-        "18",
-      10,
-    );
-    const requestedAgeMax = parseInt(
-      (payload as any).age_range?.[1] ||
-        (adIdea as any)?.age_range?.[1] ||
-        "65",
-      10,
-    );
-
-    // Meta requires max age 65+ when Advantage+ Audience is enabled.
-    // Preserve the affiliate's explicit age range rather than silently widening it.
-    const useAdvantageAudience =
-      advantageAudienceFlag && requestedAgeMax >= 65;
-
-    if (advantageAudienceFlag && !useAdvantageAudience) {
-      console.log("[meta-upload] Advantage Audience disabled to preserve explicit age controls", {
-        requestedAgeMin,
-        requestedAgeMax,
-      });
-    }
-
-    const targetingPayload = {
-      geo_locations: { countries },
-      age_min: requestedAgeMin,
-      age_max: requestedAgeMax,
-      genders:
-        (payload as any).gender === "Male"
-          ? [1]
-          : (payload as any).gender === "Female"
-            ? [2]
-            : (adIdea as any)?.gender === "Male"
-              ? [1]
-              : (adIdea as any)?.gender === "Female"
-                ? [2]
-                : [1, 2],
-      ...(publisher_platforms.length ? { publisher_platforms } : {}),
-      ...(facebook_positions.length ? { facebook_positions } : {}),
-      ...(instagram_positions.length ? { instagram_positions } : {}),
-      ...(flexible_spec ? { flexible_spec } : {}),
-      targeting_automation: {
-        advantage_audience: useAdvantageAudience ? 1 : 0,
-      },
-    };
 
     const adsetParams: Record<string, string> = {
       name: adsetName || `Ad Set – ${campaignData.id}`,
