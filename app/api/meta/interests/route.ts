@@ -20,6 +20,11 @@ export async function GET(req: NextRequest) {
   }
   try {
     const admin = createServerSupabaseClient();
+    const { data: profile, error: profileError } = await admin.from("profiles")
+      .select("role").eq("id", user.id).maybeSingle();
+    if (profileError || profile?.role !== "affiliate") {
+      return NextResponse.json({ error: "An affiliate account is required." }, { status: 403 });
+    }
     const { data: offer, error: offerError } = await admin.from("offers")
       .select("id,business_email,meta_page_id,meta_ad_account_id")
       .eq("id", offerId).maybeSingle();
