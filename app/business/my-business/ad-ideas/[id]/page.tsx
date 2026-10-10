@@ -319,31 +319,40 @@ export default function AdIdeaProposalDetailPage() {
   const load = useCallback(async () => {
     if (!proposalId || !session?.user?.email) return;
     setLoading(true);
+    setReadiness(null);
     setError(null);
     try {
-      const [proposalRes, readinessRes] = await Promise.all([
-        fetch(`/api/business/ad-ideas/${encodeURIComponent(proposalId)}/review`, { cache: "no-store" }),
-        fetch("/api/business/ad-ideas/review-readiness", { cache: "no-store" }),
-      ]);
-
-      if (proposalRes.status === 401 || readinessRes.status === 401) {
+      // Readiness may compute checks for many campaigns and take seconds.
+      // Start it in parallel, but show the authorised proposal immediately.
+      const readinessPromise = fetch("/api/business/ad-ideas/review-readiness", { cache: "no-store" });
+      const proposalRes = await fetch(
+        `/api/business/ad-ideas/${encodeURIComponent(proposalId)}/review`,
+        { cache: "no-store" },
+      );
+      if (proposalRes.status === 401) {
         router.replace(`/login/business?returnTo=${encodeURIComponent(canonicalPath)}`);
         return;
       }
-
       const proposalJson = await proposalRes.json().catch(() => null);
-      const readinessJson = await readinessRes.json().catch(() => null);
       if (!proposalRes.ok || !proposalJson?.success || !proposalJson?.proposal) {
         throw new Error(proposalJson?.message || "This campaign proposal could not be loaded.");
       }
-      if (!readinessRes.ok || !readinessJson?.success) {
-        throw new Error(readinessJson?.message || "Launch requirements could not be checked.");
-      }
-
       const loaded = proposalJson.proposal as Proposal;
       setProposal(loaded);
       setScheduleStart(asLocalDateTime(loaded.start_time));
       setScheduleEnd(asLocalDateTime(loaded.end_time));
+      setLoading(false);
+      // This endpoint only enriches approval readiness: never block the
+      // proposal's own details behind a slow external billing/funding check.
+      const readinessRes = await readinessPromise;
+      if (readinessRes.status === 401) {
+        router.replace(`/login/business?returnTo=${encodeURIComponent(canonicalPath)}`);
+        return;
+      }
+      const readinessJson = await readinessRes.json().catch(() => null);
+      if (!readinessRes.ok || !readinessJson?.success) {
+        throw new Error(readinessJson?.message || "Launch requirements could not be checked.");
+      }
       setReadiness({
         billing: readinessJson.billing,
         subscription: readinessJson.subscription,
@@ -353,7 +362,7 @@ export default function AdIdeaProposalDetailPage() {
       if (loaded.status === "pending") {
         savePaidCampaignResume({
           proposalId: loaded.id,
-          path: `/business/my-business/ad-ideas?proposal=${encodeURIComponent(loaded.id)}`,
+          path: `/business/my-business/ad-ideas/${encodeURIComponent(loaded.id)}`,
           offerTitle: loaded.offer_title,
         });
       } else {
@@ -513,7 +522,7 @@ export default function AdIdeaProposalDetailPage() {
   };
 
   const businessNextAction = (() => {
-    if (!proposal || proposal.status !== "pending") return null;
+    if (!proposal || proposal.status !== "pending" || !readiness) return null;
     if (campaignReadiness?.partialMetaState) {
       return {
         label: "Clean up partial campaign",
@@ -562,7 +571,7 @@ export default function AdIdeaProposalDetailPage() {
   );
 
   const statusState = (() => {
-    if (!proposal) return { label: "Checking", className: "border-white/10 bg-white/[0.04] text-slate-300" };
+    if (!proposal || !readiness) return { label: "Checking", className: "border-white/10 bg-white/[0.04] text-slate-300" };
     if (proposal.status !== "pending") {
       return { label: proposal.status, className: "border-white/10 bg-white/[0.04] text-slate-300" };
     }
