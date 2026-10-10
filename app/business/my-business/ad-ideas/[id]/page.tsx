@@ -846,6 +846,10 @@ export default function AdIdeaProposalDetailPage() {
                       {campaignReadiness?.configuration?.errors?.[0] || "Meta cannot launch these campaign settings."}
                       {" "}Do not approve this proposal. Ask the affiliate to submit a corrected one with verified Meta interests and compatible settings.
                     </p>
+                    <button type="button" disabled aria-disabled="true"
+                      className="mt-4 w-full cursor-not-allowed rounded-xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-semibold text-slate-500">
+                      Approve &amp; launch — unavailable until proposal is corrected
+                    </button>
                   </div>
                 </div>
               ) : !fundingReady ? (
