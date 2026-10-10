@@ -15,6 +15,15 @@ function safeBusinessReturnTo(value: string | null) {
   ) {
     return null;
   }
+  // Legacy notification links used ?proposal= on the listing page.
+  // Go directly to the owner-scoped review after authentication.
+  const [pathname, query] = raw.split("?", 2);
+  if (pathname === "/business/my-business/ad-ideas" && query) {
+    const proposalId = new URLSearchParams(query).get("proposal");
+    if (proposalId && /^[0-9a-f-]{36}$/i.test(proposalId)) {
+      return `/business/my-business/ad-ideas/${encodeURIComponent(proposalId)}`;
+    }
+  }
   return raw.slice(0, 500);
 }
 
