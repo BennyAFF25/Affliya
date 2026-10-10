@@ -69,8 +69,8 @@ type ProposalState = {
 function currentAdIdeasReturnTo() {
   if (typeof window === "undefined") return "/business/my-business/ad-ideas";
   const proposalId = new URLSearchParams(window.location.search).get("proposal");
-  return proposalId
-    ? `/business/my-business/ad-ideas?proposal=${encodeURIComponent(proposalId)}`
+  return proposalId && /^[0-9a-f-]{36}$/i.test(proposalId)
+    ? `/business/my-business/ad-ideas/${encodeURIComponent(proposalId)}`
     : "/business/my-business/ad-ideas";
 }
 
@@ -184,9 +184,14 @@ export default function AdIdeasPage() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const proposalId = new URLSearchParams(window.location.search).get("proposal");
-    setHighlightedProposalId(proposalId);
-    if (proposalId) setActiveTab("pending");
-  }, []);
+    if (proposalId && /^[0-9a-f-]{36}$/i.test(proposalId)) {
+      // Notification and login deep links should land on the specific review,
+      // not leave the business searching through a long proposal list.
+      router.replace(`/business/my-business/ad-ideas/${encodeURIComponent(proposalId)}`);
+      return;
+    }
+    setHighlightedProposalId(null);
+  }, [router]);
 
   useEffect(() => {
     if (session === undefined) return;
