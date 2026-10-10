@@ -94,4 +94,19 @@ assert.ok(upload.includes('message: caption'));
 assert.ok(upload.includes('type: ctaType'));
 assert.ok(upload.includes("link: destinationLink"));
 assert.ok(readiness.includes("const configuration = validateLaunchProposal(idea"));
+
+const imagePreflight = upload.indexOf('image preflight passed');
+const campaignCreate = upload.indexOf('const createCampaignRes = await fetch(');
+assert.ok(imagePreflight >= 0 && campaignCreate > imagePreflight,
+  "Meta creative images must upload before campaign or ad set creation");
+assert.ok(upload.includes('new URLSearchParams({ bytes: bytes.toString("base64") })'),
+  "Meta image upload uses actual base64 image bytes, not a bare URL");
+assert.ok(!upload.includes("url: fileUrl,"),
+  "Meta image upload must not depend on a URL-only request");
+assert.ok(upload.includes('META_APP_CAPABILITY_REQUIRED'),
+  "Missing Meta API capability should surface an explicit launch blocker");
+const reviewPage = readFileSync("app/business/my-business/ad-ideas/[id]/page.tsx", "utf8");
+assert.ok(reviewPage.includes("Launch failed — nothing was marked live."),
+  "Failed launch errors must remain visible near approval controls");
+
 console.log("meta launch payload pure mapping tests passed (no Meta calls)");
