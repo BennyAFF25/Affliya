@@ -74,6 +74,8 @@ export default function PromoteOfferPage() {
   const draftOwner=useRef<{id:string;email:string}|null>(null);
   const submissionInFlight=useRef(false);
   const [sessionError,setSessionError]=useState<string|null>(null);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [offerCurrency, setOfferCurrency] = useState<string>("");
   useEffect(()=>{if(session?.user?.email && !draftOwner.current)draftOwner.current={id:session.user.id,email:session.user.email};},[session?.user?.id,session?.user?.email]);
   const userEmail=session?.user?.email || draftOwner.current?.email || "";
   const requireSubmissionSession=async()=>{
@@ -448,7 +450,7 @@ export default function PromoteOfferPage() {
       let { data: offer, error: offerErr } = await (supabase as any)
         .from("offers")
         .select(
-          "title, logo_url, business_email, website, meta_page_id, meta_ad_account_id, meta_pixel_id, participation_mode",
+          "title, logo_url, business_email, website, currency, meta_page_id, meta_ad_account_id, meta_pixel_id, participation_mode",
         )
         .eq("id", offerId)
         .single();
@@ -456,7 +458,7 @@ export default function PromoteOfferPage() {
       if (offerErr?.message?.toLowerCase().includes("participation_mode")) {
         ({ data: offer, error: offerErr } = await (supabase as any)
           .from("offers")
-          .select("title, logo_url, business_email, website, meta_page_id, meta_ad_account_id, meta_pixel_id")
+          .select("title, logo_url, business_email, website, currency, meta_page_id, meta_ad_account_id, meta_pixel_id")
           .eq("id", offerId)
           .single());
       }
@@ -468,6 +470,7 @@ export default function PromoteOfferPage() {
 
       // Preview title + logo
       setBrandName(offer?.title || "Your Brand Name");
+      setOfferCurrency(String(offer?.currency || "").trim().toUpperCase());
       setBrandLogoUrl(offer?.logo_url || null);
       setParticipationMode(
         offer?.participation_mode === "approval_required" || offer?.participation_mode === "private"
@@ -1010,10 +1013,11 @@ export default function PromoteOfferPage() {
   // ─────────────────────────────
   // Submit (Uploads → ad_ideas insert)
   // ─────────────────────────────
-  const handleAdSubmit = async (e?: React.FormEvent) => {
+  const handleAdSubmit = async (e?: React.FormEvent): Promise<boolean> => {
     e?.preventDefault();
-    if(submissionInFlight.current) return;
-    submissionInFlight.current=true;
+    if (submissionInFlight.current) return false;
+    submissionInFlight.current = true;
+    setSubmitError(null);
     try {
       const submissionUser=await requireSubmissionSession();
       await ensurePromotionAccess();
@@ -1022,10 +1026,7 @@ export default function PromoteOfferPage() {
       if (form.bid_strategy === "BID_CAP") {
         const cap = Number(form.bid_cap_dollars);
         if (!cap || cap <= 0) {
-          nmToast.error(
-            "Please enter a valid bid cap amount when using Bid Cap.",
-          );
-          return;
+          throw new Error("Please enter a valid bid cap amount when using Bid Cap.");
         }
       }
       const isVideoCreative = !!videoFile;
@@ -1034,8 +1035,7 @@ export default function PromoteOfferPage() {
       const selectedCreativeId = usingBrandContent ? selectedAdBrandCreative?.id || null : null;
 
       if (!usingBrandContent && !isVideoCreative && !isImageCreative) {
-        nmToast.error("Please upload either a video or a photo");
-        return;
+        throw new Error("Please upload either a video or a photo.");
       }
 
       if (isVideoCreative) {
@@ -1045,7 +1045,7 @@ export default function PromoteOfferPage() {
         }
         if (!thumbnailUrl || thumbnailUrl.trim() === "") {
           setThumbnailError("Please upload a thumbnail before submitting.");
-          return;
+          throw new Error("Please upload a thumbnail before submitting.");
         }
       }
 
@@ -1055,14 +1055,13 @@ export default function PromoteOfferPage() {
       // Funding is intentionally re-checked server-side at launch time.
       const budgetDollars = Number(form.budget_amount_dollars || 0);
       if (!budgetDollars || budgetDollars <= 0) {
-        nmToast.error("Please enter a valid daily budget");
-        return;
+        throw new Error("Please enter a valid daily budget.");
       }
 
       // 1) Get business email for this offer (needed for row)
       const { data: offerRow, error: offerErr } = await (supabase as any)
         .from("offers")
-        .select("business_email")
+        .select("business_email,currency")
         .eq("id", offerId)
         .single();
       if (offerErr || !offerRow)
@@ -1071,8 +1070,7 @@ export default function PromoteOfferPage() {
       const business_email = offerRow.business_email;
       const proposalCurrency = String(offerRow.currency || "").trim().toUpperCase();
       if (!/^[A-Z]{3}$/.test(proposalCurrency)) {
-        nmToast.error("The business needs to set a campaign currency before submitting.");
-        return;
+        throw new Error("The business needs to set a campaign currency before submitting.");
       }
       // Validate the SAME campaign contract used by the server and Meta launch.
       // Reject incompatible audience controls and dates before uploading media.
@@ -1095,8 +1093,7 @@ export default function PromoteOfferPage() {
         bid_cap: form.bid_strategy === "BID_CAP" ? Number(form.bid_cap_dollars) : null,
       });
       if (!previewValidation.ok) {
-        nmToast.error(previewValidation.errors[0]);
-        return;
+        throw new Error(previewValidation.errors[0]);
       }
 
       // Meta, Sales Pixel, Growth, tracking and wallet readiness are launch
@@ -1273,11 +1270,15 @@ export default function PromoteOfferPage() {
 
       nmToast.success("Campaign proposal submitted — pending business review. No wallet funds reserved.");
       router.push(`/affiliate/dashboard/manage-campaigns?submitted=${encodeURIComponent(createdIdeaId || "")}`);
+      return true;
     } catch (e: any) {
       console.error("[❌ Submit Error]", e);
       if(isSubmissionSessionError(e))setSessionError("Sign in again to submit. Your draft and selected files are still here.");
-      nmToast.error(isSubmissionSessionError(e)?"Sign in again; your draft has been kept.":e?.message || "Failed to submit ad idea");
-    } finally {submissionInFlight.current=false;}
+      const message = isSubmissionSessionError(e) ? "Sign in again; your draft has been kept." : e?.message || "Failed to submit campaign.";
+      setSubmitError(message);
+      nmToast.error(message);
+      return false;
+    } finally { submissionInFlight.current = false; }
   };
 
   // ─────────────────────────────
@@ -1571,6 +1572,8 @@ export default function PromoteOfferPage() {
               onSwitchToBrandContent={() => setAdCreativeSource("brand")}
               onSwitchToUploadOwn={() => setAdCreativeSource("upload")}
               handleAdSubmit={handleAdSubmit}
+              submitError={submitError}
+              currency={offerCurrency}
               onNavigateToWallet={() => router.push("/affiliate/wallet")}
             />
 
