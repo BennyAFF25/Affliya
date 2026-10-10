@@ -36,6 +36,8 @@ interface AdCampaignWizardProps {
   setEndIn7d: () => void;
   reachDaily: number | null;
   reachMonthly: number | null;
+  reachStatus: "idle" | "loading" | "ready" | "unavailable" | "error";
+  reachMessage: string;
   interestsIgnored: boolean;
   videoFile: File | null;
   setVideoFile: (file: File | null) => void;
@@ -84,6 +86,8 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
     setEndIn7d,
     reachDaily,
     reachMonthly,
+    reachStatus,
+    reachMessage,
     interestsIgnored,
     videoFile,
     setVideoFile,
@@ -671,7 +675,7 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
               )}
             </div>
 
-            {(reachDaily !== null || reachMonthly !== null) && (
+            {(
               <div className="mt-2 p-3 rounded-xl border border-[#2a2a2a] bg-[#0f0f0f]">
                 <div className="text-xs text-gray-400 mb-1">
                   Potential audience (Meta estimate)
@@ -691,6 +695,9 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
                         : "—"}
                     </div>
                   </div>
+                </div>
+                <div role="status" aria-live="polite" className={`mt-2 text-xs ${reachStatus === "error" ? "text-amber-300" : "text-gray-400"}`}>
+                  {reachMessage || (reachStatus === "loading" ? "Updating audience estimate…" : "Estimate not available yet.")}
                 </div>
                 {interestsIgnored && (
                   <span className="block mt-1 text-[11px] text-amber-300">
