@@ -407,8 +407,31 @@ export default function AdIdeaProposalDetailPage() {
     } catch (err) {
       const launchError =
         err instanceof Error ? err.message : "Could not launch this campaign.";
-      await load();
+      // Show the error immediately. Reloading the entire proposal previously
+      // made the page flash "Loading proposal…" and buried the useful message.
       setError(launchError);
+      try {
+        const [proposalRes, readinessRes] = await Promise.all([
+          fetch(`/api/business/ad-ideas/${encodeURIComponent(proposal.id)}/review`, { cache: "no-store" }),
+          fetch("/api/business/ad-ideas/review-readiness", { cache: "no-store" }),
+        ]);
+        if (proposalRes.ok) {
+          const refreshed = await proposalRes.json().catch(() => null);
+          if (refreshed?.success && refreshed.proposal) setProposal(refreshed.proposal as Proposal);
+        }
+        if (readinessRes.ok) {
+          const refreshed = await readinessRes.json().catch(() => null);
+          if (refreshed?.success) {
+            setReadiness({
+              billing: refreshed.billing,
+              subscription: refreshed.subscription,
+              campaigns: refreshed.campaigns || {},
+            });
+          }
+        }
+      } catch (refreshError) {
+        console.warn("[business/ad-ideas] failure-state refresh unavailable", refreshError);
+      }
     } finally {
       setBusy(false);
     }
@@ -749,6 +772,14 @@ export default function AdIdeaProposalDetailPage() {
                 </div>
               </div>
             </section>
+
+            {error ? (
+              <div role="alert" aria-live="assertive" className="rounded-2xl border border-red-400/35 bg-red-500/10 p-4 text-sm text-red-100">
+                <strong>Launch failed — nothing was marked live.</strong>
+                <p className="mt-2">{error}</p>
+                <p className="mt-2 text-xs text-red-200/80">Do not retry until the Meta error and any partial campaign have been reviewed.</p>
+              </div>
+            ) : null}
 
             <section className="rounded-[24px] border border-[#57c7d1]/55 bg-[linear-gradient(135deg,rgba(87,199,209,0.08),rgba(16,20,22,0.96)_55%)] p-5 shadow-[0_0_40px_rgba(87,199,209,0.05)] sm:p-6">
               {proposal.status !== "pending" ? (
