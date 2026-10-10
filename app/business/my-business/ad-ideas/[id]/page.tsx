@@ -741,7 +741,7 @@ export default function AdIdeaProposalDetailPage() {
                 <div className="flex items-center justify-between gap-3 border-t border-white/8 bg-white/[0.025] px-4 py-3">
                   <div className="min-w-0">
                     <div className="truncate text-xs uppercase tracking-wide text-slate-500">{proposal.offer_website || "Affiliate campaign"}</div>
-                    <div className="text-sm font-semibold text-slate-200">{proposal.headline || "No ad headline provided"}</div>
+                    <div className="text-sm font-semibold text-slate-200">{proposal.headline?.trim() || "Missing — affiliate must update"}</div>
                   </div>
                   <span className="shrink-0 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-slate-200">
                     {readableEnum(proposal.call_to_action || proposal.cta || "LEARN_MORE")}
@@ -907,7 +907,7 @@ export default function AdIdeaProposalDetailPage() {
               </div>
             </section>
 
-            <details className="group rounded-[22px] border border-white/10 bg-[#101416] p-4 sm:p-5">
+            <details open className="group rounded-[22px] border border-white/10 bg-[#101416] p-4 sm:p-5">
               <summary className="flex cursor-pointer list-none items-center justify-between gap-4 [&::-webkit-details-marker]:hidden">
                 <div className="flex items-center gap-3.5">
                   <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#57c7d1]/12 text-[#57c7d1]">
@@ -939,13 +939,13 @@ export default function AdIdeaProposalDetailPage() {
                 <dl className="grid gap-x-6 gap-y-4 text-sm sm:grid-cols-2">
                   <div><dt className="text-slate-500">Campaign</dt><dd className="mt-1 text-slate-200">{proposal.campaign_name || "Not named"}</dd></div>
                   <div><dt className="text-slate-500">Objective</dt><dd className="mt-1 text-slate-200">{readableEnum(proposal.objective || proposal.performance_goal)}</dd></div>
-                  <div><dt className="text-slate-500">Ad headline</dt><dd className="mt-1 text-slate-200">{proposal.headline || "Not set"}</dd></div>
-                  <div><dt className="text-slate-500">Age range</dt><dd className="mt-1 text-slate-200">{proposal.age_range?.length === 2 ? `${proposal.age_range[0]}–${proposal.age_range[1]}` : "Not set"}</dd></div>
-                  <div><dt className="text-slate-500">Gender</dt><dd className="mt-1 text-slate-200">{proposal.gender === "All" ? "All genders" : proposal.gender || "Not set"}</dd></div>
+                  <div><dt className="text-slate-500">Ad headline</dt><dd className="mt-1 text-slate-200">{proposal.headline?.trim() || "Missing — affiliate must update"}</dd></div>
+                  <div><dt className="text-slate-500">Age range</dt><dd className="mt-1 text-slate-200">{proposal.age_range?.length === 2 ? `${proposal.age_range[0]}–${proposal.age_range[1]}` : "Missing — affiliate must update"}</dd></div>
+                  <div><dt className="text-slate-500">Gender</dt><dd className="mt-1 text-slate-200">{proposal.gender === "All" ? "All genders" : proposal.gender || "Missing — affiliate must update"}</dd></div>
                   <div><dt className="text-slate-500">Interests</dt><dd className="mt-1 text-slate-200">{interestNames(proposal.interests).join(", ") || "Broad audience (no interests selected)"}</dd></div>
                   <div><dt className="text-slate-500">Advantage+ Audience</dt><dd className="mt-1 text-slate-200">{proposal.advantage_audience ? "Enabled" : "Disabled"}</dd></div>
-                  <div><dt className="text-slate-500">Placements</dt><dd className="mt-1 text-slate-200">{proposal.manual_placements?.map(placementName).join(", ") || readableEnum(proposal.placements_type)}</dd></div>
-                  <div><dt className="text-slate-500">Location</dt><dd className="mt-1 text-slate-200">{proposal.location || "Not set"}</dd></div>
+                  <div><dt className="text-slate-500">Placements</dt><dd className="mt-1 text-slate-200">{proposal.manual_placements?.map(placementName).join(", ") || "Missing — affiliate must update"}</dd></div>
+                  <div><dt className="text-slate-500">Location</dt><dd className="mt-1 text-slate-200">{proposal.location || "Missing — affiliate must update"}</dd></div>
                   <div><dt className="text-slate-500">CTA</dt><dd className="mt-1 text-slate-200">{readableEnum(proposal.call_to_action || proposal.cta)}</dd></div>
                   <div><dt className="text-slate-500">Start</dt><dd className="mt-1 text-slate-200">{formatDate(proposal.start_time)}</dd></div>
                   <div><dt className="text-slate-500">End</dt><dd className="mt-1 text-slate-200">{formatDate(proposal.end_time)}</dd></div>
