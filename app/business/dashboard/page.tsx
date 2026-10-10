@@ -135,6 +135,13 @@ export default function BusinessDashboard() {
 
   const [approvedAffiliates, setApprovedAffiliates] = useState<any[]>([]);
   const [activeCampaigns, setActiveCampaigns] = useState<any[]>([]);
+  const [dashboardLoaded, setDashboardLoaded] = useState(false);
+  const [dashboardCounts, setDashboardCounts] = useState<{
+    activeCampaignCount: number;
+    pendingAdProposals: number;
+    approvedAffiliates: number;
+    pendingAffiliateRequests: number;
+  } | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [pendingPayoutCount, setPendingPayoutCount] = useState<number>(0);
   const [pendingPayoutTotal, setPendingPayoutTotal] = useState<number>(0);
@@ -344,9 +351,8 @@ export default function BusinessDashboard() {
         setHasMetaConnected(
           (offers || []).some(
             (o: any) =>
-              Boolean(o.meta_page_id) ||
-              Boolean(o.meta_ad_account_id) ||
-              Boolean(o.meta_pixel_id),
+              Boolean(o.meta_page_id) &&
+              Boolean(o.meta_ad_account_id),
           ),
         );
       } else {
@@ -425,81 +431,30 @@ export default function BusinessDashboard() {
         );
       }
 
-      // Fetch active campaigns from both paid ads (live_ads) and organic (live_campaigns) with offers join
-      const [liveAdsResult, liveCampaignsResult] = await Promise.all([
-        supabase
-          .from("live_ads")
-          .select(
-            `
-            id,
-            offer_id,
-            affiliate_email,
-            business_email,
-            status,
-            created_at,
-            spend,
-            campaign_type,
-            offers (
-              id,
-              title
-            )
-          `,
-          )
-          .eq("business_email", businessEmail),
-        supabase
-          .from("live_campaigns")
-          .select(
-            `
-            id,
-            offer_id,
-            affiliate_email,
-            business_email,
-            status,
-            created_at,
-            platform,
-            type,
-            offers (
-              id,
-              title
-            )
-          `,
-          )
-          .eq("business_email", businessEmail),
-      ]);
-
-      const liveAds =
-        !liveAdsResult.error && liveAdsResult.data ? liveAdsResult.data : [];
-      const liveOrganic =
-        !liveCampaignsResult.error && liveCampaignsResult.data
-          ? liveCampaignsResult.data
-          : [];
-
-      if (liveAdsResult.error) {
-        console.error(
-          "[❌ Failed to fetch active campaigns from live_ads]",
-          liveAdsResult.error,
-        );
+      // One server-authorised snapshot for paid and organic campaigns,
+      // submitted ad proposals and affiliate request counts. A client-side
+      // RLS query must not silently turn real activity into false zeros.
+      try {
+        const summaryResponse = await fetch("/api/business/dashboard/summary", { cache: "no-store" });
+        const summary = await summaryResponse.json().catch(() => null);
+        if (!summaryResponse.ok || !summary?.success) {
+          throw new Error(summary?.error || "Business counts unavailable.");
+        }
+        setDashboardCounts({
+          activeCampaignCount: summary.activeCampaignCount,
+          pendingAdProposals: summary.pendingAdProposals,
+          approvedAffiliates: summary.approvedAffiliates,
+          pendingAffiliateRequests: summary.pendingAffiliateRequests,
+        });
+        setActiveCampaigns((summary.campaigns || []).map((campaign: any) => ({
+          ...campaign,
+          resolved_offer_title: (offers || []).find((o: any) => o.id === campaign.offer_id)?.title || null,
+        })));
+      } catch (summaryError) {
+        console.error("[business/dashboard] authoritative summary failed", summaryError);
+        setDashboardCounts(null);
+        setActiveCampaigns([]);
       }
-      if (liveCampaignsResult.error) {
-        console.error(
-          "[❌ Failed to fetch active campaigns from live_campaigns]",
-          liveCampaignsResult.error,
-        );
-      }
-
-      console.log("[📊 live_ads rows]", liveAds);
-      console.log("[📊 live_campaigns rows]", liveOrganic);
-
-      // Normalize both paid and organic campaigns into a consistent shape
-      const normalizedCampaigns = [...liveAds, ...liveOrganic].map(
-        (c: any) => ({
-          ...c,
-          __source: c.campaign_type ? "paid" : "organic",
-          resolved_offer_title: c.offers?.title ?? null,
-        }),
-      );
-
-      setActiveCampaigns(normalizedCampaigns);
 
       // Fetch conversion events and build sales series and total revenue
       if (offerIds.length > 0) {
@@ -551,7 +506,9 @@ export default function BusinessDashboard() {
       }
     };
 
-    fetchProfileAndData();
+    void fetchProfileAndData()
+      .catch((error) => console.error("[business/dashboard] load failed", error))
+      .finally(() => setDashboardLoaded(true));
 
     // Realtime updates for wallet_payouts affecting this business
     if (session && user?.email) {
@@ -602,12 +559,12 @@ export default function BusinessDashboard() {
     { label: "Approve First Affiliate", done: approved.length > 0, href: "/business/inbox" },
     {
       label: "Billing setup available later",
-      done: onboardingProgressFlags.billing_connected || hasBillingConnected,
+      done: hasBillingConnected,
       href: "/business/settings",
     },
     {
       label: "Connect meta to get paid campaigns",
-      done: onboardingProgressFlags.meta_connected || hasMetaConnected,
+      done: hasMetaConnected,
       href: "/business/my-business/connect-meta",
     },
     { label: "Launch First Campaign", done: activeCampaigns.length > 0, href: "/business/manage-campaigns" },
@@ -657,6 +614,16 @@ export default function BusinessDashboard() {
     }
   };
 
+  if (!dashboardLoaded) {
+    return <div role="status" className="min-h-screen bg-[var(--background)] px-6 py-10 text-[var(--muted-foreground)]">
+      <div className="mb-6 h-8 w-60 animate-pulse rounded-xl bg-white/10" />
+      <div className="grid gap-3 sm:grid-cols-3">
+        {[0, 1, 2].map((key) => <div key={key} className="h-28 animate-pulse rounded-2xl border border-[var(--border)] bg-[var(--card)]" />)}
+      </div>
+      <p className="mt-6 text-sm">Loading business activity and setup…</p>
+    </div>;
+  }
+
   return (
     <>
       <div className="business-dashboard-theme min-h-screen w-full bg-[var(--background)] text-[var(--foreground)] px-4 py-4 sm:px-5 sm:py-6">
@@ -668,7 +635,7 @@ export default function BusinessDashboard() {
             </span>
             <div>
               <p className="text-sm font-semibold text-[var(--foreground)]">Activation checklist</p>
-              <p className="text-xs text-[var(--muted-foreground)]">{activationDoneCount} of {activationItems.length} complete</p>
+              <p className="text-xs text-[var(--muted-foreground)]">{dashboardCounts ? `${activationDoneCount} of ${activationItems.length} complete` : "Checking setup"}</p>
             </div>
           </div>
           <button
@@ -719,7 +686,7 @@ export default function BusinessDashboard() {
               {showBillingWhy ? <ChevronUp className="h-4 w-4 text-[var(--muted-foreground)]" /> : <ChevronDown className="h-4 w-4 text-[var(--muted-foreground)]" />}
             </button>
             <p className="mt-1 text-xs text-[var(--muted-foreground)]">
-              {hasBillingConnected ? "Billing connected" : "No action needed yet"}
+              {hasBillingConnected ? "Billing card connected" : "Commission billing is checked again when reviewing paid proposals"}
             </p>
             {showBillingWhy && (
               <div className="mt-2 space-y-2 text-xs text-[var(--muted-foreground)]">
@@ -739,7 +706,7 @@ export default function BusinessDashboard() {
               {showMetaWhy ? <ChevronUp className="h-4 w-4 text-[var(--muted-foreground)]" /> : <ChevronDown className="h-4 w-4 text-[var(--muted-foreground)]" />}
             </button>
             <p className="mt-1 text-xs text-[var(--muted-foreground)]">
-              {hasMetaConnected ? "Meta connected" : "Optional for now"}
+              {hasMetaConnected ? "Meta account connected" : "Connect Meta before launching a paid campaign"}
             </p>
             {showMetaWhy && (
               <div className="mt-2 space-y-2 text-xs text-[var(--muted-foreground)]">
@@ -797,8 +764,9 @@ export default function BusinessDashboard() {
 
       <SectionHeader eyebrow="Snapshot" title="Business snapshot" className="mb-4 mt-2" />
       <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <StatCard label="Active affiliates" value={approved.length} icon={<Users className="h-4 w-4" />} helper="Live" tone="primary" />
-        <StatCard label="Pending requests" value={pendingRequests.length} icon={<Sparkles className="h-4 w-4" />} helper="Queue" tone="warning" />
+        <StatCard label="Approved affiliates" value={dashboardCounts?.approvedAffiliates ?? "—"} icon={<Users className="h-4 w-4" />} helper="Affiliate requests" tone="primary" />
+        <StatCard label="Pending affiliate requests" value={dashboardCounts?.pendingAffiliateRequests ?? "—"} icon={<Sparkles className="h-4 w-4" />} helper="Membership approval" tone="warning" />
+        <StatCard label="Pending ad proposals" value={dashboardCounts?.pendingAdProposals ?? "—"} icon={<ListChecks className="h-4 w-4" />} helper="Needs business review" tone="warning" />
         <StatCard label="Total revenue" value={formatCurrency(totalRevenue)} icon={<LineChartIcon className="h-4 w-4" />} helper="MTD" tone="success" />
         <StatCard
           label="Pending payouts"
@@ -1046,7 +1014,7 @@ export default function BusinessDashboard() {
             </div>
             <div>
               <h2 className="text-[15px] font-semibold tracking-wide text-[#7ff5fb] flex items-center gap-2">
-                <span>Active Campaigns ({activeCampaigns.length})</span>
+                <span>Live Campaigns ({dashboardCounts?.activeCampaignCount ?? "—"})</span>
               </h2>
               {activeCampaigns.length > 0 && (
                 <p className="text-[11px] text-gray-500">
@@ -1072,8 +1040,10 @@ export default function BusinessDashboard() {
           </div>
         </button>
 
-        {activeCampaigns.length === 0 ? (
-          <p className="text-sm text-gray-400">No active campaigns yet.</p>
+        {!dashboardCounts ? (
+          <p className="text-sm text-amber-200">Campaign totals are unavailable. Refresh to retry.</p>
+        ) : activeCampaigns.length === 0 ? (
+          <p className="text-sm text-gray-400">No live campaigns yet.</p>
         ) : (
           <div className="mt-1 space-y-2 text-sm text-gray-200">
             {(showAllCampaigns
