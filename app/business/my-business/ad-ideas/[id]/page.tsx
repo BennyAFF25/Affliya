@@ -796,6 +796,19 @@ export default function AdIdeaProposalDetailPage() {
                     </Elements>
                   ) : null}
                 </>
+              ) : !readiness ? (
+                <div className="flex items-start gap-3.5">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#57c7d1]/12 text-[#57c7d1]">
+                    <Clock3 className="h-5 w-5" />
+                  </div>
+                  <div role="status">
+                    <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8ce5ed]">Checking requirements</div>
+                    <h2 className="mt-1 text-xl font-bold">Review campaign while setup is verified</h2>
+                    <p className="mt-1.5 text-sm leading-6 text-slate-400">
+                      Campaign details are ready. Nettmark is checking funding, billing, Meta and tracking before approval can be enabled.
+                    </p>
+                  </div>
+                </div>
               ) : !timingReady ? (
                 <div className="flex items-start gap-3.5">
                   <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-amber-400/10 text-amber-300">
@@ -912,10 +925,14 @@ export default function AdIdeaProposalDetailPage() {
                 <div>
                   <div className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Business setup</div>
                   <div className="grid gap-2 sm:grid-cols-2">
+                    {readiness ? (
+                      <>
                     <SetupStep label="Growth" ready={subscriptionReady} icon={<Rocket className="h-4 w-4" />} />
                     <SetupStep label="Commission billing" ready={billingReady} icon={<CreditCard className="h-4 w-4" />} />
                     <SetupStep label="Meta" ready={metaSetupReady} icon={<Megaphone className="h-4 w-4" />} />
                     <SetupStep label="Tracking" ready={trackingReady} icon={<Link2 className="h-4 w-4" />} />
+                      </>
+                    ) : <p role="status" className="text-sm text-slate-400">Checking launch requirements…</p>}
                   </div>
                 </div>
 
