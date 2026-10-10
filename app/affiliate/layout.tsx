@@ -19,6 +19,7 @@ import {
 import { usePathname, useRouter } from "next/navigation";
 import { Toast } from "@/components/Toast";
 import { useInboxNotifier } from "../../utils/hooks/useInboxNotifier";
+import { supabase } from "../../utils/supabase/pages-client";
 
 export default function AffiliateLayout({
   children,
@@ -35,6 +36,31 @@ function AffiliateLayoutShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { toast, setToast, unreadCount } = useInboxNotifier(userEmail);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [affiliateRole, setAffiliateRole] = useState<"checking" | "affiliate" | "business" | "blocked" | "error">("checking");
+
+  useEffect(() => {
+    const userId = session?.user?.id;
+    if (!userId) { setAffiliateRole("checking"); return; }
+    let current = true;
+    setAffiliateRole("checking");
+    void (async () => {
+      const { data, error } = await supabase.from("profiles")
+        .select("role").eq("id", userId).maybeSingle();
+      if (!current) return;
+      if (error) { setAffiliateRole("error"); return; }
+      const role = String(data?.role || "").trim().toLowerCase();
+      if (role === "affiliate") setAffiliateRole("affiliate");
+      else if (role === "business") setAffiliateRole("business");
+      else setAffiliateRole("blocked");
+    })();
+    return () => { current = false; };
+  }, [session?.user?.id]);
+
+  useEffect(() => {
+    if (affiliateRole === "business" && session?.user?.id) {
+      router.replace("/business/my-business");
+    }
+  }, [affiliateRole, session?.user?.id, router]);
   const draftRoute=useRef<string|null>(null);
   if(!pathname.startsWith("/affiliate/dashboard/promote/"))draftRoute.current=null;
   else if(session?.user)draftRoute.current=pathname;
@@ -61,6 +87,18 @@ function AffiliateLayoutShell({ children }: { children: React.ReactNode }) {
     return (
       <div className="trial-theme flex min-h-screen items-center justify-center bg-[var(--background)] text-[var(--foreground)]">
         Redirecting to affiliate login…
+      </div>
+    );
+  }
+
+  if (session?.user && affiliateRole !== "affiliate") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[var(--background)] p-6 text-[var(--foreground)]">
+        {affiliateRole === "checking" || affiliateRole === "business"
+          ? "Checking account access…"
+          : affiliateRole === "error"
+            ? "Could not verify your account role. Refresh and try again."
+            : "This area is only available to affiliate accounts."}
       </div>
     );
   }
