@@ -558,12 +558,12 @@ export default function BusinessDashboard() {
     },
     { label: "Approve First Affiliate", done: approved.length > 0, href: "/business/inbox" },
     {
-      label: "Billing setup available later",
+      label: "Connect commission billing",
       done: hasBillingConnected,
       href: "/business/settings",
     },
     {
-      label: "Connect meta to get paid campaigns",
+      label: "Connect Meta for paid ads",
       done: hasMetaConnected,
       href: "/business/my-business/connect-meta",
     },
@@ -634,7 +634,7 @@ export default function BusinessDashboard() {
               <ListChecks className="h-4 w-4 text-[#7ff5fb]" />
             </span>
             <div>
-              <p className="text-sm font-semibold text-[var(--foreground)]">Activation checklist</p>
+              <p className="text-sm font-semibold text-[var(--foreground)]">Business milestones</p>
               <p className="text-xs text-[var(--muted-foreground)]">{dashboardCounts ? `${activationDoneCount} of ${activationItems.length} complete` : "Checking setup"}</p>
             </div>
           </div>
@@ -682,7 +682,7 @@ export default function BusinessDashboard() {
               onClick={() => setShowBillingWhy((prev) => !prev)}
               className="flex w-full items-center justify-between text-left"
             >
-              <span className="text-sm font-semibold text-[var(--foreground)]">Billing stays optional</span>
+              <span className="text-sm font-semibold text-[var(--foreground)]">Commission billing</span>
               {showBillingWhy ? <ChevronUp className="h-4 w-4 text-[var(--muted-foreground)]" /> : <ChevronDown className="h-4 w-4 text-[var(--muted-foreground)]" />}
             </button>
             <p className="mt-1 text-xs text-[var(--muted-foreground)]">
@@ -702,7 +702,7 @@ export default function BusinessDashboard() {
               onClick={() => setShowMetaWhy((prev) => !prev)}
               className="flex w-full items-center justify-between text-left"
             >
-              <span className="text-sm font-semibold text-[var(--foreground)]">Connect Meta now or later</span>
+              <span className="text-sm font-semibold text-[var(--foreground)]">Meta advertising connection</span>
               {showMetaWhy ? <ChevronUp className="h-4 w-4 text-[var(--muted-foreground)]" /> : <ChevronDown className="h-4 w-4 text-[var(--muted-foreground)]" />}
             </button>
             <p className="mt-1 text-xs text-[var(--muted-foreground)]">
