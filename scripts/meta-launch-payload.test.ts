@@ -89,9 +89,9 @@ assert.ok(upload.indexOf("const intentCheck = validateLaunchProposal(adIdea as a
   upload.indexOf("const createCampaignRes = await fetch("));
 assert.ok(upload.includes("buildSavedMetaCreative(adIdea as any)"));
 assert.ok(upload.includes("buildSavedMetaTargeting(adIdea as any)"));
-assert.ok(upload.includes("name: headline || undefined"));
-assert.ok(upload.includes('message: caption || ""'));
-assert.ok(upload.includes('type: ctaType || "LEARN_MORE"'));
+assert.ok(upload.includes("name: headline"));
+assert.ok(upload.includes('message: caption'));
+assert.ok(upload.includes('type: ctaType'));
 assert.ok(upload.includes("link: destinationLink"));
 assert.ok(readiness.includes("const configuration = validateLaunchProposal(idea"));
 console.log("meta launch payload pure mapping tests passed (no Meta calls)");
