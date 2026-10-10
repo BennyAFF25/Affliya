@@ -44,6 +44,12 @@ type Proposal = {
   status: string;
   created_at: string;
   campaign_name?: string | null;
+  headline?: string | null;
+  business_viewed_at?: string | null;
+  interests?: string | null;
+  manual_placements?: string[] | null;
+  placements_type?: string | null;
+  advantage_audience?: boolean | null;
   audience?: string | null;
   location?: string | null;
   objective?: string | null;
@@ -56,7 +62,7 @@ type Proposal = {
   currency?: string | null;
   budget_type?: string | null;
   daily_budget?: number | null;
-  age_range?: [number, number] | null;
+  age_range?: (string | number)[] | null;
   gender?: string | null;
   performance_goal?: string | null;
   conversion_event?: string | null;
@@ -101,8 +107,39 @@ function formatBudget(proposal: Proposal) {
     ? " total"
     : "/day";
   const currency = /^[A-Z]{3}$/.test(String(proposal.currency || "")) ? String(proposal.currency) : "AUD";
-  const formatted = new Intl.NumberFormat("en-AU", { style: "currency", currency }).format(amount);
-  return `${formatted}${suffix}`;
+  const formatted = new Intl.NumberFormat("en-AU", { style: "currency", currency, currencyDisplay: "narrowSymbol" }).format(amount);
+  return `${currency === "AUD" ? "A" : currency + " "}${formatted}${suffix}`;
+}
+
+function readableEnum(value?: string | null) {
+  const raw = String(value || "").trim();
+  if (!raw) return "Not set";
+  const normalized = raw.replace(/^OUTCOME_/, "").replace(/_/g, " ").toLowerCase();
+  return normalized.replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
+function interestNames(raw?: string | null): string[] {
+  if (!raw) return [];
+  try {
+    const values = JSON.parse(raw);
+    if (Array.isArray(values)) {
+      return values.map((item) =>
+        typeof item === "string" ? item : String(item?.name || item?.id || ""),
+      ).filter(Boolean);
+    }
+  } catch {
+    return [raw];
+  }
+  return [];
+}
+
+function placementName(key: string) {
+  const labels: Record<string, string> = {
+    facebook_feed: "Facebook Feed", instagram_feed: "Instagram Feed",
+    facebook_stories: "Facebook Stories", instagram_stories: "Instagram Stories",
+    facebook_reels: "Facebook Reels", instagram_reels: "Instagram Reels",
+  };
+  return labels[key] || readableEnum(key);
 }
 
 function formatDate(value?: string | null) {
@@ -695,10 +732,10 @@ export default function AdIdeaProposalDetailPage() {
                 <div className="flex items-center justify-between gap-3 border-t border-white/8 bg-white/[0.025] px-4 py-3">
                   <div className="min-w-0">
                     <div className="truncate text-xs uppercase tracking-wide text-slate-500">{proposal.offer_website || "Affiliate campaign"}</div>
-                    <div className="truncate text-sm font-semibold text-slate-200">{proposal.campaign_name || proposal.offer_title}</div>
+                    <div className="text-sm font-semibold text-slate-200">{proposal.headline || "No ad headline provided"}</div>
                   </div>
                   <span className="shrink-0 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-2 text-xs font-semibold text-slate-200">
-                    {proposal.call_to_action || proposal.cta || "Learn more"}
+                    {readableEnum(proposal.call_to_action || proposal.cta || "LEARN_MORE")}
                   </span>
                 </div>
               </div>
@@ -875,12 +912,22 @@ export default function AdIdeaProposalDetailPage() {
 
                 <dl className="grid gap-x-6 gap-y-4 text-sm sm:grid-cols-2">
                   <div><dt className="text-slate-500">Campaign</dt><dd className="mt-1 text-slate-200">{proposal.campaign_name || "Not named"}</dd></div>
-                  <div><dt className="text-slate-500">Objective</dt><dd className="mt-1 text-slate-200">{proposal.objective || proposal.performance_goal || "Not set"}</dd></div>
-                  <div><dt className="text-slate-500">Audience</dt><dd className="mt-1 text-slate-200">{proposal.audience || "Not set"}</dd></div>
+                  <div><dt className="text-slate-500">Objective</dt><dd className="mt-1 text-slate-200">{readableEnum(proposal.objective || proposal.performance_goal)}</dd></div>
+                  <div><dt className="text-slate-500">Ad headline</dt><dd className="mt-1 text-slate-200">{proposal.headline || "Not set"}</dd></div>
+                  <div><dt className="text-slate-500">Age range</dt><dd className="mt-1 text-slate-200">{proposal.age_range?.length === 2 ? `${proposal.age_range[0]}–${proposal.age_range[1]}` : "Not set"}</dd></div>
+                  <div><dt className="text-slate-500">Gender</dt><dd className="mt-1 text-slate-200">{proposal.gender === "All" ? "All genders" : proposal.gender || "Not set"}</dd></div>
+                  <div><dt className="text-slate-500">Interests</dt><dd className="mt-1 text-slate-200">{interestNames(proposal.interests).join(", ") || "Broad audience (no interests selected)"}</dd></div>
+                  <div><dt className="text-slate-500">Advantage+ Audience</dt><dd className="mt-1 text-slate-200">{proposal.advantage_audience ? "Enabled" : "Disabled"}</dd></div>
+                  <div><dt className="text-slate-500">Placements</dt><dd className="mt-1 text-slate-200">{proposal.manual_placements?.map(placementName).join(", ") || readableEnum(proposal.placements_type)}</dd></div>
                   <div><dt className="text-slate-500">Location</dt><dd className="mt-1 text-slate-200">{proposal.location || "Not set"}</dd></div>
+                  <div><dt className="text-slate-500">CTA</dt><dd className="mt-1 text-slate-200">{readableEnum(proposal.call_to_action || proposal.cta)}</dd></div>
                   <div><dt className="text-slate-500">Start</dt><dd className="mt-1 text-slate-200">{formatDate(proposal.start_time)}</dd></div>
                   <div><dt className="text-slate-500">End</dt><dd className="mt-1 text-slate-200">{formatDate(proposal.end_time)}</dd></div>
-                  <div><dt className="text-slate-500">Conversion event</dt><dd className="mt-1 text-slate-200">{proposal.conversion_event || "Not set"}</dd></div>
+                  {proposal.objective === "OUTCOME_SALES" ? (
+                    <div><dt className="text-slate-500">Conversion event</dt><dd className="mt-1 text-slate-200">{readableEnum(proposal.conversion_event)}</dd></div>
+                  ) : null}
+                  <div><dt className="text-slate-500">Submitted</dt><dd className="mt-1 text-slate-200">{formatDate(proposal.created_at)}</dd></div>
+                  <div><dt className="text-slate-500">Business review</dt><dd className="mt-1 text-slate-200">{proposal.business_viewed_at ? `Viewed ${formatDate(proposal.business_viewed_at)}` : "Not viewed yet"}</dd></div>
                   <div><dt className="text-slate-500">Your ad spend</dt><dd className="mt-1 flex items-center gap-1.5 font-semibold text-slate-100"><CircleDollarSign className="h-4 w-4 text-[#57c7d1]" />$0</dd></div>
                 </dl>
               </div>
