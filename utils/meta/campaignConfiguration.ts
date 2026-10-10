@@ -155,6 +155,7 @@ export function validateLaunchProposal(
 ): CampaignValidation {
   const base = validateCampaignIntent(idea, { ...options, requireMedia: true });
   const errors = [...base.errors];
+  if (!String(idea.currency || "").trim()) errors.push("Saved campaign currency is missing.");
   if (!String(idea.objective || "").trim()) errors.push("Campaign objective is missing.");
   if (!String(idea.headline || "").trim()) errors.push("Ad headline is missing. Ask the affiliate to submit a corrected proposal.");
   if (!String(idea.caption || "").trim()) errors.push("Ad primary text is missing.");
