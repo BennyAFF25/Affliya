@@ -65,12 +65,22 @@ export default function BusinessLogin() {
       }
 
       if (data?.user) {
-        const profileData = {
-          id: data.user.id,
-          email: trimmedEmail,
-          role: "business",
-        };
-        await supabase.from("profiles").upsert([profileData] as any);
+        // Profiles are provisioned during signup, not at login. The previous
+        // upsert attempted an RLS-protected write on every sign-in (HTTP 403).
+        // Check the existing role without mutating the user's profile.
+        const { data: profile, error: profileError } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", data.user.id)
+          .maybeSingle();
+        if (profileError) {
+          setError("Could not verify this account. Please try again.");
+          return;
+        }
+        if (profile?.role !== "business") {
+          setError("This account is not registered as a business.");
+          return;
+        }
         router.replace(returnTo || "/auth-redirect");
       }
     } catch (err: any) {
