@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { validateCampaignIntent } from "../../../../../utils/meta/campaignConfiguration";
+import { validateLaunchProposal } from "../../../../../utils/meta/campaignConfiguration";
 import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { createServerSupabaseClient } from "@/../utils/businessSubscriptions";
@@ -120,7 +120,7 @@ export async function GET() {
             ]);
 
           const timing = validatePaidCampaignTiming(idea);
-          const configuration = validateCampaignIntent(idea, {
+          const configuration = validateLaunchProposal(idea, {
             currency: String(offerResult.data?.currency || ""),
             requireMedia: true,
           });
@@ -155,7 +155,7 @@ export async function GET() {
           return [
             idea.id,
             {
-              ready: blockers.length === 0 || alreadyLive,
+              ready: blockers.length === 0 && !alreadyLive,
               alreadyLive,
               partialMetaState,
               blockers,
