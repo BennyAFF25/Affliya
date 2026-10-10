@@ -26,7 +26,8 @@
     "test:email-ui": "tsx scripts/email-ui-unification.test.ts",
     "test:private-identities": "tsx scripts/private-marketplace-identities.test.ts",
     "test:money-surface-security": "tsx scripts/money-surface-security.test.ts",
-    "test:meta-campaign-configuration": "tsx scripts/meta-campaign-configuration.test.ts"
+    "test:meta-campaign-configuration": "tsx scripts/meta-campaign-configuration.test.ts",
+    "test:meta-launch-payload": "tsx scripts/meta-launch-payload.test.ts"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.2",
