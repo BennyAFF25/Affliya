@@ -1554,6 +1554,8 @@ export default function PromoteOfferPage() {
               setEndIn7d={setEndIn7d}
               reachDaily={reachDaily}
               reachMonthly={reachMonthly}
+              reachStatus={reachStatus}
+              reachMessage={reachMessage}
               interestsIgnored={interestsIgnored}
               offerId={offerId}
               videoFile={videoFile}
