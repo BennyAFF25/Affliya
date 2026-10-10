@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
 
     if (Array.isArray(interests) && interests.length > 0) {
       const selectedIds = interests.map((item: { id?: unknown }) => String(item?.id || "").trim());
-      if (selectedIds.some((id: string) => !/^\\d{2,30}$/.test(id))) {
+      if (selectedIds.some((id: string) => !/^[0-9]{2,30}$/.test(id))) {
         return NextResponse.json({ error: "Choose valid Meta interests from the suggestions." }, { status: 409 });
       }
       targeting.flexible_spec = [{ interests: selectedIds.map((id: string) => ({ id })) }];
