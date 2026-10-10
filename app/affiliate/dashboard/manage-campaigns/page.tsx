@@ -1,7 +1,7 @@
 "use client";
 
 import { formatMoney } from "../../../../utils/currency";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/../utils/supabase/pages-client";
 import { loadAffiliateSubmissions, loadAffiliatePaidCampaigns, isAwaitingProposalReview, isArchivedCampaignStatus, type SubmissionKind } from "@/../utils/affiliate/portalData";
 import { Badge, Button, Card, EmptyState, LoadingSkeleton, SectionHeader, StatCard } from "@/../components/ui";
@@ -104,6 +104,7 @@ function shortDate(iso?: string | null) {
 
 export default function AffiliateManageCampaignsPage() {
   const [newProposalId, setNewProposalId] = useState("");
+  const submittedRetryDone = useRef(false);
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get("submitted") || "";
     if (/^[0-9a-f-]{36}$/i.test(id)) setNewProposalId(id);
@@ -285,6 +286,17 @@ export default function AffiliateManageCampaignsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    // Auth refresh / read-after-write visibility can race the redirect.
+    // Refresh once when the newly created proposal is not yet in the list.
+    if (!newProposalId || loading || submittedRetryDone.current) return;
+    if (pendingProposals.some((item) => item.id === newProposalId)) return;
+    submittedRetryDone.current = true;
+    const retry = window.setTimeout(() => { void fetchAll(); }, 700);
+    return () => window.clearTimeout(retry);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [newProposalId, loading, pendingProposals]);
+
   const items: CampaignItem[] = useMemo(() => {
     const paid: CampaignItem[] = paidMeta.map((r) => {
       const spend = Number(r.spend ?? 0) || 0;
@@ -404,7 +416,7 @@ export default function AffiliateManageCampaignsPage() {
           </div>
         )}
         <section className="mb-7 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-6">
-          <StatCard label="Pending proposals" value={pendingError ? "—" : pendingCount.toString()} icon={<Megaphone className="h-4 w-4" />} tone="primary" />
+          <StatCard label="Pending proposals" value={loading || pendingError ? "—" : pendingCount.toString()} icon={<Megaphone className="h-4 w-4" />} tone="primary" />
           <StatCard label="Live campaigns" value={error ? "—" : activeCount.toString()} icon={<Activity className="h-4 w-4" />} tone="primary" />
           <StatCard label="Archived" value={error ? "—" : archivedCount.toString()} icon={<Archive className="h-4 w-4" />} tone="muted" />
           <StatCard label="Total paid spend" value={formatMoney(totalPaidSpend)} icon={<Wallet className="h-4 w-4" />} tone="primary" />
