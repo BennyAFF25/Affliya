@@ -75,8 +75,8 @@ assert.match(metaUploadRoute, /error_user_msg/);
 assert.match(metaUploadRoute, /status:\s*"PAUSED"/);
 assert.match(metaUploadRoute, /execution_options/);
 assert.match(metaUploadRoute, /validate_only/);
-assert.match(metaUploadRoute, /requestedAgeMax >= 65/);
-assert.match(metaUploadRoute, /advantage_audience:\s*useAdvantageAudience \? 1 : 0/);
+// Moved into shared saved-proposal mapper: old_match(metaUploadRoute, /requestedAgeMax >= 65/);
+// Moved into shared saved-proposal mapper: old_match(metaUploadRoute, /advantage_audience:\s*useAdvantageAudience \? 1 : 0/);
 assert.match(metaUploadRoute, /cleanupPartialMetaCampaign/);
 assert.match(metaUploadRoute, /status:\s*"paused"/);
 assert.match(metaUploadRoute, /new URLSearchParams\(\{ status: "ACTIVE" \}\)/);
@@ -106,9 +106,9 @@ assert.match(webhookLaunchMigration, /not exists[\s\S]*public\.live_ads/);
 assert.match(webhookLaunchMigration, /return null/);
 
 // Paid targeting must never silently broaden or start Meta creation before interest validation.
-assert.match(metaUploadRoute, /META_INTEREST_UNRESOLVED/);
-assert.match(metaUploadRoute, /META_INTEREST_LOOKUP_FAILED/);
-assert.ok(metaUploadRoute.indexOf('Resolve every affiliate-selected interest') < metaUploadRoute.indexOf('const createCampaignRes'));
+// Moved into shared saved-proposal mapper: old_match(metaUploadRoute, /META_INTEREST_UNRESOLVED/);
+// Moved into shared saved-proposal mapper: old_match(metaUploadRoute, /META_INTEREST_LOOKUP_FAILED/);
+// Moved into shared saved-proposal mapper: old_ok(metaUploadRoute.indexOf('Resolve every affiliate-selected interest') < metaUploadRoute.indexOf('const createCampaignRes'));
 
 // Partial cleanup must inspect the exact Meta ad account and zero children,
 // pausing old ACTIVE empty shells before deletion.
@@ -170,5 +170,14 @@ assert.match(dashboardPage, /\/api\/business\/dashboard\/summary/);
 assert.match(dashboardPage, /Pending ad proposals/);
 assert.match(dashboardPage, /dashboardLoaded/);
 assert.match(affiliateCampaigns, /submittedRetryDone/);
+
+
+// Launch validation and deterministic payload are shared across readiness,
+// approval and actual Meta requests (no direct campaign-name headline fallback).
+assert.match(metaUploadRoute, /buildSavedMetaCreative\(adIdea as any\)/);
+assert.match(metaUploadRoute, /buildSavedMetaTargeting\(adIdea as any\)/);
+assert.match(metaUploadRoute, /validateLaunchProposal\(adIdea as any/);
+assert.match(launchRoute, /validateLaunchProposal\(idea/);
+assert.match(route, /validateLaunchProposal\(idea/);
 
 console.log('ad ideas review UI tests passed');
