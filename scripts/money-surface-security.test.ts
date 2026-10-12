@@ -22,4 +22,27 @@ for (const fn of [
 }
 assert.match(migration, /to service_role/);
 
+
+const metaControlRoute = readFileSync("app/api/meta/control-ad/route.ts", "utf8");
+assert.match(metaControlRoute, /sessionClient\.auth\.getUser\(\)/);
+assert.match(metaControlRoute, /error: 'UNAUTHENTICATED'/);
+assert.match(metaControlRoute, /error: 'FORBIDDEN'/);
+assert.match(metaControlRoute, /liveAd\.affiliate_email/);
+assert.match(metaControlRoute, /controlActor === 'business' && campaignId/);
+assert.match(metaControlRoute, /Authorization: \`Bearer \$\{accessToken\}\`/);
+assert.match(metaControlRoute, /Authorization: \`Bearer \$\{cronSecret\}\`/);
+assert.match(metaControlRoute, /warning: localBillingSyncError/);
+assert.match(metaControlRoute, /SETTLEMENT_PENDING/);
+assert.doesNotMatch(metaControlRoute, /\?access_token=/);
+assert.doesNotMatch(metaControlRoute, /skipSettlement/);
+
+for (const pagePath of [
+  "app/affiliate/dashboard/manage-campaigns/[campaignId]/page.tsx",
+  "app/business/manage-campaigns/[campaignId]/page.tsx",
+  "app/business/manage-campaigns/page.tsx",
+]) {
+  const content = readFileSync(pagePath, "utf8");
+  assert.match(content, /SETTLEMENT_PENDING/);
+}
+
 console.log("money surface security tests passed");
