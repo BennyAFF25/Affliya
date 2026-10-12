@@ -149,6 +149,10 @@ export default function BusinessDemoLandingPage({
     () => buildHrefWithAttribution("/create-account?role=business&plan=growth&src=lp_business_demo", attribution),
     [attribution],
   );
+  useEffect(() => {
+    // Persist ad UTMs even if the visitor reviews Pricing before signing up.
+    persistAttribution({ ...attribution, src: "lp_business_demo" });
+  }, [attribution]);
 
   useEffect(() => {
     const rdt = (window as typeof window & { rdt?: (...args: any[]) => void }).rdt;
