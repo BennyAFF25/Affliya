@@ -58,7 +58,7 @@ type Props = SharedProps & (
     }
   | {
       audience: "affiliate";
-      pendingCount: number;
+      pendingCount: number | null;
       unsettledSpend: number;
       pendingContent: ReactNode;
       notice?: ReactNode;
@@ -323,7 +323,7 @@ export default function ManageCampaignsWorkspace(props: Props) {
                 </>
               ) : (
                 <>
-                <Link href="/business/my-business/create-offer" className={darkButton + " flex-1 sm:flex-none"}>
+                  <Link href="/business/my-business/create-offer" className={darkButton + " flex-1 sm:flex-none"}>
                   <Plus className="h-4 w-4" /> New offer
                 </Link>
                 <Link href="/business/dashboard" className={cyanButton + " flex-1 sm:flex-none"}>
@@ -342,7 +342,7 @@ export default function ManageCampaignsWorkspace(props: Props) {
             {props.audience === "affiliate" ? (
               <>
                 <MetricCard label="Unsettled spend" value={loading ? "—" : money(props.unsettledSpend)} helper="Not yet deducted from wallet" icon={<Wallet className="h-5 w-5" />} />
-                <MetricCard label="Pending proposals" value={loading ? "—" : String(props.pendingCount)} helper="Awaiting business review" icon={<Megaphone className="h-5 w-5" />} />
+                <MetricCard label="Pending proposals" value={loading || props.pendingCount === null ? "—" : String(props.pendingCount)} helper="Awaiting business review" icon={<Megaphone className="h-5 w-5" />} />
               </>
             ) : (
               <>
@@ -496,7 +496,7 @@ export default function ManageCampaignsWorkspace(props: Props) {
               >
                 <span className="flex min-w-0 items-center gap-3">
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#00c2cb]/10 text-[#00c2cb]"><Megaphone className="h-5 w-5" /></span>
-                  <span className="min-w-0"><span className="block text-sm font-semibold text-white">Pending proposals</span><span className="mt-0.5 block text-[11px] text-[#94a3b8]/75">{props.pendingCount} submissions awaiting business review</span></span>
+                  <span className="min-w-0"><span className="block text-sm font-semibold text-white">Pending proposals</span><span className="mt-0.5 block text-[11px] text-[#94a3b8]/75">{props.pendingCount === null ? "Proposals temporarily unavailable" : props.pendingCount + " submissions awaiting business review"}</span></span>
                 </span>
                 <ChevronDown className={pendingOpen ? "h-4 w-4 shrink-0 rotate-180 text-[var(--muted-foreground)]" : "h-4 w-4 shrink-0 text-[var(--muted-foreground)]"} />
               </button>
