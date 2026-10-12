@@ -33,26 +33,26 @@ export async function POST(req: Request) {
     const fromEmail = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
     const fromName = process.env.RESEND_FROM_NAME || "Nettmark";
     const appUrl = "https://www.nettmark.com";
-    const subject = "Welcome to Nettmark — publish your first offer";
+    const subject = "Welcome to Nettmark — start your Growth trial";
 
     const html = renderNettmarkEmail({
-      previewText: "Your business account is ready. Publish your first offer to become discoverable.",
+      previewText: "Your account is ready. Start the 14-day Growth trial, then publish your offer.",
       badge: { text: "Business account", tone: "success" },
       heading: businessName
         ? `Welcome, ${String(businessName)}`
         : "Your Nettmark account is ready",
       body:
-        "Start by publishing the offer affiliates will promote. Choose what you are offering, what affiliates earn, and who can access it. Meta and tracking can wait until the next action actually needs them.",
+        "Next, choose your plan. Growth starts with a 14-day free trial and requires a card; it is A$49/month afterward unless cancelled. Once you choose Growth or Free, publish the offer affiliates will promote. Free supports organic promotion only.",
       notice: {
-        title: "First milestone",
+        title: "Your next step",
         body:
-          "Publish your first offer so affiliates can discover your business and decide whether they want to promote it.",
+          "Start your Growth trial or choose Free, then create your first offer.",
         tone: "info",
       },
-      cta: { label: "Create your first offer", href: `${appUrl}/onboarding/for-business` },
+      cta: { label: "Start 14-day Growth trial", href: `${appUrl}/business/choose-plan` },
       secondaryCta: { label: "Open Nettmark", href: `${appUrl}/login/business` },
       footerNote:
-        "Free remains available. Growth can be activated later when you want access to affiliate-funded paid advertising.",
+        "Card required for Growth. Cancel anytime. Free remains available for organic affiliate promotion, without paid affiliate ads.",
     });
 
     const result = await resend.emails.send({
