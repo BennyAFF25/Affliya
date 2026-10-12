@@ -364,8 +364,16 @@ const ManageCampaignsBusiness = () => {
           "[❌ Failed Meta control from business manage-campaigns]",
           json,
         );
-        alert("Could not stop the Meta campaign. Please try again.");
+        alert(json?.metaUpdated
+          ? "Meta stopped delivery, but Nettmark could not save its status. Please contact support rather than retrying."
+          : "Could not stop the Meta campaign. Please try again.");
         return;
+      }
+
+      if (json.warning === "SETTLEMENT_PENDING") {
+        window.alert("Meta stopped delivery, but ad spend settlement is still pending. Nettmark support must reconcile the outstanding spend.");
+      } else if (json.warning === "LOCAL_BILLING_STATUS_SYNC_FAILED") {
+        window.alert("Meta accepted the stop, but Nettmark could not fully update billing status. Please contact support.");
       }
 
       setCampaigns((prev) =>

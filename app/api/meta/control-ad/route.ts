@@ -1,6 +1,8 @@
 // app/api/meta/control-ad/route.ts
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { cookies } from 'next/headers';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -8,26 +10,31 @@ const supabase = createClient(
 );
 
 const META_API_VERSION = 'v21.0'; // keep in sync with other Meta routes
-const META_SYSTEM_USER_TOKEN = process.env.META_SYSTEM_USER_TOKEN!; // kept for consistency
 
 export async function POST(req: Request) {
   try {
-    const { liveAdId, action, skipSettlement, actor } = await req.json();
-
-    if (!liveAdId || !action) {
-      return NextResponse.json(
-        { error: 'Missing liveAdId or action' },
-        { status: 400 }
-      );
+    const sessionClient = createRouteHandlerClient({ cookies });
+    const { data: { user }, error: authError } = await sessionClient.auth.getUser();
+    if (authError || !user?.id || !user.email) {
+      return NextResponse.json({ error: 'UNAUTHENTICATED' }, { status: 401 });
     }
 
-    const controlActor = actor === 'business' ? 'business' : 'affiliate';
+    const { liveAdId, action, actor } = await req.json().catch(() => ({}));
+    if (
+      typeof liveAdId !== 'string' ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(liveAdId) ||
+      !['PAUSE', 'RESUME', 'ARCHIVE'].includes(action) ||
+      (actor !== 'business' && actor !== 'affiliate')
+    ) {
+      return NextResponse.json({ error: 'INVALID_CONTROL_REQUEST' }, { status: 400 });
+    }
+    const controlActor: 'business' | 'affiliate' = actor;
 
     // 1) Load live_ads row (we need meta ids + business_email)
     const { data: liveAd, error: liveErr } = await supabase
       .from('live_ads')
       .select(
-        'id, meta_ad_id, meta_campaign_id, status, business_email, ad_set_id, billing_state, terminated_by_business_at'
+        'id, meta_ad_id, meta_campaign_id, status, business_email, affiliate_email, affiliate_user_id, ad_set_id, billing_state, terminated_by_business_at'
       )
       .eq('id', liveAdId)
       .single();
@@ -35,6 +42,15 @@ export async function POST(req: Request) {
     if (liveErr || !liveAd) {
       console.error('[❌ live_ads lookup failed]', liveErr);
       return NextResponse.json({ error: 'LIVE_AD_NOT_FOUND' }, { status: 404 });
+    }
+
+    const userEmail = user.email.toLowerCase();
+    const isOwner = controlActor === 'business'
+      ? String(liveAd.business_email || '').toLowerCase() === userEmail
+      : (String(liveAd.affiliate_email || '').toLowerCase() === userEmail &&
+        (!liveAd.affiliate_user_id || liveAd.affiliate_user_id === user.id));
+    if (!isOwner) {
+      return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 });
     }
 
     const isBusinessTerminated =
@@ -72,7 +88,8 @@ export async function POST(req: Request) {
 
     const accessToken = metaConn.access_token;
 
-    // Prefer controlling the ad first, then ad set, then campaign
+    // Business stops are campaign-wide; affiliate pauses only control their individual ad.
+    // Never pause another affiliate's ads when an affiliate uses their own control.
     const adId = (liveAd as any).meta_ad_id as string | null;
     const adSetId = (liveAd as any).ad_set_id as string | null;
     const campaignId = (liveAd as any).meta_campaign_id as string | null;
@@ -80,7 +97,10 @@ export async function POST(req: Request) {
     let targetId: string | null = null;
     let targetType: string | null = null;
 
-    if (adId) {
+    if (controlActor === 'business' && campaignId) {
+      targetId = campaignId;
+      targetType = 'campaign';
+    } else if (adId) {
       targetId = adId;
       targetType = 'ad';
     } else if (adSetId) {
@@ -105,7 +125,6 @@ export async function POST(req: Request) {
       targetId,
       action,
       actor: controlActor,
-      skipSettlement: !!skipSettlement,
     });
 
     // 3) Decide target + local status
@@ -130,64 +149,74 @@ export async function POST(req: Request) {
     }
 
     // 4) Call Meta Ads API to update the status
-    const url = `https://graph.facebook.com/${META_API_VERSION}/${targetId}?access_token=${encodeURIComponent(
-      accessToken
-    )}`;
+    const url = `https://graph.facebook.com/${META_API_VERSION}/${targetId}`;
 
-    console.log('[Meta control] POST', url, { status: targetStatus, liveAdId, action, actor: controlActor });
+    // Never put access tokens in URLs: they end up in request logs and error reports.
+    console.log('[Meta control] POST', { targetType, targetId, status: targetStatus, liveAdId, action, actor: controlActor });
 
     const metaRes = await fetch(url, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Authorization: `Bearer ${accessToken}`,
+      },
       body: new URLSearchParams({ status: targetStatus }),
     });
 
-    const metaJson = await metaRes.json();
+    const metaJson = await metaRes.json().catch(() => ({}));
 
-    if (!metaRes.ok || (metaJson as any).error) {
-      console.error('[❌ Meta control error]', metaJson);
+    if (!metaRes.ok || (metaJson as any).error || (metaJson as any).success !== true) {
+      console.error('[Meta control] Meta rejected status update', {
+        status: metaRes.status,
+        code: (metaJson as any)?.error?.code ?? null,
+      });
       return NextResponse.json(
-        { error: 'META_CONTROL_FAILED', details: metaJson },
-        { status: 500 }
+        { error: 'META_CONTROL_FAILED', status: metaRes.status },
+        { status: 502 }
       );
     }
 
     console.log('[✅ Meta control success]', metaJson);
 
-    // 5) Settlement on pause/archive (unless skipped)
+    // 5) Settlement on pause/archive. Meta delivery is stopped independently
+    // of settlement; an unpaid balance must be surfaced, never silently ignored.
     let settlement: any = null;
-    let settlementError: any = null;
-    let settlementSkipped = false;
+    let settlementError: { error: string; status?: number } | null = null;
 
     if (action === 'PAUSE' || action === 'ARCHIVE') {
-      if (skipSettlement) {
-        settlementSkipped = true;
-        console.log('[💸 Settlement] Skipped (skipSettlement=true)', { liveAdId });
+      const cronSecret = process.env.CRON_SECRET;
+      if (!cronSecret) {
+        settlementError = { error: 'SETTLEMENT_AUTH_NOT_CONFIGURED' };
+        console.error('[Meta control] Cannot settle: CRON_SECRET missing', { liveAdId });
       } else {
         try {
           const settleUrl = new URL('/api/ad-spend/settle', req.url);
-          console.log('[💸 Settlement] Calling', settleUrl.toString(), { liveAdId });
-
           const settleRes = await fetch(settleUrl, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${cronSecret}`,
+            },
             body: JSON.stringify({ liveAdId }),
           });
 
-          settlement = await settleRes.json().catch(() => null);
-
-          if (!settleRes.ok || !settlement?.success) {
-            console.error('[❌ Settlement failed]', {
+          const settleJson = await settleRes.json().catch(() => null);
+          if (!settleRes.ok || !settleJson?.success) {
+            settlementError = {
+              error: typeof settleJson?.error === 'string' ? settleJson.error : 'SETTLEMENT_FAILED',
               status: settleRes.status,
-              settlement,
-            });
-            settlementError = settlement || { error: 'SETTLEMENT_FAILED' };
+            };
+            console.error('[Meta control] Ad paused, settlement pending', { liveAdId, ...settlementError });
           } else {
-            console.log('[✅ Settlement success]', settlement);
+            settlement = settleJson;
+            console.log('[Meta control] Settlement completed', { liveAdId });
           }
-        } catch (e: any) {
-          console.error('[❌ Settlement exception]', e);
-          settlementError = { error: 'SETTLEMENT_EXCEPTION', message: e?.message };
+        } catch (error) {
+          settlementError = { error: 'SETTLEMENT_REQUEST_FAILED' };
+          console.error('[Meta control] Ad paused, settlement request failed', {
+            liveAdId,
+            message: error instanceof Error ? error.message : 'Unknown error',
+          });
         }
       }
     }
@@ -221,11 +250,10 @@ export async function POST(req: Request) {
       .update(extendedUpdate)
       .eq('id', liveAdId);
 
+    let localBillingSyncError: string | null = null;
     if (extUpdateRes.error) {
-      console.warn(
-        '[⚠️ Extended live_ads update failed — falling back to status-only]',
-        extUpdateRes.error
-      );
+      console.error('[Meta control] Full local status update failed', { liveAdId, code: extUpdateRes.error.code });
+      localBillingSyncError = 'LOCAL_BILLING_STATUS_SYNC_FAILED';
 
       const { error: fallbackErr } = await supabase
         .from('live_ads')
@@ -233,19 +261,26 @@ export async function POST(req: Request) {
         .eq('id', liveAdId);
 
       if (fallbackErr) {
-        console.error('[❌ Failed to update local live_ads status]', fallbackErr);
+        console.error('[Meta control] Local status fallback failed', { liveAdId, code: fallbackErr.code });
+        return NextResponse.json({
+          success: false,
+          error: 'LOCAL_STATUS_SYNC_FAILED',
+          metaUpdated: true,
+          settlementError,
+        }, { status: 502 });
       }
     }
 
     return NextResponse.json({
       success: true,
+      warning: localBillingSyncError || (settlementError ? 'SETTLEMENT_PENDING' : null),
       newStatus: localStatus,
       billing_state: extendedUpdate.billing_state ?? null,
       terminated_by_business_at: extendedUpdate.terminated_by_business_at ?? null,
       meta: { targetType, targetId, targetStatus, response: metaJson },
       settlement: settlementError ? null : settlement,
       settlementError,
-      settlementSkipped,
+      settlementSkipped: false,
     });
   } catch (err) {
     console.error('[❌ control-ad route error]', err);

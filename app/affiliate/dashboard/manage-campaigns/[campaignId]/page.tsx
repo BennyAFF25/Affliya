@@ -420,7 +420,16 @@ export default function ManageCampaignPage() {
       const json = await res.json().catch(() => null);
       if (!res.ok || !(json && json.success)) {
         console.error("[❌ Failed Meta control]", json);
+        window.alert(json?.metaUpdated
+          ? "Meta accepted the change, but Nettmark could not save its status. Please contact support rather than retrying."
+          : "Could not update the Meta ad. Please try again or contact support.");
         return;
+      }
+
+      if (json.warning === "SETTLEMENT_PENDING") {
+        window.alert("The ad was paused in Meta, but ad spend settlement is still pending. Please contact Nettmark support before resuming.");
+      } else if (json.warning === "LOCAL_BILLING_STATUS_SYNC_FAILED") {
+        window.alert("Meta accepted this change, but Nettmark could not fully update billing status. Please contact support.");
       }
 
       const newStatus = json.newStatus as string | undefined;
