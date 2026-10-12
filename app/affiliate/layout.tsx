@@ -19,6 +19,7 @@ import {
 import { usePathname, useRouter } from "next/navigation";
 import { Toast } from "@/components/Toast";
 import { useInboxNotifier } from "../../utils/hooks/useInboxNotifier";
+import { useChatUnreadCount } from "@/components/inbox/useChatUnreadCount";
 import { supabase } from "../../utils/supabase/pages-client";
 
 export default function AffiliateLayout({
@@ -34,7 +35,8 @@ function AffiliateLayoutShell({ children }: { children: React.ReactNode }) {
   const userEmail = session?.user?.email || "";
   const router = useRouter();
   const pathname = usePathname();
-  const { toast, setToast, unreadCount } = useInboxNotifier(userEmail);
+  const { toast, setToast } = useInboxNotifier(userEmail);
+  const chatUnreadCount = useChatUnreadCount(session?.user?.id);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [affiliateRole, setAffiliateRole] = useState<"checking" | "affiliate" | "business" | "blocked" | "error">("checking");
 
@@ -129,7 +131,7 @@ function AffiliateLayoutShell({ children }: { children: React.ReactNode }) {
       label: "Inbox",
       href: "/affiliate/inbox",
       icon: <Inbox size={16} />,
-      badge: unreadCount,
+      badge: chatUnreadCount,
     },
     {
       id: "wallet",
@@ -200,7 +202,7 @@ function AffiliateLayoutShell({ children }: { children: React.ReactNode }) {
               borderColor: "var(--sidebar-border)",
             }}
           >
-            <AffiliateSidebar />
+            <AffiliateSidebar chatUnreadCount={chatUnreadCount} />
           </div>
         </div>
 
