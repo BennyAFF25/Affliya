@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ShieldCheck, Link2, Wallet } from "lucide-react";
 import MarketingHeader from "@/components/marketing/MarketingHeader";
 import { logMarketingEvent } from "@/../utils/marketing/logEvent";
-import { getAttributionFromWindow } from "@/../utils/marketing/attribution";
+import { buildHrefWithAttribution, getAttributionFromWindow, persistAttribution } from "@/../utils/marketing/attribution";
 
 /**
  * For Businesses – marketing/landing page
@@ -17,6 +17,12 @@ import { getAttributionFromWindow } from "@/../utils/marketing/attribution";
  * - CTA footer
  */
 export default function ForBusinessesPage() {
+  const [trialHref, setTrialHref] = React.useState("/create-account?role=business&plan=growth&src=for_businesses");
+  React.useEffect(() => {
+    const attribution = { ...getAttributionFromWindow(), src: "for_businesses" };
+    persistAttribution(attribution);
+    setTrialHref(buildHrefWithAttribution("/create-account?role=business&plan=growth&src=for_businesses", attribution));
+  }, []);
   return (
     <div className="marketing-businesses-theme min-h-screen flex flex-col overflow-x-hidden bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#0b1a1b] via-[#0b0b0b] to-black text-white">
       <MarketingHeader />
@@ -38,7 +44,7 @@ export default function ForBusinessesPage() {
 
         <div className="mt-8 flex flex-wrap gap-4">
           <Link
-            href="/create-account?role=business&plan=growth&src=for_businesses"
+            href={trialHref}
             onClick={() => { void logMarketingEvent({ eventType: "landing_cta_click", pagePath: "/for-businesses", audience: "business",
               meta: { ...getAttributionFromWindow(), src: "for_businesses", cta_label: "Start 14-day free trial" } }); }}
             className="px-5 py-3 rounded-md bg-[#00C2CB] text-black font-semibold shadow hover:bg-[#00b0b8] transition-colors"
