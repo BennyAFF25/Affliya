@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { cookies } from 'next/headers';
 
@@ -94,7 +94,9 @@ export async function POST(req?: Request) {
 
   // This endpoint is called immediately after the onboarding offer insert succeeds.
   // Reddit tracking is best-effort and must never break onboarding completion.
-  await trackOnboardingOfferConversion({ id: user.id, email: user.email });
+  // Best-effort Reddit CAPI can take several seconds and should not hold up
+  // the already-saved offer's completion response.
+  after(() => trackOnboardingOfferConversion({ id: user.id, email: user.email }));
 
   const { data: entitlement, error: entitlementError } = await supabase
     .from('business_entitlements')
