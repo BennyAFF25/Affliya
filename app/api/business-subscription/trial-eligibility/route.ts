@@ -29,9 +29,13 @@ export async function GET(req: Request) {
       admin.from("product_events").select("id").eq("actor_email", business.business_email).eq("event_type", "plan_free_clicked").contains("meta", { choice_confirmed: true }).limit(1).maybeSingle(),
     ]);
     if (offerError || entryError || choiceError) throw new Error("Could not verify onboarding progress.");
-    const onboardingEligible = Boolean(offer && entry?.billing_entry_mode === "plan_choice" && !freeChoice && !entitlement.isGrandfathered && !entitlement.stripeSubscriptionId &&
-      !["subscription_active", "subscription_trialing", "subscription_past_due", "subscription_unpaid", "subscription_incomplete"].includes(entitlement.billingStatus));
-    const treatment = onboardingEligible && isTrialFirstBusinessFunnel(cohort.business_onboarding_funnel);
+    const alreadySelected = Boolean(freeChoice || entitlement.isGrandfathered || entitlement.stripeSubscriptionId ||
+      ["subscription_active", "subscription_trialing", "subscription_past_due", "subscription_unpaid", "subscription_incomplete"].includes(entitlement.billingStatus));
+    const newSignupPlanFirst = user.user_metadata?.business_plan_first_v2 === true;
+    const onboardingEligible = !alreadySelected && (newSignupPlanFirst ||
+      Boolean(offer && entry?.billing_entry_mode === "plan_choice"));
+    const treatment = onboardingEligible && (newSignupPlanFirst ||
+      isTrialFirstBusinessFunnel(cohort.business_onboarding_funnel));
     let price: Awaited<ReturnType<typeof getGrowthSubscriptionPrice>> | null = null;
     let trialEligible: boolean | null = null;
     let billingError: string | null = null;
@@ -45,7 +49,8 @@ export async function GET(req: Request) {
       billingError = "We couldn't verify Growth pricing and trial eligibility. Please retry, or continue with Free.";
     }
     return NextResponse.json({
-      ...cohort, treatment: treatment && trialEligible !== false, offerId: offer?.id || null, participationMode: offer?.participation_mode || "open",
+      ...cohort, planFirst: newSignupPlanFirst, planSelectionComplete: newSignupPlanFirst && alreadySelected,
+      treatment: treatment && trialEligible !== false, offerId: offer?.id || null, participationMode: offer?.participation_mode || "open",
       trialEligible, trialDays: BUSINESS_GROWTH_TRIAL_DAYS, price, billingError,
       checkoutEnabled: isBusinessSubscriptionCheckoutEnabled(),
     }, { headers: { "Cache-Control": "private, no-store" } });
