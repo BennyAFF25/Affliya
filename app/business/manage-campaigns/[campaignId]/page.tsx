@@ -1,49 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
-import Link from "next/link";
-import {
-  Badge,
-  Button,
-  Card,
-  ReadinessBanner,
-  SectionHeader,
-} from "@/../components/ui";
+import { useParams } from "next/navigation";
 import { useSession } from "@supabase/auth-helpers-react";
 import { supabase } from "utils/supabase/pages-client";
 import { isTrackedLandingVisit } from "../../../../utils/tracking/visitMetrics";
-import {
-  CursorArrowRaysIcon,
-  ShoppingCartIcon,
-  CurrencyDollarIcon,
-  PlayCircleIcon,
-  PhotoIcon,
-} from "@heroicons/react/24/outline";
-
-import { Line } from "react-chartjs-2";
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler,
-} from "chart.js";
-
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Title,
-  Tooltip,
-  Legend,
-  Filler,
-);
+import CampaignDetailWorkspace from "../../../../components/campaigns/CampaignDetailWorkspace";
 
 type Campaign = {
   id: string;
@@ -60,6 +22,7 @@ type Campaign = {
   // Meta paid ads (live_ads) specific
   ad_idea_id?: string | null;
   spend?: number | null;
+  spend_transferred?: number | null;
   clicks?: number | null;
   conversions?: number | null;
   tracking_link?: string | null;
@@ -88,7 +51,6 @@ type CampaignSeries = {
 
 export default function BusinessCampaignDetailPage() {
   const params = useParams();
-  const router = useRouter();
   const session = useSession();
   const user = session?.user;
 
@@ -109,6 +71,9 @@ export default function BusinessCampaignDetailPage() {
   const [metaCurrency, setMetaCurrency] = useState<string>("AUD");
   const [syncingSpend, setSyncingSpend] = useState(false);
   const [syncSpendMsg, setSyncSpendMsg] = useState<string | null>(null);
+  const [offerInfo, setOfferInfo] = useState<{title?: string; commission?: number} | null>(null);
+  const [emailModalOpen, setEmailModalOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (!user?.email || !campaignId) return;
@@ -131,6 +96,7 @@ export default function BusinessCampaignDetailPage() {
           caption,
           status,
           spend,
+          spend_transferred,
           clicks,
           conversions,
           tracking_link,
@@ -170,6 +136,7 @@ export default function BusinessCampaignDetailPage() {
           created_at: metaRow.created_at,
           ad_idea_id: metaRow.ad_idea_id,
           spend: metaRow.spend,
+          spend_transferred: metaRow.spend_transferred,
           clicks: metaRow.clicks,
           conversions: metaRow.conversions,
           tracking_link: metaRow.tracking_link,
@@ -257,6 +224,58 @@ export default function BusinessCampaignDetailPage() {
 
     fetchCampaign();
   }, [campaignId, user?.email]);
+
+  // The same details header as the affiliate page uses the linked offer name.
+  // This is business-scoped, read-only; no new financial or control actions.
+  useEffect(() => {
+    if (!campaign?.offer_id || !user?.email) {
+      setOfferInfo(null);
+      return;
+    }
+    let mounted = true;
+    (supabase as any).from("offers")
+      .select("title,commission")
+      .eq("id", campaign.offer_id)
+      .eq("business_email", user.email)
+      .maybeSingle()
+      .then(({ data }: { data: {title?: string; commission?: number} | null }) => {
+        if (mounted) setOfferInfo(data || null);
+      });
+    return () => { mounted = false; };
+  }, [campaign?.offer_id, user?.email]);
+
+  // Meta figures are synced by server processes; the open detail page only
+  // reads their stored values, like the affiliate detail view.
+  useEffect(() => {
+    if (!campaignId || !user?.email || campaign?.meta_source !== "meta") return;
+    let cancelled = false;
+    let inFlight = false;
+    const refreshStoredMeta = async () => {
+      if (cancelled || inFlight || document.visibilityState !== "visible") return;
+      inFlight = true;
+      try {
+        const { data, error } = await (supabase as any).from("live_ads")
+          .select("id,spend,spend_transferred,clicks,status,billing_state,terminated_by_business_at")
+          .eq("id", campaignId)
+          .eq("business_email", user.email)
+          .maybeSingle();
+        if (!cancelled && !error && data) {
+          setCampaign((previous) => previous?.id === campaignId
+            ? { ...previous, ...data } : previous);
+        }
+      } finally { inFlight = false; }
+    };
+    const resume = () => { void refreshStoredMeta(); };
+    const timer = window.setInterval(resume, 30_000);
+    window.addEventListener("focus", resume);
+    document.addEventListener("visibilitychange", resume);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+      window.removeEventListener("focus", resume);
+      document.removeEventListener("visibilitychange", resume);
+    };
+  }, [campaignId, campaign?.meta_source, user?.email]);
 
   const buildLast7DaysLabels = () => {
     const labels: string[] = [];
@@ -424,12 +443,7 @@ export default function BusinessCampaignDetailPage() {
     };
 
     fetchStats();
-  }, [campaignId, user?.email, campaign]);
-
-  const formatDate = (d?: string | null) => {
-    if (!d) return "";
-    return new Date(d).toLocaleString();
-  };
+  }, [campaignId, user?.email, campaign?.meta_source]);
 
   const handleSyncSpend = async () => {
     if (!campaign || campaign.meta_source !== "meta") return;
@@ -595,545 +609,80 @@ export default function BusinessCampaignDetailPage() {
     }
   };
 
-  const statusChipClasses = () => {
-    const s = (campaign?.status || "").toLowerCase();
-    if (s === "live" || s === "active") {
-      return "bg-emerald-500/15 text-emerald-300";
-    }
-    if (s === "paused") {
-      return "bg-amber-500/15 text-amber-300";
-    }
-    if (s === "deleted") {
-      return "bg-red-500/15 text-red-300";
-    }
-    return "bg-slate-500/20 text-slate-200";
-  };
+  const businessCanPause = !isBusinessStopped &&
+    !isPaused &&
+    ["live", "active"].includes(String(campaign?.status || "").toLowerCase());
+
+  const campaignTitle = offerInfo?.title
+    || String(campaign?.caption || "").split("\n")[0].trim()
+    || (campaign?.meta_source === "meta" ? "Meta ad campaign" : "Organic campaign");
 
   if (!session) {
+    return <div className="business-campaign-detail-theme min-h-screen bg-[var(--background)] px-4 py-8 text-slate-300">Sign in to view this campaign.</div>;
+  }
+  if (loading || !campaign) {
     return (
-      <div className="business-campaign-detail-theme flex min-h-screen items-center justify-center bg-[var(--background)] text-[var(--foreground)]">
-        <Card className="p-5 text-sm text-[var(--muted-foreground)]">
-          You need to be signed in to view this campaign.
-        </Card>
+      <div className="business-campaign-detail-theme min-h-screen bg-[var(--background)] px-4 py-8 text-slate-200">
+        <div role={loading ? "status" : "alert"} className="mx-auto max-w-5xl rounded-[22px] border border-white/[0.09] bg-[#151718] p-5 text-sm">
+          {loading ? "Loading campaign…" : "Campaign not found for this business."}
+        </div>
       </div>
     );
   }
 
-  return (
-    <div className="business-campaign-detail-theme min-h-screen bg-[var(--background)] text-[var(--foreground)]">
-      <div className="mx-auto max-w-5xl px-4 sm:px-8 py-4 space-y-4">
-        {/* Back link */}
-        <button
-          type="button"
-          onClick={() => router.back()}
-          className="inline-flex items-center gap-2 text-xs text-white/60 hover:text-white"
-        >
-          <span className="inline-block h-4 w-4 rotate-180 rounded-full border border-white/30 text-[10px] leading-4 text-center">
-            →
-          </span>
-          Back to campaigns
-        </button>
-
-        {/* Header */}
-        <header className="space-y-3">
-          <SectionHeader
-            eyebrow="Campaign"
-            title="Campaign overview"
-            description="See how this campaign is set up, who is running it, and control its status."
-          />
-          <Badge
-            variant={campaign?.meta_source === "meta" ? "primary" : "muted"}
-          >
-            {campaign?.meta_source === "meta"
-              ? "META AD • Paid Campaign"
-              : "ORGANIC • Live Tracking"}
-          </Badge>
-        </header>
-
-        {loading ? (
-          <Card className="px-4 py-5 text-sm text-[var(--muted-foreground)] sm:px-6">
-            Loading campaign…
-          </Card>
-        ) : !campaign ? (
-          <ReadinessBanner tone="danger" title="Campaign not found">
-            Campaign not found for this business.
-          </ReadinessBanner>
-        ) : (
-          <div className="space-y-6">
-            {/* Layout for preview / stats */}
-            <section className="space-y-3 mt-1 sm:mt-2">
-              {/* Section meta heading */}
-              <div className="flex items-center justify-between text-[11px] text-white/45">
-                <div className="flex items-center gap-2">
-                  <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-[#00C2CB]/10 text-[#00C2CB]">
-                    ●
-                  </span>
-                  <span className="uppercase tracking-[0.18em]">
-                    Creative &amp; performance
-                  </span>
-                </div>
-                {campaign.platform && (
-                  <span className="rounded-full border border-white/10 bg-black/40 px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-white/55">
-                    {campaign.platform} • {campaign.type || "Campaign"}
-                  </span>
-                )}
-              </div>
-
-              <div className="grid gap-4 md:gap-6 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1.3fr)]">
-                {/* LEFT: creative preview with iPhone mockup */}
-                <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] px-4 py-5 shadow-sm sm:px-6 flex flex-col order-2 lg:order-1">
-                  <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <h2 className="flex items-center gap-2 text-sm font-semibold">
-                      <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-[#00C2CB]/10 text-[#00C2CB]">
-                        <PlayCircleIcon className="h-4 w-4" />
-                      </span>
-                      Creative preview
-                    </h2>
-                    {campaign.platform && (
-                      <span className="rounded-full border border-white/10 bg-black/30 px-3 py-1 text-[10px] uppercase tracking-[0.16em] text-white/50">
-                        {campaign.platform}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* small context row */}
-                  <div className="mb-3 flex flex-wrap items-center gap-3 text-[11px] text-white/55">
-                    <span>
-                      Affiliate:{" "}
-                      <span className="text-white">
-                        {campaign.affiliate_email || "N/A"}
-                      </span>
-                    </span>
-                    {campaign.type && (
-                      <span className="rounded-full border border-[#00C2CB40] bg-[#00C2CB1A] px-2 py-0.5 text-[10px] text-[#00C2CB]">
-                        {campaign.type}
-                      </span>
-                    )}
-                  </div>
-
-                  {(() => {
-                    const url = campaign.media_url || "";
-                    const caption = campaign.caption || "";
-                    const platform =
-                      campaign.platform?.toLowerCase().trim() || "";
-
-                    // EMAIL PREVIEW
-                    if (platform === "email") {
-                      return (
-                        <div className="bg-gradient-to-b from-[#181d22] to-[#101214] rounded-2xl border border-[#232931] shadow-xl w-full max-w-lg min-h-[320px] flex flex-col justify-between p-6 relative drop-shadow-[0_0_16px_rgba(0,194,203,0.11)] mx-auto">
-                          <div>
-                            <div className="flex items-center gap-3 mb-4">
-                              <div className="bg-[#222B34] w-10 h-10 rounded-full flex items-center justify-center text-lg font-bold text-[#00C2CB] border border-[#28303a]">
-                                N
-                              </div>
-                              <div>
-                                <div className="text-xs text-[#7e8a9a]">
-                                  From:{" "}
-                                  <span className="font-semibold text-gray-200">
-                                    Nettmark &lt;no-reply@nettmark.com&gt;
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
-                            <h2 className="text-[1.1rem] font-bold text-[#00C2CB] mb-2 leading-snug truncate">
-                              {caption.split("\n")[0] || "[No Subject]"}
-                            </h2>
-                          </div>
-                          <div className="flex-1 overflow-y-auto">
-                            <div
-                              className="text-gray-300 text-[0.95rem] whitespace-pre-line leading-relaxed px-1 mb-2"
-                              style={{ maxHeight: 170, minHeight: 64 }}
-                            >
-                              {caption || "No content available."}
-                            </div>
-                          </div>
-                          <p className="mt-2 text-[10px] text-[#7e8a9a]">
-                            Full email content is stored with this campaign’s
-                            caption.
-                          </p>
-                        </div>
-                      );
-                    }
-
-                    // NO MEDIA + NO CAPTION
-                    if (!url && !caption) {
-                      return (
-                        <div className="mt-4 flex flex-col items-center justify-center rounded-2xl border border-dashed border-white/15 bg-black/40 px-6 py-10 text-center text-xs text-white/50">
-                          <PhotoIcon className="h-8 w-8 mb-3 text-white/30" />
-                          No media attached to this campaign yet.
-                        </div>
-                      );
-                    }
-
-                    // iPhone mockup wrapper
-                    return (
-                      <div className="mt-2 flex justify-center w-full">
-                        <div className="relative w-full max-w-[18rem] sm:max-w-xs">
-                          {/* Phone shell */}
-                          <div className="relative mx-auto rounded-[2.5rem] border border-white/15 bg-[#050608] px-3 pt-4 pb-6 shadow-[0_0_40px_rgba(0,0,0,0.9)]">
-                            {/* Top notch */}
-                            <div className="mx-auto mb-3 flex h-5 w-32 items-center justify-center gap-1 rounded-full bg-black/80">
-                              <span className="h-2 w-10 rounded-full bg-gray-700/70" />
-                              <span className="h-2 w-2 rounded-full bg-gray-500/80" />
-                            </div>
-
-                            {/* Side buttons */}
-                            <div className="pointer-events-none absolute left-0 top-16 h-16 w-1 rounded-r-xl bg-white/10" />
-                            <div className="pointer-events-none absolute right-0 top-24 h-10 w-1 rounded-l-xl bg-white/10" />
-
-                            {/* Screen */}
-                            <div className="overflow-hidden rounded-[1.8rem] border border-white/10 bg-black aspect-[9/16]">
-                              {url.match(/\.(mp4|mov|m4v|webm)$/i) ? (
-                                <video
-                                  controls
-                                  className="h-full w-full object-cover bg-black"
-                                  src={url}
-                                >
-                                  Your browser does not support the video tag.
-                                </video>
-                              ) : url.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
-                                <img
-                                  src={url}
-                                  alt="Campaign creative"
-                                  className="h-full w-full object-cover bg-black"
-                                />
-                              ) : (
-                                <div className="flex h-full w-full items-center justify-center bg-black text-xs text-white/50">
-                                  Unsupported media format
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })()}
-
-                  {campaign.caption &&
-                    campaign.platform?.toLowerCase() !== "email" && (
-                      <p className="mt-4 text-[11px] text-white/55 border-t border-white/5 pt-3">
-                        {campaign.caption}
-                      </p>
-                    )}
-
-                  {/* subtle footer so column doesn't feel cut off */}
-                  <p className="mt-3 text-[10px] text-white/35">
-                    Creative shown as a vertical mobile preview. Final layout
-                    may vary slightly on Meta / organic placement.
-                  </p>
-                </div>
-
-                {/* RIGHT: performance stats */}
-                <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)] px-4 py-5 shadow-sm sm:px-6 flex flex-col order-1 lg:order-2">
-                  <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <h2 className="flex items-center gap-2 text-sm font-semibold">
-                      <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-300">
-                        <CursorArrowRaysIcon className="h-4 w-4" />
-                      </span>
-                      Performance
-                    </h2>
-                    <div className="flex flex-wrap items-center gap-2">
-                      {campaign.meta_source === "meta" && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={handleSyncSpend}
-                          disabled={syncingSpend}
-                          title="Fetch latest spend/clicks from Meta insights"
-                        >
-                          {syncingSpend ? (
-                            <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-[#00C2CB] border-t-transparent" />
-                          ) : (
-                            <span className="text-[12px] leading-none">↻</span>
-                          )}
-                          Sync spend
-                        </Button>
-                      )}
-
-                      <span className="rounded-full bg-black/40 px-3 py-1 text-[10px] text-white/50 uppercase tracking-[0.16em]">
-                        {campaign.meta_source === "meta"
-                          ? "Meta performance"
-                          : "Live tracking"}
-                      </span>
-                    </div>
-                  </div>
-
-                  {campaign.meta_source === "meta" && syncSpendMsg && (
-                    <div className="mb-3 rounded-xl border border-white/10 bg-black/30 px-3 py-2 text-[11px] text-white/70">
-                      {syncSpendMsg}
-                    </div>
-                  )}
-
-                  {statsLoading ? (
-                    <p className="text-xs text-white/60">Loading stats…</p>
-                  ) : !stats ? (
-                    <p className="text-xs text-white/60">
-                      No tracking events recorded for this campaign yet.
-                    </p>
-                  ) : (
-                    <>
-                      <div className="mb-4 grid grid-cols-2 gap-3">
-                        <MetricTile
-                          label="Landing visits"
-                          value={stats.pageViews}
-                        />
-                        {campaign.meta_source === "meta" && (
-                          <MetricTile label="Meta clicks (last sync)" value={Number(campaign.clicks || 0)} />
-                        )}
-                        <MetricTile label="Carts" value={stats.addToCarts} />
-                        <MetricTile
-                          label="Conversions"
-                          value={stats.conversions}
-                        />
-                        {campaign.meta_source === "meta" ? (
-                          <MetricTile
-                            label="Spend"
-                            value={(campaign.spend || 0).toLocaleString(
-                              undefined,
-                              {
-                                style: "currency",
-                                currency: metaCurrency,
-                              },
-                            )}
-                            tone="success"
-                          />
-                        ) : (
-                          <MetricTile
-                            label="Revenue"
-                            value={stats.revenue.toLocaleString(undefined, {
-                              style: "currency",
-                              currency: "USD",
-                            })}
-                            tone="success"
-                          />
-                        )}
-                      </div>
-
-                      {/* Tracking link + explanatory copy */}
-                      {campaign.meta_source === "meta" &&
-                        campaign.tracking_link && (
-                          <p className="text-[11px] text-white/50 break-all">
-                            Tracking link:{" "}
-                            <code className="font-mono text-[10px]">
-                              {campaign.tracking_link}
-                            </code>
-                          </p>
-                        )}
-
-                      <p className="mt-2 text-[11px] text-white/50">
-                        Nettmark landing visits (including legacy page-load events), carts and conversions are
-                        calculated from{" "}
-                        <code className="font-mono text-[10px]">
-                          campaign_tracking_events
-                        </code>
-                        {campaign.meta_source === "meta"
-                          ? " for this Meta-backed campaign. Landing visits are unverified, may include repeated visits, and exclude obvious crawler user agents. Meta clicks and spend come from the last Meta insights sync."
-                          : " for this campaign."}
-                      </p>
-
-                      {series.labels.length > 0 && (
-                        <div className="mt-4 h-[220px] rounded-2xl border border-[var(--border)] bg-[var(--secondary)] px-3 py-3 sm:px-4">
-                          <Line
-                            data={{
-                              labels: series.labels,
-                              datasets: [
-                                {
-                                  label:
-                                    campaign.meta_source === "meta"
-                                      ? "Landing visits"
-                                      : "Landing visits",
-                                  data: series.pageViews,
-                                  borderColor: "#00C2CB",
-                                  backgroundColor: "rgba(0,194,203,0.15)",
-                                  fill: true,
-                                  tension: 0.35,
-                                  borderWidth: 2,
-                                  pointRadius: 2,
-                                },
-                                {
-                                  label: "Add to carts",
-                                  data: series.addToCarts,
-                                  borderColor: "#009aa2",
-                                  backgroundColor: "rgba(0,154,162,0.12)",
-                                  fill: true,
-                                  tension: 0.35,
-                                  borderWidth: 1.5,
-                                  pointRadius: 2,
-                                },
-                                {
-                                  label: "Conversions",
-                                  data: series.conversions,
-                                  borderColor: "#00787f",
-                                  backgroundColor: "rgba(0,120,127,0.1)",
-                                  fill: true,
-                                  tension: 0.35,
-                                  borderWidth: 1.5,
-                                  pointRadius: 2,
-                                },
-                              ],
-                            }}
-                            options={{
-                              responsive: true,
-                              maintainAspectRatio: false,
-                              plugins: {
-                                legend: {
-                                  labels: {
-                                    color: "#9CA3AF",
-                                    font: { size: 10 },
-                                    boxWidth: 10,
-                                    usePointStyle: true,
-                                    pointStyle: "line",
-                                  },
-                                },
-                                tooltip: { mode: "index", intersect: false },
-                              },
-                              scales: {
-                                x: {
-                                  ticks: {
-                                    color: "#9CA3AF",
-                                    font: { size: 10 },
-                                  },
-                                  grid: { color: "rgba(31,41,55,0.4)" },
-                                },
-                                y: {
-                                  ticks: {
-                                    color: "#9CA3AF",
-                                    font: { size: 10 },
-                                  },
-                                  grid: { color: "rgba(31,41,55,0.4)" },
-                                  beginAtZero: true,
-                                },
-                              },
-                            }}
-                          />
-                        </div>
-                      )}
-                    </>
-                  )}
-
-                  {/* small footer hint */}
-                  <p className="mt-3 text-[10px] text-white/35">
-                    Stats update in near-real time as tracking events are
-                    received from your website.
-                  </p>
-                </div>
-              </div>
-            </section>
-
-            {/* Top summary card */}
-            <section className="rounded-2xl border border-[var(--border)] bg-[var(--card)] px-4 py-5 shadow-sm sm:px-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-              <div className="space-y-2">
-                <div className="flex flex-wrap items-center gap-3">
-                  <span
-                    className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${statusChipClasses()}`}
-                  >
-                    {(campaign.status || "LIVE").toUpperCase()}
-                  </span>
-
-                  {campaign.platform && (
-                    <span className="rounded-full border border-[#00C2CB40] bg-[#00C2CB1A] px-3 py-1 text-[11px] text-[#00C2CB]">
-                      {campaign.platform}
-                    </span>
-                  )}
-
-                  {campaign.type && (
-                    <span className="rounded-full border border-[#00C2CB40] bg-[#00C2CB1A] px-3 py-1 text-[11px] text-[#00C2CB]">
-                      {campaign.type}
-                    </span>
-                  )}
-                </div>
-
-                <p className="text-xs text-white/60">
-                  Affiliate:{" "}
-                  <span className="text-white">
-                    {campaign.affiliate_email || "N/A"}
-                  </span>
-                </p>
-
-                <p className="text-xs text-white/60">
-                  Started: {formatDate(campaign.created_at)}
-                </p>
-              </div>
-
-              <div className="flex flex-col items-end gap-2">
-                <Button
-                  type="button"
-                  variant="danger"
-                  size="sm"
-                  onClick={handleToggleStatus}
-                  disabled={
-                    updating ||
-                    isBusinessStopped ||
-                    (!(campaign.status || "").toLowerCase().includes("live") &&
-                      !(campaign.status || "").toLowerCase().includes("active"))
-                  }
-                >
-                  {updating
-                    ? "Updating…"
-                    : isBusinessStopped
-                      ? "Stopped by business"
-                      : (campaign.status || "").toLowerCase() === "live" ||
-                          (campaign.status || "").toLowerCase() === "active"
-                        ? "Pause campaign"
-                        : "Paused"}
-                </Button>
-                {isBusinessStopped ? (
-                  <div className="mt-2 max-w-sm rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-[11px] text-red-100 text-right shadow-[0_0_20px_rgba(239,68,68,0.15)]">
-                    <span className="font-semibold">
-                      Campaign stopped by business.
-                    </span>{" "}
-                    Affiliates cannot turn this back on from Nettmark.
-                  </div>
-                ) : (campaign.status || "").toLowerCase() === "paused" ? (
-                  <div className="mt-2 max-w-sm rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-[11px] text-amber-100 text-right shadow-[0_0_20px_rgba(245,158,11,0.15)]">
-                    <span className="font-semibold">Campaign paused.</span> This
-                    placement is off and stays off until you deliberately
-                    relaunch it elsewhere.
-                  </div>
-                ) : (
-                  <div className="mt-2 max-w-sm rounded-xl border border-[#00C2CB40] bg-[#00C2CB14] px-4 py-3 text-[11px] text-white/80 text-right shadow-[0_0_20px_rgba(0,194,203,0.15)]">
-                    <span className="font-semibold">Pausing this campaign</span>{" "}
-                    will temporarily disable the tracking link and notify the
-                    affiliate. Use this only if there is a genuine issue with
-                    the offer, stock, or compliance.
-                  </div>
-                )}
-                <Link href="/business/manage-campaigns">
-                  <span className="text-[11px] text-white/60 hover:text-white cursor-pointer">
-                    Back to campaign list
-                  </span>
-                </Link>
-              </div>
-            </section>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-function MetricTile({
-  label,
-  value,
-  tone = "primary",
-}: {
-  label: string;
-  value: React.ReactNode;
-  tone?: "primary" | "success";
-}) {
-  const toneClass =
-    tone === "success"
-      ? "border-emerald-400/25 bg-emerald-500/10 text-emerald-200"
-      : "border-[#00C2CB]/25 bg-[#00C2CB]/10 text-[#00C2CB]";
+  const businessDisplay = {
+    id: campaign.id,
+    type: campaign.type || undefined,
+    status: campaign.status || undefined,
+    platform: campaign.platform || undefined,
+    caption: campaign.caption,
+    media_url: campaign.media_url,
+    offer_id: campaign.offer_id,
+    created_at: campaign.created_at || undefined,
+    tracking_link: campaign.tracking_link,
+    billing_state: campaign.billing_state,
+    spend: campaign.spend,
+    spend_transferred: campaign.spend_transferred,
+    clicks: campaign.clicks,
+  };
 
   return (
-    <div className={`rounded-2xl border p-4 ${toneClass}`}>
-      <p className="truncate text-[11px] font-semibold uppercase tracking-[0.16em] opacity-80">
-        {label}
-      </p>
-      <p className="mt-3 truncate text-2xl font-semibold tracking-tight text-[var(--foreground)]">
-        {value}
-      </p>
+    <div className="business-campaign-detail-theme">
+      <CampaignDetailWorkspace
+        audience="business"
+        campaign={businessDisplay}
+        title={campaignTitle}
+        offer={offerInfo}
+        isOrganic={campaign.meta_source === "organic"}
+        isPaused={isPaused}
+        stoppedByBusiness={isBusinessStopped}
+        canControlMeta={false}
+        stats={{ clicks: stats?.pageViews || 0, carts: stats?.addToCarts || 0, conversions: stats?.conversions || 0 }}
+        trend={{ labels: series.labels, carts: series.addToCarts, conversions: series.conversions }}
+        businessRevenue={stats?.revenue || 0}
+        businessAffiliate={campaign.affiliate_email}
+        businessCanPause={businessCanPause}
+        businessPauseLoading={updating}
+        businessSyncMessage={syncSpendMsg}
+        onBusinessPause={() => { void handleToggleStatus(); }}
+        pendingPayout={0}
+        loadingStats={statsLoading}
+        trackingUrl={campaign.tracking_link || ""}
+        affiliateReady={true}
+        copied={copied}
+        money={(amount) => amount.toLocaleString("en-AU", { style: "currency", currency: metaCurrency })}
+        syncingSpend={syncingSpend}
+        controllingMeta={false}
+        onCopy={() => {
+          if (!campaign.tracking_link) return;
+          void navigator.clipboard.writeText(campaign.tracking_link).then(() => setCopied(true));
+        }}
+        onSyncSpend={() => { void handleSyncSpend(); }}
+        onMetaControl={() => {}}
+        onDeleteOrganic={() => {}}
+        showEmailModal={emailModalOpen}
+        onEmailModalChange={setEmailModalOpen}
+      />
     </div>
   );
 }
