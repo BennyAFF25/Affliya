@@ -9,6 +9,7 @@ import { trackMetaStandardEvent } from '@/../utils/marketing/metaPixel';
 import { trackRedditConversion } from '@/../utils/marketing/redditConversions';
 import { logProductEvent } from "@/../utils/productEvents";
 import { affiliateOnboardingPath } from '@/../utils/affiliate/onboarding';
+import { extractAttributionFromSearchParams, buildHrefWithAttribution, persistAttribution } from '@/../utils/marketing/attribution';
 
 function CreateAccountInner() {
   const sp = useSearchParams();
@@ -27,14 +28,17 @@ function CreateAccountInner() {
   const role: 'business' | 'affiliate' = normalizedRole ?? 'business';
   const isBusiness = role === 'business';
 
-  const onboardingPath =
-    role === 'affiliate' ? affiliateOnboardingPath(sp.get('offerId'), sp.get('mode')) : '/onboarding/for-business';
+  const businessAttribution = extractAttributionFromSearchParams(new URLSearchParams(sp.toString()));
+  const onboardingPath = role === 'affiliate'
+    ? affiliateOnboardingPath(sp.get('offerId'), sp.get('mode'))
+    : buildHrefWithAttribution('/business/choose-plan?plan=growth', businessAttribution);
 
   useEffect(() => {
     try {
       localStorage.setItem('intent.role', role);
+      if (isBusiness) persistAttribution(businessAttribution);
     } catch {}
-  }, [role]);
+  }, [role, isBusiness, sp]);
 
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
@@ -105,7 +109,7 @@ function CreateAccountInner() {
         password,
         options: {
           emailRedirectTo: authRedirect,
-          data: { role, username: trimmedUsername },
+          data: { role, username: trimmedUsername, ...(isBusiness ? { business_plan_first_v2: true } : {}) },
         },
       });
 
@@ -179,7 +183,7 @@ function CreateAccountInner() {
           void logProductEvent({
             eventType: 'business_signup_completed',
             actorRole: 'business',
-            meta: { source: 'email_signup' },
+            meta: { source: 'email_signup', ...businessAttribution },
           });
         }
         // Pre-signup revenue is safely merged by trg_merge_pre_signup_revenue
@@ -282,7 +286,7 @@ function CreateAccountInner() {
 
             <p className="mt-6 max-w-lg text-[17px] leading-8 text-white/50">
               {isBusiness
-                ? 'Create the account first. Then set your offer, commission and approval rules before anyone promotes your business.'
+                ? 'Create your account, start your 14-day Growth trial with a card, then publish your offer. Growth is A$49/month afterward; cancel anytime.'
                 : 'Create your account, browse available offers and start building campaigns around the products you want to promote.'}
             </p>
 
@@ -305,7 +309,7 @@ function CreateAccountInner() {
 
             <div className="mt-7 flex items-center gap-3 text-xs text-white/34">
               <ShieldCheck className="h-4 w-4 text-[#00C2CB]/65" strokeWidth={1.6} />
-              {isBusiness ? 'No card required to create your account or publish your offer.' : 'No card required to create an account.'}
+              {isBusiness ? '14 days free, then A$49/month. Card required for Growth. Cancel anytime.' : 'No card required to create an account.'}
             </div>
           </div>
         </section>
@@ -337,7 +341,7 @@ function CreateAccountInner() {
                   </h2>
                   <p className="mt-3 max-w-md text-sm leading-6 text-white/45">
                     {isBusiness
-                      ? 'Start with the basics. Your offer and promotion settings come next.'
+                      ? 'Next: choose your Growth trial, then set up your first offer.'
                       : 'Choose a brand and prepare your first promotion. You can add your public name and payout details later.'}
                   </p>
                 </div>
@@ -432,7 +436,7 @@ function CreateAccountInner() {
                 <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#00C2CB]/70" />
                 <p>
                   {isBusiness
-                    ? 'No card required to create your account or publish your offer. Growth is optional and starts with a free trial before its monthly subscription begins. By continuing, you agree to our Terms and Privacy Policy.'
+                    ? 'Next: start your 14-day Growth trial, then set up your offer. Growth requires a card and costs A$49/month after the trial unless you cancel. Free (organic only) remains available at the next step. By continuing, you agree to our Terms and Privacy Policy.'
                     : 'No card required to join. By continuing, you agree to our Terms and Privacy Policy. Fee-based charges only apply later when money moves through wallets or payouts.'}
                 </p>
               </div>
