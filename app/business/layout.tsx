@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { useSession } from "@supabase/auth-helpers-react";
 import { useChatUnreadCount } from "@/components/inbox/useChatUnreadCount";
 import BusinessSidebar from "./BusinessSidebar";
@@ -26,7 +27,37 @@ export default function BusinessLayout({
 }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const session = useSession();
+  const router = useRouter();
+  const pathname = usePathname();
+  const isPlanScreen = pathname === "/business/choose-plan";
+  const newBusiness = session?.user?.user_metadata?.business_plan_first_v2 === true;
+  const [planPending, setPlanPending] = useState<boolean | null>(null);
   const chatUnreadCount = useChatUnreadCount(session?.user?.id);
+
+  useEffect(() => {
+    if (!newBusiness || !session?.user?.id || isPlanScreen) return;
+    let active = true;
+    setPlanPending(null);
+    void fetch("/api/business-subscription/plan-step-status", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Could not verify plan selection.");
+        const data = await response.json();
+        if (active) {
+          setPlanPending(Boolean(data.required));
+          if (data.required) router.replace("/business/choose-plan");
+        }
+      })
+      .catch(() => { if (active) setPlanPending(true); });
+    return () => { active = false; };
+  }, [newBusiness, session?.user?.id, pathname, isPlanScreen, router]);
+
+  // Keep this step focused: no global sidebar, shortcuts or resume banners.
+  if (isPlanScreen) return <div className="min-h-screen bg-[#0f0f0f]">{children}</div>;
+  if (newBusiness && planPending !== false) return (
+    <main className="flex min-h-screen items-center justify-center bg-[#0f0f0f] p-6 text-sm text-slate-300" role="status">
+      {planPending ? "Complete your plan choice to continue. If this persists, refresh the page." : "Checking your Growth plan…"}
+    </main>
+  );
 
   const closeMobileNav = () => setMobileNavOpen(false);
 
