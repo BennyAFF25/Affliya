@@ -26,6 +26,34 @@ const when = (value: string) => new Date(value).toLocaleString("en-AU", {
   day: "numeric", month: "short", hour: "numeric", minute: "2-digit",
 });
 
+// Only HTTP(S) links become clickable. User messages remain escaped React text;
+// do not render HTML or javascript: URLs sent by other users.
+function renderMessageBody(body: string) {
+  return body.split(/(https?:\/\/[^\s<>"']+)/gi).map((part, index) => {
+    if (!/^https?:\/\//i.test(part)) return <span key={index}>{part}</span>;
+    const match = part.match(/^(.*?)([.,!?;)]+)?$/);
+    const rawUrl = match?.[1] || part;
+    const trailing = match?.[2] || "";
+    try {
+      const url = new URL(rawUrl);
+      if (url.protocol !== "https:" && url.protocol !== "http:") {
+        return <span key={index}>{part}</span>;
+      }
+      return (
+        <span key={index}>
+          <a href={url.href} target="_blank" rel="noopener noreferrer"
+            className="break-all text-[#63e8ee] underline underline-offset-2 hover:text-white">
+            {rawUrl}
+          </a>
+          {trailing}
+        </span>
+      );
+    } catch {
+      return <span key={index}>{part}</span>;
+    }
+  });
+}
+
 export function InboxMessenger({ audience }: { audience: InboxAudience }) {
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -107,6 +135,9 @@ export function InboxMessenger({ audience }: { audience: InboxAudience }) {
 
   useEffect(() => {
     if (!current || !viewerId || current.unread === 0) return;
+    // On mobile the thread is auto-selected but hidden behind the contact
+    // list. Do not silently mark it read until it is actually opened.
+    if (!mobileThread && !window.matchMedia("(min-width: 768px)").matches) return;
     const key = current.key;
     void fetch("/api/inbox/chat", {
       method: "PATCH", headers: { "Content-Type": "application/json" },
@@ -117,8 +148,9 @@ export function InboxMessenger({ audience }: { audience: InboxAudience }) {
         m.key === key && m.senderId !== viewerId && !m.readAt
           ? { ...m, readAt: new Date().toISOString() } : m
       ));
+      window.dispatchEvent(new Event("nettmark-inbox-read"));
     }).catch(() => { /* will retry on next successful refresh */ });
-  }, [current, viewerId]);
+  }, [current, viewerId, mobileThread]);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }); }, [history.length, activeKey]);
 
@@ -237,7 +269,7 @@ export function InboxMessenger({ audience }: { audience: InboxAudience }) {
                       <div className={"max-w-[88%] rounded-2xl px-3.5 py-2.5 text-sm leading-6 shadow-sm sm:max-w-[76%] " +
                         (mine ? "rounded-br-md border border-[#00C2CB]/20 bg-[#00C2CB]/[0.12] text-slate-50" :
                           "rounded-bl-md border border-white/[0.08] bg-[#202427] text-slate-100")}>
-                        <p className="whitespace-pre-wrap break-words">{message.body}</p>
+                        <p className="whitespace-pre-wrap break-words">{renderMessageBody(message.body)}</p>
                         <p className={"mt-1 flex items-center justify-end gap-1 text-[10px] " +
                           (mine ? "text-[#6ed9e2]" : "text-slate-400")}>
                           {when(message.createdAt)}
@@ -264,6 +296,12 @@ export function InboxMessenger({ audience }: { audience: InboxAudience }) {
                     }}
                     placeholder={"Message " + current.displayName}
                     className="max-h-32 min-h-[48px] w-full resize-y rounded-xl border border-white/[0.10] bg-[#101415] px-3 py-2.5 text-sm text-white outline-none placeholder:text-slate-500 focus:border-[#00C2CB]/60" />
+                  <span aria-live={draft.length >= 3000 ? "polite" : "off"}
+                    className={"mt-1 block text-right text-[10px] " +
+                      (draft.length >= 3000 ? "font-semibold text-amber-200" :
+                        draft.length >= 2700 ? "text-amber-300" : "text-slate-500")}>
+                    {draft.length} / 3,000{draft.length >= 3000 ? " · Character limit reached" : ""}
+                  </span>
                 </label>
                 <button type="submit" disabled={sending || !draft.trim()}
                   className="flex h-12 min-w-12 items-center justify-center gap-2 rounded-xl bg-[#00C2CB] px-3 text-[#091719] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50"
