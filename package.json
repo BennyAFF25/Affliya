@@ -33,7 +33,8 @@
     "test:paid-campaign-banner": "tsx scripts/paid-campaign-resume-banner.test.ts",
     "test:inbox-conversations": "tsx scripts/inbox-conversations-mvp.test.ts",
     "test:signup-provisioning": "tsx scripts/signup-profile-provisioning.test.ts",
-    "test:auto-meta-spend-refresh": "tsx scripts/auto-meta-spend-refresh.test.ts"
+    "test:auto-meta-spend-refresh": "tsx scripts/auto-meta-spend-refresh.test.ts",
+    "test:business-dashboard-ui": "tsx scripts/business-dashboard-redesign.test.ts"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.2",
