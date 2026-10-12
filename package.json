@@ -38,7 +38,8 @@
     "test:affiliate-campaign-workspace": "tsx scripts/affiliate-campaigns-shared-workspace.test.ts",
     "test:affiliate-campaign-detail": "tsx scripts/affiliate-campaign-detail-ui.test.ts",
     "test:business-campaign-detail": "tsx scripts/business-campaign-detail-parity.test.ts",
-    "test:affiliate-wallet-ui": "tsx scripts/affiliate-wallet-ui.test.ts"
+    "test:affiliate-wallet-ui": "tsx scripts/affiliate-wallet-ui.test.ts",
+    "test:inbox-bot-report": "tsx scripts/inbox-bot-report-regression.test.ts"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.2",
