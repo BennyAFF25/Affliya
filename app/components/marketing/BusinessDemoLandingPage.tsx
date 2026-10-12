@@ -165,6 +165,10 @@ export default function BusinessDemoLandingPage({
       cta_href: href,
       cta_placement: placement,
     };
+    if (href.startsWith("/create-account")) {
+      void logMarketingEvent({ eventType: "landing_cta_click", pagePath, audience: "business",
+        meta: { ...meta, src: "lp_business_demo" } });
+    }
     void logMarketingEvent({
       eventType: "business_demo_cta_click",
       pagePath,
