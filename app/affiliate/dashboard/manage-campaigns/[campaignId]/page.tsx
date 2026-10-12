@@ -1,11 +1,10 @@
 "use client";
 
-import React, { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { formatMoney as formatCurrencyAmount } from "../../../../../utils/currency";
 import { isTrackedLandingVisit } from "../../../../../utils/tracking/visitMetrics";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/../utils/supabase/pages-client";
-import type { PostgrestError } from "@supabase/supabase-js";
 import CampaignDetailWorkspace from "./CampaignDetailWorkspace";
 
 type Campaign = {
@@ -49,7 +48,7 @@ export default function ManageCampaignPage() {
 
   const [affiliateId, setAffiliateId] = useState<string | null>(null);
   const [campaign, setCampaign] = useState<Campaign | null>(null);
-  const [error, setError] = useState<PostgrestError | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [metaControlLoading, setMetaControlLoading] = useState(false);
 
@@ -345,16 +344,12 @@ export default function ManageCampaignPage() {
       };
 
       setCampaign(normalised);
-      if (paidErr) setError(paidErr);
-
       // pull currency from latest meta_connections for this business
       await loadMetaCurrencyForBusiness((paid as any).business_email);
       return;
     }
 
-    if (organicErr || paidErr) {
-      setError((organicErr || paidErr) as PostgrestError);
-    }
+    setError(paidErr?.message || "This campaign could not be found or is no longer accessible.");
   }, [campaignId]);
 
   useEffect(() => {
@@ -672,7 +667,7 @@ export default function ManageCampaignPage() {
     return (
       <div className="min-h-screen bg-[var(--background)] p-4 text-slate-100 sm:p-6">
         <div role="alert" className="mx-auto max-w-[1000px] rounded-[22px] border border-red-400/20 bg-[#151718] p-5 text-sm text-red-200">
-          This campaign could not be loaded. {error.message}
+          This campaign could not be loaded. {error}
         </div>
       </div>
     );
