@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
+import { ArrowDownLeft, ArrowRight, ArrowUpRight, ChevronDown, CircleHelp, Clock3, CreditCard, Megaphone, RefreshCw, Wallet } from 'lucide-react';
 import { formatMoney } from "../../../utils/currency";
 import { supabase } from '@/../utils/supabase/pages-client';
 import { useSession } from '@supabase/auth-helpers-react';
@@ -8,6 +10,16 @@ import { useUserSettings } from '@/../utils/hooks/useUserSettings';
 import { calculateWalletBalance } from '@/../utils/wallet/balance';
 import { calculateRefundLockState, type RefundLockState } from '@/../utils/wallet/refundLock';
 import { describeAffiliatePayout, formatRecurringTermDetail } from '@/../utils/recurringTerms';
+
+type WalletLiveAd = {
+  id: string;
+  status?: string | null;
+  billing_state?: string | null;
+  spend?: number | null;
+  spend_transferred?: number | null;
+};
+
+type ActivityFilter = 'all' | 'topups' | 'spend' | 'refunds';
 
 type WalletTopup = {
   amount_gross?: number | null;
@@ -191,6 +203,9 @@ export default function AffiliateWalletPage() {
   const [recentCompletedTopupId, setRecentCompletedTopupId] = useState<string | null>(null);
   const [billingStatus, setBillingStatus] = useState<AffiliateBillingStatus | null>(null);
   const [billingStatusLoading, setBillingStatusLoading] = useState(true);
+  const [liveAdRows, setLiveAdRows] = useState<WalletLiveAd[]>([]);
+  const [walletAction, setWalletAction] = useState<'topup' | 'withdraw' | null>(null);
+  const [activityFilter, setActivityFilter] = useState<ActivityFilter>('all');
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -304,6 +319,8 @@ export default function AffiliateWalletPage() {
       console.error('[❌ Refund lock state fetch error]', lockStateResult.error.message);
     } else {
       setRefundLockState(calculateRefundLockState(lockStateResult.data || []));
+      // Presentation-only view of the existing live_ads read; no additional query.
+      setLiveAdRows((lockStateResult.data || []) as WalletLiveAd[]);
     }
 
     if (topupsResult.error) {
@@ -588,425 +605,301 @@ export default function AffiliateWalletPage() {
     }
   };
 
+
+  // All figures below are presentation-only and derive from the existing
+  // reads/ledger. The wallet is pooled, not reserved per campaign.
+  const walletMoney = (value: number | string | null | undefined) => {
+    if (currency === 'AUD') {
+      return 'A$' + toMoney(value).toFixed(2);
+    }
+    return formatMoney(value, currency);
+  };
+  const fundedCampaigns = liveAdRows.filter((ad) => {
+    const status = String(ad.status || '').toLowerCase();
+    const billing = String(ad.billing_state || '').toLowerCase();
+    return ['active', 'live'].includes(status) ||
+      ['active', 'live'].includes(billing) ||
+      Number(ad.spend || 0) > Number(ad.spend_transferred || 0);
+  });
+  const walletActivity = activity
+    .filter((item) => !item.id.startsWith('payout-'))
+    .filter((item) => {
+      if (activityFilter === 'topups') return item.id.startsWith('topup-');
+      if (activityFilter === 'spend') return item.id.startsWith('deduction-');
+      if (activityFilter === 'refunds') return item.id.startsWith('refund-');
+      return true;
+    });
+  const withdrawDisabled = refundLockState.locked || availableToRefund <= 0 || refundableTopups.length === 0;
+  const withdrawDisabledReason = refundLockState.locked
+    ? refundBlockReason
+    : availableToRefund <= 0 || refundableTopups.length === 0
+      ? 'No refundable top-up principal is available.'
+      : null;
+
   return (
-    <main className="min-h-screen w-full bg-[var(--background)] text-[var(--foreground)] overflow-x-hidden">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
-        <section
-          className={`${CARD_SHELL} relative overflow-hidden border-0 px-6 sm:px-8 py-6 sm:py-8 text-white shadow-[0_0_60px_rgba(0,194,203,0.35)]`}
-          style={{ background: 'linear-gradient(135deg, #00C2CB, #00b0b8 60%, #00B1E7)' }}
-        >
-          <div className="pointer-events-none absolute inset-0 opacity-40 mix-blend-soft-light">
-            <div className="absolute -left-10 -top-16 h-40 w-40 rounded-full bg-white/30 blur-3xl" />
-            <div className="absolute right-0 bottom-0 h-40 w-40 rounded-full bg-black/20 blur-3xl" />
+    <main className="min-h-screen w-full overflow-x-hidden bg-[var(--background)] text-white">
+      <div className="mx-auto max-w-[1080px] space-y-4 px-4 py-6 sm:space-y-5 sm:px-6 sm:py-8">
+        <header className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#63e8ee]">Affiliate finances</p>
+            <h1 className="mt-1 text-[27px] font-semibold tracking-tight sm:text-[33px]">Ad wallet</h1>
+            <p className="mt-1 text-xs text-slate-400">Your advertising funds, campaigns and transactions.</p>
           </div>
+          <Link href="/affiliate/dashboard" className="inline-flex min-h-10 items-center gap-2 text-xs font-semibold text-slate-300 transition hover:text-[#63e8ee]">
+            Dashboard <ArrowUpRight className="h-4 w-4" />
+          </Link>
+        </header>
 
-          <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-            <div className="space-y-4">
-              <div className="inline-flex items-center gap-2 rounded-full bg-black/20 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.24em] text-white/80">
-                <span className={`h-1.5 w-1.5 rounded-full ${refundLockState.locked ? 'bg-amber-300' : 'bg-emerald-300'}`} />
-                Workspace overview
+        <section className="rounded-[24px] border border-white/[0.09] bg-[#151718] p-4 shadow-[0_22px_60px_rgba(0,0,0,0.2)] sm:p-6" aria-labelledby="wallet-balance-heading">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 text-xs text-slate-300">
+                <span className="grid h-8 w-8 place-items-center rounded-full bg-[#00C2CB]/10 text-[#19d4dd]"><Wallet className="h-4 w-4" /></span>
+                <h2 id="wallet-balance-heading" className="font-semibold">Available to spend</h2>
               </div>
-
-              <div>
-                <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl">
-                  Affiliate Wallet
-                </h1>
-                <p className="mt-3 max-w-2xl text-sm text-white/85 sm:text-base">
-                  See what is spendable now, what is locked by live campaign activity,
-                  and what can actually be refunded.
-                </p>
-              </div>
-
-              <div>
-                <p className="text-sm font-medium text-white/80">Available balance</p>
-                <p className="mt-1 text-4xl sm:text-5xl font-extrabold tracking-tight">
-                  {formatMoney(availableBalance, currency)}
-                </p>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                <span className="inline-flex items-center gap-2 rounded-full bg-black/20 px-3 py-1 text-xs font-semibold text-white/85">
-                  {pluralize(refundLockState.activeAdCount, 'active Meta ad')}
-                </span>
-                <span className="inline-flex items-center gap-2 rounded-full bg-black/20 px-3 py-1 text-xs font-semibold text-white/85">
-                  Unsettled spend {formatMoney(refundLockState.totalUnpaidSpend, currency)}
-                </span>
-                <span className="inline-flex items-center gap-2 rounded-full bg-black/20 px-3 py-1 text-xs font-semibold text-white/85">
-                  Refundable now {formatMoney(availableToRefund, currency)}
-                </span>
-              </div>
+              <p className="mt-3 break-words text-[37px] font-semibold leading-none tracking-tight text-white sm:text-[45px]">{walletMoney(availableBalance)}</p>
+              <p className="mt-3 text-[11px] leading-5 text-slate-400">
+                {walletMoney(refundLockState.totalUnpaidSpend)} awaiting spend settlement
+                <span className="mx-2 text-slate-600">·</span>
+                {walletMoney(availableToRefund)} refundable now
+              </p>
+              <p className="mt-1 max-w-lg text-[10px] leading-4 text-slate-500">Your balance is shared across ads; this is not a second, separate locked balance.</p>
             </div>
-
-            <div className="flex w-full flex-col gap-3 lg:w-auto lg:min-w-[320px]">
-              <div className="rounded-2xl bg-black/20 p-4 backdrop-blur-sm">
-                <p className="text-xs font-semibold uppercase tracking-wide text-white/60">Wallet health</p>
-                <p className="mt-2 text-sm font-medium text-white">
-                  {availableToRefund > 0 ? 'Funds are clear for refunds' : refundableBalance > 0 && refundLockState.locked ? 'Some funds are temporarily locked' : 'No refundable funds'}
-                </p>
-                <p className="mt-2 text-xs leading-5 text-white/75">{refundBlockReason}</p>
-              </div>
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
-                <a
-                  href="#topup-wallet"
-                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/75 bg-white/95 px-4 py-2.5 text-sm font-semibold text-[#00C2CB] shadow-sm backdrop-blur transition hover:bg-white"
-                >
-                  Add funds
-                </a>
-                <a
-                  href="#refund-wallet"
-                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/20 bg-black/15 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-black/25"
-                >
-                  Refund / withdraw
-                </a>
-              </div>
-              <div className="rounded-2xl border border-white/10 bg-black/15 px-4 py-3 text-xs text-white/70">
-                Payout setup lives in <a href="/affiliate/settings" className="font-semibold text-white hover:text-[#7ff5fb]">Affiliate Settings</a>. Wallet top-ups only unlock once Stripe payouts are connected.
-              </div>
+            <div className="grid w-full shrink-0 grid-cols-2 gap-2 sm:w-auto sm:min-w-[255px]">
+              <button type="button" onClick={() => setWalletAction(walletAction === 'topup' ? null : 'topup')}
+                aria-expanded={walletAction === 'topup'} aria-controls="topup-wallet"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#00C2CB] px-4 text-xs font-bold text-[#0f0f0f] transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00C2CB]">
+                <ArrowDownLeft className="h-4 w-4" /> Add funds
+              </button>
+              <button type="button" onClick={() => setWalletAction(walletAction === 'withdraw' ? null : 'withdraw')}
+                disabled={withdrawDisabled} title={withdrawDisabledReason || 'Refund credited principal to your original payment method'}
+                aria-expanded={walletAction === 'withdraw'} aria-controls="refund-wallet"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-white/[0.14] bg-white/[0.04] px-4 text-xs font-semibold text-slate-200 transition hover:bg-white/[0.08] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00C2CB] disabled:cursor-not-allowed disabled:opacity-40">
+                <ArrowUpRight className="h-4 w-4" /> Withdraw
+              </button>
             </div>
           </div>
-        </section>
-
-        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          <div className={`${PANEL_CARD} p-4`}>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/45">Available now</p>
-            <p className="mt-2 text-2xl font-bold text-[#7ff5fb]">{formatMoney(availableBalance, currency)}</p>
-            <p className="mt-1 text-xs text-white/50">Spendable wallet balance after settled refunds and ad deductions.</p>
-          </div>
-          <div className={`${PANEL_CARD} p-4`}>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/45">Refundable now</p>
-            <p className="mt-2 text-2xl font-bold text-emerald-300">{formatMoney(availableToRefund, currency)}</p>
-            <p className="mt-1 text-xs text-white/50">Principal from completed top-ups that is currently clear to withdraw.</p>
-          </div>
-          <div className={`${PANEL_CARD} p-4`}>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/45">Locked balance</p>
-            <p className="mt-2 text-2xl font-bold text-amber-200">{formatMoney(lockedRefundBalance, currency)}</p>
-            <p className="mt-1 text-xs text-white/50">Held back while live ads or unsettled spend still need to clear.</p>
-          </div>
-          <div className={`${PANEL_CARD} p-4`}>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/45">Active Meta ads</p>
-            <p className="mt-2 text-2xl font-bold">{refundLockState.activeAdCount}</p>
-            <p className="mt-1 text-xs text-white/50">Campaigns still capable of consuming wallet funds.</p>
-          </div>
-          <div className={`${PANEL_CARD} p-4`}>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/45">Unsettled spend</p>
-            <p className="mt-2 text-2xl font-bold text-amber-300">{formatMoney(refundLockState.totalUnpaidSpend, currency)}</p>
-            <p className="mt-1 text-xs text-white/50">Ad spend recorded in Meta that has not fully settled against the wallet yet.</p>
-          </div>
-          <div className={`${PANEL_CARD} p-4`}>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-white/45">Pending payout receipts</p>
-            <p className="mt-2 text-2xl font-bold">{formatMoney(pendingPayoutTotal, currency)}</p>
-            <p className="mt-1 text-xs text-white/50">Affiliate payouts queued or still pending completion in Stripe.</p>
-          </div>
-        </section>
-
-        {refundLockState.locked ? (
-          <section className="rounded-2xl border border-amber-400/20 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
-            <p className="font-semibold">Why you cannot refund right now</p>
-            <p className="mt-1 text-amber-100/80">{refundBlockReason}</p>
-          </section>
-        ) : (
-          <section className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
-            <p className="font-semibold">No refund lock is active.</p>
-            <p className="mt-1 text-emerald-100/80">
-              You can refund up to {formatMoney(availableToRefund, currency)} from completed wallet top-ups.
+          {withdrawDisabledReason ? (
+            <p className="mt-4 flex items-start gap-2 border-t border-white/[0.07] pt-3 text-[11px] leading-5 text-amber-200">
+              <Clock3 className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {withdrawDisabledReason}
             </p>
-          </section>
-        )}
+          ) : null}
+        </section>
 
         {topupQueryState === 'success' ? (
-          recentTopupActuals ? (
-            <section className="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-4 text-sm text-cyan-50">
-              <p className="font-semibold text-cyan-100">Top-up completed</p>
-              <p className="mt-1 text-cyan-50/85">
-                Actual settled deductions are now recorded from Stripe for this wallet credit.
+          <section role="status" className="rounded-[19px] border border-[#00C2CB]/20 bg-[#101415] p-4">
+            <p className="text-xs font-semibold text-[#63e8ee]">{recentTopupActuals ? 'Top-up completed' : 'Top-up received — finalising fee details'}</p>
+            {recentTopupActuals ? (
+              <p className="mt-2 text-xs leading-6 text-slate-300">
+                Credited {walletMoney(getCreditedTopupAmount(recentTopupActuals))}
+                <span className="mx-2 text-slate-600">·</span>
+                Nettmark fee {walletMoney(recentTopupActuals.nettmark_fee_amount)}
+                <span className="mx-2 text-slate-600">·</span>
+                Stripe fee {walletMoney(recentTopupActuals.stripe_fees)}
+                <span className="mx-2 text-slate-600">·</span>
+                Charged {walletMoney(getTopupChargedAmount(recentTopupActuals))}
               </p>
-              <div className="mt-3 grid gap-3 sm:grid-cols-4">
-                <div className="rounded-xl border border-cyan-300/10 bg-black/15 px-3 py-3">
-                  <p className="text-[11px] uppercase tracking-[0.14em] text-cyan-50/60">Wallet credit</p>
-                  <p className="mt-1 text-base font-semibold text-white">
-                    {formatMoney(getCreditedTopupAmount(recentTopupActuals), currency)}
-                  </p>
-                </div>
-                <div className="rounded-xl border border-cyan-300/10 bg-black/15 px-3 py-3">
-                  <p className="text-[11px] uppercase tracking-[0.14em] text-cyan-50/60">Nettmark fee</p>
-                  <p className="mt-1 text-base font-semibold text-white">
-                    {formatMoney(toMoney(recentTopupActuals.nettmark_fee_amount), currency)}
-                  </p>
-                </div>
-                <div className="rounded-xl border border-cyan-300/10 bg-black/15 px-3 py-3">
-                  <p className="text-[11px] uppercase tracking-[0.14em] text-cyan-50/60">Stripe fee</p>
-                  <p className="mt-1 text-base font-semibold text-white">
-                    {formatMoney(toMoney(recentTopupActuals.stripe_fees), currency)}
-                  </p>
-                </div>
-                <div className="rounded-xl border border-cyan-300/10 bg-black/15 px-3 py-3">
-                  <p className="text-[11px] uppercase tracking-[0.14em] text-cyan-50/60">Total charged</p>
-                  <p className="mt-1 text-base font-semibold text-white">
-                    {formatMoney(getTopupChargedAmount(recentTopupActuals), currency)}
-                  </p>
-                </div>
-              </div>
-            </section>
-          ) : (
-            <section className="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-4 text-sm text-cyan-50">
-              <p className="font-semibold text-cyan-100">Top-up received — finalising fee details</p>
-              <p className="mt-1 text-cyan-50/85">
-                We&apos;re waiting for the settled Stripe record so we can show the actual Stripe fee and Nettmark fee here.
-              </p>
-            </section>
-          )
+            ) : (
+              <p className="mt-1 text-xs text-slate-400">Your payment is being reconciled. Actual fees will appear once Stripe has settled the charge.</p>
+            )}
+          </section>
+        ) : topupQueryState === 'cancel' ? (
+          <p className="rounded-[17px] border border-white/[0.09] bg-[#151718] p-3 text-xs text-slate-300">Top-up cancelled. Your wallet has not been credited from that checkout.</p>
         ) : null}
 
-        <section className="grid items-start gap-6 lg:grid-cols-[minmax(0,380px),minmax(0,1fr)]">
-          <div className="flex flex-col gap-6">
-            <div id="refund-wallet" className={`${PANEL_CARD} px-5 py-5`}>
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-sm font-semibold tracking-wide text-white/90">Refund / withdraw</h2>
-                  <p className="text-xs text-white/50">Pick a completed top-up, choose the amount, and Stripe will return the refundable principal to the original payment method.</p>
-                </div>
-                <span className={BADGE_SOFT}>Refundable {formatMoney(availableToRefund, currency)}</span>
-              </div>
-
-              <div className="mb-3 rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-white/75">
-                {refundBlockReason}
-              </div>
-
-              {refundableTopups.length > 0 ? (
-                <select
-                  value={selectedTopupId ?? ''}
-                  onChange={(e) => setSelectedTopupId(e.target.value)}
-                  disabled={refundLockState.locked}
-                  className="mb-2 w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2 text-xs text-white/80 outline-none focus:border-[#00C2CB] focus:ring-1 focus:ring-[#00C2CB] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {refundableTopups.map((topup) => {
-                    const remaining = getCreditedTopupAmount(topup) - toMoney(topup.amount_refunded);
-                    return (
-                      <option key={topup.stripe_id} value={topup.stripe_id}>
-                        {formatMoney(remaining, currency)} available from {new Date(topup.created_at).toLocaleDateString()}
-                      </option>
-                    );
-                  })}
-                </select>
-              ) : (
-                <div className="mb-2 rounded-lg border border-white/10 bg-black/20 px-3 py-2 text-xs text-white/45">
-                  No refundable top-ups are available yet.
-                </div>
-              )}
-
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                placeholder="Enter amount"
-                value={refundAmount}
-                onChange={(e) => setRefundAmount(e.target.value)}
-                disabled={refundLockState.locked}
-                className={`${INPUT_CLASS} mb-3 px-3 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-60`}
-                aria-label="Refund amount"
-              />
-
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={handleWithdrawAll}
-                  disabled={refundLockState.locked}
-                  className="flex-1 rounded-lg bg-white/5 px-3 py-2 text-sm font-medium text-white/80 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  Withdraw all
-                </button>
-                <button
-                  type="button"
-                  onClick={handleRequestRefund}
-                  disabled={refundLoading || refundLockState.locked || refundableTopups.length === 0}
-                  className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold shadow-sm transition ${
-                    refundLoading || refundLockState.locked || refundableTopups.length === 0
-                      ? 'bg-[#1f2933] text-white/60 cursor-not-allowed'
-                      : 'bg-[#00C2CB] text-black hover:bg-[#00b0b8]'
-                  }`}
-                >
-                  {refundLoading ? 'Processing…' : refundLockState.locked ? 'Refunds locked' : 'Submit refund'}
-                </button>
-              </div>
-            </div>
-
-            <div id="topup-wallet" className={`${PANEL_CARD} px-5 py-5`}>
-              <div className="mb-3 flex items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-sm font-semibold tracking-wide text-white/90">Top up wallet</h2>
-                  <p className="text-xs text-white/50">Add campaign funding through Stripe. Nettmark credits your wallet with the principal and shows the fees separately.</p>
-                </div>
-                <span className={BADGE_SOFT}>{currency}</span>
-              </div>
-
-              {!billingReady ? (
-                <div className="mb-3 rounded-xl border border-amber-400/20 bg-amber-400/10 px-3 py-3 text-xs text-amber-50">
-                  <p className="font-semibold text-amber-100">Billing connection required</p>
-                  <p className="mt-1 text-amber-50/80">
-                    {topupBlockedReason || 'Connect billing in Affiliate Settings before adding wallet funds.'}
-                  </p>
-                  <a
-                    href="/affiliate/settings"
-                    className="mt-3 inline-flex items-center rounded-lg bg-white/10 px-3 py-2 text-[11px] font-semibold text-white hover:bg-white/15"
-                  >
-                    Open affiliate settings
-                  </a>
-                </div>
-              ) : null}
-
-              <input
-                type="number"
-                placeholder="Amount (e.g. 10)"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                className={`${INPUT_CLASS} mb-2 px-3 py-2 text-sm`}
-              />
-
-              <input
-                type="text"
-                value={currency}
-                disabled
-                readOnly
-                aria-label="Currency"
-                className={`${INPUT_CLASS} mb-3 cursor-not-allowed px-3 py-2 text-sm opacity-70`}
-              />
-
-              <div className="mb-3 rounded-xl border border-cyan-400/20 bg-cyan-400/10 px-3 py-3 text-xs text-cyan-50">
-                <p className="font-semibold text-cyan-100">Fee disclosure</p>
-                <p className="mt-1 text-cyan-50/80">
-                  Nettmark charges {(NETTMARK_TRANSACTION_FEE_BPS / 100).toFixed(1)}% on wallet top-ups, and Stripe processing fees are also passed through on checkout. Refund eligibility is based on the credited principal, not either fee.
-                </p>
-                {topupPreview.principalAmount > 0 ? (
-                  <p className="mt-2 text-cyan-50/90">
-                    Wallet credit {formatMoney(topupPreview.principalAmount, currency)} → Nettmark fee {formatMoney(topupPreview.feeAmount, currency)} → estimated Stripe fee {formatMoney(topupPreview.stripeFeeAmount, currency)} → total charge {formatMoney(topupPreview.grossAmount, currency)}
-                  </p>
-                ) : null}
-                <p className="mt-2 text-[11px] text-cyan-50/70">
-                  Final Stripe fees are recorded from the settled payment and may vary slightly from the estimate.
-                </p>
-              </div>
-
-              <button
-                onClick={handleTopUp}
-                disabled={loading || billingStatusLoading || !billingReady}
-                className={`w-full rounded-lg px-4 py-2.5 text-sm font-semibold shadow-sm transition ${
-                  loading || billingStatusLoading || !billingReady
-                    ? 'bg-[#1f2933] text-white/60 cursor-not-allowed'
-                    : 'bg-[#00C2CB] text-black hover:bg-[#00b0b8]'
-                }`}
-              >
-                {loading
-                  ? 'Redirecting…'
-                  : billingStatusLoading
-                    ? 'Checking billing…'
-                    : billingReady
-                      ? 'Top up via Stripe'
-                      : 'Connect billing in Settings first'}
-              </button>
-
-              <div className="mt-4 grid grid-cols-2 gap-3 text-xs text-white/60">
-                <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-3">
-                  <p>Total top-ups</p>
-                  <p className="mt-1 text-sm font-semibold text-white">{formatMoney(totalTopups, currency)}</p>
-                </div>
-                <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-3">
-                  <p>Ad spend settled</p>
-                  <p className="mt-1 text-sm font-semibold text-white">{formatMoney(totalDeductions, currency)}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className={`${PANEL_CARD} min-w-0 p-5 space-y-4`}>
+        {walletAction === 'topup' ? (
+          <section id="topup-wallet" className="scroll-mt-8 rounded-[22px] border border-white/[0.09] bg-[#151718] p-4 sm:p-5" aria-labelledby="topup-heading">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <h2 className="text-sm font-semibold tracking-wide text-white/90">Wallet activity</h2>
-                <p className="text-xs text-white/50">A single timeline for top-ups, refunds, ad-spend settlements, and payout receipts.</p>
+                <h2 id="topup-heading" className="text-[15px] font-semibold">Add funds</h2>
+                <p className="mt-1 text-xs text-slate-400">Choose the wallet credit you want to add.</p>
               </div>
-              <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-medium text-emerald-300">
-                {activity.length} item{activity.length === 1 ? '' : 's'}
-              </span>
+              <span className="rounded-full border border-white/10 px-3 py-1 text-[11px] font-medium text-slate-300">{currency}</span>
             </div>
+            {!billingReady ? (
+              <div className="mt-4 rounded-xl border border-amber-400/20 bg-amber-400/[0.07] p-3 text-xs leading-5 text-amber-100">
+                <p className="font-semibold">Billing connection required</p>
+                <p className="mt-1">{topupBlockedReason || 'Connect billing in Affiliate Settings before adding funds.'}</p>
+                <Link href="/affiliate/settings" className="mt-2 inline-flex items-center gap-1 font-semibold text-[#63e8ee]">Open settings <ArrowRight className="h-3.5 w-3.5" /></Link>
+              </div>
+            ) : null}
+            <label htmlFor="wallet-topup-amount" className="mt-4 block text-[11px] font-semibold text-slate-300">Amount to credit ({currency})</label>
+            <input id="wallet-topup-amount" type="number" min="0" step="0.01"
+              placeholder="e.g. 25.00" value={amount} onChange={(event) => setAmount(event.target.value)}
+              className="mt-2 w-full rounded-xl border border-white/[0.14] bg-[#101415] px-4 py-3 text-sm text-white outline-none placeholder:text-slate-600 focus:border-[#00C2CB]" />
+            <div className="mt-3 rounded-xl border border-white/[0.08] bg-[#101415] p-3 text-xs leading-5 text-slate-300">
+              <p className="font-semibold">Fee preview</p>
+              <p className="mt-1 text-slate-400">Nettmark {(NETTMARK_TRANSACTION_FEE_BPS / 100).toFixed(1)}% plus Stripe processing fees, charged on top of your wallet credit.</p>
+              {topupPreview.principalAmount > 0 ? (
+                <div className="mt-3 space-y-1">
+                  <p>Wallet credit: {walletMoney(topupPreview.principalAmount)}</p>
+                  <p>Nettmark fee: {walletMoney(topupPreview.feeAmount)}</p>
+                  <p>Estimated Stripe fee: {walletMoney(topupPreview.stripeFeeAmount)}</p>
+                  <p className="font-semibold text-white">Estimated total charged: {walletMoney(topupPreview.grossAmount)}</p>
+                </div>
+              ) : null}
+              <p className="mt-1 text-[10px] text-slate-500">Final fees may differ slightly; the settled Stripe record is authoritative. Refunds apply only to credited principal.</p>
+            </div>
+            <button type="button" onClick={handleTopUp} disabled={loading || billingStatusLoading || !billingReady}
+              className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-[#00C2CB] px-4 text-sm font-bold text-[#0f0f0f] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50">
+              <CreditCard className="h-4 w-4" />
+              {loading ? 'Redirecting…' : billingStatusLoading ? 'Checking billing…' : billingReady ? 'Continue to Stripe' : 'Connect billing in Settings first'}
+            </button>
+          </section>
+        ) : null}
 
-            <div className="space-y-2 max-h-[420px] overflow-y-auto pr-1">
-              {activity.length > 0 ? (
-                activity.slice(0, 10).map((item) => (
-                  <div key={item.id} className="rounded-xl border border-white/10 bg-black/20 px-3 py-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-xs text-white/85 font-medium">{item.type}</p>
-                        <p className="text-[11px] text-white/40">{new Date(item.date).toLocaleString()}</p>
-                        {item.note ? <p className="mt-1 text-[11px] text-white/55">{item.note}</p> : null}
+        {walletAction === 'withdraw' ? (
+          <section id="refund-wallet" className="scroll-mt-8 rounded-[22px] border border-white/[0.09] bg-[#151718] p-4 sm:p-5" aria-labelledby="refund-heading">
+            <h2 id="refund-heading" className="text-[15px] font-semibold">Withdraw unused funds</h2>
+            <p className="mt-1 text-xs leading-5 text-slate-400">This is a refund to the original payment method, not a commission payout. Select a completed top-up and refund its remaining principal.</p>
+            <p className="mt-3 rounded-xl border border-white/[0.08] bg-[#101415] p-3 text-xs text-slate-300">{refundBlockReason}</p>
+            {refundableTopups.length > 0 ? (
+              <div className="mt-4">
+                <label htmlFor="wallet-refund-source" className="block text-[11px] font-semibold text-slate-300">Original top-up</label>
+                <select id="wallet-refund-source" value={selectedTopupId ?? ''} onChange={(event) => setSelectedTopupId(event.target.value)}
+                  disabled={refundLockState.locked}
+                  className="mt-2 w-full rounded-xl border border-white/[0.14] bg-[#101415] px-3 py-3 text-xs text-slate-200 focus:border-[#00C2CB] disabled:opacity-50">
+                  {refundableTopups.map((topup) => (
+                    <option key={topup.stripe_id} value={topup.stripe_id}>
+                      {walletMoney(getCreditedTopupAmount(topup) - toMoney(topup.amount_refunded))} · {new Date(topup.created_at).toLocaleDateString('en-AU')}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <p className="mt-3 text-xs text-slate-400">No refundable top-ups are currently available.</p>
+            )}
+            <label htmlFor="wallet-refund-amount" className="mt-4 block text-[11px] font-semibold text-slate-300">Refund amount ({currency})</label>
+            <input id="wallet-refund-amount" type="number" min="0" step="0.01" placeholder="0.00"
+              value={refundAmount} onChange={(event) => setRefundAmount(event.target.value)}
+              disabled={refundLockState.locked}
+              className="mt-2 w-full rounded-xl border border-white/[0.14] bg-[#101415] px-4 py-3 text-sm text-white placeholder:text-slate-600 focus:border-[#00C2CB] disabled:opacity-50" />
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <button type="button" onClick={handleWithdrawAll} disabled={refundLockState.locked}
+                className="min-h-11 rounded-full border border-white/[0.14] bg-white/[0.04] px-3 text-xs font-semibold text-slate-200 disabled:opacity-50">Withdraw all</button>
+              <button type="button" onClick={handleRequestRefund} disabled={refundLoading || refundLockState.locked || refundableTopups.length === 0}
+                className="min-h-11 rounded-full bg-[#00C2CB] px-3 text-xs font-bold text-[#0f0f0f] disabled:cursor-not-allowed disabled:opacity-50">
+                {refundLoading ? 'Processing…' : 'Submit refund'}
+              </button>
+            </div>
+          </section>
+        ) : null}
+
+        <section className="rounded-[22px] border border-white/[0.09] bg-[#151718] p-4 sm:p-5" aria-labelledby="campaign-money-heading">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 id="campaign-money-heading" className="text-[15px] font-semibold">Money in campaigns</h2>
+              <p className="mt-1 text-[11px] leading-5 text-slate-400">Meta-reported spend and spend waiting for wallet settlement.</p>
+            </div>
+            <Link href="/affiliate/dashboard/manage-campaigns" className="inline-flex min-h-9 shrink-0 items-center gap-1.5 text-[11px] font-semibold text-[#63e8ee]">
+              All campaigns <ArrowUpRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+          {fundedCampaigns.length ? (
+            <div className="mt-4 divide-y divide-white/[0.07] overflow-hidden rounded-[17px] border border-white/[0.08] bg-[#101415]">
+              {fundedCampaigns.map((ad) => {
+                const unsettled = Math.max(0, toMoney(ad.spend) - toMoney(ad.spend_transferred));
+                const isRunning = ['active', 'live'].includes(String(ad.status || '').toLowerCase());
+                return (
+                  <div key={ad.id} className="p-3.5 sm:p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="flex items-center gap-2 text-xs font-semibold text-white">
+                          <span className={'h-2 w-2 shrink-0 rounded-full ' + (isRunning ? 'bg-emerald-400' : 'bg-amber-300')} />
+                          Meta campaign · {ad.id.slice(0, 8)}
+                        </p>
+                        <p className="mt-1 text-[10px] text-slate-400">{isRunning ? 'Running' : 'Paused or settling'}</p>
                       </div>
-                      <p className={`text-sm font-semibold ${item.positive ? 'text-emerald-300' : 'text-red-300'}`}>
-                        {item.positive ? '+' : '-'}{formatMoney(item.amount, currency)}
-                      </p>
+                      <Link href={'/affiliate/dashboard/manage-campaigns/' + encodeURIComponent(ad.id)}
+                        className="inline-flex min-h-8 items-center gap-1.5 text-[11px] font-semibold text-[#63e8ee]">
+                        Open campaign <ArrowUpRight className="h-3.5 w-3.5" />
+                      </Link>
                     </div>
-                    <div className="mt-2 flex items-center justify-between gap-3">
-                      <span className="text-[10px] text-white/45 truncate max-w-[70%]">{item.ref}</span>
-                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${badgeTone(item.status)}`}>
-                        {item.status}
-                      </span>
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      <div className="rounded-xl border border-white/[0.06] bg-[#151718] px-3 py-2.5">
+                        <p className="text-[10px] text-slate-400">Reported Meta spend</p>
+                        <p className="mt-1 text-[13px] font-semibold text-white">{walletMoney(ad.spend)}</p>
+                      </div>
+                      <div className="rounded-xl border border-white/[0.06] bg-[#151718] px-3 py-2.5">
+                        <p className="text-[10px] text-slate-400">Awaiting settlement</p>
+                        <p className="mt-1 text-[13px] font-semibold text-white">{walletMoney(unsettled)}</p>
+                      </div>
                     </div>
                   </div>
-                ))
-              ) : (
-                <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-4 text-center text-xs text-white/40">
-                  No activity yet.
-                </div>
-              )}
+                );
+              })}
             </div>
+          ) : (
+            <p className="mt-4 rounded-[17px] border border-dashed border-white/[0.10] bg-[#101415] p-4 text-xs text-slate-400">No live campaigns. Your wallet funds aren't reserved for an active ad.</p>
+          )}
+          <p className="mt-3 text-[10px] leading-5 text-slate-500">
+            Nettmark uses one shared wallet. Per-campaign funded balances, remaining days and Meta sync times aren't available in this wallet view, so they're not estimated here.
+          </p>
+        </section>
 
-            <button
-              onClick={() => setShowLedger((v) => !v)}
-              className="w-full rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-xs text-white/80 hover:bg-white/10"
-            >
-              {showLedger ? 'Hide detailed ledger' : 'View detailed ledger'}
-            </button>
-
-            {showLedger && (
-              <div className="w-full overflow-x-auto rounded-xl border border-white/5 bg-black/20">
-                <table className="min-w-full text-left text-xs">
-                  <thead className="bg-white/5 text-white/60">
-                    <tr>
-                      <th className="px-4 py-2 font-semibold">Date</th>
-                      <th className="px-4 py-2 font-semibold">Type</th>
-                      <th className="px-4 py-2 font-semibold">Amount</th>
-                      <th className="px-4 py-2 font-semibold">Status</th>
-                      <th className="px-4 py-2 font-semibold">Reference</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/5">
-                    {activity.length > 0 ? (
-                      activity.map((item) => (
-                        <tr key={`ledger-${item.id}`} className="hover:bg-white/5 transition-colors align-top">
-                          <td className="px-4 py-3 whitespace-nowrap text-[11px] text-white/70">{new Date(item.date).toLocaleString()}</td>
-                          <td className="px-4 py-3 text-[11px] text-white/80">
-                            <div>{item.type}</div>
-                            {item.note ? <div className="mt-1 text-white/45">{item.note}</div> : null}
-                          </td>
-                          <td className={`px-4 py-3 whitespace-nowrap text-[11px] font-semibold ${item.positive ? 'text-emerald-300' : 'text-red-300'}`}>
-                            {item.positive ? '+' : '-'}{formatMoney(item.amount, currency)}
-                          </td>
-                          <td className="px-4 py-3 whitespace-nowrap text-[11px]">
-                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold ${badgeTone(item.status)}`}>
-                              {item.status}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-[11px] text-white/40 break-all">{item.ref}</td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan={5} className="px-4 py-4 text-center text-xs text-white/40">No wallet ledger activity found.</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
+        <section className="rounded-[22px] border border-white/[0.09] bg-[#151718] p-4 sm:p-5" aria-labelledby="wallet-activity-heading">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 id="wallet-activity-heading" className="text-[15px] font-semibold">Activity</h2>
+              <p className="mt-1 text-[11px] text-slate-400">Credits, ad spend settlements and refunds.</p>
+            </div>
+            <span className="text-[11px] tabular-nums text-slate-500">{walletActivity.length} items</span>
+          </div>
+          <div role="group" aria-label="Filter wallet activity" className="-mx-1 mt-4 flex gap-2 overflow-x-auto px-1 pb-1">
+            {([
+              ['all', 'All'], ['topups', 'Top-ups'], ['spend', 'Ad spend'], ['refunds', 'Refunds / withdrawals'],
+            ] as [ActivityFilter, string][]).map(([value, label]) => (
+              <button key={value} type="button" onClick={() => setActivityFilter(value)} aria-pressed={activityFilter === value}
+                className={'min-h-9 shrink-0 rounded-full border px-3 text-[11px] font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00C2CB] ' +
+                  (activityFilter === value ? 'border-[#00C2CB]/60 bg-[#00C2CB] text-[#0f0f0f]' : 'border-white/[0.10] bg-[#101415] text-slate-300 hover:text-white')}>
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="mt-3 divide-y divide-white/[0.07] overflow-hidden rounded-[17px] border border-white/[0.08] bg-[#101415]">
+            {walletActivity.length ? walletActivity.map((item) => {
+              const kind = item.id.startsWith('topup-') ? 'Top-up'
+                : item.id.startsWith('refund-') ? 'Refund to payment method'
+                  : 'Ad spend settled';
+              return (
+                <details key={item.id} className="group p-3.5 open:bg-white/[0.02] sm:p-4">
+                  <summary className="flex cursor-pointer list-none items-center gap-3">
+                    <span className={'grid h-9 w-9 shrink-0 place-items-center rounded-full ' + (item.positive ? 'bg-emerald-500/10 text-emerald-300' : 'bg-white/[0.06] text-[#63e8ee]')}>
+                      {item.positive ? <ArrowDownLeft className="h-4 w-4" /> : <ArrowUpRight className="h-4 w-4" />}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-xs font-semibold text-slate-100">{kind}</span>
+                      <span className="mt-1 block text-[10px] text-slate-400">{new Date(item.date).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })} · {item.status}</span>
+                    </span>
+                    <span className={'shrink-0 text-xs font-semibold tabular-nums ' + (item.positive ? 'text-emerald-300' : 'text-slate-200')}>
+                      {item.positive ? '+' : '−'}{walletMoney(item.amount)}
+                    </span>
+                    <ChevronDown className="h-3.5 w-3.5 shrink-0 text-slate-500 transition group-open:rotate-180" />
+                  </summary>
+                  <div className="mt-3 border-t border-white/[0.07] pt-3 text-[11px] leading-5 text-slate-400">
+                    {item.note ? <p>{currency === 'AUD' ? item.note.replaceAll('AUD ', 'A$') : item.note}</p> : null}
+                    <p className="mt-1 break-all text-[10px] text-slate-500">Reference: {item.ref}</p>
+                  </div>
+                </details>
+              );
+            }) : (
+              <p className="p-5 text-center text-xs text-slate-400">No transactions in this category yet.</p>
             )}
           </div>
+          <p className="mt-3 text-[10px] text-slate-500">Commission earnings and payout receipts belong to your affiliate dashboard, not this ad wallet. Running balances aren't shown because wallet refunds and settlement records have different accounting timestamps.</p>
         </section>
+
+        <details className="group rounded-[22px] border border-white/[0.09] bg-[#151718] p-4 sm:p-5">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-xs font-semibold text-slate-200">
+            <span className="inline-flex items-center gap-2"><CircleHelp className="h-4 w-4 text-[#19d4dd]" /> How the wallet works</span>
+            <ChevronDown className="h-4 w-4 text-[#19d4dd] transition group-open:rotate-180" />
+          </summary>
+          <div className="mt-3 space-y-2 text-xs leading-5 text-slate-400">
+            <p><strong className="text-slate-200">Top-ups:</strong> Wallet credit is the amount you choose. Nettmark adds a transaction fee and passes through Stripe processing charges; exact amounts are shown before checkout.</p>
+            <p><strong className="text-slate-200">Ad spend:</strong> Meta charges the business ad account; Nettmark periodically records the reported spend, deducts it from your wallet, then transfers reimbursement to the business. Syncing and settlement aren't instant.</p>
+            <p><strong className="text-slate-200">Unused funds:</strong> Pausing or ending an ad stops new delivery, but refunds are available only when no active Meta ads or unsettled spend remain. Eligible principal is returned to the original payment method.</p>
+          </div>
+        </details>
       </div>
     </main>
   );
