@@ -57,7 +57,7 @@ const cyanButton = "inline-flex min-h-10 shrink-0 items-center justify-center ga
 const darkButton = "inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.055] px-3 text-xs font-semibold text-slate-200 transition hover:border-white/20 hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00c2cb]";
 const activeTab = "border-[#00c2cb]/80 bg-[#00c2cb]/[0.10] text-white shadow-[inset_0_0_24px_rgba(0,194,203,0.09)]";
 const inactiveTab = "border-transparent bg-white/[0.045] text-slate-400 hover:bg-white/[0.08] hover:text-white";
-const gridColumns = "grid-cols-[minmax(240px,2.1fr)_minmax(100px,1fr)_80px_94px_75px_88px_minmax(90px,0.8fr)_246px]";
+const gridColumns = "grid-cols-[minmax(240px,2.1fr)_minmax(100px,1fr)_80px_94px_75px_88px_minmax(90px,0.8fr)_268px]";
 
 function MetaMark({ className = "h-5 w-7" }: { className?: string }) {
   // Lightweight inline rendition of Meta's blue infinity mark; no external asset fetch.
@@ -250,8 +250,8 @@ export default function ManageCampaignsWorkspace({
           className={compact ? cyanButton + " flex-1" : cyanButton}
           aria-label={"View campaign " + campaign.id}
         >
-          {compact ? "View campaign" : "View"}
-          <ArrowRight className="h-3.5 w-3.5" />
+          View campaign
+          {compact ? <ArrowRight className="h-3.5 w-3.5" /> : null}
         </Link>
         {isMeta ? (
           <>
@@ -263,7 +263,7 @@ export default function ManageCampaignsWorkspace({
               title="Refresh spend and Meta clicks from Meta Insights"
             >
               <RefreshCw className={syncingById[campaign.id] ? "h-3.5 w-3.5 animate-spin" : "h-3.5 w-3.5"} />
-              {syncingById[campaign.id] ? "Syncing" : "Sync"}
+              {syncingById[campaign.id] ? "Syncing" : "Sync spend"}
             </button>
             <button
               type="button"
@@ -281,7 +281,7 @@ export default function ManageCampaignsWorkspace({
             className={darkButton + " disabled:cursor-not-allowed disabled:opacity-40"}
           >
             <CirclePause className="h-3.5 w-3.5" />
-            {isLive(campaign) ? "Pause" : "Paused"}
+            {isLive(campaign) ? "Pause" : campaignState(campaign) === "Stopped" ? "Stopped" : "Paused"}
           </button>
         )}
       </div>
@@ -316,7 +316,7 @@ export default function ManageCampaignsWorkspace({
             <MetricCard label="Meta spend" value={loading ? "—" : money(spend)} helper="Last Meta Insights sync" icon={<Wallet className="h-5 w-5" />} />
             <MetricCard label="Shop placements" value={loading ? "—" : String(shopPlacements.length)} helper="Approved shops" icon={<Store className="h-5 w-5" />} />
             <MetricCard label="Organic posts" value={loading ? "—" : String(organic.length)} helper="All organic campaigns" icon={<Megaphone className="h-5 w-5" />} />
-            <MetricCard label="Archived" value={loading ? "—" : String(archived.length)} helper="Paused and stopped" muted icon={<Archive className="h-5 w-5" />} />
+            <div className="col-span-2 sm:col-span-1"><MetricCard label="Archived" value={loading ? "—" : String(archived.length)} helper="Paused and stopped" muted icon={<Archive className="h-5 w-5" />} /></div>
           </section>
 
           <section aria-label="Campaigns" className="mt-5 overflow-hidden rounded-[22px] border border-white/[0.085] bg-[#111619]/90 shadow-[0_26px_70px_rgba(0,0,0,0.25)]">
@@ -392,7 +392,7 @@ export default function ManageCampaignsWorkspace({
             ) : (
               <>
                 <div className="hidden overflow-x-auto xl:block">
-                  <div className="min-w-[1090px]">
+                  <div className="min-w-[1140px]">
                     <div className={"grid " + gridColumns + " gap-x-2.5 border-b border-white/[0.065] bg-white/[0.035] px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.10em] text-slate-500"}>
                       <span>Campaign</span><span>Type / platform</span><span>Started</span>
                       <span>Spend</span><span title="Meta clicks from last sync">Meta clicks</span><span>Conversions</span>
