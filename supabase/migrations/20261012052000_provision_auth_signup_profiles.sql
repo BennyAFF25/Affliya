@@ -1,6 +1,6 @@
 -- Create canonical Nettmark business/affiliate profiles as part of Auth signup.
 -- Do not re-grant broad browser UPDATE on profile role/email/financial fields.
-CREATE OR REPLACE FUNCTION auth.nettmark_provision_signup_profile()
+CREATE OR REPLACE FUNCTION public.nettmark_provision_signup_profile()
 RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -23,11 +23,11 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION auth.nettmark_provision_signup_profile() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.nettmark_provision_signup_profile() FROM PUBLIC;
 DROP TRIGGER IF EXISTS nettmark_provision_profile_on_signup ON auth.users;
 CREATE TRIGGER nettmark_provision_profile_on_signup
 AFTER INSERT ON auth.users
-FOR EACH ROW EXECUTE FUNCTION auth.nettmark_provision_signup_profile();
+FOR EACH ROW EXECUTE FUNCTION public.nettmark_provision_signup_profile();
 
 -- Recover confirmed and unconfirmed accounts affected by the broken browser upsert.
 -- Only rows with recorded original signup role, never overwrite extant profiles.
