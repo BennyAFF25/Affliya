@@ -38,22 +38,9 @@ export default function AuthRedirect() {
         .eq("id", user.id)
         .maybeSingle<Profile>();
 
-      // Email-confirmed affiliates can arrive before a client profile insert.
-      // Existing persisted roles remain authoritative; never overwrite them from metadata.
-      if (!error && !profile && user.user_metadata?.role === "affiliate" && user.email) {
-        const recovered = await profileClient.from("profiles")
-          .insert({
-            id: user.id,
-            email: user.email,
-            role: "affiliate",
-            username: String(user.user_metadata?.username || "").trim() || null,
-          })
-          .select("role").single<Profile>();
-        if (recovered.error?.code === "23505") {
-          const existing = await profileClient.from("profiles").select("role").eq("id", user.id).maybeSingle<Profile>();
-          profile = existing.data; error = existing.error;
-        } else { profile = recovered.data; error = recovered.error; }
-      }
+      // All email signups are provisioned by the trusted auth.users trigger.
+      // Never create or rewrite a profile in the client during login/redirect.
+      // Missing profiles fail closed and can be repaired by the admin pipeline.
 
       if (error) {
         console.error("[PROFILE ERROR]", error);
