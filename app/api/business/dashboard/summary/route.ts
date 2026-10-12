@@ -25,7 +25,7 @@ export async function GET() {
       return NextResponse.json({ error: "BUSINESS_REQUIRED" }, { status: 403 });
     }
     const email = user.email.trim().toLowerCase();
-    const [ads, organic, proposals, requests, settlementRows] = await Promise.all([
+    const [ads, organic, proposals, requests, settlementRows, entitlement] = await Promise.all([
       admin.from("live_ads")
         .select("id,offer_id,affiliate_email,business_email,status,created_at,spend,spend_transferred,campaign_type")
         .ilike("business_email", email),
@@ -41,6 +41,9 @@ export async function GET() {
       admin.from("ad_spend_settlements")
         .select("amount,status,stripe_transfer_id")
         .ilike("business_email", email),
+      admin.from("business_entitlements")
+        .select("billing_status,subscription_current_period_end")
+        .ilike("business_email", email).limit(1).maybeSingle(),
     ]);
     const errors = [ads.error, organic.error, proposals.error, requests.error].filter(Boolean);
     if (errors.length) {
@@ -115,8 +118,14 @@ export async function GET() {
     };
     if (settlementRows.error) console.error("[business/dashboard/summary] finance unavailable", settlementRows.error);
 
+    const isTrial = !entitlement.error && entitlement.data?.billing_status === "subscription_trialing";
+    const trialEnd = isTrial ? entitlement.data?.subscription_current_period_end || null : null;
+    const daysLeft = trialEnd ? Math.max(0, Math.ceil((new Date(trialEnd).getTime() - Date.now()) / 86400000)) : null;
     return NextResponse.json({
       success: true,
+      trial: isTrial ? { daysLeft, endsAt: trialEnd } : null,
+      // This system does not yet store verified affiliate offer view counts.
+      affiliateOfferViews: null,
       campaigns,
       finance,
       affiliateSeries: [...daily.values()].sort((a, b) => a.name.localeCompare(b.name)),
