@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const page = readFileSync("app/affiliate/dashboard/manage-campaigns/[campaignId]/page.tsx", "utf8");
-const view = readFileSync("app/affiliate/dashboard/manage-campaigns/[campaignId]/CampaignDetailWorkspace.tsx", "utf8");
+const view = readFileSync("components/campaigns/CampaignDetailWorkspace.tsx", "utf8");
 const metaMark = readFileSync("components/brand/MetaMark.tsx", "utf8");
 
 // One consistent paid/organic layout, no legacy alternate full page.
