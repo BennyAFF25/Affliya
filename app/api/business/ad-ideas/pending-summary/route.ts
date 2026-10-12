@@ -6,7 +6,7 @@ import { createServerSupabaseClient } from "@/../utils/businessSubscriptions";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     const userSupabase = createRouteHandlerClient({ cookies });
     const { data: authData, error: authError } = await userSupabase.auth.getUser();
@@ -20,13 +20,20 @@ export async function GET() {
     }
 
     const admin = createServerSupabaseClient();
-    const { data: ideas, error: ideasError } = await admin
+    const bannerMode = new URL(req.url).searchParams.get("banner") === "1";
+    // Only genuinely actionable, future-scheduled proposals should nag the
+    // business in its global banner. Expired proposals remain available in the
+    // normal Ad Ideas inbox; its API response is unchanged by default.
+    let query = admin
       .from("ad_ideas")
-      .select("id,offer_id,affiliate_email,status,created_at,budget_amount,budget_type,daily_budget")
+      .select("id,offer_id,affiliate_email,status,created_at,start_time,budget_amount,budget_type,daily_budget")
       .eq("business_email", user.email)
       .eq("status", "pending")
-      .order("created_at", { ascending: false })
-      .limit(5);
+      .order("created_at", { ascending: false });
+    if (bannerMode) {
+      query = query.gt("start_time", new Date().toISOString());
+    }
+    const { data: ideas, error: ideasError } = await query.limit(bannerMode ? 20 : 5);
 
     if (ideasError) {
       throw new Error(`Failed to load pending campaigns: ${ideasError.message}`);
