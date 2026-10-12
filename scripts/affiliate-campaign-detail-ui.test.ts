@@ -58,5 +58,8 @@ assert.match(view, /CreativePreview/);
 assert.match(view, /onEmailModalChange\(true\)/);
 assert.match(page, /window\.confirm\("Permanently delete this organic campaign/);
 assert.match(view, /onDeleteOrganic/);
+assert.match(view, /How to get the most from organic promotion/, "compact organic guidance preserved");
+assert.match(page, /Campaign not found|campaign could not be found/i, "unknown campaigns show an error");
+assert.doesNotMatch(page, /if \(organicErr \|\| paidErr\)/, "do not read out-of-scope catch variable");
 assert.match(view, /\/affiliate\/dashboard\/promote\//);
 console.log("affiliate paid/organic campaign detail UI regression checks passed");
