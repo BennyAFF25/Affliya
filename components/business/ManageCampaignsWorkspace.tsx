@@ -291,7 +291,7 @@ export default function ManageCampaignsWorkspace(props: Props) {
             <CirclePause className="h-3.5 w-3.5" />
             {isLive(campaign) ? "Pause" : campaignState(campaign) === "Stopped" ? "Stopped" : "Paused"}
           </button>
-        )}
+        ) : null}
       </div>
     );
   };
@@ -458,7 +458,7 @@ export default function ManageCampaignsWorkspace(props: Props) {
                   {filtered.map((item) => (
                     <article key={item.id} className="p-3.5 sm:p-4">
                       <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0 flex-1"><CampaignIdentity campaign={item} /></div>
+                        <div className="min-w-0 flex-1"><CampaignIdentity campaign={item} audience={audience} /></div>
                         <Status campaign={item} />
                       </div>
                       <div className="mt-4 flex items-center justify-between gap-3 border-b border-white/[0.06] pb-3">
