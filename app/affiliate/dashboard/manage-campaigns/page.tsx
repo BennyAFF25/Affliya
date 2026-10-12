@@ -286,6 +286,39 @@ export default function AffiliateManageCampaignsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Keep campaign spend and wallet settlement checkpoints current without
+  // asking affiliates to run Meta Insights themselves. Reads Supabase only.
+  useEffect(() => {
+    let cancelled = false;
+    let inFlight = false;
+    const refreshRecordedMetaTotals = async () => {
+      if (cancelled || inFlight || document.visibilityState !== "visible") return;
+      inFlight = true;
+      try {
+        const { data: auth } = await supabase.auth.getUser();
+        const email = auth.user?.email;
+        if (!email || cancelled) return;
+        const rows = await loadAffiliatePaidCampaigns(supabase, email) as LiveAdRow[];
+        if (!cancelled) setPaidMeta(rows);
+      } catch (refreshError) {
+        // Keep last successfully loaded totals; never display a fake zero.
+        console.warn("[affiliate/manage-campaigns] cached Meta totals refresh failed", refreshError);
+      } finally {
+        inFlight = false;
+      }
+    };
+    const onResume = () => { void refreshRecordedMetaTotals(); };
+    const interval = window.setInterval(onResume, 30_000);
+    window.addEventListener("focus", onResume);
+    document.addEventListener("visibilitychange", onResume);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+      window.removeEventListener("focus", onResume);
+      document.removeEventListener("visibilitychange", onResume);
+    };
+  }, []);
+
   useEffect(() => {
     // Auth refresh / read-after-write visibility can race the redirect.
     // Refresh once when the newly created proposal is not yet in the list.
