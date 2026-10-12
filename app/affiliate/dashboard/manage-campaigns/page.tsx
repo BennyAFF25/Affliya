@@ -3,21 +3,19 @@
 import { formatMoney } from "../../../../utils/currency";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/../utils/supabase/pages-client";
-import { loadAffiliateSubmissions, loadAffiliatePaidCampaigns, isAwaitingProposalReview, isArchivedCampaignStatus, type SubmissionKind } from "@/../utils/affiliate/portalData";
-import { Badge, Button, Card, EmptyState, LoadingSkeleton, SectionHeader, StatCard } from "@/../components/ui";
-import {
-  Sparkles,
-  ArrowRight,
-  Activity,
-  Archive,
-  Wallet,
-  Megaphone,
-} from "lucide-react";
+import { loadAffiliateSubmissions, loadAffiliatePaidCampaigns, isAwaitingProposalReview, type SubmissionKind } from "@/../utils/affiliate/portalData";
+import { Badge, Button } from "@/../components/ui";
+import ManageCampaignsWorkspace, { type Campaign } from "../../../../components/business/ManageCampaignsWorkspace";
 
 type LiveAdRow = {
   id: string;
   offer_id?: string | null;
   ad_name?: string | null;
+  ad_idea_id?: string | null;
+  caption?: string | null;
+  clicks?: number | null;
+  conversions?: number | null;
+  tracking_link?: string | null;
   status?: string | null;
   billing_state?: string | null;
 
@@ -66,42 +64,6 @@ type PendingProposal = {
   } | null;
 };
 
-type CampaignItem =
-  | {
-      kind: "paid_meta";
-      id: string;
-      title: string;
-      status: string;
-      billingState?: string;
-      createdAt?: string | null;
-      spend?: number;
-      unpaid?: number;
-      metaAdId?: string | null;
-      metaCampaignId?: string | null;
-    }
-  | {
-      kind: "organic";
-      id: string;
-      title: string;
-      status: string;
-      createdAt?: string | null;
-      platform?: string | null;
-      caption?: string | null;
-      mediaUrl?: string | null;
-      createdFrom?: string | null;
-    };
-
-function normalizeStatus(s?: string | null) {
-  return (s || "unknown").toLowerCase();
-}
-
-function shortDate(iso?: string | null) {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleDateString();
-}
-
 export default function AffiliateManageCampaignsPage() {
   const [newProposalId, setNewProposalId] = useState("");
   const submittedRetryDone = useRef(false);
@@ -122,7 +84,7 @@ export default function AffiliateManageCampaignsPage() {
   const [offerNameById, setOfferNameById] = useState<Record<string, string>>(
     {},
   );
-  const [archivedOpen, setArchivedOpen] = useState(true);
+  const [creativeByIdeaId, setCreativeByIdeaId] = useState<Record<string, { title: string; previewUrl: string | null }>>({});
 
   async function fetchAll() {
     setLoading(true);
@@ -147,6 +109,9 @@ export default function AffiliateManageCampaignsPage() {
           loadAffiliateSubmissions(supabase,email),
           fetch("/api/affiliate/pending-paid-proposals",{cache:"no-store",signal:AbortSignal.timeout(8000)}).then(async res=>res.ok?await res.json():null).catch(()=>null)
         ]);
+        setCreativeByIdeaId(Object.fromEntries(submissions
+          .filter((item) => item.kind === "paid")
+          .map((item) => [item.id, { title: item.title, previewUrl: item.previewUrl }])));
         const fundingById = new Map<string, PendingProposal>((enrichment?.success?enrichment.proposals || []:[]).map((row:PendingProposal)=>[row.id,row]));
         setPendingProposals(submissions.filter(row=>isAwaitingProposalReview(row.status)).map(row=>({
           id:row.id,offerId:row.offerId,offerTitle:row.offerTitle,createdAt:row.createdAt,state:"funding_unavailable" as const,growthReady:false,funding:null,
@@ -330,258 +295,83 @@ export default function AffiliateManageCampaignsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [newProposalId, loading, pendingProposals]);
 
-  const items: CampaignItem[] = useMemo(() => {
-    const paid: CampaignItem[] = paidMeta.map((r) => {
-      const spend = Number(r.spend ?? 0) || 0;
-      const transferred = Number(r.spend_transferred ?? 0) || 0;
-      const unpaid = Math.max(0, spend - transferred);
-
-      const offerLabel = r.offer_id ? offerNameById[r.offer_id] : undefined;
-      const title =
-        offerLabel ||
-        r.ad_name ||
-        (r.meta_campaign_id
-          ? `Campaign ${r.meta_campaign_id}`
-          : `Campaign ${r.id.slice(0, 8)}`);
-
+  // The same visual campaign model is used for both roles; the affiliate
+  // loader still scopes all data to the signed-in affiliate.
+  const campaigns = useMemo<Campaign[]>(() => [
+    ...paidMeta.map((row) => {
+      const creative = row.ad_idea_id ? creativeByIdeaId[row.ad_idea_id] : null;
+      const offerTitle = row.offer_id ? offerNameById[row.offer_id] : null;
       return {
-        kind: "paid_meta",
-        id: r.id,
-        title,
-        status: r.status || "unknown",
-        billingState: r.billing_state || "unknown",
-        createdAt: r.created_at,
-        spend,
-        unpaid,
-        metaAdId: r.meta_ad_id,
-        metaCampaignId: r.meta_campaign_id,
+        id: row.id,
+        _source: "meta" as const,
+        display_title: creative?.title || offerTitle || row.caption || row.ad_name || "Meta ad campaign",
+        caption: row.caption,
+        status: row.status,
+        created_at: row.created_at,
+        campaign_type: "paid_meta",
+        billing_state: row.billing_state,
+        spend: row.spend,
+        clicks: row.clicks,
+        conversions: row.conversions,
+        tracking_link: row.tracking_link,
+        ad_ideas: creative ? { headline: creative.title, file_url: creative.previewUrl } : null,
       };
-    });
+    }),
+    ...organic.map((row) => ({
+      id: row.id,
+      _source: "organic" as const,
+      display_title: (row.offer_id ? offerNameById[row.offer_id] : null)
+        || (row.platform ? row.platform + " organic post" : "Organic promotion"),
+      caption: row.caption,
+      media_url: row.media_url,
+      created_at: row.created_at,
+      platform: row.platform,
+      type: row.type,
+      status: row.status || "live",
+    })),
+  ], [paidMeta, organic, offerNameById, creativeByIdeaId]);
 
-    const org: CampaignItem[] = organic.map((r) => {
-      const offerLabel = r.offer_id ? offerNameById[r.offer_id] : undefined;
-      const platform = (r.platform || "").trim();
-      const fallback = platform ? `${platform} Organic Post` : "Organic Post";
-      const title = offerLabel || fallback;
-      return {
-        kind: "organic",
-        id: r.id,
-        title,
-        status: r.status || "live",
-        createdAt: r.created_at,
-        platform: r.platform,
-        caption: r.caption,
-        mediaUrl: r.media_url,
-        createdFrom: r.created_from,
-      };
-    });
-
-    // Newest first across both types
-    const combined = [...paid, ...org];
-    combined.sort((a, b) => {
-      const da = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-      const db = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-      return db - da;
-    });
-
-    return combined;
-  }, [paidMeta, organic, offerNameById]);
-
-  const activeItems = useMemo(
-    () => items.filter((i) => !isArchivedCampaignStatus(i.status)),
-    [items],
-  );
-  const archivedItems = useMemo(
-    () => items.filter((i) => isArchivedCampaignStatus(i.status)),
-    [items],
-  );
-
-  const activeCount = activeItems.length;
-  const archivedCount = archivedItems.length;
-  const totalPaidSpend = paidMeta.reduce(
-    (sum, r) => sum + (Number(r.spend ?? 0) || 0),
-    0,
-  );
-  const totalUnpaidSpend = paidMeta.reduce((sum, r) => {
-    const spend = Number(r.spend ?? 0) || 0;
-    const transferred = Number(r.spend_transferred ?? 0) || 0;
-    return sum + Math.max(0, spend - transferred);
-  }, 0);
-  const organicCount = organic.length;
-  const pendingCount = pendingProposals.length;
+  const totalUnpaidSpend = paidMeta.reduce((sum, row) =>
+    sum + Math.max(0, Number(row.spend || 0) - Number(row.spend_transferred || 0)), 0);
 
   return (
-    <div className="min-h-screen bg-[var(--background)] p-6 text-[var(--foreground)]">
-      <div className="mx-auto w-full max-w-6xl">
-        <section className="relative mb-7 overflow-hidden rounded-3xl border border-[var(--border)] bg-[var(--card)] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.35)]">
-          <div className="pointer-events-none absolute -top-16 -right-16 h-48 w-48 rounded-full bg-[var(--primary)]/25 blur-3xl" />
-          <div className="relative z-10 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#00C2CB]/20 bg-[#00C2CB]/10 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.24em] text-[#7ff5fb]">
-                <Sparkles className="h-3.5 w-3.5" />
-                Workspace overview
-              </div>
-              <h1 className="text-3xl font-bold tracking-tight text-[var(--foreground)] sm:text-4xl">
-                Affiliate Manage Campaigns
-              </h1>
-              <p className="mt-3 max-w-3xl text-sm text-[var(--muted-foreground)] sm:text-base">
-                Track every campaign in one place, sync Meta spend, and jump
-                straight into the actions that matter.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              <Button href="/affiliate/marketplace" variant="secondary">
-                Promote offer <ArrowRight className="h-4 w-4" />
-              </Button>
-              <Button href="/affiliate/dashboard">
-                Dashboard overview
-              </Button>
-            </div>
-          </div>
-        </section>
-
-        {newProposalId && (
-          <div role="status" className="mb-5 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 p-4 text-sm text-emerald-100">
-            <strong>Campaign proposal submitted successfully.</strong> The business can now review it.
-            No wallet funds have been reserved.
-            <span className="ml-2 text-xs opacity-70">Reference: {newProposalId.slice(0, 8)}</span>
-          </div>
-        )}
-        <section className="mb-7 grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-6">
-          <StatCard label="Pending proposals" value={loading || pendingError ? "—" : pendingCount.toString()} icon={<Megaphone className="h-4 w-4" />} tone="primary" />
-          <StatCard label="Live campaigns" value={error ? "—" : activeCount.toString()} icon={<Activity className="h-4 w-4" />} tone="primary" />
-          <StatCard label="Archived" value={error ? "—" : archivedCount.toString()} icon={<Archive className="h-4 w-4" />} tone="muted" />
-          <StatCard label="Total paid spend" value={formatMoney(totalPaidSpend)} icon={<Wallet className="h-4 w-4" />} tone="primary" />
-          <StatCard label="Unsettled spend" value={formatMoney(totalUnpaidSpend)} icon={<Wallet className="h-4 w-4" />} tone="muted" />
-          <StatCard label="Organic campaigns" value={organicCount.toString()} icon={<Megaphone className="h-4 w-4" />} tone="muted" />
-        </section>
-
-        {error && (
-          <div className="mb-6 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">
-            {error}
-          </div>
-        )}
-
-        {pendingError && <div role="alert" className="mb-4 rounded-2xl border border-amber-400/20 p-4 text-sm"><p>{pendingError}</p><button onClick={() => void fetchAll()} className="mt-2 text-[var(--primary)]">Try again</button></div>}
-        {/* Pending proposals */}
-        <Card className="mb-6 p-5 md:p-6" variant="elevated">
-          <SectionHeader
-            title="Pending proposals"
-            description="Real campaigns you've submitted that have not launched yet."
-            actions={<Badge variant="primary">{pendingCount} pending</Badge>}
-          />
-          <div className="mt-5">
-            {loading ? (
-              <LoadingSkeleton lines={2} />
-            ) : pendingError ? (<p className="py-5 text-sm text-[var(--muted-foreground)]">Proposals unavailable. Please try again above.</p>) : pendingProposals.length === 0 ? (
-              <EmptyState
-                title="No pending proposals"
-                description="Submit a paid or organic proposal from an offer to send it for business review."
-                className="py-7"
-              />
-            ) : (
-              <div className="space-y-3">
-                {pendingProposals.map((proposal) => (
-                  <PendingProposalRow key={proposal.kind + ":" + proposal.id} proposal={proposal} />
-                ))}
-              </div>
-            )}
-          </div>
-        </Card>
-
-        {/* Active */}
-        <Card className="mb-6 p-5 md:p-6" variant="elevated">
-          <SectionHeader
-            title="Active campaigns"
-            description="Campaigns currently live or delivering."
-            actions={<Badge variant="primary">{activeCount} active</Badge>}
-          />
-
-          <div>
-            {loading ? (
-              <LoadingSkeleton lines={3} />
-            ) : error ? (<p className="py-5 text-sm text-[var(--muted-foreground)]">Campaigns could not be loaded.</p>) : activeItems.length === 0 ? (
-              <EmptyState
-                title="No active campaigns"
-                description="When you launch a campaign, it will show here."
-                className="py-7"
-              />
-            ) : (
-              <div className="space-y-3">
-                {activeItems.map((item) => (
-                  <CampaignRow
-                    key={`${item.kind}-${item.id}`}
-                    item={item}
-                    syncing={
-                      item.kind === "paid_meta" ? !!syncing[item.id] : false
-                    }
-                    onSync={() => {
-                      if (item.kind !== "paid_meta") return;
-                      const row = paidMeta.find((r) => r.id === item.id);
-                      if (row) syncSpendForPaidMeta(row);
-                    }}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        </Card>
-
-        {/* Archived */}
-        <Card className="p-5 md:p-6" variant="elevated">
-          <SectionHeader
-            title="Archived campaigns"
-            description="Paused, completed, or stopped campaigns stay here."
-            actions={(
-              <>
-                <Badge variant="muted">{archivedCount} archived</Badge>
-                <Button
-                  type="button"
-                  onClick={() => setArchivedOpen((v) => !v)}
-                  variant="secondary"
-                  size="icon"
-                  aria-label={archivedOpen ? "Collapse archived" : "Expand archived"}
-                >
-                  {archivedOpen ? "–" : "+"}
-                </Button>
-              </>
-            )}
-          />
-
-          {archivedOpen && (
-            <div className="mt-5">
-              {loading ? (
-                <LoadingSkeleton lines={3} />
-              ) : error ? (<p className="py-5 text-sm text-[var(--muted-foreground)]">Campaigns could not be loaded.</p>) : archivedItems.length === 0 ? (
-                <EmptyState
-                  title="No archived campaigns yet"
-                  description="Paused, completed, or stopped campaigns will stay here."
-                  className="py-7"
-                />
-              ) : (
-                <div className="space-y-3">
-                  {archivedItems.map((item) => (
-                    <CampaignRow
-                      key={`${item.kind}-${item.id}`}
-                      item={item}
-                      syncing={
-                        item.kind === "paid_meta" ? !!syncing[item.id] : false
-                      }
-                      onSync={() => {
-                        if (item.kind !== "paid_meta") return;
-                        const row = paidMeta.find((r) => r.id === item.id);
-                        if (row) syncSpendForPaidMeta(row);
-                      }}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </Card>
-      </div>
-    </div>
+    <ManageCampaignsWorkspace
+      audience="affiliate"
+      campaigns={campaigns}
+      loading={loading}
+      loadError={error}
+      metaCurrency="AUD"
+      syncingById={syncing}
+      onRefresh={() => { void fetchAll(); }}
+      onSyncSpend={(id) => {
+        const row = paidMeta.find((item) => item.id === id);
+        if (row) void syncSpendForPaidMeta(row);
+      }}
+      pendingCount={pendingProposals.length}
+      unsettledSpend={totalUnpaidSpend}
+      notice={newProposalId ? (
+        <div role="status" className="mb-4 rounded-2xl border border-emerald-400/30 bg-emerald-400/[0.07] px-4 py-3 text-xs text-emerald-100">
+          <strong>Proposal submitted successfully.</strong> The business can now review it. No wallet funds have been reserved.
+          <span className="ml-2 opacity-70">Reference: {newProposalId.slice(0, 8)}</span>
+        </div>
+      ) : null}
+      pendingContent={pendingError ? (
+        <div role="alert" className="px-2 py-3 text-sm text-amber-200">
+          {pendingError}
+          <button type="button" onClick={() => { void fetchAll(); }} className="ml-3 font-semibold text-[#63e8ee] underline">Try again</button>
+        </div>
+      ) : loading ? (
+        <p role="status" className="p-3 text-xs text-[var(--muted-foreground)]">Loading proposals…</p>
+      ) : pendingProposals.length ? (
+        pendingProposals.map((proposal) => (
+          <PendingProposalRow key={proposal.kind + ":" + proposal.id} proposal={proposal} />
+        ))
+      ) : (
+        <p className="py-3 text-xs text-[var(--muted-foreground)]">
+          No proposals awaiting review. New submissions will appear here.
+        </p>
+      )}
+    />
   );
 }
 
@@ -646,118 +436,3 @@ function PendingProposalRow({ proposal }: { proposal: PendingProposal }) {
   );
 }
 
-function CampaignRow({
-  item,
-  syncing,
-  onSync,
-}: {
-  item: CampaignItem;
-  syncing: boolean;
-  onSync: () => void;
-}) {
-  const status = normalizeStatus(item.status);
-
-  const statusPill = (() => {
-    if (status === "active" || status === "live") {
-      return <Badge variant="success">LIVE</Badge>;
-    }
-    if (status === "paused") {
-      return <Badge variant="warning">PAUSED</Badge>;
-    }
-    return <Badge variant="muted">{status.toUpperCase()}</Badge>;
-  })();
-
-  const typePills = (() => {
-    if (item.kind === "paid_meta") {
-      return (
-        <div className="flex flex-wrap gap-2">
-          <span className="rounded-full bg-[var(--card)]/60 px-3 py-1 text-xs text-[var(--muted-foreground)]">
-            Meta Ads
-          </span>
-          <span className="rounded-full bg-[var(--card)]/60 px-3 py-1 text-xs text-[var(--muted-foreground)]">
-            paid_meta
-          </span>
-          {item.billingState ? (
-            <span className="rounded-full bg-[var(--card)]/60 px-3 py-1 text-xs text-[var(--muted-foreground)]">
-              Billing {item.billingState}
-            </span>
-          ) : null}
-          {typeof item.spend === "number" ? (
-            <span className="rounded-full bg-[var(--primary)]/20 px-3 py-1 text-xs font-semibold text-[var(--primary)]">
-              Spend {formatMoney(item.spend)}
-            </span>
-          ) : null}
-        </div>
-      );
-    }
-
-    return (
-      <div className="flex flex-wrap gap-2">
-        <span className="rounded-full bg-[var(--card)]/60 px-3 py-1 text-xs text-[var(--muted-foreground)]">
-          Organic
-        </span>
-        {item.platform ? (
-          <span className="rounded-full bg-[var(--card)]/60 px-3 py-1 text-xs text-[var(--muted-foreground)]">
-            {item.platform}
-          </span>
-        ) : null}
-        {item.createdFrom ? (
-          <span className="rounded-full bg-[var(--card)]/60 px-3 py-1 text-xs text-[var(--muted-foreground)]">
-            {item.createdFrom}
-          </span>
-        ) : null}
-      </div>
-    );
-  })();
-
-  return (
-    <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)]/70 p-5">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="text-lg font-semibold">{item.title}</div>
-            {statusPill}
-          </div>
-
-          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-[var(--muted-foreground)]">
-            {typePills}
-            {item.createdAt ? (
-              <span className="rounded-full bg-[var(--card)]/60 px-3 py-1 text-xs text-[var(--muted-foreground)]">
-                Started {shortDate(item.createdAt)}
-              </span>
-            ) : null}
-          </div>
-
-          {item.kind === "organic" && item.caption ? (
-            <div className="mt-3 line-clamp-2 max-w-3xl text-sm text-[var(--muted-foreground)]">
-              {item.caption}
-            </div>
-          ) : null}
-        </div>
-
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          {item.kind === "paid_meta" ? (
-            <>
-              <Button href={`/affiliate/dashboard/manage-campaigns/${item.id}`} className="rounded-full">
-                View campaign
-              </Button>
-              <Button
-                type="button"
-                onClick={onSync}
-                disabled={syncing}
-                variant="secondary"
-                className="rounded-full"
-              >
-                {syncing ? "Syncing…" : "Sync spend"}
-              </Button>
-            </>
-          ) : (
-            <Button href={`/affiliate/dashboard/manage-campaigns/${item.id}`} className="rounded-full">
-              Open post
-            </Button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
