@@ -364,7 +364,9 @@ const ManageCampaignsBusiness = () => {
           "[❌ Failed Meta control from business manage-campaigns]",
           json,
         );
-        alert("Could not stop the Meta campaign. Please try again.");
+        alert(json?.metaUpdated
+          ? "Meta stopped delivery, but Nettmark could not save its status. Please contact support rather than retrying."
+          : "Could not stop the Meta campaign. Please try again.");
         return;
       }
 
