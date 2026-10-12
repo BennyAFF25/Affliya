@@ -28,7 +28,8 @@
     "test:money-surface-security": "tsx scripts/money-surface-security.test.ts",
     "test:meta-campaign-configuration": "tsx scripts/meta-campaign-configuration.test.ts",
     "test:meta-launch-payload": "tsx scripts/meta-launch-payload.test.ts",
-    "test:tracking-metrics": "tsx scripts/tracking-metrics.test.ts"
+    "test:tracking-metrics": "tsx scripts/tracking-metrics.test.ts",
+    "test:business-manage-campaigns-ui": "tsx scripts/business-manage-campaigns-ui.test.ts"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.2",
