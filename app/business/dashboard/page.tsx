@@ -30,7 +30,6 @@ type SpendSnapshot = {
   awaitingWalletSettlement: number;
   queuedForTransfer: number;
   transferredToBusiness: number;
-  observedAt: string;
 };
 type DashboardSnapshot = {
   success: boolean;
@@ -196,7 +195,7 @@ export default function BusinessDashboard() {
           <div className="mt-4 grid grid-cols-2 gap-2.5 xl:grid-cols-4">
             <FinanceTile label="Reported Meta spend" value={finance ? money(finance.reportedMetaSpend) : "—"} icon={<MetaMark className="h-5 w-7" />} note="Cumulative Meta reports" />
             <FinanceTile label="Awaiting wallet settlement" value={finance ? money(finance.awaitingWalletSettlement) : "—"} icon={<Clock3 className="h-5 w-5" />} note="Spend not yet deducted" important />
-            <FinanceTile label="Queued for business transfer" value={finance ? money(finance.queuedForTransfer) : "—"} icon={<Activity className="h-5 w-5" />} note="Accounted, not yet transferred" />
+            <FinanceTile label="Awaiting business transfer" value={finance ? money(finance.queuedForTransfer) : "—"} icon={<Activity className="h-5 w-5" />} note="Settlement pending or retrying" />
             <FinanceTile label="Transferred to business" value={finance ? money(finance.transferredToBusiness) : "—"} icon={<CheckCircle2 className="h-5 w-5" />} note="Stripe transfer confirmed" />
           </div>
           <p className={"mt-3 text-[11px] leading-5 " + muted}>
