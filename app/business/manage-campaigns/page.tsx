@@ -368,6 +368,12 @@ const ManageCampaignsBusiness = () => {
         return;
       }
 
+      if (json.warning === "SETTLEMENT_PENDING") {
+        window.alert("Meta stopped delivery, but ad spend settlement is still pending. Nettmark support must reconcile the outstanding spend.");
+      } else if (json.warning === "LOCAL_BILLING_STATUS_SYNC_FAILED") {
+        window.alert("Meta accepted the stop, but Nettmark could not fully update billing status. Please contact support.");
+      }
+
       setCampaigns((prev) =>
         prev.map((c) =>
           c.id === id
