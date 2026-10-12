@@ -216,15 +216,17 @@ export function DbBackedInbox({
             supabase.from("offers").select("id, title"),
           ]);
 
-        // The legacy one-way inbox_messages migration is not yet live in
-        // production. Preserve the working Notifications view and show an
-        // empty legacy messages list rather than blocking all updates.
-        const legacyTableNotInstalled = Boolean(messageResult.error &&
-          /inbox_messages/i.test(messageResult.error.message) &&
-          /schema cache|does not exist|not found/i.test(messageResult.error.message));
-        if (messageResult.error && !legacyTableNotInstalled) {
+        // Updates are incomplete when the legacy one-way table is absent.
+        // Never present a failed read as a genuine zero-unread empty inbox.
+        if (messageResult.error) {
           console.error("[Inbox messages fetch failed]", messageResult.error.message);
-          setLoadError("Some older inbox updates could not be loaded.");
+          setMessages([]);
+          setActiveTab("all");
+          const missingLegacyTable = /inbox_messages/i.test(messageResult.error.message) &&
+            /schema cache|does not exist|not found|relation|404/i.test(messageResult.error.message);
+          setLoadError(missingLegacyTable
+            ? "Older updates are temporarily unavailable because the legacy message store is not installed. Notifications below may be incomplete."
+            : "Some inbox updates could not be loaded. Notifications below may be incomplete.");
         } else {
           const rows = ((messageResult.data || []) as InboxMessageRow[]).filter(
             (row) => row.recipient_role === audience,
@@ -517,12 +519,20 @@ export function DbBackedInbox({
           </div>
         )}
 
-        {loadError && <div role="alert" className="mb-4 rounded-2xl border border-amber-400/20 p-4 text-sm"><p>{loadError}</p><button type="button" onClick={() => setReload(value => value + 1)} className="mt-2 text-[var(--primary)]">Try again</button></div>}
-        <InboxTabs
-          tabs={tabs}
-          activeTab={activeTab}
-          onTabChange={setActiveTab}
-        />
+        {loadError && (
+          <div role="alert" className="rounded-[18px] border border-amber-400/25 bg-amber-400/[0.07] p-4 text-xs text-amber-100">
+            <p className="font-semibold">Some updates could not be loaded</p>
+            <p className="mt-2 leading-5">{loadError}</p>
+            <button type="button" onClick={() => setReload((value) => value + 1)}
+              className="mt-3 min-h-9 rounded-xl border border-amber-300/30 px-3 font-semibold text-amber-100 hover:bg-amber-300/10">
+              Try again
+            </button>
+          </div>
+        )}
+        {/* Incomplete results must not show authoritative All/Unread=0 counts. */}
+        {!loadError && (
+          <InboxTabs tabs={tabs} activeTab={activeTab} onTabChange={setActiveTab} />
+        )}
 
         <div className="grid gap-6 lg:grid-cols-[380px,1fr]">
           <div className="space-y-3">
