@@ -53,10 +53,12 @@ type Props = {
 type FilterTab = "all" | "meta" | "organic" | "archived";
 type SortMode = "newest" | "oldest" | "title" | "spend";
 
-const cyanButton = "inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-[#00c2cb] px-3.5 text-xs font-bold text-[#061517] transition hover:bg-[#40dbe0] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7cfaff]";
-const darkButton = "inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.055] px-3 text-xs font-semibold text-slate-200 transition hover:border-white/20 hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00c2cb]";
-const activeTab = "border-[#00c2cb]/80 bg-[#00c2cb]/[0.10] text-white shadow-[inset_0_0_24px_rgba(0,194,203,0.09)]";
-const inactiveTab = "border-transparent bg-white/[0.045] text-slate-400 hover:bg-white/[0.08] hover:text-white";
+// Palette aligned with docs/UI_DESIGN_SYSTEM.md: brand cyan, neutral dark
+// overview surfaces, restrained shadows, and shared muted-text colour.
+const cyanButton = "inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-[var(--primary)] px-3.5 text-xs font-bold text-[var(--primary-foreground)] shadow-[0_10px_24px_rgba(0,194,203,0.16)] transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00C2CB]";
+const darkButton = "inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-white/[0.11] bg-white/[0.02] px-3 text-xs font-semibold text-slate-200 transition hover:border-white/20 hover:bg-white/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00c2cb]";
+const activeTab = "border-[rgba(0,194,203,0.3)] bg-[rgba(0,194,203,0.07)] text-[#63e8ee] shadow-[inset_0_0_24px_rgba(0,194,203,0.025)]";
+const inactiveTab = "border-transparent bg-white/[0.02] text-[var(--muted-foreground)] hover:bg-white/[0.08] hover:text-white";
 const gridColumns = "grid-cols-[minmax(240px,2.1fr)_minmax(100px,1fr)_80px_94px_75px_88px_minmax(90px,0.8fr)_268px]";
 
 function MetaMark({ className = "h-5 w-7" }: { className?: string }) {
@@ -101,7 +103,7 @@ function CampaignThumbnail({ campaign }: { campaign: Campaign }) {
     ? campaign.ad_ideas?.file_url
     : campaign.media_url;
   return (
-    <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br from-[#1c353b] to-[#111718]">
+    <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br from-[#151718] to-[#101415]">
       {image ? (
         /* Supplied campaign assets can be hosted on business-owned domains. */
         // eslint-disable-next-line @next/next/no-img-element
@@ -109,7 +111,7 @@ function CampaignThumbnail({ campaign }: { campaign: Campaign }) {
       ) : campaign._source === "meta" ? (
         <MetaMark className="h-6 w-9" />
       ) : (
-        <FileImage className="h-5 w-5 text-[#62bac2]" />
+        <FileImage className="h-5 w-5 text-[#19d4dd]" />
       )}
     </div>
   );
@@ -125,12 +127,12 @@ function CampaignIdentity({ campaign }: { campaign: Campaign }) {
       <div className="min-w-0">
         <Link
           href={"/business/manage-campaigns/" + campaign.id}
-          className="block truncate text-[13px] font-semibold text-slate-100 transition hover:text-[#5ce4eb]"
+          className="block truncate text-[13px] font-semibold text-slate-100 transition hover:text-[#5fe6ec]"
           title={title}
         >
           {title}
         </Link>
-        <span className="mt-1 block truncate font-mono text-[10px] text-slate-500">
+        <span className="mt-1 block truncate font-mono text-[10px] text-[#94a3b8]/75">
           {"#" + campaign.id.slice(0, 8)}
         </span>
       </div>
@@ -145,7 +147,7 @@ function Platform({ campaign }: { campaign: Campaign }) {
       {isMeta ? <MetaMark className="h-5 w-7 shrink-0" /> : <Leaf className="h-[18px] w-[18px] shrink-0 text-emerald-400" />}
       <div className="min-w-0">
         <p className="text-xs font-medium text-slate-100">{isMeta ? "Meta Ads" : "Organic"}</p>
-        <p className="truncate text-[11px] text-slate-500">
+        <p className="truncate text-[11px] text-[#94a3b8]/75">
           {isMeta ? "Paid advertising" : campaign.platform || "Placement"}
         </p>
       </div>
@@ -161,7 +163,7 @@ function Status({ campaign }: { campaign: Campaign }) {
       ? "inline-flex items-center gap-1.5 text-xs font-medium text-emerald-300"
       : status === "Paused"
         ? "inline-flex items-center gap-1.5 text-xs font-medium text-amber-300"
-        : "inline-flex items-center gap-1.5 text-xs font-medium text-slate-400"
+        : "inline-flex items-center gap-1.5 text-xs font-medium text-[var(--muted-foreground)]"
     }>
       <span className={active ? "h-1.5 w-1.5 rounded-full bg-emerald-400" : status === "Paused" ? "h-1.5 w-1.5 rounded-full bg-amber-400" : "h-1.5 w-1.5 rounded-full bg-slate-500"} />
       {status}
@@ -171,16 +173,16 @@ function Status({ campaign }: { campaign: Campaign }) {
 
 function MetricCard({ label, value, helper, icon, muted }: { label: string; value: string; helper: string; icon: React.ReactNode; muted?: boolean }) {
   return (
-    <div className="min-w-0 rounded-2xl border border-white/[0.09] bg-[#14191c]/85 px-3.5 py-4 shadow-[0_15px_28px_rgba(0,0,0,0.13)] sm:px-4">
+    <div className="min-w-0 rounded-2xl border border-white/[0.09] bg-[#151718] px-3.5 py-4 shadow-[0_22px_60px_rgba(0,0,0,0.22)] sm:px-4">
       <div className="flex items-start gap-3">
         <span className={muted
-          ? "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-700/30 text-slate-300"
-          : "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#00c2cb]/[0.11] text-[#00d4de]"
+          ? "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/[0.02] text-slate-300"
+          : "flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#00c2cb]/[0.11] text-[#19d4dd]"
         }>{icon}</span>
         <div className="min-w-0">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.10em] text-slate-400">{label}</p>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.10em] text-[var(--muted-foreground)]">{label}</p>
           <p className="mt-1 truncate text-[23px] font-bold leading-none tracking-tight text-slate-50">{value}</p>
-          <p className="mt-2 truncate text-[10px] text-slate-500" title={helper}>{helper}</p>
+          <p className="mt-2 truncate text-[10px] text-[#94a3b8]/75" title={helper}>{helper}</p>
         </div>
       </div>
     </div>
@@ -289,15 +291,15 @@ export default function ManageCampaignsWorkspace({
   };
 
   return (
-    <div className="business-manage-campaigns-theme min-h-screen bg-[#080c0e] text-slate-100">
+    <div className="business-manage-campaigns-theme min-h-screen bg-[var(--background)] text-slate-100">
       <div className="relative mx-auto w-full max-w-[1720px] px-3 pb-12 pt-7 sm:px-5 lg:px-7">
-        <div aria-hidden="true" className="pointer-events-none absolute right-0 top-0 h-64 w-2/3 bg-[radial-gradient(ellipse_at_top_right,rgba(0,194,203,0.13),transparent_66%)]" />
+        <div aria-hidden="true" className="pointer-events-none absolute right-0 top-0 h-64 w-2/3 bg-[radial-gradient(ellipse_at_top_right,rgba(0,194,203,0.025),transparent_66%)]" />
         <div className="relative">
           <header className="flex flex-col gap-5 pb-6 md:flex-row md:items-start md:justify-between">
             <div className="min-w-0">
-              <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.21em] text-slate-400">Campaign management</p>
+              <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.21em] text-[var(--muted-foreground)]">Campaign management</p>
               <h1 className="text-[28px] font-bold leading-tight tracking-[-0.045em] text-white sm:text-[36px]">Manage Campaigns</h1>
-              <p className="mt-2 max-w-xl text-[13px] leading-relaxed text-slate-400">
+              <p className="mt-2 max-w-xl text-[13px] leading-relaxed text-[var(--muted-foreground)]">
                 Monitor every affiliate placement, track campaign performance, and manage delivery from one workspace.
               </p>
             </div>
@@ -319,7 +321,7 @@ export default function ManageCampaignsWorkspace({
             <div className="col-span-2 sm:col-span-1"><MetricCard label="Archived" value={loading ? "—" : String(archived.length)} helper="Paused and stopped" muted icon={<Archive className="h-5 w-5" />} /></div>
           </section>
 
-          <section aria-label="Campaigns" className="mt-5 overflow-hidden rounded-[22px] border border-white/[0.085] bg-[#111619]/90 shadow-[0_26px_70px_rgba(0,0,0,0.25)]">
+          <section aria-label="Campaigns" className="mt-5 overflow-hidden rounded-[22px] border border-white/[0.085] bg-[#151718] shadow-[0_22px_60px_rgba(0,0,0,0.22)]">
             <div className="flex flex-col gap-3 border-b border-white/[0.075] p-3 sm:p-4 xl:flex-row xl:items-center xl:justify-between">
               <div role="tablist" aria-label="Campaign type" className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-thin xl:pb-0">
                 {tabs.map((item) => (
@@ -332,43 +334,43 @@ export default function ManageCampaignsWorkspace({
                     className={"inline-flex min-h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-xl border px-3 text-[11px] font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00c2cb] " + (tab === item.id ? activeTab : inactiveTab)}
                   >
                     {item.title}
-                    <span className="rounded-full bg-black/25 px-2 py-0.5 text-[10px] text-[#69dce3]">{loading ? "—" : item.count}</span>
+                    <span className="rounded-full bg-black/25 px-2 py-0.5 text-[10px] text-[#63e8ee]">{loading ? "—" : item.count}</span>
                   </button>
                 ))}
               </div>
               <div className="flex min-w-0 flex-wrap items-center gap-2">
                 <label className="relative min-w-[170px] flex-[2] xl:w-[210px] xl:flex-none">
-                  <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-slate-500" />
+                  <Search className="pointer-events-none absolute left-3 top-3 h-4 w-4 text-[#94a3b8]/75" />
                   <span className="sr-only">Search campaigns</span>
                   <input
                     value={search}
                     onChange={(event) => setSearch(event.target.value)}
                     placeholder="Search campaigns..."
-                    className="h-10 w-full rounded-xl border border-white/10 bg-[#151b1f] pl-9 pr-8 text-xs text-white placeholder:text-slate-500 focus:border-[#00c2cb]/60 focus:outline-none"
+                    className="h-10 w-full rounded-xl border border-white/10 bg-[#101415] pl-9 pr-8 text-xs text-white placeholder:text-[#94a3b8]/75 focus:border-[#00c2cb]/60 focus:outline-none"
                   />
                   {search ? (
-                    <button type="button" onClick={() => setSearch("")} aria-label="Clear search" className="absolute right-2 top-2.5 text-slate-400 hover:text-white"><X className="h-4 w-4" /></button>
+                    <button type="button" onClick={() => setSearch("")} aria-label="Clear search" className="absolute right-2 top-2.5 text-[var(--muted-foreground)] hover:text-white"><X className="h-4 w-4" /></button>
                   ) : null}
                 </label>
                 <label className="relative flex-1 xl:w-[115px] xl:flex-none">
                   <span className="sr-only">Filter campaign status</span>
-                  <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="h-10 w-full appearance-none rounded-xl border border-white/10 bg-[#151b1f] pl-3 pr-8 text-xs text-slate-200 focus:border-[#00c2cb]/60 focus:outline-none">
+                  <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="h-10 w-full appearance-none rounded-xl border border-white/10 bg-[#101415] pl-3 pr-8 text-xs text-slate-200 focus:border-[#00c2cb]/60 focus:outline-none">
                     <option value="all">All statuses</option>
                     <option value="active">Active</option>
                     <option value="paused">Paused</option>
                     <option value="stopped">Stopped</option>
                   </select>
-                  <ChevronDown className="pointer-events-none absolute right-2.5 top-3.5 h-3 w-3 text-slate-500" />
+                  <ChevronDown className="pointer-events-none absolute right-2.5 top-3.5 h-3 w-3 text-[#94a3b8]/75" />
                 </label>
                 <label className="relative flex-1 xl:w-[120px] xl:flex-none">
                   <span className="sr-only">Sort campaigns</span>
-                  <select value={sort} onChange={(event) => setSort(event.target.value as SortMode)} className="h-10 w-full appearance-none rounded-xl border border-white/10 bg-[#151b1f] pl-3 pr-7 text-xs text-slate-200 focus:border-[#00c2cb]/60 focus:outline-none">
+                  <select value={sort} onChange={(event) => setSort(event.target.value as SortMode)} className="h-10 w-full appearance-none rounded-xl border border-white/10 bg-[#101415] pl-3 pr-7 text-xs text-slate-200 focus:border-[#00c2cb]/60 focus:outline-none">
                     <option value="newest">Newest first</option>
                     <option value="oldest">Oldest first</option>
                     <option value="title">Name A–Z</option>
                     <option value="spend">Highest spend</option>
                   </select>
-                  <ChevronDown className="pointer-events-none absolute right-2.5 top-3.5 h-3 w-3 text-slate-500" />
+                  <ChevronDown className="pointer-events-none absolute right-2.5 top-3.5 h-3 w-3 text-[#94a3b8]/75" />
                 </label>
                 <button onClick={onRefresh} type="button" title="Refresh campaigns" aria-label="Refresh campaigns" className={darkButton + " px-3"}>
                   <RefreshCw className="h-4 w-4" />
@@ -380,20 +382,20 @@ export default function ManageCampaignsWorkspace({
             {loading ? (
               <div role="status" className="space-y-2 p-5">
                 {[0, 1, 2, 3].map((key) => <div key={key} className="h-16 animate-pulse rounded-xl bg-white/[0.045]" />)}
-                <p className="pt-2 text-center text-xs text-slate-500">Loading campaign data…</p>
+                <p className="pt-2 text-center text-xs text-[#94a3b8]/75">Loading campaign data…</p>
               </div>
             ) : filtered.length === 0 ? (
               <div className="flex min-h-[210px] flex-col items-center justify-center px-4 py-10 text-center">
                 <Search className="mb-4 h-6 w-6 text-[#00c2cb]" />
                 <h2 className="text-sm font-semibold text-white">No campaigns match this view</h2>
-                <p className="mt-1 text-xs text-slate-400">{campaigns.length ? "Try another filter or search." : "Campaigns will appear here when an affiliate placement goes live."}</p>
-                {campaigns.length ? <button type="button" onClick={() => { setTab("all"); setSearch(""); setStatusFilter("all"); }} className="mt-4 text-xs font-medium text-[#60e0e8] hover:underline">Clear filters</button> : null}
+                <p className="mt-1 text-xs text-[var(--muted-foreground)]">{campaigns.length ? "Try another filter or search." : "Campaigns will appear here when an affiliate placement goes live."}</p>
+                {campaigns.length ? <button type="button" onClick={() => { setTab("all"); setSearch(""); setStatusFilter("all"); }} className="mt-4 text-xs font-medium text-[#5fe6ec] hover:underline">Clear filters</button> : null}
               </div>
             ) : (
               <>
                 <div className="hidden overflow-x-auto xl:block">
                   <div className="min-w-[1140px]">
-                    <div className={"grid " + gridColumns + " gap-x-2.5 border-b border-white/[0.065] bg-white/[0.035] px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.10em] text-slate-500"}>
+                    <div className={"grid " + gridColumns + " gap-x-2.5 border-b border-white/[0.065] bg-white/[0.035] px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.10em] text-[#94a3b8]/75"}>
                       <span>Campaign</span><span>Type / platform</span><span>Started</span>
                       <span>Spend</span><span title="Meta clicks from last sync">Meta clicks</span><span>Conversions</span>
                       <span>Tracking / status</span><span className="text-right">Actions</span>
@@ -402,17 +404,17 @@ export default function ManageCampaignsWorkspace({
                       <div key={item.id} className={"grid " + gridColumns + " items-center gap-x-2.5 border-b border-white/[0.055] px-4 py-3 last:border-b-0 hover:bg-white/[0.035]"}>
                         <CampaignIdentity campaign={item} />
                         <Platform campaign={item} />
-                        <span className="text-xs text-slate-400">{displayDate(item.created_at)}</span>
+                        <span className="text-xs text-[var(--muted-foreground)]">{displayDate(item.created_at)}</span>
                         <span className="text-xs tabular-nums text-slate-300">{item._source === "meta" ? money(item.spend) : "—"}</span>
                         <span className="text-xs tabular-nums text-slate-300" title="Meta-reported clicks, as of last sync">{item._source === "meta" ? Number(item.clicks || 0).toLocaleString() : "—"}</span>
                         <span className="text-xs tabular-nums text-slate-300">{item._source === "meta" ? Number(item.conversions || 0).toLocaleString() : "—"}</span>
                         <div className="min-w-0">
                           <Status campaign={item} />
                           {item.tracking_link ? (
-                            <a href={item.tracking_link} target="_blank" rel="noopener noreferrer" className="mt-1 flex items-center gap-1 text-[10px] text-[#00c2cb] hover:text-[#80f6fb]">
+                            <a href={item.tracking_link} target="_blank" rel="noopener noreferrer" className="mt-1 flex items-center gap-1 text-[10px] text-[#00c2cb] hover:text-[#63e8ee]">
                               View link <ExternalLink className="h-3 w-3" />
                             </a>
-                          ) : <span className="mt-1 block text-[10px] text-slate-600">Link in details</span>}
+                          ) : <span className="mt-1 block text-[10px] text-[#94a3b8]/65">Link in details</span>}
                         </div>
                         {renderActions(item)}
                       </div>
@@ -429,15 +431,15 @@ export default function ManageCampaignsWorkspace({
                       </div>
                       <div className="mt-4 flex items-center justify-between gap-3 border-b border-white/[0.06] pb-3">
                         <Platform campaign={item} />
-                        <span className="text-[11px] text-slate-500">{displayDate(item.created_at)}</span>
+                        <span className="text-[11px] text-[#94a3b8]/75">{displayDate(item.created_at)}</span>
                       </div>
                       <div className="mt-3 grid grid-cols-3 gap-2">
-                        <div><p className="text-[10px] text-slate-500">Spend</p><p className="mt-1 text-xs font-semibold text-slate-200">{item._source === "meta" ? money(item.spend) : "—"}</p></div>
-                        <div><p className="text-[10px] text-slate-500">Meta clicks</p><p className="mt-1 text-xs font-semibold text-slate-200">{item._source === "meta" ? Number(item.clicks || 0).toLocaleString() : "—"}</p></div>
-                        <div><p className="text-[10px] text-slate-500">Conversions</p><p className="mt-1 text-xs font-semibold text-slate-200">{item._source === "meta" ? Number(item.conversions || 0).toLocaleString() : "—"}</p></div>
+                        <div><p className="text-[10px] text-[#94a3b8]/75">Spend</p><p className="mt-1 text-xs font-semibold text-slate-200">{item._source === "meta" ? money(item.spend) : "—"}</p></div>
+                        <div><p className="text-[10px] text-[#94a3b8]/75">Meta clicks</p><p className="mt-1 text-xs font-semibold text-slate-200">{item._source === "meta" ? Number(item.clicks || 0).toLocaleString() : "—"}</p></div>
+                        <div><p className="text-[10px] text-[#94a3b8]/75">Conversions</p><p className="mt-1 text-xs font-semibold text-slate-200">{item._source === "meta" ? Number(item.conversions || 0).toLocaleString() : "—"}</p></div>
                       </div>
                       {item.tracking_link ? (
-                        <a href={item.tracking_link} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex items-center gap-1.5 text-xs text-[#00c2cb] hover:text-[#80f6fb]">
+                        <a href={item.tracking_link} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex items-center gap-1.5 text-xs text-[#00c2cb] hover:text-[#63e8ee]">
                           View tracking link <ExternalLink className="h-3.5 w-3.5" />
                         </a>
                       ) : null}
@@ -445,14 +447,14 @@ export default function ManageCampaignsWorkspace({
                     </article>
                   ))}
                 </div>
-                <div className="border-t border-white/[0.07] bg-white/[0.018] px-4 py-3 text-[11px] text-slate-500">
+                <div className="border-t border-white/[0.07] bg-white/[0.018] px-4 py-3 text-[11px] text-[#94a3b8]/75">
                   Showing {filtered.length} of {campaigns.length} campaigns. Meta spend and clicks reflect the latest stored Insights sync; no organic metrics are invented.
                 </div>
               </>
             )}
           </section>
 
-          <section className="mt-4 overflow-hidden rounded-[20px] border border-white/[0.085] bg-[#111619]/85">
+          <section className="mt-4 overflow-hidden rounded-[20px] border border-white/[0.085] bg-[#151718]">
             <button
               type="button"
               aria-expanded={shopOpen}
@@ -461,9 +463,9 @@ export default function ManageCampaignsWorkspace({
             >
               <span className="flex min-w-0 items-center gap-3">
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#00c2cb]/10 text-[#00c2cb]"><Store className="h-5 w-5" /></span>
-                <span className="min-w-0"><span className="block text-sm font-semibold text-white">Shopfront placements</span><span className="mt-0.5 block text-[11px] text-slate-500">Approved affiliate shops · {shopPlacements.length} placements</span></span>
+                <span className="min-w-0"><span className="block text-sm font-semibold text-white">Shopfront placements</span><span className="mt-0.5 block text-[11px] text-[#94a3b8]/75">Approved affiliate shops · {shopPlacements.length} placements</span></span>
               </span>
-              <ChevronDown className={shopOpen ? "h-4 w-4 shrink-0 rotate-180 text-slate-400" : "h-4 w-4 shrink-0 text-slate-400"} />
+              <ChevronDown className={shopOpen ? "h-4 w-4 shrink-0 rotate-180 text-[var(--muted-foreground)]" : "h-4 w-4 shrink-0 text-[var(--muted-foreground)]"} />
             </button>
             {shopOpen ? (
               <div className="grid gap-2 border-t border-white/[0.07] p-3 sm:grid-cols-2 sm:p-4 xl:grid-cols-3">
@@ -474,7 +476,7 @@ export default function ManageCampaignsWorkspace({
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={shop.avatar_url} alt="" className="h-9 w-9 rounded-full object-cover" />
                       ) : <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#00c2cb]/10 text-xs font-bold text-[#00c2cb]">{(shop.displayHandle || "A").charAt(0).toUpperCase()}</span>}
-                      <div className="min-w-0 flex-1"><p className="truncate text-xs font-semibold text-white">{shop.handle ? "@" + shop.displayHandle : shop.displayHandle || "Nettmark affiliate"}</p><p className="text-[10px] text-slate-500">{Number(shop.offers || 0)} approved offers</p></div>
+                      <div className="min-w-0 flex-1"><p className="truncate text-xs font-semibold text-white">{shop.handle ? "@" + shop.displayHandle : shop.displayHandle || "Nettmark affiliate"}</p><p className="text-[10px] text-[#94a3b8]/75">{Number(shop.offers || 0)} approved offers</p></div>
                       {shop.handle ? <a href={"https://www.nettmark.com/shop/" + encodeURIComponent(shop.handle)} target="_blank" rel="noopener noreferrer" title="View shop" className="text-[#00c2cb] hover:text-white"><ExternalLink className="h-4 w-4" /></a> : null}
                     </div>
                     <div className="mt-3 grid grid-cols-2 gap-2 border-t border-white/[0.055] pt-3 text-xs text-slate-300">
@@ -482,7 +484,7 @@ export default function ManageCampaignsWorkspace({
                       <span>Clicks (24h): <strong className="text-white">{Number(shop.clicks24h || 0).toLocaleString()}</strong></span>
                     </div>
                   </div>
-                )) : <p className="py-4 text-xs text-slate-500">No approved storefronts yet.</p>}
+                )) : <p className="py-4 text-xs text-[#94a3b8]/75">No approved storefronts yet.</p>}
               </div>
             ) : null}
           </section>
