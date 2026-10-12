@@ -25,6 +25,20 @@ assert.match(shared, /label="Conversions"/);
 assert.match(shared, /Tracked revenue/);
 assert.match(shared, /Awaiting settlement/);
 assert.match(shared, /businessAffiliate/);
+// Prevent exposure of affiliate authentication email via the business page.
+// Their own affiliate detail page must retain the tracking-link copy control.
+const trackingSection = shared.slice(
+  shared.indexOf('aria-labelledby="tracking-link-heading"') - 85,
+  shared.indexOf('aria-labelledby="campaign-details-heading"'),
+);
+assert.match(trackingSection, /!isBusiness \? \(/, "tracking link rendered only for affiliates");
+assert.match(shared, /disabled=\{!trackingUrl \|\| inactive \|\| !affiliateReady\}/, "affiliate copy still available");
+assert.doesNotMatch(business, /tracking_link\s*[,=:]/, "business detail must not query or pass raw tracking links");
+assert.doesNotMatch(business, /navigator\.clipboard\.writeText/, "business detail must not offer copying of a private tracking link");
+assert.match(business, /getAffiliateUsername\(supabase, \{ email: campaign\.affiliate_email \}\)/);
+assert.match(business, /businessAffiliate=\{affiliateUsername\}/);
+assert.doesNotMatch(business, /businessAffiliate=\{campaign\.affiliate_email\}/);
+
 assert.match(shared, /businessCanPause && onBusinessPause/);
 assert.match(shared, /onMetaControl\(isPaused \? "RESUME" : "PAUSE"\)/);
 assert.match(shared, /!isBusiness && isOrganic/, "affiliate-only delete and organic guidance remain role gated");
