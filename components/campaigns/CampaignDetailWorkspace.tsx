@@ -265,7 +265,8 @@ export default function CampaignDetailWorkspace({
               )}
             </>
           ) : (
-            {isOrganic ? (
+            <>
+              {isOrganic ? (
               <>
                 <Metric label="Landing visits" value={stats.clicks.toLocaleString()} note="Unverified browser visits" icon={<Globe2 className="h-[18px] w-[18px]" />} />
                 <Metric label="Add to carts" value={stats.carts.toLocaleString()} note="Nettmark tracking events" icon={<ShoppingCart className="h-[18px] w-[18px]" />} />
@@ -280,6 +281,7 @@ export default function CampaignDetailWorkspace({
                 <Metric label="Tracked conversions" value={stats.conversions.toLocaleString()} note="Nettmark attribution" icon={<Check className="h-[18px] w-[18px]" />} />
               </>
             )}
+            </>
           )}
         </section>
 
