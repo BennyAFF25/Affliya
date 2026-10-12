@@ -38,6 +38,22 @@ assert.equal(fnv1a(handler("handleRequestRefund")), "046b7570");
 // UI now has one wallet balance, existing refund restrictions, and a
 // conservative view of campaigns derived from the already fetched rows.
 assert.match(source, /Available to spend/);
+// The large wallet figure reflects Meta spend that has been reported but not
+// yet converted into wallet deductions. Once a settlement moves that amount
+// into the canonical ledger it must not be subtracted a second time.
+assert.match(source, /const displayedSpendableBalance = Math\.max\(\s*0,\s*toMoney\(availableBalance - refundLockState\.totalUnpaidSpend\),\s*\)/);
+assert.match(source, /walletMoney\(displayedSpendableBalance\)/);
+assert.match(source, /pending Meta spend already deducted/);
+assert.match(source, /const availableToRefund = refundLockState\.locked \? 0 : refundableBalance/);
+assert.match(source, /const walletSnapshot = calculateWalletBalance\(/);
+assert.doesNotMatch(source, /const availableBalance = walletSnapshot\.availableBalance - /);
+// Examples: a 15.00 recorded balance and 1.25 unsettled spend displays 13.75.
+// After settlement: 13.75 recorded balance and 0.00 unsettled displays 13.75.
+const displayedSpendable = (wallet: number, unsettled: number) =>
+  Math.max(0, Math.round((wallet - unsettled) * 100) / 100);
+assert.equal(displayedSpendable(15, 1.25), 13.75);
+assert.equal(displayedSpendable(13.75, 0), 13.75);
+assert.equal(displayedSpendable(1, 2), 0);
 assert.match(source, /const walletMoney =/);
 assert.match(source, /'A\$' \+ toMoney\(value\)\.toFixed\(2\)/);
 assert.match(source, /const withdrawDisabled = refundLockState\.locked \|\| availableToRefund <= 0 \|\| refundableTopups\.length === 0/);
