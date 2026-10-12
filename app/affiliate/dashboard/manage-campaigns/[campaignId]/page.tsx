@@ -414,6 +414,47 @@ export default function ManageCampaignPage() {
     reloadCampaign();
   }, [campaignId, reloadCampaign]);
 
+  // Refresh the *stored* Meta totals while this page is open.
+  // Never POST to Meta or invoke ad-spend settlement from a browser poll:
+  // the scheduled server sync owns those operations.
+  useEffect(() => {
+    if (!campaignId) return;
+    let cancelled = false;
+    let inFlight = false;
+    const refreshRecordedSpend = async () => {
+      if (cancelled || inFlight || document.visibilityState !== "visible") return;
+      inFlight = true;
+      try {
+        const { data, error: readError } = await supabase
+          .from("live_ads")
+          .select("id,spend,clicks,spend_transferred,status,billing_state")
+          .eq("id", campaignId)
+          .maybeSingle();
+        if (!cancelled && !readError && data) {
+          setCampaign((previous) =>
+            previous?.id === campaignId
+              ? { ...previous, ...data, spend: Number(data.spend ?? 0) }
+              : previous,
+          );
+        }
+      } catch (readError) {
+        console.warn("[affiliate/campaign] Meta totals refresh failed", readError);
+      } finally {
+        inFlight = false;
+      }
+    };
+    const refreshWhenVisible = () => { void refreshRecordedSpend(); };
+    const timer = window.setInterval(refreshWhenVisible, 30_000);
+    window.addEventListener("focus", refreshWhenVisible);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refreshWhenVisible);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+    };
+  }, [campaignId]);
+
   // --------------------
   // Meta control (pause / resume)
   // --------------------
