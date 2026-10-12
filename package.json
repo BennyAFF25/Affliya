@@ -35,7 +35,8 @@
     "test:signup-provisioning": "tsx scripts/signup-profile-provisioning.test.ts",
     "test:auto-meta-spend-refresh": "tsx scripts/auto-meta-spend-refresh.test.ts",
     "test:business-dashboard-ui": "tsx scripts/business-dashboard-redesign.test.ts",
-    "test:affiliate-campaign-workspace": "tsx scripts/affiliate-campaigns-shared-workspace.test.ts"
+    "test:affiliate-campaign-workspace": "tsx scripts/affiliate-campaigns-shared-workspace.test.ts",
+    "test:affiliate-campaign-detail": "tsx scripts/affiliate-campaign-detail-ui.test.ts"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.2",
