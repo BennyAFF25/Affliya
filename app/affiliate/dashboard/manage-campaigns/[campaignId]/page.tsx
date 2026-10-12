@@ -420,6 +420,9 @@ export default function ManageCampaignPage() {
       const json = await res.json().catch(() => null);
       if (!res.ok || !(json && json.success)) {
         console.error("[❌ Failed Meta control]", json);
+        window.alert(json?.metaUpdated
+          ? "Meta accepted the change, but Nettmark could not save its status. Please contact support rather than retrying."
+          : "Could not update the Meta ad. Please try again or contact support.");
         return;
       }
 
