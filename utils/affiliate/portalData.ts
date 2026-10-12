@@ -24,7 +24,7 @@ export async function loadApprovedOfferIds(client:SupabaseClient,email:string) {
  return (available.data || []).map(row=>String(row.id));
 }
 export async function loadAffiliatePaidCampaigns(client:SupabaseClient,email:string) {
- return ownRows(client,"live_ads","id,offer_id,status,billing_state,meta_ad_id,meta_campaign_id,spend,spend_transferred,created_at",email);
+ return ownRows(client,"live_ads","id,offer_id,ad_idea_id,caption,status,billing_state,meta_ad_id,meta_campaign_id,spend,spend_transferred,clicks,conversions,tracking_link,created_at",email);
 }
 export async function loadAffiliateSubmissions(client:SupabaseClient,email:string):Promise<AffiliateSubmission[]> {
  const [ads,organic]=await Promise.all([
