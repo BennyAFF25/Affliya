@@ -12,6 +12,7 @@ import {
 } from "@/../components/ui";
 import { useSession } from "@supabase/auth-helpers-react";
 import { supabase } from "utils/supabase/pages-client";
+import { isTrackedLandingVisit } from "../../../../utils/tracking/visitMetrics";
 import {
   CursorArrowRaysIcon,
   ShoppingCartIcon,
@@ -291,7 +292,7 @@ export default function BusinessCampaignDetailPage() {
         const resp = await (supabase as any)
           .from("campaign_tracking_events")
           .select(
-            "id, event_type, amount, created_at, offer_id, affiliate_id, campaign_id",
+            "id, event_type, amount, created_at, offer_id, affiliate_id, campaign_id, user_agent",
           )
           .eq("campaign_id", campaignId);
 
@@ -317,10 +318,11 @@ export default function BusinessCampaignDetailPage() {
           offer_id: string | null;
           affiliate_id: string | null;
           campaign_id: string | null;
+          user_agent?: string | null;
         }[] = rows || [];
 
         if (!mergedRows.length) {
-          setStats(null);
+          setStats({ pageViews: 0, addToCarts: 0, conversions: 0, revenue: 0 });
           setSeries({
             labels: [],
             pageViews: [],
@@ -339,13 +341,9 @@ export default function BusinessCampaignDetailPage() {
 
         for (const evt of mergedRows) {
           const t = (evt.event_type || "").toLowerCase();
-          if (
-            t === "page_view" ||
-            t === "page_viewed" ||
-            t === "view" ||
-            t === "landing_view" ||
-            t === "click"
-          ) {
+          // Pre-v2 'click' is a page load, not a Meta click.
+          // Only ordinary browser visits appear in this *unverified* metric.
+          if (isTrackedLandingVisit(evt)) {
             pageViews += 1;
           } else if (
             t === "add_to_cart" ||
@@ -387,13 +385,7 @@ export default function BusinessCampaignDetailPage() {
           const idx = Math.min(6, Math.max(0, 6 + diffDays));
 
           const t = (row.event_type || "").toLowerCase();
-          if (
-            t === "page_view" ||
-            t === "page_viewed" ||
-            t === "view" ||
-            t === "landing_view" ||
-            t === "click"
-          ) {
+          if (isTrackedLandingVisit(row)) {
             pv[idx] += 1;
           } else if (
             t === "add_to_cart" ||
@@ -883,11 +875,12 @@ export default function BusinessCampaignDetailPage() {
                     <>
                       <div className="mb-4 grid grid-cols-2 gap-3">
                         <MetricTile
-                          label={
-                            campaign.meta_source === "meta" ? "Clicks" : "Views"
-                          }
+                          label="Landing visits"
                           value={stats.pageViews}
                         />
+                        {campaign.meta_source === "meta" && (
+                          <MetricTile label="Meta clicks (last sync)" value={Number(campaign.clicks || 0)} />
+                        )}
                         <MetricTile label="Carts" value={stats.addToCarts} />
                         <MetricTile
                           label="Conversions"
@@ -929,13 +922,13 @@ export default function BusinessCampaignDetailPage() {
                         )}
 
                       <p className="mt-2 text-[11px] text-white/50">
-                        Events (clicks, add to carts, conversions) are
+                        Nettmark landing visits (including legacy page-load events), carts and conversions are
                         calculated from{" "}
                         <code className="font-mono text-[10px]">
                           campaign_tracking_events
                         </code>
                         {campaign.meta_source === "meta"
-                          ? " for this Meta-backed campaign. Spend is stored on the live_ads record for audit and billing."
+                          ? " for this Meta-backed campaign. Landing visits are unverified, may include repeated visits, and exclude obvious crawler user agents. Meta clicks and spend come from the last Meta insights sync."
                           : " for this campaign."}
                       </p>
 
@@ -948,8 +941,8 @@ export default function BusinessCampaignDetailPage() {
                                 {
                                   label:
                                     campaign.meta_source === "meta"
-                                      ? "Clicks"
-                                      : "Page views",
+                                      ? "Landing visits"
+                                      : "Landing visits",
                                   data: series.pageViews,
                                   borderColor: "#00C2CB",
                                   backgroundColor: "rgba(0,194,203,0.15)",
