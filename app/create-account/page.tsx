@@ -1,13 +1,12 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowRight, Check, Eye, EyeOff, ShieldCheck, Sparkles } from 'lucide-react';
 import { supabase } from '@/../utils/supabase/pages-client';
 import MarketingPageTracker from '@/components/marketing/MarketingPageTracker';
 import { trackMetaStandardEvent } from '@/../utils/marketing/metaPixel';
 import { trackRedditConversion } from '@/../utils/marketing/redditConversions';
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { logProductEvent } from "@/../utils/productEvents";
 import { affiliateOnboardingPath } from '@/../utils/affiliate/onboarding';
 
@@ -42,6 +41,7 @@ function CreateAccountInner() {
   const [password, setPassword] = useState('');
   const [showPwd, setShowPwd] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const signupInFlight = useRef(false);
   const [err, setErr] = useState<string | null>(null);
   const [confirmationSent, setConfirmationSent] = useState(false);
 
@@ -81,6 +81,8 @@ function CreateAccountInner() {
 
   const handleEmailSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (signupInFlight.current) return;
+    signupInFlight.current = true;
     setErr(null);
     setSubmitting(true);
 
@@ -150,68 +152,39 @@ function CreateAccountInner() {
         console.error('[SIGNUP] email dispatch failed:', emailErr);
       }
 
-      if (role === 'affiliate' && !data?.session) {
+      // Both business and affiliate accounts may require email confirmation.
+      // Auth-trigger provisioning already happened even without a session.
+      if (!data?.session) {
         setConfirmationSent(true);
         trackMetaStandardEvent('CompleteRegistration', { role, signup_method: 'email' });
         return;
       }
 
+      // Auth signup now provisions a profile atomically via the database
+      // trigger. The browser must NEVER upsert profiles (requires forbidden
+      // UPDATE of role/email and could rewrite an established identity).
       if (data?.user?.id) {
-        const { error: profileError } = await (supabase as unknown as SupabaseClient)
+        const { data: persistedProfile, error: profileError } = await supabase
           .from('profiles')
-          .upsert(
-            {
-              id: data.user.id,
-              email: trimmedEmail,
-              role,
-              username: trimmedUsername,
-            },
-            { onConflict: 'id' }
-          );
-
-        if (profileError) {
-          console.error('[PROFILE INSERT ERROR]', profileError);
-          throw profileError;
-        }
-
-        if (role === 'business' && data.session) {
-          void logProductEvent({ eventType: 'business_signup_completed', actorRole: 'business', meta: { source: 'email_signup' } });
-        }
-
-        const { data: preRevenueRow, error: preErr } = await supabase
-          .from('pre_signup_revenue')
-          .select('*')
-          .eq('email', trimmedEmail)
+          .select('role')
+          .eq('id', data.user.id)
           .maybeSingle();
-
-        if (preErr && (preErr as any).code !== 'PGRST116') {
-          console.error('[PRE-SIGNUP REVENUE FETCH ERROR]', preErr);
+        if (profileError || persistedProfile?.role !== role) {
+          console.error('[SIGNUP] profile provision verification failed', {
+            error: profileError?.code || 'profile_missing_or_wrong_role',
+          });
+          throw new Error('Your account was created, but setup could not be verified. Please sign in again or contact support.');
         }
-
-        if (preRevenueRow) {
-          const { error: mergeErr } = await supabase
-            .from('profiles')
-            .update({
-              revenue_stripe_customer_id: preRevenueRow.revenue_stripe_customer_id,
-              revenue_stripe_subscription_id: preRevenueRow.revenue_stripe_subscription_id,
-              revenue_subscription_status: preRevenueRow.revenue_subscription_status,
-              revenue_current_period_end: preRevenueRow.revenue_current_period_end
-                ? new Date(preRevenueRow.revenue_current_period_end).toISOString()
-                : null,
-            })
-            .eq('id', data.user.id);
-
-          if (mergeErr) {
-            console.error('[PRE-SIGNUP REVENUE MERGE ERROR]', mergeErr);
-            throw mergeErr;
-          }
-
-          await supabase.from('pre_signup_revenue').delete().eq('email', trimmedEmail);
+        if (role === 'business') {
+          void logProductEvent({
+            eventType: 'business_signup_completed',
+            actorRole: 'business',
+            meta: { source: 'email_signup' },
+          });
         }
-      } else {
-        console.warn(
-          '[SIGNUP] No user id returned from signUp (email-confirm flow likely). Skipping profile upsert for now.'
-        );
+        // Pre-signup revenue is safely merged by trg_merge_pre_signup_revenue
+        // AFTER INSERT ON profiles. Do not duplicate the financial merge
+        // or attempt to read the restricted pre_signup_revenue table here.
       }
 
       if (role === 'business') {
@@ -247,6 +220,7 @@ function CreateAccountInner() {
       setErr(e?.message || 'Sign up failed');
     } finally {
       setSubmitting(false);
+      signupInFlight.current = false;
     }
   };
 
@@ -383,8 +357,8 @@ function CreateAccountInner() {
               {confirmationSent ? (
                 <div role="status" className="mt-7 space-y-4 rounded-2xl border border-[#00C2CB]/20 bg-[#00C2CB]/5 p-5">
                   <h3 className="text-lg font-semibold">Check your email</h3>
-                  <p className="text-sm leading-6 text-white/65">Open the confirmation link sent to {email.trim()} to continue to your first promotion.</p>
-                  <a href={`/login/affiliate?next=${encodeURIComponent(onboardingPath)}`} className="inline-block text-sm text-[#00C2CB]">Already confirmed? Sign in</a>
+                  <p className="text-sm leading-6 text-white/65">Open the confirmation link sent to {email.trim()} to continue setting up your account.</p>
+                  <a href={isBusiness ? "/login/business" : `/login/affiliate?next=${encodeURIComponent(onboardingPath)}`} className="inline-block text-sm text-[#00C2CB]">Already confirmed? Sign in</a>
                 </div>
               ) : <form onSubmit={handleEmailSignup} className="mt-7 space-y-5">
                 <Field
