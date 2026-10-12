@@ -396,6 +396,14 @@ export default function AffiliateWalletPage() {
   });
   const topupPreview = calculateChargeOnTopPreview(parseFloat(amount || '0'));
   const availableBalance = walletSnapshot.availableBalance;
+  // Display only: Meta has already reported this spend, even though the wallet
+  // deduction has not yet been entered. Once settlement is recorded it moves
+  // into wallet_deductions and disappears from totalUnpaidSpend, preventing
+  // the displayed amount from being deducted twice.
+  const displayedSpendableBalance = Math.max(
+    0,
+    toMoney(availableBalance - refundLockState.totalUnpaidSpend),
+  );
   const refundableBalance = walletSnapshot.refundableBalance;
   const availableToRefund = refundLockState.locked ? 0 : refundableBalance;
   const refundBlockReason = getRefundBlockReason(refundLockState, currency);
@@ -635,13 +643,13 @@ export default function AffiliateWalletPage() {
                 <span className="grid h-8 w-8 place-items-center rounded-full bg-[#00C2CB]/10 text-[#19d4dd]"><Wallet className="h-4 w-4" /></span>
                 <h2 id="wallet-balance-heading" className="font-semibold">Available to spend</h2>
               </div>
-              <p className="mt-3 break-words text-[37px] font-semibold leading-none tracking-tight text-white sm:text-[45px]">{walletMoney(availableBalance)}</p>
+              <p className="mt-3 break-words text-[37px] font-semibold leading-none tracking-tight text-white sm:text-[45px]">{walletMoney(displayedSpendableBalance)}</p>
               <p className="mt-3 text-[11px] leading-5 text-slate-400">
-                {walletMoney(refundLockState.totalUnpaidSpend)} awaiting spend settlement
+                {walletMoney(refundLockState.totalUnpaidSpend)} pending Meta spend already deducted
                 <span className="mx-2 text-slate-600">·</span>
                 {walletMoney(availableToRefund)} refundable now
               </p>
-              <p className="mt-1 max-w-lg text-[10px] leading-4 text-slate-500">Your balance is shared across ads; this is not a second, separate locked balance.</p>
+              <p className="mt-1 max-w-lg text-[10px] leading-4 text-slate-500">Estimated from the latest stored Meta spend. Your actual wallet ledger is updated when that spend settles; the pending amount is not deducted twice.</p>
             </div>
             <div className="grid w-full shrink-0 grid-cols-2 gap-2 sm:w-auto sm:min-w-[255px]">
               <button type="button" onClick={() => setWalletAction(walletAction === 'topup' ? null : 'topup')}
