@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState } from "react";
+import { useSession } from "@supabase/auth-helpers-react";
+import { useChatUnreadCount } from "@/components/inbox/useChatUnreadCount";
 import BusinessSidebar from "./BusinessSidebar";
 import Topbar from "@/components/Topbar";
 import PaidCampaignResumeBanner from "@/../components/business/PaidCampaignResumeBanner";
@@ -23,6 +25,8 @@ export default function BusinessLayout({
   children: React.ReactNode;
 }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const session = useSession();
+  const chatUnreadCount = useChatUnreadCount(session?.user?.id);
 
   const closeMobileNav = () => setMobileNavOpen(false);
 
@@ -50,6 +54,7 @@ export default function BusinessLayout({
       label: "Inbox",
       href: "/business/inbox",
       icon: <Inbox size={16} />,
+      badge: chatUnreadCount,
     },
     {
       id: "support",
@@ -99,7 +104,7 @@ export default function BusinessLayout({
         {/* Desktop sidebar */}
         <div className="hidden xl:block w-64">
           <aside className="fixed bottom-0 left-0 top-16 w-64">
-            <BusinessSidebar />
+            <BusinessSidebar chatUnreadCount={chatUnreadCount} />
           </aside>
         </div>
 
