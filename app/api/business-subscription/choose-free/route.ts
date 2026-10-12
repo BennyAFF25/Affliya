@@ -14,7 +14,10 @@ export async function POST(req?: Request) {
   const entitlement = await getEntitlementOrThrow({ supabase: admin, businessId: business.id });
   if (!entitlement.stripeSubscriptionId && !entitlement.isGrandfathered) await recordBusinessFunnelEvent(admin, {
     eventType: "plan_free_clicked", businessId: business.id, email: business.business_email,
-    meta: { source: "plan_choice", choice_confirmed: true },
+    meta: { source: "plan_choice", choice_confirmed: true,
+      ...Object.fromEntries(Object.entries(body?.attribution || {}).filter(([key, value]) =>
+        ["src","utm_source","utm_medium","utm_campaign","utm_content","utm_term"].includes(key) &&
+        typeof value === "string" && value.length <= 300)) },
   });
   // Free never cancels, downgrades or rewrites an existing subscription.
   const response = NextResponse.json({ ok: true, plan: "free" });
