@@ -399,35 +399,35 @@ function PendingProposalRow({ proposal }: { proposal: PendingProposal }) {
       : "Proposal sent. No deposit is required while the business decides whether to enable paid promotion.";
 
   return (
-    <div className="rounded-2xl border border-[var(--border)] bg-[var(--card)]/70 p-5">
+    <div className="rounded-[17px] border border-white/[0.08] bg-[#101415] p-3.5 sm:p-4">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="text-lg font-semibold">{title}</div>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="min-w-0 truncate text-[13px] font-semibold text-white">{title}</div>
             <Badge variant={fundingRequired || timingUpdate || metaCleanup ? "warning" : funded ? "success" : "muted"}>
               {statusLabel}
             </Badge>
           </div>
-          <p className="mt-2 max-w-3xl text-sm text-[var(--muted-foreground)]">
+          <p className="mt-2 max-w-3xl text-xs leading-5 text-[var(--muted-foreground)]">
             {description}
           </p>
-          <div className="mt-3 flex flex-wrap gap-2 text-xs text-[var(--muted-foreground)]">
-            <span className="rounded-full bg-[var(--card)]/60 px-3 py-1">
+          <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-[var(--muted-foreground)]">
+            <span className="rounded-full border border-white/[0.07] bg-white/[0.02] px-2.5 py-1">
               {proposal.offerTitle}
             </span>
-            <span className="rounded-full bg-[var(--card)]/60 px-3 py-1">
+            <span className="rounded-full border border-white/[0.07] bg-white/[0.02] px-2.5 py-1">
               {proposal.funding ? `Required at launch: ${formatMoney(proposal.funding.requiredAmount)}` : "Funding not checked"}
             </span>
             {proposal.createdAt ? (
-              <span className="rounded-full bg-[var(--card)]/60 px-3 py-1">
-                Submitted {shortDate(proposal.createdAt)}
+              <span className="rounded-full border border-white/[0.07] bg-white/[0.02] px-2.5 py-1">
+                Submitted {new Date(proposal.createdAt).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}
               </span>
             ) : null}
           </div>
         </div>
-        <Button href={`/affiliate/dashboard/reviews/${proposal.kind}/${proposal.id}`} variant="outline" className="rounded-full">View proposal</Button>
+        <Button href={`/affiliate/dashboard/reviews/${proposal.kind}/${proposal.id}`} variant="outline" className="min-h-10 shrink-0 rounded-xl text-xs">View proposal</Button>
         {fundingRequired ? (
-          <Button href="/affiliate/wallet" className="rounded-full">
+          <Button href="/affiliate/wallet" className="min-h-10 shrink-0 rounded-xl text-xs">
             Top up wallet
           </Button>
         ) : null}
