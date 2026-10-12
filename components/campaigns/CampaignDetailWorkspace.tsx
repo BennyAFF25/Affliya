@@ -288,6 +288,7 @@ export default function CampaignDetailWorkspace({
         <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,0.90fr)_minmax(0,1.1fr)]">
           <CreativePreview campaign={campaign} title={title} isOrganic={isOrganic} onOpenEmail={() => onEmailModalChange(true)} />
           <div className="min-w-0 space-y-4">
+            {!isBusiness ? (
             <section className={panel + " p-4 sm:p-5"} aria-labelledby="tracking-link-heading">
               <div className="flex items-center gap-2.5">
                 <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#00C2CB]/[0.09] text-[#19d4dd]"><Globe2 className="h-4 w-4" /></span>
@@ -307,6 +308,7 @@ export default function CampaignDetailWorkspace({
                 </button>
               </div>
             </section>
+            ) : null}
 
             <section className={panel + " p-4 sm:p-5"} aria-labelledby="campaign-details-heading">
               <h2 id="campaign-details-heading" className="text-[14px] font-semibold text-white">Campaign details</h2>
