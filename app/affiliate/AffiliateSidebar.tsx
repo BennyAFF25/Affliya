@@ -3,8 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
-import { supabase } from "utils/supabase/pages-client";
+import { useEffect, useRef } from "react";
 import {
   Home,
   Package,
@@ -18,9 +17,8 @@ import {
 import { useSessionContext } from "@supabase/auth-helpers-react";
 import { useRouter } from "next/navigation";
 
-export default function AffiliateSidebar() {
+export default function AffiliateSidebar({ chatUnreadCount = 0 }: { chatUnreadCount?: number }) {
   const pathname = usePathname();
-  const [hasNotification, setHasNotification] = useState(false);
 
   const { session, isLoading } = useSessionContext();
   const router = useRouter();
@@ -38,32 +36,6 @@ export default function AffiliateSidebar() {
 
   const user = session?.user;
 
-  useEffect(() => {
-    const fetchNotifications = async () => {
-      const email = user?.email;
-      if (!email) return;
-
-      const [{ data: approvedPromos }, { data: approvedAds }] =
-        await Promise.all([
-          supabase
-            .from("affiliate_requests")
-            .select("id")
-            .eq("affiliate_email", email)
-            .eq("status", "approved"),
-          supabase
-            .from("ad_ideas")
-            .select("id")
-            .eq("affiliate_email", email)
-            .eq("status", "approved"),
-        ]);
-
-      setHasNotification(
-        (approvedPromos?.length ?? 0) > 0 || (approvedAds?.length ?? 0) > 0,
-      );
-    };
-
-    fetchNotifications();
-  }, [user]);
 
   const links: { name: string; href: string; icon: LucideIcon }[] = [
     { name: "Dashboard", href: "/affiliate/dashboard", icon: Home },
@@ -149,7 +121,7 @@ export default function AffiliateSidebar() {
                 )}
               </Link>
 
-              {link.name === "Inbox" && hasNotification && (
+              {link.name === "Inbox" && chatUnreadCount > 0 && (
                 <span
                   className="absolute top-3 right-3 h-2.5 w-2.5 rounded-full"
                   style={{
