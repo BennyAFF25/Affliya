@@ -14,7 +14,7 @@ assert.match(page, /handlePermanentStop/, "paid stop retained");
 assert.match(page, /\/api\/meta\/control-ad/, "Meta stop uses existing authorised API");
 assert.match(page, /\/api\/meta\/ad-insights/, "Meta sync uses existing API");
 
-assert.match(workspace, /function MetaMark/, "Meta infinity branding present");
+assert.match(workspace, /import MetaMark from "\.\.\/brand\/MetaMark"/, "shared Meta infinity branding present");
 assert.match(workspace, /gridColumns/, "compact desktop table");
 assert.match(workspace, /xl:hidden/, "mobile campaign card layout");
 assert.match(workspace, /overflow-x-auto xl:block/, "desktop table cannot escape container");
