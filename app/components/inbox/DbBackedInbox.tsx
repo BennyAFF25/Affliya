@@ -18,6 +18,8 @@ import { supabase } from "utils/supabase/pages-client";
 import { Button, Card, EmptyState, PageHeader } from "@/../components/ui";
 import { InboxCard } from "@/components/inbox/InboxCard";
 import { InboxTabs } from "@/components/inbox/InboxTabs";
+import { InboxMessenger } from "@/components/inbox/InboxMessenger";
+import { MessageCircle, ListChecks } from "lucide-react";
 
 type InboxAudience = "affiliate" | "business";
 type InboxSource = "inbox_messages" | "notifications";
@@ -187,6 +189,7 @@ export function DbBackedInbox({
   const [offers, setOffers] = useState<OfferRow[]>([]);
   const [localArchivedIds, setLocalArchivedIds] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState("all");
+  const [inboxMode, setInboxMode] = useState<"conversations" | "updates">("conversations");
   const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -194,7 +197,7 @@ export function DbBackedInbox({
 
   useEffect(() => {
     const loadInbox = async () => {
-      if (!user?.email) return;
+      if (!user?.email || inboxMode !== "updates") return;
       setLoading(true);
       setLoadError(null);
       try {
@@ -250,7 +253,7 @@ export function DbBackedInbox({
     };
 
     void loadInbox();
-  }, [audience, user?.email, reload]);
+  }, [audience, user?.email, reload, inboxMode]);
 
   useEffect(() => {
     if (!user?.email) return;
@@ -456,6 +459,29 @@ export function DbBackedInbox({
   return (
     <div className="min-h-screen bg-[var(--background)] px-4 py-6 text-[var(--foreground)] sm:px-6 lg:py-8">
       <div className="mx-auto w-full max-w-6xl space-y-6">
+        <div className="flex flex-col gap-4 rounded-[20px] border border-white/[0.09] bg-[#151718] px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#5fe6ec]">Nettmark workspace</p>
+            <h1 className="mt-1 text-2xl font-semibold tracking-tight text-white">{title}</h1>
+            <p className="mt-1 text-xs text-[var(--muted-foreground)]">Message your approved partners and review Nettmark updates in one place.</p>
+          </div>
+          <div role="tablist" aria-label="Inbox sections" className="flex gap-2">
+            <button type="button" role="tab" aria-selected={inboxMode === "conversations"}
+              onClick={() => setInboxMode("conversations")}
+              className={"inline-flex flex-1 items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-xs font-semibold transition sm:flex-none " +
+                (inboxMode === "conversations" ? "border-[#00C2CB]/40 bg-[#00C2CB]/10 text-[#63e8ee]" : "border-white/10 bg-white/[0.02] text-slate-300 hover:bg-white/[0.05]")}>
+              <MessageCircle size={15} /> Conversations
+            </button>
+            <button type="button" role="tab" aria-selected={inboxMode === "updates"}
+              onClick={() => setInboxMode("updates")}
+              className={"inline-flex flex-1 items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-xs font-semibold transition sm:flex-none " +
+                (inboxMode === "updates" ? "border-[#00C2CB]/40 bg-[#00C2CB]/10 text-[#63e8ee]" : "border-white/10 bg-white/[0.02] text-slate-300 hover:bg-white/[0.05]")}>
+              <ListChecks size={15} /> Updates
+            </button>
+          </div>
+        </div>
+        {inboxMode === "conversations" ? <InboxMessenger audience={audience} /> : (
+          <>
         <Card variant="elevated" className="px-5 py-6 sm:px-6">
           <PageHeader
             eyebrow={eyebrow}
@@ -697,6 +723,8 @@ export function DbBackedInbox({
             )}
           </Card>
         </div>
+          </>
+        )}
       </div>
     </div>
   );
