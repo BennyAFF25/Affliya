@@ -1,6 +1,6 @@
 # Inbox conversations MVP — October 2026
 
-**Status:** In progress. **Scope:** business ↔ affiliate seeded test accounts, with reusable offer-based permission model.
+**Status:** Implemented on main; authenticated two-account browser QA pending. **Scope:** business ↔ affiliate seeded test accounts, with reusable offer-based permission model.
 
 ## Problem and product alignment
 The current shared `DbBackedInbox` displays notifications/invitations, not user replies. The previously authored `inbox_messages` migration is **not present** on the live database, and the Inbox currently shows read-only notifications; `app/api/inbox-messages` creates one-way updates. Existing users need direct collaboration within Nettmark (VISION: distribution network; PRODUCT_PRINCIPLES: keep workflows simple and on-platform). We must not create an unrestricted public DM directory or expose private emails, Meta credentials, billing or attribution.
@@ -25,3 +25,14 @@ Business can select @jamesmarkets under Nettmark Partner Programme, send a text,
 
 ## Validation
 Production schema and RLS read-back, deployment status, regression tests (including role and unrelated-pair rejection). Authenticated real browser exchange still needs to be run by the test accounts.
+
+## Implementation and validation results (12 October 2026)
+- Added `supabase/migrations/20261012134500_inbox_chat_messages.sql` and applied equivalent additive DDL on connected production Supabase as migration `inbox_chat_messages_offer_scoped`.
+- Verified table exists, RLS enabled, participant-only SELECT policy in place, authenticated role has SELECT **only**, service role owns writes, and Realtime publication includes the table. Zero message rows seeded or sent.
+- Added `app/api/inbox/chat/route.ts` with authenticated GET/POST/PATCH, role verification, approved offer relationship, server-derived sender identity, UUID idempotency and one-minute rate limit.
+- Added `app/components/inbox/InboxMessenger.tsx`, integrated into shared `DbBackedInbox.tsx` with Conversations and Updates tabs. Responsive chat UI, realtime INSERT subscription and refresh fallback.
+- Existing platform updates and notification source retained; gracefully handle missing legacy one-way `inbox_messages` table in production.
+- Added source regression checks in `scripts/inbox-conversations-mvp.test.ts` and NPM script.
+- Verified seeded `contact@nettmark.com` ↔ `@jamesmarkets` relationship is **approved** on offer `525149d9-8cc6-435b-9653-9d2d3199b75f`; partner names remain public identifiers.
+- Vercel build checked on integration commit; separately running the test script and a logged-in send/receive verification is still pending. No automated messages or user mutations were made.
+- No changes to Meta, wallet, billing, attribution, payouts, or campaign state.
