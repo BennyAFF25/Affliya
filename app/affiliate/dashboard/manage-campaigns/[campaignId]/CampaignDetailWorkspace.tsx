@@ -324,6 +324,20 @@ export default function CampaignDetailWorkspace({
         </section>
 
         {isOrganic ? (
+          <details className={panel + " group p-4 sm:p-5"}>
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-xs font-semibold text-white">
+              How to get the most from organic promotion
+              <ChevronRight className="h-4 w-4 text-[#19d4dd] transition group-open:rotate-90" />
+            </summary>
+            <div className="mt-3 space-y-2 text-xs leading-5 text-[#94a3b8]">
+              <p>Adapt approved creative to the platform where your audience spends time.</p>
+              <p>Always share your Nettmark tracking link so attributed activity stays connected to this campaign.</p>
+              <p>Watch tracked visits, carts and conversions before deciding what to promote next.</p>
+            </div>
+          </details>
+        ) : null}
+
+        {isOrganic ? (
           <section className={panel + " flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5"}>
             <div className="min-w-0">
               <h2 className="text-xs font-semibold text-white">Remove organic placement</h2>
