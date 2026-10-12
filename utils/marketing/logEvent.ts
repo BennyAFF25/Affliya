@@ -2,7 +2,7 @@ import { getMarketingVisitorId } from "./visitor";
 import { extractAttributionFromSearchParams } from "./attribution";
 
 export type MarketingEventPayload = {
-  eventType: "page_view" | "create_account_start" | "business_demo_cta_click";
+  eventType: "page_view" | "create_account_start" | "business_demo_cta_click" | "landing_cta_click";
   pagePath: string;
   audience?: string | null;
   meta?: Record<string, unknown>;
