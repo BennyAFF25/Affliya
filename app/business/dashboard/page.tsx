@@ -1,1402 +1,320 @@
 "use client";
 
+import { useCallback, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useSession } from "@supabase/auth-helpers-react";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
-import toast from "react-hot-toast";
 import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  CartesianGrid,
-  Legend,
-  ReferenceLine,
-} from "recharts";
-import {
-  ArrowUpRight,
-  Users,
-  Wallet,
-  LineChart as LineChartIcon,
-  Sparkles,
-  PlayCircle,
-  Receipt,
-  ChevronRight,
-  X,
-  ListChecks,
-  ChevronDown,
-  ChevronUp,
-  Circle,
-  CheckCircle2,
+  Activity, ArrowRight, CheckCircle2, ChevronRight, Clock3,
+  Inbox, ListChecks, Plus, RefreshCw, Users, Wallet,
 } from "lucide-react";
-import { supabase } from "utils/supabase/pages-client";
-import { SectionHeader, StatCard } from "@/../components/ui";
-import { formatRecurringTermDetail } from "@/../utils/recurringTerms";
-import { logProductEvent } from "@/../utils/productEvents";
+import {
+  Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
+} from "recharts";
+import MetaMark from "../../../components/brand/MetaMark";
+import { logProductEvent } from "../../../utils/productEvents";
 
-interface Profile {
+type Range = "7d" | "30d" | "all";
+type ActivityDay = { name: string; requested: number; approved: number };
+type DashboardCampaign = {
   id: string;
-  role: string | null;
-  email: string | null;
-}
-
-type Timeframe = "7d" | "30d" | "1y" | "all";
-
-const CARD =
-  "rounded-xl border border-[var(--border)] bg-[var(--card)] hover:ring-1 hover:ring-[var(--border)]/50 transition-shadow p-4 sm:p-6";
-
-const formatShortDate = (iso: string) => {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString("en-AU", {
-    day: "2-digit",
-    month: "short",
-  });
+  status: string;
+  __source: "paid" | "organic";
+  campaign_type: string;
+  created_at: string;
+  spend: number | null;
+  offerTitle: string;
+  affiliateHandle: string;
+};
+type SpendSnapshot = {
+  reportedMetaSpend: number;
+  awaitingWalletSettlement: number;
+  queuedForTransfer: number;
+  transferredToBusiness: number;
+  observedAt: string;
+};
+type DashboardSnapshot = {
+  success: boolean;
+  campaigns: DashboardCampaign[];
+  finance: SpendSnapshot | null;
+  affiliateSeries: ActivityDay[];
+  activeCampaignCount: number;
+  pendingAdProposals: number;
+  pendingAffiliateRequests: number;
+  approvedAffiliates: number;
 };
 
-const formatCurrency = (val: number) => {
-  if (!val || Number.isNaN(val)) return "$0.00";
-  return "$" + val.toFixed(2);
+const panel = "rounded-[22px] border border-white/[0.09] bg-[#151718] shadow-[0_22px_60px_rgba(0,0,0,0.18)]";
+const muted = "text-[#94a3b8]";
+const money = (value: number) =>
+  new Intl.NumberFormat("en-AU", { style: "currency", currency: "AUD", currencyDisplay: "narrowSymbol" }).format(value);
+const shortDate = (date: string) => {
+  const parsed = new Date(date);
+  return Number.isNaN(parsed.getTime()) ? "—" : parsed.toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" });
 };
 
-async function parseJsonSafe(res: Response) {
-  const text = await res.text();
-  if (!text) return null;
-  try {
-    return JSON.parse(text);
-  } catch {
-    return null;
-  }
-}
-
-const filterSeriesByRange = (series: any[], range: Timeframe) => {
-  if (!series || series.length === 0 || range === "all") return series;
-
-  const now = new Date();
-  const from = new Date(now);
-
-  if (range === "7d") {
-    from.setDate(now.getDate() - 7);
-  } else if (range === "30d") {
-    from.setDate(now.getDate() - 30);
-  } else if (range === "1y") {
-    from.setFullYear(now.getFullYear() - 1);
-  }
-
-  return series.filter((point: any) => {
-    if (!point?.name) return false;
-    const d = new Date(point.name);
-    if (Number.isNaN(d.getTime())) return false;
-    return d >= from && d <= now;
-  });
-};
-
-// Tooltip for Affiliate Growth
-function AffiliateTooltip({ active, payload, label }: any) {
-  if (!active || !payload || !payload.length) return null;
-  const req = payload.find((p: any) => p.dataKey === "requested");
-  const app = payload.find((p: any) => p.dataKey === "approved");
-
+function ActionLink({ href, children }: { href: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-lg border border-[#262626] bg-black/90 px-3 py-2 text-xs text-gray-100 shadow-lg">
-      <div className="mb-1 font-medium text-[#7ff5fb]">
-        {formatShortDate(label)}
+    <Link href={href} className="inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-full border border-white/[0.11] bg-white/[0.02] px-4 text-xs font-semibold text-slate-200 transition hover:border-[#00C2CB]/40 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#00C2CB]">
+      {children}<ArrowRight className="h-3.5 w-3.5 text-[#00C2CB]" />
+    </Link>
+  );
+}
+
+function FinanceTile({ label, value, icon, note, important = false }: {
+  label: string; value: string; icon: React.ReactNode; note: string; important?: boolean;
+}) {
+  return (
+    <div className="min-w-0 rounded-[17px] border border-white/[0.08] bg-[#101415] px-3 py-4 sm:p-4">
+      <div className="flex items-start gap-2.5">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/[0.04] text-[#19d4dd]">{icon}</span>
+        <div className="min-w-0">
+          <p className="min-h-[32px] text-[11px] leading-4 text-slate-300 sm:text-xs">{label}</p>
+          <p className={"mt-2 whitespace-nowrap text-[clamp(1.1rem,2.2vw,1.65rem)] font-semibold tracking-tight " + (important ? "text-[#63e8ee]" : "text-white")}>{value}</p>
+        </div>
       </div>
-      <div>Requests: {req?.value ?? 0}</div>
-      <div>Approved: {app?.value ?? 0}</div>
+      <p className="mt-2 text-[10px] leading-4 text-[#94a3b8]">{note}</p>
     </div>
   );
 }
 
-// Tooltip for Sales Performance
-function SalesTooltip({ active, payload, label }: any) {
-  if (!active || !payload || !payload.length) return null;
-  const point = payload[0];
-
+function MiniStat({ label, value, icon, description, href }: {
+  label: string; value: string; icon: React.ReactNode; description: string; href: string;
+}) {
   return (
-    <div className="rounded-lg border border-[#262626] bg-black/90 px-3 py-2 text-xs text-gray-100 shadow-lg">
-      <div className="mb-1 font-medium text-[#7ff5fb]">
-        {formatShortDate(label)}
+    <Link href={href} className="group min-w-0 rounded-[19px] border border-white/[0.09] bg-[#151718] p-3 transition hover:border-white/[0.18] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00C2CB] sm:p-4">
+      <div className="flex items-start justify-between gap-2">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#00C2CB]/[0.09] text-[#19d4dd]">{icon}</span>
+        <ChevronRight className="h-4 w-4 text-slate-500 transition group-hover:translate-x-0.5 group-hover:text-[#00C2CB]" />
       </div>
-      <div>Net revenue: {formatCurrency(Number(point.value || 0))}</div>
-    </div>
+      <p className="mt-3 text-[11px] leading-4 text-slate-300 sm:text-xs">{label}</p>
+      <p className="mt-1 text-[25px] font-semibold leading-none tracking-tight text-white">{value}</p>
+      <p className="mt-1.5 text-[10px] leading-4 text-[#94a3b8]">{description}</p>
+    </Link>
   );
 }
 
 export default function BusinessDashboard() {
   const session = useSession();
-  const user = session?.user;
-  const router = useRouter();
+  const email = session?.user?.email;
+  const [snapshot, setSnapshot] = useState<DashboardSnapshot | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [range, setRange] = useState<Range>("30d");
 
-  const [approvedAffiliates, setApprovedAffiliates] = useState<any[]>([]);
-  const [activeCampaigns, setActiveCampaigns] = useState<any[]>([]);
-  const [dashboardLoaded, setDashboardLoaded] = useState(false);
-  const [dashboardCounts, setDashboardCounts] = useState<{
-    activeCampaignCount: number;
-    pendingAdProposals: number;
-    approvedAffiliates: number;
-    pendingAffiliateRequests: number;
-  } | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(null);
-  const [pendingPayoutCount, setPendingPayoutCount] = useState<number>(0);
-  const [pendingPayoutTotal, setPendingPayoutTotal] = useState<number>(0);
-
-  const [affiliateSeriesRaw, setAffiliateSeriesRaw] = useState<any[]>([]);
-  const [salesSeriesRaw, setSalesSeriesRaw] = useState<any[]>([]);
-  const [totalRevenue, setTotalRevenue] = useState<number>(0);
-
-  const [affiliateRange, setAffiliateRange] = useState<Timeframe>("30d");
-  const [salesRange, setSalesRange] = useState<Timeframe>("30d");
-
-  const affiliateSeries = filterSeriesByRange(
-    affiliateSeriesRaw,
-    affiliateRange,
-  );
-  const salesSeries = filterSeriesByRange(salesSeriesRaw, salesRange);
-  const [liveOffersCount, setLiveOffersCount] = useState<number>(0);
-  const [pendingRequests, setPendingRequests] = useState<any[]>([]);
-
-  const [offerLookup, setOfferLookup] = useState<Record<string, string>>({});
-  const [offerPayoutMeta, setOfferPayoutMeta] = useState<
-    Record<
-      string,
-      {
-        payout_mode: string | null;
-        payout_interval: string | null;
-        payout_cycles: number | null;
-        recurring_term_months?: number | null;
-      }
-    >
-  >({});
-  const [recentAffiliateEvents, setRecentAffiliateEvents] = useState<any[]>([]);
-  const [completedPayouts, setCompletedPayouts] = useState<any[]>([]);
-  const [showTransactionsModal, setShowTransactionsModal] = useState(false);
-  const [showAllCampaigns, setShowAllCampaigns] = useState(false);
-  const [showAllAffiliateActivity, setShowAllAffiliateActivity] =
-    useState(false);
-  const [showActivationDetails, setShowActivationDetails] = useState(false);
-  const [hasTrackingConfigured, setHasTrackingConfigured] = useState(false);
-  const [hasMetaConnected, setHasMetaConnected] = useState(false);
-  const [hasBillingConnected, setHasBillingConnected] = useState(false);
-  const [onboardingProgressFlags, setOnboardingProgressFlags] = useState({
-    first_offer_created: false,
-    tracking_connected: false,
-    payouts_enabled: false,
-    billing_connected: false,
-    meta_connected: false,
-    first_affiliate_request_seen: false,
-  });
-  const [showBillingWhy, setShowBillingWhy] = useState(false);
-  const [showMetaWhy, setShowMetaWhy] = useState(false);
-  const [requestActionBusyId, setRequestActionBusyId] = useState<string | null>(null);
+  const refresh = useCallback(async (firstLoad = false) => {
+    if (!email) return;
+    if (firstLoad) setLoading(true);
+    try {
+      const response = await fetch("/api/business/dashboard/summary", { cache: "no-store" });
+      const result = await response.json().catch(() => null);
+      if (!response.ok || !result?.success) throw new Error("Could not load your dashboard.");
+      setSnapshot(result as DashboardSnapshot);
+      setError("");
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Could not load your dashboard.");
+    } finally {
+      setLoading(false);
+    }
+  }, [email]);
 
   useEffect(() => {
-    if (!session?.user?.email) return;
+    if (!email) return;
+    void refresh(true);
     void logProductEvent({
       eventType: "business_dashboard_viewed",
       actorRole: "business",
       meta: { source: "business_dashboard" },
     });
-  }, [session?.user?.email]);
-
-  // simple dynamic goal line for sales
-  const salesGoal =
-    salesSeries.length > 0
-      ? Math.max(...salesSeries.map((d: any) => Number(d.value || 0))) * 1.2
-      : 0;
-
-  // Fetch pending payouts (shared by initial load + realtime updates)
-  const fetchPendingPayouts = async (bizEmail: string) => {
-    const { data: payoutsData, error: payoutsError } = await supabase
-      .from("wallet_payouts")
-      .select("amount")
-      .eq("business_email", bizEmail)
-      .eq("status", "pending");
-
-    if (!payoutsError && payoutsData) {
-      setPendingPayoutCount(payoutsData.length);
-      const total = payoutsData.reduce(
-        (sum: number, row: any) => sum + Number(row.amount || 0),
-        0,
-      );
-      setPendingPayoutTotal(total);
-    } else {
-      console.error("[❌ Failed to fetch pending payouts]", payoutsError);
-    }
-  };
-
-  // Fetch last few completed payouts for transaction history
-  const fetchCompletedPayouts = async (bizEmail: string) => {
-    const { data, error } = await supabase
-      .from("wallet_payouts")
-      .select(
-        "id, affiliate_email, amount, status, created_at, stripe_transfer_id, offer_id, is_recurring, cycle_number",
-      )
-      .eq("business_email", bizEmail)
-      .neq("status", "pending")
-      .order("created_at", { ascending: false })
-      .limit(20);
-
-    if (!error && data) {
-      setCompletedPayouts(data);
-    } else {
-      console.error("[❌ Failed to fetch completed payouts]", error);
-    }
-  };
-
-  const approved = approvedAffiliates;
-
-  useEffect(() => {
-    // Wait until we actually have a session and user id before loading data
-    if (!session || !user?.id) {
-      return;
-    }
-
-    const fetchProfileAndData = async () => {
-      const { data: profileData, error: profileError } = await supabase
-        .from("profiles")
-        .select("id, role, email")
-        .eq("id", user.id)
-        .single();
-
-      if (profileError || !profileData) {
-        router.push("/create-account?role=business");
-        return;
-      }
-
-      if ((profileData as Profile).role !== "business") {
-        router.push("/affiliate/dashboard");
-        return;
-      }
-
-      setProfile(profileData as Profile);
-
-      const businessEmail = user?.email || "";
-
-      const { data: onboardingRows, error: onboardingErr } = await supabase
-        .from("business_onboarding_progress")
-        .select(
-          "first_offer_created,tracking_connected,payouts_enabled,billing_connected,meta_connected,first_affiliate_request_seen",
-        )
-        .eq("business_email", businessEmail);
-
-      if (!onboardingErr && onboardingRows) {
-        setOnboardingProgressFlags({
-          first_offer_created: onboardingRows.some((r: any) => Boolean(r.first_offer_created)),
-          tracking_connected: onboardingRows.some((r: any) => Boolean(r.tracking_connected)),
-          payouts_enabled: onboardingRows.some((r: any) => Boolean(r.payouts_enabled)),
-          billing_connected: onboardingRows.some((r: any) => Boolean(r.billing_connected)),
-          meta_connected: onboardingRows.some((r: any) => Boolean(r.meta_connected)),
-          first_affiliate_request_seen: onboardingRows.some((r: any) => Boolean(r.first_affiliate_request_seen)),
-        });
-      }
-
-      // Billing status (optional, used for checklist guidance)
-      try {
-        const billingRes = await fetch("/api/stripe/check-customer-card", {
-          method: "POST",
-        });
-        const billingJson = await billingRes.json().catch(() => ({}));
-        setHasBillingConnected(Boolean(billingJson?.hasCard));
-      } catch (billingErr) {
-        console.warn("[billing status check failed]", billingErr);
-        setHasBillingConnected(false);
-      }
-
-      // Fetch offers
-      const { data: offers, error: offersError } = await supabase
-        .from("offers")
-        .select(
-          "id, title, commission, payout_mode, payout_interval, payout_cycles, recurring_term_months, site_host, meta_page_id, meta_ad_account_id, meta_pixel_id",
-        )
-        .eq("business_email", businessEmail);
-
-      if (!offersError && offers) {
-        setLiveOffersCount(offers.length);
-        const lookup: Record<string, string> = {};
-        const payoutMeta: Record<
-          string,
-          {
-            payout_mode: string | null;
-            payout_interval: string | null;
-            payout_cycles: number | null;
-            recurring_term_months?: number | null;
-          }
-        > = {};
-        offers.forEach((o: any) => {
-          lookup[o.id] = o.title ?? null;
-          payoutMeta[o.id] = {
-            payout_mode: o.payout_mode ?? null,
-            payout_interval: o.payout_interval ?? null,
-            payout_cycles:
-              typeof o.payout_cycles === "number"
-                ? o.payout_cycles
-                : (o.payout_cycles ?? null),
-            recurring_term_months:
-              typeof o.recurring_term_months === "number"
-                ? o.recurring_term_months
-                : (o.recurring_term_months ?? null),
-          };
-        });
-        setOfferLookup(lookup);
-        setOfferPayoutMeta(payoutMeta);
-        setHasTrackingConfigured(
-          (offers || []).some((o: any) => Boolean(o.site_host)),
-        );
-        setHasMetaConnected(
-          (offers || []).some(
-            (o: any) =>
-              Boolean(o.meta_page_id) &&
-              Boolean(o.meta_ad_account_id),
-          ),
-        );
-      } else {
-        console.error("[❌ Failed to fetch offers for dashboard]", offersError);
-      }
-
-      const offerIds = (offers || []).map((o: any) => o.id);
-      const commissionByOffer: Record<string, number> = {};
-      (offers || []).forEach((o: any) => {
-        commissionByOffer[o.id] = Number(o.commission || 0);
-      });
-
-      // Fetch affiliate requests for this business
-      const { data: affiliateReqData, error: affiliateReqError } =
-        await supabase
-          .from("affiliate_requests")
-          .select(
-            "id, created_at, status, business_email, affiliate_email, offer_id",
-          )
-          .eq("business_email", businessEmail);
-
-      if (!affiliateReqError && affiliateReqData) {
-        const approvedForBiz = affiliateReqData.filter(
-          (r: any) => r.status === "approved",
-        );
-        const pendingForBiz = affiliateReqData.filter(
-          (r: any) => r.status === "pending",
-        );
-        setApprovedAffiliates(approvedForBiz);
-        setPendingRequests(pendingForBiz);
-
-        // Build affiliate growth series: requests vs approved per day
-        const countsByDate: Record<
-          string,
-          { requested: number; approved: number }
-        > = {};
-
-        affiliateReqData.forEach((r: any) => {
-          const date = new Date(r.created_at);
-          const key = date.toISOString().slice(0, 10); // YYYY-MM-DD
-
-          if (!countsByDate[key]) {
-            countsByDate[key] = { requested: 0, approved: 0 };
-          }
-          countsByDate[key].requested += 1;
-          if (r.status === "approved") {
-            countsByDate[key].approved += 1;
-          }
-        });
-
-        const affiliateSeriesData = Object.entries(countsByDate)
-          .sort(([a], [b]) => (a as string).localeCompare(b as string))
-          .slice(-20)
-          .map(([date, counts]) => ({
-            name: date,
-            requested: (counts as any).requested,
-            approved: (counts as any).approved,
-          }));
-
-        setAffiliateSeriesRaw(affiliateSeriesData);
-
-        // Recent affiliate events list
-        const recent = affiliateReqData
-          .slice()
-          .sort(
-            (a: any, b: any) =>
-              new Date(b.created_at).getTime() -
-              new Date(a.created_at).getTime(),
-          )
-          .slice(0, 6);
-        setRecentAffiliateEvents(recent);
-      } else {
-        console.error(
-          "[❌ Failed to fetch affiliate requests for dashboard]",
-          affiliateReqError,
-        );
-      }
-
-      // One server-authorised snapshot for paid and organic campaigns,
-      // submitted ad proposals and affiliate request counts. A client-side
-      // RLS query must not silently turn real activity into false zeros.
-      try {
-        const summaryResponse = await fetch("/api/business/dashboard/summary", { cache: "no-store" });
-        const summary = await summaryResponse.json().catch(() => null);
-        if (!summaryResponse.ok || !summary?.success) {
-          throw new Error(summary?.error || "Business counts unavailable.");
-        }
-        setDashboardCounts({
-          activeCampaignCount: summary.activeCampaignCount,
-          pendingAdProposals: summary.pendingAdProposals,
-          approvedAffiliates: summary.approvedAffiliates,
-          pendingAffiliateRequests: summary.pendingAffiliateRequests,
-        });
-        setActiveCampaigns((summary.campaigns || []).map((campaign: any) => ({
-          ...campaign,
-          resolved_offer_title: (offers || []).find((o: any) => o.id === campaign.offer_id)?.title || null,
-        })));
-      } catch (summaryError) {
-        console.error("[business/dashboard] authoritative summary failed", summaryError);
-        setDashboardCounts(null);
-        setActiveCampaigns([]);
-      }
-
-      // Fetch conversion events and build sales series and total revenue
-      if (offerIds.length > 0) {
-        const { data: convData, error: convError } = await supabase
-          .from("campaign_tracking_events")
-          .select("created_at, amount, offer_id")
-          .eq("event_type", "conversion")
-          .in("offer_id", offerIds);
-
-        if (!convError && convData) {
-          const revenueByDate: Record<string, number> = {};
-          let totalNet = 0;
-
-          convData.forEach((ev: any) => {
-            const date = new Date(ev.created_at);
-            const key = date.toISOString().slice(0, 10);
-            const gross = Number(ev.amount || 0);
-            const pct = commissionByOffer[ev.offer_id] ?? 0;
-            const net = gross * (1 - pct / 100);
-            totalNet += net;
-            revenueByDate[key] = (revenueByDate[key] || 0) + net;
-          });
-
-          const salesSeriesData = Object.entries(revenueByDate)
-            .sort(([a], [b]) => (a as string).localeCompare(b as string))
-            .slice(-20)
-            .map(([date, value]) => ({
-              name: date,
-              value: Number((value as number).toFixed(2)),
-            }));
-
-          setSalesSeriesRaw(salesSeriesData);
-          setTotalRevenue(Number(totalNet.toFixed(2)));
-        } else {
-          console.error(
-            "[❌ Failed to fetch conversion events for dashboard]",
-            convError,
-          );
-        }
-      } else {
-        setSalesSeriesRaw([]);
-        setTotalRevenue(0);
-      }
-
-      // Fetch payout data for this business
-      if (user?.email) {
-        await fetchPendingPayouts(user.email);
-        await fetchCompletedPayouts(user.email);
-      }
+    const visible = () => { if (document.visibilityState === "visible") void refresh(); };
+    const timer = window.setInterval(visible, 60_000);
+    document.addEventListener("visibilitychange", visible);
+    window.addEventListener("focus", visible);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", visible);
+      window.removeEventListener("focus", visible);
     };
+  }, [email, refresh]);
 
-    void fetchProfileAndData()
-      .catch((error) => console.error("[business/dashboard] load failed", error))
-      .finally(() => setDashboardLoaded(true));
+  const activity = useMemo(() => {
+    const days = snapshot?.affiliateSeries || [];
+    if (range === "all") return days;
+    const from = new Date();
+    from.setDate(from.getDate() - (range === "7d" ? 7 : 30));
+    return days.filter((day) => Date.parse(day.name) >= from.getTime());
+  }, [snapshot?.affiliateSeries, range]);
 
-    // Realtime updates for wallet_payouts affecting this business
-    if (session && user?.email) {
-      const channel = supabase
-        .channel(`payouts-feed-${user.email}`)
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "wallet_payouts",
-            filter: `business_email=eq.${user.email}`,
-          },
-          () => {
-            fetchPendingPayouts(user.email!);
-            fetchCompletedPayouts(user.email!);
-          },
-        )
-        .subscribe();
+  const campaign = snapshot?.campaigns[0] || null;
+  const finance = snapshot?.finance;
+  const pendingProposals = snapshot?.pendingAdProposals ?? 0;
+  const pendingRequests = snapshot?.pendingAffiliateRequests ?? 0;
 
-      return () => {
-        try {
-          supabase.removeChannel(channel);
-        } catch (_) {}
-      };
-    }
-  }, [session, router, user]);
-
-  const activationItems = [
-    { label: "Create Account", done: true, href: "/create-account?role=business" },
-    {
-      label: "Publish First Offer",
-      done: onboardingProgressFlags.first_offer_created || liveOffersCount > 0,
-      href: "/business/my-business/create-offer",
-    },
-    {
-      label: "Setup Tracking",
-      done: onboardingProgressFlags.tracking_connected || hasTrackingConfigured,
-      href: "/business/setup-tracking",
-    },
-    {
-      label: "Receive First Request",
-      done:
-        onboardingProgressFlags.first_affiliate_request_seen ||
-        pendingRequests.length + approved.length > 0,
-      href: "/business/inbox",
-    },
-    { label: "Approve First Affiliate", done: approved.length > 0, href: "/business/inbox" },
-    {
-      label: "Connect commission billing",
-      done: hasBillingConnected,
-      href: "/business/settings",
-    },
-    {
-      label: "Connect Meta for paid ads",
-      done: hasMetaConnected,
-      href: "/business/my-business/connect-meta",
-    },
-    { label: "Launch First Campaign", done: activeCampaigns.length > 0, href: "/business/manage-campaigns" },
-    { label: "Receive First Sale", done: totalRevenue > 0, href: "/business/dashboard" },
-  ];
-  const activationDoneCount = activationItems.filter((item) => item.done).length;
-  const activationProgress = Math.round((activationDoneCount / activationItems.length) * 100);
-
-  const firstPendingRequest = pendingRequests[0] || null;
-  const canApproveAffiliates =
-    (onboardingProgressFlags.billing_connected || hasBillingConnected) &&
-    onboardingProgressFlags.payouts_enabled;
-
-  const handleRequestDecision = async (
-    requestId: string,
-    newStatus: "approved" | "rejected",
-  ) => {
-    if (!requestId) return;
-    setRequestActionBusyId(requestId);
-    try {
-      const response = await fetch("/api/business/affiliate-requests/update-status", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ requestId, status: newStatus }),
-      });
-      const responseJson = await parseJsonSafe(response);
-
-      if (!response.ok || !responseJson?.success) {
-        const message = responseJson?.message || responseJson?.error || "Failed to update affiliate request.";
-        console.error("[❌ Failed to update affiliate request status]", message || response.status);
-        toast.error(message);
-        return;
-      }
-
-      setPendingRequests((prev) => prev.filter((r: any) => r.id !== requestId));
-      if (newStatus === "approved") {
-        const approvedRow = pendingRequests.find((r: any) => r.id === requestId);
-        if (approvedRow) {
-          setApprovedAffiliates((prev) => [approvedRow, ...prev]);
-        }
-        toast.success("Affiliate approved.");
-      } else {
-        toast.success("Affiliate request rejected.");
-      }
-    } finally {
-      setRequestActionBusyId(null);
-    }
-  };
-
-  if (!dashboardLoaded) {
-    return <div role="status" className="min-h-screen bg-[var(--background)] px-6 py-10 text-[var(--muted-foreground)]">
-      <div className="mb-6 h-8 w-60 animate-pulse rounded-xl bg-white/10" />
-      <div className="grid gap-3 sm:grid-cols-3">
-        {[0, 1, 2].map((key) => <div key={key} className="h-28 animate-pulse rounded-2xl border border-[var(--border)] bg-[var(--card)]" />)}
+  if (loading && !snapshot) {
+    return (
+      <div role="status" className="min-h-screen bg-[var(--background)] px-4 py-8 text-[var(--muted-foreground)] sm:px-6">
+        <div className="h-8 w-64 animate-pulse rounded-xl bg-white/[0.08]" />
+        <div className="mt-6 h-52 animate-pulse rounded-[22px] bg-[#151718]" />
+        <p className="mt-4 text-sm">Loading business dashboard…</p>
       </div>
-      <p className="mt-6 text-sm">Loading business activity and setup…</p>
-    </div>;
+    );
   }
 
   return (
-    <>
-      <div className="business-dashboard-theme min-h-screen w-full bg-[var(--background)] text-[var(--foreground)] px-4 py-4 sm:px-5 sm:py-6">
-      <section className="mb-6 rounded-2xl border border-[var(--border)] bg-[var(--card)] p-4 sm:p-5">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-start gap-3">
-            <span className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-2">
-              <ListChecks className="h-4 w-4 text-[#7ff5fb]" />
-            </span>
-            <div>
-              <p className="text-sm font-semibold text-[var(--foreground)]">Business milestones</p>
-              <p className="text-xs text-[var(--muted-foreground)]">{dashboardCounts ? `${activationDoneCount} of ${activationItems.length} complete` : "Checking setup"}</p>
-            </div>
+    <main className="business-dashboard-theme min-h-screen w-full bg-[var(--background)] px-4 pb-12 pt-6 text-white sm:px-6 sm:pt-8">
+      <div className="mx-auto max-w-[1460px] space-y-4 sm:space-y-5">
+        <header className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.20em] text-[#63e8ee]">Overview</p>
+            <h1 className="mt-1 text-[26px] font-semibold leading-tight tracking-tight text-white sm:text-[34px]">Business Dashboard</h1>
+            <p className={"mt-1 text-[13px] " + muted}>Your campaigns, affiliate activity and ad spend in one place.</p>
           </div>
-          <button
-            onClick={() => setShowActivationDetails((prev) => !prev)}
-            className="inline-flex items-center gap-1 rounded-lg border border-[var(--border)] px-3 py-2 text-xs font-semibold text-[var(--muted-foreground)] transition hover:bg-black/10"
-          >
-            Steps left {showActivationDetails ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-          </button>
-        </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <ActionLink href="/business/my-business/create-offer"><Plus className="h-4 w-4" /> New offer</ActionLink>
+            <ActionLink href="/business/manage-campaigns">Manage campaigns</ActionLink>
+          </div>
+        </header>
 
-        <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-black/20">
-          <div className="h-full rounded-full bg-[#00C2CB]" style={{ width: `${activationProgress}%` }} />
-        </div>
-
-        {showActivationDetails && (
-          <div className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-2">
-            {activationItems.map((item) => (
-              <button
-                key={item.label}
-                onClick={() => {
-                  if (item.onClick && !item.done) {
-                    item.onClick();
-                    return;
-                  }
-                  router.push(item.href);
-                }}
-                className="flex items-center justify-between rounded-xl border border-[var(--border)] bg-[var(--card)] px-3 py-2 text-left"
-              >
-                <span className="text-sm text-[var(--foreground)]">{item.label}</span>
-                {item.done ? (
-                  <CheckCircle2 className="h-4 w-4 text-[#7ff5fb]" />
-                ) : (
-                  <Circle className="h-4 w-4 text-[var(--muted-foreground)]" />
-                )}
-              </button>
-            ))}
+        {error && (
+          <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-500/20 bg-amber-500/[0.07] p-3 text-sm text-amber-200">
+            <span>{error} {snapshot ? "Showing last loaded values." : "Please retry."}</span>
+            <button type="button" onClick={() => void refresh()} className="inline-flex items-center gap-2 font-semibold underline underline-offset-2"><RefreshCw className="h-4 w-4" /> Retry</button>
           </div>
         )}
 
-        <div className="mt-4 grid grid-cols-1 gap-2 md:grid-cols-2">
-          <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-3">
-            <button
-              type="button"
-              onClick={() => setShowBillingWhy((prev) => !prev)}
-              className="flex w-full items-center justify-between text-left"
-            >
-              <span className="text-sm font-semibold text-[var(--foreground)]">Commission billing</span>
-              {showBillingWhy ? <ChevronUp className="h-4 w-4 text-[var(--muted-foreground)]" /> : <ChevronDown className="h-4 w-4 text-[var(--muted-foreground)]" />}
-            </button>
-            <p className="mt-1 text-xs text-[var(--muted-foreground)]">
-              {hasBillingConnected ? "Billing card connected" : "Commission billing is checked again when reviewing paid proposals"}
-            </p>
-            {showBillingWhy && (
-              <div className="mt-2 space-y-2 text-xs text-[var(--muted-foreground)]">
-                <p>Billing stays optional while you set up the business, publish offers, and review affiliate requests.</p>
-                <p>Nettmark Business subscription checkout appears only when approving a paid ad idea from Ad Ideas.</p>
+        <section className={panel + " p-4 sm:p-5"} aria-labelledby="reconciliation-heading">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#00C2CB]/[0.09] text-[#19d4dd]"><Wallet className="h-5 w-5" /></span>
+              <div>
+                <h2 id="reconciliation-heading" className="text-[16px] font-semibold text-white">Ad spend reconciliation</h2>
+                <p className={"mt-1 max-w-xl text-xs leading-5 " + muted}>Follow affiliate-funded spend from Meta reporting through to reimbursement.</p>
               </div>
-            )}
-          </div>
-
-          <div className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-3">
-            <button
-              type="button"
-              onClick={() => setShowMetaWhy((prev) => !prev)}
-              className="flex w-full items-center justify-between text-left"
-            >
-              <span className="text-sm font-semibold text-[var(--foreground)]">Meta advertising connection</span>
-              {showMetaWhy ? <ChevronUp className="h-4 w-4 text-[var(--muted-foreground)]" /> : <ChevronDown className="h-4 w-4 text-[var(--muted-foreground)]" />}
-            </button>
-            <p className="mt-1 text-xs text-[var(--muted-foreground)]">
-              {hasMetaConnected ? "Meta account connected" : "Connect Meta before launching a paid campaign"}
-            </p>
-            {showMetaWhy && (
-              <div className="mt-2 space-y-2 text-xs text-[var(--muted-foreground)]">
-                <p>Meta connection unlocks paid campaigns (page, ad account, and pixel-based launches).</p>
-                <p>You can still onboard and list offers without it, then connect when you’re ready to run paid traffic.</p>
-                {!hasMetaConnected && (
-                  <button
-                    onClick={() => router.push("/business/my-business/connect-meta")}
-                    className="rounded-lg border border-[var(--border)] px-3 py-1.5 text-xs font-semibold text-[var(--foreground)]"
-                  >
-                    Connect Meta
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
-
-      {firstPendingRequest && (
-        <section className="mb-6 rounded-2xl border border-[#00C2CB]/25 bg-[var(--card)] p-4 sm:p-5">
-          <p className="text-xs uppercase tracking-[0.2em] text-[#7ff5fb]">Affiliate Interested</p>
-          <p className="mt-2 text-sm text-[var(--foreground)]">
-            {firstPendingRequest.affiliate_email} requested to promote {offerLookup[firstPendingRequest.offer_id] || "your offer"}.
-          </p>
-          {!canApproveAffiliates && (
-            <div className="mt-3 rounded-xl border border-[#00C2CB]/25 bg-[#00C2CB]/10 p-3 text-sm text-[#d8fbfd]">
-              You can approve affiliate requests for free. Paid ad approval happens later from Ad Ideas.
             </div>
-          )}
-          <div className="mt-4 flex flex-wrap gap-2">
-            <button
-              onClick={() => router.push("/business/inbox")}
-              className="rounded-lg border border-[var(--border)] bg-[var(--card)] px-4 py-2 text-sm font-semibold text-[var(--foreground)]"
-            >
-              Review Request
-            </button>
-            <button
-              onClick={() => handleRequestDecision(firstPendingRequest.id, "approved")}
-              disabled={requestActionBusyId === firstPendingRequest.id}
-              className="rounded-lg bg-[#00C2CB] px-4 py-2 text-sm font-semibold text-black disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {requestActionBusyId === firstPendingRequest.id ? "Approving…" : "Approve"}
-            </button>
-            <button
-              onClick={() => handleRequestDecision(firstPendingRequest.id, "rejected")}
-              disabled={requestActionBusyId === firstPendingRequest.id}
-              className="rounded-lg border border-[var(--border)] bg-black/20 px-4 py-2 text-sm font-semibold text-[var(--foreground)] disabled:opacity-60"
-            >
-              Reject
-            </button>
+            <ActionLink href="/business/manage-campaigns">View campaigns</ActionLink>
           </div>
+
+          <div className="mt-4 grid grid-cols-2 gap-2.5 xl:grid-cols-4">
+            <FinanceTile label="Reported Meta spend" value={finance ? money(finance.reportedMetaSpend) : "—"} icon={<MetaMark className="h-5 w-7" />} note="Cumulative Meta reports" />
+            <FinanceTile label="Awaiting wallet settlement" value={finance ? money(finance.awaitingWalletSettlement) : "—"} icon={<Clock3 className="h-5 w-5" />} note="Spend not yet deducted" important />
+            <FinanceTile label="Queued for business transfer" value={finance ? money(finance.queuedForTransfer) : "—"} icon={<Activity className="h-5 w-5" />} note="Accounted, not yet transferred" />
+            <FinanceTile label="Transferred to business" value={finance ? money(finance.transferredToBusiness) : "—"} icon={<CheckCircle2 className="h-5 w-5" />} note="Stripe transfer confirmed" />
+          </div>
+          <p className={"mt-3 text-[11px] leading-5 " + muted}>
+            {finance
+              ? "Based on stored Meta reports and Nettmark's settlement ledger. Meta reporting may lag; these totals are cumulative, not month-to-date."
+              : "Reconciliation figures are temporarily unavailable. Campaigns and other business activity can still be viewed."}
+          </p>
         </section>
-      )}
 
-      <SectionHeader eyebrow="Snapshot" title="Business snapshot" className="mb-4 mt-2" />
-      <div className="mb-6 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-        <StatCard label="Approved affiliates" value={dashboardCounts?.approvedAffiliates ?? "—"} icon={<Users className="h-4 w-4" />} helper="Affiliate requests" tone="primary" />
-        <StatCard label="Pending affiliate requests" value={dashboardCounts?.pendingAffiliateRequests ?? "—"} icon={<Sparkles className="h-4 w-4" />} helper="Membership approval" tone="warning" />
-        <StatCard label="Pending ad proposals" value={dashboardCounts?.pendingAdProposals ?? "—"} icon={<ListChecks className="h-4 w-4" />} helper="Needs business review" tone="warning" />
-        <StatCard label="Total revenue" value={formatCurrency(totalRevenue)} icon={<LineChartIcon className="h-4 w-4" />} helper="MTD" tone="success" />
-        <StatCard
-          label="Pending payouts"
-          value={formatCurrency(pendingPayoutTotal)}
-          icon={<ArrowUpRight className="h-4 w-4" />}
-          helper={`${pendingPayoutCount} awaiting`}
-          tone="primary"
-          interactive
-          onClick={() => router.push("/business/payouts")}
-          role="button"
-          aria-label="View pending payouts"
-        />
-        <StatCard label="Live offers" value={liveOffersCount} icon={<PlayCircle className="h-4 w-4" />} helper="Now" tone="muted" />
-      </div>
+        <section aria-label="Business summary" className="grid grid-cols-3 gap-2.5 sm:gap-3">
+          <MiniStat label="Approved affiliates" value={snapshot ? String(snapshot.approvedAffiliates) : "—"} icon={<Users className="h-[18px] w-[18px]" />} description="In your network" href="/business/my-business/affiliate-requests" />
+          <MiniStat label="Pending ad proposals" value={snapshot ? String(pendingProposals) : "—"} icon={<ListChecks className="h-[18px] w-[18px]" />} description={pendingProposals ? "Needs your review" : "All reviewed"} href="/business/my-business/ad-ideas" />
+          <MiniStat label="Live campaigns" value={snapshot ? String(snapshot.activeCampaignCount) : "—"} icon={<Activity className="h-[18px] w-[18px]" />} description="Running or live" href="/business/manage-campaigns" />
+        </section>
 
-      {/* Graphs */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mb-8 sm:mb-10">
-        {/* Affiliate Growth */}
-        <div className={`${CARD}`}>
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-[15px] font-semibold tracking-wide text-[#7ff5fb]">
-              Affiliate Growth
-            </h2>
-            <div className="flex items-center gap-1 rounded-full bg-black/40 px-1 py-0.5">
-              {(["7d", "30d", "1y", "all"] as Timeframe[]).map((tf) => (
-                <button
-                  key={tf}
-                  type="button"
-                  onClick={() => setAffiliateRange(tf)}
-                  className={`px-2 py-0.5 text-[11px] rounded-full transition-colors ${
-                    affiliateRange === tf
-                      ? "bg-[#00C2CB]/20 text-[#7ff5fb]"
-                      : "text-gray-400 hover:text-gray-100"
-                  }`}
-                >
-                  {tf === "7d"
-                    ? "7D"
-                    : tf === "30d"
-                      ? "30D"
-                      : tf === "1y"
-                        ? "1Y"
-                        : "All"}
+        <div className="grid gap-4 lg:grid-cols-2">
+          <section className={panel + " min-w-0 p-4 sm:p-5"} aria-labelledby="live-campaign-title">
+            <div className="flex items-center justify-between gap-2">
+              <h2 id="live-campaign-title" className="text-[15px] font-semibold text-white">Live campaign</h2>
+              <ActionLink href="/business/manage-campaigns">View all</ActionLink>
+            </div>
+            {campaign ? (
+              <Link href={"/business/manage-campaigns/" + encodeURIComponent(campaign.id)} className="mt-4 block rounded-[17px] border border-white/[0.08] bg-[#101415] p-4 transition hover:border-[#00C2CB]/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00C2CB]">
+                <div className="flex items-start gap-3">
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-[#151718] text-[#19d4dd]">
+                    {campaign.__source === "paid" ? <MetaMark className="h-6 w-9" /> : <Activity className="h-5 w-5" />}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="truncate text-[13px] font-semibold text-white">{campaign.offerTitle}</h3>
+                    <p className={"mt-1 truncate text-xs " + muted}>{campaign.affiliateHandle === "Affiliate" ? "Affiliate campaign" : "@" + campaign.affiliateHandle}</p>
+                  </div>
+                  <span className="shrink-0 rounded-full border border-emerald-400/25 bg-emerald-400/[0.08] px-2.5 py-1 text-[10px] font-semibold text-emerald-300">Active</span>
+                </div>
+                <div className="mt-4 grid grid-cols-3 gap-2 border-t border-white/[0.07] pt-3">
+                  <div className="min-w-0"><p className="text-[10px] text-slate-400">Channel</p><p className="mt-1 truncate text-xs font-medium text-slate-100">{campaign.__source === "paid" ? "Meta Ads" : "Organic"}</p></div>
+                  <div className="min-w-0"><p className="text-[10px] text-slate-400">Recorded spend</p><p className="mt-1 truncate text-xs font-medium text-slate-100">{campaign.__source === "paid" ? money(Number(campaign.spend || 0)) : "—"}</p></div>
+                  <div className="min-w-0"><p className="text-[10px] text-slate-400">Started</p><p className="mt-1 truncate text-xs font-medium text-slate-100">{shortDate(campaign.created_at)}</p></div>
+                </div>
+              </Link>
+            ) : (
+              <div className="mt-4 flex min-h-40 flex-col justify-center rounded-[17px] border border-dashed border-white/[0.10] bg-[#101415] p-4">
+                <p className="text-sm font-semibold text-white">No live campaigns yet</p>
+                <p className={"mt-1 text-xs " + muted}>Publish an offer to start growing with affiliates.</p>
+                <Link href="/business/my-business/create-offer" className="mt-3 inline-flex items-center gap-2 text-xs font-semibold text-[#63e8ee]">Create an offer <ArrowRight className="h-3.5 w-3.5" /></Link>
+              </div>
+            )}
+          </section>
+
+          <section className={panel + " min-w-0 p-4 sm:p-5"} aria-labelledby="attention-heading">
+            <div className="flex items-center justify-between gap-2">
+              <h2 id="attention-heading" className="text-[15px] font-semibold text-white">Needs attention</h2>
+              <ActionLink href="/business/inbox">Open inbox</ActionLink>
+            </div>
+            <div className="mt-4 divide-y divide-white/[0.07] overflow-hidden rounded-[17px] border border-white/[0.08] bg-[#101415]">
+              <Link href="/business/my-business/ad-ideas" className="flex min-h-[74px] items-center gap-3 p-3 transition hover:bg-white/[0.03]">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-300/[0.08] text-amber-300"><ListChecks className="h-4 w-4" /></span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-xs font-semibold text-white">{pendingProposals ? pendingProposals + " ad proposal" + (pendingProposals === 1 ? "" : "s") + " waiting" : "Ad proposals"}</span>
+                  <span className={"mt-1 block text-[11px] " + muted}>{pendingProposals ? "Review submissions from your affiliates" : "Nothing waiting for review"}</span>
+                </span>
+                <ChevronRight className="h-4 w-4 shrink-0 text-slate-500" />
+              </Link>
+              <Link href={pendingRequests ? "/business/my-business/affiliate-requests" : "/business/inbox"} className="flex min-h-[74px] items-center gap-3 p-3 transition hover:bg-white/[0.03]">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#00C2CB]/[0.09] text-[#19d4dd]">{pendingRequests ? <Users className="h-4 w-4" /> : <Inbox className="h-4 w-4" />}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-xs font-semibold text-white">{pendingRequests ? pendingRequests + " affiliate request" + (pendingRequests === 1 ? "" : "s") + " pending" : "Messages & updates"}</span>
+                  <span className={"mt-1 block text-[11px] " + muted}>{pendingRequests ? "Approve partners who want to promote you" : "Stay in touch with your affiliates"}</span>
+                </span>
+                <ChevronRight className="h-4 w-4 shrink-0 text-slate-500" />
+              </Link>
+            </div>
+          </section>
+        </div>
+
+        <section className={panel + " min-w-0 p-4 sm:p-5"} aria-labelledby="affiliate-activity-heading">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 id="affiliate-activity-heading" className="text-[15px] font-semibold text-white">Affiliate activity</h2>
+              <p className={"mt-1 text-xs " + muted}>Requests and approvals over time</p>
+            </div>
+            <div role="group" aria-label="Affiliate activity range" className="flex gap-1 rounded-full border border-white/[0.08] bg-[#101415] p-1">
+              {(["7d", "30d", "all"] as Range[]).map((option) => (
+                <button key={option} type="button" aria-pressed={range === option} onClick={() => setRange(option)}
+                  className={"min-h-8 rounded-full px-3 text-[11px] font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00C2CB] " +
+                    (range === option ? "bg-[#00C2CB] text-[#0f0f0f]" : "text-slate-400 hover:text-white")}>
+                  {option === "all" ? "All" : option.toUpperCase()}
                 </button>
               ))}
             </div>
           </div>
-          <div className="h-64 sm:h-52 rounded-md text-gray-400">
-            {affiliateSeries.length === 0 ? (
-              <div className="flex h-full flex-col items-center justify-center gap-3 text-sm">
-                <div className="rounded-xl border border-dashed border-slate-800/80 bg-[#111827] px-4 py-3 max-w-sm w-full">
-                  <div className="text-xs font-medium text-[#7ff5fb] mb-1">
-                    No affiliate activity yet
-                  </div>
-                  <p className="text-[11px] text-gray-400">
-                    Once affiliates start requesting and you approve them, this
-                    chart will show daily requests vs approvals.
-                  </p>
-                  <div className="mt-3 h-16 w-full rounded-md bg-black/70 flex items-end gap-2 px-2 pb-1">
-                    {/* Requests (teal) */}
-                    <div className="flex-1 flex items-end gap-1">
-                      <div className="h-3 w-1.5 rounded-full bg-slate-700/70" />
-                      <div className="h-5 w-1.5 rounded-full bg-[#22d3ee]/80" />
-                      <div className="h-2 w-1.5 rounded-full bg-slate-800/70" />
-                      <div className="h-4 w-1.5 rounded-full bg-[#22d3ee]/80" />
-                    </div>
-                    {/* Approved (green) */}
-                    <div className="flex-1 flex items-end gap-1">
-                      <div className="h-2 w-1.5 rounded-full bg-slate-800/70" />
-                      <div className="h-4 w-1.5 rounded-full bg-[#22c55e]/80" />
-                      <div className="h-3 w-1.5 rounded-full bg-slate-800/70" />
-                      <div className="h-6 w-1.5 rounded-full bg-[#22c55e]/80" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : (
+          <div className="mt-3 h-[170px] w-full sm:h-[205px]">
+            {activity.length ? (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={affiliateSeries}
-                  margin={{ top: 12, right: 8, left: -10, bottom: 0 }}
-                  barCategoryGap={18}
-                >
-                  <CartesianGrid
-                    stroke="rgba(148,163,184,0.18)"
-                    vertical={false}
-                  />
-                  <XAxis
-                    dataKey="name"
-                    tickFormatter={formatShortDate}
-                    tick={{ fontSize: 10, fill: "#9ca3af" }}
-                  />
-                  <YAxis
-                    allowDecimals={false}
-                    tick={{ fontSize: 10, fill: "#9ca3af" }}
-                    width={30}
-                  />
-                  <Tooltip content={<AffiliateTooltip />} />
-                  <Legend
-                    verticalAlign="top"
-                    align="right"
-                    iconSize={8}
-                    wrapperStyle={{ fontSize: 10, color: "#9ca3af" }}
-                  />
-                  <Bar
-                    dataKey="requested"
-                    name="Requests"
-                    fill="#22d3ee"
-                    radius={[4, 4, 0, 0]}
-                    maxBarSize={18}
-                  />
-                  <Bar
-                    dataKey="approved"
-                    name="Approved"
-                    fill="#22c55e"
-                    radius={[4, 4, 0, 0]}
-                    maxBarSize={18}
-                  />
+                <BarChart data={activity} barCategoryGap="36%" margin={{ top: 12, right: 6, left: -26, bottom: 0 }}>
+                  <CartesianGrid stroke="rgba(255,255,255,0.07)" vertical={false} />
+                  <XAxis dataKey="name" tickFormatter={(date: string) => shortDate(date).replace(/ \d{4}$/, "")} tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false} minTickGap={23} />
+                  <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} tickLine={false} axisLine={false} allowDecimals={false} />
+                  <Tooltip contentStyle={{ background: "#101415", border: "1px solid #303335", borderRadius: 12, fontSize: 12, color: "#fff" }} labelFormatter={(label) => shortDate(String(label))} />
+                  <Bar dataKey="requested" name="Requests" fill="#00C2CB" maxBarSize={18} radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="approved" name="Approved" fill="#22c55e" maxBarSize={18} radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
-            )}
-          </div>
-        </div>
-
-        {/* Sales Performance */}
-        <div className={`${CARD}`}>
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-[15px] font-semibold tracking-wide text-[#7ff5fb]">
-              Sales Performance
-            </h2>
-            <div className="flex items-center gap-1 rounded-full bg-black/40 px-1 py-0.5">
-              {(["7d", "30d", "1y", "all"] as Timeframe[]).map((tf) => (
-                <button
-                  key={tf}
-                  type="button"
-                  onClick={() => setSalesRange(tf)}
-                  className={`px-2 py-0.5 text-[11px] rounded-full transition-colors ${
-                    salesRange === tf
-                      ? "bg-[#00C2CB]/20 text-[#7ff5fb]"
-                      : "text-gray-400 hover:text-gray-100"
-                  }`}
-                >
-                  {tf === "7d"
-                    ? "7D"
-                    : tf === "30d"
-                      ? "30D"
-                      : tf === "1y"
-                        ? "1Y"
-                        : "All"}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="h-64 sm:h-52 rounded-md text-gray-400">
-            {salesSeries.length === 0 ? (
-              <div className="flex h-full flex-col items-center justify-center gap-3 text-sm">
-                <div className="rounded-xl border border-dashed border-slate-800/80 bg-[#111827] px-4 py-3 max-w-sm w-full">
-                  <div className="text-xs font-medium text-[#7ff5fb] mb-1">
-                    No sales recorded yet
-                  </div>
-                  <p className="text-[11px] text-gray-400">
-                    As soon as your first conversion comes through, this area
-                    will light up with daily revenue and trend lines.
-                  </p>
-                  <div className="mt-3 h-16 w-full rounded-md bg-black/70 flex items-end gap-1 px-2 pb-1">
-                    <div className="h-3 w-1.5 rounded-full bg-slate-700/70" />
-                    <div className="h-4 w-1.5 rounded-full bg-[#00C2CB]/70" />
-                    <div className="h-2 w-1.5 rounded-full bg-slate-800/70" />
-                    <div className="h-5 w-1.5 rounded-full bg-[#00C2CB]/70" />
-                    <div className="h-3 w-1.5 rounded-full bg-slate-800/70" />
-                    <div className="h-6 w-1.5 rounded-full bg-slate-700/70" />
-                  </div>
-                </div>
-              </div>
             ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart
-                  data={salesSeries}
-                  margin={{ top: 12, right: 16, left: -4, bottom: 0 }}
-                >
-                  <defs>
-                    <linearGradient
-                      id="salesGradient"
-                      x1="0"
-                      y1="0"
-                      x2="0"
-                      y2="1"
-                    >
-                      <stop offset="0%" stopColor="#22d3ee" stopOpacity={0.9} />
-                      <stop
-                        offset="100%"
-                        stopColor="#22d3ee"
-                        stopOpacity={0.05}
-                      />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid
-                    stroke="rgba(148,163,184,0.18)"
-                    vertical={false}
-                  />
-                  <XAxis
-                    dataKey="name"
-                    tickFormatter={formatShortDate}
-                    tick={{ fontSize: 10, fill: "#9ca3af" }}
-                  />
-                  <YAxis
-                    tickFormatter={(v) => "$" + v}
-                    tick={{ fontSize: 10, fill: "#9ca3af" }}
-                    width={40}
-                  />
-                  <Tooltip content={<SalesTooltip />} />
-                  {salesGoal > 0 && (
-                    <ReferenceLine
-                      y={salesGoal}
-                      stroke="#64748b"
-                      strokeDasharray="4 4"
-                      strokeWidth={1}
-                    />
-                  )}
-                  <Area
-                    type="monotone"
-                    dataKey="value"
-                    stroke="#22d3ee"
-                    strokeWidth={2}
-                    fill="url(#salesGradient)"
-                    dot={{ r: 3, strokeWidth: 1 }}
-                    activeDot={{ r: 5 }}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Active Campaigns Section */}
-      <div className={`${CARD} mt-2`}>
-        <button
-          type="button"
-          onClick={() => setShowAllCampaigns((prev) => !prev)}
-          className="flex w-full items-center justify-between mb-2 text-left"
-        >
-          <div className="flex items-center gap-2">
-            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/10 border border-emerald-500/40">
-              <PlayCircle className="w-3.5 h-3.5 text-emerald-400" />
-            </div>
-            <div>
-              <h2 className="text-[15px] font-semibold tracking-wide text-[#7ff5fb] flex items-center gap-2">
-                <span>Live Campaigns ({dashboardCounts?.activeCampaignCount ?? "—"})</span>
-              </h2>
-              {activeCampaigns.length > 0 && (
-                <p className="text-[11px] text-gray-500">
-                  Showing{" "}
-                  {showAllCampaigns ? "all campaigns" : "most recent campaign"}
-                </p>
-              )}
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            {activeCampaigns.length > 1 && !showAllCampaigns && (
-              <span className="text-[11px] text-gray-400">
-                + {activeCampaigns.length - 1} more
-              </span>
-            )}
-            {activeCampaigns.length > 0 && (
-              <ChevronRight
-                className={`w-3.5 h-3.5 text-gray-400 transition-transform ${
-                  showAllCampaigns ? "rotate-90" : "rotate-0"
-                }`}
-              />
-            )}
-          </div>
-        </button>
-
-        {!dashboardCounts ? (
-          <p className="text-sm text-amber-200">Campaign totals are unavailable. Refresh to retry.</p>
-        ) : activeCampaigns.length === 0 ? (
-          <p className="text-sm text-gray-400">No live campaigns yet.</p>
-        ) : (
-          <div className="mt-1 space-y-2 text-sm text-gray-200">
-            {(showAllCampaigns
-              ? activeCampaigns
-              : activeCampaigns
-                  .slice()
-                  .sort(
-                    (a: any, b: any) =>
-                      new Date(b.created_at).getTime() -
-                      new Date(a.created_at).getTime(),
-                  )
-                  .slice(0, 1)
-            ).map((c: any) => {
-              const title = c.resolved_offer_title ?? undefined;
-              const status = (c.status || "scheduled") as string;
-              const typeLabel =
-                c.campaign_type || c.type || c.platform || "Campaign";
-
-              const statusColor =
-                status === "active" || status === "live"
-                  ? "text-emerald-400 bg-emerald-500/10 border-emerald-500/30"
-                  : status === "paused"
-                    ? "text-amber-300 bg-amber-500/10 border-amber-500/30"
-                    : "text-sky-300 bg-sky-500/10 border-sky-500/30";
-
-              const spend = typeof c.spend === "number" ? Number(c.spend) : 0;
-              const spendRatio = Math.max(0.12, Math.min(spend / 100, 1));
-
-              return (
-                <div
-                  key={c.id}
-                  className="flex items-center justify-between rounded-lg border border-[#262626] bg-black/40 px-3 py-2 hover:border-[#00C2CB]/40 hover:bg-white/5 transition-colors"
-                >
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <div className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.8)]" />
-                      <div className="font-medium text-white truncate">
-                        {title || "⚠️ Offer not resolved"}
-                      </div>
-                    </div>
-                    <div className="mt-1 text-[11px] text-gray-400 flex flex-wrap items-center gap-2 pl-4">
-                      <span>{c.affiliate_email || "Affiliate"}</span>
-                      <span className="h-1 w-1 rounded-full bg-gray-500" />
-                      <span>Started {formatShortDate(c.created_at)}</span>
-                      <span className="h-1 w-1 rounded-full bg-gray-500" />
-                      <span className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] text-sky-300 border-sky-500/40 bg-sky-500/10">
-                        {typeLabel}
-                      </span>
-                    </div>
-                    {spend > 0 && (
-                      <div className="mt-2 pl-4 pr-4">
-                        <div className="h-1.5 rounded-full bg-[#111827] overflow-hidden">
-                          <div
-                            className="h-full rounded-full bg-gradient-to-r from-[#22d3ee] to-[#0ea5e9]"
-                            style={{ width: `${spendRatio * 100}%` }}
-                          />
-                        </div>
-                        <div className="mt-1 text-[10px] text-gray-500">
-                          Spend {formatCurrency(spend)}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  <div className="ml-4 text-right">
-                    <div
-                      className={`text-[10px] uppercase tracking-wide px-2 py-0.5 rounded-full border ${statusColor}`}
-                    >
-                      {status}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-
-            {activeCampaigns.length > 0 && (
-              <div className="mt-3 flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => router.push("/business/manage-campaigns")}
-                  className="inline-flex items-center gap-1 text-[11px] text-gray-300 hover:text-[#7ff5fb] px-2 py-1 rounded-full bg-white/5 border border-white/5"
-                >
-                  Manage campaigns
-                  <ChevronRight className="w-3 h-3" />
-                </button>
+              <div className="flex h-full flex-col items-center justify-center rounded-[17px] border border-dashed border-white/[0.09] bg-[#101415] text-center">
+                <Users className="mb-2 h-5 w-5 text-[#00C2CB]" />
+                <p className="text-xs font-semibold text-white">No affiliate activity in this period</p>
+                <p className={"mt-1 text-[11px] " + muted}>Requests and approvals will appear here.</p>
               </div>
             )}
           </div>
-        )}
-      </div>
-
-      {/* Affiliate Activity and Transaction History */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 mt-6">
-        <div className={`${CARD}`}>
-          <button
-            type="button"
-            onClick={() => setShowAllAffiliateActivity((prev) => !prev)}
-            className="flex w-full items-center justify-between mb-2 text-left"
-          >
-            <div className="flex items-center gap-2">
-              <Users className="w-4 h-4 text-[#7ff5fb]" />
-              <div>
-                <h2 className="text-[15px] font-semibold tracking-wide text-[#7ff5fb]">
-                  Affiliate Activity
-                </h2>
-                {recentAffiliateEvents.length > 0 && (
-                  <p className="text-[11px] text-gray-500">
-                    {showAllAffiliateActivity
-                      ? `Showing all ${recentAffiliateEvents.length} events`
-                      : `Showing 1 of ${recentAffiliateEvents.length}`}
-                  </p>
-                )}
-              </div>
-            </div>
-            {recentAffiliateEvents.length > 0 && (
-              <div className="flex items-center gap-2">
-                {recentAffiliateEvents.length > 1 &&
-                  !showAllAffiliateActivity && (
-                    <span className="text-[11px] text-gray-400">
-                      + {recentAffiliateEvents.length - 1} more
-                    </span>
-                  )}
-                <ChevronRight
-                  className={`w-3.5 h-3.5 text-gray-400 transition-transform ${
-                    showAllAffiliateActivity ? "rotate-90" : "rotate-0"
-                  }`}
-                />
-              </div>
-            )}
-          </button>
-          {recentAffiliateEvents.length === 0 ? (
-            <p className="text-sm text-gray-400">
-              No recent affiliate activity.
-            </p>
-          ) : (
-            <div className="mt-1 text-sm">
-              <div className="relative border-l border-[#262626] pl-5 space-y-3">
-                {(showAllAffiliateActivity
-                  ? recentAffiliateEvents
-                  : recentAffiliateEvents.slice(0, 1)
-                ).map((ev: any) => {
-                  const title = ev.offer_id ? offerLookup[ev.offer_id] : null;
-                  const statusColor =
-                    ev.status === "approved"
-                      ? "text-emerald-400"
-                      : ev.status === "rejected"
-                        ? "text-rose-400"
-                        : "text-amber-300";
-                  return (
-                    <div key={ev.id} className="relative pl-3">
-                      <div className="absolute -left-3 top-4 h-3 w-3 rounded-full border border-[#00C2CB] bg-[#050608]" />
-                      <div className="text-xs text-gray-400">
-                        {formatShortDate(ev.created_at)}
-                      </div>
-                      <div className="font-medium text-white">
-                        {ev.affiliate_email || "Affiliate"}
-                      </div>
-                      {title && (
-                        <div className="text-xs text-gray-400">
-                          Offer: {title}
-                        </div>
-                      )}
-                      <div className={`text-[11px] mt-0.5 ${statusColor}`}>
-                        {ev.status}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+          {activity.length > 0 && (
+            <div className="mt-2 flex items-center justify-center gap-5 text-[11px] text-slate-400">
+              <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#00C2CB]" /> Requests</span>
+              <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#22c55e]" /> Approved</span>
             </div>
           )}
-        </div>
-        <div className={`${CARD}`}>
-          <div className="flex items-center justify-between mb-2">
-            <h2 className="text-[15px] font-semibold tracking-wide text-[#7ff5fb] flex items-center gap-2">
-              <Receipt className="w-4 h-4 text-[#7ff5fb]" />
-              <span>Transaction History</span>
-            </h2>
-            {completedPayouts.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setShowTransactionsModal(true)}
-                className="text-[11px] text-gray-300 hover:text-[#7ff5fb] inline-flex items-center gap-1 px-2 py-1 rounded-full bg-white/5 border border-white/5"
-              >
-                View all
-                <ChevronRight className="w-3 h-3" />
-              </button>
-            )}
-          </div>
-          {completedPayouts.length === 0 ? (
-            <p className="text-sm text-gray-400">No recent transactions.</p>
-          ) : (
-            <div className="mt-2 space-y-2 text-sm">
-              {completedPayouts.slice(0, 5).map((p: any) => {
-                const title = p.offer_id ? offerLookup[p.offer_id] : null;
-                const meta = p.offer_id
-                  ? offerPayoutMeta[p.offer_id]
-                  : undefined;
-                const isRecurring = !!p.is_recurring;
-                const detailLine = formatRecurringTermDetail(title, {
-                  is_recurring: isRecurring,
-                  cycle_number: p.cycle_number,
-                  recurring_term_months: meta?.recurring_term_months ?? meta?.payout_cycles ?? null,
-                  recurring_payout_mode: meta?.payout_mode,
-                  recurring_payout_interval: meta?.payout_interval,
-                });
-
-                const statusBadgeClass =
-                  p.status === "paid" || p.status === "completed"
-                    ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
-                    : p.status === "failed"
-                      ? "border-rose-500/40 bg-rose-500/10 text-rose-300"
-                      : "border-slate-500/40 bg-slate-500/10 text-slate-300";
-
-                return (
-                  <div
-                    key={p.id}
-                    className="flex items-start justify-between rounded-lg border border-[#262626] bg-black/40 px-3 py-2 hover:border-[#00C2CB]/50 hover:shadow-[0_0_25px_rgba(0,194,203,0.25)] hover:bg-black/60 transition-all"
-                  >
-                    <div className="flex gap-3">
-                      <div className="mt-1 flex h-8 w-8 items-center justify-center rounded-full bg-[#050810] border border-[#1f2937]">
-                        <Wallet className="w-4 h-4 text-[#7ff5fb]" />
-                      </div>
-                      <div>
-                        <div className="text-xs text-gray-400">
-                          {formatShortDate(p.created_at)}
-                        </div>
-                        <div className="font-medium text-white">
-                          {formatCurrency(Number(p.amount || 0))}
-                        </div>
-                        <div className="text-xs text-gray-400">
-                          To {p.affiliate_email || "affiliate"}
-                        </div>
-                        {detailLine && (
-                          <div className="text-[11px] text-gray-500 mt-0.5">
-                            {detailLine}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="text-right text-xs mt-1 flex flex-col items-end gap-1">
-                      <div
-                        className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] border ${statusBadgeClass}`}
-                      >
-                        <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                        <span className="uppercase tracking-wide">
-                          {p.status}
-                        </span>
-                      </div>
-                      {p.stripe_transfer_id && (
-                        <div className="text-[10px] text-gray-500">
-                          {p.stripe_transfer_id}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
+        </section>
       </div>
-
-      {showTransactionsModal && (
-        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="w-full max-w-2xl rounded-2xl border border-[#262626] bg-[#050608] p-5 shadow-2xl">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-[#7ff5fb] flex items-center gap-2">
-                <Receipt className="w-4 h-4" />
-                <span>All transactions</span>
-              </h3>
-              <button
-                type="button"
-                onClick={() => setShowTransactionsModal(false)}
-                className="rounded-full p-1 hover:bg-white/5 text-gray-400 hover:text-white"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-            {completedPayouts.length === 0 ? (
-              <p className="text-sm text-gray-400">No transactions yet.</p>
-            ) : (
-              <div className="max-h-80 overflow-y-auto space-y-2 text-sm">
-                {completedPayouts.map((p: any) => {
-                  const title = p.offer_id ? offerLookup[p.offer_id] : null;
-                  const meta = p.offer_id
-                    ? offerPayoutMeta[p.offer_id]
-                    : undefined;
-                  const isRecurring = !!p.is_recurring;
-                  const detailLine = formatRecurringTermDetail(title, {
-                    is_recurring: isRecurring,
-                    cycle_number: p.cycle_number,
-                    recurring_term_months: meta?.recurring_term_months ?? meta?.payout_cycles ?? null,
-                    recurring_payout_mode: meta?.payout_mode,
-                    recurring_payout_interval: meta?.payout_interval,
-                  });
-
-                  const statusBadgeClass =
-                    p.status === "paid" || p.status === "completed"
-                      ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300"
-                      : p.status === "failed"
-                        ? "border-rose-500/40 bg-rose-500/10 text-rose-300"
-                        : "border-slate-500/40 bg-slate-500/10 text-slate-300";
-
-                  return (
-                    <div
-                      key={p.id}
-                      className="flex items-start justify-between rounded-lg border border-[#262626] bg-black/40 px-3 py-2"
-                    >
-                      <div className="flex gap-3">
-                        <div className="mt-1 flex h-7 w-7 items-center justify-center rounded-full bg-[#050810] border border-[#1f2937]">
-                          <Wallet className="w-3.5 h-3.5 text-[#7ff5fb]" />
-                        </div>
-                        <div>
-                          <div className="text-xs text-gray-400">
-                            {formatShortDate(p.created_at)}
-                          </div>
-                          <div className="font-medium text-white">
-                            {formatCurrency(Number(p.amount || 0))}
-                          </div>
-                          <div className="text-xs text-gray-400">
-                            To {p.affiliate_email || "affiliate"}
-                          </div>
-                          {detailLine && (
-                            <div className="text-[11px] text-gray-500 mt-0.5">
-                              {detailLine}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      <div className="text-right text-xs mt-1 flex flex-col items-end gap-1">
-                        <div
-                          className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] border ${statusBadgeClass}`}
-                        >
-                          <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                          <span className="uppercase tracking-wide">
-                            {p.status}
-                          </span>
-                        </div>
-                        {p.stripe_transfer_id && (
-                          <div className="text-[10px] text-gray-500">
-                            {p.stripe_transfer_id}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-      </div>
-    </>
+    </main>
   );
 }
