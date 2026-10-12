@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import MetaMark from "../brand/MetaMark";
 import Link from "next/link";
 import {
@@ -9,10 +9,11 @@ import {
   Search, Store, Wallet, X,
 } from "lucide-react";
 
-type Campaign = {
+export type Campaign = {
   id: string;
   _source: "meta" | "organic";
   caption?: string | null;
+  display_title?: string | null;
   media_url?: string | null;
   platform?: string | null;
   type?: string | null;
@@ -38,18 +39,31 @@ type ShopPlacement = {
   offers?: number;
 };
 
-type Props = {
+type SharedProps = {
   campaigns: Campaign[];
-  shopPlacements: ShopPlacement[];
   loading: boolean;
   loadError: string | null;
   metaCurrency: string;
   syncingById: Record<string, boolean>;
   onRefresh: () => void;
   onSyncSpend: (id: string) => void;
-  onPauseOrganic: (id: string, status: string) => void;
-  onStopMeta: (id: string) => void;
 };
+
+type Props = SharedProps & (
+  | {
+      audience?: "business";
+      shopPlacements: ShopPlacement[];
+      onPauseOrganic: (id: string, status: string) => void;
+      onStopMeta: (id: string) => void;
+    }
+  | {
+      audience: "affiliate";
+      pendingCount: number;
+      unsettledSpend: number;
+      pendingContent: ReactNode;
+      notice?: ReactNode;
+    }
+);
 
 type FilterTab = "all" | "meta" | "organic" | "archived";
 type SortMode = "newest" | "oldest" | "title" | "spend";
@@ -103,16 +117,16 @@ function CampaignThumbnail({ campaign }: { campaign: Campaign }) {
   );
 }
 
-function CampaignIdentity({ campaign }: { campaign: Campaign }) {
-  const title = campaign._source === "meta"
+function CampaignIdentity({ campaign, audience }: { campaign: Campaign; audience: "business" | "affiliate" }) {
+  const title = campaign.display_title || (campaign._source === "meta"
     ? campaign.ad_ideas?.headline || campaign.caption || "Meta ad campaign"
-    : campaign.caption || "Organic campaign";
+    : campaign.caption || "Organic campaign");
   return (
     <div className="flex min-w-0 items-center gap-3">
       <CampaignThumbnail campaign={campaign} />
       <div className="min-w-0">
         <Link
-          href={"/business/manage-campaigns/" + campaign.id}
+          href={(audience === "affiliate" ? "/affiliate/dashboard/manage-campaigns/" : "/business/manage-campaigns/") + campaign.id}
           className="block truncate text-[13px] font-semibold text-slate-100 transition hover:text-[#5fe6ec]"
           title={title}
         >
@@ -175,15 +189,19 @@ function MetricCard({ label, value, helper, icon, muted }: { label: string; valu
   );
 }
 
-export default function ManageCampaignsWorkspace({
-  campaigns, shopPlacements, loading, loadError, metaCurrency,
-  syncingById, onRefresh, onSyncSpend, onPauseOrganic, onStopMeta,
-}: Props) {
+export default function ManageCampaignsWorkspace(props: Props) {
+  const {
+    campaigns, loading, loadError, metaCurrency,
+    syncingById, onRefresh, onSyncSpend,
+  } = props;
+  const audience = props.audience === "affiliate" ? "affiliate" : "business";
+  const shopPlacements = props.audience === "affiliate" ? [] : props.shopPlacements;
   const [tab, setTab] = useState<FilterTab>("all");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [sort, setSort] = useState<SortMode>("newest");
   const [shopOpen, setShopOpen] = useState(false);
+  const [pendingOpen, setPendingOpen] = useState(true);
 
   const money = (raw?: number | null) => {
     const value = Number(raw || 0);
@@ -208,12 +226,12 @@ export default function ManageCampaignsWorkspace({
         if (statusFilter !== "all" && state !== statusFilter) return false;
         if (!term) return true;
         return [
-          item.id, item.caption, item.platform, item.ad_ideas?.headline,
+          item.id, item.caption, item.display_title, item.platform, item.ad_ideas?.headline,
           item.campaign_type, item.type,
         ].some((value) => String(value || "").toLowerCase().includes(term));
       })
       .sort((a, b) => {
-        if (sort === "title") return String(a.ad_ideas?.headline || a.caption || "").localeCompare(String(b.ad_ideas?.headline || b.caption || ""));
+        if (sort === "title") return String(a.display_title || a.ad_ideas?.headline || a.caption || "").localeCompare(String(b.display_title || b.ad_ideas?.headline || b.caption || ""));
         if (sort === "spend") return Number(b.spend || 0) - Number(a.spend || 0);
         const aTime = Date.parse(a.created_at || "") || 0;
         const bTime = Date.parse(b.created_at || "") || 0;
@@ -234,7 +252,7 @@ export default function ManageCampaignsWorkspace({
     return (
       <div className={compact ? "flex w-full flex-wrap gap-2" : "flex min-w-0 items-center justify-end gap-1.5"}>
         <Link
-          href={"/business/manage-campaigns/" + campaign.id}
+          href={(audience === "affiliate" ? "/affiliate/dashboard/manage-campaigns/" : "/business/manage-campaigns/") + campaign.id}
           className={compact ? cyanButton + " flex-1" : cyanButton}
           aria-label={"View campaign " + campaign.id}
         >
@@ -253,18 +271,20 @@ export default function ManageCampaignsWorkspace({
               <RefreshCw className={syncingById[campaign.id] ? "h-3.5 w-3.5 animate-spin" : "h-3.5 w-3.5"} />
               {syncingById[campaign.id] ? "Syncing" : "Sync spend"}
             </button>
-            <button
-              type="button"
-              onClick={() => onStopMeta(campaign.id)}
-              disabled={stopped}
-              className={darkButton + " disabled:cursor-not-allowed disabled:opacity-40"}
-              title="Permanently stop Meta delivery and mark the campaign stopped"
-            >Stop</button>
+            {props.audience !== "affiliate" ? (
+              <button
+                type="button"
+                onClick={() => props.onStopMeta(campaign.id)}
+                disabled={stopped}
+                className={darkButton + " disabled:cursor-not-allowed disabled:opacity-40"}
+                title="Permanently stop Meta delivery and mark the campaign stopped"
+              >Stop</button>
+            ) : null}
           </>
-        ) : (
+        ) : props.audience !== "affiliate" ? (
           <button
             type="button"
-            onClick={() => onPauseOrganic(campaign.id, campaign.status || "")}
+            onClick={() => props.onPauseOrganic(campaign.id, campaign.status || "")}
             disabled={!isLive(campaign)}
             className={darkButton + " disabled:cursor-not-allowed disabled:opacity-40"}
           >
@@ -286,24 +306,50 @@ export default function ManageCampaignsWorkspace({
               <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.21em] text-[var(--muted-foreground)]">Campaign management</p>
               <h1 className="text-[28px] font-bold leading-tight tracking-[-0.045em] text-white sm:text-[36px]">Manage Campaigns</h1>
               <p className="mt-2 max-w-xl text-[13px] leading-relaxed text-[var(--muted-foreground)]">
-                Monitor every affiliate placement, track campaign performance, and manage delivery from one workspace.
+                {audience === "affiliate"
+                  ? "Track your paid ads and organic promotions, review submissions and monitor results."
+                  : "Monitor every affiliate placement, track campaign performance, and manage delivery from one workspace."}
               </p>
             </div>
             <div className="flex w-full flex-wrap gap-2 md:w-auto md:justify-end">
-              <Link href="/business/my-business/create-offer" className={darkButton + " flex-1 sm:flex-none"}>
-                <Plus className="h-4 w-4" /> New offer
-              </Link>
-              <Link href="/business/dashboard" className={cyanButton + " flex-1 sm:flex-none"}>
-                <BarChart3 className="h-4 w-4" /> Business dashboard <ArrowRight className="h-3.5 w-3.5" />
-              </Link>
+              {audience === "affiliate" ? (
+                <>
+                  <Link href="/affiliate/marketplace" className={darkButton + " flex-1 sm:flex-none"}>
+                    <Plus className="h-4 w-4" /> Promote offer
+                  </Link>
+                  <Link href="/affiliate/dashboard" className={cyanButton + " flex-1 sm:flex-none"}>
+                    <BarChart3 className="h-4 w-4" /> Affiliate dashboard <ArrowRight className="h-3.5 w-3.5" />
+                  </Link>
+                </>
+              ) : (
+                <>
+                <Link href="/business/my-business/create-offer" className={darkButton + " flex-1 sm:flex-none"}>
+                  <Plus className="h-4 w-4" /> New offer
+                </Link>
+                <Link href="/business/dashboard" className={cyanButton + " flex-1 sm:flex-none"}>
+                  <BarChart3 className="h-4 w-4" /> Business dashboard <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+                </>
+              )}
             </div>
           </header>
 
+          {props.audience === "affiliate" ? props.notice : null}
+
           <section aria-label="Campaign overview" className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-5">
             <MetricCard label="Live campaigns" value={loading ? "—" : String(live)} helper="Paid and organic" icon={<Activity className="h-5 w-5" />} />
-            <MetricCard label="Meta spend" value={loading ? "—" : money(spend)} helper="Last Meta Insights sync" icon={<Wallet className="h-5 w-5" />} />
-            <MetricCard label="Shop placements" value={loading ? "—" : String(shopPlacements.length)} helper="Approved shops" icon={<Store className="h-5 w-5" />} />
-            <MetricCard label="Organic posts" value={loading ? "—" : String(organic.length)} helper="All organic campaigns" icon={<Megaphone className="h-5 w-5" />} />
+            <MetricCard label="Meta spend" value={loading ? "—" : money(spend)} helper="Latest recorded Insights" icon={<Wallet className="h-5 w-5" />} />
+            {props.audience === "affiliate" ? (
+              <>
+                <MetricCard label="Unsettled spend" value={loading ? "—" : money(props.unsettledSpend)} helper="Not yet deducted from wallet" icon={<Wallet className="h-5 w-5" />} />
+                <MetricCard label="Pending proposals" value={loading ? "—" : String(props.pendingCount)} helper="Awaiting business review" icon={<Megaphone className="h-5 w-5" />} />
+              </>
+            ) : (
+              <>
+                <MetricCard label="Shop placements" value={loading ? "—" : String(shopPlacements.length)} helper="Approved shops" icon={<Store className="h-5 w-5" />} />
+                <MetricCard label="Organic posts" value={loading ? "—" : String(organic.length)} helper="All organic campaigns" icon={<Megaphone className="h-5 w-5" />} />
+              </>
+            )}
             <div className="col-span-2 sm:col-span-1"><MetricCard label="Archived" value={loading ? "—" : String(archived.length)} helper="Paused and stopped" muted icon={<Archive className="h-5 w-5" />} /></div>
           </section>
 
@@ -388,7 +434,7 @@ export default function ManageCampaignsWorkspace({
                     </div>
                     {filtered.map((item) => (
                       <div key={item.id} className={"grid " + gridColumns + " items-center gap-x-2.5 border-b border-white/[0.055] px-4 py-3 last:border-b-0 hover:bg-white/[0.035]"}>
-                        <CampaignIdentity campaign={item} />
+                        <CampaignIdentity campaign={item} audience={audience} />
                         <Platform campaign={item} />
                         <span className="text-xs text-[var(--muted-foreground)]">{displayDate(item.created_at)}</span>
                         <span className="text-xs tabular-nums text-slate-300">{item._source === "meta" ? money(item.spend) : "—"}</span>
@@ -440,6 +486,23 @@ export default function ManageCampaignsWorkspace({
             )}
           </section>
 
+          {props.audience === "affiliate" ? (
+            <section className="mt-4 overflow-hidden rounded-[20px] border border-white/[0.085] bg-[#151718]">
+              <button
+                type="button"
+                aria-expanded={pendingOpen}
+                onClick={() => setPendingOpen(!pendingOpen)}
+                className="flex min-h-[68px] w-full items-center justify-between gap-3 px-4 py-3 text-left transition hover:bg-white/[0.035] sm:px-5"
+              >
+                <span className="flex min-w-0 items-center gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#00c2cb]/10 text-[#00c2cb]"><Megaphone className="h-5 w-5" /></span>
+                  <span className="min-w-0"><span className="block text-sm font-semibold text-white">Pending proposals</span><span className="mt-0.5 block text-[11px] text-[#94a3b8]/75">{props.pendingCount} submissions awaiting business review</span></span>
+                </span>
+                <ChevronDown className={pendingOpen ? "h-4 w-4 shrink-0 rotate-180 text-[var(--muted-foreground)]" : "h-4 w-4 shrink-0 text-[var(--muted-foreground)]"} />
+              </button>
+              {pendingOpen ? <div className="space-y-2 border-t border-white/[0.07] p-3 sm:p-4">{props.pendingContent}</div> : null}
+            </section>
+          ) : (
           <section className="mt-4 overflow-hidden rounded-[20px] border border-white/[0.085] bg-[#151718]">
             <button
               type="button"
@@ -474,6 +537,7 @@ export default function ManageCampaignsWorkspace({
               </div>
             ) : null}
           </section>
+          )}
         </div>
       </div>
     </div>
