@@ -89,7 +89,7 @@ export default function ChooseBusinessPlanPage() {
     if (busy || returnPending) return;
     setBusy("free"); setError(null);
     try {
-      const response = await fetch("/api/business-subscription/choose-free", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessId }) });
+      const response = await fetch("/api/business-subscription/choose-free", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessId, attribution: getAttributionFromWindow() }) });
       if (!response.ok) throw new Error("Could not select Free. Please retry.");
       router.replace(context?.planFirst && !context.offerId ? "/onboarding/for-business" : "/business/my-business");
     } catch (err) { setError(err instanceof Error ? err.message : "Could not select Free."); setBusy(null); }
