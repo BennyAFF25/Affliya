@@ -347,7 +347,7 @@ export default function AffiliateManageCampaignsPage() {
         const row = paidMeta.find((item) => item.id === id);
         if (row) void syncSpendForPaidMeta(row);
       }}
-      pendingCount={pendingProposals.length}
+      pendingCount={pendingError ? null : pendingProposals.length}
       unsettledSpend={totalUnpaidSpend}
       notice={newProposalId ? (
         <div role="status" className="mb-4 rounded-2xl border border-emerald-400/30 bg-emerald-400/[0.07] px-4 py-3 text-xs text-emerald-100">
