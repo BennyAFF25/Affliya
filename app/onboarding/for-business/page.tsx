@@ -57,7 +57,10 @@ export default function BusinessOnboardingPage() {
   const [productPrice, setProductPrice] = useState("");
   const [commissionPercent, setCommissionPercent] = useState("");
   const [description, setDescription] = useState("");
-  const [currency, setCurrency] = useState("USD");
+  const [currency, setCurrency] = useState("AUD");
+  const currencyTouched = useRef(false);
+  const newBusinessPlanFirst = session?.user?.user_metadata?.business_plan_first_v2 === true;
+  const [planChecked, setPlanChecked] = useState(false);
   const [participationMode, setParticipationMode] = useState<
     "open" | "approval_required" | "private"
   >("open");
@@ -82,6 +85,41 @@ export default function BusinessOnboardingPage() {
     router.replace("/login?role=business&next=/onboarding/for-business");
   }
 
+  useEffect(() => {
+    if (isLoading || !session?.user?.email) return;
+    if (!newBusinessPlanFirst) { setPlanChecked(true); return; }
+    let active = true;
+    void fetch("/api/business-subscription/plan-step-status", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Could not verify your Growth plan choice.");
+        const data = await response.json();
+        if (!active) return;
+        if (data.required) router.replace("/business/choose-plan");
+        else setPlanChecked(true);
+      })
+      .catch(() => { if (active) router.replace("/business/choose-plan"); });
+    return () => { active = false; };
+  }, [isLoading, session?.user?.email, newBusinessPlanFirst, router]);
+
+  useEffect(() => {
+    if (!session?.user?.email) return;
+    let active = true;
+    void supabase.from("business_profiles").select("country")
+      .eq("business_email", session.user.email).limit(1).maybeSingle()
+      .then(({ data }) => {
+        if (!active || currencyTouched.current) return;
+        const country = String(data?.country || "").toUpperCase();
+        const locale = typeof navigator === "undefined" ? "" : navigator.language.toUpperCase();
+        const selected = country === "AU" || (!country && locale.endsWith("-AU")) ? "AUD"
+          : country === "NZ" || (!country && locale.endsWith("-NZ")) ? "NZD"
+          : country === "US" || (!country && locale.endsWith("-US")) ? "USD"
+          : country === "GB" || (!country && locale.endsWith("-GB")) ? "GBP"
+          : "AUD";
+        setCurrency(selected);
+      });
+    return () => { active = false; };
+  }, [session?.user?.email]);
+
   const parseIdList = (value: string) =>
     value
       .split(/[\n,]/)
@@ -99,6 +137,8 @@ export default function BusinessOnboardingPage() {
         parseIdList(eligibleProductIdsText).length > 0 ||
         parseIdList(eligibleVariantIdsText).length > 0),
   );
+
+  const previewCurrency = currency === "AUD" ? "A$" : currency === "USD" ? "US$" : currency === "NZD" ? "NZ$" : currency === "GBP" ? "£" : currency + " ";
 
   const commissionPreviewAmount = useMemo(() => {
     const priceValue = Number(productPrice || 0);
@@ -157,7 +197,7 @@ export default function BusinessOnboardingPage() {
       });
       const result = await response.json().catch(() => null);
       if (!response.ok) throw new Error(result?.error?.startsWith("Your offer is saved") ? result.error : `Your offer is saved. ${result?.error || "Please retry to finish setup."}`);
-      if (result?.treatment) router.replace("/business/choose-plan");
+      if (!newBusinessPlanFirst && result?.treatment) router.replace("/business/choose-plan");
       else setStep(5);
     };
     void logProductEvent({ eventType: "offer_publish_clicked", actorRole: "business", meta: { source: "business_onboarding", retry_completion: Boolean(savedOfferId.current) } });
@@ -287,6 +327,8 @@ export default function BusinessOnboardingPage() {
       setSubmitting(false);
     }
   };
+
+  if (newBusinessPlanFirst && !planChecked) return <main className="min-h-screen bg-[#0f0f0f] p-8 text-slate-300" role="status">Checking your plan choice…</main>;
 
   const inputClass =
     "mt-1.5 w-full rounded-2xl border border-white/10 bg-[#0b1011] px-4 py-3.5 text-sm text-white outline-none transition placeholder:text-white/26 focus:border-[#00C2CB]/70 focus:ring-2 focus:ring-[#00C2CB]/15";
@@ -543,7 +585,7 @@ export default function BusinessOnboardingPage() {
                   Affiliate earns
                 </p>
                 <p className="mt-1 text-2xl font-bold tracking-tight text-white">
-                  {currency} ${commissionPreviewAmount.toFixed(2)}
+                  {previewCurrency}{commissionPreviewAmount.toFixed(2)}
                   <span className="ml-2 text-sm font-normal text-white/50">per sale</span>
                 </p>
                 <p className="mt-2 text-xs leading-5 text-white/48">
@@ -577,11 +619,12 @@ export default function BusinessOnboardingPage() {
                         Currency
                         <select
                           value={currency}
-                          onChange={(e) => setCurrency(e.target.value)}
+                          onChange={(e) => { currencyTouched.current = true; setCurrency(e.target.value); }}
                           className={inputClass}
                         >
                           <option value="USD">USD</option>
                           <option value="AUD">AUD</option>
+                          <option value="NZD">NZD</option>
                           <option value="EUR">EUR</option>
                           <option value="GBP">GBP</option>
                           <option value="CAD">CAD</option>
@@ -744,7 +787,7 @@ export default function BusinessOnboardingPage() {
                         Product price
                       </p>
                       <p className="mt-1 text-base font-semibold text-white">
-                        {currency} ${productPrice}
+                        {previewCurrency}{productPrice}
                       </p>
                     </div>
                     <div className="rounded-2xl border border-[#00C2CB]/20 bg-[#00C2CB]/8 p-3.5">
