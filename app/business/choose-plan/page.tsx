@@ -7,6 +7,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabase } from "utils/supabase/pages-client";
 import { logProductEvent } from "../../../utils/productEvents";
 import BusinessTrialFirstContinuation, { growthPricePeriod, type BusinessContinuationContext } from "../../../components/business/BusinessTrialFirstContinuation";
+import { getAttributionFromWindow } from "../../../utils/marketing/attribution";
 
 export default function ChooseBusinessPlanPage() {
   const router = useRouter();
@@ -37,9 +38,14 @@ export default function ChooseBusinessPlanPage() {
         if (cancelled) return;
         setBusinessId(data.id);
         setContext(result);
+        if (result.planFirst && result.planSelectionComplete &&
+          !new URLSearchParams(window.location.search).has("subscription")) {
+          router.replace(result.offerId ? "/business/my-business" : "/onboarding/for-business");
+          return;
+        }
         if (viewed.current !== data.id) {
           const logged = await logProductEvent({ eventType: "plan_choice_viewed", actorRole: "business", offerId: result.offerId,
-            meta: { source: "business_onboarding", screen: result.treatment ? "trial_first" : "plan_choice", pathname: "/business/choose-plan" } });
+            meta: { source: "business_onboarding", screen: result.treatment ? "trial_first" : "plan_choice", pathname: "/business/choose-plan", ...getAttributionFromWindow() } });
           if (logged && !cancelled) viewed.current = data.id;
         }
       } catch (err) { if (!cancelled) setError(err instanceof Error ? err.message : "Could not load your business."); }
@@ -64,11 +70,13 @@ export default function ChooseBusinessPlanPage() {
         if (!response.ok || result.status !== "complete") throw new Error(result.error || "Checkout is not complete. You can retry or continue with Free.");
         if (cancelled) return;
         if (result.billingStatus === "subscription_trialing" || result.billingStatus === "subscription_active") {
-          router.replace(`/business/my-business?subscription=${result.billingStatus === "subscription_trialing" ? "trial_confirmed" : "active"}`);
+          router.replace(context?.planFirst && !context.offerId
+            ? "/onboarding/for-business"
+            : `/business/my-business?subscription=${result.billingStatus === "subscription_trialing" ? "trial_confirmed" : "active"}`);
           return;
         }
         if (++attempts < 8) { timer = setTimeout(() => void verify(), 1500); return; }
-        router.replace("/business/my-business?subscription=processing");
+        router.replace(context?.planFirst && !context.offerId ? "/onboarding/for-business?subscription=processing" : "/business/my-business?subscription=processing");
       } catch (err) {
         if (!cancelled) { setReturnPending(false); setError(err instanceof Error ? err.message : "Could not verify checkout. Please retry."); }
       }
@@ -83,18 +91,18 @@ export default function ChooseBusinessPlanPage() {
     try {
       const response = await fetch("/api/business-subscription/choose-free", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessId }) });
       if (!response.ok) throw new Error("Could not select Free. Please retry.");
-      router.replace("/business/my-business");
+      router.replace(context?.planFirst && !context.offerId ? "/onboarding/for-business" : "/business/my-business");
     } catch (err) { setError(err instanceof Error ? err.message : "Could not select Free."); setBusy(null); }
   };
   const chooseGrowth = async () => {
     if (!businessId || busy || returnPending || !context?.price || context.trialEligible === null) return;
     setBusy("growth"); setError(null);
-    void logProductEvent({ eventType: "plan_growth_clicked", actorRole: "business", offerId: context.offerId, meta: { source: "plan_choice", intended_action: resumeSubscription ? "paid_subscription" : "free_trial" } });
+    void logProductEvent({ eventType: "plan_growth_clicked", actorRole: "business", offerId: context.offerId, meta: { source: "plan_choice", intended_action: resumeSubscription ? "paid_subscription" : "free_trial", ...getAttributionFromWindow() } });
     try {
       const response = await fetch("/api/business-subscription/create-checkout-session", { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId, returnTo: "/business/choose-plan", requireTrial: !resumeSubscription, intendedAction: resumeSubscription ? "continue_growth_subscription" : "start_growth_trial" }) });
+        body: JSON.stringify({ businessId, returnTo: "/business/choose-plan", requireTrial: !resumeSubscription, intendedAction: resumeSubscription ? "continue_growth_subscription" : "start_growth_trial", attribution: getAttributionFromWindow() }) });
       const result = await response.json();
-      if (result.status === "already_subscribed" || result.status === "grandfathered") { router.replace("/business/my-business"); return; }
+      if (result.status === "already_subscribed" || result.status === "grandfathered") { router.replace(context?.planFirst && !context.offerId ? "/onboarding/for-business" : "/business/my-business"); return; }
       if (!response.ok || !result.url) throw new Error(result.error || result.message || "Could not start checkout.");
       window.location.assign(result.url);
     } catch (err) { setError(err instanceof Error ? err.message : "Could not start checkout."); setBusy(null); }
