@@ -27,4 +27,14 @@ assert.match(workspace, /item\._source === "meta" \? Number\(item\.clicks/, "sto
 assert.doesNotMatch(workspace, /from\("campaign_tracking_events"\)/, "landing visits never presented as Meta clicks");
 assert.match(workspace, /disabled=\{stopped\}/, "stopped Meta ads cannot be stopped again");
 assert.match(workspace, /disabled=\{!isLive\(campaign\)\}/, "paused organic posts cannot be paused again");
+// Palette-only follow-up: preserve the mockup layout while matching the
+// canonical mobile Business Overview palette in docs/UI_DESIGN_SYSTEM.md.
+assert.match(workspace, /bg-\[var\(--background\)\]/, "use shared page background");
+assert.match(workspace, /bg-\[\#151718\]/, "use canonical dark overview card surface");
+assert.match(workspace, /bg-\[\#101415\]/, "use canonical deeper nested surface");
+assert.match(workspace, /bg-\[var\(--primary\)\]/, "primary CTA uses theme brand cyan");
+assert.match(workspace, /text-\[var\(--primary-foreground\)\]/, "primary CTA uses brand foreground");
+assert.match(workspace, /text-\[var\(--muted-foreground\)\]/, "labels use shared muted text");
+assert.doesNotMatch(workspace, /#080c0e|#111619|#14191c|#151b1f/, "no off-palette blue-green surfaces");
+
 console.log("business Manage Campaigns UI regression checks passed");
