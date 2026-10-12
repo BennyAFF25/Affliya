@@ -33,7 +33,7 @@ const navLinks = [
     href: "/pricing",
     label: "Pricing",
     description: "Early access",
-    badge: "Free",
+    badge: "14-DAY TRIAL",
     group: "Plan",
   },
 ];
