@@ -58,9 +58,13 @@ async function allowedContacts(admin: ReturnType<typeof createServerSupabaseClie
     ? await admin.from("business_profiles").select("business_email,business_name").in("business_email", businessEmails)
     : { data: [], error: null };
   if (nameResult.error) console.warn("[inbox/chat] business name lookup failed");
-  const businessNames = new Map((nameResult.data || []).map((p) => [
-    String(p.business_email).toLowerCase(), String(p.business_name || "Business").trim() || "Business"
-  ]));
+  // An old onboarding fallback sometimes persisted the login email as the
+  // 'business_name'. Never expose a private email as a partner display name.
+  const businessNames = new Map((nameResult.data || []).map((p) => {
+    const name = String(p.business_name || "").trim();
+    return [String(p.business_email).toLowerCase(),
+      name && !/\S+@\S+\.\S+/.test(name) ? name : "Business"];
+  }));
 
   const unique = new Map<string, Contact>();
   for (const row of requests) {
@@ -87,13 +91,33 @@ async function allowedContacts(admin: ReturnType<typeof createServerSupabaseClie
   return [...unique.values()];
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
     const ctx = await context();
     if (!ctx) return fail("Sign in to your business or affiliate account.", 401);
     const contacts = await allowedContacts(ctx.admin, ctx.identity);
+    const summaryOnly = new URL(request.url).searchParams.get("unread") === "1";
     if (!contacts.length) {
-      return NextResponse.json({ success: true, contacts: [], messages: [] }, { headers: { "Cache-Control": "private, no-store" } });
+      return NextResponse.json(summaryOnly
+        ? { success: true, unreadCount: 0 }
+        : { success: true, contacts: [], messages: [], viewerId: ctx.identity.id },
+        { headers: { "Cache-Control": "private, no-store" } });
+    }
+    if (summaryOnly) {
+      // Only count messages addressed to this user in current approved
+      // offer relationships, never pending/previously revoked partnerships.
+      const { data: unread, error: unreadError } = await ctx.admin.from("inbox_chat_messages")
+        .select("offer_id,business_user_id,affiliate_user_id")
+        .or("business_user_id.eq." + ctx.identity.id + ",affiliate_user_id.eq." + ctx.identity.id)
+        .neq("sender_user_id", ctx.identity.id).is("read_at", null).limit(3000);
+      if (unreadError) throw unreadError;
+      const approvedKeys = new Set(contacts.map((c) => c.key));
+      const unreadCount = (unread || []).filter((m) => approvedKeys.has(
+        [m.offer_id, m.business_user_id, m.affiliate_user_id].join(":")
+      )).length;
+      return NextResponse.json({ success: true, unreadCount }, {
+        headers: { "Cache-Control": "private, no-store" },
+      });
     }
     const { data, error } = await ctx.admin.from("inbox_chat_messages")
       .select("id,offer_id,business_user_id,affiliate_user_id,sender_user_id,body,created_at,read_at")
