@@ -3,7 +3,7 @@
 import Link from "next/link";
 import {
   Activity, ArrowLeft, ArrowRight, BarChart3, Check, ChevronRight,
-  CirclePause, CirclePlay, Clock3, Copy, ExternalLink, FileImage,
+  CirclePause, CirclePlay, Copy, ExternalLink, FileImage,
   Globe2, MousePointerClick, RefreshCw, Rocket, ShoppingCart,
   ShieldCheck, Trash2, Wallet,
 } from "lucide-react";
@@ -219,14 +219,21 @@ export default function CampaignDetailWorkspace({
         </header>
 
         <section aria-label="Campaign performance" className="grid grid-cols-2 gap-2.5 xl:grid-cols-4">
-          <Metric label={isOrganic ? "Landing visits" : "Meta clicks"} value={
-            isOrganic ? stats.clicks.toLocaleString() : Number(campaign.clicks || 0).toLocaleString()
-          } note={isOrganic ? "Unverified tracked visits" : "Latest stored Meta Insights"} icon={<MousePointerClick className="h-[18px] w-[18px]" />} />
-          <Metric label={isOrganic ? "Tracked conversions" : "Meta spend"} value={
-            isOrganic ? stats.conversions.toLocaleString() : money(Number(campaign.spend || 0))
-          } note={isOrganic ? "Nettmark events" : "Cumulative Meta-reported spend"} icon={isOrganic ? <Check className="h-[18px] w-[18px]" /> : <Wallet className="h-[18px] w-[18px]" />} />
-          <Metric label="Add to carts" value={stats.carts.toLocaleString()} note="Nettmark tracking events" icon={<ShoppingCart className="h-[18px] w-[18px]" />} />
-          <Metric label="Estimated commission" value={money(pendingPayout)} note="Unverified conversion estimate" icon={<BarChart3 className="h-[18px] w-[18px]" />} />
+          {isOrganic ? (
+            <>
+              <Metric label="Landing visits" value={stats.clicks.toLocaleString()} note="Unverified browser visits" icon={<Globe2 className="h-[18px] w-[18px]" />} />
+              <Metric label="Add to carts" value={stats.carts.toLocaleString()} note="Nettmark tracking events" icon={<ShoppingCart className="h-[18px] w-[18px]" />} />
+              <Metric label="Tracked conversions" value={stats.conversions.toLocaleString()} note="Nettmark attribution" icon={<Check className="h-[18px] w-[18px]" />} />
+              <Metric label="Estimated commission" value={money(pendingPayout)} note="Unverified, not a payout" icon={<Wallet className="h-[18px] w-[18px]" />} />
+            </>
+          ) : (
+            <>
+              <Metric label="Meta spend" value={money(Number(campaign.spend || 0))} note="Cumulative Meta Insights" icon={<Wallet className="h-[18px] w-[18px]" />} />
+              <Metric label="Meta clicks" value={Number(campaign.clicks || 0).toLocaleString()} note="Last stored Meta sync" icon={<MousePointerClick className="h-[18px] w-[18px]" />} />
+              <Metric label="Landing visits" value={stats.clicks.toLocaleString()} note="Unverified Nettmark visits" icon={<Globe2 className="h-[18px] w-[18px]" />} />
+              <Metric label="Tracked conversions" value={stats.conversions.toLocaleString()} note="Nettmark attribution" icon={<Check className="h-[18px] w-[18px]" />} />
+            </>
+          )}
         </section>
 
         <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,0.90fr)_minmax(0,1.1fr)]">
@@ -261,7 +268,7 @@ export default function CampaignDetailWorkspace({
                   ["Status", state],
                   ["Commission", offer?.commission ? String(offer.commission) + "%" : "Not set"],
                   ["Started", dateLabel(campaign.created_at)],
-                  ...(!isOrganic ? [["Awaiting settlement", money(outstanding)]] : []),
+                  ...(!isOrganic ? [["Add to carts", stats.carts.toLocaleString()], ["Estimated commission", money(pendingPayout)], ["Awaiting settlement", money(outstanding)]] : []),
                 ].map(([label, value]) => (
                   <div key={label} className="flex items-start justify-between gap-4 py-2.5">
                     <dt className="shrink-0 text-[#94a3b8]">{label}</dt>
