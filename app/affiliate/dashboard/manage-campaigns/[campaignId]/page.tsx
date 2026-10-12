@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { formatMoney as formatCurrencyAmount } from "../../../../../utils/currency";
+import { isTrackedLandingVisit } from "../../../../../utils/tracking/visitMetrics";
 import { Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -178,7 +179,7 @@ export default function ManageCampaignPage() {
       const resp = await (supabase as any)
         .from("campaign_tracking_events")
         .select(
-          "id, event_type, amount, created_at, offer_id, affiliate_id, campaign_id",
+          "id, event_type, amount, created_at, offer_id, affiliate_id, campaign_id, user_agent",
         )
         .eq("campaign_id", currentCampaignId);
 
@@ -213,14 +214,9 @@ export default function ManageCampaignPage() {
       for (const evt of rows) {
         const t = String(evt?.event_type || "").toLowerCase();
 
-        // Business treats these as "Clicks" (meta) / "Page views" (organic)
-        if (
-          t === "page_view" ||
-          t === "page_viewed" ||
-          t === "view" ||
-          t === "landing_view" ||
-          t === "click"
-        ) {
+        // Previously emitted 'click' events were page-load telemetry.
+        // Exclude obvious crawlers and never call these Meta ad clicks.
+        if (isTrackedLandingVisit(evt)) {
           pageViews += 1;
         } else if (
           t === "add_to_cart" ||
@@ -935,10 +931,15 @@ export default function ManageCampaignPage() {
               <section className="rounded-2xl border border-white/10 bg-[#111416]">
                 <div className="grid md:grid-cols-2 xl:grid-cols-4">
                   {[
-                    {
-                      label: "Clicks",
-                      value: stats.clicks.toLocaleString(),
+                    ...(isMetaPaid ? [{
+                      label: "Meta clicks (last sync)",
+                      value: Number((campaign as any).clicks || 0).toLocaleString(),
                       icon: CursorArrowRaysIcon,
+                    }] : []),
+                    {
+                      label: "Landing visits",
+                      value: stats.clicks.toLocaleString(),
+                      icon: GlobeAltIcon,
                     },
                     {
                       label: "Add to carts",
@@ -982,7 +983,7 @@ export default function ManageCampaignPage() {
                 <div className="flex flex-col justify-between gap-3 border-t border-white/10 px-6 py-3.5 sm:flex-row sm:items-center">
                   <div className="inline-flex items-center gap-2 text-xs text-zinc-500">
                     <ShieldCheckIcon className="h-4 w-4 text-cyan-400" />
-                    Tracked by Nettmark
+                    Unverified visits · crawler-filtered · may repeat
                   </div>
 
                   <div className="inline-flex items-center gap-2 rounded-lg bg-white/[0.05] px-3 py-2 text-xs text-zinc-300">
@@ -1691,11 +1692,11 @@ export default function ManageCampaignPage() {
               />
             )}
 
-            {/* Clicks (Nettmark tracking) */}
+            {/* Nettmark page views are not verified advertising clicks. */}
             <div className="bg-[#171717] hover:bg-[#1C1C1C] transition-all duration-300 p-4 rounded-2xl shadow-md flex items-center justify-between h-24 border border-[#2A2A2A] drop-shadow-[0_0_10px_rgba(0,194,203,0.12)]">
               <div>
                 <h2 className="text-gray-300 text-sm font-medium mb-1 tracking-wide uppercase">
-                  Clicks{" "}
+                  Landing visits{" "}
                   {loadingStats && (
                     <span className="text-xs text-gray-500">•</span>
                   )}
@@ -1712,6 +1713,20 @@ export default function ManageCampaignPage() {
               </div>
             </div>
 
+            {isMetaPaid && (
+              <div className="bg-[#171717] hover:bg-[#1C1C1C] transition-all duration-300 p-4 rounded-2xl shadow-md flex items-center justify-between h-24 border border-[#2A2A2A]">
+                <div>
+                  <h2 className="text-gray-300 text-sm font-medium mb-1 tracking-wide uppercase">Meta clicks</h2>
+                  <p className="text-2xl font-semibold text-white">
+                    {Number((campaign as any).clicks || 0).toLocaleString()}
+                  </p>
+                  <p className="text-[0.6rem] text-gray-500 mt-1">Last Meta insights sync · use Sync spend to refresh</p>
+                </div>
+                <div className="w-9 h-9 rounded-full bg-[#0F0F0F] flex items-center justify-center shadow-inner">
+                  <CursorArrowRaysIcon className="w-5 h-5 text-[#00C2CB]/80" />
+                </div>
+              </div>
+            )}
             {isOrganic && (
               <div className="bg-[#171717] hover:bg-[#1C1C1C] transition-all duration-300 p-4 rounded-2xl shadow-md flex items-center justify-between h-24 border border-[#2A2A2A] drop-shadow-[0_0_10px_rgba(0,194,203,0.12)]">
                 <div>
