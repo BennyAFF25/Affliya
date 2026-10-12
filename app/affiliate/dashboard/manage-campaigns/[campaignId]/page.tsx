@@ -5,7 +5,7 @@ import { formatMoney as formatCurrencyAmount } from "../../../../../utils/curren
 import { isTrackedLandingVisit } from "../../../../../utils/tracking/visitMetrics";
 import { useParams, useRouter } from "next/navigation";
 import { supabase } from "@/../utils/supabase/pages-client";
-import CampaignDetailWorkspace from "./CampaignDetailWorkspace";
+import CampaignDetailWorkspace from "../../../../../components/campaigns/CampaignDetailWorkspace";
 
 type Campaign = {
   id: string;
