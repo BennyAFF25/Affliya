@@ -1,233 +1,77 @@
-// app/pricing/page.tsx
 "use client";
 
-import React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { Check, ArrowRight, CreditCard, ShieldCheck } from "lucide-react";
 import MarketingHeader from "@/components/marketing/MarketingHeader";
 
-import { useRouter } from "next/navigation";
-
-type Plan = "business" | "affiliate";
-
-type Meta = {
-  title: string;
-  priceNow: string;
-  priceDetail: string;
-  blurb: string;
-  cta: string;
-};
+const growthBenefits = [
+  "Affiliates fund and run paid Meta ads for your brand",
+  "Approve every campaign before it runs",
+  "Launch approved campaigns through your connected Meta account",
+  "Everything included in Free",
+];
 
 export default function PricingPage() {
   const router = useRouter();
-
-  const handleLogin = (type: "business" | "affiliate") => {
-    router.push(`/login?role=${type}`);
-  };
-
-  const handleCreateAccount = (type: "business" | "affiliate") => {
+  const createAccount = (role: "business" | "affiliate") => {
     try {
-      localStorage.setItem("intent.role", type);
+      localStorage.setItem("intent.role", role);
       localStorage.setItem("intent.flow", "signup");
-    } catch {
-      // ignore localStorage write failures
-    }
-    router.push(`/create-account?role=${type}`);
+    } catch {}
+    router.push(role === "business"
+      ? "/create-account?role=business&plan=growth&src=pricing"
+      : "/create-account?role=affiliate&src=pricing");
   };
-
-  const getMeta = (plan: Plan): Meta => {
-    const isBusiness = plan === "business";
-    return {
-      title: isBusiness ? "For Businesses" : "For Partners",
-      priceNow: "$0 to start",
-      priceDetail: isBusiness
-        ? "$49/month starting after your first promotional content is submitted"
-        : "2.2% fee when funds are added to your wallet",
-      blurb: isBusiness
-        ? "Publish offers, review submitted content, and manage payouts."
-        : "Access offers, run ads, and track commissions.",
-      cta: isBusiness ? "Create Business Account" : "Create Partner Account",
-    };
-  };
-
-  const faqs = [
-    {
-      q: "Do I need to pay to create an account?",
-      a: "No. You can create your Nettmark account without paying up front. Business accounts only move onto the $49/month Nettmark Business subscription once content has been submitted to the brand, and platform fees still only apply when money moves through wallet top-ups and business payout charges.",
-    },
-    {
-      q: "How does Nettmark pricing work?",
-      a: "Partner access stays fee-based. For businesses, account creation is free and the $49/month Nettmark Business subscription only applies once content has been submitted to your brand. A 2.2% Nettmark fee is still applied when money moves through wallet top-ups and business payout charges.",
-    },
-    {
-      q: "Does Business pay for ads?",
-      a: "No. Partners fund ad spend from their pre-funded wallets. You only pay commissions on verified conversions.",
-    },
-    {
-      q: "How do payouts work?",
-      a: "Confirmed partner-driven sales trigger automated Stripe payouts according to your offer. Nettmark shows the principal, Nettmark fee, and Stripe fee separately when money moves.",
-    },
-  ] as const;
-
-  const PlanCard = ({ plan }: { plan: Plan }) => {
-    const meta = getMeta(plan);
-    const label = plan === "business" ? "Business" : "Partner";
-    const role = plan === "business" ? "business" : "affiliate";
-
-    return (
-      <section className="relative w-full rounded-2xl border border-white/10 bg-white/[0.02] transition-all duration-300 hover:border-[#00C2CB]/40 hover:shadow-[0_0_35px_rgba(0,194,203,0.25)] backdrop-blur-xl shadow-lg">
-        <div className="relative p-8 md:p-10 flex flex-col items-center text-center gap-5">
-          <span className="text-xs uppercase tracking-widest text-gray-400">
-            {label}
-          </span>
-
-          <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-            {meta.title}
-          </h2>
-          <p className="text-gray-400 max-w-md">{meta.blurb}</p>
-
-          <div className="mt-1 text-2xl font-semibold tracking-tight text-gray-200">
-            <span className="text-[#00C2CB]">{meta.priceNow}</span>
-          </div>
-          <div className="text-xs text-gray-400 -mt-2">{meta.priceDetail}</div>
-
-          <button
-            onClick={() => handleCreateAccount(role)}
-            className="mt-2 w-full sm:w-auto bg-[#00C2CB]/90 text-black font-medium px-6 py-2.5 rounded-lg hover:bg-[#00C2CB] shadow-[0_8px_30px_-10px_rgba(0,194,203,0.45)]"
-          >
-            {meta.cta}
-          </button>
-
-          <div className="mt-3 grid grid-cols-1 gap-2 text-xs text-gray-400 sm:grid-cols-3 w-full">
-            <div className="rounded-md border border-white/10 bg-white/[0.03] px-3 py-2">
-              {plan === "business" ? "Starts free" : "No subscription required"}
-            </div>
-            <div className="rounded-md border border-white/10 bg-white/[0.03] px-3 py-2">
-              {plan === "business" ? "$49/month after first submitted promo content" : "Fee-based pricing"}
-            </div>
-            <div className="rounded-md border border-white/10 bg-white/[0.03] px-3 py-2">
-              No card required to join
-            </div>
-          </div>
-
-          <details className="mt-4 w-full rounded-xl border border-white/10 bg-white/[0.02] p-3 text-left">
-            <summary className="cursor-pointer select-none text-sm font-medium list-none">
-              What you get
-            </summary>
-            <ul className="mt-2 space-y-1 text-xs text-gray-300 list-disc list-inside">
-              {(plan === "business"
-                ? [
-                    "Always-on exposure inside the Nettmark offer marketplace.",
-                    "Create your account free, then move onto the $49/month Business subscription only after content has been submitted to your brand.",
-                    "Infrastructure for approvals, tracking, and automated Stripe payouts.",
-                    "Clear fee breakdowns when you top up wallets or settle partner payouts.",
-                    "Shared ad infrastructure so partners can run Meta ads from your account without sharing logins.",
-                  ]
-                : [
-                    "Access to vetted offers you can promote as a partner.",
-                    "Use Nettmark’s tracking, wallets, and payout rails instead of building your own.",
-                    "Centralised dashboard for campaigns, conversions, and wallet balance.",
-                    "Only pay transaction fees when you add funds to your wallet.",
-                    "Support for both paid traffic and organic / UGC promotion flows.",
-                  ]
-              ).map((item) => (
-                <li key={item}>{item}</li>
-              ))}
-            </ul>
-          </details>
-
-          <div className="text-xs text-gray-500">
-            Already have an account?{" "}
-            <button
-              type="button"
-              onClick={() => handleLogin(role)}
-              className="text-[#00C2CB] hover:text-[#7ff5fb] underline underline-offset-2"
-            >
-              Log in
-            </button>
-          </div>
-        </div>
-      </section>
-    );
-  };
-
   return (
-    <div className="marketing-pricing-theme min-h-screen flex flex-col bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#0b1a1b] via-[#0b0b0b] to-black text-white">
+    <div className="marketing-pricing-theme min-h-screen bg-[#0f0f0f] text-white">
       <MarketingHeader />
-
-      {/* Main */}
-      <main className="flex-1 w-full px-6 md:px-10 py-8 md:py-12">
-        <section className="mx-auto mb-10 w-full max-w-5xl text-center">
-          <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-[#00C2CB] drop-shadow-[0_0_12px_rgba(0,194,203,0.35)]">
-            Create your Nettmark account
-          </h1>
-
-          <p className="mt-3 text-gray-400 max-w-3xl mx-auto text-sm md:text-base">
-            Choose how you want to use Nettmark. Create a business account to
-            launch offers and approve affiliates, or create a partner account to
-            run campaigns and earn commissions.
-          </p>
-
-          <div className="mt-5 mx-auto max-w-3xl rounded-2xl border border-[#00C2CB]/25 bg-gradient-to-b from-[#001f20] via-[#0b0b0b] to-black p-5 text-left shadow-[0_0_25px_rgba(0,194,203,0.12)]">
-            <div className="flex items-start gap-3">
-              <span className="mt-1 inline-block h-2 w-2 rounded-full bg-[#00C2CB]" />
-              <div className="text-sm text-gray-200">
-                <div className="font-semibold text-[#00C2CB]">
-                  Free to create your account
-                </div>
-                <div className="text-gray-400">
-                  No card required to create an account. Business accounts only
-                  move onto the
-                  <span className="text-white/80 font-medium"> $49/month Nettmark Business subscription</span>{" "}
-                  once content has been submitted to the brand. Nettmark also
-                  charges a
-                  <span className="text-white/80 font-medium"> 2.2% platform fee</span>{" "}
-                  on wallet top-ups and business payout charges, with Stripe
-                  fees shown separately where applicable.
-                </div>
-              </div>
+      <main className="mx-auto max-w-[1040px] px-4 py-12 sm:px-6 sm:py-16">
+        <header className="mx-auto max-w-2xl text-center">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#63e8ee]">Simple plans</p>
+          <h1 className="mt-3 text-[31px] font-semibold tracking-tight sm:text-[43px]">Put affiliates to work for your business.</h1>
+          <p className="mt-3 text-sm leading-6 text-slate-400">Affiliates pay for their own ad spend. Your Growth subscription unlocks paid affiliate campaigns.</p>
+        </header>
+        <section className="mx-auto mt-10 max-w-[720px] rounded-[24px] border border-[#00C2CB]/35 bg-[#151718] p-5 shadow-[0_25px_70px_rgba(0,0,0,0.25)] sm:p-8" aria-labelledby="growth-heading">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 id="growth-heading" className="text-2xl font-semibold">Growth</h2>
+            <span className="rounded-full bg-[#00C2CB]/10 px-3 py-1 text-[11px] font-semibold text-[#63e8ee]">Recommended · 14-day trial</span>
+          </div>
+          <p className="mt-4 text-lg font-semibold text-white">14 days free, then A$49/month. Cancel anytime.</p>
+          <p className="mt-2 text-xs leading-5 text-slate-400">A$0 today. Card required. You won’t be charged until day 15 if you cancel before the trial ends. Taxes, where applicable, are shown at checkout.</p>
+          <ul className="mt-6 space-y-3">
+            {growthBenefits.map((item) => (
+              <li key={item} className="flex items-start gap-3 text-sm text-slate-200">
+                <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#00C2CB]" />{item}
+              </li>
+            ))}
+          </ul>
+          <button type="button" onClick={() => createAccount("business")} className="mt-7 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-[#00C2CB] px-4 text-sm font-bold text-[#0f0f0f] hover:bg-[#19d5dc]">
+            Start 14-day free trial <ArrowRight className="h-4 w-4" />
+          </button>
+          <p className="mt-3 text-center text-xs text-slate-400">You choose the commission on verified sales. Nettmark also charges 2.2% on wallet top-ups and business payouts; Stripe processing fees may apply.</p>
+        </section>
+        <section className="mx-auto mt-4 max-w-[720px] rounded-[22px] border border-white/[0.09] bg-[#151718] p-5 sm:p-6" aria-labelledby="free-heading">
+          <div className="flex items-start justify-between gap-3">
+            <div><h2 id="free-heading" className="text-lg font-semibold">Free</h2><p className="mt-1 text-xs text-slate-400">Organic affiliate promotion only. No paid affiliate ads.</p></div>
+            <span className="text-sm font-medium text-slate-300">A$0/month</span>
+          </div>
+          <p className="mt-3 text-xs leading-5 text-slate-400">Your business can publish an offer and receive organic promotion, but affiliates cannot run paid Meta ads for you on Free.</p>
+          <p className="mt-3 text-xs text-slate-500">Choose Free after account creation if Growth isn’t right for you.</p>
+        </section>
+        <section className="mx-auto mt-6 max-w-[720px] rounded-[22px] border border-white/[0.09] bg-[#151718] p-5 sm:p-6">
+          <div className="flex gap-3">
+            <CreditCard className="h-5 w-5 shrink-0 text-[#00C2CB]" />
+            <div><h2 className="font-semibold">For partners / affiliates</h2>
+              <p className="mt-1 text-xs leading-5 text-slate-400">No subscription and no card required to create an affiliate account. A 2.2% fee applies to wallet top-ups, plus payment-processing charges. Choose an offer, promote, and earn commissions.</p>
+              <button type="button" className="mt-3 text-xs font-semibold text-[#63e8ee] hover:underline" onClick={() => createAccount("affiliate")}>Create partner account <ArrowRight className="inline h-3 w-3" /></button>
             </div>
           </div>
         </section>
-
-        <div className="mx-auto w-full max-w-5xl grid gap-6 md:gap-8 md:grid-cols-2">
-          <PlanCard plan="business" />
-          <PlanCard plan="affiliate" />
-        </div>
-
-        <p className="mt-6 text-center text-xs text-gray-400">
-          You can operate as both a Business and a Partner using separate
-          accounts.
+        <p className="mx-auto mt-8 max-w-[720px] text-center text-xs leading-5 text-slate-400">
+          <ShieldCheck className="mr-1 inline h-4 w-4 text-[#00C2CB]" />You approve every paid campaign. Meta charges your connected ad account, with eligible affiliate-funded spend reimbursed separately through Nettmark.
+          <span className="ml-2">Already registered? <Link href="/login?role=business" className="font-semibold text-[#63e8ee] underline">Log in</Link>.</span>
         </p>
-
-        <section className="mx-auto mt-12 w-full max-w-5xl">
-          <h3 className="text-xl font-semibold mb-4">FAQs</h3>
-          <div className="grid md:grid-cols-2 gap-4">
-            {faqs.map(({ q, a }) => (
-              <details
-                key={q}
-                className="rounded-xl border border-white/10 bg-white/[0.02] p-4"
-              >
-                <summary className="cursor-pointer select-none font-medium list-none">
-                  {q}
-                </summary>
-                <p className="mt-2 text-sm text-gray-300">{a}</p>
-              </details>
-            ))}
-          </div>
-        </section>
-
-        <section className="mx-auto mt-12 w-full max-w-5xl rounded-2xl border border-white/10 bg-white/[0.02] p-5 text-center">
-          <p className="text-gray-300">
-            Still comparing?{" "}
-            <Link
-              className="text-[#00C2CB] hover:text-[#7ff5fb]"
-              href="/contact"
-            >
-              Talk to us
-            </Link>{" "}
-            — we’ll help you choose.
-          </p>
-        </section>
       </main>
     </div>
   );
