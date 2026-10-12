@@ -12,9 +12,11 @@ const ALLOWED_PAGE_PATHS = new Set([
   "/lp/business-demo",
   "/lp/partner-demo",
   "/create-account",
+  "/for-businesses",
+  "/pricing",
 ]);
 
-const ALLOWED_EVENT_TYPES = new Set(["page_view", "create_account_start", "business_demo_cta_click"]);
+const ALLOWED_EVENT_TYPES = new Set(["page_view", "create_account_start", "business_demo_cta_click", "landing_cta_click"]);
 import { aggregateBusinessFunnel } from "../../../utils/marketing/businessFunnel";
 import { BUSINESS_GROWTH_TRIAL_DAYS, getGrowthSubscriptionPrice } from "../../../utils/businessSubscriptions";
 
