@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Check, ArrowRight, CreditCard, ShieldCheck } from "lucide-react";
 import MarketingHeader from "@/components/marketing/MarketingHeader";
 import { logMarketingEvent } from "@/../utils/marketing/logEvent";
-import { getAttributionFromWindow } from "@/../utils/marketing/attribution";
+import { buildHrefWithAttribution, getAttributionFromWindow, persistAttribution } from "@/../utils/marketing/attribution";
 
 const growthBenefits = [
   "Affiliates fund and run paid Meta ads for your brand",
@@ -21,11 +21,21 @@ export default function PricingPage() {
       localStorage.setItem("intent.role", role);
       localStorage.setItem("intent.flow", "signup");
     } catch {}
-    if (role === "business") void logMarketingEvent({ eventType: "landing_cta_click", pagePath: "/pricing", audience: "business",
-      meta: { ...getAttributionFromWindow(), src: "pricing", cta_label: "Start 14-day free trial" } });
-    router.push(role === "business"
-      ? "/create-account?role=business&plan=growth&src=pricing"
-      : "/create-account?role=affiliate&src=pricing");
+    if (role === "business") {
+      // If the visitor reached Pricing from an ad landing page, preserve
+      // the original acquisition src and UTMs through signup and checkout.
+      const source = getAttributionFromWindow();
+      const attribution = { ...source, src: source.src || "pricing" };
+      persistAttribution(attribution);
+      void logMarketingEvent({ eventType: "landing_cta_click", pagePath: "/pricing", audience: "business",
+        meta: { ...attribution, cta_label: "Start 14-day free trial" } });
+      router.push(buildHrefWithAttribution(
+        "/create-account?role=business&plan=growth&src=" + encodeURIComponent(attribution.src),
+        attribution,
+      ));
+      return;
+    }
+    router.push("/create-account?role=affiliate&src=pricing");
   };
   return (
     <div className="marketing-pricing-theme min-h-screen bg-[#0f0f0f] text-white">
