@@ -51,11 +51,11 @@
       }
     }
 
-    // Utility: what page type is this?
+    // A page load is a visit, never a paid-ad click or confirmed purchase.
+    // Real add-to-cart and conversion events must come from explicit,
+    // verified commerce actions, not a URL containing "cart"/"checkout".
     var url = window.location.href;
-    var eventType = "click";
-    if (url.match(/cart/i)) eventType = "add_to_cart";
-    if (url.match(/thank|order|checkout/i)) eventType = "checkout_completed";
+    var eventType = "page_view";
 
     var affiliateId = queryParam('nm_aff', url) || getStored(ATTR_AFF_KEY);
     var campaignId = queryParam('nm_camp', url) || getStored(ATTR_CAMP_KEY);
@@ -63,11 +63,10 @@
     if (affiliateId) setStored(ATTR_AFF_KEY, affiliateId);
     if (campaignId) setStored(ATTR_CAMP_KEY, campaignId);
 
-    if (eventType === 'checkout_completed' && affiliateId && campaignId) {
-      eventType = 'conversion';
-    }
+    // Do not turn a checkout page view into a billable conversion.
+    // The server's existing explicit event / commission path stays intact.
 
-    // Fire event (replace with your real API endpoint)
+    // Record a visit using the existing telemetry API.
     fetch("https://www.nettmark.com/api/track-event", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -84,6 +83,8 @@
           title: document.title || null,
           nm_aff: affiliateId,
           nm_camp: campaignId,
+          tracker_version: '2',
+          event_source: 'page_load',
         },
       }),
     }).catch(() => {});
