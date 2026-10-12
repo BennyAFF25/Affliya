@@ -46,7 +46,7 @@ type DashboardSnapshot = {
 const panel = "rounded-[22px] border border-white/[0.09] bg-[#151718] shadow-[0_22px_60px_rgba(0,0,0,0.18)]";
 const muted = "text-[#94a3b8]";
 const money = (value: number) =>
-  new Intl.NumberFormat("en-AU", { style: "currency", currency: "AUD", currencyDisplay: "narrowSymbol" }).format(value);
+  "A$" + new Intl.NumberFormat("en-AU", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
 const shortDate = (date: string) => {
   const parsed = new Date(date);
   return Number.isNaN(parsed.getTime()) ? "—" : parsed.toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" });
