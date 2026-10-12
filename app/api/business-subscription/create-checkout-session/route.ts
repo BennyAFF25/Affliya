@@ -205,6 +205,9 @@ export async function POST(req: Request) {
       meta: {
         ...cohort,
         source: "checkout_endpoint",
+        ...Object.fromEntries(Object.entries(attribution).filter(([key, value]) =>
+          ["src","utm_source","utm_medium","utm_campaign","utm_content","utm_term"].includes(key) &&
+          typeof value === "string" && value.length <= 300)),
         checkoutSessionId: session.id,
         trialEligible,
         trialDays: trialEligible ? BUSINESS_GROWTH_TRIAL_DAYS : 0,
