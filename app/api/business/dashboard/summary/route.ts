@@ -73,7 +73,7 @@ export async function GET() {
       ...(ads.data || []).filter((row) => active(row.status))
         .map((row) => ({ ...row, __source: "paid", campaign_type: row.campaign_type || "paid" })),
       ...(organic.data || []).filter((row) => active(row.status))
-        .map((row) => ({ ...row, __source: "organic", campaign_type: row.type || "organic" })),
+        .map((row) => ({ ...row, __source: "organic", campaign_type: row.type || "organic", spend: null })),
     ].map((row) => ({
       id: row.id,
       status: row.status,
@@ -107,7 +107,7 @@ export async function GET() {
       reportedMetaSpend: spendReported,
       awaitingWalletSettlement: unaccounted,
       queuedForTransfer: round((settlementRows.data || [])
-        .filter((row) => row.status !== "transfer_succeeded")
+        .filter((row) => row.status !== "transfer_succeeded" || !row.stripe_transfer_id)
         .reduce((sum, row) => sum + Number(row.amount || 0), 0)),
       transferredToBusiness: round((settlementRows.data || [])
         .filter((row) => row.status === "transfer_succeeded" && !!row.stripe_transfer_id)
