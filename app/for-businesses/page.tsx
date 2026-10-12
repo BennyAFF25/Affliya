@@ -4,6 +4,8 @@ import React from "react";
 import Link from "next/link";
 import { ShieldCheck, Link2, Wallet } from "lucide-react";
 import MarketingHeader from "@/components/marketing/MarketingHeader";
+import { logMarketingEvent } from "@/../utils/marketing/logEvent";
+import { getAttributionFromWindow } from "@/../utils/marketing/attribution";
 
 /**
  * For Businesses – marketing/landing page
@@ -37,6 +39,8 @@ export default function ForBusinessesPage() {
         <div className="mt-8 flex flex-wrap gap-4">
           <Link
             href="/create-account?role=business&plan=growth&src=for_businesses"
+            onClick={() => { void logMarketingEvent({ eventType: "landing_cta_click", pagePath: "/for-businesses", audience: "business",
+              meta: { ...getAttributionFromWindow(), src: "for_businesses", cta_label: "Start 14-day free trial" } }); }}
             className="px-5 py-3 rounded-md bg-[#00C2CB] text-black font-semibold shadow hover:bg-[#00b0b8] transition-colors"
           >
             Start 14-day free trial
