@@ -25,7 +25,7 @@ assert.doesNotMatch(summary, /\.update\(|\.insert\(|stripe\.transfers/);
 // dashboard finance queries or browser writes.
 assert.match(page, /Ad spend reconciliation/);
 assert.match(page, /Awaiting wallet settlement/);
-assert.match(page, /Queued for business transfer/);
+assert.match(page, /Awaiting business transfer/);
 assert.match(page, /Transferred to business/);
 assert.match(page, /Reported Meta spend/);
 assert.match(page, /xl:grid-cols-4/);
