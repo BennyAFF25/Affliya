@@ -236,6 +236,48 @@ const ManageCampaignsBusiness = () => {
     fetchShopPlacements();
   }, [user, fetchCampaigns, fetchShopPlacements]);
 
+  // Business totals follow the server's periodic Meta Insights sync.
+  // Background browser refreshes only read stored rows: no wallet deductions,
+  // Stripe transfers, ad state changes, or extra Meta API calls.
+  useEffect(() => {
+    if (!user?.email) return;
+    let cancelled = false;
+    let inFlight = false;
+    const refreshRecordedMetaTotals = async () => {
+      if (cancelled || inFlight || document.visibilityState !== "visible") return;
+      inFlight = true;
+      try {
+        const { data, error } = await supabase
+          .from("live_ads")
+          .select("id,spend,clicks,conversions,status,spend_transferred,billing_state")
+          .eq("business_email", user.email);
+        if (error) throw error;
+        if (!cancelled && data) {
+          const currentById = new Map(data.map((row) => [row.id, row]));
+          setCampaigns((existing) => existing.map((item) =>
+            item._source === "meta" && currentById.has(item.id)
+              ? { ...item, ...currentById.get(item.id) }
+              : item,
+          ));
+        }
+      } catch (error) {
+        console.warn("[business/manage-campaigns] recorded Meta totals refresh failed", error);
+      } finally {
+        inFlight = false;
+      }
+    };
+    const onResume = () => { void refreshRecordedMetaTotals(); };
+    const interval = window.setInterval(onResume, 30_000);
+    window.addEventListener("focus", onResume);
+    document.addEventListener("visibilitychange", onResume);
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+      window.removeEventListener("focus", onResume);
+      document.removeEventListener("visibilitychange", onResume);
+    };
+  }, [user?.email]);
+
   console.log("[📢 useEffect Completed]");
 
   const handleSyncSpend = async (liveAdId: string) => {
