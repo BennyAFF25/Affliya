@@ -138,7 +138,9 @@ export async function POST(req?: Request) {
     maxAge: 0,
   });
 
-  if (isLegacyDeferred) {
+  if (isLegacyDeferred || user.user_metadata?.business_plan_first_v2 === true) {
+    // Plan-first signups already chose Growth/Free before creating the offer.
+    // Never reopen the legacy post-offer plan gate for them.
     response.cookies.set(PLAN_CHOICE_COOKIE, '', {
       httpOnly: true,
       sameSite: 'lax',
