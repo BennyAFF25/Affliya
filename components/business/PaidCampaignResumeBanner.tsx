@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowRight, Megaphone } from "lucide-react";
+import { ArrowRight, Megaphone, X } from "lucide-react";
 
 type ResumeCampaign = {
   proposalId: string;
@@ -20,6 +20,7 @@ type PendingCampaign = {
 
 const STORAGE_KEY = "nettmark:paid-campaign-resume";
 export const RESUME_CAMPAIGN_EVENT = "nettmark:paid-campaign-resume-updated";
+const DISMISSED_KEY = "nettmark:paid-campaign-banner-dismissed";
 
 function inboxPath(proposalId: string) {
   return `/business/my-business/ad-ideas?proposal=${encodeURIComponent(proposalId)}`;
@@ -76,67 +77,100 @@ export function clearPaidCampaignResume(proposalId?: string) {
 export default function PaidCampaignResumeBanner() {
   const pathname = usePathname();
   const [campaign, setCampaign] = useState<ResumeCampaign | null>(null);
+  const pendingIdsRef = useRef<string[]>([]);
+  const requestRef = useRef(0);
 
-  const refresh = useCallback(() => {
-    if (typeof window === "undefined") return null;
-    const raw = window.sessionStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      setCampaign(null);
-      return null;
-    }
-    try {
-      const saved = safeResume(JSON.parse(raw));
-      if (saved) {
-        window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
-      }
-      setCampaign(saved);
-      return saved;
-    } catch {
-      window.sessionStorage.removeItem(STORAGE_KEY);
-      setCampaign(null);
-      return null;
-    }
-  }, []);
-
-  const discoverPendingCampaign = useCallback(async () => {
+  const refresh = useCallback(async () => {
     if (typeof window === "undefined") return;
-    if (refresh()) return;
+    const currentRequest = ++requestRef.current;
 
+    // Do not trust cached sessionStorage resume state as proof that a campaign
+    // still needs review. The database is authoritative after launch/rejection.
     try {
-      const res = await fetch("/api/business/ad-ideas/pending-summary", {
+      const res = await fetch("/api/business/ad-ideas/pending-summary?banner=1", {
         cache: "no-store",
       });
       const json = await res.json().catch(() => null);
-      if (!res.ok || !json?.success) return;
+      if (currentRequest !== requestRef.current) return;
+      if (!res.ok || !json?.success) {
+        pendingIdsRef.current = [];
+        setCampaign(null);
+        return;
+      }
 
-      const first = (Array.isArray(json.campaigns) ? json.campaigns[0] : null) as PendingCampaign | null;
-      if (!first?.id) return;
+      const pending = (Array.isArray(json.campaigns) ? json.campaigns : []) as PendingCampaign[];
+      pendingIdsRef.current = pending.map((idea) => idea.id).filter(Boolean);
 
-      const next: ResumeCampaign = {
-        proposalId: first.id,
-        path: inboxPath(first.id),
-        offerTitle: first.offer_title || null,
-        affiliateEmail: first.affiliate_email || null,
-      };
-      savePaidCampaignResume(next);
-      setCampaign(next);
+      let saved: ResumeCampaign | null = null;
+      try {
+        const raw = window.sessionStorage.getItem(STORAGE_KEY);
+        if (raw) saved = safeResume(JSON.parse(raw));
+      } catch {
+        window.sessionStorage.removeItem(STORAGE_KEY);
+      }
+
+      // A locally saved resume can outlive a successful launch. Clear it
+      // quietly, without sending another resume-updated event and refetching.
+      if (saved && !pending.some((idea) => idea.id === saved?.proposalId)) {
+        window.sessionStorage.removeItem(STORAGE_KEY);
+        saved = null;
+      }
+
+      let dismissed: string[] = [];
+      try {
+        const raw = window.sessionStorage.getItem(DISMISSED_KEY);
+        const parsed = raw ? JSON.parse(raw) : [];
+        if (Array.isArray(parsed)) dismissed = parsed.filter((id): id is string => typeof id === "string");
+      } catch {
+        window.sessionStorage.removeItem(DISMISSED_KEY);
+      }
+      // Dismissal lasts for this tab's session for known pending proposals.
+      // An actual NEW submission is not suppressed by dismissing old ones.
+      const unseen = pending.filter((idea) => idea.id && !dismissed.includes(idea.id));
+      const selected = unseen.find((idea) => idea.id === saved?.proposalId) || unseen[0];
+      setCampaign(selected ? {
+        proposalId: selected.id,
+        path: "/business/my-business/ad-ideas/" + encodeURIComponent(selected.id),
+        offerTitle: selected.offer_title || null,
+        affiliateEmail: selected.affiliate_email || null,
+      } : null);
     } catch (error) {
+      if (currentRequest !== requestRef.current) return;
+      pendingIdsRef.current = [];
+      setCampaign(null);
       console.warn("[paid-campaign-resume] pending campaign lookup failed", error);
     }
-  }, [refresh]);
+  }, []);
 
   useEffect(() => {
-    void discoverPendingCampaign();
-    window.addEventListener(RESUME_CAMPAIGN_EVENT, refresh);
-    window.addEventListener("storage", refresh);
-    return () => {
-      window.removeEventListener(RESUME_CAMPAIGN_EVENT, refresh);
-      window.removeEventListener("storage", refresh);
-    };
-  }, [discoverPendingCampaign, refresh]);
+    void refresh();
+  }, [pathname, refresh]);
 
-  // The Ad Ideas area itself is the campaign-proposal hub, so showing a global
-  // resume banner there only duplicates the same task.
+  useEffect(() => {
+    const onRefresh = () => { void refresh(); };
+    const onVisible = () => {
+      if (document.visibilityState === "visible") onRefresh();
+    };
+    window.addEventListener(RESUME_CAMPAIGN_EVENT, onRefresh);
+    window.addEventListener("storage", onRefresh);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.removeEventListener(RESUME_CAMPAIGN_EVENT, onRefresh);
+      window.removeEventListener("storage", onRefresh);
+      document.removeEventListener("visibilitychange", onVisible);
+      requestRef.current++;
+    };
+  }, [refresh]);
+
+  const dismiss = () => {
+    // Hide the current set of review reminders, not the proposals themselves.
+    // New proposal IDs will appear again when we next refresh.
+    window.sessionStorage.setItem(DISMISSED_KEY, JSON.stringify(pendingIdsRef.current));
+    setCampaign(null);
+  };
+
+  // On the Ad Ideas page the review queue is already present; no duplicate
+  // full-width reminder is useful there.
   if (!campaign || pathname?.startsWith("/business/my-business/ad-ideas") || pathname?.startsWith("/business/review-campaign/")) return null;
 
   return (
@@ -151,17 +185,28 @@ export default function PaidCampaignResumeBanner() {
               Paid campaign waiting for you
             </div>
             <div className="truncate text-xs text-[var(--muted-foreground)]">
-              {campaign.offerTitle || "An affiliate-funded campaign"} is still waiting for review.
+              {campaign.offerTitle || "An affiliate-funded campaign"} is waiting for review.
             </div>
           </div>
         </div>
-        <Link
-          href={campaign.path}
-          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-[#00C2CB] px-4 py-2 text-sm font-semibold text-[#061113] transition hover:brightness-110"
-        >
-          Open Ad Ideas
-          <ArrowRight className="h-4 w-4" />
-        </Link>
+        <div className="flex items-center gap-2 sm:shrink-0">
+          <Link
+            href={campaign.path}
+            className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-full bg-[#00C2CB] px-4 py-2 text-sm font-semibold text-[#061113] transition hover:brightness-110 sm:flex-none"
+          >
+            Open Ad Ideas
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+          <button
+            type="button"
+            onClick={dismiss}
+            title="Dismiss paid campaign reminder"
+            aria-label="Dismiss paid campaign reminder"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 text-[var(--muted-foreground)] transition hover:border-white/25 hover:text-[var(--foreground)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00C2CB]"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
       </div>
     </div>
   );
