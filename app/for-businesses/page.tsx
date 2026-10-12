@@ -46,7 +46,7 @@ export default function ForBusinessesPage() {
         <p className="mt-3 text-xs text-gray-300">14 days free, then A$49/month. Cancel anytime. Card required.</p>
       </section>
 
-      {/* BENEFITS */
+      {/* BENEFITS */}
       <section className="mx-auto max-w-7xl px-6 pt-6 pb-4">
         <div className="grid md:grid-cols-3 gap-5">
           <BenefitCard
