@@ -11,6 +11,7 @@ const ATTR_KEYS = [
   "msclkid",
   "ref",
   "source",
+  "src",
 ] as const;
 
 type AttrKey = (typeof ATTR_KEYS)[number];
