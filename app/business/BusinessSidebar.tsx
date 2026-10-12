@@ -3,9 +3,6 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
-import { useSession } from "@supabase/auth-helpers-react";
-import { supabase } from "utils/supabase/pages-client";
 import {
   Home,
   Briefcase,
@@ -16,29 +13,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-export default function BusinessSidebar() {
+export default function BusinessSidebar({ chatUnreadCount = 0 }: { chatUnreadCount?: number }) {
   const pathname = usePathname();
-  const session = useSession();
-  const user = session?.user;
-  const [showNotification, setShowNotification] = useState(false);
-
-  useEffect(() => {
-    const checkBusinessNotifs = async () => {
-      if (!user?.email) return;
-
-      const [{ data: reqs }, { data: ads }] = await Promise.all([
-        supabase.from("affiliate_requests").select("id").eq("business_email", user.email).eq("status", "pending"),
-        supabase.from("ad_ideas").select("id").eq("business_email", user.email).eq("status", "pending"),
-      ]);
-
-      if ((reqs?.length ?? 0) > 0 || (ads?.length ?? 0) > 0) {
-        setShowNotification(true);
-      }
-    };
-
-    checkBusinessNotifs();
-  }, [user]);
-
   const links: { name: string; href: string; icon: LucideIcon }[] = [
     { name: "Dashboard", href: "/business/dashboard", icon: Home },
     { name: "My Business", href: "/business/my-business", icon: Briefcase },
@@ -103,7 +79,7 @@ export default function BusinessSidebar() {
                       )}
                     </Link>
 
-                    {link.name === "Inbox" && showNotification && (
+                    {link.name === "Inbox" && chatUnreadCount > 0 && (
                       <span className="absolute right-3 top-3 h-2.5 w-2.5 rounded-full bg-[var(--primary)] ring-2 ring-[var(--card)] shadow-[0_0_12px_2px_color-mix(in_oklab,var(--primary)_45%,transparent)]" />
                     )}
                   </li>
