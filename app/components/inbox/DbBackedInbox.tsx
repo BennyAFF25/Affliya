@@ -216,12 +216,15 @@ export function DbBackedInbox({
             supabase.from("offers").select("id, title"),
           ]);
 
-        if (messageResult.error) {
-          console.error(
-            "[Inbox messages fetch failed]",
-            messageResult.error.message,
-          );
-          setLoadError("Your messages could not be loaded. Please try again.");
+        // The legacy one-way inbox_messages migration is not yet live in
+        // production. Preserve the working Notifications view and show an
+        // empty legacy messages list rather than blocking all updates.
+        const legacyTableNotInstalled = Boolean(messageResult.error &&
+          /inbox_messages/i.test(messageResult.error.message) &&
+          /schema cache|does not exist|not found/i.test(messageResult.error.message));
+        if (messageResult.error && !legacyTableNotInstalled) {
+          console.error("[Inbox messages fetch failed]", messageResult.error.message);
+          setLoadError("Some older inbox updates could not be loaded.");
         } else {
           const rows = ((messageResult.data || []) as InboxMessageRow[]).filter(
             (row) => row.recipient_role === audience,
