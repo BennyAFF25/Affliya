@@ -23,6 +23,8 @@ export type AffiliateWebhookBrand = {
   timezone: string | null;
   country: string | null;
   plan: "free" | "growth";
+  plan_status: "trialing" | "active" | "free";
+  trial_ends_at: string | null;
   meta_connected: boolean;
   signed_up_at: string | null;
   dashboard_url: string;
@@ -187,7 +189,7 @@ async function loadBrandSnapshot(supabase: SupabaseClient, row: OutboxRow) {
       .maybeSingle(),
     supabase
       .from("business_entitlements")
-      .select("billing_status")
+      .select("billing_status,subscription_current_period_end")
       .eq("business_id", brand.id)
       .limit(1)
       .maybeSingle(),
@@ -208,6 +210,15 @@ async function loadBrandSnapshot(supabase: SupabaseClient, row: OutboxRow) {
   ].includes(billingStatus)
     ? "growth"
     : "free";
+
+  // Snapshot reflects current authoritative entitlement (not merely a clicked
+  // checkout). No inferred deadline when the stored period end is missing.
+  const planStatus: "trialing" | "active" | "free" =
+    billingStatus === "subscription_trialing" ? "trialing"
+    : plan === "growth" ? "active" : "free";
+  const trialEndsAt = planStatus === "trialing"
+    ? (entitlement?.subscription_current_period_end || null)
+    : null;
 
   const website = String(latestOffer?.website || "").trim() || null;
   let fallbackName = "";
@@ -237,6 +248,8 @@ async function loadBrandSnapshot(supabase: SupabaseClient, row: OutboxRow) {
     timezone: null,
     country: brand.country || null,
     plan,
+    plan_status: planStatus,
+    trial_ends_at: trialEndsAt,
     meta_connected: Array.isArray(metaRows) && metaRows.length > 0,
     signed_up_at: brand.created_at || null,
     dashboard_url: siteUrl() + "/business/my-business",
