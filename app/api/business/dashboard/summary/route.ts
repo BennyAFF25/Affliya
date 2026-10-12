@@ -112,8 +112,6 @@ export async function GET() {
       transferredToBusiness: round((settlementRows.data || [])
         .filter((row) => row.status === "transfer_succeeded" && !!row.stripe_transfer_id)
         .reduce((sum, row) => sum + Number(row.amount || 0), 0)),
-      // Snapshot observation time only: Meta last-sync timestamp is not stored.
-      observedAt: new Date().toISOString(),
     };
     if (settlementRows.error) console.error("[business/dashboard/summary] finance unavailable", settlementRows.error);
 
