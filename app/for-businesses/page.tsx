@@ -27,26 +27,26 @@ export default function ForBusinessesPage() {
         </div>
 
         <h1 className="mt-5 text-4xl md:text-6xl font-extrabold leading-tight">
-          Plug into serious promoters —{" "}
-          <span className="text-[#7ff5fb]">without losing control</span>
+          Get sales without paying for the ads.
         </h1>
 
         <p className="mt-5 max-w-2xl text-gray-300 text-lg leading-relaxed">
-          Partners fund media. You approve what runs. Ads go live only after
-          your sign‑off — with one simple tag for clicks, carts and conversions.
+          Affiliates fund and run Meta ads for your brand. You approve every ad and only pay commission on verified sales.
         </p>
 
         <div className="mt-8 flex flex-wrap gap-4">
           <Link
-            href="/pricing"
+            href="/create-account?role=business&plan=growth&src=for_businesses"
             className="px-5 py-3 rounded-md bg-[#00C2CB] text-black font-semibold shadow hover:bg-[#00b0b8] transition-colors"
           >
-            Get Started
+            Start 14-day free trial
           </Link>
+          <Link href="/pricing" className="px-5 py-3 rounded-md border border-white/15 text-sm text-white/80 hover:text-white">View pricing</Link>
         </div>
+        <p className="mt-3 text-xs text-gray-300">14 days free, then A$49/month. Cancel anytime. Card required.</p>
       </section>
 
-      {/* BENEFITS */}
+      {/* BENEFITS */
       <section className="mx-auto max-w-7xl px-6 pt-6 pb-4">
         <div className="grid md:grid-cols-3 gap-5">
           <BenefitCard
@@ -162,7 +162,7 @@ export default function ForBusinessesPage() {
           />
           <FAQ
             q="How do payouts work?"
-            a="When a partner sale is confirmed, Stripe automatically displays commisions to settle on your dashboard."
+            a="When a partner sale is confirmed, Stripe automatically displays commissions to settle on your dashboard."
           />
           <FAQ
             q="What do we need to start?"
