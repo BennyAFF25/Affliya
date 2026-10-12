@@ -423,6 +423,12 @@ export default function ManageCampaignPage() {
         return;
       }
 
+      if (json.warning === "SETTLEMENT_PENDING") {
+        window.alert("The ad was paused in Meta, but ad spend settlement is still pending. Please contact Nettmark support before resuming.");
+      } else if (json.warning === "LOCAL_BILLING_STATUS_SYNC_FAILED") {
+        window.alert("Meta accepted this change, but Nettmark could not fully update billing status. Please contact support.");
+      }
+
       const newStatus = json.newStatus as string | undefined;
       const newBillingState = json.billing_state as string | undefined;
 
