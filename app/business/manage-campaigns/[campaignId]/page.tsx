@@ -575,6 +575,9 @@ export default function BusinessCampaignDetailPage() {
 
         if (!res.ok || !json?.success) {
           console.error("[❌ Failed Meta control]", json);
+          window.alert(json?.metaUpdated
+            ? "Meta accepted the change, but Nettmark could not save its status. Please contact support rather than retrying."
+            : "Could not update the Meta campaign. Please try again or contact support.");
           return;
         }
 
