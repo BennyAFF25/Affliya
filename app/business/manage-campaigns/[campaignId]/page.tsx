@@ -6,6 +6,7 @@ import { useSession } from "@supabase/auth-helpers-react";
 import { supabase } from "utils/supabase/pages-client";
 import { isTrackedLandingVisit } from "../../../../utils/tracking/visitMetrics";
 import CampaignDetailWorkspace from "../../../../components/campaigns/CampaignDetailWorkspace";
+import { getAffiliateUsername } from "../../../../utils/profileIdentity";
 
 type Campaign = {
   id: string;
@@ -25,7 +26,6 @@ type Campaign = {
   spend_transferred?: number | null;
   clicks?: number | null;
   conversions?: number | null;
-  tracking_link?: string | null;
   campaign_type?: string | null;
   // Indicates whether this came from live_campaigns (organic) or live_ads (meta)
   meta_source?: "organic" | "meta";
@@ -73,7 +73,7 @@ export default function BusinessCampaignDetailPage() {
   const [syncSpendMsg, setSyncSpendMsg] = useState<string | null>(null);
   const [offerInfo, setOfferInfo] = useState<{title?: string; commission?: number} | null>(null);
   const [emailModalOpen, setEmailModalOpen] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [affiliateUsername, setAffiliateUsername] = useState("Nettmark affiliate");
 
   useEffect(() => {
     if (!user?.email || !campaignId) return;
@@ -99,7 +99,6 @@ export default function BusinessCampaignDetailPage() {
           spend_transferred,
           clicks,
           conversions,
-          tracking_link,
           campaign_type,
           created_from,
           created_at,
@@ -117,7 +116,6 @@ export default function BusinessCampaignDetailPage() {
         .single();
 
       if (metaRow && !metaError) {
-        console.log("✅ META CAMPAIGN DATA (live_ads):", metaRow);
 
         const mapped: Campaign = {
           id: metaRow.id,
@@ -139,7 +137,6 @@ export default function BusinessCampaignDetailPage() {
           spend_transferred: metaRow.spend_transferred,
           clicks: metaRow.clicks,
           conversions: metaRow.conversions,
-          tracking_link: metaRow.tracking_link,
           campaign_type: metaRow.campaign_type,
           meta_source: "meta",
           billing_state: (metaRow as any).billing_state || null,
@@ -216,7 +213,6 @@ export default function BusinessCampaignDetailPage() {
           meta_source: "organic",
         };
         setCampaign(mapped);
-        console.log("[✅ Business campaign detail]", mapped);
       }
 
       setLoading(false);
@@ -224,6 +220,18 @@ export default function BusinessCampaignDetailPage() {
 
     fetchCampaign();
   }, [campaignId, user?.email]);
+
+  // Marketplace identity is the affiliate's public @username, never their
+  // private authentication email. Email remains an internal legacy lookup key.
+  useEffect(() => {
+    let active = true;
+    setAffiliateUsername("Nettmark affiliate");
+    if (!campaign?.affiliate_email) return;
+    void getAffiliateUsername(supabase, { email: campaign.affiliate_email })
+      .then((name) => { if (active) setAffiliateUsername(name); })
+      .catch(() => { if (active) setAffiliateUsername("Nettmark affiliate"); });
+    return () => { active = false; };
+  }, [campaign?.affiliate_email]);
 
   // The same details header as the affiliate page uses the linked offer name.
   // This is business-scoped, read-only; no new financial or control actions.
@@ -639,7 +647,6 @@ export default function BusinessCampaignDetailPage() {
     media_url: campaign.media_url,
     offer_id: campaign.offer_id,
     created_at: campaign.created_at || undefined,
-    tracking_link: campaign.tracking_link,
     billing_state: campaign.billing_state,
     spend: campaign.spend,
     spend_transferred: campaign.spend_transferred,
@@ -660,23 +667,20 @@ export default function BusinessCampaignDetailPage() {
         stats={{ clicks: stats?.pageViews || 0, carts: stats?.addToCarts || 0, conversions: stats?.conversions || 0 }}
         trend={{ labels: series.labels, carts: series.addToCarts, conversions: series.conversions }}
         businessRevenue={stats?.revenue || 0}
-        businessAffiliate={campaign.affiliate_email}
+        businessAffiliate={affiliateUsername}
         businessCanPause={businessCanPause}
         businessPauseLoading={updating}
         businessSyncMessage={syncSpendMsg}
         onBusinessPause={() => { void handleToggleStatus(); }}
         pendingPayout={0}
         loadingStats={statsLoading}
-        trackingUrl={campaign.tracking_link || ""}
+        trackingUrl=""
         affiliateReady={true}
-        copied={copied}
+        copied={false}
         money={(amount) => amount.toLocaleString("en-AU", { style: "currency", currency: metaCurrency })}
         syncingSpend={syncingSpend}
         controllingMeta={false}
-        onCopy={() => {
-          if (!campaign.tracking_link) return;
-          void navigator.clipboard.writeText(campaign.tracking_link).then(() => setCopied(true));
-        }}
+        onCopy={() => {}}
         onSyncSpend={() => { void handleSyncSpend(); }}
         onMetaControl={() => {}}
         onDeleteOrganic={() => {}}
