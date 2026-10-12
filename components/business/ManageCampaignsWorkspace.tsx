@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import MetaMark from "../brand/MetaMark";
 import Link from "next/link";
 import {
   Activity, Archive, ArrowRight, BarChart3, ChevronDown, CirclePause,
@@ -60,21 +61,6 @@ const darkButton = "inline-flex min-h-10 shrink-0 items-center justify-center ga
 const activeTab = "border-[rgba(0,194,203,0.3)] bg-[rgba(0,194,203,0.07)] text-[#63e8ee] shadow-[inset_0_0_24px_rgba(0,194,203,0.025)]";
 const inactiveTab = "border-transparent bg-white/[0.02] text-[var(--muted-foreground)] hover:bg-white/[0.08] hover:text-white";
 const gridColumns = "grid-cols-[minmax(240px,2.1fr)_minmax(100px,1fr)_80px_94px_75px_88px_minmax(90px,0.8fr)_268px]";
-
-function MetaMark({ className = "h-5 w-7" }: { className?: string }) {
-  // Lightweight inline rendition of Meta's blue infinity mark; no external asset fetch.
-  return (
-    <svg viewBox="0 0 40 24" className={className} fill="none" aria-hidden="true">
-      <path
-        d="M3 15.5C3 11.1 5.2 5.8 9 5.8c2.5 0 4.6 2 7.5 6.6l3.5 5.5C22.5 9.3 25.2 5.8 29 5.8c4.9 0 8 5.7 8 10 0 3.5-1.8 5.9-4.8 5.9-3.2 0-5.4-3-9-8.8l-3-4.8C17 13 13.5 20.7 9 20.7c-3.8 0-6-2.1-6-5.2Z"
-        stroke="#1688FA"
-        strokeWidth="3.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
 
 function isLive(campaign: Campaign) {
   const value = String(campaign.status || "").toLowerCase();
