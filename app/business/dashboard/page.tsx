@@ -40,6 +40,8 @@ type DashboardSnapshot = {
   pendingAdProposals: number;
   pendingAffiliateRequests: number;
   approvedAffiliates: number;
+  trial: { daysLeft: number | null; endsAt: string | null } | null;
+  affiliateOfferViews: number | null;
 };
 
 const panel = "rounded-[22px] border border-white/[0.09] bg-[#151718] shadow-[0_22px_60px_rgba(0,0,0,0.18)]";
@@ -180,6 +182,23 @@ export default function BusinessDashboard() {
           </div>
         )}
 
+        {snapshot?.trial && (
+          <section className={panel + " flex flex-col gap-3 border-[#00C2CB]/20 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5"} role="status">
+            <div>
+              <p className="text-xs font-semibold text-[#63e8ee]">Growth trial: {snapshot.trial.daysLeft === null ? "active" : snapshot.trial.daysLeft + " days left"}</p>
+              <p className={"mt-1 text-xs " + muted}>
+                {snapshot.trial.endsAt ? "Trial ends " + shortDate(snapshot.trial.endsAt) + ". " : ""}
+                Your plan gives approved affiliates access to paid Meta promotion.
+              </p>
+              {pendingProposals > 0 && <p className="mt-2 text-xs text-amber-200">
+                An affiliate wants to fund ads for you. Approve before your trial ends.
+              </p>}
+            </div>
+            <Link href="/business/my-business/ad-ideas" className="inline-flex min-h-10 items-center justify-center rounded-full bg-[#00C2CB] px-4 text-xs font-bold text-[#0f0f0f]">
+              {pendingProposals > 0 ? "Review paid proposals (" + pendingProposals + ")" : "Explore campaign reviews"}
+            </Link>
+          </section>
+        )}
         <section className={panel + " p-4 sm:p-5"} aria-labelledby="reconciliation-heading">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="flex items-start gap-3">
@@ -205,6 +224,9 @@ export default function BusinessDashboard() {
           </p>
         </section>
 
+        <p className={"text-[11px] " + muted}>
+          Affiliate offer views: {snapshot?.affiliateOfferViews ?? "not tracked yet"} · Paid proposals waiting: {snapshot?.pendingAdProposals ?? "—"}
+        </p>
         <section aria-label="Business summary" className="grid grid-cols-3 gap-2.5 sm:gap-3">
           <MiniStat label="Approved affiliates" value={snapshot ? String(snapshot.approvedAffiliates) : "—"} icon={<Users className="h-[18px] w-[18px]" />} description="In your network" href="/business/my-business/affiliate-requests" />
           <MiniStat label="Pending ad proposals" value={snapshot ? String(pendingProposals) : "—"} icon={<ListChecks className="h-[18px] w-[18px]" />} description={pendingProposals ? "Needs your review" : "All reviewed"} href="/business/my-business/ad-ideas" />
