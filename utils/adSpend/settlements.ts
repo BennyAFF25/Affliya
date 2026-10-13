@@ -3,7 +3,11 @@ import { buildNettmarkStripeMetadata, createStripeClient, getPlatformBalanceSnap
 import { getActivationSubsidyRemaining, toMoney, type ActivationSubsidyRow } from "../activationSubsidies";
 import { getWalletBalanceSnapshot } from "../wallet/balance";
 
-const stripe = createStripeClient(process.env.STRIPE_SECRET_KEY || "");
+// Initialize only when a Stripe operation runs, never during Next.js build/page collection.
+// Missing or invalid runtime credentials continue to fail closed in createStripeClient.
+function getStripe() {
+  return createStripeClient(process.env.STRIPE_SECRET_KEY || "");
+}
 
 const DEFAULT_SETTLEMENT_THRESHOLD = 25;
 const DEFAULT_WALLET_BUFFER = 10;
@@ -187,7 +191,7 @@ async function resolveBusinessTransferDestination(supabase: SupabaseLike, busine
 
 export async function getTransferReadiness(destinationAcct: string) {
   try {
-    const account = await stripe.accounts.retrieve(destinationAcct);
+    const account = await getStripe().accounts.retrieve(destinationAcct);
     const transfersCapability =
       typeof account === "object" && "capabilities" in account
         ? account.capabilities?.transfers
@@ -717,7 +721,7 @@ export async function processAdSpendTransferBatches(params: {
   const config = getAdSpendSettlementConfig();
   const limitBusinesses = Math.max(1, params.limitBusinesses ?? 10);
   const nowIso = new Date().toISOString();
-  const balanceSnapshot = await getPlatformBalanceSnapshot(stripe, "aud");
+  const balanceSnapshot = await getPlatformBalanceSnapshot(getStripe(), "aud");
   let remainingAvailable = roundMoney(balanceSnapshot.available);
 
   const { data: pendingRows, error: pendingErr } = await supabase
@@ -846,7 +850,7 @@ export async function processAdSpendTransferBatches(params: {
     processedSettlementCount += claimList.length;
 
     try {
-      const transfer = await stripe.transfers.create(
+      const transfer = await getStripe().transfers.create(
         {
           amount: Math.round(readyAmount * 100),
           currency: "aud",
