@@ -20,7 +20,7 @@ function response(payload: Record<string, unknown>, status = 200) {
 function cents(value: unknown): number | null {
   if (value === null || value === undefined || value === "") return null;
   const n = Number(value);
-  if (!Number.isFinite(n) || n < 0 || Math.round(n * 100) !== n * 100) return null;
+  if (!Number.isFinite(n) || n < 0 || Math.abs(Math.round(n * 100) - n * 100) > 0.000001) return null;
   return Math.round(n * 100);
 }
 
