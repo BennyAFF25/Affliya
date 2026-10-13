@@ -65,6 +65,11 @@ type Props = {
   businessPauseLoading?: boolean;
   businessSyncMessage?: string | null;
   onBusinessPause?: () => void;
+  businessRecoveryEligible?: boolean;
+  businessRecoveryAmount?: number;
+  businessRecovering?: boolean;
+  businessRecoveryMessage?: string | null;
+  onBusinessRecover?: () => void;
 };
 
 const panel = "rounded-[22px] border border-white/[0.09] bg-[#151718] shadow-[0_22px_60px_rgba(0,0,0,0.16)]";
@@ -153,6 +158,8 @@ export default function CampaignDetailWorkspace({
   audience = "affiliate", businessAffiliate, businessRevenue = 0,
   businessCanPause = false, businessPauseLoading = false,
   businessSyncMessage, onBusinessPause,
+  businessRecoveryEligible = false, businessRecoveryAmount = 0,
+  businessRecovering = false, businessRecoveryMessage, onBusinessRecover,
 }: Props) {
   const isBusiness = audience === "business";
   const state = stoppedByBusiness ? "Stopped by business" : isPaused ? "Paused"
@@ -209,12 +216,21 @@ export default function CampaignDetailWorkspace({
                 </button>
               )}
               {isBusiness ? (
-                businessCanPause && onBusinessPause ? (
-                  <button type="button" onClick={onBusinessPause} disabled={businessPauseLoading}
-                    className={button + " border-amber-400/20 text-amber-100"}>
-                    <CirclePause className="h-4 w-4" /> {businessPauseLoading ? "Updating…" : "Pause campaign"}
-                  </button>
-                ) : null
+                <>
+                  {businessCanPause && onBusinessPause ? (
+                    <button type="button" onClick={onBusinessPause} disabled={businessPauseLoading}
+                      className={button + " border-amber-400/20 text-amber-100"}>
+                      <CirclePause className="h-4 w-4" /> {businessPauseLoading ? "Updating…" : "Pause campaign"}
+                    </button>
+                  ) : null}
+                  {businessRecoveryEligible && !isOrganic && onBusinessRecover ? (
+                    <button type="button" onClick={onBusinessRecover} disabled={businessRecovering}
+                      className={button + " border-amber-400/25 text-amber-100"}>
+                      <RefreshCw className={"h-4 w-4 " + (businessRecovering ? "animate-spin" : "")} />
+                      {businessRecovering ? "Verifying Meta…" : "Recover unsettled spend"}
+                    </button>
+                  ) : null}
+                </>
               ) : !isOrganic ? (
                 canControlMeta ? (
                   <button type="button" onClick={() => onMetaControl(isPaused ? "RESUME" : "PAUSE")}
@@ -230,6 +246,14 @@ export default function CampaignDetailWorkspace({
               ) : null}
             </div>
           </div>
+          {isBusiness && businessRecoveryEligible && !isOrganic ? (
+            <p className="mt-3 text-xs leading-5 text-amber-200">
+              Estimated unsettled ad spend: {money(businessRecoveryAmount)}. Only previously stopped campaigns can be reconciled; Meta confirms the final amount before any affiliate wallet deduction.
+            </p>
+          ) : null}
+          {isBusiness && businessRecoveryMessage ? (
+            <div role="status" className="mt-3 rounded-xl border border-white/10 bg-white/[0.04] p-3 text-xs text-slate-200">{businessRecoveryMessage}</div>
+          ) : null}
           {isBusiness && businessSyncMessage ? (
             <div role="status" className="mt-4 rounded-xl border border-white/10 bg-white/[0.04] p-3 text-xs text-slate-200">{businessSyncMessage}</div>
           ) : null}
