@@ -53,6 +53,10 @@ CREATE TRIGGER protect_live_ad_settlement_fields_trigger
 BEFORE UPDATE ON public.live_ads
 FOR EACH ROW EXECUTE FUNCTION public.protect_live_ad_settlement_fields();
 
--- The existing live_ads INSERT RLS policy permits authenticated users to
--- insert records; recovery checks the Meta object, approved proposal and
--- owning business server-side rather than trusting browser-supplied rows.
+-- Paid live ads are created by the server-side launch handler using the
+-- service-role client, never directly by a browser. Existing permissive INSERT
+-- RLS would otherwise allow a user to forge rows for recovery attempts.
+REVOKE INSERT ON public.live_ads FROM PUBLIC, anon, authenticated;
+
+-- Recovery also independently cross-checks each row against a genuine
+-- approved ad idea and the owning Meta ad account before any wallet charge.
