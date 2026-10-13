@@ -39,6 +39,10 @@ jobs:
           yarn install --frozen-lockfile --ignore-scripts
       - name: Check onboarding, approval and AI failure behavior
         run: yarn -s tsx scripts/affiliate-onboarding.test.ts
+      - name: Check affiliate AI config and safe Stripe preview initialization
+        run: |
+          yarn -s tsx scripts/affiliate-promotion-ai-config.test.ts
+          yarn -s tsx scripts/ad-spend-stripe-init.test.ts
       - name: Strict typecheck new feature code
         run: yarn -s tsc --project tsconfig.affiliate-onboarding.json
       - name: Check existing integration files for new type errors
