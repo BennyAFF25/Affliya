@@ -209,6 +209,14 @@ export async function POST(req: Request) {
   const { admin, ad, actorId } = context;
   if (!admin || !ad || !actorId) return response({ success: false, error: "RECOVERY_UNAVAILABLE" }, 503);
   if (!eligibility(ad).eligible) return response({ success: false, error: "NOT_ELIGIBLE" }, 409);
+  // Reject any repeat before calling Meta; DB uniqueness also protects races.
+  try {
+    if (await alreadyClaimed(admin, liveAdId)) {
+      return response({ success: false, error: "RECOVERY_ALREADY_REQUESTED" }, 409);
+    }
+  } catch {
+    return response({ success: false, error: "RECOVERY_LEDGER_UNAVAILABLE" }, 503);
+  }
 
   const auditBase = {
     sourceRoute: SOURCE,
