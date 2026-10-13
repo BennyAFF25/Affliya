@@ -1,6 +1,6 @@
 # Business ad-spend recovery control
 
-Status: in progress (draft PR; no production database or deployment changes).
+Status: implementation prepared for review; awaiting executable CI, migration staging and Meta/Stripe integration verification (no production database or deployment changes).
 
 ## Problem
 A business stop reached Meta successfully but `/api/meta/control-ad` called the secured settlement endpoint without `CRON_SECRET`, resulting in HTTP 401. The cron only scans active/live ads; stopped ads can retain unpaid spend. A general-purpose business-facing settlement API would create abuse and duplicate-transfer risk.
@@ -28,4 +28,4 @@ Provide a quiet, recovery-only action on the **business paid campaign detail** w
 - The production database migration must be applied before publishing the route, with deployment authorised separately.
 
 ## Validation
-Pending: static checks, repo CI, TypeScript/build, and controlled staged Meta/Stripe tests. No production writes.
+21 independent static safeguard checks passed against branch source. The tsx regression suite is committed but has not been executed locally; full TypeScript/build and controlled staged Meta/Stripe tests are pending. Paid launch has been verified as a service-role insert in app/api/meta/callback/upload-video/route.ts, enabling client INSERT revocation in the migration. No production writes or settlement.
