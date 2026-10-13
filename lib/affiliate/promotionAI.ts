@@ -19,14 +19,19 @@ function boundedLimit(raw: string | undefined, fallback: number, maximum: number
 }
 
 export function getPromotionAIConfig(env: NodeJS.ProcessEnv = process.env): AIConfig | null {
+  // Vercel Upstash integrations provide KV_* credentials; retain compatibility with
+  // existing UPSTASH_* deployments. Never mix credentials from different pairs.
+  const hasUpstashOverride = !!(env.UPSTASH_REDIS_REST_URL || env.UPSTASH_REDIS_REST_TOKEN);
+  const redisUrl = hasUpstashOverride ? env.UPSTASH_REDIS_REST_URL : env.KV_REST_API_URL;
+  const redisToken = hasUpstashOverride ? env.UPSTASH_REDIS_REST_TOKEN : env.KV_REST_API_TOKEN;
   if (env.NETTMARK_AFFILIATE_AI_ENABLED !== "true" || !env.OPENAI_API_KEY ||
-      !env.UPSTASH_REDIS_REST_URL || !env.UPSTASH_REDIS_REST_TOKEN) return null;
+      !redisUrl || !redisToken) return null;
   let url: URL;
-  try { url = new URL(env.UPSTASH_REDIS_REST_URL); } catch { return null; }
+  try { url = new URL(redisUrl); } catch { return null; }
   if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash) return null;
   return {
     apiKey: env.OPENAI_API_KEY, model: env.OPENAI_PROMOTION_MODEL || "gpt-4.1-mini",
-    redisUrl: url.href.replace(/\/$/, ""), redisToken: env.UPSTASH_REDIS_REST_TOKEN,
+    redisUrl: url.href.replace(/\/$/, ""), redisToken,
     userLimit: boundedLimit(env.NETTMARK_AI_DAILY_USER_LIMIT, 3, 10),
     globalLimit: boundedLimit(env.NETTMARK_AI_DAILY_GLOBAL_LIMIT, 100, 1000),
   };
