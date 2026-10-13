@@ -107,13 +107,10 @@ async function verifiedMetaSpend(admin: any, ad: Ad) {
     .order("created_at", { ascending: false })
     .limit(30);
   if (error || !connections?.length) throw new Error("META_CONNECTION_UNAVAILABLE");
-  const connection = connections.find((row: any) =>
-    !!row.access_token && !!row.ad_account_id && row.ad_account_currency === "AUD"
-  );
-  if (!connection) throw new Error("META_AUD_CONNECTION_REQUIRED");
+  const candidates = connections.filter((row: any) => !!row.access_token && !!row.ad_account_id);
+  if (!candidates.length) throw new Error("META_CONNECTION_UNAVAILABLE");
 
-  const token = String(connection.access_token);
-  const graph = async (objectId: string, params: Record<string, string>) => {
+  const graphWithToken = async (token: string, objectId: string, params: Record<string, string>) => {
     const url = new URL("https://graph.facebook.com/" + META_API_VERSION + "/" + objectId);
     Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, value));
     const res = await fetch(url, {
@@ -126,10 +123,35 @@ async function verifiedMetaSpend(admin: any, ad: Ad) {
     return payload;
   };
 
-  const metaAd = await graph(String(ad.meta_ad_id), { fields: "id,account_id,campaign_id,effective_status" });
+  // A business can connect several pages/ad accounts. Discover the real ad
+  // account from Meta first, rather than blindly choosing the newest row.
+  // Try no more than three distinct tokens; never log or put them in URLs.
+  const tokenCandidates = [...new Set(candidates.map((row: any) => String(row.access_token)))].slice(0, 3);
+  let selectedToken: string | null = null;
+  let metaAd: any = null;
+  for (const candidate of tokenCandidates) {
+    try {
+      metaAd = await graphWithToken(candidate, String(ad.meta_ad_id), {
+        fields: "id,account_id,campaign_id,effective_status",
+      });
+      selectedToken = candidate;
+      break;
+    } catch {
+      // A prior connection can be expired; move to the next authorised token.
+    }
+  }
+  if (!metaAd || !selectedToken) throw new Error("META_VERIFICATION_FAILED");
+  const connection = candidates.find((row: any) =>
+    String(row.ad_account_id) === "act_" + String(metaAd.account_id)
+    && String(row.ad_account_currency || "").toUpperCase() === "AUD"
+    && String(row.access_token) === selectedToken
+  );
+  if (!connection) throw new Error("META_OBJECT_MISMATCH");
+  const graph = (objectId: string, params: Record<string, string>) =>
+    graphWithToken(selectedToken!, objectId, params);
+
   if (String(metaAd.id) !== String(ad.meta_ad_id) ||
-    String(metaAd.campaign_id) !== String(ad.meta_campaign_id) ||
-    "act_" + String(metaAd.account_id) !== String(connection.ad_account_id)) {
+    String(metaAd.campaign_id) !== String(ad.meta_campaign_id)) {
     throw new Error("META_OBJECT_MISMATCH");
   }
   if (!["PAUSED", "CAMPAIGN_PAUSED", "ADSET_PAUSED", "ARCHIVED"].includes(String(metaAd.effective_status))) {
