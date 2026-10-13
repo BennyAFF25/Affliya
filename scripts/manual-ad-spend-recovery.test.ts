@@ -39,6 +39,7 @@ assert.match(sql, /NEW\.spend IS DISTINCT FROM OLD\.spend/);
 assert.match(sql, /NEW\.spend_transferred IS DISTINCT FROM OLD\.spend_transferred/);
 assert.match(sql, /NEW\.business_email IS DISTINCT FROM OLD\.business_email/);
 assert.match(sql, /NEW\.meta_ad_id IS DISTINCT FROM OLD\.meta_ad_id/);
+assert.match(sql, /REVOKE INSERT ON public\.live_ads FROM PUBLIC, anon, authenticated/);
 assert.match(detail, /\/api\/business\/ad-spend-recovery\?liveAdId=/);
 assert.match(detail, /body: JSON\.stringify\(\{ liveAdId: campaign\.id \}\)/);
 assert.match(detail, /businessRecoveryEligible=\{recoveryState\.eligible\}/);
