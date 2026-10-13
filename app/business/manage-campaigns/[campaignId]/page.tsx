@@ -35,6 +35,8 @@ type Campaign = {
   terminated_by_business_at?: string | null;
 };
 
+type RecoveryState = { eligible: boolean; estimatedOutstanding?: number };
+
 type CampaignStats = {
   pageViews: number;
   addToCarts: number;
@@ -74,6 +76,9 @@ export default function BusinessCampaignDetailPage() {
   const [offerInfo, setOfferInfo] = useState<{title?: string; commission?: number} | null>(null);
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [affiliateUsername, setAffiliateUsername] = useState("Nettmark affiliate");
+  const [recoveryState, setRecoveryState] = useState<RecoveryState>({ eligible: false });
+  const [recoveringSpend, setRecoveringSpend] = useState(false);
+  const [recoveryMessage, setRecoveryMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user?.email || !campaignId) return;
@@ -522,6 +527,79 @@ export default function BusinessCampaignDetailPage() {
     }
   };
 
+  // This hint comes from an authenticated, ownership-checked server route.
+  // The route intentionally hides recovery unless a stopped paid campaign has
+  // outstanding recorded spend and no previous one-shot recovery claim.
+  useEffect(() => {
+    if (campaign?.meta_source !== "meta" || !user?.email || !campaignId) {
+      setRecoveryState({ eligible: false });
+      return;
+    }
+    let cancelled = false;
+    const controller = new AbortController();
+    const loadEligibility = async () => {
+      try {
+        const res = await fetch(`/api/business/ad-spend-recovery?liveAdId=${encodeURIComponent(campaignId)}`, {
+          cache: "no-store", signal: controller.signal,
+        });
+        const body = await res.json().catch(() => null);
+        if (!cancelled) setRecoveryState({
+          eligible: !!res.ok && body?.eligible === true,
+          estimatedOutstanding: Number(body?.estimatedOutstanding || 0),
+        });
+      } catch {
+        if (!cancelled) setRecoveryState({ eligible: false });
+      }
+    };
+    void loadEligibility();
+    return () => { cancelled = true; controller.abort(); };
+  }, [campaignId, campaign?.meta_source, campaign?.status, campaign?.spend,
+    campaign?.spend_transferred, campaign?.billing_state, user?.email]);
+
+  const handleRecovery = async () => {
+    if (!campaign || !recoveryState.eligible || recoveringSpend) return;
+    const displayAmount = (recoveryState.estimatedOutstanding || 0).toLocaleString("en-AU", {
+      style: "currency", currency: metaCurrency,
+    });
+    if (!window.confirm(
+      `Request one-time reconciliation of approximately ${displayAmount} in outstanding ad spend?\n\nNettmark will independently verify the paused ad and lifetime spend with Meta. If verified, it will deduct only eligible ad spend from the affiliate's funded wallet and queue reimbursement. This request cannot be repeated from your dashboard.`,
+    )) return;
+    setRecoveringSpend(true);
+    setRecoveryMessage(null);
+    try {
+      const res = await fetch("/api/business/ad-spend-recovery", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ liveAdId: campaign.id }),
+      });
+      const body = await res.json().catch(() => null);
+      if (!res.ok || !body?.success) {
+        setRecoveryMessage(body?.recoveryRecorded
+          ? "A recovery attempt was recorded but needs Nettmark support review. No automatic retry will run from this button."
+          : "Recovery could not be verified or completed. No new settlement was initiated. Please contact Nettmark support if the balance remains outstanding.");
+        if (body?.recoveryRecorded || body?.error === "RECOVERY_ALREADY_REQUESTED") {
+          setRecoveryState({ eligible: false });
+        }
+        return;
+      }
+      setRecoveryState({ eligible: false });
+      setRecoveryMessage(body.requiresSupport
+        ? "The available affiliate funds were partially reconciled. Nettmark support must review the remaining balance."
+        : "Ad spend reconciliation recorded. Stripe reimbursement is queued and may take longer to reach the business.");
+      const { data } = await (supabase as any).from("live_ads")
+        .select("spend,spend_transferred")
+        .eq("id", campaign.id)
+        .maybeSingle();
+      if (data) setCampaign((previous) =>
+        previous ? { ...previous, spend: data.spend, spend_transferred: data.spend_transferred } : previous);
+    } catch {
+      setRecoveryMessage("The request result is uncertain. Please check with Nettmark support before attempting it again.");
+      setRecoveryState({ eligible: false });
+    } finally {
+      setRecoveringSpend(false);
+    }
+  };
+
   // Derived pause state: respects status, billing_state, and billing_paused_at
   const isBusinessStopped =
     campaign?.billing_state === "TERMINATED_BY_BUSINESS" ||
@@ -672,6 +750,11 @@ export default function BusinessCampaignDetailPage() {
         businessPauseLoading={updating}
         businessSyncMessage={syncSpendMsg}
         onBusinessPause={() => { void handleToggleStatus(); }}
+        businessRecoveryEligible={recoveryState.eligible}
+        businessRecoveryAmount={recoveryState.estimatedOutstanding || 0}
+        businessRecovering={recoveringSpend}
+        businessRecoveryMessage={recoveryMessage}
+        onBusinessRecover={() => { void handleRecovery(); }}
         pendingPayout={0}
         loadingStats={statsLoading}
         trackingUrl=""
