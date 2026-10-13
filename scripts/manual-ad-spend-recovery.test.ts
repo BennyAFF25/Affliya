@@ -29,6 +29,7 @@ for (const pattern of [
 ]) {
   assert.match(route, pattern, "Missing mandatory recovery guard: " + pattern);
 }
+assert.ok(route.indexOf("await alreadyClaimed(admin, liveAdId)", route.indexOf("export async function POST")) < route.indexOf("metaSpend = await verifiedMetaSpend"), "Reject repeat before hitting Meta");
 assert.doesNotMatch(route, /access_token=\$\{/);
 assert.doesNotMatch(route, /chunkAmount:|body\.amount|body\.spend|req\.headers\.get\("x-cron-secret"\)/);
 assert.match(sql, /live_ad_id uuid PRIMARY KEY/);
