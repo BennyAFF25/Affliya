@@ -1,19 +1,15 @@
 "use client";
+import { businessLoginDestination } from "../../utils/businessLoginDestination";
 
-import { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/../utils/supabase/pages-client";
 import Image from "next/image";
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { getAccountRole } from "../../utils/affiliate/accountRole";
 import { safeInternalReturnTo, roleReturnTo } from "@/../utils/affiliate/onboarding";
-
-type Profile = { role?: string | null };
-// The checked-in Database type only contains an example users table.
-const profileClient = supabase as unknown as SupabaseClient;
 
 export default function AuthRedirect() {
   const router = useRouter();
-  const [fade, setFade] = useState(false);
 
   useEffect(() => {
     const returnTo = safeInternalReturnTo(
@@ -22,63 +18,41 @@ export default function AuthRedirect() {
 
     const handleRedirect = async () => {
       const {
-        data: { user },
-      } = await supabase.auth.getUser();
+        data: { session },
+      } = await supabase.auth.getSession();
+      const user = session?.user;
 
       if (!user) {
         const loginPath = roleReturnTo(returnTo, "affiliate")
           ? `/login/affiliate?next=${encodeURIComponent(returnTo!)}`
           : returnTo ? `/login?returnTo=${encodeURIComponent(returnTo)}` : "/login";
-        return startFade(() => router.replace(loginPath));
+        return router.replace(loginPath);
       }
 
-      let { data: profile, error } = await profileClient
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .maybeSingle<Profile>();
+      const role = await getAccountRole(user.id);
 
-      // All email signups are provisioned by the trusted auth.users trigger.
-      // Never create or rewrite a profile in the client during login/redirect.
-      // Missing profiles fail closed and can be repaired by the admin pipeline.
-
-      if (error) {
-        console.error("[PROFILE ERROR]", error);
-        const loginPath = roleReturnTo(returnTo, "affiliate")
-          ? `/login/affiliate?next=${encodeURIComponent(returnTo!)}`
-          : returnTo ? `/login?returnTo=${encodeURIComponent(returnTo)}` : "/login";
-        return startFade(() => router.replace(loginPath));
-      }
-
-      if (profile?.role === "affiliate") {
-        const destination = roleReturnTo(returnTo, profile.role) || "/affiliate/dashboard";
-        startFade(() => router.replace(destination));
-      } else if (profile?.role === "business") {
-        const destination = roleReturnTo(returnTo, profile.role) || "/business/dashboard";
-        startFade(() => router.replace(destination));
+      if (role === "affiliate") {
+        const destination = roleReturnTo(returnTo, role) || "/affiliate/dashboard";
+        router.replace(destination);
+      } else if (role === "business") {
+        const destination = await businessLoginDestination(roleReturnTo(returnTo, role));
+        router.replace(destination);
       } else {
         const loginPath = roleReturnTo(returnTo, "affiliate")
           ? `/login/affiliate?next=${encodeURIComponent(returnTo!)}`
           : returnTo ? `/login?returnTo=${encodeURIComponent(returnTo)}` : "/login";
-        startFade(() => router.replace(loginPath));
+        router.replace(loginPath);
       }
     };
 
-    handleRedirect();
+    void handleRedirect().catch(() => router.replace("/login?error=account-check"));
   }, [router]);
-
-  const startFade = (callback: () => void) => {
-    setFade(true);
-    setTimeout(callback, 1000);
-  };
 
   return (
     <div
       className={`
         min-h-screen flex items-center justify-center
         bg-gradient-to-b from-black via-[#02060a] to-black
-        transition-opacity duration-500
-        ${fade ? "opacity-0" : "opacity-100"}
       `}
     >
       <div className="relative flex flex-col items-center gap-4">

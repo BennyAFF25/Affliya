@@ -6,7 +6,7 @@ const pending = readFileSync("app/api/business/ad-ideas/pending-summary/route.ts
 const detail = readFileSync("app/business/my-business/ad-ideas/[id]/page.tsx", "utf8");
 
 assert.match(pending, /searchParams\.get\("banner"\) === "1"/);
-assert.match(pending, /query = query\.gt\("start_time", new Date\(\)\.toISOString\(\)\)/);
+assert.match(pending, /validatePaidCampaignTiming\(idea\)\.ok/);
 assert.match(pending, /\.eq\("status", "pending"\)/);
 assert.match(banner, /pending-summary\?banner=1/);
 assert.match(banner, /if \(!res\.ok \|\| !json\?\.success\)/);

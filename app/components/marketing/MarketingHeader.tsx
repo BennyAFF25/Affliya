@@ -1,4 +1,5 @@
 "use client";
+import { signOutSession } from "../../../utils/supabase/signOut";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -88,7 +89,8 @@ export default function MarketingHeader() {
   };
 
   const handleLogout = async () => {
-    await supabaseClient.auth.signOut();
+    const { error } = await signOutSession(supabaseClient);
+    if (error) return;
     setMenuOpen(false);
     router.refresh();
   };

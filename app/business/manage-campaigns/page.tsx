@@ -2,7 +2,10 @@
 
 import { useSession } from "@supabase/auth-helpers-react";
 import { useCallback, useEffect, useState } from "react";
-import { supabase } from "utils/supabase/pages-client";
+import { supabase as browserClient } from "utils/supabase/pages-client";
+import type { SupabaseClient } from "@supabase/supabase-js";
+// The checked-in Database type contains only the sample users table.
+const supabase = browserClient as unknown as SupabaseClient;
 import ManageCampaignsWorkspace from "../../../components/business/ManageCampaignsWorkspace";
 
 const ManageCampaignsBusiness = () => {
@@ -22,40 +25,8 @@ const ManageCampaignsBusiness = () => {
     setLoadingCampaigns(true);
     setLoadError(null);
 
-    // Pull currency from the latest meta connection (so UI matches the ad account)
-    try {
-      const { data: metaConn, error: metaConnErr } = await supabase
-        .from("meta_connections")
-        .select("*")
-        .eq("business_email", user.email as string)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .single();
-
-      if (metaConnErr) {
-        console.warn(
-          "[⚠️ meta_connections currency lookup failed]",
-          metaConnErr,
-        );
-      } else {
-        const cur =
-          (metaConn as any)?.currency ||
-          (metaConn as any)?.account_currency ||
-          (metaConn as any)?.ad_account_currency ||
-          null;
-        if (cur && typeof cur === "string") {
-          setMetaCurrency(cur.toUpperCase());
-        } else {
-          setMetaCurrency("AUD");
-        }
-      }
-    } catch (e) {
-      console.warn("[⚠️ meta_connections currency lookup threw]", e);
-      setMetaCurrency("AUD");
-    }
-
-    // 1) Fetch organic campaigns
-    const { data: organic, error: organicError } = await supabase
+    const [{ data: organic, error: organicError }, { data: metaAds, error: metaError }] = await Promise.all([
+      supabase
       .from("live_campaigns")
       .select(
         `
@@ -73,17 +44,8 @@ const ManageCampaignsBusiness = () => {
       `,
       )
       .eq("business_email", user.email as string)
-      .order("created_at", { ascending: false });
-
-    if (organicError) {
-      console.error(
-        "[❌ Failed to fetch live_campaigns (organic)]",
-        organicError,
-      );
-    }
-
-    // 2) Fetch paid Meta ads
-    const { data: metaAds, error: metaError } = await supabase
+      .order("created_at", { ascending: false }).abortSignal(AbortSignal.timeout(8000)),
+      supabase
       .from("live_ads")
       .select(
         `
@@ -105,11 +67,21 @@ const ManageCampaignsBusiness = () => {
       `,
       )
       .eq("business_email", user.email as string)
-      .order("created_at", { ascending: false });
-
-    if (metaError) {
-      console.error("[❌ Failed to fetch live_ads (meta)]", metaError);
-    }
+      .order("created_at", { ascending: false }).abortSignal(AbortSignal.timeout(8000)),
+    ]);
+    if (organicError || metaError) setLoadError("Some campaigns could not be loaded. Please refresh to try again.");
+    setCampaigns([
+      ...(organic || []).map(c => ({ ...c, _source: "organic" })),
+      ...(metaAds || []).map(ad => ({ ...ad, _source: "meta" })),
+    ]);
+    setLoadingCampaigns(false);
+    // Optional currency lookup and previews do not hold the campaign list open.
+    void supabase.from("meta_connections").select("*")
+      .eq("business_email", user.email).order("created_at", { ascending: false }).limit(1).maybeSingle()
+      .then(({ data }) => {
+        const currency = data?.currency || data?.account_currency || data?.ad_account_currency;
+        setMetaCurrency(typeof currency === "string" ? currency.toUpperCase() : "AUD");
+      });
 
     // Separate optional creative lookup: a broken relation or an old proposal
     // must never hide the real paid Meta campaign from the management list.
@@ -139,7 +111,7 @@ const ManageCampaignsBusiness = () => {
     }
     setCampaigns(merged);
     setLoadingCampaigns(false);
-  }, [user]);
+  }, [user?.email]);
 
   const fetchShopPlacements = useCallback(async () => {
     if (!user?.email) return;

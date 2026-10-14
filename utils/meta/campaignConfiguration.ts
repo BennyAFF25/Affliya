@@ -1,3 +1,4 @@
+import { resolveCampaignSchedule } from "../campaignSchedule";
 /**
  * Nettmark campaign intent contract. Keep the affiliate editor, proposal storage,
  * business review and the Meta launch preflight on one definition.
@@ -13,6 +14,7 @@ export type CampaignIntent = {
   budget_amount?: number | string | null; // minor units, from ad_ideas
   budget_type?: string | null;
   currency?: string | null;
+  created_at?: string | null;
   start_time?: string | null;
   end_time?: string | null;
   location?: string | null;
@@ -100,8 +102,9 @@ export function validateCampaignIntent(
   const currency = String(idea.currency || options.currency || "").toUpperCase();
   if (!/^[A-Z]{3}$/.test(currency)) errors.push("Campaign currency must match the connected Meta ad account.");
 
-  const start = Date.parse(String(idea.start_time || ""));
-  const end = Date.parse(String(idea.end_time || ""));
+  const schedule = resolveCampaignSchedule(idea, now);
+  const start = Date.parse(String(schedule.start_time || ""));
+  const end = Date.parse(String(schedule.end_time || ""));
   if (!Number.isFinite(start) || start <= now + 60_000) {
     errors.push("Choose a campaign start time at least two minutes into the future.");
   }

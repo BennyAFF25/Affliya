@@ -78,6 +78,7 @@ export default function AffiliateManageCampaignsPage() {
   const [paidMeta, setPaidMeta] = useState<LiveAdRow[]>([]);
   const [organic, setOrganic] = useState<LiveCampaignRow[]>([]);
   const [pendingProposals, setPendingProposals] = useState<PendingProposal[]>([]);
+  const [pendingLoading, setPendingLoading] = useState(true);
   const [pendingError, setPendingError] = useState<string | null>(null);
 
   // per-row spend sync loading (paid meta only)
@@ -87,116 +88,75 @@ export default function AffiliateManageCampaignsPage() {
   );
   const [creativeByIdeaId, setCreativeByIdeaId] = useState<Record<string, { title: string; previewUrl: string | null }>>({});
 
+  const loadGeneration = useRef(0);
   async function fetchAll() {
+    const generation = ++loadGeneration.current;
+    const current = () => loadGeneration.current === generation;
     setLoading(true);
     setError(null);
     setPendingError(null);
-
+    setPendingLoading(true);
     try {
-      const { data: userRes, error: userErr } = await supabase.auth.getUser();
-      if (userErr) throw userErr;
+      const { data: { session } } = await supabase.auth.getSession();
+      const email = session?.user.email;
+      if (!email) throw new Error("No authenticated user email found.");
 
-      const email = userRes.user?.email;
-      if (!email) {
-        setPaidMeta([]);
-        setOrganic([]);
-        setPendingProposals([]);
-        setError("No authenticated user email found.");
-        return;
-      }
-
-      try {
-        const [submissions, enrichment] = await Promise.all([
-          loadAffiliateSubmissions(supabase,email),
-          fetch("/api/affiliate/pending-paid-proposals",{cache:"no-store",signal:AbortSignal.timeout(8000)}).then(async res=>res.ok?await res.json():null).catch(()=>null)
-        ]);
-        setCreativeByIdeaId(Object.fromEntries(submissions
-          .filter((item) => item.kind === "paid")
-          .map((item) => [item.id, { title: item.title, previewUrl: item.previewUrl }])));
-        const fundingById = new Map<string, PendingProposal>((enrichment?.success?enrichment.proposals || []:[]).map((row:PendingProposal)=>[row.id,row]));
-        setPendingProposals(submissions.filter(row=>isAwaitingProposalReview(row.status)).map(row=>({
-          id:row.id,offerId:row.offerId,offerTitle:row.offerTitle,createdAt:row.createdAt,state:"funding_unavailable" as const,growthReady:false,funding:null,
-          ...(row.kind==="paid"?fundingById.get(row.id):{}),kind:row.kind,businessViewedAt:row.businessViewedAt,title:row.title
-        })));
-
-      } catch (pendingError) {
-        console.warn("[affiliate/manage-campaigns] pending proposals unavailable", pendingError);
-        setPendingError("Your proposals could not be loaded. Please try again.");
-      }
-
-      // ----------------------------
-      // Paid Meta campaigns (live_ads)
-      // ----------------------------
-      const liveAdsData = await loadAffiliatePaidCampaigns(supabase,email) as unknown as LiveAdRow[];
-      setPaidMeta(liveAdsData);
-
-      // ----------------------------
-      // Organic campaigns (live_campaigns)
-      // ----------------------------
-      let organicCampaignRows: LiveCampaignRow[] = [];
-
-      try {
-        const liveCampaignRes = await fetch("/api/affiliate/live-campaigns", {
-          cache: "no-store",
+      // Independent data sources start together. Funding enrichment never blocks
+      // stored campaign/proposal display and never performs a Meta request.
+      const enrichment = fetch("/api/affiliate/pending-paid-proposals", {
+        cache: "no-store", signal: AbortSignal.timeout(8000),
+      }).then(async response => response.ok ? response.json() : null).catch(() => null);
+      const submissionsTask = (async () => {
+        try {
+          const submissions = await loadAffiliateSubmissions(supabase, email);
+          if (!current()) return;
+          setCreativeByIdeaId(Object.fromEntries(submissions.filter(item => item.kind === "paid")
+            .map(item => [item.id, { title: item.title, previewUrl: item.previewUrl }])));
+          setPendingProposals(submissions.filter(row => isAwaitingProposalReview(row.status)).map(row => ({
+            id: row.id, offerId: row.offerId, offerTitle: row.offerTitle, createdAt: row.createdAt,
+            state: "funding_unavailable" as const, growthReady: false, funding: null,
+            kind: row.kind, businessViewedAt: row.businessViewedAt, title: row.title,
+          })));
+          void enrichment.then(payload => {
+            if (!current() || !payload?.success) return;
+            const byId = new Map<string, PendingProposal>((payload.proposals || []).map((row: PendingProposal) => [row.id, row]));
+            setPendingProposals(rows => rows.map(row => row.kind === "paid" ? { ...row, ...byId.get(row.id) } : row));
+          });
+        } catch {
+          if (current()) setPendingError("Your proposals could not be loaded. Please try again.");
+        } finally {
+          if (current()) setPendingLoading(false);
+        }
+      })();
+      const paidTask = loadAffiliatePaidCampaigns(supabase, email).then(rows => {
+        if (current()) { setPaidMeta(rows as LiveAdRow[]); if (rows.length) setLoading(false); }
+        return rows as LiveAdRow[];
+      });
+      const organicTask = fetch("/api/affiliate/live-campaigns", { cache: "no-store", signal: AbortSignal.timeout(8000) })
+        .then(async response => {
+          const payload = await response.json();
+          if (!response.ok || !payload?.ok) throw new Error(payload?.error || "Could not load organic campaigns.");
+          const rows = (payload.campaigns || []) as LiveCampaignRow[];
+          if (current()) { setOrganic(rows); if (rows.length) setLoading(false); }
+          return rows;
         });
-        const liveCampaignJson = await liveCampaignRes.json().catch(() => null);
-
-        if (!liveCampaignRes.ok || !liveCampaignJson?.ok) {
-          throw new Error(liveCampaignJson?.error || "Failed to load live campaigns");
-        }
-        organicCampaignRows = (((liveCampaignJson.campaigns || []) as LiveCampaignRow[]) ?? []).filter(Boolean);
-        setOrganic(organicCampaignRows);
-      } catch (liveCampaignsErr: any) {
-        const msg = String(liveCampaignsErr?.message || "");
-        if (
-          !msg.toLowerCase().includes("does not exist") &&
-          !msg.toLowerCase().includes("relation")
-        ) {
-          throw liveCampaignsErr;
-        }
-        setOrganic([]);
-      }
-
-      // ----------------------------
-      // Offer name map (for nicer headlines)
-      // ----------------------------
-      const offerIds = Array.from(
-        new Set(
-          [
-            ...(((liveAdsData as LiveAdRow[]) ?? [])
-              .map((r) => (r as any)?.offer_id)
-              .filter(Boolean) as string[]),
-            ...(organicCampaignRows
-              .map((r) => r.offer_id)
-              .filter(Boolean) as string[]),
-          ].filter(Boolean),
-        ),
-      );
-
-      if (offerIds.length === 0) {
-        setOfferNameById({});
-      } else {
-        const { data: offersData, error: offersErr } = await supabase
-          .from("offers").select("id, title").in("id", offerIds);
-
-        if (!offersErr && offersData) {
-          const map: Record<string, string> = {};
-          for (const o of offersData as any[]) {
-            const label = (o?.title || "").toString().trim();
-            if (o?.id && label) map[o.id] = label;
-          }
-          setOfferNameById(map);
-        } else {
-          // Don’t break the page if offer lookup fails
-          setOfferNameById({});
-        }
-      }
-    } catch (e: any) {
-      setError(e?.message ?? "Failed to load campaigns.");
-      setPaidMeta([]);
-      setOrganic([]);
-    } finally {
+      const [paid, organic] = await Promise.allSettled([paidTask, organicTask]);
+      if (!current()) return;
+      if (paid.status === "rejected" || organic.status === "rejected") setError("Some campaigns could not be loaded. Try refreshing.");
       setLoading(false);
+      const ids = [...new Set([
+        ...(paid.status === "fulfilled" ? paid.value : []),
+        ...(organic.status === "fulfilled" ? organic.value : []),
+      ].map(row => row.offer_id).filter((id): id is string => Boolean(id)))];
+      if (ids.length) {
+        const { data } = await supabase.from("offers").select("id,title").in("id", ids);
+        if (current()) setOfferNameById(Object.fromEntries(((data || []) as { id: string; title: string }[]).map(row => [row.id, row.title])));
+      } else setOfferNameById({});
+      await submissionsTask;
+    } catch (error) {
+      if (current()) { setError(error instanceof Error ? error.message : "Failed to load campaigns."); setPendingLoading(false); }
+    } finally {
+      if (current()) setLoading(false);
     }
   }
 
@@ -229,7 +189,8 @@ export default function AffiliateManageCampaignsPage() {
   }
 
   useEffect(() => {
-    fetchAll();
+    void fetchAll();
+    return () => { loadGeneration.current += 1; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -329,7 +290,7 @@ export default function AffiliateManageCampaignsPage() {
         const row = paidMeta.find((item) => item.id === id);
         if (row) void syncSpendForPaidMeta(row);
       }}
-      pendingCount={pendingError ? null : pendingProposals.length}
+      pendingCount={pendingError || pendingLoading ? null : pendingProposals.length}
       unsettledSpend={totalUnpaidSpend}
       notice={newProposalId ? (
         <div role="status" className="mb-4 rounded-2xl border border-emerald-400/30 bg-emerald-400/[0.07] px-4 py-3 text-xs text-emerald-100">
@@ -342,7 +303,7 @@ export default function AffiliateManageCampaignsPage() {
           {pendingError}
           <button type="button" onClick={() => { void fetchAll(); }} className="ml-3 font-semibold text-[#63e8ee] underline">Try again</button>
         </div>
-      ) : loading ? (
+      ) : pendingLoading ? (
         <p role="status" className="p-3 text-xs text-[var(--muted-foreground)]">Loading proposals…</p>
       ) : pendingProposals.length ? (
         pendingProposals.map((proposal) => (

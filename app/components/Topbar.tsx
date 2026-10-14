@@ -1,4 +1,5 @@
 "use client";
+import { signOutSession } from "../../utils/supabase/signOut";
 
 import React, { useEffect, useState } from "react";
 import Image from "next/image";
@@ -167,8 +168,8 @@ export default function Topbar() {
         {user && (
           <button
             onClick={async () => {
-              await supabase.auth.signOut();
-              router.push("/");
+              const { error } = await signOutSession(supabase);
+              if (!error) router.push("/");
             }}
             className="
               flex items-center justify-center

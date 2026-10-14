@@ -30,7 +30,8 @@ import { supabase } from "../../../../../utils/supabase/pages-client";
 import { fetchReachEstimate } from "../../../../../utils/meta/fetchReachEstimate";
 import { validateCampaignIntent } from "../../../../../utils/meta/campaignConfiguration";
 import { getActivationSubsidyBadgeLabel, getActivationSubsidyRemaining } from "../../../../../utils/activationSubsidies";
-import { calculateWalletBalance } from "../../../../../utils/wallet/balance";
+import { getSpendableWalletBalance } from "../../../../../utils/wallet/spendableBalance";
+import { defaultCampaignEnd } from "../../../../../utils/campaignSchedule";
 import { logProductEvent } from "../../../../../utils/productEvents";
 import type { ContentLibraryAsset } from "../../../../../utils/contentLibrary";
 
@@ -75,6 +76,7 @@ export default function PromoteOfferPage() {
   const submissionInFlight=useRef(false);
   const [sessionError,setSessionError]=useState<string|null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [currencyLoading, setCurrencyLoading] = useState(true);
   const [offerCurrency, setOfferCurrency] = useState<string>("");
   useEffect(()=>{if(session?.user?.email && !draftOwner.current)draftOwner.current={id:session.user.id,email:session.user.email};},[session?.user?.id,session?.user?.email]);
   const userEmail=session?.user?.email || draftOwner.current?.email || "";
@@ -132,29 +134,12 @@ export default function PromoteOfferPage() {
     const loadWallet = async () => {
       setWalletLoading(true);
       setStarterSpendError(null);
-      const { data, error } = await (supabase as any)
-        .from("wallet_topups")
-        .select("amount_net, credited_amount, amount_refunded, status")
-        .eq("affiliate_email", userEmail);
-
-      if (error) {
+      try {
+        setWalletBalance(await getSpendableWalletBalance(supabase, userEmail));
+      } catch (error) {
         console.error("[wallet load error]", error);
         setWalletBalance(0);
-      } else {
-        const { data: deductions, error: deductionErr } = await (supabase as any)
-          .from("wallet_deductions")
-          .select("amount")
-          .eq("affiliate_email", userEmail);
-
-        if (deductionErr) {
-          console.error("[wallet deductions load error]", deductionErr);
-        }
-
-        const snapshot = calculateWalletBalance({
-          topups: data || [],
-          deductions: deductions || [],
-        });
-        setWalletBalance(snapshot.availableBalance);
+        setStarterSpendError("Available wallet funds could not be verified. Check your wallet before launch.");
       }
 
       const { data: subsidyRows, error: subsidyErr } = await (supabase as any)
@@ -306,7 +291,7 @@ export default function PromoteOfferPage() {
     budget_amount_dollars: 10, // UI in dollars; we will save as cents in DB
     budget_type: "DAILY", // DAILY | LIFETIME
     start_time: "",
-    end_time: "",
+    end_time: defaultCampaignEnd(),
     location_countries: "AU", // comma-separated ISO codes (e.g., AU,US)
     age_min: 18,
     age_max: 65,
@@ -464,6 +449,7 @@ export default function PromoteOfferPage() {
       }
 
       if (offerErr) {
+        setCurrencyLoading(false);
         console.error("[offer fetch error]", offerErr);
         return;
       }
@@ -471,6 +457,7 @@ export default function PromoteOfferPage() {
       // Preview title + logo
       setBrandName(offer?.title || "Your Brand Name");
       setOfferCurrency(String(offer?.currency || "").trim().toUpperCase());
+      setCurrencyLoading(false);
       setBrandLogoUrl(offer?.logo_url || null);
       setParticipationMode(
         offer?.participation_mode === "approval_required" || offer?.participation_mode === "private"
@@ -1581,6 +1568,7 @@ export default function PromoteOfferPage() {
               handleAdSubmit={handleAdSubmit}
               submitError={submitError}
               currency={offerCurrency}
+              currencyLoading={currencyLoading}
               onNavigateToWallet={() => router.push("/affiliate/wallet")}
             />
 

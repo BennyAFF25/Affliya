@@ -1,3 +1,4 @@
+import { resolveCampaignSchedule } from "../../../../../utils/campaignSchedule";
 import { validateLaunchProposal, buildSavedMetaCreative, buildSavedMetaTargeting } from "../../../../../utils/meta/campaignConfiguration";
 /// app/api/meta/callback/upload-video/route.ts
 if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -488,8 +489,9 @@ export async function POST(req: Request) {
     );
 
     // Timing
-    const startTimeISO = prefer(adIdea?.start_time, body.start_time, null);
-    const endTimeISO = prefer(adIdea?.end_time, body.end_time, null);
+    const schedule = resolveCampaignSchedule(adIdea as any);
+    const startTimeISO = schedule.start_time;
+    const endTimeISO = schedule.end_time;
 
     // All ad-facing fields come exclusively from the immutable saved
     // affiliate proposal, never from request-body fallback or campaign name.
@@ -806,18 +808,21 @@ export async function POST(req: Request) {
       });
     }
 
+    // Media upload can take minutes. Resolve approval-relative timing again at
+    // payload creation so the launch start cannot expire during that work.
+    const launchSchedule = resolveCampaignSchedule(adIdea as any);
     if (budgetType === "LIFETIME") {
       adsetParams.lifetime_budget = budgetAmountStr;
       adsetParams.start_time =
-        startTimeISO || new Date(Date.now() + 60000).toISOString();
+        launchSchedule.start_time || new Date(Date.now() + 60000).toISOString();
       adsetParams.end_time =
-        endTimeISO || new Date(Date.now() + 7 * 86400000).toISOString();
+        launchSchedule.end_time || new Date(Date.now() + 7 * 86400000).toISOString();
     } else {
       adsetParams.daily_budget = budgetAmountStr;
       adsetParams.start_time =
-        startTimeISO || new Date(Date.now() + 60000).toISOString();
+        launchSchedule.start_time || new Date(Date.now() + 60000).toISOString();
       adsetParams.end_time =
-        endTimeISO || new Date(Date.now() + 7 * 86400000).toISOString();
+        launchSchedule.end_time || new Date(Date.now() + 7 * 86400000).toISOString();
     }
 
     console.log("[meta-upload] adset params", adsetParams);

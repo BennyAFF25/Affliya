@@ -1,4 +1,7 @@
 "use client";
+import React from "react";
+import { displayTrackingUrl } from "../../utils/tracking/buildTrackingUrl";
+import { isFundingPaused } from "../../utils/wallet/spendableBalance";
 
 import { useMemo, useState, type ReactNode } from "react";
 import MetaMark from "../brand/MetaMark";
@@ -442,8 +445,9 @@ export default function ManageCampaignsWorkspace(props: Props) {
                         <span className="text-xs tabular-nums text-slate-300">{item._source === "meta" ? Number(item.conversions || 0).toLocaleString() : "—"}</span>
                         <div className="min-w-0">
                           <Status campaign={item} />
+                          {isFundingPaused(item) && <p className="mt-1 text-[11px] text-amber-200">Paused — check funding. If funds ran low, top up before resuming.</p>}
                           {item.tracking_link ? (
-                            <a href={item.tracking_link} target="_blank" rel="noopener noreferrer" className="mt-1 flex items-center gap-1 text-[10px] text-[#00c2cb] hover:text-[#63e8ee]">
+                            <a href={displayTrackingUrl(item.tracking_link, { runtimeId: item.id })} target="_blank" rel="noopener noreferrer" className="mt-1 flex items-center gap-1 text-[10px] text-[#00c2cb] hover:text-[#63e8ee]">
                               View link <ExternalLink className="h-3 w-3" />
                             </a>
                           ) : <span className="mt-1 block text-[10px] text-[#94a3b8]/65">Link in details</span>}
@@ -460,6 +464,7 @@ export default function ManageCampaignsWorkspace(props: Props) {
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1"><CampaignIdentity campaign={item} audience={audience} /></div>
                         <Status campaign={item} />
+                          {isFundingPaused(item) && <p className="mt-1 text-[11px] text-amber-200">Paused — check funding. If funds ran low, top up before resuming.</p>}
                       </div>
                       <div className="mt-4 flex items-center justify-between gap-3 border-b border-white/[0.06] pb-3">
                         <Platform campaign={item} />
@@ -471,7 +476,7 @@ export default function ManageCampaignsWorkspace(props: Props) {
                         <div><p className="text-[10px] text-[#94a3b8]/75">Conversions</p><p className="mt-1 text-xs font-semibold text-slate-200">{item._source === "meta" ? Number(item.conversions || 0).toLocaleString() : "—"}</p></div>
                       </div>
                       {item.tracking_link ? (
-                        <a href={item.tracking_link} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex items-center gap-1.5 text-xs text-[#00c2cb] hover:text-[#63e8ee]">
+                        <a href={displayTrackingUrl(item.tracking_link, { runtimeId: item.id })} target="_blank" rel="noopener noreferrer" className="mt-3 inline-flex items-center gap-1.5 text-xs text-[#00c2cb] hover:text-[#63e8ee]">
                           View tracking link <ExternalLink className="h-3.5 w-3.5" />
                         </a>
                       ) : null}

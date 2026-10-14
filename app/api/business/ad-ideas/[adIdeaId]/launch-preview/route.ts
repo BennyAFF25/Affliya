@@ -1,3 +1,4 @@
+import { resolveCampaignSchedule } from "../../../../../../utils/campaignSchedule";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
@@ -44,6 +45,7 @@ export async function GET(
 
     const check = validateLaunchProposal(idea, { currency: String(offer.currency || "") });
     const creative = buildSavedMetaCreative(idea);
+    const schedule = resolveCampaignSchedule(idea);
     // Intent validation can reject legacy free-text interests; do not throw.
     const targeting = check.ok ? buildSavedMetaTargeting(idea) : null;
     return NextResponse.json({
@@ -58,8 +60,8 @@ export async function GET(
           budgetAmountMinor: idea.budget_amount,
           budgetType: idea.budget_type,
           currency: idea.currency || offer.currency,
-          startTime: idea.start_time,
-          endTime: idea.end_time,
+          startTime: schedule.start_time,
+          endTime: schedule.end_time,
         },
         adset: { targeting },
         adCreative: {

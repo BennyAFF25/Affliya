@@ -1,4 +1,6 @@
 "use client";
+import React from "react";
+import { isFundingPaused } from "../../utils/wallet/spendableBalance";
 
 import Link from "next/link";
 import {
@@ -230,6 +232,7 @@ export default function CampaignDetailWorkspace({
               ) : null}
             </div>
           </div>
+          {!isOrganic && isFundingPaused(campaign) && <div role="status" className="mt-4 rounded-xl border border-amber-400/30 bg-amber-400/10 p-3 text-sm text-amber-100">Campaign paused — check available funding. A campaign paused for low funds needs a top-up before resuming. {isBusiness ? "The affiliate needs to add funds before resuming." : "Add funds in your wallet, then review and resume this campaign."} Funding does not restart the ad automatically.</div>}
           {isBusiness && businessSyncMessage ? (
             <div role="status" className="mt-4 rounded-xl border border-white/10 bg-white/[0.04] p-3 text-xs text-slate-200">{businessSyncMessage}</div>
           ) : null}

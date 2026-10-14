@@ -69,12 +69,14 @@ for (const patch of [
   { display_link: "" }, { tracking_link: "" }, { file_url: "" },
   { age_range: [] }, { location: "" }, { gender: "" },
   { advantage_audience: null }, { manual_placements: [] },
-  { budget_amount: 0 }, { start_time: "" },
+  { budget_amount: 0 }, { start_time: "invalid" },
   { currency: "USD" },
   { interests: JSON.stringify(["plain text"]) },
 ]) {
   assert.equal(bad(patch).ok, false, JSON.stringify(patch));
 }
+
+assert.equal(bad({ start_time: null }).ok, true, "A null start means start on brand approval");
 
 // Verify that the real launch routes use the tested deterministic mappers,
 // rather than parallel body-driven mappings or silent default substitutes.

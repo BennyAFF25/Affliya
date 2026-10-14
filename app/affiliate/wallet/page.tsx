@@ -1,4 +1,6 @@
 'use client';
+import React from "react";
+import { calculateSpendableBalance, isFundingPaused } from '../../../utils/wallet/spendableBalance';
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -400,10 +402,7 @@ export default function AffiliateWalletPage() {
   // deduction has not yet been entered. Once settlement is recorded it moves
   // into wallet_deductions and disappears from totalUnpaidSpend, preventing
   // the displayed amount from being deducted twice.
-  const displayedSpendableBalance = Math.max(
-    0,
-    toMoney(availableBalance - refundLockState.totalUnpaidSpend),
-  );
+  const displayedSpendableBalance = calculateSpendableBalance(availableBalance, refundLockState.totalUnpaidSpend);
   const refundableBalance = walletSnapshot.refundableBalance;
   const availableToRefund = refundLockState.locked ? 0 : refundableBalance;
   const refundBlockReason = getRefundBlockReason(refundLockState, currency);
@@ -624,6 +623,8 @@ export default function AffiliateWalletPage() {
 
   return (
     <main className="min-h-screen w-full overflow-x-hidden bg-[var(--background)] text-white">
+      {liveAdRows.some(isFundingPaused) && <div role="status" className="mx-4 mt-4 rounded-xl border border-amber-400/30 bg-amber-400/10 p-4 text-sm text-amber-100">A campaign is paused. If available funding ran low, it needs a top-up before you can resume it. Add funds, then review and resume it in Manage Campaigns. Adding funds does not resume it automatically.</div>}
+
       <div className="mx-auto max-w-[1080px] space-y-4 px-4 py-6 sm:space-y-5 sm:px-6 sm:py-8">
         <header className="flex flex-wrap items-end justify-between gap-3">
           <div>

@@ -1,3 +1,4 @@
+import { displayTrackingUrl } from "../tracking/buildTrackingUrl";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { SubmissionKind } from "./portalData";
 const PAID="id,offer_id,status,created_at,business_viewed_at,file_url,thumbnail_url,media_type,headline,caption,call_to_action,cta,display_link,tracking_link,budget_amount,budget_type,daily_budget,start_time,end_time,location,age_range,gender,interests,advantage_audience,placements_type,manual_placements";
@@ -17,12 +18,16 @@ export async function loadProposalDetails(client:SupabaseClient,email:string,kin
  const row=data as unknown as Record<string,unknown>;
  const offer=await client.from("offers").select("title").eq("id",row.offer_id).maybeSingle();
  if(offer.error) throw offer.error;
+ const identity = kind === "organic" && (row.tracking_link || row.tracking_url)
+   ? await client.from("profiles").select("id").eq("email",email).eq("role","affiliate").maybeSingle()
+   : null;
+ if (identity?.error) throw identity.error;
  const minor=Number(row.budget_amount || 0),legacy=Number(row.daily_budget || 0);
  return {
   id:String(row.id),kind,offerTitle:String(offer.data?.title || "Offer"),status:String(row.status || "pending"),
   submittedAt:text(row.created_at),viewedAt:text(row.business_viewed_at),mediaUrl:text(row.file_url || row.video_url || row.image_url),thumbnailUrl:text(row.thumbnail_url),
   mediaType:text(row.media_type || (row.video_url?"video":row.image_url?"image":null)),headline:text(row.headline),caption:text(row.caption),cta:text(row.call_to_action || row.cta),
-  destinationUrl:text(row.display_link),trackingUrl:text(row.tracking_link || row.tracking_url),
+  destinationUrl:text(row.display_link),trackingUrl: kind === "organic" && !identity?.data?.id ? null : text(displayTrackingUrl(text(row.tracking_link || row.tracking_url), kind === "paid" ? { runtimeId: String(row.id) } : { affiliateId: identity?.data?.id })),
   budget:kind==="paid" && (minor>0 || legacy>0)?minor>0?minor/100:legacy:null,budgetType:text(row.budget_type),startAt:text(row.start_time),endAt:text(row.end_time),platform:text(row.platform),
   targeting:{countries:text(row.location),ages:list(row.age_range),gender:text(row.gender),interests:Array.isArray(row.interests)?row.interests.map(String).join(", "):text(row.interests),advantageAudience:typeof row.advantage_audience==="boolean"?row.advantage_audience:null},
   placements:list(row.manual_placements),placementsType:text(row.placements_type)

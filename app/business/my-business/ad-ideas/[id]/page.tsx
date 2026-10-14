@@ -982,8 +982,8 @@ export default function AdIdeaProposalDetailPage() {
                   <div><dt className="text-slate-500">Placements</dt><dd className="mt-1 text-slate-200">{proposal.manual_placements?.map(placementName).join(", ") || "Missing — affiliate must update"}</dd></div>
                   <div><dt className="text-slate-500">Location</dt><dd className="mt-1 text-slate-200">{proposal.location || "Missing — affiliate must update"}</dd></div>
                   <div><dt className="text-slate-500">CTA</dt><dd className="mt-1 text-slate-200">{readableEnum(proposal.call_to_action || proposal.cta)}</dd></div>
-                  <div><dt className="text-slate-500">Start</dt><dd className="mt-1 text-slate-200">{formatDate(proposal.start_time)}</dd></div>
-                  <div><dt className="text-slate-500">End</dt><dd className="mt-1 text-slate-200">{formatDate(proposal.end_time)}</dd></div>
+                  <div><dt className="text-slate-500">Start</dt><dd className="mt-1 text-slate-200">{proposal.start_time ? formatDate(proposal.start_time) + " (rolls forward if approval is later)" : "When the brand approves"}</dd></div>
+                  <div><dt className="text-slate-500">End (moves with approval start)</dt><dd className="mt-1 text-slate-200">{formatDate(proposal.end_time)}</dd></div>
                   {proposal.objective === "OUTCOME_SALES" ? (
                     <div><dt className="text-slate-500">Conversion event</dt><dd className="mt-1 text-slate-200">{readableEnum(proposal.conversion_event)}</dd></div>
                   ) : null}

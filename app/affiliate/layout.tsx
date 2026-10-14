@@ -20,7 +20,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Toast } from "@/components/Toast";
 import { useInboxNotifier } from "../../utils/hooks/useInboxNotifier";
 import { useChatUnreadCount } from "@/components/inbox/useChatUnreadCount";
-import { supabase } from "../../utils/supabase/pages-client";
+import { getAccountRole } from "../../utils/affiliate/accountRole";
 
 export default function AffiliateLayout({
   children,
@@ -44,21 +44,14 @@ function AffiliateLayoutShell({ children }: { children: React.ReactNode }) {
     const userId = session?.user?.id;
     if (!userId) { setAffiliateRole("checking"); return; }
     let current = true;
-    const controller = new AbortController();
-    const timer = setTimeout(() => { if (current) { setAffiliateRole("error"); controller.abort(); } }, 8000);
     setAffiliateRole("checking");
-    void (async () => {
-      const { data, error } = await supabase.from("profiles")
-        .select("role").eq("id", userId).abortSignal(controller.signal).maybeSingle();
-      clearTimeout(timer);
+    void getAccountRole(userId).then(role => {
       if (!current) return;
-      if (error) { setAffiliateRole("error"); return; }
-      const role = String(data?.role || "").trim().toLowerCase();
       if (role === "affiliate") setAffiliateRole("affiliate");
       else if (role === "business") setAffiliateRole("business");
       else setAffiliateRole("blocked");
-    })();
-    return () => { current = false; clearTimeout(timer); controller.abort(); };
+    }).catch(() => { if (current) setAffiliateRole("error"); });
+    return () => { current = false; };
   }, [session?.user?.id]);
 
   useEffect(() => {

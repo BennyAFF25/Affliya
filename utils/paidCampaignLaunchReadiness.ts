@@ -1,3 +1,4 @@
+import { resolveCampaignSchedule } from "./campaignSchedule";
 import { getActivationSubsidyRemaining } from "./activationSubsidies";
 import { getActiveLaunchFundAllocation } from "./launchFund";
 import { getWalletBalanceSnapshot } from "./wallet/balance";
@@ -10,6 +11,7 @@ type AdIdeaFundingInput = {
 };
 
 type AdIdeaTimingInput = {
+  created_at?: string | null;
   start_time?: string | null;
   end_time?: string | null;
 };
@@ -126,8 +128,9 @@ export function validatePaidCampaignTiming(
   adIdea: AdIdeaTimingInput,
   nowMs = Date.now(),
 ): CampaignTimingReadiness {
-  const startRaw = adIdea?.start_time || null;
-  const endRaw = adIdea?.end_time || null;
+  const schedule = resolveCampaignSchedule(adIdea, nowMs);
+  const startRaw = schedule.start_time || null;
+  const endRaw = schedule.end_time || null;
   const startMs = startRaw ? new Date(startRaw).getTime() : null;
   const endMs = endRaw ? new Date(endRaw).getTime() : null;
 

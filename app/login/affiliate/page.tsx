@@ -1,4 +1,5 @@
 "use client";
+import { getAccountRole } from "../../../utils/affiliate/accountRole";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -29,7 +30,7 @@ export default function AffiliateLogin() {
     }
 
     try {
-      const { error: signInError } = await supabase.auth.signInWithPassword({
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email: trimmedEmail,
         password: trimmedPassword,
       });
@@ -44,7 +45,8 @@ export default function AffiliateLogin() {
 
       const next = new URLSearchParams(window.location.search).get("next");
       const safeNext = roleReturnTo(next, "affiliate");
-      router.push(safeNext ? "/auth-redirect?returnTo=" + encodeURIComponent(safeNext) : "/auth-redirect");
+      const role = data.user ? await getAccountRole(data.user.id) : "";
+      router.replace(role === "affiliate" ? safeNext || "/affiliate/dashboard" : "/auth-redirect");
     } catch (err: any) {
       console.error("[Affiliate login] unexpected error", err);
       setError("Login failed. Please try again.");

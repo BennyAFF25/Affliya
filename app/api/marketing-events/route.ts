@@ -7,16 +7,7 @@ import supabaseAdmin from "@/../utils/supabase/server-client";
 import { canAccessMarketingDashboard } from "@/../utils/marketing/internalAccess";
 import { aggregateMarketingReport, aggregateFees } from "@/../utils/marketing/reporting";
 
-const ALLOWED_PAGE_PATHS = new Set([
-  "/",
-  "/lp/business-demo",
-  "/lp/partner-demo",
-  "/create-account",
-  "/for-businesses",
-  "/pricing",
-]);
-
-const ALLOWED_EVENT_TYPES = new Set(["page_view", "create_account_start", "business_demo_cta_click", "landing_cta_click"]);
+import { parseSiteEventInput, insertSiteEvent, restoreSiteEventType } from "../../../utils/marketing/siteEventInput";
 import { aggregateBusinessFunnel } from "../../../utils/marketing/businessFunnel";
 import { BUSINESS_GROWTH_TRIAL_DAYS, getGrowthSubscriptionPrice } from "../../../utils/businessSubscriptions";
 
@@ -54,29 +45,15 @@ function getRange(period: string) {
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => null);
-    const eventType = String(body?.eventType || "").trim();
-    const pagePath = String(body?.pagePath || "").trim();
-    const audience = body?.audience ? String(body.audience).trim() : null;
-    const meta =
-      body?.meta && typeof body.meta === "object" && !Array.isArray(body.meta)
-        ? body.meta
-        : {};
-
-    if (!ALLOWED_EVENT_TYPES.has(eventType)) {
-      return NextResponse.json({ ok: false, error: "Invalid event type" }, { status: 400 });
-    }
-
-    if (!ALLOWED_PAGE_PATHS.has(pagePath)) {
-      return NextResponse.json({ ok: false, error: "Invalid page path" }, { status: 400 });
-    }
+    const input = parseSiteEventInput(body);
+    if (!input) return NextResponse.json({ ok: false, error: "Invalid event payload" }, { status: 400 });
+    const { eventType, pagePath, audience, meta } = input;
 
     const forwardedFor = req.headers.get("x-forwarded-for");
     const userAgent = req.headers.get("user-agent");
     const referrer = req.headers.get("referer");
 
-    const { error } = await (supabaseAdmin as any)
-      .from("marketing_site_events")
-      .insert({
+    const { error } = await insertSiteEvent(supabaseAdmin, {
         event_type: eventType,
         page_path: pagePath,
         audience,
@@ -90,13 +67,13 @@ export async function POST(req: Request) {
 
     if (error) {
       console.error("[marketing-events][POST] insert error", error);
-      return NextResponse.json({ ok: false, error: "Failed to log event" }, { status: 500 });
+      return NextResponse.json({ ok: false, error: "Event logging unavailable" }, { status: error.code?.startsWith("22") || error.code === "23514" ? 400 : 503 });
     }
 
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("[marketing-events][POST] unexpected error", error);
-    return NextResponse.json({ ok: false, error: "Unexpected error" }, { status: 500 });
+    return NextResponse.json({ ok: false, error: "Event logging unavailable" }, { status: 503 });
   }
 }
 
@@ -229,6 +206,8 @@ export async function GET(req: Request) {
       landingRows("product_events", "event_type,actor_email,actor_role,offer_id,meta,created_at", "actor_role"),
       landingRows("offers", "id,business_email,created_at"),
     ].map(query => readReportRows<any>(query)));
+
+    if (eventsResult.data) eventsResult.data = eventsResult.data.map(restoreSiteEventType);
 
     const queryResults = [
       ["Website events", eventsResult], ["Fee ledger", revenueResult],

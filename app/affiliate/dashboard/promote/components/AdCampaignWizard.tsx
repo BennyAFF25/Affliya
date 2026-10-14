@@ -64,6 +64,7 @@ interface AdCampaignWizardProps {
   handleAdSubmit: () => Promise<boolean>;
   submitError?: string | null;
   currency: string;
+  currencyLoading: boolean;
   onNavigateToWallet: () => void;
 }
 
@@ -107,6 +108,7 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
     handleAdSubmit,
     submitError,
     currency,
+    currencyLoading,
     onNavigateToWallet,
   } = props;
 
@@ -128,7 +130,7 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
 
     if (step === 2) {
       return (
-        Number(form.budget_amount_dollars) > 0 &&
+        !!currency && !!form.end_time && Number(form.budget_amount_dollars) > 0 &&
         !!form.location_countries &&
         form.age_min >= 13 &&
         form.age_max >= form.age_min
@@ -256,10 +258,11 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
             <div className="flex flex-col sm:flex-row gap-3">
               <label className="flex-1 min-w-0">
                 <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">
-                  Budget ({currency || "currency unavailable"})
+                  {currency ? `Budget (${currency})` : (currencyLoading ? "Loading campaign currency…" : "Budget (currency needs setup)")}
                 </span>
                 <input
                   type="number"
+                  disabled={!currency}
                   min={1}
                   className={`${INPUT} w-full text-base`}
                   value={form.budget_amount_dollars}
@@ -280,6 +283,7 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
                 </select>
               </label>
             </div>
+            {!currency && !currencyLoading && <p role="status" className="text-sm text-amber-200">The campaign currency could not be verified. Reload, or ask the business to set its offer currency.</p>}
             <div className="flex flex-wrap items-center gap-2 -mt-1 overflow-x-auto">
               <span className="text-[11px] text-gray-500 mr-1">Quick add:</span>
               <Chip onClick={() => incBudget(5)}>+ {currency} 5</Chip>
@@ -292,22 +296,22 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
                   <p className="text-xs uppercase tracking-wider text-gray-500">
                     Launch funding
                   </p>
-                  {walletLoading ? (
+                  {walletLoading || currencyLoading ? (
                     <span className="text-gray-400">
                       Checking wallet balance…
                     </span>
                   ) : currency && currency !== "AUD" ? (
-                    <span className="text-gray-400">Wallet balance: A${walletBalance.toFixed(2)}. Campaign budget is in {currency}; currency funding must be verified before launch.</span>
+                    <span className="text-gray-400">Available wallet balance: A${walletBalance.toFixed(2)}. Campaign budget is in {currency}; currency funding must be verified before launch.</span>
                   ) : canRunWithWallet ? (
                     <span className="text-emerald-400">
-                      Wallet balance: A${walletBalance.toFixed(2)}
+                      Available wallet balance: A${walletBalance.toFixed(2)}
                       {starterSpendRemaining > 0
                         ? ` + starter spend A$${starterSpendRemaining.toFixed(2)} — funded for launch`
                         : " — funded for launch"}
                     </span>
                   ) : (
                     <span className="text-red-400">
-                      Wallet balance: A${walletBalance.toFixed(2)}
+                      Available wallet balance: A${walletBalance.toFixed(2)}
                       {starterSpendRemaining > 0
                         ? ` + starter spend A$${starterSpendRemaining.toFixed(2)}`
                         : ""}. You need A$
@@ -335,12 +339,14 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
 
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="flex-1 min-w-0">
+                <p className="mb-2 text-xs text-gray-400">Starts when the brand approves by default. A start time that passes during review rolls forward at approval, preserving the campaign duration.</p>
                 <DateTimeField
-                  label="Start"
+                  label="Start (optional)"
                   value={form.start_time}
                   onChange={(v) => setForm((p) => ({ ...p, start_time: v }))}
                 />
                 <div className="flex gap-2 mt-1">
+                  <Chip onClick={() => setForm(p => ({ ...p, start_time: "" }))}>When brand approves</Chip>
                   <Chip onClick={setStartIn15m}>Start in 15m</Chip>
                 </div>
               </div>
@@ -912,7 +918,7 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
 
             {!usingBrandContent && !videoFile && !imageFile ? (
               <div className="mt-3 rounded-md border border-[#00C2CB]/50 bg-[#001F20]/30 px-3 py-2 text-sm text-[#00C2CB]">
-                Please upload either a video or a photo before submitting.
+                Upload a photo or video, or choose brand content, to enable Next.
               </div>
             ) : null}
 
@@ -986,7 +992,7 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
                 </div>
                 <div className="mt-1 text-xs text-gray-400">Budget is entered and submitted in {currency || "the business campaign currency"}. No currency conversion is performed. Launch requires a matching Meta ad account currency.</div>
                 <div className="mt-2 text-sm text-gray-300">
-                  Starts: <span className="text-[#00C2CB]">{form.start_time ? new Date(form.start_time).toLocaleString("en-AU") : "Not set"}</span>
+                  Starts: <span className="text-[#00C2CB]">{form.start_time ? new Date(form.start_time).toLocaleString("en-AU") : "When the brand approves"}</span>
                 </div>
                 <div className="mt-1 text-sm text-gray-300">
                   Ends: <span className="text-[#00C2CB]">{form.end_time ? new Date(form.end_time).toLocaleString("en-AU") : "Not set"}</span>
@@ -1090,6 +1096,8 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
             </button>
           )}
 
+          {step === 3 && !canProceed() && <p role="status" className="text-sm text-amber-200">{videoFile ? "Add a valid video thumbnail to enable Next." : "Choose brand content or upload a photo or video to enable Next."}</p>}
+          {step === 2 && !form.end_time && <p role="status" className="text-sm text-amber-200">Choose an end date to continue.</p>}
           {step < 4 && (
             <button
               disabled={!canProceed()}

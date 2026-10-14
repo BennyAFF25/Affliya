@@ -7,7 +7,7 @@ export const isArchivedCampaignStatus = (value?:string|null) => ["paused","archi
 async function ownRows(client:SupabaseClient,table:string,columns:string,email:string) {
  const rows: Record<string,unknown>[] = [];
  for(let offset=0;;offset+=500) {
-  const {data,error}=await client.from(table).select(columns).eq("affiliate_email",email).order("created_at",{ascending:false}).order("id",{ascending:false}).range(offset,offset+499);
+  const {data,error}=await client.from(table).select(columns).eq("affiliate_email",email).order("created_at",{ascending:false}).order("id",{ascending:false}).range(offset,offset+499).abortSignal(AbortSignal.timeout(8000));
   if(error) throw error;
   const page=(data || []) as unknown as Record<string,unknown>[];
   rows.push(...page);

@@ -1,4 +1,6 @@
 "use client";
+import { getAccountRole } from "../../../utils/affiliate/accountRole";
+import { businessLoginDestination } from "../../../utils/businessLoginDestination";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -77,20 +79,12 @@ export default function BusinessLogin() {
         // Profiles are provisioned during signup, not at login. The previous
         // upsert attempted an RLS-protected write on every sign-in (HTTP 403).
         // Check the existing role without mutating the user's profile.
-        const { data: profile, error: profileError } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", data.user.id)
-          .maybeSingle();
-        if (profileError) {
-          setError("Could not verify this account. Please try again.");
-          return;
-        }
-        if (profile?.role !== "business") {
+        const role = await getAccountRole(data.user.id);
+        if (role !== "business") {
           setError("This account is not registered as a business.");
           return;
         }
-        router.replace(returnTo || "/auth-redirect");
+        router.replace(await businessLoginDestination(returnTo));
       }
     } catch (err: any) {
       console.error("[Business login] unexpected error", err);

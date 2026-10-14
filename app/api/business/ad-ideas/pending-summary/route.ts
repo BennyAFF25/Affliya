@@ -1,3 +1,4 @@
+import { validatePaidCampaignTiming } from "../../../../../utils/paidCampaignLaunchReadiness";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
@@ -21,18 +22,14 @@ export async function GET(req: Request) {
 
     const admin = createServerSupabaseClient();
     const bannerMode = new URL(req.url).searchParams.get("banner") === "1";
-    // Only genuinely actionable, future-scheduled proposals should nag the
-    // business in its global banner. Expired proposals remain available in the
-    // normal Ad Ideas inbox; its API response is unchanged by default.
-    let query = admin
+    // Approval-relative proposals remain actionable while awaiting brand review.
+    // Invalid durations remain in the inbox, but are omitted from the reminder.
+    const query = admin
       .from("ad_ideas")
-      .select("id,offer_id,affiliate_email,status,created_at,start_time,budget_amount,budget_type,daily_budget")
+      .select("id,offer_id,affiliate_email,status,created_at,start_time,end_time,budget_amount,budget_type,daily_budget")
       .eq("business_email", user.email)
       .eq("status", "pending")
       .order("created_at", { ascending: false });
-    if (bannerMode) {
-      query = query.gt("start_time", new Date().toISOString());
-    }
     const { data: ideas, error: ideasError } = await query.limit(bannerMode ? 20 : 5);
 
     if (ideasError) {
@@ -62,7 +59,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({
       success: true,
-      campaigns: (ideas || []).map((idea: any) => ({
+      campaigns: (ideas || []).filter(idea => !bannerMode || validatePaidCampaignTiming(idea).ok).map((idea: any) => ({
         ...idea,
         offer_title: titleByOffer[String(idea.offer_id)] || "Untitled offer",
       })),

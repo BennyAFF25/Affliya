@@ -1,11 +1,12 @@
 "use client";
+import { signOutSession } from "../../utils/supabase/signOut";
 import React, { useEffect, useState } from "react";
 import { supabase } from "../../utils/supabase/pages-client";
 
 export default function LogoutPage() {
   const [error, setError] = useState(false);
   useEffect(() => {
-    void supabase.auth.signOut().then(({ error }) => {
+    void signOutSession(supabase).then(({ error }) => {
       if (error) setError(true);
       else window.location.replace("/login");
     }).catch(() => setError(true));
