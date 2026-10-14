@@ -47,6 +47,8 @@ export async function getAffiliateCampaignFundingReadiness(params: {
   affiliateEmail: string;
   offerId: string;
   adIdea: AdIdeaFundingInput;
+  /** Request-local canonical snapshot for batch advisory checks only. */
+  walletSnapshot?: ReturnType<typeof getWalletBalanceSnapshot>;
 }): Promise<AffiliateCampaignFundingReadiness> {
   const affiliateEmail = String(params.affiliateEmail || "").trim().toLowerCase();
   const requiredAmount = getCampaignRequiredFundingDollars(params.adIdea);
@@ -63,7 +65,7 @@ export async function getAffiliateCampaignFundingReadiness(params: {
     };
   }
 
-  const wallet = await getWalletBalanceSnapshot(params.supabase, affiliateEmail);
+  const wallet = await (params.walletSnapshot ?? getWalletBalanceSnapshot(params.supabase, affiliateEmail));
 
   const { data: subsidyRows, error: subsidyError } = await params.supabase
     .from("business_activation_subsidies")

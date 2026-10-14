@@ -3,7 +3,9 @@ import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { createServerSupabaseClient } from "../../../../utils/businessSubscriptions";
 import { getBusinessEntitlement } from "../../../../utils/businessEntitlements";
-import { getAffiliateCampaignFundingReadiness, validatePaidCampaignTiming } from "../../../../utils/paidCampaignLaunchReadiness";
+import { getAffiliateCampaignFundingReadiness, getCampaignRequiredFundingDollars, validatePaidCampaignTiming } from "../../../../utils/paidCampaignLaunchReadiness";
+
+import { getWalletBalanceSnapshot } from "../../../../utils/wallet/balance";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -56,7 +58,10 @@ export async function GET() {
       (offers || []).map((offer: any) => [offer.id, offer]),
     );
 
-    const entitlementCache = new Map<string, Awaited<ReturnType<typeof getBusinessEntitlement>> | null>();
+    // Cache promises before awaiting: concurrent cards share in-flight reads.
+    const entitlementCache = new Map<string, Promise<Awaited<ReturnType<typeof getBusinessEntitlement>> | null>>();
+    const fundingCache = new Map<string, Promise<Awaited<ReturnType<typeof getAffiliateCampaignFundingReadiness>> | null>>();
+    let walletSnapshot: ReturnType<typeof getWalletBalanceSnapshot> | undefined;
 
     const items = await Promise.all(
       (proposals || []).map(async (proposal: any) => {
@@ -64,38 +69,33 @@ export async function GET() {
         const offerId = String(proposal.offer_id || "");
         const offer = offerMap.get(offerId) as any;
 
-        let entitlement = entitlementCache.get(businessEmail);
-        if (entitlement === undefined) {
-          entitlement = businessEmail
-            ? await getBusinessEntitlement({
-                supabase: admin as never,
-                businessEmail,
-              }).catch((error) => {
-                console.warn(
-                  "[affiliate/pending-paid-proposals] entitlement lookup failed",
-                  businessEmail,
-                  error,
-                );
+        let entitlementPromise = entitlementCache.get(businessEmail);
+        if (!entitlementPromise) {
+          entitlementPromise = businessEmail
+            ? getBusinessEntitlement({ supabase: admin as never, businessEmail }).catch((error) => {
+                console.warn("[affiliate/pending-paid-proposals] entitlement lookup failed", businessEmail, error);
                 return null;
               })
-            : null;
-          entitlementCache.set(businessEmail, entitlement);
+            : Promise.resolve(null);
+          entitlementCache.set(businessEmail, entitlementPromise);
         }
 
+        const fundingKey = JSON.stringify([offerId, getCampaignRequiredFundingDollars(proposal)]);
+        let fundingPromise = fundingCache.get(fundingKey);
+        if (!fundingPromise) {
+          if (offerId) walletSnapshot ??= getWalletBalanceSnapshot(admin, affiliateEmail);
+          fundingPromise = getAffiliateCampaignFundingReadiness({
+            supabase: admin, affiliateEmail, offerId, adIdea: proposal, walletSnapshot,
+          }).catch((error) => {
+            console.warn("[affiliate/pending-paid-proposals] funding unavailable", error);
+            return null;
+          });
+          fundingCache.set(fundingKey, fundingPromise);
+        }
+        const [entitlement, funding] = await Promise.all([entitlementPromise, fundingPromise]);
         const growthReady = Boolean(
-          entitlement &&
-            (entitlement.canLaunchCampaign || !entitlement.subscriptionRequired),
+          entitlement && (entitlement.canLaunchCampaign || !entitlement.subscriptionRequired),
         );
-
-        const funding = await getAffiliateCampaignFundingReadiness({
-          supabase: admin,
-          affiliateEmail,
-          offerId,
-          adIdea: proposal,
-        }).catch((error) => {
-          console.warn("[affiliate/pending-paid-proposals] funding unavailable", error);
-          return null;
-        });
 
         const timing = validatePaidCampaignTiming(proposal);
         const state = proposal.meta_campaign_id ? "meta_cleanup_required" : !timing.ok ? "timing_update_required" : !funding ? "funding_unavailable" : !growthReady

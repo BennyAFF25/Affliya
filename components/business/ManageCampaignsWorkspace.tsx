@@ -1,6 +1,7 @@
 "use client";
 import { previewTrackingUrl } from "../../utils/tracking/ownerPreview";
 import React from "react";
+import { formatAUD } from "../../utils/currency";
 import { campaignState, campaignStatusDetail, isBusinessStopped } from "../../utils/wallet/campaignStatus";
 import { type PauseNotice } from "../../utils/wallet/pauseNotice";
 import { displayTrackingUrl } from "../../utils/tracking/buildTrackingUrl";
@@ -203,6 +204,7 @@ export default function ManageCampaignsWorkspace(props: Props) {
   const [pendingOpen, setPendingOpen] = useState(true);
 
   const money = (raw?: number | null) => {
+    if (!metaCurrency || metaCurrency === "AUD") return formatAUD(raw);
     const value = Number(raw || 0);
     return new Intl.NumberFormat("en-AU", {
       style: "currency", currency: metaCurrency || "AUD", currencyDisplay: "narrowSymbol",
@@ -310,7 +312,7 @@ export default function ManageCampaignsWorkspace(props: Props) {
                   : "Monitor every affiliate placement, track campaign performance, and manage delivery from one workspace."}
               </p>
             </div>
-            {props.audience === "affiliate" && <Link href="/affiliate/wallet" className="min-w-0 break-words text-sm text-slate-200">Available to spend: {props.availableWalletBalance == null ? "Checking wallet…" : `A$${props.availableWalletBalance.toFixed(2)}`}</Link>}
+            {props.audience === "affiliate" && <Link href="/affiliate/wallet" className="min-w-0 break-words text-sm text-slate-200">Available to spend: {props.availableWalletBalance == null ? "Checking wallet…" : formatAUD(props.availableWalletBalance)}</Link>}
             <div className="flex w-full flex-wrap gap-2 md:w-auto md:justify-end">
               {audience === "affiliate" ? (
                 <>

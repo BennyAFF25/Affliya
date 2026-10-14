@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { formatAUD } from "../utils/currency";
 
 const source = readFileSync("app/affiliate/wallet/page.tsx", "utf8");
 
@@ -55,7 +56,10 @@ assert.equal(displayedSpendable(15, 1.25), 13.75);
 assert.equal(displayedSpendable(13.75, 0), 13.75);
 assert.equal(displayedSpendable(1, 2), 0);
 assert.match(source, /const walletMoney =/);
-assert.match(source, /'A\$' \+ toMoney\(value\)\.toFixed\(2\)/);
+assert.match(source, /return formatAUD\(value\)/);
+assert.equal(formatAUD(12.47), 'A$12.47');
+assert.equal(formatAUD('12.47'), 'A$12.47');
+assert.equal(formatAUD(Number.NaN), 'A$0.00');
 assert.match(source, /const withdrawDisabled = refundLockState\.locked \|\| availableToRefund <= 0 \|\| refundableTopups\.length === 0/);
 assert.match(source, /setLiveAdRows\(\(lockStateResult\.data \|\| \[\]\) as WalletLiveAd\[\]\)/);
 assert.match(source, /Money in campaigns/);

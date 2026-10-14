@@ -50,6 +50,11 @@ async function run() {
     }));
     const funding = renderWorkspace({ id: 'ad', _source: 'meta', status: 'paused', billing_state: 'PAUSED', pauseNotice: { confirmed: true, walletLeft: 2.53 } });
     assert.match(funding, /wallet funds ran low/);
+    assert.match(funding, /A\$12\.47/);
+    const spendTiles = renderWorkspace({ id: 'ad', _source: 'meta', status: 'paused', spend: 12.47 });
+    assert.match(spendTiles, /Meta spend/);
+    assert.match(spendTiles, /Unsettled spend/);
+    assert.ok((spendTiles.match(/A\$12\.47/g) || []).length >= 2, 'Both spend tiles use explicit AUD');
     assert.match(funding, /Available to spend:/);
     assert.match(funding, /2\.53/);
     assert.match(renderWorkspace({ id: 'ad', _source: 'meta', ...stopped }), /Stopped by business/);

@@ -7,7 +7,7 @@ import { calculateSpendableBalance, isFundingPaused } from '../../../utils/walle
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ArrowDownLeft, ArrowRight, ArrowUpRight, ChevronDown, CircleHelp, Clock3, CreditCard, Wallet } from 'lucide-react';
-import { formatMoney } from "../../../utils/currency";
+import { formatAUD, formatMoney } from "../../../utils/currency";
 import { supabase } from '@/../utils/supabase/pages-client';
 import { useSession } from '@supabase/auth-helpers-react';
 import { useUserSettings } from '@/../utils/hooks/useUserSettings';
@@ -606,7 +606,7 @@ export default function AffiliateWalletPage() {
   // reads/ledger. The wallet is pooled, not reserved per campaign.
   const walletMoney = (value: number | string | null | undefined) => {
     if (currency === 'AUD') {
-      return 'A$' + toMoney(value).toFixed(2);
+      return formatAUD(value);
     }
     return formatMoney(value, currency);
   };
