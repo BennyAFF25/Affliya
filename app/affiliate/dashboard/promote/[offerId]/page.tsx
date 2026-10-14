@@ -64,7 +64,6 @@ type OfferBusinessEmailRow = {
 
 export default function PromoteOfferPage() {
   // Advanced bidding accordion state
-  // Removed loading states
   const router = useRouter();
   const params = useParams();
   const searchParams = useSearchParams();
@@ -89,6 +88,7 @@ export default function PromoteOfferPage() {
   // Organic flow state (non-invasive)
   // ─────────────────────────────
   const [mode, setMode] = useState<"ad" | "organic">(requestedMode);
+  const [useLogoCreative, setUseLogoCreative] = useState(false);
   const [adCreativeSource, setAdCreativeSource] = useState<"brand" | "upload">("upload");
   const [organicCreativeSource, setOrganicCreativeSource] = useState<"brand" | "upload">("brand");
   const [brandCreatives, setBrandCreatives] = useState<ContentLibraryAsset[]>([]);
@@ -337,11 +337,11 @@ export default function PromoteOfferPage() {
   const [thumbnailError, setThumbnailError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (adCreativeSource === "upload" && !videoFile && !imageFile) {
+    if (adCreativeSource === "upload" && !useLogoCreative && !videoFile && !imageFile) {
       setVideoPreviewUrl(null);
       setThumbPreviewUrl(null);
     }
-  }, [adCreativeSource, imageFile, videoFile]);
+  }, [adCreativeSource, useLogoCreative, imageFile, videoFile]);
 
   // Thumbnail validation (Meta does NOT accept SVG thumbnails)
   const ALLOWED_THUMB_MIME = ["image/jpeg", "image/png", "image/webp"];
@@ -1058,7 +1058,7 @@ export default function PromoteOfferPage() {
       const usingBrandContent = adCreativeSource === "brand" && !!selectedAdBrandCreative;
       const selectedCreativeId = usingBrandContent ? selectedAdBrandCreative?.id || null : null;
 
-      if (!usingBrandContent && !isVideoCreative && !isImageCreative) {
+      if (!usingBrandContent && !(useLogoCreative && brandLogoUrl) && !isVideoCreative && !isImageCreative) {
         throw new Error("Please upload either a video or a photo.");
       }
 
@@ -1133,6 +1133,8 @@ export default function PromoteOfferPage() {
       if (usingBrandContent && selectedAdBrandCreative) {
         creativePublicUrl = selectedAdBrandCreative.media_url;
         thumbPublicUrl = selectedAdBrandCreative.thumbnail_url || null;
+      } else if (useLogoCreative && brandLogoUrl) {
+        creativePublicUrl = brandLogoUrl;
       } else if (videoFile) {
         const videoPath = `videos/${ts}-${sanitize(videoFile.name)}`;
         const { error: upVidErr } = await supabase.storage
@@ -1167,11 +1169,10 @@ export default function PromoteOfferPage() {
             upsert: true,
             contentType: thumbnailFile.type,
           });
-        if (!upThumbErr) {
-          thumbPublicUrl = supabase.storage
-            .from("ad-ideas-assets")
-            .getPublicUrl(thumbPath).data.publicUrl;
-        }
+        if (upThumbErr) throw upThumbErr;
+        thumbPublicUrl = supabase.storage
+          .from("ad-ideas-assets")
+          .getPublicUrl(thumbPath).data.publicUrl;
       }
 
       // Force stronger optimisation defaults (critical for spend)
@@ -1593,10 +1594,17 @@ export default function PromoteOfferPage() {
               validateThumbnailFile={validateThumbnailFile}
               setVideoPreviewUrl={setVideoPreviewUrl}
               setThumbPreviewUrl={setThumbPreviewUrl}
-              selectedBrandCreative={selectedAdBrandCreative}
-              usingBrandContent={adCreativeSource === "brand"}
-              onSwitchToBrandContent={() => setAdCreativeSource("brand")}
-              onSwitchToUploadOwn={() => setAdCreativeSource("upload")}
+              selectedBrandCreative={useLogoCreative && brandLogoUrl ? { id: "", title: brandName, media_url: brandLogoUrl, media_type: "image" } : selectedAdBrandCreative}
+              usingBrandContent={useLogoCreative || adCreativeSource === "brand"}
+              suggestedLogoUrl={!brandCreatives.length ? brandLogoUrl : null}
+              onUseSuggestedLogo={() => {
+                setUseLogoCreative(true);
+                setAdCreativeSource("upload");
+                setVideoFile(null); setImageFile(null); setThumbnailFile(null);
+                setVideoPreviewUrl(null); setThumbPreviewUrl(brandLogoUrl);
+              }}
+              onSwitchToBrandContent={() => { setUseLogoCreative(false); setAdCreativeSource("brand"); }}
+              onSwitchToUploadOwn={() => { setUseLogoCreative(false); setAdCreativeSource("upload"); }}
               handleAdSubmit={handleAdSubmit}
               submitError={submitError}
               currency={offerCurrency}

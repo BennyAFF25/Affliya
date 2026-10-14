@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import supabaseAdmin from "@/../utils/supabase/server-client";
@@ -105,15 +105,17 @@ export async function POST(_req: Request, context: { params: Promise<{ offerId: 
       },
     });
 
-    if (participation.created) {
+    const affiliateEmail = user.email;
+    // Participation is durable. Notification latency must not block the first proposal.
+    if (participation.created) after(async () => {
       try {
         const affiliateName = await getAffiliateUsername(supabaseAdmin as any, {
           userId: user.id,
-          email: user.email,
+          email: affiliateEmail,
         });
         const email = businessNewAffiliateRequestEmail({
           businessEmail: offer.business_email,
-          affiliateEmail: user.email,
+          affiliateEmail,
           affiliateName,
           offerTitle: offer.title || undefined,
           notes:
@@ -130,12 +132,12 @@ export async function POST(_req: Request, context: { params: Promise<{ offerId: 
       } catch (emailError) {
         console.error("[affiliate/offers/start][business notification failed]", {
           businessEmail: offer.business_email,
-          affiliateEmail: user.email,
+          affiliateEmail,
           offerId,
           error: emailError instanceof Error ? emailError.message : emailError,
         });
       }
-    }
+    });
 
     return NextResponse.json({
       ok: true,

@@ -13,6 +13,7 @@ export type PendingProposal = {
   title?: string;
   campaignName?: string | null;
   objective?: string | null;
+  currency?: string | null;
   createdAt?: string | null;
   state: "loading" | "waiting_for_business" | "funding_required" | "funded_waiting_for_business" | "funding_unavailable" | "timing_update_required" | "meta_cleanup_required";
   timingMessage?: string | null;
@@ -29,15 +30,19 @@ export function PendingProposalRow({ proposal }: { proposal: PendingProposal }) 
   const funded = proposal.state === "funded_waiting_for_business";
   const timingUpdate = proposal.state === "timing_update_required";
   const metaCleanup = proposal.state === "meta_cleanup_required";
+  const crossCurrency = proposal.kind === "paid" && !!proposal.currency && proposal.currency.toUpperCase() !== "AUD";
+  const showCurrencyWarning = crossCurrency && proposal.state !== "loading" && !timingUpdate && !metaCleanup;
   const title = proposal.campaignName || proposal.title || proposal.offerTitle;
 
-  const statusLabel = proposal.kind === "organic" ? proposal.businessViewedAt ? "VIEWED" : "PENDING REVIEW" : proposal.state === "loading" ? "Checking status…" : metaCleanup ? "META RECOVERY NEEDED" : timingUpdate ? "SCHEDULE UPDATE NEEDED" : proposal.state === "funding_unavailable" ? "FUNDING NOT CHECKED" : fundingRequired
+  const statusLabel = showCurrencyWarning ? "CURRENCY REVIEW NEEDED" : proposal.kind === "organic" ? proposal.businessViewedAt ? "VIEWED" : "PENDING REVIEW" : proposal.state === "loading" ? "Checking status…" : metaCleanup ? "META RECOVERY NEEDED" : timingUpdate ? "SCHEDULE UPDATE NEEDED" : proposal.state === "funding_unavailable" ? "FUNDING NOT CHECKED" : fundingRequired
     ? "FUNDING REQUIRED"
     : funded
       ? "FUNDED"
       : "WAITING FOR BUSINESS";
 
-  const description = proposal.kind === "organic" ? "Organic proposal sent for business review. No ad funding is required." : proposal.state === "loading" ? "Proposal saved. Checking campaign readiness…" : metaCleanup
+  const description = showCurrencyWarning
+    ? `Campaign budget is in ${proposal.currency}; the wallet is AUD. The current funding check compares numeric amounts without currency conversion. Funding needs currency review before launch.`
+    : proposal.kind === "organic" ? "Organic proposal sent for business review. No ad funding is required." : proposal.state === "loading" ? "Proposal saved. Checking campaign readiness…" : metaCleanup
     ? "This proposal has a saved Meta campaign from an earlier launch attempt. The brand needs to check that attempt and recover any incomplete setup in Nettmark before trying again. You do not need to resubmit or add funds to fix this. Contact the brand through your Nettmark inbox if it remains unresolved."
     : timingUpdate
       ? "The proposed campaign start or end date needs updating. The business can reschedule this proposal without changing your approved budget or creative."
@@ -53,7 +58,7 @@ export function PendingProposalRow({ proposal }: { proposal: PendingProposal }) 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <div className="min-w-0 truncate text-[13px] font-semibold text-white">{title}</div>
-            <Badge variant={fundingRequired || timingUpdate || metaCleanup ? "warning" : funded ? "success" : "muted"}>
+            <Badge variant={showCurrencyWarning || fundingRequired || timingUpdate || metaCleanup ? "warning" : funded ? "success" : "muted"}>
               {statusLabel}
             </Badge>
           </div>
@@ -65,7 +70,7 @@ export function PendingProposalRow({ proposal }: { proposal: PendingProposal }) 
               {proposal.offerTitle}
             </span>
             <span className="rounded-full border border-white/[0.07] bg-white/[0.02] px-2.5 py-1">
-              {proposal.state === "loading" ? "Checking status…" : proposal.funding ? `Required at launch: ${formatMoney(proposal.funding.requiredAmount)}` : "Funding not checked"}
+              {proposal.state === "loading" ? "Checking status…" : proposal.funding ? crossCurrency ? `Current wallet check: ${formatMoney(proposal.funding.requiredAmount)} (no FX conversion)` : `Required at launch: ${formatMoney(proposal.funding.requiredAmount)}` : "Funding not checked"}
             </span>
             {proposal.createdAt ? (
               <span className="rounded-full border border-white/[0.07] bg-white/[0.02] px-2.5 py-1">
@@ -77,7 +82,7 @@ export function PendingProposalRow({ proposal }: { proposal: PendingProposal }) 
         <Button href={`/affiliate/dashboard/reviews/${proposal.kind}/${proposal.id}`} variant="outline" className="min-h-10 shrink-0 rounded-xl text-xs">View proposal</Button>
         {fundingRequired ? (
           <Button href="/affiliate/wallet" className="min-h-10 shrink-0 rounded-xl text-xs">
-            Top up wallet
+            {crossCurrency ? "View wallet" : "Top up wallet"}
           </Button>
         ) : null}
       </div>

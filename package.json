@@ -8,6 +8,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "next lint",
     "verify": "yarn -s typecheck && yarn -s lint && yarn -s build",
+    "test:test-user-findings-round-6": "tsx scripts/test-user-findings-round-6.test.ts",
     "test:pending-proposals-batching": "tsx scripts/pending-proposals-batching.test.ts",
     "test:sa-rental-validation": "tsx scripts/sa-rental-validation.test.ts",
     "test:business-entitlements": "tsx scripts/business-entitlements.test.ts",

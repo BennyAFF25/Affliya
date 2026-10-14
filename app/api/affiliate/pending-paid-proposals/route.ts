@@ -29,7 +29,7 @@ export async function GET() {
     const { data: proposals, error: proposalError } = await admin
       .from("ad_ideas")
       .select(
-        "id,offer_id,affiliate_email,business_email,status,created_at,campaign_name,objective,budget_amount,daily_budget,start_time,end_time,meta_campaign_id",
+        "id,offer_id,affiliate_email,business_email,status,created_at,campaign_name,objective,currency,budget_amount,daily_budget,start_time,end_time,meta_campaign_id",
       )
       .eq("affiliate_email", affiliateEmail)
       .eq("status", "pending")
@@ -111,6 +111,7 @@ export async function GET() {
           businessEmail,
           campaignName: proposal.campaign_name || null,
           objective: proposal.objective || null,
+          currency: proposal.currency || null,
           createdAt: proposal.created_at,
           state,
           timingMessage: timing.ok ? null : timing.message,

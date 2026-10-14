@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { nmToast } from "@/components/ui/toast";
 import { AdFormState, PlacementKey } from "../types";
 import {
@@ -63,6 +63,8 @@ interface AdCampaignWizardProps {
   onSwitchToUploadOwn?: () => void;
   handleAdSubmit: () => Promise<boolean>;
   submitError?: string | null;
+  suggestedLogoUrl?: string | null;
+  onUseSuggestedLogo?: () => void;
   currency: string;
   currencyLoading: boolean;
   onNavigateToWallet: () => void;
@@ -107,6 +109,8 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
     onSwitchToUploadOwn,
     handleAdSubmit,
     submitError,
+    suggestedLogoUrl,
+    onUseSuggestedLogo,
     currency,
     currencyLoading,
     onNavigateToWallet,
@@ -115,6 +119,8 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
   const [step, setStep] = useState(1);
   const [showAdvancedBidding, setShowAdvancedBidding] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const submitting = useRef(false);
+  const [localSubmitError, setLocalSubmitError] = useState<string | null>(null);
 
   const steps = [
     { id: 1, label: "Campaign" },
@@ -157,14 +163,21 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
   );
 
   const onSubmitClick = async () => {
-    if (isSubmitting) return;
+    if (submitting.current) return;
+    submitting.current = true;
+    setLocalSubmitError(null);
     setIsSubmitting(true);
     try {
-      await handleAdSubmit();
+      if (!await handleAdSubmit()) {
+        setLocalSubmitError("The proposal was not saved. Check the details and try again. Your draft is still here.");
+      }
     } catch (error) {
       console.error("[affiliate/wizard] submission failed", error);
-      nmToast.error(error instanceof Error ? error.message : "Campaign submission failed.");
+      const message = error instanceof Error ? error.message : "Campaign submission failed.";
+      setLocalSubmitError(message);
+      nmToast.error(message);
     } finally {
+      submitting.current = false;
       setIsSubmitting(false);
     }
   };
@@ -720,6 +733,13 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
           </div>
         )}
 
+        {step === 3 && suggestedLogoUrl && onUseSuggestedLogo && (
+          <div className="rounded-xl border border-[#2a2a2a] bg-[#0f0f0f] p-4">
+            <p className="text-sm text-gray-300">No brand library creative? Use the brand logo as a starting point. The business will review it before launch.</p>
+            <button type="button" onClick={onUseSuggestedLogo} className="mt-3 rounded-lg border border-[#00C2CB]/40 px-4 py-2 text-sm text-[#00C2CB]">Use brand logo</button>
+          </div>
+        )}
+
         {step === 3 && (
           <div className="space-y-4 sm:space-y-6">
             <div className="rounded-xl border border-[#232323] bg-[#101010] p-4">
@@ -1112,14 +1132,16 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
             </button>
           )}
 
-          {step === 4 && submitError && (
+          {step === 4 && (submitError || localSubmitError) && (
             <p role="alert" aria-live="assertive" className="w-full rounded-xl border border-red-400/30 bg-red-400/10 p-3 text-sm text-red-200">
-              Campaign not submitted: {submitError}
+              Campaign not submitted: {submitError || localSubmitError}
             </p>
           )}
           {step === 4 && (
             <button
+              type="button"
               onClick={onSubmitClick}
+              aria-busy={isSubmitting}
               disabled={isSubmitting}
               className={`sm:ml-auto w-full sm:w-auto px-6 py-2 rounded-md transition flex items-center justify-center gap-2 ${
                 isSubmitting
