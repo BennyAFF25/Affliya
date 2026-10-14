@@ -75,7 +75,6 @@ export function CountryMultiSelect({
 
   return (
     <div ref={ref} className="relative">
-      <span className="mb-1 block text-sm font-semibold text-[#00C2CB]">{label} (local time)</span>
       <button
         type="button"
         className={`${INPUT} flex items-center gap-2 min-h-[42px] text-left`}

@@ -193,13 +193,9 @@ function CreateAccountInner() {
       }
 
       if (role === 'business') {
-        try {
-          void postJson('/api/creator-referrals/attribute', {
-            businessEmail: trimmedEmail,
-          }).catch(() => console.warn("[SIGNUP] creator referral attribution deferred"));
-        } catch (creatorReferralErr) {
-          console.warn('[SIGNUP] creator referral attribution deferred/failed:', creatorReferralErr);
-        }
+        void postJson('/api/creator-referrals/attribute', {
+          businessEmail: trimmedEmail,
+        }).catch(() => console.warn("[SIGNUP] creator referral attribution deferred"));
       }
 
       trackMetaStandardEvent('CompleteRegistration', {
