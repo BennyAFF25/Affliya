@@ -294,6 +294,15 @@ async function findReservedActivationSubsidy(supabase: SupabaseLike, params: {
   return (data as SubsidyClaim | null) ?? null;
 }
 
+/** Shared funding basis for settlement and pause checks, including reserved starter spend. */
+export async function getAdSpendFundingSnapshot(supabase: SupabaseLike, params: {
+  offerId: string; businessEmail: string; affiliateEmail: string;
+}) {
+  const wallet = await getWalletBalanceSnapshot(supabase as never, params.affiliateEmail);
+  const subsidy = params.offerId ? await findReservedActivationSubsidy(supabase, params) : null;
+  return { ...wallet, availableBalance: roundMoney(wallet.availableBalance + getActivationSubsidyRemaining(subsidy)) };
+}
+
 export async function settleAdSpendLedger(params: {
   supabase: SupabaseLike;
   liveAdId: string;

@@ -1,4 +1,5 @@
 "use client";
+import React from "react";
 
 import { formatMoney } from "../../../../utils/currency";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -175,32 +176,13 @@ export default function AffiliateManageCampaignsPage() {
       if (offerIds.length === 0) {
         setOfferNameById({});
       } else {
-        // Try common columns: title/name (schema may vary)
-        let offersSelect = "id, title, name";
-        let { data: offersData, error: offersErr } = await supabase
-          .from("offers")
-          .select(offersSelect)
-          .in("id", offerIds);
-
-        if (offersErr?.message?.includes("title")) {
-          offersSelect = "id, name";
-          ({ data: offersData, error: offersErr } = await supabase
-            .from("offers")
-            .select(offersSelect)
-            .in("id", offerIds));
-        }
-        if (offersErr?.message?.includes("name")) {
-          offersSelect = "id, title";
-          ({ data: offersData, error: offersErr } = await supabase
-            .from("offers")
-            .select(offersSelect)
-            .in("id", offerIds));
-        }
+        const { data: offersData, error: offersErr } = await supabase
+          .from("offers").select("id, title").in("id", offerIds);
 
         if (!offersErr && offersData) {
           const map: Record<string, string> = {};
           for (const o of offersData as any[]) {
-            const label = (o?.title || o?.name || "").toString().trim();
+            const label = (o?.title || "").toString().trim();
             if (o?.id && label) map[o.id] = label;
           }
           setOfferNameById(map);

@@ -25,6 +25,9 @@ export function businessFunnelMetadata(businessId: string, signedUpAt: string) {
 export type GrowthPrice = { amount: number; currency: string; interval: string; intervalCount: number; formatted: string; taxNotice: string };
 export function formatGrowthPrice(amount: number, currency: string) {
   const zeroDecimal = new Set(["bif","clp","djf","gnf","jpy","kmf","krw","mga","pyg","rwf","vnd","vuv","xaf","xof","xpf"]);
-  return new Intl.NumberFormat("en-AU", { style: "currency", currency: currency.toUpperCase(), currencyDisplay: "code" })
-    .format(amount / (zeroDecimal.has(currency.toLowerCase()) ? 1 : 100));
+  const isAud = currency.toUpperCase() === "AUD";
+  return new Intl.NumberFormat("en-AU", {
+    style: "currency", currency: currency.toUpperCase(), currencyDisplay: isAud ? "symbol" : "code",
+    ...(isAud ? { minimumFractionDigits: 0, maximumFractionDigits: 2 } : {}),
+  }).format(amount / (zeroDecimal.has(currency.toLowerCase()) ? 1 : 100)).replace(/^\$/, isAud ? "A$" : "$" );
 }

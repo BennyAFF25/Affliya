@@ -1,3 +1,4 @@
+import React from "react";
 import { notFound } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import { ProductCard } from "../components/ProductCard";
@@ -259,7 +260,7 @@ export default async function ShopPage({
                   description={offer.description}
                   price={offer.priceLabel}
                   imageUrl={offer.image}
-                  ctaHref={`/go/${offer.id}___${data!.affiliate.email}`}
+                  ctaHref={`/go/${offer.id}___${data!.affiliate.id}`}
                   theme={data!.settings.theme}
                   customPalette={data!.settings.palette}
                 />

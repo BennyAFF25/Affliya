@@ -1,4 +1,5 @@
 "use client";
+import React from "react";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -171,7 +172,7 @@ export default function GrowthMetaSetupPrompt() {
             <p className="mt-1 text-sm text-white/65">
               {isScheduledToCancel
                 ? `Affiliate-funded ads remain enabled${trialEndLabel ? ` through ${trialEndLabel}` : " until the end of your current trial"}. Your subscription will not renew or charge after that.`
-                : `Affiliate-funded ads are enabled during your trial${trialEndLabel ? ` through ${trialEndLabel}` : ""}. After that, Growth is $49/month unless cancelled.`}
+                : `Affiliate-funded ads are enabled during your trial${trialEndLabel ? ` through ${trialEndLabel}` : ""}. After that, Growth is A$49/month unless cancelled.`}
             </p>
           </div>
           <button

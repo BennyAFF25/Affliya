@@ -44,10 +44,13 @@ function AffiliateLayoutShell({ children }: { children: React.ReactNode }) {
     const userId = session?.user?.id;
     if (!userId) { setAffiliateRole("checking"); return; }
     let current = true;
+    const controller = new AbortController();
+    const timer = setTimeout(() => { if (current) { setAffiliateRole("error"); controller.abort(); } }, 8000);
     setAffiliateRole("checking");
     void (async () => {
       const { data, error } = await supabase.from("profiles")
-        .select("role").eq("id", userId).maybeSingle();
+        .select("role").eq("id", userId).abortSignal(controller.signal).maybeSingle();
+      clearTimeout(timer);
       if (!current) return;
       if (error) { setAffiliateRole("error"); return; }
       const role = String(data?.role || "").trim().toLowerCase();
@@ -55,7 +58,7 @@ function AffiliateLayoutShell({ children }: { children: React.ReactNode }) {
       else if (role === "business") setAffiliateRole("business");
       else setAffiliateRole("blocked");
     })();
-    return () => { current = false; };
+    return () => { current = false; clearTimeout(timer); controller.abort(); };
   }, [session?.user?.id]);
 
   useEffect(() => {
@@ -97,10 +100,12 @@ function AffiliateLayoutShell({ children }: { children: React.ReactNode }) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[var(--background)] p-6 text-[var(--foreground)]">
         {affiliateRole === "checking" || affiliateRole === "business"
-          ? "Checking account access…"
+          ? "Verifying your affiliate account…"
           : affiliateRole === "error"
             ? "Could not verify your account role. Refresh and try again."
             : "This area is only available to affiliate accounts."}
+        <a href="/business/my-business" className="ml-4 underline">Business dashboard</a>
+        <a href="/logout" className="ml-4 underline">Sign out</a>
       </div>
     );
   }

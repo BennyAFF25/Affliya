@@ -440,7 +440,7 @@ export default function BusinessSettingsPage() {
                   Subscription & billing
                 </h2>
                 <p className="text-xs text-[var(--muted-foreground)]">
-                  Manage the $49/month Nettmark Business subscription, invoices,
+                  Manage the A$49/month Nettmark Business subscription, invoices,
                   payment method, and cancellation from the Stripe billing portal.
                 </p>
               </div>
@@ -459,11 +459,11 @@ export default function BusinessSettingsPage() {
                 <>
                   <p className="text-sm text-[var(--foreground)]">
                     {subscription.isGrandfathered
-                      ? "This existing business is grandfathered and does not need the $49/month Nettmark Business subscription."
+                      ? "This existing business is grandfathered and does not need the A$49/month Nettmark Business subscription."
                       : subscription.status === "subscription_trialing" || subscription.status === "trialing"
                         ? `Trial ends ${subscriptionDateLabel ?? "soon"}.`
                         : subscription.status === "subscription_active" || subscription.status === "active"
-                          ? `Your $49/month Nettmark Business subscription renews ${subscriptionDateLabel ?? "automatically"}.`
+                          ? `Your A$49/month Nettmark Business subscription renews ${subscriptionDateLabel ?? "automatically"}.`
                           : subscription.status === "subscription_cancelled" || subscription.status === "canceled"
                             ? "This Nettmark Business subscription has been canceled."
                             : hasPortalAccess

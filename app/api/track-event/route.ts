@@ -252,7 +252,15 @@ export async function POST(req: NextRequest) {
         : {};
 
     const resolvedAttribution = resolveAffiliateAndCampaign(body, event_data);
-    const affiliate_id = resolvedAttribution.affiliateId;
+    let affiliate_id = resolvedAttribution.affiliateId;
+    // New redirects expose only the stable UUID; preserve legacy internal email linkage.
+    if (affiliate_id && isUuid(affiliate_id)) {
+      const { data: affiliateProfile, error: identityError } = await supabase
+        .from('profiles').select('email').eq('id', affiliate_id).eq('role', 'affiliate').maybeSingle();
+      if (identityError) return jsonWithCors(req, { error: 'Attribution identity unavailable' }, { status: 503 });
+      if (!affiliateProfile?.email) return jsonWithCors(req, { error: 'Invalid affiliate identity' }, { status: 400 });
+      affiliate_id = affiliateProfile.email;
+    }
     let campaign_id = resolvedAttribution.campaignId;
     let offer_id = body.offer_id ?? body?.event_data?.offer_id ?? null;
     const { amount, currency } = extractAmountAndCurrency(event_data);

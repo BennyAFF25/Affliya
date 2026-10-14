@@ -1,7 +1,9 @@
+import { isUuid } from "../../../utils/tracking/campaignIdentity";
+import { isLikelyAutomatedVisit } from "../../../utils/tracking/visitMetrics";
 // app/go/[ref]/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { buildTrackingUrl } from "@/../utils/tracking/buildTrackingUrl";
+import { parseTrackingRef } from "../../../utils/tracking/parseTrackingRef";
 import { assertAffiliateOfferApproved } from "@/../utils/approvals/enforcement";
 
 const supabaseAdmin = createClient(
@@ -12,24 +14,13 @@ const supabaseAdmin = createClient(
 type SourceTable = "live_campaigns" | "ad_ideas" | "live_ads" | "offers" | null;
 
 export async function GET(request: NextRequest, context: any) {
-  const { ref } = context.params as { ref: string };
+  const { ref } = await context.params as { ref: string };
   console.log("[go/ref] Incoming tracking link:", ref);
 
   // --------------------------------------------------
   // 1. Parse ref -> campaignId + affiliateId + type
   // --------------------------------------------------
-  let splitParts = ref.split("___");
-
-  if (splitParts.length < 2) {
-    // Legacy pattern: last '-' splits campaignId and affiliateId
-    const lastDash = ref.lastIndexOf("-");
-    if (lastDash !== -1) {
-      splitParts = [ref.slice(0, lastDash), ref.slice(lastDash + 1)];
-    } else {
-      splitParts = [ref];
-    }
-    console.log("[go/ref] Fallback splitParts:", splitParts);
-  }
+  const splitParts = parseTrackingRef(ref);
 
   if (splitParts.length < 2) {
     console.warn("[go/ref] Invalid ref format:", ref);
@@ -43,7 +34,14 @@ export async function GET(request: NextRequest, context: any) {
     );
   }
 
-  const [campaignId, affiliateId, campaignType = "meta"] = splitParts;
+  const [campaignId, legacyAffiliateId, campaignType = "meta"] = splitParts;
+  let affiliateId = legacyAffiliateId;
+  if (isUuid(affiliateId)) {
+    const { data: profile, error } = await supabaseAdmin.from("profiles")
+      .select("email").eq("id", affiliateId).eq("role", "affiliate").maybeSingle();
+    if (error || !profile?.email) return new NextResponse("Invalid affiliate identity", { status: 400 });
+    affiliateId = profile.email;
+  }
   console.log("[go/ref] Parsed:", { campaignId, affiliateId, campaignType });
 
   // --------------------------------------------------
@@ -214,6 +212,9 @@ export async function GET(request: NextRequest, context: any) {
     );
   }
 
+  // Legacy refs remain valid, but attribution comes from resolved ownership.
+  affiliateId = resolvedAffiliateEmail;
+
   const approval = await assertAffiliateOfferApproved(supabaseAdmin as any, {
     offerId,
     affiliateEmail: resolvedAffiliateEmail,
@@ -278,6 +279,12 @@ export async function GET(request: NextRequest, context: any) {
     );
   }
 
+  const { data: affiliateProfile, error: affiliateProfileError } = await supabaseAdmin
+    .from("profiles").select("id").eq("email", affiliateId).maybeSingle();
+  if (affiliateProfileError || !affiliateProfile?.id) {
+    return new NextResponse("Affiliate identity temporarily unavailable", { status: 503 });
+  }
+
   // --------------------------------------------------
   // 4. Log click
   // --------------------------------------------------
@@ -290,7 +297,8 @@ export async function GET(request: NextRequest, context: any) {
 
   console.log("[go/ref] Click context:", { referer, userAgent, ipAddress });
 
-  await supabaseAdmin.from("clicks").insert([
+  const automated = isLikelyAutomatedVisit(userAgent) || request.headers.get("purpose") === "prefetch" || request.headers.get("sec-purpose")?.includes("prefetch");
+  if (!automated) await supabaseAdmin.from("clicks").insert([
     {
       offer_id: offerId,
       affiliate_id: affiliateId,
@@ -305,7 +313,7 @@ export async function GET(request: NextRequest, context: any) {
   // --------------------------------------------------
   // 5. Build redirect URL (same pattern as organic)
   // --------------------------------------------------
-  if (affiliateId) {
+  if (affiliateId && !automated) {
     try {
       await supabaseAdmin.rpc("increment_shop_hit", {
         p_affiliate_email: affiliateId,
@@ -323,9 +331,7 @@ export async function GET(request: NextRequest, context: any) {
 
   const urlObj = new URL(redirectUrl);
 
-  if (!urlObj.searchParams.has("nm_aff")) {
-    urlObj.searchParams.set("nm_aff", affiliateId);
-  }
+  urlObj.searchParams.set("nm_aff", affiliateProfile.id);
   if (!urlObj.searchParams.has("nm_camp")) {
     urlObj.searchParams.set("nm_camp", canonicalCampaignId || campaignId);
   }
@@ -336,24 +342,8 @@ export async function GET(request: NextRequest, context: any) {
   const finalUrl = urlObj.toString();
   console.log("[go/ref] Redirecting to:", finalUrl);
 
-  if (sourceTable === "live_ads" && canonicalCampaignId) {
-    try {
-      await supabaseAdmin
-        .from("live_ads")
-        .update({
-          tracking_link: buildTrackingUrl({
-            campaignId: canonicalCampaignId,
-            affiliateId,
-          }),
-        })
-        .eq("id", canonicalCampaignId);
-    } catch (e) {
-      console.warn("[go/ref] live_ads tracking_link backfill failed", e);
-    }
-  }
-
   const cookieName = "nettmark_affiliate_id";
-  const cookieValue = encodeURIComponent(affiliateId);
+  const cookieValue = encodeURIComponent(affiliateProfile.id);
   const cookieMaxAge = 60 * 60 * 24 * 7; // 7 days
 
   const response = NextResponse.redirect(finalUrl, 307);

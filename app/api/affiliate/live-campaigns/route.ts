@@ -23,7 +23,7 @@ export async function GET(req: Request) {
     let query = (supabaseAdmin as any)
       .from("live_campaigns")
       .select("id, type, offer_id, business_email, affiliate_email, media_url, caption, platform, created_from, status, created_at, business_id, affiliate_user_id")
-      .eq("affiliate_email", user.email)
+      .or(`affiliate_user_id.eq.${user.id},affiliate_email.eq.${JSON.stringify(user.email)}`)
       .order("created_at", { ascending: false });
 
     if (campaignId) {

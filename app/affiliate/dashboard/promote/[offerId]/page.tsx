@@ -20,7 +20,7 @@ function friendlyObjective(objective?: string): string {
   }
 }
 
-import { useState, useEffect, useMemo, useRef, type ReactNode } from "react";
+import React, { useState, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { nmToast } from "@/components/ui/toast";
 import { FaSpinner } from "react-icons/fa";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
@@ -285,8 +285,8 @@ export default function PromoteOfferPage() {
   // Derived tracking link
   // ─────────────────────────────
   const trackingLink = useMemo(
-    () => `https://www.nettmark.com/go/${offerId}___${userEmail}`,
-    [offerId, userEmail],
+    () => `https://www.nettmark.com/go/${offerId}___${session?.user?.id || ""}`,
+    [offerId, session?.user?.id],
   );
 
   // ─────────────────────────────
@@ -701,7 +701,7 @@ export default function PromoteOfferPage() {
         genders,
         interests,
         optimization_goal: "REACH",
-        currency: "AUD", // ignored by server route
+        currency: offerCurrency, // ignored by reach-only server route
         placementSpec, // ← added to send placements
       } as any);
 
@@ -791,7 +791,9 @@ export default function PromoteOfferPage() {
     ) => {
       const val =
         e.target.type === "number" ? Number(e.target.value) : e.target.value;
-      setForm((prev) => ({ ...prev, [name]: val as any }));
+      setForm((prev) => ({ ...prev, [name]: val as any,
+        ...(name === "age_max" && Number(val) < 65 ? { advantage_audience: false } : {}),
+      }));
     };
 
   const onPlacementToggle = (key: PlacementKey) => {
@@ -839,6 +841,7 @@ export default function PromoteOfferPage() {
   const setEndIn7d = () => {
     const base = form.start_time ? new Date(form.start_time) : new Date();
     const d = new Date(base.getTime() + 7 * 24 * 60 * 60 * 1000);
+    d.setHours(23, 59, 0, 0);
     setForm((p) => ({ ...p, end_time: toLocalInput(d) }));
   };
 

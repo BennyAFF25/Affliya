@@ -328,7 +328,7 @@ export default function BusinessOnboardingPage() {
     }
   };
 
-  if (newBusinessPlanFirst && !planChecked) return <main className="min-h-screen bg-[#0f0f0f] p-8 text-slate-300" role="status">Checking your plan choice…</main>;
+  if (newBusinessPlanFirst && !planChecked) return <main className="min-h-screen bg-[#0f0f0f] p-8 text-slate-300" role="status">Checking your plan choice… <a href="/logout" className="ml-4 underline">Sign out</a></main>;
 
   const inputClass =
     "mt-1.5 w-full rounded-2xl border border-white/10 bg-[#0b1011] px-4 py-3.5 text-sm text-white outline-none transition placeholder:text-white/26 focus:border-[#00C2CB]/70 focus:ring-2 focus:ring-[#00C2CB]/15";
@@ -336,6 +336,7 @@ export default function BusinessOnboardingPage() {
   return (
     <main className="min-h-screen bg-[#05080b] px-3 py-4 text-white sm:px-6 lg:py-10">
       <div className="mx-auto w-full max-w-3xl">
+        <div className="mb-4 flex items-center justify-between text-sm"><span>Step 3 of 3 · Set up your offer</span><a href="/logout" className="inline-flex min-h-11 items-center underline">Sign out</a></div>
         <div className="rounded-[30px] border border-white/10 bg-[#101516]/95 p-4 shadow-[0_24px_80px_rgba(0,0,0,0.42)] sm:p-6 lg:p-8">
           {step < 5 && (
             <div className="mb-7 rounded-2xl border border-white/10 bg-white/[0.025] px-4 py-4 sm:px-5">

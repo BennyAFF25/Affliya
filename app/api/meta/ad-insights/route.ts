@@ -2,7 +2,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { tryWriteMoneyFlowAudit } from '@/../utils/moneyFlowAudit';
-import { getWalletBalanceSnapshot } from '@/../utils/wallet/balance';
+import { getAdSpendFundingSnapshot } from '@/../utils/adSpend/settlements';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -67,7 +67,7 @@ export async function POST(req: Request) {
         // 1) Load live_ads row (need meta_ad_id + business_email + affiliate_email + spend_transferred + status)
         const { data: ad, error: adErr } = await supabase
           .from('live_ads')
-          .select('id, meta_ad_id, business_email, affiliate_email, spend_transferred, status')
+          .select('id, offer_id, meta_ad_id, business_email, affiliate_email, spend_transferred, status')
           .eq('id', liveAdId)
           .single();
 
@@ -243,9 +243,9 @@ export async function POST(req: Request) {
         // Calculate wallet available from the canonical LR-001 wallet snapshot
         let walletAvailable = 0;
 
-        if (affiliate_email && !alreadyPausedLike && unpaid > 0) {
+        if (affiliate_email && !alreadyPausedLike) {
           try {
-            const walletSnapshot = await getWalletBalanceSnapshot(supabase, affiliate_email);
+            const walletSnapshot = await getAdSpendFundingSnapshot(supabase as never, { offerId: String(ad.offer_id || ""), businessEmail: String(ad.business_email || ""), affiliateEmail: affiliate_email });
             walletAvailable = walletSnapshot.availableBalance;
 
             console.log('[👛 Auto-pause check]', {

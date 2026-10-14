@@ -56,6 +56,7 @@ export default function BusinessLayout({
   if (newBusiness && planPending !== false) return (
     <main className="flex min-h-screen items-center justify-center bg-[#0f0f0f] p-6 text-sm text-slate-300" role="status">
       {planPending ? "Complete your plan choice to continue. If this persists, refresh the page." : "Checking your Growth plan…"}
+      <a href="/logout" className="ml-4 underline">Sign out</a>
     </main>
   );
 

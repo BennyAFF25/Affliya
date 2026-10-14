@@ -1,0 +1,23 @@
+import { parseTrackingRef } from "../utils/tracking/parseTrackingRef";
+import assert from "node:assert/strict";
+import { formatGrowthPrice } from "../utils/businessOnboardingFunnel";
+import { shouldPauseForFunding } from "../utils/adSpend/pauseGuardrail";
+import { buildTrackingUrl } from "../utils/tracking/buildTrackingUrl";
+import { isLikelyAutomatedVisit } from "../utils/tracking/visitMetrics";
+assert.equal(formatGrowthPrice(4900, "AUD"), "A$49");
+assert.equal(formatGrowthPrice(4950, "AUD"), "A$49.5");
+assert.equal(shouldPauseForFunding(0, 0, 0), true);
+assert.equal(shouldPauseForFunding(30, 15, 10), false);
+assert.equal(shouldPauseForFunding(15, 0, 10), false);
+assert.equal(shouldPauseForFunding(5, 0, 10), true, "Debit exhausting the buffer must pause even with no unpaid spend");
+assert.equal(shouldPauseForFunding(10, 15, 10), true);
+assert.equal(buildTrackingUrl({ campaignId: "campaign", affiliateId: "private@example.com" }), "https://www.nettmark.com/go/campaign");
+assert.equal(isLikelyAutomatedVisit("facebookexternalhit/1.1"), true);
+assert.equal(isLikelyAutomatedVisit("Mozilla/5.0 Safari"), false);
+console.log("Test-user currency, privacy, bot and funding checks passed");
+
+const id = "11111111-1111-4111-8111-111111111110";
+assert.deepEqual(parseTrackingRef(id), [id, ""]);
+assert.deepEqual(parseTrackingRef(`${id}-first-last@example.com`), [id, "first-last@example.com"]);
+assert.deepEqual(parseTrackingRef(`${id}___${id}`), [id, id]);
+assert.deepEqual(parseTrackingRef("123-first-last@example.com"), ["123", "first-last@example.com"]);

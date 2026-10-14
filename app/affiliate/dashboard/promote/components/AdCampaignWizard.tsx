@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { nmToast } from "@/components/ui/toast";
 import { AdFormState, PlacementKey } from "../types";
 import {
@@ -256,7 +256,7 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
             <div className="flex flex-col sm:flex-row gap-3">
               <label className="flex-1 min-w-0">
                 <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">
-                  Budget (AUD)
+                  Budget ({currency || "currency unavailable"})
                 </span>
                 <input
                   type="number"
@@ -282,9 +282,9 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
             </div>
             <div className="flex flex-wrap items-center gap-2 -mt-1 overflow-x-auto">
               <span className="text-[11px] text-gray-500 mr-1">Quick add:</span>
-              <Chip onClick={() => incBudget(5)}>+ $5</Chip>
-              <Chip onClick={() => incBudget(10)}>+ $10</Chip>
-              <Chip onClick={() => incBudget(20)}>+ $20</Chip>
+              <Chip onClick={() => incBudget(5)}>+ {currency} 5</Chip>
+              <Chip onClick={() => incBudget(10)}>+ {currency} 10</Chip>
+              <Chip onClick={() => incBudget(20)}>+ {currency} 20</Chip>
             </div>
             <div className="mt-2 rounded-xl border border-[#2a2a2a] bg-[#0f0f0f] p-4 text-sm">
               <div className="flex items-start justify-between gap-3">
@@ -296,24 +296,26 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
                     <span className="text-gray-400">
                       Checking wallet balance…
                     </span>
+                  ) : currency && currency !== "AUD" ? (
+                    <span className="text-gray-400">Wallet balance: A${walletBalance.toFixed(2)}. Campaign budget is in {currency}; currency funding must be verified before launch.</span>
                   ) : canRunWithWallet ? (
                     <span className="text-emerald-400">
-                      Wallet balance: ${walletBalance.toFixed(2)}
+                      Wallet balance: A${walletBalance.toFixed(2)}
                       {starterSpendRemaining > 0
-                        ? ` + starter spend $${starterSpendRemaining.toFixed(2)} — funded for launch`
+                        ? ` + starter spend A$${starterSpendRemaining.toFixed(2)} — funded for launch`
                         : " — funded for launch"}
                     </span>
                   ) : (
                     <span className="text-red-400">
-                      Wallet balance: ${walletBalance.toFixed(2)}
+                      Wallet balance: A${walletBalance.toFixed(2)}
                       {starterSpendRemaining > 0
-                        ? ` + starter spend $${starterSpendRemaining.toFixed(2)}`
-                        : ""}. You need $
+                        ? ` + starter spend A$${starterSpendRemaining.toFixed(2)}`
+                        : ""}. You need A$
                       {walletDeficit.toFixed(2)} more before this campaign can launch. You can still submit the proposal now.
                     </span>
                   )}
                 </div>
-                {!walletLoading && !canRunWithWallet && (
+                {!walletLoading && currency === "AUD" && !canRunWithWallet && (
                   <span className="text-[11px] px-2 py-1 rounded-full border border-red-500/40 text-red-300">
                     Needed at launch
                   </span>
@@ -324,7 +326,7 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
                   {starterSpendLabel}
                 </span>
               ) : null}
-              {!walletLoading && !canRunWithWallet && (
+              {!walletLoading && currency === "AUD" && !canRunWithWallet && (
                 <span className="block mt-2 text-xs text-gray-400">
                   No funds are required to submit this proposal. You’ll need sufficient campaign funding before it can launch.
                 </span>
@@ -345,6 +347,7 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
               <div className="flex-1 min-w-0">
                 <DateTimeField
                   label="End"
+                  endOfDay
                   value={form.end_time}
                   onChange={(v) => setForm((p) => ({ ...p, end_time: v }))}
                 />
@@ -474,13 +477,15 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
                   targeting when it detects cheaper conversions. Leave this off
                   to stay strict.
                 </p>
+                {Number(form.age_max) < 65 && <p className="mt-2 text-xs text-amber-200">Advantage+ Audience is disabled to respect your maximum age below 65.</p>}
               </div>
               <button
                 type="button"
+                disabled={Number(form.age_max) < 65}
                 onClick={() =>
                   setForm((p) => ({
                     ...p,
-                    advantage_audience: !p.advantage_audience,
+                    advantage_audience: Number(p.age_max) >= 65 && !p.advantage_audience,
                   }))
                 }
                 className={[
@@ -645,7 +650,7 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
                           </div>
                           <div className="relative rounded-lg overflow-hidden border border-[#00C2CB]/50 focus-within:border-[#00C2CB] focus-within:shadow-[0_0_0_3px_rgba(0,194,203,0.25)] transition">
                             <div className="absolute inset-y-0 left-0 flex items-center px-4 bg-[#00C2CB] text-black font-semibold text-xs">
-                              AUD
+                              {currency}
                             </div>
                             <input
                               type="number"
@@ -979,7 +984,7 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
                   Type:{" "}
                   <span className="text-[#00C2CB]">{form.budget_type}</span>
                 </div>
-                <div className="mt-1 text-xs text-gray-400">Campaign currency follows the business Meta account.</div>
+                <div className="mt-1 text-xs text-gray-400">Budget is entered and submitted in {currency || "the business campaign currency"}. No currency conversion is performed. Launch requires a matching Meta ad account currency.</div>
                 <div className="mt-2 text-sm text-gray-300">
                   Starts: <span className="text-[#00C2CB]">{form.start_time ? new Date(form.start_time).toLocaleString("en-AU") : "Not set"}</span>
                 </div>
@@ -991,7 +996,7 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
                     Bid cap:{" "}
                     <span className="text-[#00C2CB]">
                       {form.bid_cap_dollars
-                        ? `$${Number(form.bid_cap_dollars).toFixed(2)}`
+                        ? `${currency} ${Number(form.bid_cap_dollars).toFixed(2)}`
                         : "—"}
                     </span>
                   </div>

@@ -1,10 +1,8 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSessionContext } from "@supabase/auth-helpers-react";
 import { Check, CreditCard, Megaphone, ShieldCheck, Sparkles, Zap } from "lucide-react";
-import type { SupabaseClient } from "@supabase/supabase-js";
-import { supabase } from "utils/supabase/pages-client";
 import { logProductEvent } from "../../../utils/productEvents";
 import BusinessTrialFirstContinuation, { growthPricePeriod, type BusinessContinuationContext } from "../../../components/business/BusinessTrialFirstContinuation";
 import { getAttributionFromWindow } from "../../../utils/marketing/attribution";
@@ -29,24 +27,21 @@ export default function ChooseBusinessPlanPage() {
     setError(null);
     void (async () => {
       try {
-        const { data, error: profileError } = await (supabase as unknown as SupabaseClient).from("business_profiles").select("id")
-          .eq("business_email", session.user.email).limit(1).maybeSingle();
-        if (profileError || !data?.id) throw new Error("We couldn't find your business profile. Please retry.");
-        const response = await fetch(`/api/business-subscription/trial-eligibility?businessId=${encodeURIComponent(data.id)}`, { cache: "no-store" });
+        const response = await fetch("/api/business-subscription/trial-eligibility", { cache: "no-store" });
         const result = await response.json();
         if (!response.ok) throw new Error(result.error || "Could not load Growth details.");
         if (cancelled) return;
-        setBusinessId(data.id);
+        setBusinessId(result.businessId);
         setContext(result);
         if (result.planFirst && result.planSelectionComplete &&
           !new URLSearchParams(window.location.search).has("subscription")) {
           router.replace(result.offerId ? "/business/my-business" : "/onboarding/for-business");
           return;
         }
-        if (viewed.current !== data.id) {
+        if (viewed.current !== result.businessId) {
           const logged = await logProductEvent({ eventType: "plan_choice_viewed", actorRole: "business", offerId: result.offerId,
             meta: { source: "business_onboarding", screen: result.treatment ? "trial_first" : "plan_choice", pathname: "/business/choose-plan", ...getAttributionFromWindow() } });
-          if (logged && !cancelled) viewed.current = data.id;
+          if (logged && !cancelled) viewed.current = result.businessId;
         }
       } catch (err) { if (!cancelled) setError(err instanceof Error ? err.message : "Could not load your business."); }
     })();
@@ -107,9 +102,10 @@ export default function ChooseBusinessPlanPage() {
       window.location.assign(result.url);
     } catch (err) { setError(err instanceof Error ? err.message : "Could not start checkout."); setBusy(null); }
   };
-  if (returnPending) return <main className="min-h-screen p-6"><p role="status">Confirming your checkout… Your offer is saved.</p></main>;
-  if (!context) return <main className="min-h-screen p-6"><p role={error ? "alert" : "status"}>{error || "Loading your next step…"}</p>{error && <button className="mt-4 min-h-11 rounded-full border px-5" onClick={() => setReload(n => n + 1)}>Retry</button>}</main>;
-  if (context.treatment && context.trialEligible !== false) return <BusinessTrialFirstContinuation context={context} busy={busy} error={error} onGrowth={() => void chooseGrowth()} onFree={() => void chooseFree()} onRetry={() => setReload(n => n + 1)} />;
+  const signOut = <a href="/logout" className="inline-flex min-h-11 items-center px-4 text-sm underline">Sign out</a>;
+  if (returnPending) return <main className="min-h-screen p-6"><p role="status">Confirming your checkout… Your offer is saved.</p>{signOut}</main>;
+  if (!context) return <main className="min-h-screen p-6"><p role={error ? "alert" : "status"}>{error || "Step 2 of 3 · Preparing your plan choices…"}</p><p className="mt-3 text-sm">Verifying your business and current Growth pricing. Free remains available once verification completes.</p>{signOut}{error && <button className="mt-4 min-h-11 rounded-full border px-5" onClick={() => setReload(n => n + 1)}>Retry</button>}</main>;
+  if (context.treatment && context.trialEligible !== false) return <><div className="bg-[#0f0f0f] text-white">{signOut}</div><BusinessTrialFirstContinuation context={context} busy={busy} error={error} onGrowth={() => void chooseGrowth()} onFree={() => void chooseFree()} onRetry={() => setReload(n => n + 1)} /></>;
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#121212] px-4 py-10 text-[#f5f7f8] sm:px-6 lg:px-8">
       <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
@@ -120,6 +116,8 @@ export default function ChooseBusinessPlanPage() {
 
       <div className="relative mx-auto max-w-[980px] pb-12 pt-4 sm:pt-8">
         <div className="plan-enter plan-enter-1 text-center">
+          {signOut}
+          {context.planFirst && <p className="text-xs">Step 2 of 3 · Choose your plan</p>}
           <div className="inline-flex items-center gap-2 rounded-full border border-[#16c8d5]/35 bg-[#16c8d5]/[0.06] px-4 py-2 text-[11px] font-bold uppercase tracking-[0.2em] text-[#20d4df] shadow-[0_0_28px_rgba(22,200,213,0.08)]">
             <span className="h-1.5 w-1.5 rounded-full bg-[#20d4df] shadow-[0_0_10px_rgba(32,212,223,0.9)]" />
             {resumeSubscription ? "Continue with Growth" : context.offerId ? "Your offer is live" : "Your business is ready"}

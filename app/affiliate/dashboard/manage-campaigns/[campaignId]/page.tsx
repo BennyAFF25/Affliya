@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { formatMoney as formatCurrencyAmount } from "../../../../../utils/currency";
 import { isTrackedLandingVisit } from "../../../../../utils/tracking/visitMetrics";
 import { useParams, useRouter } from "next/navigation";
@@ -619,12 +619,8 @@ export default function ManageCampaignPage() {
   const canAffiliateControlMeta = isMetaPaid && !isTerminatedByBusiness;
 
   const trackingUrl = useMemo(() => {
-    // Prefer the stored tracking_link on live_ads
-    if (campaign?.tracking_link) return String(campaign.tracking_link);
-
-    if (!campaignId || !affiliateId) return "";
-    // fallback legacy format
-    return `https://www.nettmark.com/go/${campaignId}-${affiliateId}`;
+    if (!campaignId) return "";
+    return `https://www.nettmark.com/go/${encodeURIComponent(campaignId)}`;
   }, [campaign?.tracking_link, campaignId, affiliateId]);
 
   const campaignTitle = useMemo(() => {

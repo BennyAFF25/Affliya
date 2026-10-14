@@ -26,7 +26,7 @@ for (let i = 0; i < 256; i++) {
   assert.equal(businessFunnelVersion(uuid, fullRollout), "trial_first_v1_100");
   assert.equal(businessFunnelVersion(uuid, new Date(Date.parse(fullRollout) + 86400000).toISOString()), "trial_first_v1_100");
 }
-assert.equal(formatGrowthPrice(4900, "AUD").replace(/\u00a0/g, " "), "AUD 49.00");
+assert.equal(formatGrowthPrice(4900, "AUD").replace(/\u00a0/g, " "), "A$49");
 assert.equal(formatGrowthPrice(4900, "JPY").replace(/\u00a0/g, " "), "JPY 4,900");
 const later = new Date(Date.parse(signup) + 86400000).toISOString();
 const trialEnd = new Date(Date.parse(later) + 14 * 86400000).toISOString();

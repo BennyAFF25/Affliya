@@ -28,30 +28,32 @@ export async function GET(req: NextRequest) {
     const { data: offer, error: offerError } = await admin.from("offers")
       .select("id,business_email,meta_page_id,meta_ad_account_id")
       .eq("id", offerId).maybeSingle();
-    if (offerError || !offer?.business_email || !offer?.meta_page_id || !offer?.meta_ad_account_id) {
+    if (offerError || !offer?.business_email) {
       return NextResponse.json({ error: "This offer needs a connected Meta account to search interests." }, { status: 409 });
     }
-    const { data: connections, error: connectionError } = await admin
-      .from("meta_connections")
-      .select("access_token,ad_account_id,page_id,created_at")
-      .eq("business_email", offer.business_email)
-      .eq("page_id", offer.meta_page_id)
-      .order("created_at", { ascending: false })
-      .limit(20);
-    if (connectionError) throw connectionError;
-    const account = String(offer.meta_ad_account_id).replace(/^act_/, "");
-    const connection = (connections || []).find((item) =>
-      item.access_token && String(item.ad_account_id || "").replace(/^act_/, "") === account,
-    );
-    if (!connection?.access_token) {
-      return NextResponse.json({ error: "The business must reconnect Meta before interests can be searched." }, { status: 409 });
+    let searchToken = process.env.META_TARGETING_SEARCH_TOKEN?.trim();
+    if (!searchToken && offer.meta_page_id && offer.meta_ad_account_id) {
+      const { data: connections, error: connectionError } = await admin
+        .from("meta_connections")
+        .select("access_token,ad_account_id,page_id,created_at")
+        .eq("business_email", offer.business_email)
+        .eq("page_id", offer.meta_page_id)
+        .order("created_at", { ascending: false }).limit(20);
+      if (connectionError) throw connectionError;
+      const account = String(offer.meta_ad_account_id).replace(/^act_/, "");
+      searchToken = (connections || []).find((item) =>
+        item.access_token && String(item.ad_account_id || "").replace(/^act_/, "") === account,
+      )?.access_token;
+    }
+    if (!searchToken) {
+      return NextResponse.json({ error: "Interest search needs Nettmark targeting search configuration or a connected business Meta account." }, { status: 409 });
     }
     const url = new URL("https://graph.facebook.com/v26.0/search");
     url.searchParams.set("type", "adinterest");
     url.searchParams.set("q", q);
     url.searchParams.set("limit", "15");
     const response = await fetch(url, {
-      headers: { Authorization: `Bearer ${connection.access_token}` },
+      headers: { Authorization: `Bearer ${searchToken}` },
       cache: "no-store",
     });
     const json = await response.json().catch(() => null);

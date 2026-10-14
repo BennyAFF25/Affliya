@@ -1,4 +1,5 @@
 "use client";
+import React from "react";
 import { ArrowRight, ChartNoAxesColumnIncreasing, Check, ShieldCheck, Zap } from "lucide-react";
 import type { GrowthPrice } from "../../utils/businessOnboardingFunnel";
 
@@ -30,7 +31,7 @@ export default function BusinessTrialFirstContinuation({ context, busy, error, o
     <main className="min-h-screen bg-[#0f0f0f] px-4 py-8 text-white sm:px-6 sm:py-12" style={{ fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif' }}>
       <div className="mx-auto max-w-[980px]" data-funnel={context.business_onboarding_funnel}>
         <header className="mb-7 max-w-2xl">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#63e8ee]">{context.planFirst ? "Step 2 · Choose your plan" : "Final setup step"}</p>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-[#63e8ee]">{context.planFirst ? "Step 2 of 3 · Choose your plan" : "Final setup step"}</p>
           <h1 className="mt-3 text-[30px] font-semibold tracking-tight sm:text-[40px]">{context.planFirst ? "Start your 14-day free trial" : "Your offer is live. Start Growth."}</h1>
           <p className="mt-3 text-sm leading-6 text-[#94a3b8]">So affiliates can run paid ads for your business with their own money. You approve campaigns before launch.</p>
         </header>

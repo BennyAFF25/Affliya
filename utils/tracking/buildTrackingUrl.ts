@@ -1,10 +1,4 @@
-// e.g. utils/tracking/buildTrackingUrl.ts
-export function buildTrackingUrl({
-  campaignId,
-  affiliateId,
-}: {
-  campaignId: string;
-  affiliateId: string;
-}) {
-  return `https://www.nettmark.com/go/${campaignId}-${affiliateId}`;
+// Runtime campaign ownership supplies affiliate identity server-side.
+export function buildTrackingUrl({ campaignId }: { campaignId: string; affiliateId: string }) {
+  return `https://www.nettmark.com/go/${encodeURIComponent(campaignId)}`;
 }

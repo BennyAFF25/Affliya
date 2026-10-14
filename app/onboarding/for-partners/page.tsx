@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, ArrowRight, Check, Loader2, Search } from "lucide-react";
@@ -158,6 +158,7 @@ function AffiliateOnboarding() {
     <main className="min-h-screen bg-[#0b0f10] px-4 py-6 pb-44 text-white sm:px-6 sm:py-10 sm:pb-44">
       {!!userId && !termsAccepted && <AcceptTermsModal userId={userId} onAccepted={() => setTermsAccepted(true)} />}
       <div className="mx-auto max-w-5xl">
+        <a href="/logout" className="mb-3 inline-flex min-h-11 items-center text-xs text-white/55 underline">Sign out</a>
         <header className="flex items-center justify-between gap-4">
           <Link href="/" className="text-lg font-semibold tracking-tight">Nettmark<span className="text-[#00C2CB]">.</span></Link>
           {userId && <button type="button" onClick={leaveForDashboard} disabled={busy || !termsAccepted} className="min-h-11 text-xs text-white/55 hover:text-white disabled:opacity-40">Explore my dashboard</button>}

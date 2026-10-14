@@ -1,4 +1,5 @@
 'use client';
+import React from "react";
 
 import { Suspense, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -193,9 +194,9 @@ function CreateAccountInner() {
 
       if (role === 'business') {
         try {
-          await postJson('/api/creator-referrals/attribute', {
+          void postJson('/api/creator-referrals/attribute', {
             businessEmail: trimmedEmail,
-          });
+          }).catch(() => console.warn("[SIGNUP] creator referral attribution deferred"));
         } catch (creatorReferralErr) {
           console.warn('[SIGNUP] creator referral attribution deferred/failed:', creatorReferralErr);
         }
@@ -334,7 +335,7 @@ function CreateAccountInner() {
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <p className="text-[10px] font-medium uppercase tracking-[0.22em] text-[#00C2CB]/70">
-                    Step 1 of 2
+                    Step 1 of {role === "business" ? 3 : 2}
                   </p>
                   <h2 className="mt-3 text-3xl font-medium tracking-[-0.04em] sm:text-[38px]">
                     Create your {isBusiness ? 'business' : 'affiliate'} account

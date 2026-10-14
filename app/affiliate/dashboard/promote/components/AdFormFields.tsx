@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { INPUT } from "../constants";
 
 const COUNTRIES: { code: string; name: string }[] = [
@@ -75,6 +75,7 @@ export function CountryMultiSelect({
 
   return (
     <div ref={ref} className="relative">
+      <span className="mb-1 block text-sm font-semibold text-[#00C2CB]">{label} (local time)</span>
       <button
         type="button"
         className={`${INPUT} flex items-center gap-2 min-h-[42px] text-left`}
@@ -162,7 +163,9 @@ export function DateTimeField({
   label,
   value,
   onChange,
+  endOfDay = false,
 }: {
+  endOfDay?: boolean;
   label: string;
   value: string; // 'YYYY-MM-DDTHH:mm' or ''
   onChange: (v: string) => void;
@@ -206,10 +209,10 @@ export function DateTimeField({
   })();
 
   const hours = Array.from({ length: 12 }, (_, i) => i + 1);
-  const minutes = Array.from({ length: 12 }, (_, i) => pad(i * 5));
+  const minutes = Array.from({ length: 60 }, (_, i) => pad(i));
   const isPM = sel ? sel.getHours() >= 12 : true;
   const hour12 = sel ? (sel.getHours() % 12 || 12) : 12;
-  const minuteStr = sel ? pad(sel.getMinutes() - (sel.getMinutes() % 5)) : '00';
+  const minuteStr = sel ? pad(sel.getMinutes()) : '00';
 
   const setPart = (part: 'hour' | 'minute' | 'ampm', val: number | 'am' | 'pm') => {
     const base = sel ? new Date(sel) : new Date();
@@ -229,7 +232,7 @@ export function DateTimeField({
 
   const selectDay = (d: number) => {
     const base = sel ? new Date(sel) : new Date();
-    if (!sel) base.setHours(8, 0, 0, 0);
+    if (!sel) base.setHours(endOfDay ? 23 : 8, endOfDay ? 59 : 0, 0, 0);
     base.setDate(1); // avoid rollover when switching from day 31 to a shorter month
     base.setFullYear(y);
     base.setMonth(m);
@@ -238,12 +241,14 @@ export function DateTimeField({
   };
 
   const clear = () => onChange('');
-  const setToday = () => onChange(toLocalInput(new Date()));
+  const setToday = () => { const d = new Date(); if (endOfDay) d.setHours(23, 59, 0, 0); onChange(toLocalInput(d)); };
 
   return (
     <div ref={ref} className="relative">
+      <span className="mb-1 block text-sm font-semibold text-[#00C2CB]">{label} (local time)</span>
       <button
         type="button"
+        aria-label={`${label} date and time`}
         className={`${INPUT} text-left flex items-center gap-2`}
         onClick={() => setOpen((o) => !o)}
       >

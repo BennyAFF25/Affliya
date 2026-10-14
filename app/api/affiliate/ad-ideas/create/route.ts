@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
@@ -104,7 +105,8 @@ export async function POST(req: Request) {
     row.business_email = offer.business_email;
     row.affiliate_email = user.email;
     // Attribution identity is server-derived, never supplied by the browser.
-    row.tracking_link = `https://www.nettmark.com/go/${offerId}___${user.email}`;
+    row.id = randomUUID();
+    row.tracking_link = `https://www.nettmark.com/go/${row.id}`;
     row.status = "pending";
     row.meta_status = null;
     row.meta_campaign_id = null;

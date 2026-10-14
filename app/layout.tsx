@@ -1,3 +1,4 @@
+import ChatbaseIdentity from "../components/ChatbaseIdentity";
 import './globals.css';
 import React from 'react';
 import Providers from './Providers';
@@ -208,24 +209,7 @@ fbq('track', 'PageView');
 `
               }}
             />
-            <Script
-              id="chatbase-identify"
-              strategy="afterInteractive"
-              dangerouslySetInnerHTML={{
-                __html: `
-(async function(){
-  try{
-    const res = await fetch('/api/chatbase/identify', { method: 'POST' });
-    if(!res.ok) return;
-    const { token } = await res.json();
-    if(token){
-      window.chatbase('identify', { token });
-    }
-  }catch(e){}
-})();
-`
-              }}
-            />
+            <ChatbaseIdentity />
             <Script
               id="data-minimisation-footer-link"
               strategy="afterInteractive"

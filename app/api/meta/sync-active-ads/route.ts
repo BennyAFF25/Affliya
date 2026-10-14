@@ -1,8 +1,8 @@
+import { shouldPauseForFunding } from "../../../../utils/adSpend/pauseGuardrail";
 // app/api/meta/sync-active-ads/route.ts
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { getWalletBalanceSnapshot } from '@/../utils/wallet/balance';
-import { getAdSpendSettlementConfig } from '@/../utils/adSpend/settlements';
+import { getAdSpendSettlementConfig, getAdSpendFundingSnapshot } from '@/../utils/adSpend/settlements';
 
 export const dynamic = 'force-dynamic';
 
@@ -16,6 +16,7 @@ const META_API_VERSION = 'v21.0';
 type LiveAdRow = {
   id: string;
   status: string | null;
+  offer_id: string | null;
   meta_ad_id: string | null;
   business_email: string | null;
   affiliate_email: string | null;
@@ -222,7 +223,7 @@ async function run(req: Request) {
   // 1) Pull active/live Meta ads (include both lowercase + uppercase)
   const { data: rows, error: listErr } = await supabase
     .from('live_ads')
-    .select('id, status, meta_ad_id, business_email, affiliate_email, spend, spend_transferred')
+    .select('id, status, offer_id, meta_ad_id, business_email, affiliate_email, spend, spend_transferred')
     .in('status', ['active', 'live', 'ACTIVE', 'LIVE'])
     .not('meta_ad_id', 'is', null);
 
@@ -331,13 +332,13 @@ async function run(req: Request) {
         const transferred = num(ad.spend_transferred);
         const unpaid = Math.max(0, spend - transferred);
 
-        // 2c) Compute wallet available from the canonical LR-001 wallet snapshot
+        // 2c) Use the same wallet + reserved starter funding as settlement.
         const affiliateEmail = ad.affiliate_email;
 
         let walletAvailable: number;
 
         try {
-          const walletSnapshot = await getWalletBalanceSnapshot(supabase, affiliateEmail);
+          const walletSnapshot = await getAdSpendFundingSnapshot(supabase as never, { offerId: ad.offer_id || "", businessEmail: ad.business_email || "", affiliateEmail });
           walletAvailable = walletSnapshot.availableBalance;
         } catch (walletErr) {
           return {
@@ -356,8 +357,8 @@ async function run(req: Request) {
         // 2d) Automated settlement + pause decision
         const meetsChunkThreshold = unpaid >= settlementConfig.thresholdAmount;
         const nearWalletEdge = walletAvailable > 0 && walletAvailable - unpaid <= settlementConfig.walletBuffer;
-        const shouldSettle = unpaid > 0 && walletAvailable >= unpaid && (meetsChunkThreshold || nearWalletEdge);
-        const shouldPause = unpaid > 0 && walletAvailable < unpaid + settlementConfig.walletBuffer;
+        const shouldSettle = unpaid > 0 && walletAvailable > 0 && (meetsChunkThreshold || nearWalletEdge);
+        const shouldPause = shouldPauseForFunding(walletAvailable, unpaid, settlementConfig.walletBuffer);
 
         if (dryRun) {
           return {
@@ -432,7 +433,15 @@ async function run(req: Request) {
           settlement.attempted && settlement.success && typeof settlement.unpaidAfter === 'number'
             ? settlement.unpaidAfter
             : unpaid;
-        const shouldPauseAfterSettlement = effectiveUnpaid > 0 && walletAvailable < effectiveUnpaid + settlementConfig.walletBuffer;
+        // Settlement deducts wallet principal. Re-read rather than using the pre-debit balance.
+        if (settlement.attempted) {
+          try {
+            walletAvailable = (await getAdSpendFundingSnapshot(supabase as never, { offerId: ad.offer_id || "", businessEmail: ad.business_email || "", affiliateEmail })).availableBalance;
+          } catch {
+            return { liveAdId, ok: false, spend, clicks, settlement, error: "POST_SETTLEMENT_FUNDING_SNAPSHOT_FAILED" };
+          }
+        }
+        const shouldPauseAfterSettlement = shouldPauseForFunding(walletAvailable, effectiveUnpaid, settlementConfig.walletBuffer);
 
         if (!shouldPauseAfterSettlement) {
           return {

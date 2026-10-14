@@ -17,8 +17,14 @@ export async function GET(req: Request) {
     const userClient = createRouteHandlerClient({ cookies });
     const { data: { user }, error } = await userClient.auth.getUser();
     if (error || !user?.email) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    const businessId = new URL(req.url).searchParams.get("businessId") || "";
+    let businessId = new URL(req.url).searchParams.get("businessId") || "";
     const admin = createServerSupabaseClient();
+    if (!businessId) {
+      const { data: owned, error: lookupError } = await admin.from("business_profiles")
+        .select("id").eq("business_email", user.email).limit(1).maybeSingle();
+      if (lookupError || !owned?.id) return NextResponse.json({ error: "Business not found" }, { status: 403 });
+      businessId = owned.id;
+    }
     const business = await getOwnedBusinessForUser({ supabase: admin, businessId, userId: user.id, userEmail: user.email });
     if (!business) return NextResponse.json({ error: "Business not found" }, { status: 403 });
     const entitlement = await getEntitlementOrThrow({ supabase: admin, businessId });
@@ -49,7 +55,7 @@ export async function GET(req: Request) {
       billingError = "We couldn't verify Growth pricing and trial eligibility. Please retry, or continue with Free.";
     }
     return NextResponse.json({
-      ...cohort, planFirst: newSignupPlanFirst, planSelectionComplete: newSignupPlanFirst && alreadySelected,
+      ...cohort, businessId, planFirst: newSignupPlanFirst, planSelectionComplete: newSignupPlanFirst && alreadySelected,
       treatment: treatment && trialEligible !== false, offerId: offer?.id || null, participationMode: offer?.participation_mode || "open",
       trialEligible, trialDays: BUSINESS_GROWTH_TRIAL_DAYS, price, billingError,
       checkoutEnabled: isBusinessSubscriptionCheckoutEnabled(),
