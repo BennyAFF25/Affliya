@@ -1,5 +1,6 @@
 "use client";
 import React from "react";
+import { type PauseNotice } from "../../../../utils/wallet/pauseNotice";
 
 import { formatMoney } from "../../../../utils/currency";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -55,7 +56,7 @@ type PendingProposal = {
   campaignName?: string | null;
   objective?: string | null;
   createdAt?: string | null;
-  state: "waiting_for_business" | "funding_required" | "funded_waiting_for_business" | "funding_unavailable" | "timing_update_required" | "meta_cleanup_required";
+  state: "loading" | "waiting_for_business" | "funding_required" | "funded_waiting_for_business" | "funding_unavailable" | "timing_update_required" | "meta_cleanup_required";
   timingMessage?: string | null;
   growthReady: boolean;
   funding: {
@@ -88,6 +89,7 @@ export default function AffiliateManageCampaignsPage() {
   );
   const [creativeByIdeaId, setCreativeByIdeaId] = useState<Record<string, { title: string; previewUrl: string | null }>>({});
 
+  const [pauseNotices, setPauseNotices] = useState<Record<string, PauseNotice>>({});
   const loadGeneration = useRef(0);
   async function fetchAll() {
     const generation = ++loadGeneration.current;
@@ -103,6 +105,8 @@ export default function AffiliateManageCampaignsPage() {
 
       // Independent data sources start together. Funding enrichment never blocks
       // stored campaign/proposal display and never performs a Meta request.
+      void fetch("/api/affiliate/campaign-pause-notices", { cache: "no-store", signal: AbortSignal.timeout(8000) })
+        .then(r => r.ok ? r.json() : null).then(payload => { if (current()) setPauseNotices(payload?.notices || {}); }).catch(() => {});
       const enrichment = fetch("/api/affiliate/pending-paid-proposals", {
         cache: "no-store", signal: AbortSignal.timeout(8000),
       }).then(async response => response.ok ? response.json() : null).catch(() => null);
@@ -114,13 +118,13 @@ export default function AffiliateManageCampaignsPage() {
             .map(item => [item.id, { title: item.title, previewUrl: item.previewUrl }])));
           setPendingProposals(submissions.filter(row => isAwaitingProposalReview(row.status)).map(row => ({
             id: row.id, offerId: row.offerId, offerTitle: row.offerTitle, createdAt: row.createdAt,
-            state: "funding_unavailable" as const, growthReady: false, funding: null,
+            state: "loading" as const, growthReady: false, funding: null,
             kind: row.kind, businessViewedAt: row.businessViewedAt, title: row.title,
           })));
           void enrichment.then(payload => {
-            if (!current() || !payload?.success) return;
-            const byId = new Map<string, PendingProposal>((payload.proposals || []).map((row: PendingProposal) => [row.id, row]));
-            setPendingProposals(rows => rows.map(row => row.kind === "paid" ? { ...row, ...byId.get(row.id) } : row));
+            if (!current()) return;
+            const byId = new Map<string, PendingProposal>((payload?.proposals || []).map((row: PendingProposal) => [row.id, row]));
+            setPendingProposals(rows => rows.map(row => row.kind === "paid" ? { ...row, state: "funding_unavailable", ...byId.get(row.id) } : row));
           });
         } catch {
           if (current()) setPendingError("Your proposals could not be loaded. Please try again.");
@@ -253,6 +257,7 @@ export default function AffiliateManageCampaignsPage() {
         created_at: row.created_at,
         campaign_type: "paid_meta",
         billing_state: row.billing_state,
+        pauseNotice: pauseNotices[row.id],
         spend: row.spend,
         clicks: row.clicks,
         conversions: row.conversions,
@@ -272,7 +277,7 @@ export default function AffiliateManageCampaignsPage() {
       type: row.type,
       status: row.status || "live",
     })),
-  ], [paidMeta, organic, offerNameById, creativeByIdeaId]);
+  ], [pauseNotices, paidMeta, organic, offerNameById, creativeByIdeaId]);
 
   const totalUnpaidSpend = paidMeta.reduce((sum, row) =>
     sum + Math.max(0, Number(row.spend || 0) - Number(row.spend_transferred || 0)), 0);
@@ -325,14 +330,14 @@ function PendingProposalRow({ proposal }: { proposal: PendingProposal }) {
   const metaCleanup = proposal.state === "meta_cleanup_required";
   const title = proposal.campaignName || proposal.title || proposal.offerTitle;
 
-  const statusLabel = proposal.kind === "organic" ? proposal.businessViewedAt ? "VIEWED" : "PENDING REVIEW" : metaCleanup ? "META RECOVERY NEEDED" : timingUpdate ? "SCHEDULE UPDATE NEEDED" : proposal.state === "funding_unavailable" ? "FUNDING NOT CHECKED" : fundingRequired
+  const statusLabel = proposal.kind === "organic" ? proposal.businessViewedAt ? "VIEWED" : "PENDING REVIEW" : proposal.state === "loading" ? "CHECKING STATUS…" : metaCleanup ? "META RECOVERY NEEDED" : timingUpdate ? "SCHEDULE UPDATE NEEDED" : proposal.state === "funding_unavailable" ? "FUNDING NOT CHECKED" : fundingRequired
     ? "FUNDING REQUIRED"
     : funded
       ? "FUNDED"
       : "WAITING FOR BUSINESS";
 
-  const description = proposal.kind === "organic" ? "Organic proposal sent for business review. No ad funding is required." : metaCleanup
-    ? "A previous Meta launch partially completed. The business must safely recover the orphan campaign before retrying."
+  const description = proposal.kind === "organic" ? "Organic proposal sent for business review. No ad funding is required." : proposal.state === "loading" ? "Proposal saved. Checking campaign readiness…" : metaCleanup
+    ? "This proposal has a saved Meta campaign from an earlier launch attempt. The brand needs to check that attempt and recover any incomplete setup in Nettmark before trying again. You do not need to resubmit or add funds to fix this. Contact the brand through your Nettmark inbox if it remains unresolved."
     : timingUpdate
       ? "The proposed campaign start or end date needs updating. The business can reschedule this proposal without changing your approved budget or creative."
     : proposal.state === "funding_unavailable" ? "Proposal saved. Funding could not be checked; it will be verified before launch." : fundingRequired

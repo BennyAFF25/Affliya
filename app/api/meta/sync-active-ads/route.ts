@@ -1,3 +1,4 @@
+import { tryWriteMoneyFlowAudit } from "../../../../utils/moneyFlowAudit";
 import { shouldPauseForFunding } from "../../../../utils/adSpend/pauseGuardrail";
 // app/api/meta/sync-active-ads/route.ts
 import { NextResponse } from 'next/server';
@@ -115,6 +116,10 @@ async function pauseMetaAdAndUpdateLocal(params: {
   liveAdId: string;
   metaAdId: string;
   businessEmail: string;
+  affiliateEmail: string;
+  available: number;
+  unpaid: number;
+  buffer: number;
 }) {
   const { liveAdId, metaAdId, businessEmail } = params;
 
@@ -195,6 +200,12 @@ async function pauseMetaAdAndUpdateLocal(params: {
     }
   }
 
+  await tryWriteMoneyFlowAudit(supabase as never, {
+    eventType: "campaign_pause_reason", sourceRoute: "/api/meta/sync-active-ads",
+    liveAdId, businessEmail, affiliateEmail: params.affiliateEmail,
+    reasonCode: "LOW_FUNDS", message: "Funding guardrail paused this campaign.",
+    metadata: { available: params.available, unpaid: params.unpaid, buffer: params.buffer, currency: "AUD", paused_at: nowIso },
+  });
   return { ok: true };
 }
 
@@ -464,6 +475,7 @@ async function run(req: Request) {
           liveAdId,
           metaAdId: ad.meta_ad_id,
           businessEmail: ad.business_email,
+          affiliateEmail, available: walletAvailable, unpaid: effectiveUnpaid, buffer: settlementConfig.walletBuffer,
         });
 
         if (!pauseRes.ok) {

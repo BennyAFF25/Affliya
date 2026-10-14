@@ -1,3 +1,4 @@
+import { tryWriteMoneyFlowAudit } from "../../../../utils/moneyFlowAudit";
 // app/api/meta/control-ad/route.ts
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
@@ -27,7 +28,7 @@ export async function POST(req: Request) {
     const { data: liveAd, error: liveErr } = await supabase
       .from('live_ads')
       .select(
-        'id, meta_ad_id, meta_campaign_id, status, business_email, ad_set_id, billing_state, terminated_by_business_at'
+        'id, meta_ad_id, meta_campaign_id, status, business_email, affiliate_email, ad_set_id, billing_state, terminated_by_business_at'
       )
       .eq('id', liveAdId)
       .single();
@@ -237,6 +238,13 @@ export async function POST(req: Request) {
       }
     }
 
+    // Record the latest control outcome so older automatic pause reasons are not reused.
+    await tryWriteMoneyFlowAudit(supabase as never, {
+      eventType: "campaign_pause_reason", sourceRoute: "/api/meta/control-ad",
+      liveAdId, businessEmail: liveAd.business_email, affiliateEmail: liveAd.affiliate_email,
+      reasonCode: action === "PAUSE" ? (controlActor === "business" ? "BUSINESS_STOP" : "MANUAL_PAUSE") : action,
+      metadata: { action, paused_at: nowIso },
+    });
     return NextResponse.json({
       success: true,
       newStatus: localStatus,

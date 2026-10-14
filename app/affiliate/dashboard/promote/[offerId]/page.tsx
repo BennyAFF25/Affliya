@@ -401,6 +401,25 @@ export default function PromoteOfferPage() {
     };
   }, [videoPreviewUrl, thumbPreviewUrl]);
 
+  // Resolve saved connection availability without contacting Meta or exposing tokens.
+  const [reachConnection, setReachConnection] = useState<"loading" | "ready" | "disconnected" | "error">("loading");
+  useEffect(() => {
+    setReachConnection("loading");
+    if (!offerMetaResolved) return;
+    if (!offerMetaState.hasPage || !offerMetaState.hasAdAccount) {
+      setReachConnection("disconnected");
+      return;
+    }
+    const controller = new AbortController();
+    void fetch(`/api/affiliate/offers/${offerId}/reach-readiness`, { cache: "no-store", signal: controller.signal })
+      .then(async response => {
+        if (!response.ok) throw new Error("Reach readiness unavailable");
+        const payload = await response.json();
+        if (!controller.signal.aborted) setReachConnection(payload.ready ? "ready" : "disconnected");
+      }).catch(() => { if (!controller.signal.aborted) setReachConnection("error"); });
+    return () => controller.abort();
+  }, [offerId, offerMetaResolved, offerMetaState.hasPage, offerMetaState.hasAdAccount]);
+
   // Meta business connection (for reach estimate)
 
   const [participationMode, setParticipationMode] = useState<"open" | "approval_required" | "private">("open");
@@ -645,6 +664,15 @@ export default function PromoteOfferPage() {
   const sparkPath = useMemo(() => buildSparkPath(sparkValues), [sparkValues]);
 
   const triggerReach = async () => {
+    if (reachConnection !== "ready") {
+      setReachStatus("unavailable");
+      setReachMessage(reachConnection === "disconnected"
+        ? "Reach estimate available once the brand connects Meta"
+        : reachConnection === "error" ? "Could not check the brand Meta connection. Reload to try again." : "Checking brand Meta connection…");
+      setReachDaily(null);
+      setReachMonthly(null);
+      return;
+    }
     try {
       const countries = form.location_countries
         .split(",")
@@ -753,6 +781,10 @@ export default function PromoteOfferPage() {
     // include placements so toggling them updates estimate
   }, [
     offerId,
+    reachConnection,
+    offerMetaResolved,
+    offerMetaState.hasPage,
+    offerMetaState.hasAdAccount,
     form.location_countries,
     form.age_min,
     form.age_max,

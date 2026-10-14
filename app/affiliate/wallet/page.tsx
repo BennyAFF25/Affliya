@@ -1,5 +1,6 @@
 'use client';
 import React from "react";
+import { pauseNoticeText, type PauseNotice } from "../../../utils/wallet/pauseNotice";
 import { calculateSpendableBalance, isFundingPaused } from '../../../utils/wallet/spendableBalance';
 
 import { useCallback, useEffect, useState } from 'react';
@@ -186,7 +187,18 @@ export default function AffiliateWalletPage() {
   const [recentCompletedTopupId, setRecentCompletedTopupId] = useState<string | null>(null);
   const [billingStatus, setBillingStatus] = useState<AffiliateBillingStatus | null>(null);
   const [billingStatusLoading, setBillingStatusLoading] = useState(true);
+  const [pauseNotices, setPauseNotices] = useState<Record<string, PauseNotice>>({});
   const [liveAdRows, setLiveAdRows] = useState<WalletLiveAd[]>([]);
+  useEffect(() => {
+    if (!session?.user?.email || !liveAdRows.length) {
+      setPauseNotices({});
+      return;
+    }
+    const controller = new AbortController();
+    void fetch("/api/affiliate/campaign-pause-notices", { signal: controller.signal, cache: "no-store" })
+      .then(r => r.ok ? r.json() : null).then(payload => { if (!controller.signal.aborted) setPauseNotices(payload?.notices || {}); }).catch(() => {});
+    return () => controller.abort();
+  }, [session?.user?.email, liveAdRows]);
   const [walletAction, setWalletAction] = useState<'topup' | 'withdraw' | null>(null);
   const [activityFilter, setActivityFilter] = useState<ActivityFilter>('all');
 
@@ -599,7 +611,7 @@ export default function AffiliateWalletPage() {
   const fundedCampaigns = liveAdRows.filter((ad) => {
     const status = String(ad.status || '').toLowerCase();
     const billing = String(ad.billing_state || '').toLowerCase();
-    return ['active', 'live'].includes(status) ||
+    return Boolean(pauseNotices[ad.id]) || isFundingPaused(ad) || ['active', 'live'].includes(status) ||
       ['active', 'live'].includes(billing) ||
       Number(ad.spend || 0) > Number(ad.spend_transferred || 0);
   });
@@ -795,7 +807,7 @@ export default function AffiliateWalletPage() {
                           <span className={'h-2 w-2 shrink-0 rounded-full ' + (isRunning ? 'bg-emerald-400' : 'bg-amber-300')} />
                           Meta campaign · {ad.id.slice(0, 8)}
                         </p>
-                        <p className="mt-1 text-[10px] text-slate-400">{isRunning ? 'Running' : 'Paused or settling'}</p>
+                        <p className="mt-1 text-[10px] text-slate-400">{pauseNoticeText(pauseNotices[ad.id]) || (isRunning ? 'Running' : 'Paused or settling')}</p>
                       </div>
                       <Link href={'/affiliate/dashboard/manage-campaigns/' + encodeURIComponent(ad.id)}
                         className="inline-flex min-h-8 items-center gap-1.5 text-[11px] font-semibold text-[#63e8ee]">

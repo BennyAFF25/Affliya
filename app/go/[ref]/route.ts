@@ -1,3 +1,6 @@
+import { cookies } from "next/headers";
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
+import { isOwnerPreview } from "../../../utils/tracking/ownerPreview";
 import { isUuid } from "../../../utils/tracking/campaignIdentity";
 import { isLikelyAutomatedVisit } from "../../../utils/tracking/visitMetrics";
 // app/go/[ref]/route.ts
@@ -285,6 +288,22 @@ export async function GET(request: NextRequest, context: any) {
     return new NextResponse("Affiliate identity temporarily unavailable", { status: 503 });
   }
 
+  let ownerPreview = false;
+  if (request.nextUrl.searchParams.get("preview") === "1") {
+    try {
+      const client = createRouteHandlerClient({ cookies });
+      const { data, error } = await client.auth.getUser();
+      ownerPreview = !error && isOwnerPreview(true, data?.user?.email, resolvedAffiliateEmail);
+    } catch { /* Unverified flags count as normal visits. */ }
+  }
+  if (ownerPreview) {
+    const destination = new URL(/^https?:\/\//i.test(offer.website) ? offer.website : `https://${offer.website}`);
+    for (const key of ["nm_aff", "nm_camp", "nm_src"]) destination.searchParams.delete(key);
+    const response = NextResponse.redirect(destination, 307);
+    response.headers.set("Cache-Control", "private, no-store");
+    return response;
+  }
+
   // --------------------------------------------------
   // 4. Log click
   // --------------------------------------------------
@@ -347,6 +366,7 @@ export async function GET(request: NextRequest, context: any) {
   const cookieMaxAge = 60 * 60 * 24 * 7; // 7 days
 
   const response = NextResponse.redirect(finalUrl, 307);
+  response.headers.set("Cache-Control", "private, no-store");
   response.headers.append(
     "Set-Cookie",
     `${cookieName}=${cookieValue}; Path=/; Max-Age=${cookieMaxAge}; HttpOnly; Secure; SameSite=None`,

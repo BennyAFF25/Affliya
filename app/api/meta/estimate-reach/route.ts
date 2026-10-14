@@ -1,3 +1,4 @@
+import { resolveReachConnection } from "../../../../utils/meta/reachConnection";
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { cookies } from 'next/headers';
@@ -33,33 +34,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Estimator configuration unavailable.' }, { status: 500 });
     }
     const admin = createClient(supabaseUrl, serviceKey);
-    const { data: offer, error: offerErr } = await admin
-      .from('offers')
-      .select('business_email,meta_page_id,meta_ad_account_id')
-      .eq('id', offer_id)
-      .maybeSingle();
-    if (offerErr || !offer?.business_email || !offer.meta_page_id || !offer.meta_ad_account_id) {
+    const connection = await resolveReachConnection(admin, String(offer_id));
+    if (!connection) {
       return NextResponse.json({ error: 'This offer has not connected a complete Meta account.' }, { status: 409 });
     }
-    const { data: mcRows, error: mcErr } = await admin
-      .from('meta_connections')
-      .select('access_token,ad_account_id,page_id,created_at')
-      .eq('business_email', offer.business_email)
-      .eq('page_id', offer.meta_page_id)
-      .order('created_at', { ascending: false });
-    if (mcErr) {
-      console.error('[estimate-reach] Meta connection lookup failed', mcErr);
-      return NextResponse.json({ error: 'Cannot resolve this offer\'s connected Meta account.' }, { status: 409 });
-    }
-    const expectedAccount = String(offer.meta_ad_account_id).replace(/^act_/, '');
-    const chosen = (mcRows || []).find(
-      (r) => String(r.ad_account_id || '').replace(/^act_/, '') === expectedAccount && r.access_token,
-    );
-    const token = String(chosen?.access_token || '').trim();
-    const numeric = expectedAccount;
-    if (!token) {
-      return NextResponse.json({ error: 'Reconnect this offer\'s Meta account for estimates.' }, { status: 409 });
-    }
+    const token = connection.accessToken;
+    const numeric = connection.accountId;
 
     // Build targeting_spec
     const targeting: any = {

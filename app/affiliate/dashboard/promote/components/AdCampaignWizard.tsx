@@ -286,9 +286,9 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
             {!currency && !currencyLoading && <p role="status" className="text-sm text-amber-200">The campaign currency could not be verified. Reload, or ask the business to set its offer currency.</p>}
             <div className="flex flex-wrap items-center gap-2 -mt-1 overflow-x-auto">
               <span className="text-[11px] text-gray-500 mr-1">Quick add:</span>
-              <Chip onClick={() => incBudget(5)}>+ {currency} 5</Chip>
-              <Chip onClick={() => incBudget(10)}>+ {currency} 10</Chip>
-              <Chip onClick={() => incBudget(20)}>+ {currency} 20</Chip>
+              <Chip onClick={() => incBudget(5)}>+ {currency || (currencyLoading ? "Loading currency…" : "Currency unavailable")} 5</Chip>
+              <Chip onClick={() => incBudget(10)}>+ {currency || (currencyLoading ? "Loading currency…" : "Currency unavailable")} 10</Chip>
+              <Chip onClick={() => incBudget(20)}>+ {currency || (currencyLoading ? "Loading currency…" : "Currency unavailable")} 20</Chip>
             </div>
             <div className="mt-2 rounded-xl border border-[#2a2a2a] bg-[#0f0f0f] p-4 text-sm">
               <div className="flex items-start justify-between gap-3">
@@ -656,7 +656,7 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
                           </div>
                           <div className="relative rounded-lg overflow-hidden border border-[#00C2CB]/50 focus-within:border-[#00C2CB] focus-within:shadow-[0_0_0_3px_rgba(0,194,203,0.25)] transition">
                             <div className="absolute inset-y-0 left-0 flex items-center px-4 bg-[#00C2CB] text-black font-semibold text-xs">
-                              {currency}
+                              {currency || (currencyLoading ? "Loading…" : "Unavailable")}
                             </div>
                             <input
                               type="number"

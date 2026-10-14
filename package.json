@@ -40,7 +40,8 @@
     "test:business-campaign-detail": "tsx scripts/business-campaign-detail-parity.test.ts",
     "test:affiliate-wallet-ui": "tsx scripts/affiliate-wallet-ui.test.ts",
     "test:test-user-findings-round-2": "tsx scripts/test-user-findings-round-2.test.ts && tsx scripts/test-user-findings-round-2-routes.test.ts",
-    "test:inbox-bot-report": "tsx scripts/inbox-bot-report-regression.test.ts"
+    "test:inbox-bot-report": "tsx scripts/inbox-bot-report-regression.test.ts",
+    "test:test-user-findings-round-3": "tsx scripts/test-user-findings-round-3.test.ts && tsx scripts/test-user-findings-round-3-routes.test.ts && tsx scripts/test-user-findings-round-3-readiness.test.ts"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.2",

@@ -1,0 +1,27 @@
+import assert from "node:assert/strict";
+import { isOwnerPreview, previewTrackingUrl } from "../utils/tracking/ownerPreview";
+import { confirmedFundingPause, pauseNoticeText } from "../utils/wallet/pauseNotice";
+import { shouldPauseForFunding } from "../utils/adSpend/pauseGuardrail";
+import { displayTrackingUrl } from "../utils/tracking/buildTrackingUrl";
+
+const id = "66f13993-0000-4000-8000-000000000000";
+const legacy = `https://www.nettmark.com/go/${id}___private@example.test`;
+const copied = displayTrackingUrl(legacy, { runtimeId: id });
+assert.equal(copied, `https://www.nettmark.com/go/${id}`);
+assert.ok(!copied.includes("@") && !copied.includes("preview"));
+assert.equal(new URL(previewTrackingUrl(copied)).searchParams.get("preview"), "1");
+assert.equal(isOwnerPreview(true, undefined, "owner@example.test"), false);
+assert.equal(isOwnerPreview(true, "visitor@example.test", "owner@example.test"), false);
+assert.equal(isOwnerPreview(false, "owner@example.test", "owner@example.test"), false);
+assert.equal(isOwnerPreview(true, "OWNER@example.test", "owner@example.test"), true);
+assert.equal(confirmedFundingPause({}, undefined), false);
+assert.equal(confirmedFundingPause({}, { reason_code: "MANUAL_PAUSE" }), false);
+assert.equal(confirmedFundingPause({}, { reason_code: "LOW_FUNDS" }), true);
+assert.equal(confirmedFundingPause({ billing_paused_at: "2026-10-14T01:00:00Z" }, { reason_code: "LOW_FUNDS", created_at: "2026-10-13T01:00:00Z" }), false);
+assert.equal(confirmedFundingPause({ billing_paused_at: "2026-10-14T01:00:00Z" }, { reason_code: "LOW_FUNDS", created_at: "2026-10-14T01:00:01Z" }), true);
+assert.equal(shouldPauseForFunding(15, 12.47, 10), true);
+assert.equal(shouldPauseForFunding(30, 12.47, 10), false);
+assert.match(pauseNoticeText({ confirmed: true, walletLeft: 2.53 })!, /wallet funds ran low.*A\$2.53/);
+assert.match(pauseNoticeText({ confirmed: false, walletLeft: 2.53 })!, /original pause reason was not recorded/);
+assert.ok(!pauseNoticeText({ confirmed: true, walletLeft: 100, needsFunds: false })!.includes("Add funds"));
+console.log("Round 3 owner preview, private copy, guardrail and pause evidence regressions passed");
