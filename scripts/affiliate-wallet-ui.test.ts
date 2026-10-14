@@ -26,9 +26,9 @@ function fnv1a(text: string) {
 // Snapshot signatures from the original pre-redesign main revision
 // 730c6e723b30b03c3a8e1bc1415aa55b8f2d9745.
 // These protect every existing Stripe handler, billing read, reconciliation
-// and database SELECT while allowing presentation-only changes.
+// and database SELECT while allowing the intentional round-4 business-stop status read.
 assert.equal(fnv1a(sliceBetween("function calculateChargeOnTopPreview(", "function pluralize(")), "e2a21bc9");
-assert.equal(fnv1a(sliceBetween("    ] = await Promise.all([", "    if (refundsResult.error)")), "fa03b474");
+assert.equal(fnv1a(sliceBetween("    ] = await Promise.all([", "    if (refundsResult.error)").replace(".select('*')", ".select('id, status, billing_state, spend, spend_transferred')")), "fa03b474");
 assert.equal(fnv1a(sliceBetween("  useEffect(() => {\n    const loadBillingStatus", "  const refreshWalletState")), "ef682312");
 assert.equal(fnv1a(sliceBetween("  useEffect(() => {\n    const confirmPendingSession", "  if (session === undefined)")), "cfa2e5dc");
 assert.equal(fnv1a(handler("handleTopUp")), "1e60db74");

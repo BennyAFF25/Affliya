@@ -1,12 +1,12 @@
 "use client";
 import React from "react";
+import { getSpendableWalletBalance } from "../../../../utils/wallet/spendableBalance";
 import { type PauseNotice } from "../../../../utils/wallet/pauseNotice";
 
-import { formatMoney } from "../../../../utils/currency";
+import { PendingProposalRow, type PendingProposal } from "./PendingProposalRow";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/../utils/supabase/pages-client";
-import { loadAffiliateSubmissions, loadAffiliatePaidCampaigns, isAwaitingProposalReview, type SubmissionKind } from "@/../utils/affiliate/portalData";
-import { Badge, Button } from "@/../components/ui";
+import { loadAffiliateSubmissions, loadAffiliatePaidCampaigns, isAwaitingProposalReview } from "@/../utils/affiliate/portalData";
 import ManageCampaignsWorkspace, { type Campaign } from "../../../../components/business/ManageCampaignsWorkspace";
 
 type LiveAdRow = {
@@ -20,6 +20,7 @@ type LiveAdRow = {
   tracking_link?: string | null;
   status?: string | null;
   billing_state?: string | null;
+  terminated_by_business_at?: string | null;
 
   // Meta identifiers
   meta_ad_id?: string | null;
@@ -46,26 +47,6 @@ type LiveCampaignRow = {
   created_at?: string | null;
 };
 
-type PendingProposal = {
-  id: string;
-  offerId: string;
-  offerTitle: string;
-  kind: SubmissionKind;
-  businessViewedAt?: string | null;
-  title?: string;
-  campaignName?: string | null;
-  objective?: string | null;
-  createdAt?: string | null;
-  state: "loading" | "waiting_for_business" | "funding_required" | "funded_waiting_for_business" | "funding_unavailable" | "timing_update_required" | "meta_cleanup_required";
-  timingMessage?: string | null;
-  growthReady: boolean;
-  funding: {
-    ready: boolean;
-    requiredAmount: number;
-    deficit: number;
-  } | null;
-};
-
 export default function AffiliateManageCampaignsPage() {
   const [newProposalId, setNewProposalId] = useState("");
   const submittedRetryDone = useRef(false);
@@ -89,6 +70,7 @@ export default function AffiliateManageCampaignsPage() {
   );
   const [creativeByIdeaId, setCreativeByIdeaId] = useState<Record<string, { title: string; previewUrl: string | null }>>({});
 
+  const [availableWalletBalance, setAvailableWalletBalance] = useState<number | null>(null);
   const [pauseNotices, setPauseNotices] = useState<Record<string, PauseNotice>>({});
   const loadGeneration = useRef(0);
   async function fetchAll() {
@@ -103,6 +85,7 @@ export default function AffiliateManageCampaignsPage() {
       const email = session?.user.email;
       if (!email) throw new Error("No authenticated user email found.");
 
+      void getSpendableWalletBalance(supabase, email).then(balance => { if (current()) setAvailableWalletBalance(balance); }).catch(() => { if (current()) setAvailableWalletBalance(null); });
       // Independent data sources start together. Funding enrichment never blocks
       // stored campaign/proposal display and never performs a Meta request.
       void fetch("/api/affiliate/campaign-pause-notices", { cache: "no-store", signal: AbortSignal.timeout(8000) })
@@ -257,6 +240,7 @@ export default function AffiliateManageCampaignsPage() {
         created_at: row.created_at,
         campaign_type: "paid_meta",
         billing_state: row.billing_state,
+        terminated_by_business_at: row.terminated_by_business_at,
         pauseNotice: pauseNotices[row.id],
         spend: row.spend,
         clicks: row.clicks,
@@ -297,6 +281,7 @@ export default function AffiliateManageCampaignsPage() {
       }}
       pendingCount={pendingError || pendingLoading ? null : pendingProposals.length}
       unsettledSpend={totalUnpaidSpend}
+      availableWalletBalance={availableWalletBalance}
       notice={newProposalId ? (
         <div role="status" className="mb-4 rounded-2xl border border-emerald-400/30 bg-emerald-400/[0.07] px-4 py-3 text-xs text-emerald-100">
           <strong>Proposal submitted successfully.</strong> The business can now review it. No wallet funds have been reserved.
@@ -322,65 +307,3 @@ export default function AffiliateManageCampaignsPage() {
     />
   );
 }
-
-function PendingProposalRow({ proposal }: { proposal: PendingProposal }) {
-  const fundingRequired = proposal.state === "funding_required";
-  const funded = proposal.state === "funded_waiting_for_business";
-  const timingUpdate = proposal.state === "timing_update_required";
-  const metaCleanup = proposal.state === "meta_cleanup_required";
-  const title = proposal.campaignName || proposal.title || proposal.offerTitle;
-
-  const statusLabel = proposal.kind === "organic" ? proposal.businessViewedAt ? "VIEWED" : "PENDING REVIEW" : proposal.state === "loading" ? "CHECKING STATUS…" : metaCleanup ? "META RECOVERY NEEDED" : timingUpdate ? "SCHEDULE UPDATE NEEDED" : proposal.state === "funding_unavailable" ? "FUNDING NOT CHECKED" : fundingRequired
-    ? "FUNDING REQUIRED"
-    : funded
-      ? "FUNDED"
-      : "WAITING FOR BUSINESS";
-
-  const description = proposal.kind === "organic" ? "Organic proposal sent for business review. No ad funding is required." : proposal.state === "loading" ? "Proposal saved. Checking campaign readiness…" : metaCleanup
-    ? "This proposal has a saved Meta campaign from an earlier launch attempt. The brand needs to check that attempt and recover any incomplete setup in Nettmark before trying again. You do not need to resubmit or add funds to fix this. Contact the brand through your Nettmark inbox if it remains unresolved."
-    : timingUpdate
-      ? "The proposed campaign start or end date needs updating. The business can reschedule this proposal without changing your approved budget or creative."
-    : proposal.state === "funding_unavailable" ? "Proposal saved. Funding could not be checked; it will be verified before launch." : fundingRequired
-    ? `The business has enabled paid promotion. Add ${formatMoney(proposal.funding?.deficit || 0)} to prepare this campaign for launch.`
-    : funded
-      ? "Campaign funding is ready. Waiting for the business to finish setup and approve the campaign."
-      : "Proposal sent. No deposit is required while the business decides whether to enable paid promotion.";
-
-  return (
-    <div className="rounded-[17px] border border-white/[0.08] bg-[#101415] p-3.5 sm:p-4">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="min-w-0 truncate text-[13px] font-semibold text-white">{title}</div>
-            <Badge variant={fundingRequired || timingUpdate || metaCleanup ? "warning" : funded ? "success" : "muted"}>
-              {statusLabel}
-            </Badge>
-          </div>
-          <p className="mt-2 max-w-3xl text-xs leading-5 text-[var(--muted-foreground)]">
-            {description}
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2 text-[11px] text-[var(--muted-foreground)]">
-            <span className="rounded-full border border-white/[0.07] bg-white/[0.02] px-2.5 py-1">
-              {proposal.offerTitle}
-            </span>
-            <span className="rounded-full border border-white/[0.07] bg-white/[0.02] px-2.5 py-1">
-              {proposal.funding ? `Required at launch: ${formatMoney(proposal.funding.requiredAmount)}` : "Funding not checked"}
-            </span>
-            {proposal.createdAt ? (
-              <span className="rounded-full border border-white/[0.07] bg-white/[0.02] px-2.5 py-1">
-                Submitted {new Date(proposal.createdAt).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}
-              </span>
-            ) : null}
-          </div>
-        </div>
-        <Button href={`/affiliate/dashboard/reviews/${proposal.kind}/${proposal.id}`} variant="outline" className="min-h-10 shrink-0 rounded-xl text-xs">View proposal</Button>
-        {fundingRequired ? (
-          <Button href="/affiliate/wallet" className="min-h-10 shrink-0 rounded-xl text-xs">
-            Top up wallet
-          </Button>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-

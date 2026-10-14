@@ -1,3 +1,5 @@
+import { getFundingCoverage } from "../../../../utils/adSpend/fundingCoverage";
+import { isBusinessStopped } from "../../../../utils/wallet/campaignStatus";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
@@ -21,7 +23,9 @@ export async function GET() {
     const walletLeft = await getSpendableWalletBalance(admin, email);
     const notices: Record<string, PauseNotice> = {};
     await Promise.all((ads.data || []).map(async ad => {
-      if (!["paused", "stopped"].includes(String(ad.status || "").toLowerCase()) || ad.terminated_by_business_at || ad.billing_state === "TERMINATED_BY_BUSINESS") return;
+      if (!["paused", "stopped"].includes(String(ad.status || "").toLowerCase()) || isBusinessStopped(ad)) return;
+      const coverage = await getFundingCoverage(admin, ad, Number(ad.spend || 0));
+      const reserve = Math.max(getAdSpendSettlementConfig().walletBuffer, coverage.nextDayBudget);
       const audit = await admin.from("money_flow_audit_log").select("reason_code,created_at")
         .eq("affiliate_email", email).eq("live_ad_id", ad.id).eq("event_type", "campaign_pause_reason")
         .order("created_at", { ascending: false }).limit(1).maybeSingle();
@@ -29,20 +33,18 @@ export async function GET() {
         const currentFunding = await getAdSpendFundingSnapshot(admin as never, {
           offerId: ad.offer_id || "", businessEmail: ad.business_email || "", affiliateEmail: email,
         });
-        const unpaid = Math.max(0, Number(ad.spend || 0) - Number(ad.spend_transferred || 0));
-        notices[ad.id] = { confirmed: true, walletLeft, needsFunds: shouldPauseForFunding(currentFunding.availableBalance, unpaid, getAdSpendSettlementConfig().walletBuffer) };
+        notices[ad.id] = { confirmed: true, walletLeft, needsFunds: shouldPauseForFunding(currentFunding.availableBalance, coverage.unpaid, reserve) };
         return;
       }
       if (!audit.error && audit.data?.reason_code &&
         (!ad.billing_paused_at || Date.parse(audit.data.created_at) >= Date.parse(ad.billing_paused_at))) return;
       // Historical rows have no reliable cause. Compare existing settlement/funding
       // evidence with the actual guardrail, including reserved brand subsidy.
-      if (String(ad.billing_state || "").toUpperCase() !== "PAUSED" || Number(ad.spend || 0) <= 0) return;
+      if (!["PAUSED", "PAUSED_LOW_WALLET"].includes(String(ad.billing_state || "").toUpperCase()) || Number(ad.spend || 0) <= 0) return;
       const funding = await getAdSpendFundingSnapshot(admin as never, {
         offerId: ad.offer_id || "", businessEmail: ad.business_email || "", affiliateEmail: email,
       });
-      const unpaid = Math.max(0, Number(ad.spend || 0) - Number(ad.spend_transferred || 0));
-      if (shouldPauseForFunding(funding.availableBalance, unpaid, getAdSpendSettlementConfig().walletBuffer)) {
+      if (shouldPauseForFunding(funding.availableBalance, coverage.unpaid, reserve)) {
         notices[ad.id] = { confirmed: false, walletLeft };
       }
     }));

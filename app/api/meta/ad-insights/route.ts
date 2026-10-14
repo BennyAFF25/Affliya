@@ -1,8 +1,10 @@
 // app/api/meta/ad-insights/route.ts
+import { getFundingCoverage } from '../../../../utils/adSpend/fundingCoverage';
+import { shouldPauseForFunding } from '../../../../utils/adSpend/pauseGuardrail';
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { tryWriteMoneyFlowAudit } from '@/../utils/moneyFlowAudit';
-import { getAdSpendFundingSnapshot } from '@/../utils/adSpend/settlements';
+import { getAdSpendFundingSnapshot, getAdSpendSettlementConfig } from '@/../utils/adSpend/settlements';
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -67,7 +69,7 @@ export async function POST(req: Request) {
         // 1) Load live_ads row (need meta_ad_id + business_email + affiliate_email + spend_transferred + status)
         const { data: ad, error: adErr } = await supabase
           .from('live_ads')
-          .select('id, offer_id, meta_ad_id, business_email, affiliate_email, spend_transferred, status')
+          .select('*')
           .eq('id', liveAdId)
           .single();
 
@@ -214,8 +216,8 @@ export async function POST(req: Request) {
         // =========================
         // STEP 5: Auto-pause guard
         // =========================
-        // Prevent debt by pausing if wallet cannot cover unpaid spend.
-        // We do NOT settle here — settlement is handled on manual pause/stop via control-ad,
+        // Pause when funding cannot cover pooled pending spend plus the next-day budget.
+        // We do NOT settle here — settlement is handled by sync-active-ads or manual pause/stop via control-ad,
         // and settle will fail anyway if the wallet is short. This block is purely "stop the bleeding".
         let autoPaused = false;
         let autoPauseReason: string | null = null;
@@ -243,7 +245,7 @@ export async function POST(req: Request) {
         // Calculate wallet available from the canonical LR-001 wallet snapshot
         let walletAvailable = 0;
 
-        if (affiliate_email && !alreadyPausedLike) {
+        if (affiliate_email && !alreadyPausedLike && ['active', 'live'].includes(localStatusNow)) {
           try {
             const walletSnapshot = await getAdSpendFundingSnapshot(supabase as never, { offerId: String(ad.offer_id || ""), businessEmail: String(ad.business_email || ""), affiliateEmail: affiliate_email });
             walletAvailable = walletSnapshot.availableBalance;
@@ -267,18 +269,20 @@ export async function POST(req: Request) {
               affiliate_email,
               walletErr,
             });
+            throw new Error('CANONICAL_WALLET_SNAPSHOT_FAILED', { cause: walletErr });
           }
 
-          // Trigger: wallet cannot cover unpaid OR wallet is basically empty
-          if (walletAvailable <= 0 || walletAvailable < unpaid) {
-            autoPauseReason = 'INSUFFICIENT_WALLET_FOR_UNPAID_SPEND';
+          const coverage = await getFundingCoverage(supabase, ad, toNum(spend));
+          const reserve = Math.max(getAdSpendSettlementConfig().walletBuffer, coverage.nextDayBudget);
+          if (shouldPauseForFunding(walletAvailable, coverage.unpaid, reserve)) {
+            autoPauseReason = 'LOW_FUNDS';
 
             // Pause the Meta ad immediately (stop spend)
             const pauseUrl = `https://graph.facebook.com/${META_API_VERSION}/${meta_ad_id}?access_token=${encodeURIComponent(
               metaConn.access_token
             )}`;
 
-            console.log('[⛔ Auto-pause] POST', pauseUrl, {
+            console.log('[⛔ Auto-pause] POST', {
               liveAdId,
               meta_ad_id,
               status: 'PAUSED',
@@ -328,7 +332,7 @@ export async function POST(req: Request) {
               const nowIso = new Date().toISOString();
               const extendedUpdate: Record<string, any> = {
                 status: 'paused',
-                billing_state: 'PAUSED_LOW_WALLET',
+                billing_state: 'PAUSED',
                 billing_paused_at: nowIso,
               };
 
@@ -358,11 +362,10 @@ export async function POST(req: Request) {
 
               await tryWriteMoneyFlowAudit(supabase as never, {
                 ...auditBase,
+                eventType: 'campaign_pause_reason',
                 severity: 'info',
-                reasonCode: autoPauseDbUpdated
-                  ? 'AUTO_PAUSE_APPLIED'
-                  : 'AUTO_PAUSE_META_ONLY',
-                message: 'Meta ad was auto-paused because wallet coverage could not cover unpaid spend.',
+                reasonCode: 'LOW_FUNDS',
+                message: 'Meta ad was auto-paused because wallet coverage could not cover pending spend plus the next-day budget.',
                 metadata: {
                   meta_ad_id,
                   spend,
@@ -382,7 +385,8 @@ export async function POST(req: Request) {
           meta_ad_id,
           spend,
           clicks,
-          ok: true,
+          ok: !(autoPaused && !autoPauseDbUpdated),
+          error: autoPaused && !autoPauseDbUpdated ? 'LOCAL_PAUSE_RECORD_FAILED' : undefined,
           spend_transferred: spendTransferredNow,
           unpaid,
           wallet_available: walletAvailable,
@@ -421,7 +425,7 @@ export async function POST(req: Request) {
         meta: {
           note: 'Meta no longer accepts date_preset=lifetime. Using date_preset=maximum.',
           autopause_note:
-            'Auto-pause runs after spend sync. It pauses ads if wallet cannot cover unpaid spend (spend - spend_transferred).',
+            'Auto-pause runs after spend sync when funding cannot cover pooled pending spend plus the next-day budget.',
         },
       },
       { status: anyFailed ? 207 : 200 }

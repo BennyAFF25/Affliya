@@ -12,5 +12,5 @@ export async function getSpendableWalletBalance(client: { from: (table: string) 
 // Both automatic funding pauses and manual pauses use PAUSED in legacy rows.
 // Show funding recovery guidance without claiming an unrecorded pause reason.
 export function isFundingPaused(ad: { status?: string | null; billing_state?: string | null }) {
-  return String(ad.status || '').toLowerCase() === 'paused' && String(ad.billing_state || '').toLowerCase() === 'paused';
+  return String(ad.status || '').toLowerCase() === 'paused' && ['paused', 'paused_low_wallet'].includes(String(ad.billing_state || '').toLowerCase());
 }

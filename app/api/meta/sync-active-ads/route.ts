@@ -1,4 +1,5 @@
 import { tryWriteMoneyFlowAudit } from "../../../../utils/moneyFlowAudit";
+import { getFundingCoverage } from "../../../../utils/adSpend/fundingCoverage";
 import { shouldPauseForFunding } from "../../../../utils/adSpend/pauseGuardrail";
 // app/api/meta/sync-active-ads/route.ts
 import { NextResponse } from 'next/server';
@@ -18,6 +19,7 @@ type LiveAdRow = {
   id: string;
   status: string | null;
   offer_id: string | null;
+  ad_idea_id?: string | null;
   meta_ad_id: string | null;
   business_email: string | null;
   affiliate_email: string | null;
@@ -31,6 +33,7 @@ type AdInsightsResult = {
   spend?: number;
   clicks?: number;
   ok: boolean;
+  auto_paused?: boolean;
   error?: any;
 };
 
@@ -234,7 +237,7 @@ async function run(req: Request) {
   // 1) Pull active/live Meta ads (include both lowercase + uppercase)
   const { data: rows, error: listErr } = await supabase
     .from('live_ads')
-    .select('id, status, offer_id, meta_ad_id, business_email, affiliate_email, spend, spend_transferred')
+    .select('*')
     .in('status', ['active', 'live', 'ACTIVE', 'LIVE'])
     .not('meta_ad_id', 'is', null);
 
@@ -294,6 +297,7 @@ async function run(req: Request) {
         // 2a) Sync spend/clicks (unless dryRun)
         let spend = num(ad.spend);
         let clicks: number | undefined = undefined;
+        let insightsAutoPaused = false;
         let adInsightsStatus: number | undefined = undefined;
 
         if (!dryRun) {
@@ -328,6 +332,7 @@ async function run(req: Request) {
               };
             }
 
+            insightsAutoPaused = first?.auto_paused === true;
             if (typeof first?.spend === 'number') spend = first.spend;
             if (typeof first?.clicks === 'number') clicks = first.clicks;
           } catch (e: any) {
@@ -369,7 +374,9 @@ async function run(req: Request) {
         const meetsChunkThreshold = unpaid >= settlementConfig.thresholdAmount;
         const nearWalletEdge = walletAvailable > 0 && walletAvailable - unpaid <= settlementConfig.walletBuffer;
         const shouldSettle = unpaid > 0 && walletAvailable > 0 && (meetsChunkThreshold || nearWalletEdge);
-        const shouldPause = shouldPauseForFunding(walletAvailable, unpaid, settlementConfig.walletBuffer);
+        const coverage = await getFundingCoverage(supabase, ad, spend);
+        const fundingReserve = Math.max(settlementConfig.walletBuffer, coverage.nextDayBudget);
+        const shouldPause = shouldPauseForFunding(walletAvailable, coverage.unpaid, fundingReserve);
 
         if (dryRun) {
           return {
@@ -440,10 +447,6 @@ async function run(req: Request) {
           }
         }
 
-        const effectiveUnpaid =
-          settlement.attempted && settlement.success && typeof settlement.unpaidAfter === 'number'
-            ? settlement.unpaidAfter
-            : unpaid;
         // Settlement deducts wallet principal. Re-read rather than using the pre-debit balance.
         if (settlement.attempted) {
           try {
@@ -452,8 +455,13 @@ async function run(req: Request) {
             return { liveAdId, ok: false, spend, clicks, settlement, error: "POST_SETTLEMENT_FUNDING_SNAPSHOT_FAILED" };
           }
         }
-        const shouldPauseAfterSettlement = shouldPauseForFunding(walletAvailable, effectiveUnpaid, settlementConfig.walletBuffer);
+        const latestCoverage = await getFundingCoverage(supabase, ad, spend);
+        const shouldPauseAfterSettlement = shouldPauseForFunding(walletAvailable, latestCoverage.unpaid, fundingReserve);
 
+        if (insightsAutoPaused) {
+          autoPausedCount += 1;
+          return { liveAdId, ok: true, spend, walletAvailable, unpaid, settlement, autoPaused: true };
+        }
         if (!shouldPauseAfterSettlement) {
           return {
             liveAdId,
@@ -475,13 +483,13 @@ async function run(req: Request) {
           liveAdId,
           metaAdId: ad.meta_ad_id,
           businessEmail: ad.business_email,
-          affiliateEmail, available: walletAvailable, unpaid: effectiveUnpaid, buffer: settlementConfig.walletBuffer,
+          affiliateEmail, available: walletAvailable, unpaid: latestCoverage.unpaid, buffer: fundingReserve,
         });
 
         if (!pauseRes.ok) {
           return {
             liveAdId,
-            ok: true, // sync still worked; pause failed separately
+            ok: false, // A failed protective pause must be visible to operators
             spend,
             clicks,
             adInsightsStatus,

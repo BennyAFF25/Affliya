@@ -1,0 +1,55 @@
+# Test-user findings round 4
+
+Status: completed locally; production verification remains a human follow-up. Kept at the explicitly requested active path. No commits, deployment, production migrations or external API execution authorised.
+
+## Problem and product intent
+Wallet hides business stops behind generic paused copy; campaign header lacks canonical spendable balance. Funding guardrails use unpaid spend/fixed buffer rather than next-day campaign budget, and ad-insights writes a different reason from LOW_FUNDS. Pending/currency loading needs regression coverage; mobile status copy must wrap.
+Requested changes align with VISION, PRODUCT_PRINCIPLES (clarity, reliable funding, business control), PRODUCT/BUSINESS_RULES and MONEY_FLOW. Preserve pooled wallet, separate commission ledger, explicit resume and irreversible business stops. No commercial model changes.
+
+## Existing implementation and boundaries
+Wallet uses utils/wallet/balance.ts + spendableBalance.ts/refundLock.ts. ManageCampaignsWorkspace has separate status logic. sync-active-ads is declared every five minutes in vercel.json and requires CRON_SECRET; it invokes ad-insights, settlement and transfer processing. ad-insights also pauses on spend sync. Pause notices read money_flow_audit_log. Review includes canonical mobile business overview and docs/UI_DESIGN_SYSTEM.md. Local main is older than current branch; working tree initially clean. No upstream network calls under the user's external API restriction.
+
+## Approach and success criteria
+1. Share campaign status, preserve business-stop fields, show settlement amount.
+2. Load header balance through canonical spendable helper without blocking campaigns.
+3. Share next-day funding requirement (pending spend is a liability, not extra credit), apply to both sync checks/notices, record LOW_FUNDS, mock full route success/failure/auth cases. Verify checked-in scheduling; deployed state remains unknown.
+4. Test rendered pending badges and wizard unresolved currency, add package script.
+5. Review 390px responsive classes, wrap status text/actions; run typecheck without incremental writes, lint, mocked tests and isolated build.
+
+## Risks and trade-offs
+No new schema or production config. Existing schema may lack audit/billing columns; retain status-only compatibility and honest unconfirmed notice fallback. Meta pause can succeed before DB recording fails; test/report failure. Saved proposal budget must mirror launch minor units, including legacy/default handling; lifetime budgets have no guaranteed daily pacing, so conservatively reserve remaining lifetime budget. Production cron execution/env/token health cannot be verified without external access. Existing ad-insights authentication deficiencies are outside this change and will be listed for human review.
+
+## Implementation and changed files
+- `utils/wallet/campaignStatus.ts`: shared state/detail logic; business stop overrides funding advice, Wallet includes actual unpaid settlement amount.
+- `app/affiliate/wallet/page.tsx`, `utils/affiliate/portalData.ts`, `app/affiliate/dashboard/manage-campaigns/page.tsx`: preserve optional business-stop metadata using full owned rows (no new columns required); header loads canonical `getSpendableWalletBalance` without blocking campaign display.
+- `components/business/ManageCampaignsWorkspace.tsx`: shared statuses, linked available balance, affiliate mobile header actions stacked; low-funds detail below mobile identity/status row, wrapping with full line width.
+- `utils/adSpend/fundingCoverage.ts`: mirrors Meta launch budget minor units/default/minimum; pooled pending liabilities plus all running next-day budgets (current paused campaign included for recovery checks). Lifetime reserve conservatively uses remaining lifetime allocation. Preserves existing wallet buffer as a minimum reserve.
+- `app/api/meta/ad-insights/route.ts`, `app/api/meta/sync-active-ads/route.ts`: shared coverage; both record `campaign_pause_reason` / `LOW_FUNDS`. Avoid duplicate cron pause after insights pause; re-read funding/pending after settlement. Wallet-read failure does not fabricate insufficient funds; local pause recording failure is exposed; failed protective cron pause reports failure. Removed token-bearing pause URL logging.
+- `app/api/affiliate/campaign-pause-notices/route.ts`, `utils/wallet/spendableBalance.ts`: same coverage in recovery copy; business-stop precedence, compatibility with legacy PAUSED_LOW_WALLET. Missing audit/billing schema retains safe status-only pause and honest unconfirmed funding copy.
+- `app/affiliate/dashboard/manage-campaigns/PendingProposalRow.tsx`: extracted actual component for render tests; both loading badge and secondary funding label say “Checking status…”. Next page exports stay valid. Existing wizard loading implementation is verified, unchanged.
+- `scripts/test-user-findings-round-4-ui.test.ts`, `scripts/test-user-findings-round-4-routes.test.ts`, `package.json`: mocked rendered/route regression suites, wired as `test:test-user-findings-round-4`. Existing wallet/workspace tests updated for the intentional status read/component extraction; corrected stale workspace Sort assertion to the existing accessible label.
+- This plan records evidence/results. No files deleted, DB/schema/migrations or production configuration changes. vercel.json unchanged.
+
+## Task 3 verdict and production review
+**PASS for reviewed code and mocked automation; NOT VERIFIED in production.** Trigger is spend sync: cron GET `/api/meta/sync-active-ads` calls POST `/api/meta/ad-insights`; direct/manual spend sync also runs the safeguard. It is not a Stripe webhook trigger. Stored UI polling alone does not invoke Meta. Checked-in `vercel.json` declares `*/5 * * * *`; cron requires `Authorization: Bearer <CRON_SECRET>` (also accepts existing x-cron-secret). Missing secret returns 500, incorrect/missing authorization 401, both before any sync/mutation.
+
+Funding is canonical wallet plus existing reserved activation subsidy, less pooled pending spend; compare against combined next-day budgets or existing minimum buffer. Pending spend is a liability, not extra credit. Exact covered boundary remains active. Both paths persist LOW_FUNDS to the existing audit log and update paused state. Notices feed shared Wallet/Manage copy; top-up never resumes automatically. Paused ads are excluded from the next cron pass. Lifetime campaigns reserve remaining lifetime allocation because daily pacing is unknown. No launch, ACTIVE write or financial action was added/enabled/executed.
+
+Ben must verify the deployed cron matches this repository, is enabled/supported on the Vercel plan and has recent successful invocations; verify production CRON_SECRET, Supabase service credentials, valid saved Meta tokens, and existing money_flow_audit_log availability. Do not manually invoke the existing sync cron casually: it also invokes pre-existing settlement/transfer processing. No deployed configuration, logs, tokens or schema were queried. Existing ad-insights route lacks explicit session/owner authentication; broader security review remains required. Cross-currency settlement policy is already undocumented; this safeguard follows the existing AUD funding/spend assumption, not an FX policy. Five-minute polling/Meta reporting lag cannot guarantee instantaneous spend limits. Legacy rows without a proposal use the existing launch default A$10; any externally modified Meta budget remains unverified.
+
+## Validation and remaining human checks
+- `npm run test:test-user-findings-round-4`: PASS. Actual rendered pending/currency/loading/resolved/status/header; mocked canonical balance before/after settlement; mocked cron plus actual insights plus notice routes. Covers auth/missing secret, dry run (no Meta/settlement calls), next-day boundary, pooled pending and concurrent budgets, successful settlement without double deduction, LOW_FUNDS audit and copy, independent cron pause, no duplicate pause, retry exclusion, Meta failure, wallet read failure, local write failure, missing optional billing fields and audit failure. Unexpected outbound calls throw; all Meta/DB/settlement responses mocked.
+- Round-2 and round-3 package suites: PASS; existing wallet, shared campaign workspace and automatic read-only metric refresh package suites: PASS. No real API calls.
+- `npm run typecheck -- --incremental false`: existing 70 errors. Compared against initial HEAD `2e4b75e` archive with identical generated Next types: same 70 diagnostics, ZERO added errors. Incremental file not modified.
+- `npm run lint`: existing 2,995 errors, identical normalized file/message/rule multiset to initial HEAD; ZERO added errors. Targeted ESLint for new component/helpers/tests: PASS (existing React-version configuration warning only).
+- `npm run build`: PASS on final application code with dummy Supabase/Stripe credentials, telemetry disabled and outbound fetch/http/https blocked. Initial attempt lacked local Supabase URL; rerun used dummy values. Build skips types/lint by existing Next configuration, so separate results above remain material.
+- `git diff --check`: PASS. Final scope reviewed against initial HEAD; no production changes, no tsconfig.tsbuildinfo change. No commit/push commands issued by this agent. Shared workspace acquired external commit `a61bef0` (“WIP round 4 checkpoint”) during work; preserved it and subsequent edits.
+- 390px responsive class review: long low-funds copy no longer shares three-item flex row with identity/status; wrapping/full-width copy and stacked affiliate header actions. SSR verifies markup/copy, not browser-computed dimensions; real mobile visual review remains required.
+
+## Real-user checks after a separately authorised release
+1. At nettmark.com, open Wallet at 390px; campaign 66f13993 should show “Stopped by business · settling A$12.47” if the stored pending amount is still 12.47. It must not advise resuming a business-stopped ad.
+2. Compare Wallet “Available to spend” with Manage Campaigns header at the same snapshot; A$15 ledger / A$12.47 pending should display A$2.53 on both. Recheck after an already-existing settlement completes, without causing a new transaction.
+3. Inspect an already-paused LOW_FUNDS campaign on both pages; copy explains low funding, available balance and explicit review/resume. Do not launch, resume, top up or invoke sync as part of this review.
+4. Throttle networking and reload existing pending proposals; paid proposal badges/supporting funding label say “Checking status…” until resolution, never “Funding not checked” while loading.
+5. Open the campaign wizard and delay currency resolution; budget step shows loading currency, disables unresolved currency input and displays the resolved currency afterward. Do not submit/launch.
+6. At 390px, review business stop and longest low-funds text, large balances, long proposal titles and header actions; no clipped copy or page horizontal overflow. Check desktop filters/business Stop controls still behave visually as before, without issuing writes.

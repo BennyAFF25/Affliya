@@ -1,7 +1,8 @@
 "use client";
 import { previewTrackingUrl } from "../../utils/tracking/ownerPreview";
 import React from "react";
-import { pauseNoticeText, type PauseNotice } from "../../utils/wallet/pauseNotice";
+import { campaignState, campaignStatusDetail, isBusinessStopped } from "../../utils/wallet/campaignStatus";
+import { type PauseNotice } from "../../utils/wallet/pauseNotice";
 import { displayTrackingUrl } from "../../utils/tracking/buildTrackingUrl";
 import { isFundingPaused } from "../../utils/wallet/spendableBalance";
 
@@ -66,6 +67,7 @@ type Props = SharedProps & (
       audience: "affiliate";
       pendingCount: number | null;
       unsettledSpend: number;
+      availableWalletBalance?: number | null;
       pendingContent: ReactNode;
       notice?: ReactNode;
     }
@@ -85,15 +87,6 @@ const gridColumns = "grid-cols-[minmax(240px,2.1fr)_minmax(100px,1fr)_80px_94px_
 function isLive(campaign: Campaign) {
   const value = String(campaign.status || "").toLowerCase();
   return value === "active" || value === "live";
-}
-
-function campaignState(campaign: Campaign) {
-  if (campaign.terminated_by_business_at || campaign.billing_state === "TERMINATED_BY_BUSINESS") return "Stopped";
-  const status = String(campaign.status || "").toLowerCase();
-  if (status === "active" || status === "live") return "Active";
-  if (status === "paused") return "Paused";
-  if (status.includes("stop") || status === "terminated") return "Stopped";
-  return status ? status[0].toUpperCase() + status.slice(1) : "Unknown";
 }
 
 function displayDate(iso?: string | null) {
@@ -317,13 +310,14 @@ export default function ManageCampaignsWorkspace(props: Props) {
                   : "Monitor every affiliate placement, track campaign performance, and manage delivery from one workspace."}
               </p>
             </div>
+            {props.audience === "affiliate" && <Link href="/affiliate/wallet" className="min-w-0 break-words text-sm text-slate-200">Available to spend: {props.availableWalletBalance == null ? "Checking wallet…" : `A$${props.availableWalletBalance.toFixed(2)}`}</Link>}
             <div className="flex w-full flex-wrap gap-2 md:w-auto md:justify-end">
               {audience === "affiliate" ? (
                 <>
-                  <Link href="/affiliate/marketplace" className={darkButton + " flex-1 sm:flex-none"}>
+                  <Link href="/affiliate/marketplace" className={darkButton + " w-full sm:w-auto sm:flex-none"}>
                     <Plus className="h-4 w-4" /> Promote offer
                   </Link>
-                  <Link href="/affiliate/dashboard" className={cyanButton + " flex-1 sm:flex-none"}>
+                  <Link href="/affiliate/dashboard" className={cyanButton + " w-full sm:w-auto sm:flex-none"}>
                     <BarChart3 className="h-4 w-4" /> Affiliate dashboard <ArrowRight className="h-3.5 w-3.5" />
                   </Link>
                 </>
@@ -448,7 +442,7 @@ export default function ManageCampaignsWorkspace(props: Props) {
                         <span className="text-xs tabular-nums text-slate-300">{item._source === "meta" ? Number(item.conversions || 0).toLocaleString() : "—"}</span>
                         <div className="min-w-0">
                           <Status campaign={item} />
-                          {(item.pauseNotice || isFundingPaused(item)) && <p className="mt-1 text-[11px] text-amber-200">{pauseNoticeText(item.pauseNotice) || "Paused — check funding. If funds ran low, top up before resuming."}</p>}
+                          {(isBusinessStopped(item) || item.pauseNotice || isFundingPaused(item)) && <p className="mt-1 min-w-0 break-words text-[11px] leading-5 text-amber-200">{campaignStatusDetail(item, item.pauseNotice)}</p>}
                           {item.tracking_link ? (
                             <a href={previewTrackingUrl(displayTrackingUrl(item.tracking_link, { runtimeId: item.id }))} target="_blank" rel="noopener noreferrer" className="mt-1 flex items-center gap-1 text-[10px] text-[#00c2cb] hover:text-[#63e8ee]">
                               View link <ExternalLink className="h-3 w-3" />
@@ -467,8 +461,8 @@ export default function ManageCampaignsWorkspace(props: Props) {
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1"><CampaignIdentity campaign={item} audience={audience} /></div>
                         <Status campaign={item} />
-                          {(item.pauseNotice || isFundingPaused(item)) && <p className="mt-1 text-[11px] text-amber-200">{pauseNoticeText(item.pauseNotice) || "Paused — check funding. If funds ran low, top up before resuming."}</p>}
                       </div>
+                          {(isBusinessStopped(item) || item.pauseNotice || isFundingPaused(item)) && <p className="mt-1 min-w-0 break-words text-[11px] leading-5 text-amber-200">{campaignStatusDetail(item, item.pauseNotice)}</p>}
                       <div className="mt-4 flex items-center justify-between gap-3 border-b border-white/[0.06] pb-3">
                         <Platform campaign={item} />
                         <span className="text-[11px] text-[#94a3b8]/75">{displayDate(item.created_at)}</span>
