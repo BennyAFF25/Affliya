@@ -345,7 +345,7 @@ export default function ManageCampaignsWorkspace(props: Props) {
             {props.audience === "affiliate" ? (
               <>
                 <MetricCard label="Unsettled spend" value={loading ? "—" : money(props.unsettledSpend)} helper="Not yet deducted from wallet" icon={<Wallet className="h-5 w-5" />} />
-                <MetricCard label="Pending proposals" value={loading || props.pendingCount === null ? "—" : String(props.pendingCount)} helper="Awaiting business review" icon={<Megaphone className="h-5 w-5" />} />
+                <MetricCard label="Pending proposals" value={props.pendingLoading || props.pendingCount === null ? "—" : String(props.pendingCount)} helper="Awaiting business review" icon={<Megaphone className="h-5 w-5" />} />
               </>
             ) : (
               <>

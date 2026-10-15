@@ -18,7 +18,7 @@ const db = {
       }, in: () => query, gt: () => query, order: () => query,
       then(resolve: (value: unknown) => unknown) {
         const rows = proposals();
-        const data = table === 'ad_ideas' ? rows : table === 'offers' ? rows.map(row => ({ id: row.offer_id, business_email: row.business_email, currency: 'AUD' }))
+          const data = table === 'ad_ideas' ? rows : table === 'offers' ? rows.map(row => ({ id: row.offer_id, business_email: row.business_email, currency: 'AUD' }))
           : table === 'business_entitlements' ? missingEntitlements ? [] : rows.map(row => ({ business_email: row.business_email, billing_status: 'subscription_active' }))
           : table === 'business_profiles' ? rows.map(row => ({ id: row.business_email, business_email: row.business_email }))
           : table === 'wallet_topups' ? [{ credited_amount: 15, status: 'succeeded' }]
@@ -50,6 +50,8 @@ async function checkClientFetchCount() {
   let effects: { deps: unknown[]; callback: () => unknown; pending: boolean }[] = [];
   const fetches: string[] = [];
   let offerQueries: string[][] = [];
+  let holdCampaigns = false, holdTitles = false, holdSubmissions = false;
+  const never = new Promise<never>(() => {});
   const clientDb = {
     auth: { getSession: async () => ({ data: { session: { user: { email: 'affiliate@test.invalid' } } } }) },
     from(table: string) {
@@ -57,6 +59,7 @@ async function checkClientFetchCount() {
         select: () => query, eq: () => query, order: () => query, range: () => query, abortSignal: () => query,
         in: (_key: string, ids: string[]) => { offerQueries.push(ids); return query; },
         then(resolve: (value: unknown) => unknown) {
+          if ((holdCampaigns && table === 'live_ads') || (holdTitles && table === 'offers') || (holdSubmissions && table === 'ad_ideas')) return never;
           const data = table === 'ad_ideas' ? Array.from({length: cardCount}, (_, i) => ({id: String(i), offer_id: `offer-${i}`, status:'pending'}))
             : table === 'offers' ? offerQueries[0].map(id => ({id, title: `Title ${id}`})) : [];
           return Promise.resolve({data, error:null}).then(resolve);
@@ -86,6 +89,7 @@ async function checkClientFetchCount() {
   };
   globalThis.fetch = async input => {
     fetches.push(String(input));
+    if (holdCampaigns && (String(input).includes('live-campaigns') || String(input).includes('pending-paid-proposals'))) return never;
     return Response.json({ ok: true, campaigns: [{id:'organic', offer_id:'offer-0'}], proposals: Array.from({ length: cardCount }, (_, i) => ({ id: String(i), state: 'waiting_for_business' })) });
   };
   try {
@@ -109,6 +113,33 @@ async function checkClientFetchCount() {
       assert.equal(fetches.length, 3, 'Initial HTTP fetch count remains constant');
       cleanup();
     }
+    const render = () => { stateIndex = effectIndex = refIndex = 0; return Page(); };
+    for (const scenario of ['campaigns-and-badges', 'titles', 'timeout']) {
+      states = []; refs = []; effects = []; fetches.length = 0; offerQueries = [];
+      holdCampaigns = scenario === 'campaigns-and-badges'; holdTitles = scenario === 'titles'; holdSubmissions = scenario === 'timeout';
+      const realSetTimeout = globalThis.setTimeout;
+      if (holdSubmissions) globalThis.setTimeout = ((callback: () => void, delay: number) => realSetTimeout(callback, delay === 8000 ? 5 : delay)) as typeof setTimeout;
+      render();
+      const cleanup = effects[1].callback() as () => void;
+      await new Promise(resolve => realSetTimeout(resolve, 20));
+      let tree = render();
+      assert.equal(tree.props.pendingLoading, false, scenario);
+      if (holdSubmissions) {
+        assert.equal(tree.props.pendingCount, null);
+        assert.equal(tree.props.pendingContent.props.role, 'alert');
+        holdSubmissions = false;
+        tree.props.pendingContent.props.children[1].props.onClick();
+        await new Promise(resolve => setImmediate(resolve));
+        tree = render();
+      }
+      assert.equal(tree.props.pendingCount, cardCount, scenario + ': own data publishes without enrichment');
+      cleanup();
+      globalThis.setTimeout = realSetTimeout;
+    }
+    const { withProposalTimeout } = requireMocked('../utils/affiliate/proposalTimeout');
+    await assert.rejects(withProposalTimeout(never, 1), /too long/);
+    assert.equal(await withProposalTimeout(Promise.resolve('ready'), 10), 'ready');
+    console.log('Proposal independence from campaigns/badges/titles, timeout alert and successful retry passed');
     console.log('Client load: one enrichment fetch and three total fetches and one offers title query at 1/11/14/140 cards; state rerender does not refetch');
   } finally { loader._load = previousLoader; globalThis.fetch = previousFetch; }
 }
@@ -143,6 +174,8 @@ async function run() {
     const page = readFileSync('app/affiliate/dashboard/manage-campaigns/page.tsx', 'utf8');
     assert.equal((page.match(/fetch\("\/api\/affiliate\/pending-paid-proposals"/g) || []).length, 1);
     assert.doesNotMatch(readFileSync('app/affiliate/dashboard/manage-campaigns/PendingProposalRow.tsx', 'utf8'), /\bfetch\s*\(/);
+    const workspace = readFileSync('components/business/ManageCampaignsWorkspace.tsx', 'utf8');
+    assert.match(workspace, /label="Pending proposals" value=\{props.pendingLoading \|\| props.pendingCount === null/);
     await checkClientFetchCount();
     console.log('Constant real helper query/RPC counts for 1/14/140 distinct offers, businesses and budgets; funding selection, fallback, failures, auth and single client fetch source passed');
   } finally { loader._load = original; }

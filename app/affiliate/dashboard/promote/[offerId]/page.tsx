@@ -1534,8 +1534,10 @@ export default function PromoteOfferPage() {
         {/* LEFT: single card wizard */}
         {mode === "ad" && (
           <div className="space-y-4">
-            {showMetaSetupWarning && (
-              <div className="rounded-2xl border border-cyan-500/30 bg-cyan-500/10 p-5 text-sm text-cyan-50">
+            {(!offerMetaResolved || showMetaSetupWarning) && (
+              <div aria-busy={!offerMetaResolved} aria-label="Paid promotion setup" className="relative rounded-2xl border border-cyan-500/30 bg-cyan-500/10 p-5 text-sm text-cyan-50">
+                {!offerMetaResolved && <div role="status" className="absolute inset-5 animate-pulse motion-reduce:animate-none space-y-3"><span className="sr-only">Loading paid promotion setup…</span><div className="h-5 w-3/4 rounded bg-cyan-100/10" /><div className="h-10 rounded bg-cyan-100/10" /><div className="h-10 w-48 rounded-xl bg-cyan-100/10" /></div>}
+                <div className={offerMetaResolved ? undefined : "invisible"} aria-hidden={!offerMetaResolved}>
                 <div className="text-base font-semibold">Want to fund paid promotion for this offer?</div>
                 <p className="mt-1 text-cyan-100/85">
                   The business hasn't finished paid-promotion setup yet. You can still build and submit the real campaign — they will review it before anything can launch.
@@ -1554,6 +1556,7 @@ export default function PromoteOfferPage() {
                 <p className="mt-2 text-xs text-cyan-100/70">
                   Submitting a full proposal also reserves no wallet funds. Setup and funding are enforced only before launch.
                 </p>
+                </div>
               </div>
             )}
 

@@ -1,5 +1,6 @@
 "use client";
 import React from "react";
+import { withProposalTimeout } from "../../../../utils/affiliate/proposalTimeout";
 import { getSpendableWalletBalance } from "../../../../utils/wallet/spendableBalance";
 import { type PauseNotice } from "../../../../utils/wallet/pauseNotice";
 
@@ -81,7 +82,7 @@ export default function AffiliateManageCampaignsPage() {
     setPendingError(null);
     setPendingLoading(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await withProposalTimeout(supabase.auth.getSession());
       const email = session?.user.email;
       if (!email) throw new Error("No authenticated user email found.");
 
@@ -108,17 +109,19 @@ export default function AffiliateManageCampaignsPage() {
       const campaignResults = Promise.allSettled([paidTask, organicTask]);
       const submissionsTask = (async () => {
         try {
-          const submissions = await loadAffiliateSubmissions(supabase, email, async submissionIds => {
-            const campaigns = await campaignResults;
-            const ids = [...new Set([...submissionIds, ...campaigns.flatMap(result =>
+          // Titles and campaigns are optional enrichment, never proposal prerequisites.
+          const submissions = await withProposalTimeout(loadAffiliateSubmissions(supabase, email, async () => []));
+          void campaignResults.then(async campaigns => {
+            const ids = [...new Set([...submissions.map(row => row.offerId), ...campaigns.flatMap(result =>
               result.status === "fulfilled" ? result.value.map(row => row.offer_id).filter((id): id is string => Boolean(id)) : [])])];
-            if (!ids.length) { if (current()) setOfferNameById({}); return []; }
-            const { data, error } = await supabase.from("offers").select("id,title").in("id", ids);
+            if (!ids.length || !current()) return;
+            const { data, error } = await withProposalTimeout(supabase.from("offers").select("id,title").in("id", ids));
             if (error) throw error;
-            const titles = (data || []) as { id: string; title: string }[];
-            if (current()) setOfferNameById(Object.fromEntries(titles.map(row => [row.id, row.title])));
-            return titles;
-          });
+            if (!current()) return;
+            const titles = Object.fromEntries(((data || []) as { id: string; title: string }[]).map(row => [row.id, row.title]));
+            setOfferNameById(titles);
+            setPendingProposals(rows => rows.map(row => ({ ...row, offerTitle: titles[row.offerId] || row.offerTitle })));
+          }).catch(() => { /* Keep stored proposals and fallback titles available. */ });
           if (!current()) return;
           setCreativeByIdeaId(Object.fromEntries(submissions.filter(item => item.kind === "paid")
             .map(item => [item.id, { title: item.title, previewUrl: item.previewUrl }])));
@@ -144,7 +147,7 @@ export default function AffiliateManageCampaignsPage() {
       setLoading(false);
       await submissionsTask;
     } catch (error) {
-      if (current()) { setError(error instanceof Error ? error.message : "Failed to load campaigns."); setPendingLoading(false); }
+      if (current()) { setError(error instanceof Error ? error.message : "Failed to load campaigns."); setPendingError("Your proposals could not be loaded. Please try again."); setPendingLoading(false); }
     } finally {
       if (current()) setLoading(false);
     }
@@ -220,13 +223,13 @@ export default function AffiliateManageCampaignsPage() {
   useEffect(() => {
     // Auth refresh / read-after-write visibility can race the redirect.
     // Refresh once when the newly created proposal is not yet in the list.
-    if (!newProposalId || loading || submittedRetryDone.current) return;
+    if (!newProposalId || pendingLoading || pendingError || submittedRetryDone.current) return;
     if (pendingProposals.some((item) => item.id === newProposalId)) return;
     submittedRetryDone.current = true;
     const retry = window.setTimeout(() => { void fetchAll(); }, 700);
     return () => window.clearTimeout(retry);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [newProposalId, loading, pendingProposals]);
+  }, [newProposalId, pendingLoading, pendingError, pendingProposals]);
 
   // The same visual campaign model is used for both roles; the affiliate
   // loader still scopes all data to the signed-in affiliate.
