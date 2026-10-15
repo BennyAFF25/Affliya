@@ -1,6 +1,7 @@
 'use client';
 
 import { MIN_WALLET_TOPUP_AUD, WALLET_TOPUP_MINIMUM_MESSAGE } from "@/../utils/wallet/topupValidation";
+import { loadWalletSection } from '../../../utils/wallet/loadSection';
 import React from "react";
 import { campaignStatusDetail } from "../../../utils/wallet/campaignStatus";
 import { type PauseNotice } from "../../../utils/wallet/pauseNotice";
@@ -166,6 +167,9 @@ export default function AffiliateWalletPage() {
   const user = session?.user;
   const { settings, isLoading: settingsLoading } = useUserSettings();
 
+  const [readState, setReadState] = useState<Record<string, 'loading' | 'ready' | 'error'>>({});
+  const [initialReadsSettled, setInitialReadsSettled] = useState(false);
+  const readGeneration = React.useRef(0);
   const [amount, setAmount] = useState('');
   const [topupMinimumError, setTopupMinimumError] = useState(false);
   const [currency, setCurrency] = useState('AUD');
@@ -191,6 +195,8 @@ export default function AffiliateWalletPage() {
   const [topupQueryState, setTopupQueryState] = useState<'success' | 'cancel' | null>(null);
   const [recentCompletedTopupId, setRecentCompletedTopupId] = useState<string | null>(null);
   const [billingStatus, setBillingStatus] = useState<AffiliateBillingStatus | null>(null);
+  const [billingRetry, setBillingRetry] = useState(0);
+  const [billingError, setBillingError] = useState(false);
   const [billingStatusLoading, setBillingStatusLoading] = useState(true);
   const [pauseNotices, setPauseNotices] = useState<Record<string, PauseNotice>>({});
   const [liveAdRows, setLiveAdRows] = useState<WalletLiveAd[]>([]);
@@ -241,6 +247,7 @@ export default function AffiliateWalletPage() {
 
   useEffect(() => {
     const loadBillingStatus = async () => {
+      if (walletAction !== 'topup') return;
       if (!user?.id && !user?.email) {
         setBillingStatus(null);
         setBillingStatusLoading(false);
@@ -249,14 +256,16 @@ export default function AffiliateWalletPage() {
 
       try {
         setBillingStatusLoading(true);
+        setBillingError(false);
         const qs = user?.id
           ? `?user_id=${encodeURIComponent(user.id)}`
           : `?email=${encodeURIComponent(user!.email!)}`;
-        const res = await fetch(`/api/stripe/affiliates/check-account${qs}`, { cache: 'no-store' });
+        const res = await fetch(`/api/stripe/affiliates/check-account${qs}`, { cache: 'no-store', signal: AbortSignal.timeout(8000) });
         const json = (await res.json()) as AffiliateBillingStatus;
         if (!res.ok) throw new Error(json.error || `Billing status check failed (${res.status})`);
         setBillingStatus(json);
       } catch (err) {
+        setBillingError(true);
         console.error('[❌ Affiliate billing status error]', err);
         setBillingStatus(null);
       } finally {
@@ -265,96 +274,83 @@ export default function AffiliateWalletPage() {
     };
 
     void loadBillingStatus();
-  }, [user?.id, user?.email]);
+  }, [user?.id, user?.email, billingRetry, walletAction]);
 
   const refreshWalletState = useCallback(async () => {
     if (!user?.email) return;
 
-    const [
-      refundsResult,
-      deductionsResult,
-      lockStateResult,
-      topupsResult,
-      payoutsResult,
-    ] = await Promise.all([
-      supabase
+    const generation = ++readGeneration.current;
+    await Promise.all([
+      loadWalletSection(supabase
         .from('wallet_refunds')
         .select('amount, status, stripe_refund_id, created_at, source_topup_id')
         .eq('affiliate_email', user.email)
-        .order('created_at', { ascending: false }),
-      supabase
+        .order('created_at', { ascending: false }), (result) => {
+        if (generation !== readGeneration.current) return;
+        const refundsResult = result;
+        setRefunds((refundsResult.data as WalletRefund[]) || []);
+      }, (state) => { if (generation === readGeneration.current) setReadState(previous => ({ ...previous, refunds: state })); }),
+      loadWalletSection(supabase
         .from('wallet_deductions')
         .select('amount, created_at, description, ad_id, settlement_before, settlement_after, settlement_key')
         .eq('affiliate_email', user.email)
-        .order('created_at', { ascending: false }),
-      supabase
+        .order('created_at', { ascending: false }), (result) => {
+        if (generation !== readGeneration.current) return;
+        const deductionsResult = result;
+        setWalletDeductions((deductionsResult.data as WalletDeduction[]) || []);
+      }, (state) => { if (generation === readGeneration.current) setReadState(previous => ({ ...previous, deductions: state })); }),
+      loadWalletSection(supabase
         .from('live_ads')
         .select('*')
-        .eq('affiliate_email', user.email),
-      supabase
+        .eq('affiliate_email', user.email), (result) => {
+        if (generation !== readGeneration.current) return;
+        const lockStateResult = result;
+        setRefundLockState(calculateRefundLockState(lockStateResult.data || []));
+        // Presentation-only view of the existing live_ads read; no additional query.
+        setLiveAdRows((lockStateResult.data || []) as WalletLiveAd[]);
+      }, (state) => { if (generation === readGeneration.current) setReadState(previous => ({ ...previous, lockState: state })); }),
+      loadWalletSection(supabase
         .from('wallet_topups')
         .select('amount_gross, amount_net, credited_amount, stripe_fees, nettmark_fee_amount, stripe_id, status, created_at, amount_refunded')
         .eq('affiliate_email', user.email)
-        .order('created_at', { ascending: false }),
-      supabase
+        .order('created_at', { ascending: false }), (result) => {
+        if (generation !== readGeneration.current) return;
+        const topupsResult = result;
+        const topups = (topupsResult.data as WalletTopup[]) || [];
+        setWalletData(topups);
+        const refundable = topups
+          .filter(isRefundableTopup)
+          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        setRefundableTopups(refundable);
+        setSelectedTopupId((current) => {
+          if (current && refundable.some((item) => item.stripe_id === current)) {
+            return current;
+          }
+          return refundable[0]?.stripe_id ?? null;
+        });
+      }, (state) => { if (generation === readGeneration.current) setReadState(previous => ({ ...previous, topups: state })); }),
+      loadWalletSection(supabase
         .from('wallet_payouts')
         .select('id, amount, status, created_at, available_at, source_event_id, stripe_transfer_id, cycle_number, is_recurring, recurring_term_months, recurring_payout_mode, recurring_payout_interval')
         .eq('affiliate_email', user.email)
-        .order('created_at', { ascending: false }),
+        .order('created_at', { ascending: false }), (result) => {
+        if (generation !== readGeneration.current) return;
+        const payoutsResult = result;
+        setWalletPayouts((payoutsResult.data as WalletPayout[]) || []);
+      }, (state) => { if (generation === readGeneration.current) setReadState(previous => ({ ...previous, payouts: state })); }),
     ]);
-
-    if (refundsResult.error) {
-      console.error('[❌ Refunds Fetch Error]', refundsResult.error.message);
-    } else {
-      setRefunds((refundsResult.data as WalletRefund[]) || []);
-    }
-
-    if (deductionsResult.error) {
-      console.error('[❌ Wallet Deductions Fetch Error]', deductionsResult.error.message);
-    } else {
-      setWalletDeductions((deductionsResult.data as WalletDeduction[]) || []);
-    }
-
-    if (lockStateResult.error) {
-      console.error('[❌ Refund lock state fetch error]', lockStateResult.error.message);
-    } else {
-      setRefundLockState(calculateRefundLockState(lockStateResult.data || []));
-      // Presentation-only view of the existing live_ads read; no additional query.
-      setLiveAdRows((lockStateResult.data || []) as WalletLiveAd[]);
-    }
-
-    if (topupsResult.error) {
-      console.error('[❌ Wallet Fetch Error]', topupsResult.error.message);
-    } else {
-      const topups = (topupsResult.data as WalletTopup[]) || [];
-      setWalletData(topups);
-      const refundable = topups
-        .filter(isRefundableTopup)
-        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-      setRefundableTopups(refundable);
-      setSelectedTopupId((current) => {
-        if (current && refundable.some((item) => item.stripe_id === current)) {
-          return current;
-        }
-        return refundable[0]?.stripe_id ?? null;
-      });
-    }
-
-    if (payoutsResult.error) {
-      console.error('[❌ Wallet Payouts Fetch Error]', payoutsResult.error.message);
-    } else {
-      setWalletPayouts((payoutsResult.data as WalletPayout[]) || []);
-    }
+    if (generation === readGeneration.current) setInitialReadsSettled(true);
   }, [user?.email]);
 
   useEffect(() => {
     void refreshWalletState();
+    return () => { readGeneration.current += 1; };
   }, [refreshWalletState]);
 
   useEffect(() => {
     const confirmPendingSession = async () => {
       const sessionId = localStorage.getItem('pending_stripe_session');
-      if (!sessionId || !user?.email) return;
+      if (!sessionId || !user?.email || !initialReadsSettled) return;
 
       try {
         const stripeRes = await fetch('/api/stripe-session?session_id=' + sessionId);
@@ -394,7 +390,7 @@ export default function AffiliateWalletPage() {
     };
 
     void confirmPendingSession();
-  }, [refreshWalletState]);
+  }, [refreshWalletState, initialReadsSettled]);
 
   if (session === undefined) {
     return <div className="w-full flex items-center justify-center py-12">Loading...</div>;
@@ -628,6 +624,11 @@ export default function AffiliateWalletPage() {
       if (activityFilter === 'refunds') return item.id.startsWith('refund-');
       return true;
     });
+  const balanceReady = ['topups', 'refunds', 'deductions', 'lockState'].every(key => readState[key] === 'ready');
+  const activityReady = ['topups', 'refunds', 'deductions'].every(key => readState[key] === 'ready');
+  const sectionPlaceholder = (keys: string[]) => keys.some(key => readState[key] === 'error') ? (
+    <div role="alert" className="p-4 text-xs text-amber-200">Could not load wallet data. <button type="button" className="underline" onClick={() => void refreshWalletState()}>Try again</button></div>
+  ) : <div role="status" aria-label="Loading wallet data" className="my-3 h-16 animate-pulse rounded-xl bg-white/10"><span className="sr-only">Loading wallet data…</span></div>;
   const withdrawDisabled = refundLockState.locked || availableToRefund <= 0 || refundableTopups.length === 0;
   const refundReasonDisplay = currency === 'AUD'
     ? refundBlockReason.replace(/AUD\s/g, 'A$')
@@ -661,29 +662,34 @@ export default function AffiliateWalletPage() {
                 <span className="grid h-8 w-8 place-items-center rounded-full bg-[#00C2CB]/10 text-[#19d4dd]"><Wallet className="h-4 w-4" /></span>
                 <h2 id="wallet-balance-heading" className="font-semibold">Available to spend</h2>
               </div>
+              {balanceReady ? (<>
               <p className="mt-3 break-words text-[37px] font-semibold leading-none tracking-tight text-white sm:text-[45px]">{walletMoney(displayedSpendableBalance)}</p>
               <p className="mt-3 text-[11px] leading-5 text-slate-400">
                 {walletMoney(refundLockState.totalUnpaidSpend)} pending Meta spend already deducted
                 <span className="mx-2 text-slate-600">·</span>
                 {walletMoney(availableToRefund)} refundable now
               </p>
+              </>) : sectionPlaceholder(['topups', 'refunds', 'deductions', 'lockState'])}
               <p className="mt-1 max-w-lg text-[10px] leading-4 text-slate-500">Estimated from the latest stored Meta spend. Your actual wallet ledger is updated when that spend settles; the pending amount is not deducted twice.</p>
             </div>
             <div className="grid w-full shrink-0 grid-cols-2 gap-2 sm:w-auto sm:min-w-[255px]">
-              <button type="button" onClick={() => setWalletAction(walletAction === 'topup' ? null : 'topup')}
+              <button type="button" onClick={() => {
+                if (walletAction !== 'topup') { setBillingStatusLoading(true); setBillingStatus(null); }
+                setWalletAction(walletAction === 'topup' ? null : 'topup');
+              }}
                 aria-expanded={walletAction === 'topup'} aria-controls="topup-wallet"
                 className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#00C2CB] px-4 text-xs font-bold text-[#0f0f0f] transition hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00C2CB]">
                 <ArrowDownLeft className="h-4 w-4" /> Add funds
               </button>
               <button type="button" onClick={() => setWalletAction(walletAction === 'withdraw' ? null : 'withdraw')}
-                disabled={withdrawDisabled} title={withdrawDisabledReason || 'Refund credited principal to your original payment method'}
+                disabled={!balanceReady || withdrawDisabled} title={!balanceReady ? 'Waiting for wallet data' : withdrawDisabledReason || 'Refund credited principal to your original payment method'}
                 aria-expanded={walletAction === 'withdraw'} aria-controls="refund-wallet"
                 className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-white/[0.14] bg-white/[0.04] px-4 text-xs font-semibold text-slate-200 transition hover:bg-white/[0.08] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#00C2CB] disabled:cursor-not-allowed disabled:opacity-40">
                 <ArrowUpRight className="h-4 w-4" /> Withdraw
               </button>
             </div>
           </div>
-          {withdrawDisabledReason ? (
+          {balanceReady && withdrawDisabledReason ? (
             <p className="mt-4 flex items-start gap-2 border-t border-white/[0.07] pt-3 text-[11px] leading-5 text-amber-200">
               <Clock3 className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {withdrawDisabledReason}
             </p>
@@ -720,7 +726,8 @@ export default function AffiliateWalletPage() {
               </div>
               <span className="rounded-full border border-white/10 px-3 py-1 text-[11px] font-medium text-slate-300">{currency}</span>
             </div>
-            {!billingReady ? (
+            {billingError ? <p role="alert" className="mt-3 text-xs text-amber-200">Could not check billing. <button className="underline" onClick={() => setBillingRetry(value => value + 1)}>Try again</button></p> : null}
+            {!billingReady && !billingError ? (
               <div className="mt-4 rounded-xl border border-amber-400/20 bg-amber-400/[0.07] p-3 text-xs leading-5 text-amber-100">
                 <p className="font-semibold">Billing connection required</p>
                 <p className="mt-1">{topupBlockedReason || 'Connect billing in Affiliate Settings before adding funds.'}</p>
@@ -759,7 +766,7 @@ export default function AffiliateWalletPage() {
           </section>
         ) : null}
 
-        {walletAction === 'withdraw' ? (
+        {walletAction === 'withdraw' && balanceReady ? (
           <section id="refund-wallet" className="scroll-mt-8 rounded-[22px] border border-white/[0.09] bg-[#151718] p-4 sm:p-5" aria-labelledby="refund-heading">
             <h2 id="refund-heading" className="text-[15px] font-semibold">Withdraw unused funds</h2>
             <p className="mt-1 text-xs leading-5 text-slate-400">This is a refund to the original payment method, not a commission payout. Select a completed top-up and refund its remaining principal.</p>
@@ -806,7 +813,7 @@ export default function AffiliateWalletPage() {
               All campaigns <ArrowUpRight className="h-3.5 w-3.5" />
             </Link>
           </div>
-          {fundedCampaigns.length ? (
+          {readState.lockState !== 'ready' ? sectionPlaceholder(['lockState']) : fundedCampaigns.length ? (
             <div className="mt-4 divide-y divide-white/[0.07] overflow-hidden rounded-[17px] border border-white/[0.08] bg-[#101415]">
               {fundedCampaigns.map((ad) => {
                 const unsettled = Math.max(0, toMoney(ad.spend) - toMoney(ad.spend_transferred));
@@ -854,7 +861,7 @@ export default function AffiliateWalletPage() {
               <h2 id="wallet-activity-heading" className="text-[15px] font-semibold">Activity</h2>
               <p className="mt-1 text-[11px] text-slate-400">Credits, ad spend settlements and refunds.</p>
             </div>
-            <span className="text-[11px] tabular-nums text-slate-500">{walletActivity.length} items</span>
+            <span className="text-[11px] tabular-nums text-slate-500">{activityReady ? `${walletActivity.length} items` : '—'}</span>
           </div>
           <div role="group" aria-label="Filter wallet activity" className="-mx-1 mt-4 flex gap-2 overflow-x-auto px-1 pb-1">
             {([
@@ -868,7 +875,7 @@ export default function AffiliateWalletPage() {
             ))}
           </div>
           <div className="mt-3 divide-y divide-white/[0.07] overflow-hidden rounded-[17px] border border-white/[0.08] bg-[#101415]">
-            {walletActivity.length ? walletActivity.map((item) => {
+            {!activityReady ? sectionPlaceholder(['topups', 'refunds', 'deductions']) : walletActivity.length ? walletActivity.map((item) => {
               const credited = item.id.startsWith('topup-') &&
                 ['succeeded', 'refunded'].includes(String(item.status).toLowerCase());
               const kind = item.id.startsWith('topup-') ? (credited ? 'Top-up' : 'Top-up processing')

@@ -1,0 +1,31 @@
+import assert from 'node:assert/strict';
+import { loadWalletSection } from '../utils/wallet/loadSection';
+async function run() {
+  let applied = 0;
+  const states: string[] = [];
+  const state = (value: string) => states.push(value);
+  await loadWalletSection(Promise.resolve({ error: null, data: [] }), () => applied++, state);
+  assert.deepEqual(states, ['loading', 'ready']);
+  states.length = 0;
+  await loadWalletSection(Promise.resolve({ error: Error('read failed') }), () => applied++, state);
+  assert.deepEqual(states, ['loading', 'error']);
+  states.length = 0;
+  let resolve!: (value: { error: null }) => void;
+  const slow = new Promise<{ error: null }>(done => { resolve = done; });
+  await loadWalletSection(slow, () => applied++, state, 5);
+  resolve({ error: null });
+  await Promise.resolve();
+  assert.deepEqual(states, ['loading', 'error']);
+  assert.equal(applied, 1, 'late/failed results never become wallet values');
+  states.length = 0;
+  await loadWalletSection(Promise.resolve({ error: null }), () => applied++, state);
+  assert.deepEqual(states, ['loading', 'ready'], 'retry can recover');
+  let unblock!: (value: { error: null }) => void;
+  const pending = loadWalletSection(new Promise<{ error: null }>(done => { unblock = done; }), () => {}, () => {});
+  let ready = false;
+  await loadWalletSection(Promise.resolve({ error: null }), () => { ready = true; }, () => {});
+  assert.equal(ready, true, 'one section does not wait for another');
+  unblock({ error: null }); await pending;
+  console.log('wallet readiness, failure, timeout, late response, retry and independent sections passed');
+}
+void run();

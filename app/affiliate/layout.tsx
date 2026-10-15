@@ -38,6 +38,7 @@ function AffiliateLayoutShell({ children }: { children: React.ReactNode }) {
   const { toast, setToast } = useInboxNotifier(userEmail);
   const chatUnreadCount = useChatUnreadCount(session?.user?.id);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [roleRetry, setRoleRetry] = useState(0);
   const [affiliateRole, setAffiliateRole] = useState<"checking" | "affiliate" | "business" | "blocked" | "error">("checking");
 
   useEffect(() => {
@@ -52,7 +53,7 @@ function AffiliateLayoutShell({ children }: { children: React.ReactNode }) {
       else setAffiliateRole("blocked");
     }).catch(() => { if (current) setAffiliateRole("error"); });
     return () => { current = false; };
-  }, [session?.user?.id]);
+  }, [session?.user?.id, roleRetry]);
 
   useEffect(() => {
     if (affiliateRole === "business" && session?.user?.id) {
@@ -97,6 +98,7 @@ function AffiliateLayoutShell({ children }: { children: React.ReactNode }) {
           : affiliateRole === "error"
             ? "Could not verify your account role. Refresh and try again."
             : "This area is only available to affiliate accounts."}
+        {affiliateRole === "error" ? <button type="button" onClick={() => setRoleRetry(value => value + 1)} className="ml-4 underline">Try again</button> : null}
         <a href="/business/my-business" className="ml-4 underline">Business dashboard</a>
         <a href="/logout" className="ml-4 underline">Sign out</a>
       </div>

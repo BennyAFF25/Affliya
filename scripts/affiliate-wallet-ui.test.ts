@@ -29,9 +29,18 @@ function fnv1a(text: string) {
 // These protect every existing Stripe handler, billing read, reconciliation
 // and database SELECT while allowing the intentional round-4 business-stop status read.
 assert.equal(fnv1a(sliceBetween("function calculateChargeOnTopPreview(", "function pluralize(")), "e2a21bc9");
-assert.equal(fnv1a(sliceBetween("    ] = await Promise.all([", "    if (refundsResult.error)").replace(".select('*')", ".select('id, status, billing_state, spend, spend_transferred')")), "fa03b474");
-assert.equal(fnv1a(sliceBetween("  useEffect(() => {\n    const loadBillingStatus", "  const refreshWalletState")), "ef682312");
-assert.equal(fnv1a(sliceBetween("  useEffect(() => {\n    const confirmPendingSession", "  if (session === undefined)")), "cfa2e5dc");
+// Read scheduling now uses independent deadline-protected sections. Financial handlers remain immutable.
+for (const table of ['wallet_refunds', 'wallet_deductions', 'live_ads', 'wallet_topups', 'wallet_payouts']) {
+  assert.ok(source.includes(`.from('${table}')`));
+}
+assert.match(source, /loadWalletSection/);
+assert.match(source, /!initialReadsSettled/);
+assert.match(source, /balanceReady \? \(<>/);
+assert.match(source, /!activityReady \? sectionPlaceholder/);
+assert.match(source, /readState.lockState !== 'ready' \? sectionPlaceholder/);
+assert.equal(fnv1a(sliceBetween("  useEffect(() => {\n    const confirmPendingSession", "  if (session === undefined)")
+  .replace(" || !initialReadsSettled", "")
+  .replace("[refreshWalletState, initialReadsSettled]", "[refreshWalletState]")), "cfa2e5dc");
 // Normalize only the approved inline minimum feedback; payment handler stays protected.
 assert.equal(fnv1a(handler("handleTopUp").replace("setTopupMinimumError(true);", "alert(WALLET_TOPUP_MINIMUM_MESSAGE);")), "f84af126");
 assert.equal(fnv1a(handler("handleWithdrawAll")), "5a34ac46");

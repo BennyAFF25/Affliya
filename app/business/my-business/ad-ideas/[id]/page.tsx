@@ -286,6 +286,8 @@ export default function AdIdeaProposalDetailPage() {
   const [proposal, setProposal] = useState<Proposal | null>(null);
   const [readiness, setReadiness] = useState<ReviewReadiness | null>(null);
   const [loading, setLoading] = useState(true);
+  const [rejectionPreset, setRejectionPreset] = useState("");
+  const [rejectionText, setRejectionText] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [subscriptionOpen, setSubscriptionOpen] = useState(false);
@@ -449,7 +451,7 @@ export default function AdIdeaProposalDetailPage() {
         body: JSON.stringify({
           adIdeaId: proposal.id,
           status: "rejected",
-          rejectionReason: "Rejected by business",
+          rejectionReason: rejectionPreset === "Other" ? rejectionText.trim() : rejectionPreset,
         }),
       });
       const json = await res.json().catch(() => null);
@@ -1002,6 +1004,13 @@ export default function AdIdeaProposalDetailPage() {
             ) : null}
 
             {proposal.status === "pending" ? (
+              <div className="space-y-3">
+              <label className="block text-xs text-slate-400">Rejection reason (optional)
+                <select value={rejectionPreset} onChange={event => setRejectionPreset(event.target.value)} disabled={busy} className="mt-2 w-full rounded-xl border border-white/10 bg-[#151718] p-3 text-sm text-white">
+                  {["", "Creative doesn't match brand", "Targeting not suitable", "Budget too high/low", "Offer paused", "Other"].map(reason => <option key={reason} value={reason}>{reason || "No reason given"}</option>)}
+                </select>
+              </label>
+              {rejectionPreset === "Other" ? <label className="block text-xs text-slate-400">Reason (up to 500 characters)<textarea maxLength={500} value={rejectionText} onChange={event => setRejectionText(event.target.value)} disabled={busy} className="mt-2 w-full rounded-xl border border-white/10 bg-[#151718] p-3 text-sm text-white" /></label> : null}
               <button
                 type="button"
                 onClick={() => void reject()}
@@ -1010,6 +1019,7 @@ export default function AdIdeaProposalDetailPage() {
               >
                 Reject proposal
               </button>
+              </div>
             ) : null}
           </>
         ) : null}

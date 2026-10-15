@@ -73,6 +73,7 @@ type Props = SharedProps & (
       availableWalletBalance?: number | null;
       pendingContent: ReactNode;
       notice?: ReactNode;
+      archivedContent?: ReactNode;
     }
 );
 
@@ -342,6 +343,7 @@ export default function ManageCampaignsWorkspace(props: Props) {
           </header>
 
           {props.audience === "affiliate" ? props.notice : null}
+          {props.audience === "affiliate" && tab === "archived" ? props.archivedContent : null}
 
           <section aria-label="Campaign overview" className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-5">
             <MetricCard label="Live campaigns" value={loading ? "—" : String(live)} helper="Paid and organic" icon={<Activity className="h-5 w-5" />} />

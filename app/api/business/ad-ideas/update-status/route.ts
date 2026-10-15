@@ -14,7 +14,11 @@ export async function POST(req: Request) {
     const adIdeaId = String(body?.adIdeaId || body?.id || "").trim();
     const status = String(body?.status || "").trim().toLowerCase();
     const rejectionReason =
-      typeof body?.rejectionReason === "string" ? body.rejectionReason : null;
+      typeof body?.rejectionReason === "string" ? body.rejectionReason.trim() : null;
+
+    if (status === "rejected" && ((body?.rejectionReason != null && typeof body.rejectionReason !== "string") || (rejectionReason?.length || 0) > 500)) {
+      return NextResponse.json({ success: false, error: "INVALID_REJECTION_REASON", message: "Rejection reason must be text of at most 500 characters." }, { status: 400 });
+    }
 
     if (!adIdeaId || !["approved", "rejected", "pending"].includes(status)) {
       return NextResponse.json(
