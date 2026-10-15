@@ -1,4 +1,5 @@
 "use client";
+import { validateAdCopy } from "../../../../../utils/meta/adCopyValidation";
 
 import React, { useMemo, useRef, useState } from "react";
 import { nmToast } from "@/components/ui/toast";
@@ -129,6 +130,7 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
     { id: 4, label: "Review" },
   ];
 
+  const copyErrors = validateAdCopy(form);
   const canProceed = () => {
     if (step === 1) {
       return !!form.campaign_name && !!form.objective;
@@ -144,6 +146,7 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
     }
 
     if (step === 3) {
+      if (copyErrors.headline || copyErrors.caption) return false;
       if (usingBrandContent && selectedBrandCreative) return true;
       if (videoFile) return !!thumbnailFile;
       if (imageFile) return true;
@@ -163,6 +166,7 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
   );
 
   const onSubmitClick = async () => {
+    if (copyErrors.headline || copyErrors.caption) { setStep(3); return; }
     if (submitting.current) return;
     submitting.current = true;
     setLocalSubmitError(null);
@@ -216,7 +220,8 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
             return (
               <button
                 key={s.id}
-                onClick={() => setStep(s.id)}
+                onClick={() => { if (s.id <= step || (s.id === step + 1 && canProceed())) setStep(s.id); }}
+                disabled={s.id > step && (s.id !== step + 1 || !canProceed())}
                 className="flex-1 flex justify-center"
               >
                 <span
@@ -793,9 +798,13 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
               <input
                 placeholder="Your headline"
                 className={`${INPUT} w-full text-base`}
+                required
+                aria-invalid={!!copyErrors.headline}
+                aria-describedby="ad-headline-error"
                 value={form.headline}
                 onChange={onInput("headline")}
               />
+              {copyErrors.headline && <p id="ad-headline-error" className="mt-1 text-sm text-amber-200">{copyErrors.headline}</p>}
             </label>
 
             <label className="block">
@@ -805,9 +814,13 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
               <textarea
                 placeholder="Say something compelling…"
                 className={`${INPUT} w-full text-base`}
+                required
+                aria-invalid={!!copyErrors.caption}
+                aria-describedby="ad-caption-error"
                 value={form.caption}
                 onChange={onInput("caption")}
               />
+              {copyErrors.caption && <p id="ad-caption-error" className="mt-1 text-sm text-amber-200">{copyErrors.caption}</p>}
             </label>
 
             <div className="flex flex-col sm:flex-row gap-3">
@@ -1117,7 +1130,7 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
             </button>
           )}
 
-          {step === 3 && !canProceed() && <p role="status" className="text-sm text-amber-200">{videoFile ? "Add a valid video thumbnail to enable Next." : "Choose brand content or upload a photo or video to enable Next."}</p>}
+          {step === 3 && !canProceed() && !copyErrors.headline && !copyErrors.caption && <p role="status" className="text-sm text-amber-200">{videoFile ? "Add a valid video thumbnail to enable Next." : "Choose brand content or upload a photo or video to enable Next."}</p>}
           {step === 2 && !form.end_time && <p role="status" className="text-sm text-amber-200">Choose an end date to continue.</p>}
           {step < 4 && (
             <button

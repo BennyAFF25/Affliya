@@ -3,8 +3,8 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { createServerSupabaseClient } from "../../../../utils/businessSubscriptions";
-import { getBusinessEntitlement } from "../../../../utils/businessEntitlements";
-import { getAffiliateCampaignFundingReadiness, getCampaignRequiredFundingDollars, validatePaidCampaignTiming } from "../../../../utils/paidCampaignLaunchReadiness";
+import { getBusinessEntitlements } from "../../../../utils/businessEntitlements";
+import { getAffiliateCampaignFundingReadiness, loadCampaignFundingSources, validatePaidCampaignTiming } from "../../../../utils/paidCampaignLaunchReadiness";
 
 import { getWalletBalanceSnapshot } from "../../../../utils/wallet/balance";
 
@@ -44,6 +44,17 @@ export async function GET() {
       new Set((proposals || []).map((proposal: any) => proposal.offer_id).filter(Boolean)),
     );
 
+    const businessEmails = [...new Set((proposals || []).map((proposal: { business_email?: string | null }) => String(proposal.business_email || "").trim().toLowerCase()).filter(Boolean))] as string[];
+    const entitlementsTask = businessEmails.length ? getBusinessEntitlements(admin, businessEmails).catch(error => {
+      console.warn("[affiliate/pending-paid-proposals] entitlement lookup failed", error);
+      return new Map();
+    }) : Promise.resolve(new Map());
+    const sourcesTask = offerIds.length ? loadCampaignFundingSources(admin, affiliateEmail, offerIds as string[])
+      .then(data => ({ data, error: null as unknown }))
+      .catch(error => ({ data: new Map(), error })) : Promise.resolve({ data: new Map(), error: null });
+    const walletTask = offerIds.length ? getWalletBalanceSnapshot(admin, affiliateEmail)
+      .then(data => ({ data, error: null as unknown })).catch(error => ({ data: null, error })) : Promise.resolve({ data: null, error: null });
+
     const { data: offers, error: offerError } = offerIds.length
       ? await admin
           .from("offers")
@@ -55,16 +66,9 @@ export async function GET() {
       throw new Error(`Failed to load proposal offers: ${offerError.message}`);
     }
 
-    const currencyReadiness = await loadPaidCurrencyReadiness(admin, offerIds as string[], offers || []);
-
-    const offerMap = new Map(
-      (offers || []).map((offer: any) => [offer.id, offer]),
-    );
-
-    // Cache promises before awaiting: concurrent cards share in-flight reads.
-    const entitlementCache = new Map<string, Promise<Awaited<ReturnType<typeof getBusinessEntitlement>> | null>>();
-    const fundingCache = new Map<string, Promise<Awaited<ReturnType<typeof getAffiliateCampaignFundingReadiness>> | null>>();
-    let walletSnapshot: ReturnType<typeof getWalletBalanceSnapshot> | undefined;
+    const currencyTask = loadPaidCurrencyReadiness(admin, offerIds as string[], offers || []);
+    const [currencyReadiness, entitlements, sources, wallet] = await Promise.all([currencyTask, entitlementsTask, sourcesTask, walletTask]);
+    const offerMap = new Map((offers || []).map((offer: any) => [offer.id, offer]));
 
     const items = await Promise.all(
       (proposals || []).map(async (proposal: any) => {
@@ -72,30 +76,22 @@ export async function GET() {
         const offerId = String(proposal.offer_id || "");
         const offer = offerMap.get(offerId) as any;
 
-        let entitlementPromise = entitlementCache.get(businessEmail);
-        if (!entitlementPromise) {
-          entitlementPromise = businessEmail
-            ? getBusinessEntitlement({ supabase: admin as never, businessEmail }).catch((error) => {
-                console.warn("[affiliate/pending-paid-proposals] entitlement lookup failed", businessEmail, error);
-                return null;
-              })
-            : Promise.resolve(null);
-          entitlementCache.set(businessEmail, entitlementPromise);
-        }
-
-        const fundingKey = JSON.stringify([offerId, proposal.currency, getCampaignRequiredFundingDollars(proposal)]);
-        let fundingPromise = fundingCache.get(fundingKey);
-        if (!fundingPromise) {
-          if (offerId) walletSnapshot ??= getWalletBalanceSnapshot(admin, affiliateEmail);
-          fundingPromise = getAffiliateCampaignFundingReadiness({
-            supabase: admin, affiliateEmail, offerId, adIdea: proposal, walletSnapshot, currencyReadiness: currencyReadiness(offerId, proposal.currency),
-          }).catch((error) => {
+        const entitlement = entitlements.get(businessEmail);
+        const funding = await (async () => {
+          try {
+            const currency = currencyReadiness(offerId, proposal.currency);
+            if (currency.allowed && (sources.error || wallet.error)) throw sources.error || wallet.error;
+            return await getAffiliateCampaignFundingReadiness({
+              supabase: admin, affiliateEmail, offerId, adIdea: proposal,
+              walletSnapshot: Promise.resolve(wallet.data!),
+              fundingSources: Promise.resolve(sources.data.get(offerId) || { activationSubsidyAvailable: 0, launchFundAvailable: 0 }),
+              currencyReadiness: currency,
+            });
+          } catch (error) {
             console.warn("[affiliate/pending-paid-proposals] funding unavailable", error);
             return null;
-          });
-          fundingCache.set(fundingKey, fundingPromise);
-        }
-        const [entitlement, funding] = await Promise.all([entitlementPromise, fundingPromise]);
+          }
+        })();
         const growthReady = Boolean(
           entitlement && (entitlement.canLaunchCampaign || !entitlement.subscriptionRequired),
         );

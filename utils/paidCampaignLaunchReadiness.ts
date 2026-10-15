@@ -1,6 +1,6 @@
 import { resolveCampaignSchedule } from "./campaignSchedule";
-import { getActivationSubsidyRemaining } from "./activationSubsidies";
-import { getActiveLaunchFundAllocation } from "./launchFund";
+import { getActivationSubsidyRemaining, type ActivationSubsidyRow } from "./activationSubsidies";
+import { expireLaunchFundAllocations, getActiveLaunchFundAllocation, type LaunchFundAllocation } from "./launchFund";
 import { getWalletBalanceSnapshot } from "./wallet/balance";
 
 import { guardPaidCurrency } from "./currency/paidCurrencyGuard";
@@ -55,6 +55,8 @@ export async function getAffiliateCampaignFundingReadiness(params: {
   currencyReadiness?: Awaited<ReturnType<typeof guardPaidCurrency>>;
   /** Request-local canonical wallet snapshot for batch advisory checks only. */
   walletSnapshot?: ReturnType<typeof getWalletBalanceSnapshot>;
+  /** Request-local advisory source batch; strict launch callers omit this. */
+  fundingSources?: Promise<{ activationSubsidyAvailable: number; launchFundAvailable: number }>;
 }): Promise<AffiliateCampaignFundingReadiness> {
   const affiliateEmail = String(params.affiliateEmail || "").trim().toLowerCase();
   const requiredAmount = getCampaignRequiredFundingDollars(params.adIdea);
@@ -78,40 +80,11 @@ export async function getAffiliateCampaignFundingReadiness(params: {
     effectiveFunding: 0, deficit: requiredAmount,
   };
 
-  const wallet = await (params.walletSnapshot ?? getWalletBalanceSnapshot(params.supabase, affiliateEmail));
-
-  const { data: subsidyRows, error: subsidyError } = await params.supabase
-    .from("business_activation_subsidies")
-    .select("id,status,subsidy_amount,consumed_amount,reserved_for_affiliate_email")
-    .eq("offer_id", params.offerId)
-    .eq("reserved_for_affiliate_email", affiliateEmail)
-    .in("status", ["reserved", "partially_consumed"])
-    .limit(1);
-
-  if (subsidyError) {
-    throw new Error(`Failed to load activation subsidy: ${subsidyError.message || subsidyError}`);
-  }
-
-  const activationSubsidyAvailable = getActivationSubsidyRemaining(subsidyRows?.[0] ?? null);
-
-  // Launch Fund is intentionally not reserved at proposal time. Only an allocation
-  // that is still uncommitted to another live campaign contributes to readiness.
-  let launchFundAvailable = 0;
-  try {
-    const allocation = await getActiveLaunchFundAllocation({
-      supabase: params.supabase,
-      affiliateEmail,
-      offerId: params.offerId,
-    });
-    const committedCampaignId = String(allocation?.allocated_for_campaign_id || "").trim();
-    if (allocation && !committedCampaignId) {
-      launchFundAvailable = money(allocation.amount);
-    }
-  } catch (error) {
-    // Launch Fund may not exist in every preview environment. Wallet/subsidy
-    // enforcement remains authoritative if this optional source is unavailable.
-    console.warn("[paid-campaign-funding] launch fund lookup failed", error);
-  }
+  const [wallet, sources] = await Promise.all([
+    params.walletSnapshot ?? getWalletBalanceSnapshot(params.supabase, affiliateEmail),
+    params.fundingSources ?? loadFundingSources(params.supabase, affiliateEmail, params.offerId),
+  ]);
+  const { activationSubsidyAvailable, launchFundAvailable } = sources;
 
   const walletAvailable = money(wallet.availableBalance);
   const effectiveFunding = money(
@@ -128,6 +101,84 @@ export async function getAffiliateCampaignFundingReadiness(params: {
     effectiveFunding,
     deficit,
   };
+}
+
+async function loadFundingSources(supabase: SupabaseLike, affiliateEmail: string, offerId: string) {
+  const { data: subsidyRows, error: subsidyError } = await supabase
+    .from("business_activation_subsidies")
+    .select("id,status,subsidy_amount,consumed_amount,reserved_for_affiliate_email")
+    .eq("offer_id", offerId)
+    .eq("reserved_for_affiliate_email", affiliateEmail)
+    .in("status", ["reserved", "partially_consumed"])
+    .limit(1);
+
+  if (subsidyError) {
+    throw new Error(`Failed to load activation subsidy: ${subsidyError.message || subsidyError}`);
+  }
+
+  const activationSubsidyAvailable = getActivationSubsidyRemaining(subsidyRows?.[0] ?? null);
+
+  // Launch Fund is intentionally not reserved at proposal time. Only an allocation
+  // that is still uncommitted to another live campaign contributes to readiness.
+  let launchFundAvailable = 0;
+  try {
+    const allocation = await getActiveLaunchFundAllocation({
+      supabase,
+      affiliateEmail,
+      offerId,
+    });
+    const committedCampaignId = String(allocation?.allocated_for_campaign_id || "").trim();
+    if (allocation && !committedCampaignId) {
+      launchFundAvailable = money(allocation.amount);
+    }
+  } catch (error) {
+    // Launch Fund may not exist in every preview environment. Wallet/subsidy
+    // enforcement remains authoritative if this optional source is unavailable.
+    console.warn("[paid-campaign-funding] launch fund lookup failed", error);
+  }
+
+  return { activationSubsidyAvailable, launchFundAvailable };
+}
+
+/** Advisory batch: one expiry operation and two reads, independent of offer/budget count. */
+export async function loadCampaignFundingSources(supabase: SupabaseLike, affiliateEmail: string, offerIds: string[]) {
+  const subsidyTask = supabase.from("business_activation_subsidies")
+    .select("offer_id,id,status,subsidy_amount,consumed_amount,reserved_for_affiliate_email")
+    .in("offer_id", offerIds).eq("reserved_for_affiliate_email", affiliateEmail)
+    .in("status", ["reserved", "partially_consumed"]);
+  const allocationTask = (async () => {
+    try {
+      await expireLaunchFundAllocations(supabase);
+      const result = await supabase.from("affiliate_launch_fund_allocations").select("*")
+        .eq("affiliate_email", affiliateEmail).in("allocated_for_offer_id", offerIds)
+        .in("status", ["allocated", "reserved"]).gt("expires_at", new Date().toISOString())
+        .order("allocated_at", { ascending: true });
+      if (result.error) throw result.error;
+      return result.data || [];
+    } catch (error) {
+      console.warn("[paid-campaign-funding] launch fund lookup failed", error);
+      return [];
+    }
+  })();
+  const [subsidies, allocations] = await Promise.all([subsidyTask, allocationTask]);
+  if (subsidies.error) throw new Error(`Failed to load activation subsidy: ${subsidies.error.message}`);
+  const subsidyByOffer = new Map<string, ActivationSubsidyRow>();
+  for (const row of (subsidies.data || []) as ActivationSubsidyRow[]) {
+    if (row.offer_id && !subsidyByOffer.has(row.offer_id)) subsidyByOffer.set(row.offer_id, row);
+  }
+  const allocationByOffer = new Map<string, LaunchFundAllocation>();
+  for (const row of allocations as LaunchFundAllocation[]) {
+    if (row.allocated_for_offer_id && !allocationByOffer.has(row.allocated_for_offer_id)) allocationByOffer.set(row.allocated_for_offer_id, row);
+  }
+  return new Map(offerIds.map(offerId => {
+    const subsidy = subsidyByOffer.get(offerId);
+    // Select the earliest eligible allocation before checking commitment, matching the single-offer helper.
+    const allocation = allocationByOffer.get(offerId);
+    return [offerId, {
+      activationSubsidyAvailable: getActivationSubsidyRemaining(subsidy ?? null),
+      launchFundAvailable: allocation && !String(allocation.allocated_for_campaign_id || "").trim() ? money(allocation.amount) : 0,
+    }];
+  }));
 }
 
 export type CampaignTimingReadiness =

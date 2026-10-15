@@ -78,7 +78,7 @@ async function run() {
   assert.ok(source.indexOf("<PaidCurrencyWarning") < source.indexOf("<AIPromotionPackPanel"));
   for (const route of ["affiliate/pending-paid-proposals", "business/ad-ideas/review-readiness"]) {
     const text = readFileSync(`app/api/${route}/route.ts`, "utf8");
-    assert.match(text, /currencyReadiness: currencyReadiness\(offerId, (proposal|idea).currency\)/);
+    assert.match(text, /currencyReadiness: (currencyReadiness\(offerId, (proposal|idea).currency\)|currency[,\n])/);
   }
   console.log("Segment 1b advisory matrix, constant batch reads, exact account and early/organic warning tests passed");
 }

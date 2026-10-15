@@ -136,6 +136,26 @@ export async function getBusinessEntitlement(params: {
   });
 }
 
+/** Request-local batch with the same missing-row profile fallback as the single lookup. */
+export async function getBusinessEntitlements(supabase: SupabaseClient, emails: string[]) {
+  const { data, error } = await supabase.from('business_entitlements').select('*').in('business_email', emails);
+  if (error) throw new Error(`Failed to load business entitlement: ${error.message}`);
+  const result = new Map<string, BusinessEntitlement | null>(emails.map(email => [email, null]));
+  for (const row of data || []) result.set(row.business_email, evaluateBusinessEntitlement(row));
+  const missing = emails.filter(email => !result.get(email));
+  if (missing.length) {
+    const profiles = await supabase.from('business_profiles').select('id,business_email').in('business_email', missing);
+    if (profiles.error) {
+      console.warn('Failed to load business profile for entitlement fallback:', profiles.error.message);
+      return result;
+    }
+    for (const row of profiles.data || []) result.set(row.business_email, evaluateBusinessEntitlement({
+      business_id: row.id, business_email: row.business_email, billing_status: 'free', is_grandfathered: false, subscription_required: true,
+    }));
+  }
+  return result;
+}
+
 export async function canBusinessLaunchCampaign(params: {
   businessId?: string | null;
   businessEmail?: string | null;

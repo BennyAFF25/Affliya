@@ -1,3 +1,4 @@
+import { validateAdCopy } from "../../../../../utils/meta/adCopyValidation";
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
@@ -21,6 +22,11 @@ export async function POST(req: Request) {
     const offerId = String(input?.offer_id || "");
     if (!/^[0-9a-f-]{36}$/i.test(offerId)) {
       return NextResponse.json({ success: false, message: "Choose a valid offer." }, { status: 400 });
+    }
+
+    const copyErrors = Object.values(validateAdCopy(input)).filter(Boolean);
+    if (copyErrors.length) {
+      return NextResponse.json({ success: false, message: copyErrors.join(" "), errors: copyErrors }, { status: 400 });
     }
 
     const admin = createServerSupabaseClient();

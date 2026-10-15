@@ -90,12 +90,44 @@ async function run() {
     const noop = () => {};
     let saves = 0;
     let resolveSave: (value: boolean) => void = () => {};
-    const props = { form: { campaign_name: 'Proposal', objective: 'OUTCOME_TRAFFIC', budget_type: 'DAILY', budget_amount_dollars: 20, interests: [], placements: {}, location_countries: 'AU', age_min: 18, age_max: 65, start_time: '', end_time: '' }, currency: 'USD', currencyLoading: false,
+    const props = { form: { headline: 'Headline', caption: 'Caption', campaign_name: 'Proposal', objective: 'OUTCOME_TRAFFIC', budget_type: 'DAILY', budget_amount_dollars: 20, interests: [], placements: {}, location_countries: 'AU', age_min: 18, age_max: 65, start_time: '', end_time: '' }, currency: 'USD', currencyLoading: false,
       walletBalance: 15, walletLoading: false, canRunWithWallet: false, walletDeficit: 5, starterSpendRemaining: 0,
       onInput: () => noop, setForm: noop, suggestedLogoUrl: 'https://test.invalid/logo.png', onUseSuggestedLogo: noop,
       handleAdSubmit: () => { saves++; return new Promise<boolean>(resolve => { resolveSave = resolve; }); } };
     const render = () => { stateIndex = 0; const tree = AdCampaignWizard(props); visit(tree); return renderToStaticMarkup(tree); };
     assert.match(render(), /Use brand logo/);
+    const mediaProps = props as typeof props & { imageFile?: object; usingBrandContent?: boolean; selectedBrandCreative?: object };
+    mediaProps.imageFile = {};
+    const controls = () => {
+      stateIndex = 0;
+      const tree = AdCampaignWizard(props);
+      const buttons: { children?: unknown; disabled?: boolean; onClick?: () => void }[] = [];
+      const walk = (node: unknown) => {
+        if (!node || typeof node !== 'object') return;
+        const element = node as { type?: unknown; props?: { children?: unknown; disabled?: boolean; onClick?: () => void } };
+        if (element.type === 'button' && element.props) buttons.push(element.props);
+        const children = element.props?.children;
+        if (Array.isArray(children)) children.forEach(walk); else walk(children);
+      };
+      walk(tree);
+      return buttons;
+    };
+    for (const field of ['headline', 'caption'] as const) {
+      const previous = props.form[field]; props.form[field] = '   ';
+      assert.match(render(), new RegExp(`Enter a ${field} for your ad`));
+      const buttons = controls();
+      assert.equal(buttons.find(button => button.children === 'Next')?.disabled, true);
+      // The fourth step pill must not bypass validation.
+      assert.equal(buttons[3].disabled, true);
+      buttons[3].onClick?.(); assert.equal(states[0], 3);
+      props.form[field] = previous;
+    }
+    assert.equal(controls().find(button => button.children === 'Next')?.disabled, false);
+    mediaProps.usingBrandContent = true; mediaProps.selectedBrandCreative = { id: 'brand', media_url: 'https://test.invalid/image.png', media_type: 'IMAGE' };
+    props.form.headline = '';
+    assert.equal(controls().find(button => button.children === 'Next')?.disabled, true, 'Brand media does not bypass copy validation');
+    props.form.headline = 'Headline';
+
     states = []; step = 4; ref = { current: false };
     render();
     const pending = submitClick!();
