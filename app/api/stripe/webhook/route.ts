@@ -1,3 +1,4 @@
+import { validateAudTopup, flagTopupReview } from "@/../utils/wallet/topupValidation";
 import { recordCurrency, withRecordedCurrency } from '@/../utils/currency/recordCurrency';
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -350,6 +351,12 @@ if (!stripeSecretKey || !endpointSecret) {
             break;
           }
 
+          const sessionIssue = validateAudTopup(session);
+          if (sessionIssue) {
+            await flagTopupReview(supabase as never, session.id, sessionIssue, "/api/stripe/webhook");
+            break;
+          }
+
           const paymentIntentId = session.payment_intent as string | null;
           if (!paymentIntentId) {
             console.warn("[⚠️ checkout.session.completed missing payment_intent]", session.id);
@@ -377,11 +384,16 @@ if (!stripeSecretKey || !endpointSecret) {
           }
 
           const { balanceTx } = paymentDetails;
+          const settlementIssue = validateAudTopup(session, balanceTx);
+          if (settlementIssue) {
+            await flagTopupReview(supabase as never, session.id, settlementIssue, "/api/stripe/webhook");
+            break;
+          }
 
           const grossAmount = +(balanceTx.amount / 100).toFixed(2);
           const fees = +(balanceTx.fee / 100).toFixed(2);
           const stripeNetAmount = +(balanceTx.net / 100).toFixed(2);
-          const creditedAmount = Number(session.metadata?.topup_amount || 0) || grossAmount;
+          const creditedAmount = Number(session.metadata!.topup_amount);
           const nettmarkFeeAmount = Number(session.metadata?.nettmark_fee_amount || 0);
 
           console.log("[✅ Stripe Top-up Details (session source of truth)]", {

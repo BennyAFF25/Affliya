@@ -1,4 +1,6 @@
 'use client';
+
+import { MIN_WALLET_TOPUP_AUD, WALLET_TOPUP_MINIMUM_MESSAGE } from "@/../utils/wallet/topupValidation";
 import React from "react";
 import { campaignStatusDetail } from "../../../utils/wallet/campaignStatus";
 import { type PauseNotice } from "../../../utils/wallet/pauseNotice";
@@ -501,8 +503,8 @@ export default function AffiliateWalletPage() {
       currency,
     });
 
-    if (isNaN(amountInDollars) || amountInDollars <= 0) {
-      alert('Please enter a valid amount greater than $0.');
+    if (!Number.isFinite(amountInDollars) || amountInDollars < MIN_WALLET_TOPUP_AUD) {
+      alert(WALLET_TOPUP_MINIMUM_MESSAGE);
       return;
     }
     if (!billingReady) {
@@ -725,7 +727,8 @@ export default function AffiliateWalletPage() {
               </div>
             ) : null}
             <label htmlFor="wallet-topup-amount" className="mt-4 block text-[11px] font-semibold text-slate-300">Amount to credit ({currency})</label>
-            <input id="wallet-topup-amount" type="number" min="0" step="0.01"
+            <p className="mt-1 text-xs text-slate-400">{WALLET_TOPUP_MINIMUM_MESSAGE}</p>
+            <input id="wallet-topup-amount" type="number" min={MIN_WALLET_TOPUP_AUD} step="0.01"
               placeholder="e.g. 25.00" value={amount} onChange={(event) => setAmount(event.target.value)}
               className="mt-2 w-full rounded-xl border border-white/[0.14] bg-[#101415] px-4 py-3 text-sm text-white outline-none placeholder:text-slate-600 focus:border-[#00C2CB]" />
             <div className="mt-3 rounded-xl border border-white/[0.08] bg-[#101415] p-3 text-xs leading-5 text-slate-300">

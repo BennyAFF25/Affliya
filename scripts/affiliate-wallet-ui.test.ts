@@ -32,7 +32,8 @@ assert.equal(fnv1a(sliceBetween("function calculateChargeOnTopPreview(", "functi
 assert.equal(fnv1a(sliceBetween("    ] = await Promise.all([", "    if (refundsResult.error)").replace(".select('*')", ".select('id, status, billing_state, spend, spend_transferred')")), "fa03b474");
 assert.equal(fnv1a(sliceBetween("  useEffect(() => {\n    const loadBillingStatus", "  const refreshWalletState")), "ef682312");
 assert.equal(fnv1a(sliceBetween("  useEffect(() => {\n    const confirmPendingSession", "  if (session === undefined)")), "cfa2e5dc");
-assert.equal(fnv1a(handler("handleTopUp")), "1e60db74");
+// Approved AUD top-up minimum changes only the top-up handler signature.
+assert.equal(fnv1a(handler("handleTopUp")), "f84af126");
 assert.equal(fnv1a(handler("handleWithdrawAll")), "5a34ac46");
 assert.equal(fnv1a(handler("handleRequestRefund")), "046b7570");
 

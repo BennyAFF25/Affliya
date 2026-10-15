@@ -1,3 +1,4 @@
+import { validateAudTopup, flagTopupReview } from "@/../utils/wallet/topupValidation";
 import { recordCurrency, withRecordedCurrency } from '@/../utils/currency/recordCurrency';
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
@@ -130,6 +131,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Session is not paid yet" }, { status: 409 });
     }
 
+    const sessionIssue = validateAudTopup(session);
+    if (sessionIssue) {
+      await flagTopupReview(supabase as never, session.id, sessionIssue, "/api/stripe/reconcile-topup");
+      return NextResponse.json({ ok: false, credited: false, manualReview: true, reason: sessionIssue });
+    }
+
     const paymentIntentId = typeof session.payment_intent === "string"
       ? session.payment_intent
       : session.payment_intent?.id;
@@ -175,6 +182,12 @@ export async function POST(req: NextRequest) {
       ? await stripe.balanceTransactions.retrieve(balanceTransaction)
       : balanceTransaction;
 
+    const settlementIssue = validateAudTopup(session, balanceTx);
+    if (settlementIssue) {
+      await flagTopupReview(supabase as never, session.id, settlementIssue, "/api/stripe/reconcile-topup");
+      return NextResponse.json({ ok: false, credited: false, manualReview: true, reason: settlementIssue });
+    }
+
     let platformAcctId = "unknown";
     try {
       const platformAccount = await stripe.accounts.retrieve();
@@ -185,7 +198,7 @@ export async function POST(req: NextRequest) {
 
     const grossAmount = +(balanceTx.amount / 100).toFixed(2);
     const fees = +(balanceTx.fee / 100).toFixed(2);
-    const creditedAmount = Number(session.metadata?.topup_amount || 0) || grossAmount;
+    const creditedAmount = Number(session.metadata!.topup_amount);
     const nettmarkFeeAmount = Number(session.metadata?.nettmark_fee_amount || 0);
 
     const creditResult = await creditWalletTopup({

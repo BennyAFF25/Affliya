@@ -1,3 +1,4 @@
+import { MIN_WALLET_TOPUP_AUD, WALLET_TOPUP_MINIMUM_MESSAGE } from "@/../utils/wallet/topupValidation";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
@@ -48,7 +49,7 @@ export async function POST(req: Request) {
 
     const body = await req.json().catch(() => ({}));
     const email = (body?.email || user.email).toString().trim();
-    const currency = (body?.currency || "aud").toString().toLowerCase().trim();
+    const currency = "aud";
     const amountRaw = body?.amount;
     const amountNumber = typeof amountRaw === "number" ? amountRaw : Number(amountRaw);
 
@@ -57,6 +58,10 @@ export async function POST(req: Request) {
     }
     if (!Number.isFinite(amountNumber) || amountNumber <= 0) {
       return NextResponse.json({ error: "Invalid amount" }, { status: 400 });
+    }
+
+    if (amountNumber < MIN_WALLET_TOPUP_AUD) {
+      return NextResponse.json({ error: WALLET_TOPUP_MINIMUM_MESSAGE }, { status: 400 });
     }
 
     const { data: affiliateProfile, error: affiliateError } = await supabase
@@ -103,6 +108,7 @@ export async function POST(req: Request) {
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
+      adaptive_pricing: { enabled: false },
       customer_email: email,
       line_items: [
         {
