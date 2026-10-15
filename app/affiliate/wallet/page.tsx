@@ -167,6 +167,7 @@ export default function AffiliateWalletPage() {
   const { settings, isLoading: settingsLoading } = useUserSettings();
 
   const [amount, setAmount] = useState('');
+  const [topupMinimumError, setTopupMinimumError] = useState(false);
   const [currency, setCurrency] = useState('AUD');
   const [loading, setLoading] = useState(false);
   const [walletData, setWalletData] = useState<WalletTopup[]>([]);
@@ -504,7 +505,7 @@ export default function AffiliateWalletPage() {
     });
 
     if (!Number.isFinite(amountInDollars) || amountInDollars < MIN_WALLET_TOPUP_AUD) {
-      alert(WALLET_TOPUP_MINIMUM_MESSAGE);
+      setTopupMinimumError(true);
       return;
     }
     if (!billingReady) {
@@ -727,9 +728,15 @@ export default function AffiliateWalletPage() {
               </div>
             ) : null}
             <label htmlFor="wallet-topup-amount" className="mt-4 block text-[11px] font-semibold text-slate-300">Amount to credit ({currency})</label>
-            <p className="mt-1 text-xs text-slate-400">{WALLET_TOPUP_MINIMUM_MESSAGE}</p>
+            <p id="wallet-topup-minimum" role={topupMinimumError ? "alert" : undefined}
+              className={topupMinimumError ? "mt-1 text-xs text-amber-300" : "mt-1 text-xs text-slate-400"}>{WALLET_TOPUP_MINIMUM_MESSAGE}</p>
             <input id="wallet-topup-amount" type="number" min={MIN_WALLET_TOPUP_AUD} step="0.01"
-              placeholder="e.g. 25.00" value={amount} onChange={(event) => setAmount(event.target.value)}
+              aria-describedby="wallet-topup-minimum" aria-invalid={topupMinimumError}
+              placeholder="e.g. 25.00" value={amount} onChange={(event) => {
+                const value = event.target.value;
+                setAmount(value);
+                setTopupMinimumError(!Number.isFinite(parseFloat(value)) || parseFloat(value) < MIN_WALLET_TOPUP_AUD);
+              }}
               className="mt-2 w-full rounded-xl border border-white/[0.14] bg-[#101415] px-4 py-3 text-sm text-white outline-none placeholder:text-slate-600 focus:border-[#00C2CB]" />
             <div className="mt-3 rounded-xl border border-white/[0.08] bg-[#101415] p-3 text-xs leading-5 text-slate-300">
               <p className="font-semibold">Fee preview</p>

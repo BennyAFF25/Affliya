@@ -112,7 +112,11 @@ async function main() {
   }
   const ui = fs.readFileSync('app/affiliate/wallet/page.tsx', 'utf8');
   assert.match(ui, /amountInDollars < MIN_WALLET_TOPUP_AUD/);
-  assert.match(ui, /alert\(WALLET_TOPUP_MINIMUM_MESSAGE\)/);
+  assert.doesNotMatch(ui, /alert\(WALLET_TOPUP_MINIMUM_MESSAGE\)/);
+  assert.match(ui, /if \(!Number.isFinite\(amountInDollars\) \|\| amountInDollars < MIN_WALLET_TOPUP_AUD\) \{\s*setTopupMinimumError\(true\);\s*return;/);
+  assert.match(ui, /aria-describedby="wallet-topup-minimum" aria-invalid=\{topupMinimumError\}/);
+  assert.match(ui, /id="wallet-topup-minimum" role=\{topupMinimumError \? "alert" : undefined\}/);
+  assert.match(ui, /setTopupMinimumError\(!Number.isFinite\(parseFloat\(value\)\) \|\| parseFloat\(value\) < MIN_WALLET_TOPUP_AUD\)/);
   console.log('AUD top-up: mocked creation, minimum, both credit routes/RPC/fallback, review guards passed.');
 }
 void main().catch(error => { originalError(error); process.exitCode = 1; }).finally(() => {

@@ -36,7 +36,8 @@ const original = loader._load;
 loader._load = function(name, parent, isMain) {
   if (name === '@supabase/auth-helpers-nextjs') return { createRouteHandlerClient: () => db };
   if (name === 'next/headers') return { cookies: () => ({}) };
-  if (name.endsWith('utils/businessSubscriptions')) return { createServerSupabaseClient: () => db };
+  if (name.endsWith('utils/supabase/createServerClient')) return { createServerSupabaseClient: () => db };
+  assert.ok(!/^(stripe|.*\/businessSubscriptions|.*\/utils\/stripe)$/.test(name), `Badge path must not load heavy payment module: ${name}`);
   return original.call(this, name, parent, isMain);
 };
 globalThis.fetch = async () => { throw new Error('No network permitted'); };
@@ -114,6 +115,11 @@ async function checkClientFetchCount() {
 
 async function run() {
   try {
+    const routeSource = readFileSync('app/api/affiliate/pending-paid-proposals/route.ts', 'utf8');
+    assert.doesNotMatch(routeSource, /from ["'].*(?:businessSubscriptions|stripe)["']/);
+    const factorySource = readFileSync('utils/supabase/createServerClient.ts', 'utf8');
+    assert.deepEqual([...factorySource.matchAll(/from ["']([^"']+)["']/g)].map(match => match[1]), ['@supabase/supabase-js']);
+    assert.match(factorySource, /auth: \{ persistSession: false \}/);
     const { GET } = requireMocked('../app/api/affiliate/pending-paid-proposals/route');
     const check = async () => {
       Object.keys(reads).forEach(key => delete reads[key]); rpcReads = 0;

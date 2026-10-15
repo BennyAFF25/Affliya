@@ -1,6 +1,6 @@
 import Stripe from "stripe";
 import { formatGrowthPrice } from "./businessOnboardingFunnel";
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { SupabaseClient } from "@supabase/supabase-js";
 import {
   BusinessBillingStatus,
   BusinessEntitlement,
@@ -195,16 +195,7 @@ export function buildBusinessSubscriptionMetadata(params: {
   });
 }
 
-export function createServerSupabaseClient() {
-  const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!url || !serviceRoleKey) {
-    throw new Error("Missing Supabase server env for business subscription operations");
-  }
-
-  return createClient(url, serviceRoleKey, { auth: { persistSession: false } });
-}
+export { createServerSupabaseClient } from "./supabase/createServerClient";
 
 export async function getOwnedBusinessForUser(params: {
   supabase: SupabaseClient;

@@ -2,7 +2,7 @@ import { loadPaidCurrencyReadiness } from "../../../../utils/currency/paidCurren
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
-import { createServerSupabaseClient } from "../../../../utils/businessSubscriptions";
+import { createServerSupabaseClient } from "../../../../utils/supabase/createServerClient";
 import { getBusinessEntitlements } from "../../../../utils/businessEntitlements";
 import { getAffiliateCampaignFundingReadiness, loadCampaignFundingSources, validatePaidCampaignTiming } from "../../../../utils/paidCampaignLaunchReadiness";
 
