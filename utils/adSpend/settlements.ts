@@ -1,3 +1,4 @@
+import { guardPaidCurrency } from "../currency/paidCurrencyGuard";
 import crypto from "crypto";
 import { buildNettmarkStripeMetadata, createStripeClient, getPlatformBalanceSnapshot } from "../stripe";
 import { getActivationSubsidyRemaining, toMoney, type ActivationSubsidyRow } from "../activationSubsidies";
@@ -377,6 +378,13 @@ export async function settleAdSpendLedger(params: {
     };
   }
 
+  const currency = await guardPaidCurrency({ supabase, liveAdId });
+  if (!currency.allowed) {
+    console.warn("[ad-spend] settlement skipped: PAID_CURRENCY_BLOCKED", { liveAdId, reason: currency.reason });
+    return { success: true, error: "PAID_CURRENCY_BLOCKED", liveAdId, spend,
+      transferredBefore, transferredAfter: transferredBefore, unpaidBefore, unpaidAfter: unpaidBefore,
+      chargedAmount: 0, message: currency.message! };
+  }
   const walletSnapshot = await getWalletBalanceSnapshot(supabase as never, affiliateEmail);
   const availableBalanceBefore = roundMoney(walletSnapshot.availableBalance);
   const reservedSubsidy = await findReservedActivationSubsidy(supabase, {
@@ -761,6 +769,12 @@ export async function processAdSpendTransferBatches(params: {
 
   const groups = new Map<string, AdSpendSettlementRow[]>();
   for (const row of rows) {
+    const currency = await guardPaidCurrency({ supabase, liveAdId: row.live_ad_id });
+    if (!currency.allowed) {
+      console.warn("[ad-spend] reimbursement skipped: PAID_CURRENCY_BLOCKED", { settlementId: row.id, reason: currency.reason });
+      await markTransferBlocked(supabase, [row.id], `${currency.message} (${currency.reason})`);
+      continue;
+    }
     const key = `${row.business_id || ""}::${row.business_email || ""}`;
     const group = groups.get(key) || [];
     if (group.length < config.batchMaxRows) group.push(row);

@@ -80,7 +80,7 @@ export async function GET() {
           entitlementCache.set(businessEmail, entitlementPromise);
         }
 
-        const fundingKey = JSON.stringify([offerId, getCampaignRequiredFundingDollars(proposal)]);
+        const fundingKey = JSON.stringify([offerId, proposal.currency, getCampaignRequiredFundingDollars(proposal)]);
         let fundingPromise = fundingCache.get(fundingKey);
         if (!fundingPromise) {
           if (offerId) walletSnapshot ??= getWalletBalanceSnapshot(admin, affiliateEmail);
@@ -98,7 +98,7 @@ export async function GET() {
         );
 
         const timing = validatePaidCampaignTiming(proposal);
-        const state = proposal.meta_campaign_id ? "meta_cleanup_required" : !timing.ok ? "timing_update_required" : !funding ? "funding_unavailable" : !growthReady
+        const state = funding?.currencyBlock ? "currency_blocked" : proposal.meta_campaign_id ? "meta_cleanup_required" : !timing.ok ? "timing_update_required" : !funding ? "funding_unavailable" : !growthReady
           ? "waiting_for_business"
           : !funding.ready
             ? "funding_required"
@@ -115,6 +115,7 @@ export async function GET() {
           createdAt: proposal.created_at,
           state,
           timingMessage: timing.ok ? null : timing.message,
+          currencyBlock: funding?.currencyBlock || null,
           growthReady,
           funding: funding ? {
             ready: funding.ready,

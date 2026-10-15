@@ -58,7 +58,6 @@ export default function BusinessOnboardingPage() {
   const [commissionPercent, setCommissionPercent] = useState("");
   const [description, setDescription] = useState("");
   const [currency, setCurrency] = useState("AUD");
-  const currencyTouched = useRef(false);
   const newBusinessPlanFirst = session?.user?.user_metadata?.business_plan_first_v2 === true;
   const [planChecked, setPlanChecked] = useState(false);
   const [participationMode, setParticipationMode] = useState<
@@ -100,25 +99,6 @@ export default function BusinessOnboardingPage() {
       .catch(() => { if (active) router.replace("/business/choose-plan"); });
     return () => { active = false; };
   }, [isLoading, session?.user?.email, newBusinessPlanFirst, router]);
-
-  useEffect(() => {
-    if (!session?.user?.email) return;
-    let active = true;
-    void supabase.from("business_profiles").select("country")
-      .eq("business_email", session.user.email).limit(1).maybeSingle()
-      .then(({ data }) => {
-        if (!active || currencyTouched.current) return;
-        const country = String(data?.country || "").toUpperCase();
-        const locale = typeof navigator === "undefined" ? "" : navigator.language.toUpperCase();
-        const selected = country === "AU" || (!country && locale.endsWith("-AU")) ? "AUD"
-          : country === "NZ" || (!country && locale.endsWith("-NZ")) ? "NZD"
-          : country === "US" || (!country && locale.endsWith("-US")) ? "USD"
-          : country === "GB" || (!country && locale.endsWith("-GB")) ? "GBP"
-          : "AUD";
-        setCurrency(selected);
-      });
-    return () => { active = false; };
-  }, [session?.user?.email]);
 
   const parseIdList = (value: string) =>
     value
@@ -620,7 +600,7 @@ export default function BusinessOnboardingPage() {
                         Currency
                         <select
                           value={currency}
-                          onChange={(e) => { currencyTouched.current = true; setCurrency(e.target.value); }}
+                          onChange={(e) => { setCurrency(e.target.value); }}
                           className={inputClass}
                         >
                           <option value="USD">USD</option>

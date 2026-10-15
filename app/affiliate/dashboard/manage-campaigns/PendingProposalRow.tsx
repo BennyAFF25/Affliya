@@ -1,4 +1,5 @@
 "use client";
+import { PAID_CURRENCY_BLOCK_MESSAGE } from "../../../../utils/currency/paidCurrencyMessage";
 import React from "react";
 import { formatMoney } from "../../../../utils/currency";
 import { Badge, Button } from "../../../../components/ui";
@@ -15,7 +16,8 @@ export type PendingProposal = {
   objective?: string | null;
   currency?: string | null;
   createdAt?: string | null;
-  state: "loading" | "waiting_for_business" | "funding_required" | "funded_waiting_for_business" | "funding_unavailable" | "timing_update_required" | "meta_cleanup_required";
+  currencyBlock?: string | null;
+  state: "currency_blocked" | "loading" | "waiting_for_business" | "funding_required" | "funded_waiting_for_business" | "funding_unavailable" | "timing_update_required" | "meta_cleanup_required";
   timingMessage?: string | null;
   growthReady: boolean;
   funding: {
@@ -30,18 +32,18 @@ export function PendingProposalRow({ proposal }: { proposal: PendingProposal }) 
   const funded = proposal.state === "funded_waiting_for_business";
   const timingUpdate = proposal.state === "timing_update_required";
   const metaCleanup = proposal.state === "meta_cleanup_required";
-  const crossCurrency = proposal.kind === "paid" && !!proposal.currency && proposal.currency.toUpperCase() !== "AUD";
+  const crossCurrency = proposal.kind === "paid" && (proposal.state === "currency_blocked" || (!!proposal.currency && proposal.currency.toUpperCase() !== "AUD"));
   const showCurrencyWarning = crossCurrency && proposal.state !== "loading" && !timingUpdate && !metaCleanup;
   const title = proposal.campaignName || proposal.title || proposal.offerTitle;
 
-  const statusLabel = showCurrencyWarning ? "CURRENCY REVIEW NEEDED" : proposal.kind === "organic" ? proposal.businessViewedAt ? "VIEWED" : "PENDING REVIEW" : proposal.state === "loading" ? "Checking status…" : metaCleanup ? "META RECOVERY NEEDED" : timingUpdate ? "SCHEDULE UPDATE NEEDED" : proposal.state === "funding_unavailable" ? "FUNDING NOT CHECKED" : fundingRequired
+  const statusLabel = showCurrencyWarning ? "PAID LAUNCH BLOCKED" : proposal.kind === "organic" ? proposal.businessViewedAt ? "VIEWED" : "PENDING REVIEW" : proposal.state === "loading" ? "Checking status…" : metaCleanup ? "META RECOVERY NEEDED" : timingUpdate ? "SCHEDULE UPDATE NEEDED" : proposal.state === "funding_unavailable" ? "FUNDING NOT CHECKED" : fundingRequired
     ? "FUNDING REQUIRED"
     : funded
       ? "FUNDED"
       : "WAITING FOR BUSINESS";
 
   const description = showCurrencyWarning
-    ? `Campaign budget is in ${proposal.currency}; the wallet is AUD. The current funding check compares numeric amounts without currency conversion. Funding needs currency review before launch.`
+    ? PAID_CURRENCY_BLOCK_MESSAGE
     : proposal.kind === "organic" ? "Organic proposal sent for business review. No ad funding is required." : proposal.state === "loading" ? "Proposal saved. Checking campaign readiness…" : metaCleanup
     ? "This proposal has a saved Meta campaign from an earlier launch attempt. The brand needs to check that attempt and recover any incomplete setup in Nettmark before trying again. You do not need to resubmit or add funds to fix this. Contact the brand through your Nettmark inbox if it remains unresolved."
     : timingUpdate
@@ -70,7 +72,7 @@ export function PendingProposalRow({ proposal }: { proposal: PendingProposal }) 
               {proposal.offerTitle}
             </span>
             <span className="rounded-full border border-white/[0.07] bg-white/[0.02] px-2.5 py-1">
-              {proposal.state === "loading" ? "Checking status…" : proposal.funding ? crossCurrency ? `Current wallet check: ${formatMoney(proposal.funding.requiredAmount)} (no FX conversion)` : `Required at launch: ${formatMoney(proposal.funding.requiredAmount)}` : "Funding not checked"}
+              {proposal.state === "loading" ? "Checking status…" : proposal.funding ? crossCurrency ? "Paid launch blocked" : `Required at launch: ${formatMoney(proposal.funding.requiredAmount)}` : "Funding not checked"}
             </span>
             {proposal.createdAt ? (
               <span className="rounded-full border border-white/[0.07] bg-white/[0.02] px-2.5 py-1">

@@ -76,7 +76,7 @@ function CreateOfferPageInner() {
   const [type, setType] = useState<"one-time" | "recurring">("one-time");
   const [price, setPrice] = useState("");
   const [commissionValue, setCommissionValue] = useState(0);
-  const [currency, setCurrency] = useState("USD");
+  const [currency, setCurrency] = useState("AUD");
   const [participationMode, setParticipationMode] = useState<"open" | "approval_required" | "private">("open");
   const [conversionScope, setConversionScope] = useState<
     "store_wide" | "specific_products"

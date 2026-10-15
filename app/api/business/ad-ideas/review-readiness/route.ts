@@ -120,9 +120,8 @@ export async function GET() {
             ]);
 
           const timing = validatePaidCampaignTiming(idea);
-          const configuration = validateLaunchProposal(idea, {
+          const configuration = validateLaunchProposal({ ...idea, currency: idea.currency ?? offerResult.data?.currency }, {
             currency: String(offerResult.data?.currency || ""),
-            requireMedia: true,
           });
           const offerOwned = Boolean(
             offerResult.data?.id && offerResult.data.business_email === user.email,
@@ -143,6 +142,7 @@ export async function GET() {
           if (subscriptionRequired && !subscriptionReady)
             blockers.push("BUSINESS_GROWTH_REQUIRED");
           if (!billingReady) blockers.push("BUSINESS_BILLING_REQUIRED");
+          if (funding.currencyBlock) blockers.push("PAID_CURRENCY_BLOCKED");
           if (!funding.ready)
             blockers.push("AFFILIATE_CAMPAIGN_FUNDING_REQUIRED");
           if (!metaReady) blockers.push("META_SETUP_REQUIRED");
@@ -159,6 +159,7 @@ export async function GET() {
               alreadyLive,
               partialMetaState,
               blockers,
+              currencyBlock: funding.currencyBlock || null,
               funding: {
                 ready: funding.ready,
                 requiredAmount: funding.requiredAmount,

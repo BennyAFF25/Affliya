@@ -114,7 +114,7 @@ async function run() {
     assert.match(render(), /Campaign not submitted: Upload failed/);
     const { PendingProposalRow } = requireMocked('../app/affiliate/dashboard/manage-campaigns/PendingProposalRow');
     const card = renderToStaticMarkup(React.createElement(PendingProposalRow, { proposal: { id: 'proposal', kind: 'paid', state: 'funding_required', currency: 'USD', offerTitle: 'Brand', funding: { requiredAmount: 20, deficit: 5 } } }));
-    assert.match(card, /CURRENCY REVIEW NEEDED/); assert.match(card, /no FX conversion/);
+    assert.match(card, /PAID LAUNCH BLOCKED/); assert.match(card, /Paid launches currently support AUD ad accounts only; multi-currency support is coming/);
     assert.doesNotMatch(card, /Add AUD|Required at launch|Top up wallet/);
     console.log('Round 6 offline first-participation, notification failure, submit/loading/error/retry, logo, currency and targeting regressions passed');
   } finally { loader._load = original; delete process.env.META_TARGETING_SEARCH_TOKEN; }

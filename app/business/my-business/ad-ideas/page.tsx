@@ -30,6 +30,7 @@ type ReviewReadiness = {
       alreadyLive?: boolean;
       partialMetaState?: boolean;
       blockers?: string[];
+      currencyBlock?: string | null;
       funding?: { ready: boolean; requiredAmount: number; deficit: number };
       meta?: { ready: boolean; pageReady: boolean; adAccountReady: boolean };
       tracking?: { ready: boolean; error?: string | null };
@@ -172,6 +173,7 @@ export default function AdIdeasPage() {
     if (isCampaignReady(id)) return { label: "Ready to launch", tone: "ready" };
 
     const blockers = campaignReadiness(id)?.blockers || [];
+    if (blockers.includes("PAID_CURRENCY_BLOCKED")) return { label: campaignReadiness(id)?.currencyBlock || "Paid launch blocked", tone: "setup" };
     if (blockers.length === 1 && blockers[0] === "AFFILIATE_CAMPAIGN_FUNDING_REQUIRED") {
       return { label: "Waiting on affiliate", tone: "waiting" };
     }

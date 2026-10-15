@@ -3,9 +3,12 @@ import { getActivationSubsidyRemaining } from "./activationSubsidies";
 import { getActiveLaunchFundAllocation } from "./launchFund";
 import { getWalletBalanceSnapshot } from "./wallet/balance";
 
+import { guardPaidCurrency } from "./currency/paidCurrencyGuard";
+
 type SupabaseLike = any;
 
 type AdIdeaFundingInput = {
+  currency?: string | null;
   budget_amount?: number | string | null;
   daily_budget?: number | string | null;
 };
@@ -17,6 +20,7 @@ type AdIdeaTimingInput = {
 };
 
 export type AffiliateCampaignFundingReadiness = {
+  currencyBlock?: string | null;
   ready: boolean;
   requiredAmount: number;
   walletAvailable: number;
@@ -64,6 +68,13 @@ export async function getAffiliateCampaignFundingReadiness(params: {
       deficit: requiredAmount,
     };
   }
+
+  const currency = await guardPaidCurrency(params);
+  if (!currency.allowed) return {
+    ready: false, currencyBlock: currency.message, requiredAmount,
+    walletAvailable: 0, activationSubsidyAvailable: 0, launchFundAvailable: 0,
+    effectiveFunding: 0, deficit: requiredAmount,
+  };
 
   const wallet = await (params.walletSnapshot ?? getWalletBalanceSnapshot(params.supabase, affiliateEmail));
 

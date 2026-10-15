@@ -75,6 +75,7 @@ type CampaignReadiness = {
   alreadyLive?: boolean;
   partialMetaState?: boolean;
   blockers?: string[];
+  currencyBlock?: string | null;
   funding?: { ready: boolean; requiredAmount: number; deficit: number };
   meta?: { ready: boolean; pageReady: boolean; adAccountReady: boolean };
   tracking?: { ready: boolean; error?: string | null };
@@ -622,6 +623,7 @@ export default function AdIdeaProposalDetailPage() {
     if (!timingReady) {
       return { label: "Timing update required", className: "border-amber-400/25 bg-amber-400/10 text-amber-300" };
     }
+    if (campaignReadiness?.currencyBlock) return { label: "Paid launch blocked", className: "border-amber-400/25 bg-amber-400/10 text-amber-300" };
     if (!fundingReady) {
       return { label: "Waiting on affiliate", className: "border-[#57c7d1]/25 bg-[#57c7d1]/10 text-[#8ce5ed]" };
     }
@@ -629,6 +631,7 @@ export default function AdIdeaProposalDetailPage() {
   })();
 
   const affiliateStatus = (() => {
+    if (campaignReadiness?.currencyBlock) return { title: "Paid launch blocked", body: campaignReadiness.currencyBlock };
     if (fundingReady) {
       return {
         title: "Campaign funding ready",
@@ -889,9 +892,9 @@ export default function AdIdeaProposalDetailPage() {
                     <Clock3 className="h-5 w-5" />
                   </div>
                   <div>
-                    <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8ce5ed]">You&apos;re ready</div>
-                    <h2 className="mt-1 text-xl font-bold">Waiting on the affiliate</h2>
-                    <p className="mt-1.5 text-sm leading-6 text-slate-400">Your setup is complete. Nettmark is handling campaign funding with the affiliate, so there&apos;s nothing else you need to do right now.</p>
+                    <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#8ce5ed]">{campaignReadiness?.currencyBlock ? "Currency support" : "You’re ready"}</div>
+                    <h2 className="mt-1 text-xl font-bold">{campaignReadiness?.currencyBlock ? "Paid launch blocked" : "Waiting on the affiliate"}</h2>
+                    <p className="mt-1.5 text-sm leading-6 text-slate-400">{campaignReadiness?.currencyBlock || "Your setup is complete. Nettmark is handling campaign funding with the affiliate, so there’s nothing else you need to do right now."}</p>
                   </div>
                 </div>
               ) : allReady ? (

@@ -1,5 +1,7 @@
 import { SupabaseClient } from "@supabase/supabase-js";
 
+import { guardPaidCurrency } from "./currency/paidCurrencyGuard";
+
 export const DEFAULT_LAUNCH_FUND_AMOUNT = 10;
 export const DEFAULT_LAUNCH_FUND_CURRENCY = "aud";
 export const DEFAULT_LAUNCH_FUND_EXPIRY_DAYS = 14;
@@ -321,6 +323,8 @@ export async function markLaunchFundCampaignWentLive(params: {
   offerId: string;
   liveAdId: string;
 }) {
+  const currency = await guardPaidCurrency({ supabase: params.supabase, liveAdId: params.liveAdId });
+  if (!currency.allowed) return { marked: false, reason: currency.message };
   const allocation = await getActiveLaunchFundAllocation({
     supabase: params.supabase,
     affiliateEmail: params.affiliateEmail,
@@ -401,6 +405,8 @@ export async function redeemLaunchFundForSettlement(params: {
   amount: number;
   settlementKey: string;
 }) {
+  const currency = await guardPaidCurrency({ supabase: params.supabase, liveAdId: params.liveAdId });
+  if (!currency.allowed) return { redeemed: false, reason: currency.message };
   const amount = roundMoney(params.amount);
   if (!params.allocationId || amount <= 0) return { redeemed: false, reason: "no_promotional_amount" };
 

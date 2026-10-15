@@ -1,4 +1,5 @@
 import { resolveCampaignSchedule } from "../../../../../utils/campaignSchedule";
+import { checkPaidCurrency } from "../../../../../utils/currency/paidCurrencyGuard";
 import { validateLaunchProposal, buildSavedMetaCreative, buildSavedMetaTargeting } from "../../../../../utils/meta/campaignConfiguration";
 /// app/api/meta/callback/upload-video/route.ts
 if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -239,7 +240,7 @@ export async function POST(req: Request) {
         {
           success: false,
           error: "AFFILIATE_CAMPAIGN_FUNDING_REQUIRED",
-          message: `Affiliate campaign funding is short by ${fundingReady.deficit.toFixed(2)}.`,
+          message: fundingReady.currencyBlock || `Affiliate campaign funding is short by ${fundingReady.deficit.toFixed(2)}.`,
           funding: { requiredAmount: fundingReady.requiredAmount, deficit: fundingReady.deficit },
         },
         { status: 409 },
@@ -286,7 +287,7 @@ export async function POST(req: Request) {
     // Same campaign intent contract used when the affiliate submitted it.
     // Run before creating ANY remote Meta resources, never silently alter
     // the selected audience, budget, creative or other business-approved data.
-    const intentCheck = validateLaunchProposal(adIdea as any, {
+    const intentCheck = validateLaunchProposal({ ...adIdea, currency: (adIdea as any).currency ?? (offer as any).currency } as any, {
       currency: String((offer as any).currency || ""),
     });
     if (!intentCheck.ok) {
@@ -407,13 +408,9 @@ export async function POST(req: Request) {
     }
 
     const { access_token } = connection as any;
-    const metaCurrency = String((connection as any).ad_account_currency || "").trim().toUpperCase();
-    const proposalCurrency = String((adIdea as any).currency || (offer as any).currency || "").trim().toUpperCase();
-    if (metaCurrency && proposalCurrency !== metaCurrency) {
-      return NextResponse.json({
-        success: false, error: "META_CURRENCY_MISMATCH", stage: "configuration",
-        message: "The campaign currency does not match the connected Meta ad account. Update the business connection before approving.",
-      }, { status: 409 });
+    const currencyGuard = checkPaidCurrency((adIdea as any).currency, (offer as any).currency, (connection as any).ad_account_currency);
+    if (!currencyGuard.allowed) {
+      return NextResponse.json({ success: false, error: "PAID_CURRENCY_BLOCKED", message: currencyGuard.message }, { status: 409 });
     }
     cleanupAccessToken = access_token || null;
 

@@ -18,6 +18,8 @@ import {
 } from "../../../../../utils/paidCampaignLaunchReadiness";
 import { POST as uploadCampaignToMeta } from "../../../meta/callback/upload-video/route";
 
+import { guardPaidCurrency } from "../../../../../utils/currency/paidCurrencyGuard";
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -136,9 +138,12 @@ export async function POST(req: Request) {
       );
     }
 
+    const currencyGuard = await guardPaidCurrency({ supabase: admin, offerId, adIdea: idea });
+    if (!currencyGuard.allowed) return jsonError("PAID_CURRENCY_BLOCKED", currencyGuard.message!, 409);
+
     // Fail before marking the proposal approved or creating ANY Meta resources.
     // This same launch contract drives the business readiness UI and Meta builder.
-    const configuration = validateLaunchProposal(idea, { currency: String(offer.currency || "") });
+    const configuration = validateLaunchProposal({ ...idea, currency: idea.currency ?? offer.currency }, { currency: String(offer.currency || "") });
     if (!configuration.ok) {
       return jsonError("CAMPAIGN_CONFIGURATION_INVALID", configuration.errors[0], 409, {
         errors: configuration.errors,

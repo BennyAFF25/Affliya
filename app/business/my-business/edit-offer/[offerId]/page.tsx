@@ -98,7 +98,7 @@ export default function EditOfferPage() {
   const [commission, setCommission] = useState("");
   const [type, setType] = useState("one-time");
   const [price, setPrice] = useState("");
-  const [currency, setCurrency] = useState("USD");
+  const [currency, setCurrency] = useState("AUD");
   const [participationMode, setParticipationMode] = useState<"open" | "approval_required" | "private">("open");
   const [commissionValue, setCommissionValue] = useState("");
   const [payoutMode, setPayoutMode] = useState<"upfront" | "spread">("upfront");
@@ -179,7 +179,7 @@ export default function EditOfferPage() {
       setDescription(data.description || "");
       setCommission(data.commission?.toString() || "");
       setPrice(data.price != null ? data.price.toString() : "");
-      setCurrency(data.currency || "USD");
+      setCurrency(data.currency || "AUD");
       setParticipationMode((data.participation_mode as "open" | "approval_required" | "private") || "open");
       setType(data.type || "one-time");
       setCommissionValue(
