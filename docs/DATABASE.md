@@ -36,6 +36,14 @@ Never infer the live schema from this document. `types/supabase.ts` explicitly c
 - August recurring-term, activation-subsidy, first-party onboarding, and content-library migrations extend offers and promotion paths; content migration creates `product_events`.
 - September participation mode, submission-view tracking, storage policies, and legacy billing-entry migration refine access and onboarding.
 
+## Currency Segment 2: prepared money-record metadata
+
+`supabase/migrations/20261015120000_currency_seg2_money_record_currency.sql` prepares nullable `text` columns `currency` and `currency_source` on public tables `wallet_topups`, `wallet_refunds`, `wallet_deductions`, `wallet_payouts`, `wallets`, `ad_spend_settlements`, `live_ads`, `conversions`, `recurring_commission_instances`, and `business_activation_subsidies`.
+
+`currency` means the ISO 4217 code of the amount columns on that row; its CHECK permits NULL or exactly three uppercase ASCII letters (format only, not registry membership). `currency_source` permits NULL or `verified`, `inferred`, `unresolved`. NULL means not yet recorded; future segments will set these fields from evidence. Both columns have no default. There is no AUD backfill, amount conversion, index, RLS or function change, and no application behaviour change in this segment. This prepared migration has not been applied or verified against a database here.
+
+Manual undo: `supabase/undo/20261015120000_currency_seg2_money_record_currency.undo.sql`, deliberately outside `supabase/migrations/` so it cannot be discovered there as a forward migration, without relying on CLI subfolder handling. It transactionally drops both named constraints and columns with `IF EXISTS`; running it after future writes would discard that metadata. Neither script is executed as part of this work.
+
 ## Verification required
 
 Confirm applied migration history, full DDL, policies/grants, storage buckets, core indexes, and actual foreign keys before database work. Browser inserts depend on RLS; service-role handlers and `SECURITY DEFINER` triggers need separate authorization review. Nullable stable links do not eliminate email joins. Source-event payout uniqueness protects one event's cycles; it does not by itself deduplicate repeated external orders recorded as different events.
