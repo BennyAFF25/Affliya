@@ -44,6 +44,12 @@ Never infer the live schema from this document. `types/supabase.ts` explicitly c
 
 Manual undo: `supabase/undo/20261015120000_currency_seg2_money_record_currency.undo.sql`, deliberately outside `supabase/migrations/` so it cannot be discovered there as a forward migration, without relying on CLI subfolder handling. It transactionally drops both named constraints and columns with `IF EXISTS`; running it after future writes would discard that metadata. Neither script is executed as part of this work.
 
+## Currency Segment 3: prepared capability registry
+
+`supabase/migrations/20261015130000_currency_seg3_registry.sql` prepares `public.currency_registry`: uppercase three-letter primary key, name, minor-unit exponent (0–4), optional symbol/notes, seven capability flags defaulting false, and creation/update timestamps. There is no update trigger. AUD enables all capabilities to mirror current AUD-only containment; USD, GBP, CAD, EUR, NZD, TRY and JPY enable offer display only. JPY has exponent 0; the others have exponent 2. Unknown codes and disabled capabilities fail closed; display eligibility does not enable money movement. Seed conflicts preserve existing rows.
+
+RLS permits SELECT for anon/authenticated, with no INSERT/UPDATE/DELETE policies (service-role writes only). No existing-table foreign keys, backfill or runtime integration is added. `utils/currency/registry.ts` is a typed seed mirror with a pure capability helper, not a live database reader. No application path consumes it yet. Manual transactional undo: `supabase/undo/20261015130000_currency_seg3_registry.undo.sql` drops the table and any future registry contents. Neither script has been applied or database-verified here.
+
 ## Verification required
 
 Confirm applied migration history, full DDL, policies/grants, storage buckets, core indexes, and actual foreign keys before database work. Browser inserts depend on RLS; service-role handlers and `SECURITY DEFINER` triggers need separate authorization review. Nullable stable links do not eliminate email joins. Source-event payout uniqueness protects one event's cycles; it does not by itself deduplicate repeated external orders recorded as different events.
