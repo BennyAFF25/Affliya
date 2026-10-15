@@ -237,7 +237,7 @@ export default function AffiliateManageCampaignsPage() {
       return {
         id: row.id,
         _source: "meta" as const,
-        display_title: creative?.title || offerTitle || row.caption || row.ad_name || "Meta ad campaign",
+        display_title: offerTitle || creative?.title || row.caption || row.ad_name || "Meta ad campaign",
         caption: row.caption,
         status: row.status,
         created_at: row.created_at,
@@ -282,6 +282,7 @@ export default function AffiliateManageCampaignsPage() {
         const row = paidMeta.find((item) => item.id === id);
         if (row) void syncSpendForPaidMeta(row);
       }}
+      pendingLoading={pendingLoading}
       pendingCount={pendingError || pendingLoading ? null : pendingProposals.length}
       unsettledSpend={totalUnpaidSpend}
       availableWalletBalance={availableWalletBalance}

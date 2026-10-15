@@ -67,6 +67,7 @@ type Props = SharedProps & (
   | {
       audience: "affiliate";
       pendingCount: number | null;
+      pendingLoading?: boolean;
       unsettledSpend: number;
       availableWalletBalance?: number | null;
       pendingContent: ReactNode;
@@ -500,7 +501,7 @@ export default function ManageCampaignsWorkspace(props: Props) {
               >
                 <span className="flex min-w-0 items-center gap-3">
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#00c2cb]/10 text-[#00c2cb]"><Megaphone className="h-5 w-5" /></span>
-                  <span className="min-w-0"><span className="block text-sm font-semibold text-white">Pending proposals</span><span className="mt-0.5 block text-[11px] text-[#94a3b8]/75">{props.pendingCount === null ? "Proposals temporarily unavailable" : props.pendingCount + " submissions awaiting business review"}</span></span>
+                  <span className="min-w-0"><span className="block text-sm font-semibold text-white">Pending proposals</span><span className="mt-0.5 block text-[11px] text-[#94a3b8]/75">{props.pendingLoading ? "Loading proposals…" : props.pendingCount === null ? "Proposals temporarily unavailable" : props.pendingCount + " submissions awaiting business review"}</span></span>
                 </span>
                 <ChevronDown className={pendingOpen ? "h-4 w-4 shrink-0 rotate-180 text-[var(--muted-foreground)]" : "h-4 w-4 shrink-0 text-[var(--muted-foreground)]"} />
               </button>
