@@ -54,7 +54,8 @@
     "test:currency-seg2-schema": "node --import tsx scripts/currency-seg2-schema.test.ts",
     "test:wallet-topup-aud": "tsx scripts/wallet-topup-aud.test.ts",
     "test:currency-seg6-rpc-currency": "node --import tsx scripts/currency-seg6-rpc-currency.test.ts",
-    "test:currency-seg7-balances": "node --import tsx scripts/currency-seg7-balances.test.ts"
+    "test:currency-seg7-balances": "node --import tsx scripts/currency-seg7-balances.test.ts",
+    "test:currency-seg8-historical": "node --import tsx scripts/currency-seg8-historical.test.ts"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.2",
