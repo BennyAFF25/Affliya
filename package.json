@@ -46,7 +46,8 @@
     "test:test-user-findings-round-3": "tsx scripts/test-user-findings-round-3.test.ts && tsx scripts/test-user-findings-round-3-routes.test.ts && tsx scripts/test-user-findings-round-3-readiness.test.ts",
     "test:test-user-findings-round-4": "tsx scripts/test-user-findings-round-4-ui.test.ts && tsx scripts/test-user-findings-round-4-routes.test.ts",
     "test:currency-seg1": "tsx scripts/currency-seg1-containment.test.ts",
-    "test:currency-seg1b": "tsx scripts/currency-seg1b.test.ts"
+    "test:currency-seg1b": "tsx scripts/currency-seg1b.test.ts",
+    "test:currency-seg1c": "tsx scripts/currency-seg1c.test.ts"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.2",

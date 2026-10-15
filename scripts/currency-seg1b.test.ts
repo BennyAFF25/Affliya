@@ -68,11 +68,11 @@ async function run() {
     assert.equal(html.includes("PAID LAUNCH BLOCKED"), blocked, id);
     assert.equal(html.includes("WAITING FOR BUSINESS"), !blocked, id);
   }
-  for (const mode of ["ad", "organic"] as const) for (const allowsPaid of [true, false]) {
-    const html = renderToStaticMarkup(React.createElement(PaidCurrencyWarning, { currency: "GBP", allowsPaid, mode }));
-    assert.equal(html.includes('role="alert"'), mode === "ad" && allowsPaid);
+  for (const mode of ["ad", "organic"] as const) {
+    const html = renderToStaticMarkup(React.createElement(PaidCurrencyWarning, { currency: "GBP", mode }));
+    assert.equal(html.includes('role="alert"'), mode === "ad");
   }
-  assert.equal(renderToStaticMarkup(React.createElement(PaidCurrencyWarning, { currency: "AUD", allowsPaid: true, mode: "ad" })), "");
+  assert.equal(renderToStaticMarkup(React.createElement(PaidCurrencyWarning, { currency: "AUD", mode: "ad" })), "");
   const source = readFileSync("app/affiliate/dashboard/promote/[offerId]/page.tsx", "utf8");
   assert.ok(source.indexOf("setOfferCurrency(String(offer?.currency") < source.indexOf('const { data: requestRow }'));
   assert.ok(source.indexOf("<PaidCurrencyWarning") < source.indexOf("<AIPromotionPackPanel"));

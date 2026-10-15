@@ -1,9 +1,9 @@
 import React from "react";
 import { PAID_CURRENCY_BLOCK_MESSAGE } from "../../../../../utils/currency/paidCurrencyMessage";
 
-/** Uses offer-fetch state only; wallet, reach and participation loads never delay this. */
-export function PaidCurrencyWarning({ currency, allowsPaid, mode }: { currency: string; allowsPaid: boolean; mode: "ad" | "organic" }) {
+/** Paid mode is explicit; missing brand Meta setup is not an offer permission. */
+export function PaidCurrencyWarning({ currency, mode }: { currency: string; mode: "ad" | "organic" }) {
   const normalized = currency.trim().toUpperCase();
-  if (mode !== "ad" || !allowsPaid || !normalized || normalized === "AUD") return null;
-  return <p role="alert" className="mx-auto mb-4 max-w-6xl text-sm text-amber-300">{PAID_CURRENCY_BLOCK_MESSAGE}</p>;
+  if (mode !== "ad" || !normalized || normalized === "AUD") return null;
+  return <p role="alert" className="mx-auto mb-4 max-w-6xl text-sm text-amber-300">{PAID_CURRENCY_BLOCK_MESSAGE} You can submit a proposal, but it cannot launch until multi-currency support is available.</p>;
 }

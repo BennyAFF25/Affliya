@@ -77,7 +77,6 @@ export default function PromoteOfferPage() {
   const [sessionError,setSessionError]=useState<string|null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [currencyLoading, setCurrencyLoading] = useState(true);
-  const [offerAllowsPaid, setOfferAllowsPaid] = useState(false);
   const [offerCurrency, setOfferCurrency] = useState<string>("");
   useEffect(()=>{if(session?.user?.email && !draftOwner.current)draftOwner.current={id:session.user.id,email:session.user.email};},[session?.user?.id,session?.user?.email]);
   const userEmail=session?.user?.email || draftOwner.current?.email || "";
@@ -454,7 +453,6 @@ export default function PromoteOfferPage() {
     const go = async () => {
       setCurrencyLoading(true);
       setOfferCurrency("");
-      setOfferAllowsPaid(false);
       // 1) Offer core fields
       let { data: offer, error: offerErr } = await (supabase as any)
         .from("offers")
@@ -480,7 +478,6 @@ export default function PromoteOfferPage() {
 
       // Preview title + logo
       setBrandName(offer?.title || "Your Brand Name");
-      setOfferAllowsPaid(Boolean(offer?.meta_page_id && offer?.meta_ad_account_id));
       setOfferCurrency(String(offer?.currency || "").trim().toUpperCase());
       setCurrencyLoading(false);
       setBrandLogoUrl(offer?.logo_url || null);
@@ -1479,7 +1476,7 @@ export default function PromoteOfferPage() {
       <nav aria-label="Promotion navigation" className="mx-auto mb-6 max-w-6xl">
         <PromotionBackLink fromOnboarding={searchParams.get("source") === "onboarding"} mode={mode} />
       </nav>
-      <PaidCurrencyWarning currency={offerCurrency} allowsPaid={offerAllowsPaid} mode={mode} />
+      <PaidCurrencyWarning currency={offerCurrency} mode={mode} />
       <div
         className={
           mode === "ad"
