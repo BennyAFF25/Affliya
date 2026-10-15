@@ -9,9 +9,10 @@ import type { AdFormState } from "../app/affiliate/dashboard/promote/types";
 const loadMocked = createRequire(__filename);
 const loader = Module as unknown as { _load: (name: string, parent: unknown, isMain: boolean) => unknown };
 const original = loader._load;
+let wizardStep = 4;
 loader._load = function (name, parent, isMain) {
   if (name.includes("MetaInterestPicker")) return { MetaInterestPicker: () => null };
-  if (name === "react") return { ...React, useState: (initial: unknown) => React.useState(initial === 1 ? 4 : initial) };
+  if (name === "react") return { ...React, useState: (initial: unknown) => React.useState(initial === 1 ? wizardStep : initial) };
   return original.call(this, name, parent, isMain);
 };
 
@@ -36,15 +37,31 @@ try {
   for (const currency of ["USD", "GBP", "CAD", "AUD"]) {
     // No brand Meta Page/account: warning depends only on offer currency and selected mode.
     const offer = { currency, meta_page_id: null, meta_ad_account_id: null };
+    wizardStep = 4;
     for (const mode of ["ad", "organic"] as const) {
       const early = renderToStaticMarkup(React.createElement(PaidCurrencyWarning, { currency: offer.currency, mode }));
       assert.equal(early.includes('role="alert"'), mode === "ad" && currency !== "AUD", `${currency} ${mode} early`);
     }
     const review = renderToStaticMarkup(React.createElement(AdCampaignWizard, { ...props, currency: offer.currency }));
-    assert.equal(review.includes("Paid launches currently support AUD"), currency !== "AUD", `${currency} review`);
+    // Mirror the page composition: the page owns the early warning and the wizard is Ad-only.
+    for (const step of [1, 2, 3, 4]) {
+      wizardStep = step;
+      for (const mode of ["ad", "organic"] as const) {
+        const promotion = renderToStaticMarkup(React.createElement(React.Fragment, null,
+          React.createElement(PaidCurrencyWarning, { currency: offer.currency, mode }),
+          mode === "ad" ? React.createElement(AdCampaignWizard, { ...props, currency: offer.currency }) : null,
+        ));
+        assert.equal((promotion.match(/Paid launches currently support AUD/g) || []).length,
+          mode === "ad" && currency !== "AUD" ? 1 : 0, `${currency} ${mode} step ${step}: exactly one warning when applicable`);
+      }
+    }
     if (currency !== "AUD") {
-      assert.match(review, /cannot launch until multi-currency support is available/);
-      assert.ok(review.indexOf('role="alert"') < review.indexOf("Submit Campaign Proposal"));
+      const promotion = renderToStaticMarkup(React.createElement(React.Fragment, null,
+        React.createElement(PaidCurrencyWarning, { currency: offer.currency, mode: "ad" }),
+        React.createElement(AdCampaignWizard, { ...props, currency: offer.currency }),
+      ));
+      assert.match(promotion, /cannot launch until multi-currency support is available/);
+      assert.ok(promotion.indexOf('role="alert"') < promotion.indexOf("Submit Campaign Proposal"));
     }
     const submit = review.match(/<button[^>]*>Submit Campaign Proposal<\/button>/)?.[0];
     assert.ok(submit, "Final submit action rendered");

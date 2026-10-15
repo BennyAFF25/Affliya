@@ -10,7 +10,6 @@ import {
   Disclosure,
 } from "./AdFormFields";
 import { INPUT } from "../constants";
-import { PaidCurrencyWarning } from "./PaidCurrencyWarning";
 import { MetaInterestPicker } from "./MetaInterestPicker";
 
 interface AdCampaignWizardProps {
@@ -1108,7 +1107,6 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
       </div>
 
       <div className="px-4 sm:px-8 py-5 border-t border-[#232323] bg-[#111111]">
-        {step === 4 && <PaidCurrencyWarning currency={currency} mode="ad" />}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           {step > 1 && (
             <button
