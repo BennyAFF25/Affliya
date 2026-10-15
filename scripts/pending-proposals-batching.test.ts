@@ -7,6 +7,7 @@ import { formatAUD } from '../utils/currency';
 let email: string | null = 'affiliate@test.invalid';
 let failFunding = false, failEntitlement = false;
 let entitlements = 0, fundingReads = 0, walletReads = 0, adminReads = 0;
+let offerReads = 0, connectionReads = 0;
 const proposals = Array.from({ length: 14 }, (_, i) => ({
   id: String(i), offer_id: i < 12 ? 'offer-a' : 'offer-b',
   affiliate_email: email, business_email: 'business@test.invalid', status: 'pending',
@@ -16,6 +17,8 @@ const db = {
   auth: { getUser: async () => ({ data: { user: email ? { email } : null }, error: null }) },
   from(table: string) {
     adminReads++;
+    if (table === "offers") offerReads++;
+    if (table === "meta_connections") connectionReads++;
     const query = {
       select: () => query,
       eq: (column: string, value: string) => {
@@ -24,7 +27,7 @@ const db = {
       },
       order: () => query, in: () => query,
       then: (resolve: (value: unknown) => unknown) => Promise.resolve({
-        data: table === 'ad_ideas' ? proposals : [{ id: 'offer-a', title: 'Brand' }, { id: 'offer-b', title: 'Other' }], error: null,
+        data: table === 'ad_ideas' ? proposals : table === 'meta_connections' ? [] : [{ id: 'offer-a', title: 'Brand', currency: 'AUD', business_email: 'business@test.invalid' }, { id: 'offer-b', title: 'Other', currency: 'AUD', business_email: 'business@test.invalid' }], error: null,
       }).then(resolve),
     };
     return query;
@@ -48,8 +51,10 @@ loader._load = function(name, parent, isMain) {
   if (name.endsWith('utils/paidCampaignLaunchReadiness')) return {
     getCampaignRequiredFundingDollars: (idea: { budget_amount: number }) => idea.budget_amount / 100,
     validatePaidCampaignTiming: () => ({ ok: true }),
-    getAffiliateCampaignFundingReadiness: async (params: { affiliateEmail: string; offerId: string; adIdea: { budget_amount: number }; walletSnapshot: Promise<{ availableBalance: number }> }) => {
+    getAffiliateCampaignFundingReadiness: async (params: { affiliateEmail: string; offerId: string; adIdea: { budget_amount: number }; currencyReadiness: { allowed: boolean; message: string | null }; walletSnapshot: Promise<{ availableBalance: number }> }) => {
       fundingReads++;
+      assert.equal(params.currencyReadiness.allowed, true, "Missing connection is ordinary readiness for AUD");
+      assert.equal(params.currencyReadiness.message, null);
       assert.equal(params.affiliateEmail, email);
       const wallet = await params.walletSnapshot;
       if (failFunding) throw new Error('Mock funding unavailable');
@@ -64,11 +69,13 @@ async function run() {
   try {
     const { GET } = loadMockedModule('../app/api/affiliate/pending-paid-proposals/route') as { GET: () => Promise<Response> };
     const check = async () => {
-      entitlements = fundingReads = walletReads = 0;
+      entitlements = fundingReads = walletReads = offerReads = connectionReads = 0;
       const response = await GET();
       assert.equal(response.status, 200);
       const body = await response.json();
-      assert.equal(body.proposals.length, 14);
+      assert.equal(body.proposals.length, proposals.length);
+      assert.equal(offerReads, 1);
+      assert.equal(connectionReads, 1, "Currency connection reads remain batched");
       assert.equal(entitlements, 1);
       assert.equal(fundingReads, 3, 'Shared offer/budget reads deduplicated; different budgets/offers independent');
       assert.equal(walletReads, 1);
@@ -79,6 +86,10 @@ async function run() {
     assert.equal(rows[11].state, 'funding_required');
     assert.equal(rows[11].funding.requiredAmount, 20);
     await check(); // Caches must not survive requests.
+    const originals = [...proposals];
+    proposals.push(...originals.flatMap((row, i) => Array.from({ length: 9 }, (_, j) => ({ ...row, id: `extra-${i}-${j}` }))));
+    await check(); // 140 proposals still use one offer query and one connection query.
+    proposals.splice(14);
     failFunding = true;
     rows = await check();
     assert.ok(rows.every((row: { state: string }) => row.state === 'funding_unavailable'));

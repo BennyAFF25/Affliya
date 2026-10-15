@@ -1,3 +1,4 @@
+import { loadPaidCurrencyReadiness } from "../../../../utils/currency/paidCurrencyGuard";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
@@ -46,13 +47,15 @@ export async function GET() {
     const { data: offers, error: offerError } = offerIds.length
       ? await admin
           .from("offers")
-          .select("id,title,business_email")
+          .select("id,title,business_email,currency,meta_page_id,meta_ad_account_id")
           .in("id", offerIds)
       : { data: [], error: null };
 
     if (offerError) {
       throw new Error(`Failed to load proposal offers: ${offerError.message}`);
     }
+
+    const currencyReadiness = await loadPaidCurrencyReadiness(admin, offerIds as string[], offers || []);
 
     const offerMap = new Map(
       (offers || []).map((offer: any) => [offer.id, offer]),
@@ -85,7 +88,7 @@ export async function GET() {
         if (!fundingPromise) {
           if (offerId) walletSnapshot ??= getWalletBalanceSnapshot(admin, affiliateEmail);
           fundingPromise = getAffiliateCampaignFundingReadiness({
-            supabase: admin, affiliateEmail, offerId, adIdea: proposal, walletSnapshot,
+            supabase: admin, affiliateEmail, offerId, adIdea: proposal, walletSnapshot, currencyReadiness: currencyReadiness(offerId, proposal.currency),
           }).catch((error) => {
             console.warn("[affiliate/pending-paid-proposals] funding unavailable", error);
             return null;

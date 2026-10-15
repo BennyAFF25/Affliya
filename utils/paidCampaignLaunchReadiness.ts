@@ -51,7 +51,9 @@ export async function getAffiliateCampaignFundingReadiness(params: {
   affiliateEmail: string;
   offerId: string;
   adIdea: AdIdeaFundingInput;
-  /** Request-local canonical snapshot for batch advisory checks only. */
+  /** Advisory endpoints only. Omit at launch/money boundaries to keep strict enforcement. */
+  currencyReadiness?: Awaited<ReturnType<typeof guardPaidCurrency>>;
+  /** Request-local canonical wallet snapshot for batch advisory checks only. */
   walletSnapshot?: ReturnType<typeof getWalletBalanceSnapshot>;
 }): Promise<AffiliateCampaignFundingReadiness> {
   const affiliateEmail = String(params.affiliateEmail || "").trim().toLowerCase();
@@ -69,7 +71,7 @@ export async function getAffiliateCampaignFundingReadiness(params: {
     };
   }
 
-  const currency = await guardPaidCurrency(params);
+  const currency = params.currencyReadiness ?? await guardPaidCurrency(params);
   if (!currency.allowed) return {
     ready: false, currencyBlock: currency.message, requiredAmount,
     walletAvailable: 0, activationSubsidyAvailable: 0, launchFundAvailable: 0,

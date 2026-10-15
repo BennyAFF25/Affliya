@@ -1,3 +1,4 @@
+import { loadPaidCurrencyReadiness } from "../../../../../utils/currency/paidCurrencyGuard";
 import { NextResponse } from "next/server";
 import { validateLaunchProposal } from "../../../../../utils/meta/campaignConfiguration";
 import { cookies } from "next/headers";
@@ -85,6 +86,8 @@ export async function GET() {
     const subscriptionReady = Boolean(entitlement?.canLaunchCampaign);
     const billingReady = Boolean(payment.hasPaymentMethod);
 
+    const currencyReadiness = await loadPaidCurrencyReadiness(admin, (ideasResult.data || []).map((idea: { offer_id?: unknown }) => String(idea.offer_id || "")));
+
     const campaignEntries = await Promise.all(
       (ideasResult.data || []).map(async (idea: any) => {
         const offerId = String(idea.offer_id || "");
@@ -107,6 +110,7 @@ export async function GET() {
                 affiliateEmail,
                 offerId,
                 adIdea: idea,
+                currencyReadiness: currencyReadiness(offerId, idea.currency),
               }),
               getExistingPaidCampaignLaunch({
                 supabase: admin,

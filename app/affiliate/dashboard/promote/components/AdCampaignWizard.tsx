@@ -1,5 +1,4 @@
 "use client";
-import { PAID_CURRENCY_BLOCK_MESSAGE } from "../../../../../utils/currency/paidCurrencyMessage";
 
 import React, { useMemo, useRef, useState } from "react";
 import { nmToast } from "@/components/ui/toast";
@@ -185,7 +184,6 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
 
   return (
     <div className="relative bg-[#141414] border border-[#232323] rounded-2xl shadow-xl overflow-hidden w-full max-w-full mx-auto">
-      {currency && currency !== "AUD" && <p role="alert" className="text-sm text-amber-300">{PAID_CURRENCY_BLOCK_MESSAGE}</p>}
 
       <div className="px-4 sm:px-8 py-5 border-b border-[#232323] bg-gradient-to-r from-[#101616] to-[#121212]">
         <div className="flex items-start sm:items-center justify-between gap-3">

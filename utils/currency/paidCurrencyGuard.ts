@@ -43,3 +43,43 @@ export async function guardPaidCurrency(params: { supabase: any; offerId?: strin
     return { ...checkPaidCurrency(null, null, null), reason: error instanceof Error ? error.message : "currency_lookup_failed" };
   }
 }
+
+/** Advisory only: absent account setup belongs to normal readiness, not currency copy. */
+export function checkPaidCurrencyReadiness(proposalCurrency: unknown, offerCurrency: unknown, accountCurrency?: unknown) {
+  const result = checkPaidCurrency(proposalCurrency, offerCurrency, accountCurrency);
+  if (result.reason === "missing_meta_account_currency") {
+    return { ...result, allowed: true, reason: null, message: null };
+  }
+  return result;
+}
+
+/** Two reads regardless of proposal count; callers may reuse their existing offer batch. */
+export async function loadPaidCurrencyReadiness(supabase: any, offerIds: string[], existingOffers?: any[]) {
+  const ids = [...new Set(offerIds.filter(Boolean))];
+  const offersResult = existingOffers ? { data: existingOffers, error: null } : ids.length
+    ? await supabase.from("offers").select("id,currency,business_email,meta_page_id,meta_ad_account_id").in("id", ids)
+    : { data: [], error: null };
+  if (offersResult.error) throw new Error("offer_currency_lookup_failed");
+  const offers = offersResult.data || [];
+  const emails = [...new Set(offers.map((offer: any) => offer.business_email).filter(Boolean))];
+  const connectionsResult = emails.length
+    ? await supabase.from("meta_connections").select("business_email,page_id,ad_account_id,ad_account_currency,created_at")
+      .in("business_email", emails).order("created_at", { ascending: false })
+    : { data: [], error: null };
+  if (connectionsResult.error) throw new Error("meta_currency_lookup_failed");
+  const contexts = new Map<string, { offerCurrency: unknown; accountCurrency: unknown }>();
+  for (const offer of offers) {
+    const rows = (connectionsResult.data || []).filter((row: any) => row.business_email === offer.business_email);
+    const unique = (key: string) => [...new Set(rows.map((row: any) => String(row[key] || "").trim()).filter(Boolean))];
+    const pages = unique("page_id"), accounts = unique("ad_account_id");
+    const page = String(offer.meta_page_id || "").trim() || (pages.length === 1 ? pages[0] : null);
+    const account = String(offer.meta_ad_account_id || "").trim() || (accounts.length === 1 ? accounts[0] : null);
+    const connection = page && account ? rows.find((row: any) => row.page_id === page && row.ad_account_id === account) : null;
+    contexts.set(offer.id, { offerCurrency: offer.currency, accountCurrency: connection?.ad_account_currency });
+  }
+  return (offerId: string, proposalCurrency: unknown) => {
+    const context = contexts.get(offerId);
+    if (!context) return checkPaidCurrencyReadiness(null, null);
+    return checkPaidCurrencyReadiness(proposalCurrency, context.offerCurrency, context.accountCurrency);
+  };
+}
