@@ -69,6 +69,7 @@ export default function AffiliateManageCampaignsPage() {
   const [offerNameById, setOfferNameById] = useState<Record<string, string>>(
     {},
   );
+  const [offerTitlesLoading, setOfferTitlesLoading] = useState(true);
   const [creativeByIdeaId, setCreativeByIdeaId] = useState<Record<string, { title: string; previewUrl: string | null }>>({});
 
   const [availableWalletBalance, setAvailableWalletBalance] = useState<number | null>(null);
@@ -78,6 +79,7 @@ export default function AffiliateManageCampaignsPage() {
     const generation = ++loadGeneration.current;
     const current = () => loadGeneration.current === generation;
     setLoading(true);
+    setOfferTitlesLoading(true);
     setError(null);
     setPendingError(null);
     setPendingLoading(true);
@@ -121,7 +123,8 @@ export default function AffiliateManageCampaignsPage() {
             const titles = Object.fromEntries(((data || []) as { id: string; title: string }[]).map(row => [row.id, row.title]));
             setOfferNameById(titles);
             setPendingProposals(rows => rows.map(row => ({ ...row, offerTitle: titles[row.offerId] || row.offerTitle })));
-          }).catch(() => { /* Keep stored proposals and fallback titles available. */ });
+          }).catch(() => { /* Keep stored proposals and fallback titles available. */ })
+            .finally(() => { if (current()) setOfferTitlesLoading(false); });
           if (!current()) return;
           setCreativeByIdeaId(Object.fromEntries(submissions.filter(item => item.kind === "paid")
             .map(item => [item.id, { title: item.title, previewUrl: item.previewUrl }])));
@@ -136,7 +139,7 @@ export default function AffiliateManageCampaignsPage() {
             setPendingProposals(rows => rows.map(row => row.kind === "paid" ? { ...row, state: "funding_unavailable", ...byId.get(row.id) } : row));
           });
         } catch {
-          if (current()) setPendingError("Your proposals could not be loaded. Please try again.");
+          if (current()) { setPendingError("Your proposals could not be loaded. Please try again."); setOfferTitlesLoading(false); }
         } finally {
           if (current()) setPendingLoading(false);
         }
@@ -147,7 +150,7 @@ export default function AffiliateManageCampaignsPage() {
       setLoading(false);
       await submissionsTask;
     } catch (error) {
-      if (current()) { setError(error instanceof Error ? error.message : "Failed to load campaigns."); setPendingError("Your proposals could not be loaded. Please try again."); setPendingLoading(false); }
+      if (current()) { setOfferTitlesLoading(false); setError(error instanceof Error ? error.message : "Failed to load campaigns."); setPendingError("Your proposals could not be loaded. Please try again."); setPendingLoading(false); }
     } finally {
       if (current()) setLoading(false);
     }
@@ -240,6 +243,7 @@ export default function AffiliateManageCampaignsPage() {
       return {
         id: row.id,
         _source: "meta" as const,
+        titleLoading: Boolean(row.offer_id && !offerTitle && offerTitlesLoading),
         display_title: offerTitle || creative?.title || row.caption || row.ad_name || "Meta ad campaign",
         caption: row.caption,
         status: row.status,
@@ -258,6 +262,7 @@ export default function AffiliateManageCampaignsPage() {
     ...organic.map((row) => ({
       id: row.id,
       _source: "organic" as const,
+      titleLoading: Boolean(row.offer_id && !offerNameById[row.offer_id] && offerTitlesLoading),
       display_title: (row.offer_id ? offerNameById[row.offer_id] : null)
         || (row.platform ? row.platform + " organic post" : "Organic promotion"),
       caption: row.caption,
@@ -267,7 +272,7 @@ export default function AffiliateManageCampaignsPage() {
       type: row.type,
       status: row.status || "live",
     })),
-  ], [pauseNotices, paidMeta, organic, offerNameById, creativeByIdeaId]);
+  ], [pauseNotices, paidMeta, organic, offerNameById, offerTitlesLoading, creativeByIdeaId]);
 
   const totalUnpaidSpend = paidMeta.reduce((sum, row) =>
     sum + Math.max(0, Number(row.spend || 0) - Number(row.spend_transferred || 0)), 0);

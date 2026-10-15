@@ -21,6 +21,7 @@ export type Campaign = {
   _source: "meta" | "organic";
   caption?: string | null;
   display_title?: string | null;
+  titleLoading?: boolean;
   media_url?: string | null;
   platform?: string | null;
   type?: string | null;
@@ -129,9 +130,12 @@ function CampaignIdentity({ campaign, audience }: { campaign: Campaign; audience
         <Link
           href={(audience === "affiliate" ? "/affiliate/dashboard/manage-campaigns/" : "/business/manage-campaigns/") + campaign.id}
           className="block truncate text-[13px] font-semibold text-slate-100 transition hover:text-[#5fe6ec]"
-          title={title}
+          title={campaign.titleLoading ? undefined : title}
+          aria-label={campaign.titleLoading ? "Loading campaign title" : undefined}
         >
-          {title}
+          {campaign.titleLoading ? (
+            <span aria-hidden="true" className="block h-4 w-40 max-w-full animate-pulse rounded bg-white/[0.08]" />
+          ) : title}
         </Link>
         <span className="mt-1 block truncate font-mono text-[10px] text-[#94a3b8]/75">
           {"#" + campaign.id.slice(0, 8)}

@@ -15,6 +15,9 @@ const description = 'Affiliates fund and run Meta ads for your brand. You approv
 let states: unknown[] = [], index = 0;
 let effects: (() => unknown)[] = [];
 let fail = false;
+let offerRows = true;
+let releaseTitles: (() => void) | undefined;
+let titlesReady: Promise<void> = Promise.resolve();
 const selections: string[] = [];
 const db = {
   auth: { getSession: async () => ({ data: { session: { user: { email: 'affiliate@test.invalid' } } } }) },
@@ -24,12 +27,12 @@ const db = {
       select(value: string) { columns = value; if (table === 'offers') selections.push(value); return query; },
       eq: () => query, order: () => query, range: () => query, abortSignal: () => query, in: () => query,
       then(resolve: (value: unknown) => unknown) {
-        const rows = table === 'offers' ? [{ id: 'offer', title, description }]
+        const rows = table === 'offers' ? (offerRows ? [{ id: 'offer', title, description }] : [])
           : table === 'live_ads' ? [{ id: '66f13993', offer_id: 'offer', ad_idea_id: 'idea', caption: description, status: 'archived' }]
           : table === 'ad_ideas' ? [{ id: 'idea', offer_id: 'offer', headline: description, status: 'pending' }] : [];
         // Respect the select projection: missing title must fail this regression.
         const data = rows.map(row => columns === '*' ? row : Object.fromEntries(Object.entries(row).filter(([key]) => columns.split(',').includes(key))));
-        return Promise.resolve({ data, error: fail && table === 'ad_ideas' ? new Error('fixture failure') : null }).then(resolve);
+        return (table === 'offers' ? titlesReady : Promise.resolve()).then(() => ({ data, error: fail && table === 'ad_ideas' ? new Error('fixture failure') : null })).then(resolve);
       },
     };
     return query;
@@ -57,11 +60,29 @@ async function run() {
     let html = renderToStaticMarkup(React.createElement(Workspace, initial.props));
     assert.match(html, /Loading proposals…/);
     assert.doesNotMatch(html, /Proposals temporarily unavailable/);
+    titlesReady = new Promise(resolve => { releaseTitles = resolve; });
     effects[1]();
+    await new Promise(resolve => setImmediate(resolve));
+    const awaitingTitles = render();
+    assert.equal(awaitingTitles.props.loading, false, 'Campaigns do not wait for title enrichment');
+    for (const campaign of awaitingTitles.props.campaigns) assert.equal(campaign.titleLoading, true);
+    html = renderToStaticMarkup(React.createElement(Workspace, awaitingTitles.props));
+    assert.match(html, /Loading campaign title/);
+    assert.match(html, /animate-pulse/);
+    const campaignLinks = html.match(/<a\b[^>]*href="\/affiliate\/dashboard\/manage-campaigns\/[^"]*"[^>]*>[\s\S]*?<\/a>/g) || [];
+    assert.ok(campaignLinks.length >= 2, 'Mobile and desktop campaign titles render');
+    for (const link of campaignLinks.filter(link => !link.includes('View campaign'))) {
+      assert.match(link, /Loading campaign title/);
+      assert.doesNotMatch(link, /Affiliates fund and run Meta ads for your brand/);
+    }
+    releaseTitles!();
     await new Promise(resolve => setImmediate(resolve));
     const loaded = render();
     assert.deepEqual(selections, ['id,title'], 'One batched query selects every offer field consumed by rows');
-    for (const campaign of loaded.props.campaigns) assert.equal(campaign.display_title, title);
+    for (const campaign of loaded.props.campaigns) {
+      assert.equal(campaign.display_title, title);
+      assert.equal(campaign.titleLoading, false);
+    }
     const proposal = loaded.props.pendingContent[0].props.proposal;
     assert.equal(proposal.offerTitle, title);
     assert.match(renderToStaticMarkup(React.createElement(PendingProposalRow, { proposal })), /Nettmark Partner Programme/);
@@ -78,6 +99,16 @@ async function run() {
       html = renderToStaticMarkup(React.createElement(Workspace, loaded.props));
       assert.match(html, /Nettmark Partner Programme/, 'Archived tab retains the offer title');
     } finally { React.useState = useState; }
+    states = []; offerRows = false;
+    render(); effects[1]();
+    await new Promise(resolve => setImmediate(resolve));
+    const withoutTitle = render();
+    const paid = withoutTitle.props.campaigns.find((campaign: { id: string }) => campaign.id === '66f13993');
+    assert.equal(paid.titleLoading, false);
+    assert.equal(paid.display_title, description);
+    html = renderToStaticMarkup(React.createElement(Workspace, withoutTitle.props));
+    assert.match(html, /Affiliates fund and run Meta ads for your brand/);
+    assert.doesNotMatch(html, /Loading campaign title/);
     states = []; fail = true;
     render(); effects[1]();
     await new Promise(resolve => setImmediate(resolve));
