@@ -1,3 +1,4 @@
+import { recordCampaignCurrency, withRecordedCurrency } from '../currency/recordCurrency';
 import { guardPaidCurrency } from "../currency/paidCurrencyGuard";
 import crypto from "crypto";
 import { buildNettmarkStripeMetadata, createStripeClient, getPlatformBalanceSnapshot } from "../stripe";
@@ -580,9 +581,9 @@ export async function settleAdSpendLedger(params: {
       affiliate_user_id: typeof liveAd.affiliate_user_id === "string" ? liveAd.affiliate_user_id : null,
     };
 
-    const { error: deductionErr } = await supabase
+    const { error: deductionErr } = await withRecordedCurrency(recordCampaignCurrency(currency), currencyFields => supabase
       .from("wallet_deductions")
-      .insert(walletDeductionPayload);
+      .insert({ ...walletDeductionPayload, ...currencyFields }));
 
     if (deductionErr && !isUniqueViolation(deductionErr)) {
       await supabase.from("live_ads").update({ spend_transferred: transferredBefore }).eq("id", liveAdId).eq("spend_transferred", transferredAfter);
@@ -614,11 +615,11 @@ export async function settleAdSpendLedger(params: {
     },
   } satisfies JsonRecord;
 
-  const { data: insertedSettlement, error: settlementErr } = await supabase
+  const { data: insertedSettlement, error: settlementErr } = await withRecordedCurrency(recordCampaignCurrency(currency), currencyFields => supabase
     .from("ad_spend_settlements")
-    .insert(settlementPayload)
+    .insert({ ...settlementPayload, ...currencyFields })
     .select("id")
-    .maybeSingle();
+    .maybeSingle());
 
   if (settlementErr && !isUniqueViolation(settlementErr)) {
     throw new Error(`ad_spend_settlements insert failed: ${settlementErr.message}`);

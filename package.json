@@ -50,6 +50,7 @@
     "test:currency-seg1c": "tsx scripts/currency-seg1c.test.ts",
     "test:currency-seg3-registry": "node --import tsx scripts/currency-seg3-registry.test.ts",
     "test:currency-seg4-money": "node --import tsx scripts/currency-seg4-money.test.ts",
+    "test:currency-seg5-record-currency": "node --import tsx scripts/currency-seg5-record-currency.test.ts",
     "test:currency-seg2-schema": "node --import tsx scripts/currency-seg2-schema.test.ts"
   },
   "dependencies": {

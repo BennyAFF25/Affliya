@@ -1,3 +1,4 @@
+import { recordCurrency, withRecordedCurrency } from '@/../utils/currency/recordCurrency';
 // app/api/process-conversion/route.ts
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -33,6 +34,8 @@ async function createPayoutsForConversion(opts: {
     return base;
   };
 
+  // Payout execution currently assumes AUD; no Stripe object exists at creation.
+  const payoutCurrency = recordCurrency('AUD', 'inferred');
   const payoutMode: string = offer.payout_mode || 'upfront';
   const payoutInterval: string = offer.payout_interval || 'monthly';
   const payoutCycles: number | null = offer.recurring_term_months ?? offer.payout_cycles;
@@ -76,9 +79,10 @@ async function createPayoutsForConversion(opts: {
     if (existingInstance?.id) {
       recurringInstanceId = existingInstance.id;
     } else {
-      const { data: instance, error: instanceError } = await supabase
+      const { data: instance, error: instanceError } = await withRecordedCurrency(recordCurrency(offer.currency, 'inferred'), currencyFields => supabase
         .from('recurring_commission_instances')
         .insert({
+          ...currencyFields,
           source_event_id: event.id,
           offer_id: offer.id,
           business_email: businessEmail,
@@ -94,7 +98,7 @@ async function createPayoutsForConversion(opts: {
           next_payout_at: firstAvailableAt,
         })
         .select('id')
-        .single();
+        .single());
 
       if (instanceError) {
         throw instanceError;
@@ -111,7 +115,8 @@ async function createPayoutsForConversion(opts: {
         : monthlyCommissionAmount
       : basePayoutAmount;
 
-    const { error: insertError } = await supabase.from('wallet_payouts').insert({
+    const { error: insertError } = await withRecordedCurrency(payoutCurrency, currencyFields => supabase.from('wallet_payouts').insert({
+      ...currencyFields,
       business_email: businessEmail,
       affiliate_email: affiliateEmail,
       offer_id: offer.id,
@@ -125,7 +130,7 @@ async function createPayoutsForConversion(opts: {
       recurring_term_months: isRecurringOffer ? recurringTermMonths : null,
       recurring_payout_mode: isRecurringOffer ? payoutMode : null,
       recurring_payout_interval: isRecurringOffer ? payoutInterval : null,
-    });
+    }));
 
     if (insertError) {
       throw insertError;
@@ -167,7 +172,7 @@ async function createPayoutsForConversion(opts: {
     });
   }
 
-  const { error: spreadError } = await supabase.from('wallet_payouts').insert(rows);
+  const { error: spreadError } = await withRecordedCurrency(payoutCurrency, currencyFields => supabase.from('wallet_payouts').insert(rows.map(row => ({ ...row, ...currencyFields }))));
   if (spreadError) {
     throw spreadError;
   }

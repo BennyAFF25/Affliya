@@ -1,3 +1,4 @@
+import { recordCurrency, withRecordedCurrency } from '@/../utils/currency/recordCurrency';
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { recordPlatformFeeLedger } from "@/../utils/feeAccounting";
@@ -13,6 +14,7 @@ const supabase = createClient(
 );
 
 async function creditWalletTopup(params: {
+  currency: unknown;
   email: string;
   checkoutSessionId: string;
   grossAmount: number;
@@ -42,6 +44,8 @@ async function creditWalletTopup(params: {
     p_credited_amount: creditedAmount,
   });
 
+  // Current credit RPC returns no new row ID: currency recording needs a later DB segment.
+
   if (rpc.error && rpc.error.code !== "PGRST202") {
     throw new Error(`credit_wallet_topup RPC failed: ${rpc.error.message}`);
   }
@@ -58,7 +62,8 @@ async function creditWalletTopup(params: {
     }
 
     if (!existingTopup) {
-      const { error: insertError } = await supabase.from("wallet_topups").insert({
+      const { error: insertError } = await withRecordedCurrency(recordCurrency(params.currency, 'verified'), currencyFields => supabase.from("wallet_topups").insert({
+        ...currencyFields,
         affiliate_email: email,
         amount_gross: grossAmount,
         stripe_fees: fees,
@@ -68,7 +73,7 @@ async function creditWalletTopup(params: {
         stripe_id: checkoutSessionId,
         status: "succeeded",
         platform_acct_id: platformAcctId,
-      });
+      }));
 
       if (insertError) {
         throw new Error(`wallet_topups insert failed: ${insertError.message}`);
@@ -184,6 +189,7 @@ export async function POST(req: NextRequest) {
     const nettmarkFeeAmount = Number(session.metadata?.nettmark_fee_amount || 0);
 
     const creditResult = await creditWalletTopup({
+      currency: session.currency,
       email,
       checkoutSessionId: session.id,
       grossAmount,

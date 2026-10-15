@@ -1,3 +1,4 @@
+import { recordCurrency, recordNewRowCurrency, withRecordedCurrency } from '@/../utils/currency/recordCurrency';
 import { NextResponse } from 'next/server';
 import { tryWriteMoneyFlowAudit } from '@/../utils/moneyFlowAudit';
 import supabase from '@/../utils/supabase/server-client';
@@ -124,6 +125,7 @@ async function createStripeRefund(
 }
 
 async function recordWalletRefund(params: {
+  currency: unknown;
   email: string;
   topup: WalletTopupRow;
   refundAmount: number;
@@ -147,17 +149,24 @@ async function recordWalletRefund(params: {
   }
 
   if (!error) {
+    // Repository RPC omits refundId for new rows. Record only if supplied;
+    // the ID returned for an idempotent replay must never trigger a backfill.
+    if (data?.success === true && data?.idempotent === false) {
+      await recordNewRowCurrency(supabase, 'wallet_refunds', data?.refundId,
+        recordCurrency(params.currency, 'verified'));
+    }
     return data;
   }
 
-  const { error: insertError } = await supabase.from('wallet_refunds').insert({
+  const { error: insertError } = await withRecordedCurrency(recordCurrency(params.currency, 'verified'), currencyFields => supabase.from('wallet_refunds').insert({
+    ...currencyFields,
     affiliate_email: params.email,
     source_topup_id: params.topup.id,
     stripe_refund_id: params.stripeRefundId,
     stripe_charge_id: params.stripeChargeId,
     amount: params.refundAmount,
     status: params.stripeStatus || 'succeeded',
-  });
+  }));
 
   if (insertError) {
     throw insertError;
@@ -368,6 +377,7 @@ export async function POST(req: Request) {
     );
 
     const ledgerResult = await recordWalletRefund({
+      currency: refund.currency,
       email,
       topup,
       refundAmount: normalizedRefundAmount,

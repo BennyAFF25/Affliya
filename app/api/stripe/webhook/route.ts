@@ -1,3 +1,4 @@
+import { recordCurrency, withRecordedCurrency } from '@/../utils/currency/recordCurrency';
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -54,6 +55,7 @@ if (!stripeSecretKey || !endpointSecret) {
   );
 
   async function creditWalletTopup(params: {
+    currency: unknown;
     email: string;
     checkoutSessionId: string;
     grossAmount: number;
@@ -84,6 +86,8 @@ if (!stripeSecretKey || !endpointSecret) {
       p_nettmark_fee_amount: nettmarkFeeAmount,
       p_credited_amount: creditedAmount,
     });
+
+    // Current credit RPC returns no new row ID: currency recording needs a later DB segment.
 
     if (!rpc.error) {
       if (rpc.data?.credited ?? true) {
@@ -135,7 +139,8 @@ if (!stripeSecretKey || !endpointSecret) {
       return { credited: false, mode: "fallback-duplicate" };
     }
 
-    const { error: insertError } = await supabase.from("wallet_topups").insert({
+    const { error: insertError } = await withRecordedCurrency(recordCurrency(params.currency, 'verified'), currencyFields => supabase.from("wallet_topups").insert({
+      ...currencyFields,
       affiliate_email: email,
       amount_gross: grossAmount,
       stripe_fees: fees,
@@ -145,7 +150,7 @@ if (!stripeSecretKey || !endpointSecret) {
       stripe_id: checkoutSessionId,
       status: "succeeded",
       platform_acct_id: platformAcctId,
-    });
+    }));
 
     if (insertError) {
       throw new Error(`wallet_topups insert failed: ${insertError.message}`);
@@ -392,6 +397,7 @@ if (!stripeSecretKey || !endpointSecret) {
           });
 
           await creditWalletTopup({
+            currency: session.currency,
             email,
             checkoutSessionId: session.id,
             grossAmount,

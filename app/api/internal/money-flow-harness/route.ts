@@ -1,3 +1,4 @@
+import { recordCurrency, withRecordedCurrency } from '@/../utils/currency/recordCurrency';
 import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
@@ -388,9 +389,11 @@ async function createLiveAd(params: { spend?: number; offerId?: string }) {
   ]);
 
   const stamp = Date.now();
-  const { data, error } = await supabase
+  // Synthetic ad: there is no proposal or exact Meta connection to verify.
+  const { data, error } = await withRecordedCurrency(recordCurrency(null, 'unresolved'), currencyFields => supabase
     .from("live_ads")
     .insert({
+      ...currencyFields,
       meta_ad_id: `harness_meta_ad_${stamp}`,
       campaign_id: crypto.randomUUID(),
       ad_set_id: crypto.randomUUID(),
@@ -407,7 +410,7 @@ async function createLiveAd(params: { spend?: number; offerId?: string }) {
     })
     .select("id, offer_id, spend, spend_transferred, status, billing_state, created_at")
     .limit(1)
-    .maybeSingle();
+    .maybeSingle());
 
   if (error || !data) {
     throw new Error(`create live ad failed: ${error?.message || "unknown"}`);

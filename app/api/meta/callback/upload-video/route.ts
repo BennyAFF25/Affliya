@@ -1,3 +1,4 @@
+import { recordCampaignCurrency, withRecordedCurrency } from '@/../utils/currency/recordCurrency';
 import { resolveCampaignSchedule } from "../../../../../utils/campaignSchedule";
 import { checkPaidCurrency } from "../../../../../utils/currency/paidCurrencyGuard";
 import { validateLaunchProposal, buildSavedMetaCreative, buildSavedMetaTargeting } from "../../../../../utils/meta/campaignConfiguration";
@@ -1089,11 +1090,11 @@ export async function POST(req: Request) {
 
           console.log("[live_ads INSERT PAYLOAD]", liveAdsPayload);
 
-          const { data: insertedLiveAdRow, error: liveAdErr } = await supabase
+          const { data: insertedLiveAdRow, error: liveAdErr } = await withRecordedCurrency(recordCampaignCurrency(currencyGuard), currencyFields => supabase
             .from("live_ads")
-            .insert(liveAdsPayload)
+            .insert({ ...liveAdsPayload, ...currencyFields })
             .select("id")
-            .single();
+            .single());
 
           if (liveAdErr) {
             console.error("[❌ live_ads insert error]", liveAdErr);
