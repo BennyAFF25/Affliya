@@ -13,7 +13,7 @@ type Props = {
 };
 
 export function AIPromotionPackPanel({ offerId, mode, creativeId, hasExistingCopy, onApply }: Props) {
-  const [available, setAvailable] = useState(false);
+  const [available, setAvailable] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
   const [pack, setPack] = useState<PromotionPack | null>(null);
   const [sources, setSources] = useState<string[]>([]);
@@ -28,7 +28,7 @@ export function AIPromotionPackPanel({ offerId, mode, creativeId, hasExistingCop
   useEffect(() => {
     const controller = new AbortController();
     void fetch("/api/affiliate/offers/" + offerId + "/generate-promotion", { cache: "no-store", signal: controller.signal })
-      .then(async response => { if (response.ok) { const data = await response.json(); if (!controller.signal.aborted) setAvailable(data.available === true); } })
+      .then(async response => { if (response.ok) { const data = await response.json(); if (!controller.signal.aborted && typeof data.available === "boolean") setAvailable(data.available); } })
       .catch(() => { /* Manual promotion remains available. */ });
     return () => { controller.abort(); generation.current?.abort(); };
   }, [offerId]);
@@ -75,15 +75,15 @@ export function AIPromotionPackPanel({ offerId, mode, creativeId, hasExistingCop
     setStatus("Draft added to your form. Check the facts, replace placeholders and edit it before submitting for business review.");
   }
 
-  if (!available) return null;
+  if (available === false) return null;
   return (
-    <section className="mb-6 rounded-3xl border border-white/10 bg-[#151718] p-5 text-white lg:col-span-2 sm:p-6" aria-label="AI promotion draft">
+    <section aria-busy={available === null} className="mb-6 min-h-[180px] sm:min-h-[130px] rounded-3xl border border-white/10 bg-[#151718] p-5 text-white lg:col-span-2 sm:p-6" aria-label="AI promotion draft">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="flex items-center gap-2 text-base font-semibold"><Sparkles className="h-4 w-4 text-[#00C2CB]" />Start with a draft</h2>
           <p className="mt-2 text-sm leading-6 text-white/55">An angle, hooks and copy using this offer’s saved brand context. Review every claim before submitting.</p>
         </div>
-        <button type="button" onClick={generate} disabled={busy} className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-full bg-[#00C2CB] px-5 py-2.5 text-sm font-semibold text-black hover:bg-[#19d1d8] disabled:opacity-50">
+        <button type="button" onClick={generate} disabled={available !== true || busy} className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-full bg-[#00C2CB] px-5 py-2.5 text-sm font-semibold text-black hover:bg-[#19d1d8] disabled:opacity-50">
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
           {busy ? "Generating…" : pack ? "Generate again" : "Generate with AI"}
         </button>
