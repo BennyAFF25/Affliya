@@ -93,9 +93,32 @@ export default function AffiliateManageCampaignsPage() {
       const enrichment = fetch("/api/affiliate/pending-paid-proposals", {
         cache: "no-store", signal: AbortSignal.timeout(8000),
       }).then(async response => response.ok ? response.json() : null).catch(() => null);
+      const paidTask = loadAffiliatePaidCampaigns(supabase, email).then(rows => {
+        if (current()) { setPaidMeta(rows as LiveAdRow[]); if (rows.length) setLoading(false); }
+        return rows as LiveAdRow[];
+      });
+      const organicTask = fetch("/api/affiliate/live-campaigns", { cache: "no-store", signal: AbortSignal.timeout(8000) })
+        .then(async response => {
+          const payload = await response.json();
+          if (!response.ok || !payload?.ok) throw new Error(payload?.error || "Could not load organic campaigns.");
+          const rows = (payload.campaigns || []) as LiveCampaignRow[];
+          if (current()) { setOrganic(rows); if (rows.length) setLoading(false); }
+          return rows;
+        });
+      const campaignResults = Promise.allSettled([paidTask, organicTask]);
       const submissionsTask = (async () => {
         try {
-          const submissions = await loadAffiliateSubmissions(supabase, email);
+          const submissions = await loadAffiliateSubmissions(supabase, email, async submissionIds => {
+            const campaigns = await campaignResults;
+            const ids = [...new Set([...submissionIds, ...campaigns.flatMap(result =>
+              result.status === "fulfilled" ? result.value.map(row => row.offer_id).filter((id): id is string => Boolean(id)) : [])])];
+            if (!ids.length) { if (current()) setOfferNameById({}); return []; }
+            const { data, error } = await supabase.from("offers").select("id,title").in("id", ids);
+            if (error) throw error;
+            const titles = (data || []) as { id: string; title: string }[];
+            if (current()) setOfferNameById(Object.fromEntries(titles.map(row => [row.id, row.title])));
+            return titles;
+          });
           if (!current()) return;
           setCreativeByIdeaId(Object.fromEntries(submissions.filter(item => item.kind === "paid")
             .map(item => [item.id, { title: item.title, previewUrl: item.previewUrl }])));
@@ -115,30 +138,10 @@ export default function AffiliateManageCampaignsPage() {
           if (current()) setPendingLoading(false);
         }
       })();
-      const paidTask = loadAffiliatePaidCampaigns(supabase, email).then(rows => {
-        if (current()) { setPaidMeta(rows as LiveAdRow[]); if (rows.length) setLoading(false); }
-        return rows as LiveAdRow[];
-      });
-      const organicTask = fetch("/api/affiliate/live-campaigns", { cache: "no-store", signal: AbortSignal.timeout(8000) })
-        .then(async response => {
-          const payload = await response.json();
-          if (!response.ok || !payload?.ok) throw new Error(payload?.error || "Could not load organic campaigns.");
-          const rows = (payload.campaigns || []) as LiveCampaignRow[];
-          if (current()) { setOrganic(rows); if (rows.length) setLoading(false); }
-          return rows;
-        });
-      const [paid, organic] = await Promise.allSettled([paidTask, organicTask]);
+      const [paid, organic] = await campaignResults;
       if (!current()) return;
       if (paid.status === "rejected" || organic.status === "rejected") setError("Some campaigns could not be loaded. Try refreshing.");
       setLoading(false);
-      const ids = [...new Set([
-        ...(paid.status === "fulfilled" ? paid.value : []),
-        ...(organic.status === "fulfilled" ? organic.value : []),
-      ].map(row => row.offer_id).filter((id): id is string => Boolean(id)))];
-      if (ids.length) {
-        const { data } = await supabase.from("offers").select("id,title").in("id", ids);
-        if (current()) setOfferNameById(Object.fromEntries(((data || []) as { id: string; title: string }[]).map(row => [row.id, row.title])));
-      } else setOfferNameById({});
       await submissionsTask;
     } catch (error) {
       if (current()) { setError(error instanceof Error ? error.message : "Failed to load campaigns."); setPendingLoading(false); }

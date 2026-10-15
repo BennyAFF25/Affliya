@@ -48,6 +48,22 @@ async function checkClientFetchCount() {
   let states: unknown[] = [], refs: { current: unknown }[] = [];
   let effects: { deps: unknown[]; callback: () => unknown; pending: boolean }[] = [];
   const fetches: string[] = [];
+  let offerQueries: string[][] = [];
+  const clientDb = {
+    auth: { getSession: async () => ({ data: { session: { user: { email: 'affiliate@test.invalid' } } } }) },
+    from(table: string) {
+      const query = {
+        select: () => query, eq: () => query, order: () => query, range: () => query, abortSignal: () => query,
+        in: (_key: string, ids: string[]) => { offerQueries.push(ids); return query; },
+        then(resolve: (value: unknown) => unknown) {
+          const data = table === 'ad_ideas' ? Array.from({length: cardCount}, (_, i) => ({id: String(i), offer_id: `offer-${i}`, status:'pending'}))
+            : table === 'offers' ? offerQueries[0].map(id => ({id, title: `Title ${id}`})) : [];
+          return Promise.resolve({data, error:null}).then(resolve);
+        },
+      };
+      return query;
+    },
+  };
   loader._load = function(name, parent, isMain) {
     if (name === 'react') return { ...React,
       useState: (initial: unknown) => {
@@ -62,23 +78,19 @@ async function checkClientFetchCount() {
         effects[index] = { deps, callback, pending: !previous || deps.some((dep, i) => !Object.is(dep, previous.deps[i])) };
       },
     };
-    if (name.includes('supabase/pages-client')) return { supabase: { auth: { getSession: async () => ({ data: { session: { user: { email: 'affiliate@test.invalid' } } } }) } } };
+    if (name.includes('supabase/pages-client')) return { supabase: clientDb };
     if (name.includes('wallet/spendableBalance')) return { getSpendableWalletBalance: async () => 15 };
-    if (name.includes('affiliate/portalData')) return {
-      loadAffiliateSubmissions: async () => Array.from({ length: cardCount }, (_, i) => ({ id: String(i), kind: 'paid', status: 'pending' })),
-      loadAffiliatePaidCampaigns: async () => [], isAwaitingProposalReview: () => true,
-    };
     if (name.includes('ManageCampaignsWorkspace')) return { __esModule: true, default: () => null };
     return previousLoader.call(this, name, parent, isMain);
   };
   globalThis.fetch = async input => {
     fetches.push(String(input));
-    return Response.json({ ok: true, campaigns: [], proposals: Array.from({ length: cardCount }, (_, i) => ({ id: String(i), state: 'waiting_for_business' })) });
+    return Response.json({ ok: true, campaigns: [{id:'organic', offer_id:'offer-0'}], proposals: Array.from({ length: cardCount }, (_, i) => ({ id: String(i), state: 'waiting_for_business' })) });
   };
   try {
     const Page = requireMocked('../app/affiliate/dashboard/manage-campaigns/page').default;
-    for (cardCount of [1, 14, 140]) {
-      states = []; refs = []; effects = []; fetches.length = 0;
+    for (cardCount of [1, 11, 14, 140]) {
+      states = []; refs = []; effects = []; fetches.length = 0; offerQueries = [];
       const render = () => { stateIndex = effectIndex = refIndex = 0; return Page(); };
       render();
       // Run the initial load effect; browser focus/poll effects are intentionally outside this local harness.
@@ -87,12 +99,16 @@ async function checkClientFetchCount() {
       await new Promise(resolve => setImmediate(resolve));
       const tree = render();
       assert.equal(tree.props.pendingCount, cardCount);
+      assert.equal(offerQueries.length, 1, 'Submission and live campaign titles use one offers query');
+      assert.equal(offerQueries[0].length, cardCount, 'Shared campaign offer is deduplicated');
+      assert.equal(tree.props.campaigns[0].display_title, 'Title offer-0');
+      assert.equal(tree.props.pendingContent[0].props.proposal.offerTitle, 'Title offer-0');
       assert.equal(effects[1].pending, false, 'State updates must not retrigger the load effect');
       assert.equal(fetches.filter(url => url === '/api/affiliate/pending-paid-proposals').length, 1);
       assert.equal(fetches.length, 3, 'Initial HTTP fetch count remains constant');
       cleanup();
     }
-    console.log('Client load: one enrichment fetch and three total fetches at 1/14/140 cards; state rerender does not refetch');
+    console.log('Client load: one enrichment fetch and three total fetches and one offers title query at 1/11/14/140 cards; state rerender does not refetch');
   } finally { loader._load = previousLoader; globalThis.fetch = previousFetch; }
 }
 

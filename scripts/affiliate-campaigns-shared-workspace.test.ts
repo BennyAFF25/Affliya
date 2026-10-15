@@ -33,7 +33,7 @@ assert.doesNotMatch(affiliate, /onStopMeta=|onPauseOrganic=|\/api\/meta\/control
 // Real client-owned campaign data, proposals, finance status, and auto-refresh.
 assert.match(affiliate, /loadAffiliatePaidCampaigns\(supabase,\s*email\)/);
 assert.match(affiliate, /\/api\/affiliate\/live-campaigns/);
-assert.match(affiliate, /loadAffiliateSubmissions\(supabase,\s*email\)/);
+assert.match(affiliate, /loadAffiliateSubmissions\(supabase,\s*email(?:\)|,)/);
 assert.match(affiliate, /\/api\/affiliate\/pending-paid-proposals/);
 assert.match(affiliate, /30_000/, "read-only stored spend poll preserved");
 assert.match(affiliate, /pendingContent=\{/);

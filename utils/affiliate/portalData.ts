@@ -26,15 +26,15 @@ export async function loadApprovedOfferIds(client:SupabaseClient,email:string) {
 export async function loadAffiliatePaidCampaigns(client:SupabaseClient,email:string) {
  return ownRows(client,"live_ads","*",email);
 }
-export async function loadAffiliateSubmissions(client:SupabaseClient,email:string):Promise<AffiliateSubmission[]> {
+export async function loadAffiliateSubmissions(client:SupabaseClient,email:string, loadTitles?: (ids:string[])=>Promise<{id:string;title:string}[]>):Promise<AffiliateSubmission[]> {
  const [ads,organic]=await Promise.all([
   ownRows(client,"ad_ideas","id,offer_id,status,created_at,business_viewed_at,headline,caption,file_url",email),
   ownRows(client,"organic_posts","id,offer_id,status,created_at,business_viewed_at,caption,platform,image_url,video_url",email)
  ]);
  const ids=[...new Set([...ads,...organic].map(row=>String(row.offer_id || "")).filter(Boolean))];
  const titles=new Map<string,string>();
- if(ids.length) {
-  const {data,error}=await client.from("offers").select("id,title").in("id",ids);
+ if(ids.length || loadTitles) {
+  const {data,error}=loadTitles ? {data:await loadTitles(ids),error:null} : await client.from("offers").select("id,title").in("id",ids);
   if(error) throw error;
   for(const row of data || []) titles.set(String(row.id),String(row.title || "Offer"));
  }
