@@ -57,7 +57,9 @@
     "test:currency-seg7-balances": "node --import tsx scripts/currency-seg7-balances.test.ts",
     "test:currency-seg8-historical": "node --import tsx scripts/currency-seg8-historical.test.ts",
     "test:currency-seg10-shadow-ledger": "node --import tsx scripts/currency-seg10-shadow-ledger.test.ts",
-    "test:currency-seg9-wallet-accounts": "node --import tsx scripts/currency-seg9-wallet-accounts.test.ts"
+    "test:currency-seg9-wallet-accounts": "node --import tsx scripts/currency-seg9-wallet-accounts.test.ts",
+    "test:currency-seg11-dual-write": "node --import tsx scripts/currency-seg11-dual-write.test.ts",
+    "check:wallet-ledger-drift": "node --import tsx scripts/check-wallet-ledger-drift.ts"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.2",
