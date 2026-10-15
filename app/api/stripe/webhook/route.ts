@@ -77,7 +77,7 @@ if (!stripeSecretKey || !endpointSecret) {
 
     // Prefer DB-side atomic RPC when present. Fallback keeps patch compatible
     // before the migration is applied.
-    const rpc = await supabase.rpc("credit_wallet_topup", {
+    const rpcPayload = {
       p_affiliate_email: email,
       p_checkout_session_id: checkoutSessionId,
       p_amount_gross: grossAmount,
@@ -86,9 +86,16 @@ if (!stripeSecretKey || !endpointSecret) {
       p_platform_acct_id: platformAcctId,
       p_nettmark_fee_amount: nettmarkFeeAmount,
       p_credited_amount: creditedAmount,
+    };
+    const currency = recordCurrency(params.currency, 'verified');
+    let rpc = await supabase.rpc("credit_wallet_topup_with_currency", {
+      ...rpcPayload,
+      p_currency: currency.currency,
+      p_currency_source: currency.currency_source,
     });
-
-    // Current credit RPC returns no new row ID: currency recording needs a later DB segment.
+    if (rpc.error?.code === 'PGRST202' || rpc.error?.code === '42883') {
+      rpc = await supabase.rpc("credit_wallet_topup", rpcPayload);
+    }
 
     if (!rpc.error) {
       if (rpc.data?.credited ?? true) {

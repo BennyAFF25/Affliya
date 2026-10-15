@@ -113,11 +113,11 @@ async function main() {
         assert.deepEqual(clean(mock.writes.at(-1).values), expectedTopup);
         assert.equal(mock.writes.length, rejected ? 2 : 1);
         assert.equal(mock.calls[0].payload.p_amount_net, 100);
-        assert.equal('currency' in mock.calls[0].payload, false, 'RPC contract unchanged');
+        assert.equal('currency' in mock.calls[0].payload, false, 'No direct row fields in RPC payload');
       }
       const mock = mockDB({ data: { credited: true, stripe_id: 'cs_new' }, error: null });
       await extracted(file, 'creditWalletTopup', { ...helpers, supabase: mock, recordPlatformFeeLedger: async () => {}, syncAffiliateWalletCache: async () => ({ availableBalance:100 }) })({ ...base, currency: 'aud' });
-      assert.equal(mock.writes.length, 0, 'No RPC row ID: do not guess or backfill');
+      assert.equal(mock.writes.length, 0, 'Atomic currency RPC requires no follow-up');
       assert.match(fs.readFileSync(file,'utf8'), /currency: session.currency/);
     }
     const refundParams = { email: 'affiliate@test', topup: { id:'topup', amount_net:100, amount_refunded:5 }, refundAmount:12.34, stripeRefundId:'re_new', stripeChargeId:'ch_new', stripeStatus:'succeeded', currency:'gbp' };
@@ -134,7 +134,7 @@ async function main() {
     const fresh = mockDB({ data:{ success:true, idempotent:false, refundId:'fresh' }, error:null });
     fresh.rejectMetadata = true;
     const result = await extracted('app/api/stripe/refund/route.ts','recordWalletRefund',refundContext(fresh))(refundParams);
-    assert.equal(result.success,true,'Metadata error must not fail RPC money flow');
+    assert.equal(result.success,true,'Atomic currency RPC requires no follow-up');
     assert.match(fs.readFileSync('app/api/stripe/refund/route.ts','utf8'), /currency: refund.currency/);
 
     for (const mode of ['oneoff','upfront','spread']) {
@@ -226,7 +226,7 @@ async function main() {
     assert.equal(mock.writes[0].values.currency,null);
     assert.equal(mock.writes[0].values.currency_source,'unresolved');
     assert.ok(warnings.length >= 6);
-    console.log('Segment 5: normalization, all direct write sites, payload snapshots, metadata failures, RPC gaps and replay protection passed (mocked; no connections).');
+    console.log('Segment 5: normalization, all direct write sites, payload snapshots, metadata failures, RPC writes and replay protection passed (mocked; no connections).');
   } finally { console.warn = warn; globalThis.fetch = fetch; }
 }
 void main().catch(error => { console.error(error); process.exitCode = 1; });

@@ -1,4 +1,4 @@
-import { recordCurrency, recordNewRowCurrency, withRecordedCurrency } from '@/../utils/currency/recordCurrency';
+import { recordCurrency, withRecordedCurrency } from '@/../utils/currency/recordCurrency';
 import { NextResponse } from 'next/server';
 import { tryWriteMoneyFlowAudit } from '@/../utils/moneyFlowAudit';
 import supabase from '@/../utils/supabase/server-client';
@@ -142,19 +142,22 @@ async function recordWalletRefund(params: {
     p_status: params.stripeStatus || 'succeeded',
   };
 
-  const { data, error } = await supabase.rpc('record_wallet_refund', rpcPayload);
+  const currency = recordCurrency(params.currency, 'verified');
+  let rpc = await supabase.rpc('record_wallet_refund_with_currency', {
+    ...rpcPayload,
+    p_currency: currency.currency,
+    p_currency_source: currency.currency_source,
+  });
+  if (rpc.error?.code === 'PGRST202' || rpc.error?.code === '42883') {
+    rpc = await supabase.rpc('record_wallet_refund', rpcPayload);
+  }
+  const { data, error } = rpc;
 
   if (error && !isRpcMissing(error)) {
     throw error;
   }
 
   if (!error) {
-    // Repository RPC omits refundId for new rows. Record only if supplied;
-    // the ID returned for an idempotent replay must never trigger a backfill.
-    if (data?.success === true && data?.idempotent === false) {
-      await recordNewRowCurrency(supabase, 'wallet_refunds', data?.refundId,
-        recordCurrency(params.currency, 'verified'));
-    }
     return data;
   }
 
