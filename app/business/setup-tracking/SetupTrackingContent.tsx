@@ -1,5 +1,6 @@
 "use client";
 
+import { isOfferCurrencyCheckViolation, OFFER_CURRENCY_MESSAGE } from "utils/currency/offerCurrencies";
 import React, { useEffect, useMemo, useState } from "react";
 import Script from "next/script";
 import { useSession, useSupabaseClient } from "@supabase/auth-helpers-react";
@@ -224,6 +225,7 @@ analytics.subscribe('checkout_completed', async (event) => {
 
       if (error) {
         console.error("[setup-tracking host update failed]", error);
+        if (isOfferCurrencyCheckViolation(error)) alert(OFFER_CURRENCY_MESSAGE);
         return;
       }
 
@@ -276,6 +278,7 @@ analytics.subscribe('checkout_completed', async (event) => {
 
     if (hostError) {
       console.error("[offer site_host sync failed]", hostError);
+      if (isOfferCurrencyCheckViolation(hostError)) alert(OFFER_CURRENCY_MESSAGE);
     }
   }
 

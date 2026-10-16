@@ -1,4 +1,6 @@
 "use client";
+
+import { OFFER_CURRENCIES, OFFER_CURRENCY_MESSAGE, isOfferCurrency, isOfferCurrencyCheckViolation } from "utils/currency/offerCurrencies";
 import React from "react";
 import { useSession } from "@supabase/auth-helpers-react";
 import { useParams, useRouter } from "next/navigation";
@@ -179,7 +181,7 @@ export default function EditOfferPage() {
       setDescription(data.description || "");
       setCommission(data.commission?.toString() || "");
       setPrice(data.price != null ? data.price.toString() : "");
-      setCurrency(data.currency || "AUD");
+      setCurrency(data.currency ?? "AUD");
       setParticipationMode((data.participation_mode as "open" | "approval_required" | "private") || "open");
       setType(data.type || "one-time");
       setCommissionValue(
@@ -278,6 +280,7 @@ export default function EditOfferPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user?.email || !offerId) return;
+    if (!isOfferCurrency(currency)) { setError(OFFER_CURRENCY_MESSAGE); return; }
 
     const parsedEligibleProductIds = parseIdList(eligibleProductIdsText);
     const parsedEligibleVariantIds = parseIdList(eligibleVariantIdsText);
@@ -341,7 +344,7 @@ export default function EditOfferPage() {
 
     if (error) {
       console.error("[EditOffer] failed to save offer", error);
-      setError("Could not save your changes right now.");
+      setError(isOfferCurrencyCheckViolation(error) ? OFFER_CURRENCY_MESSAGE : "Could not save your changes right now.");
       return;
     }
 
@@ -442,11 +445,10 @@ export default function EditOfferPage() {
                 onChange={(e) => setCurrency(e.target.value)}
 
               >
-                <option value="USD">USD</option>
-                <option value="AUD">AUD</option>
-                <option value="GBP">GBP</option>
-                <option value="EUR">EUR</option>
+                {!isOfferCurrency(currency) && <option value={currency}>{currency || "Empty currency"} (current, unsupported)</option>}
+                {OFFER_CURRENCIES.map((code) => <option key={code} value={code}>{code}</option>)}
               </Select>
+              {!isOfferCurrency(currency) && <p role="alert" className="mt-2 text-sm text-red-400">{OFFER_CURRENCY_MESSAGE}</p>}
             </div>
 
             <div>

@@ -1,3 +1,4 @@
+import { isOfferCurrency, isOfferCurrencyCheckViolation, OFFER_CURRENCY_MESSAGE } from "utils/currency/offerCurrencies";
 import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createClient } from "@supabase/supabase-js";
@@ -44,7 +45,7 @@ export async function PATCH(
 
     const { data: offer, error: offerError } = await supabase
       .from("offers")
-      .select("id,business_email,title")
+      .select("id,business_email,title,currency")
       .eq("id", offerId)
       .maybeSingle();
 
@@ -52,6 +53,10 @@ export async function PATCH(
 
     if (!offer || (offer as { business_email?: string | null }).business_email !== user.email) {
       return NextResponse.json({ success: false, error: "OFFER_NOT_FOUND" }, { status: 404 });
+    }
+
+    if (offer.currency != null && !isOfferCurrency(offer.currency)) {
+      return NextResponse.json({ success: false, error: "UNSUPPORTED_OFFER_CURRENCY", message: OFFER_CURRENCY_MESSAGE }, { status: 400 });
     }
 
     const { data: pageConnection, error: pageError } = await supabase
@@ -103,6 +108,9 @@ export async function PATCH(
       .eq("id", offerId)
       .eq("business_email", user.email);
 
+    if (isOfferCurrencyCheckViolation(updateError)) {
+      return NextResponse.json({ success: false, error: "UNSUPPORTED_OFFER_CURRENCY", message: OFFER_CURRENCY_MESSAGE }, { status: 400 });
+    }
     if (updateError) throw updateError;
 
     const { data: verified, error: verifyError } = await supabase

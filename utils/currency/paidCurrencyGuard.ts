@@ -1,11 +1,12 @@
+import { isOfferCurrency } from "./offerCurrencies";
 import { verifyMetaAccountCurrency } from "./verifyMetaAccountCurrency";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { resolveOfferPaidReadiness } from "../offerReadiness";
 export { PAID_CURRENCY_BLOCK_MESSAGE } from "./paidCurrencyMessage";
 
-export function paidLaunchCurrencies(value = process.env.PAID_LAUNCH_CURRENCIES ?? "AUD,USD,GBP,CAD") {
+export function paidLaunchCurrencies(value = process.env.PAID_LAUNCH_CURRENCIES ?? "AUD,USD,GBP,CAD"): string[] {
   return [...new Set(value.split(',').map(code => code.trim().toUpperCase())
-    .filter(code => ['AUD', 'USD', 'GBP', 'CAD'].includes(code)))];
+    .filter(isOfferCurrency))];
 }
 
 export { resolveOfferCurrency } from "./proposalCurrency";

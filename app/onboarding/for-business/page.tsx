@@ -1,5 +1,7 @@
 "use client";
 
+import { OFFER_CURRENCIES, OFFER_CURRENCY_MESSAGE, isOfferCurrency, isOfferCurrencyCheckViolation } from "utils/currency/offerCurrencies";
+
 import React, { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { normalizeOfferDestination } from "../../../utils/offers/presentation";
 import { useRouter } from "next/navigation";
@@ -118,7 +120,7 @@ export default function BusinessOnboardingPage() {
         parseIdList(eligibleVariantIdsText).length > 0),
   );
 
-  const previewCurrency = currency === "AUD" ? "A$" : currency === "USD" ? "US$" : currency === "NZD" ? "NZ$" : currency === "GBP" ? "£" : currency + " ";
+  const previewCurrency = currency === "AUD" ? "A$" : currency === "USD" ? "US$" : currency === "CAD" ? "CA$" : currency === "GBP" ? "£" : currency + " ";
 
   const commissionPreviewAmount = useMemo(() => {
     const priceValue = Number(productPrice || 0);
@@ -184,6 +186,7 @@ export default function BusinessOnboardingPage() {
 
     try {
       if (savedOfferId.current) { await complete(savedOfferId.current); return; }
+      if (!isOfferCurrency(currency)) throw new Error(OFFER_CURRENCY_MESSAGE);
       const destination = normalizeOfferDestination(websiteUrl);
       if (!destination) throw new Error("Enter a complete website or product URL.");
       let uploadedLogoUrl: string | null = null;
@@ -292,6 +295,7 @@ export default function BusinessOnboardingPage() {
         .insert([payload]);
 
       if (insertError) {
+        if (isOfferCurrencyCheckViolation(insertError)) throw new Error(OFFER_CURRENCY_MESSAGE);
         // A lost response may hide a successful insert; never create another offer.
         const { data: persisted } = await (supabase as unknown as SupabaseClient).from("offers").select("id")
           .eq("id", candidateOfferId.current).eq("business_email", session.user.email).maybeSingle();
@@ -603,12 +607,7 @@ export default function BusinessOnboardingPage() {
                           onChange={(e) => { setCurrency(e.target.value); }}
                           className={inputClass}
                         >
-                          <option value="USD">USD</option>
-                          <option value="AUD">AUD</option>
-                          <option value="NZD">NZD</option>
-                          <option value="EUR">EUR</option>
-                          <option value="GBP">GBP</option>
-                          <option value="CAD">CAD</option>
+                          {OFFER_CURRENCIES.map((code) => <option key={code} value={code}>{code}</option>)}
                         </select>
                       </label>
 

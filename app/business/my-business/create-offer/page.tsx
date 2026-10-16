@@ -1,5 +1,7 @@
 "use client";
 
+import { OFFER_CURRENCIES, OFFER_CURRENCY_MESSAGE, isOfferCurrency, isOfferCurrencyCheckViolation } from "utils/currency/offerCurrencies";
+
 import "@/globals.css";
 import React, { useState, useEffect, Suspense } from "react";
 import { normalizeOfferDestination } from "../../../../utils/offers/presentation";
@@ -192,6 +194,7 @@ function CreateOfferPageInner() {
   useEffect(() => {
     const fetchMetaConnections = async () => {
       if (!userEmail) return;
+    if (!isOfferCurrency(currency)) { alert(OFFER_CURRENCY_MESSAGE); return; }
 
       const { data } = await supabase
         .from("meta_connections")
@@ -508,6 +511,7 @@ function CreateOfferPageInner() {
       .from("offers")
       .upsert([newOffer], { onConflict: "id" });
     if (insertError) {
+      if (isOfferCurrencyCheckViolation(insertError)) alert(OFFER_CURRENCY_MESSAGE);
       console.error("[❌ Offer Insert Error]", insertError.message);
       void logProductEvent({
         eventType: "offer_publish_failed",
@@ -858,11 +862,7 @@ function CreateOfferPageInner() {
                   onChange={(e) => setCurrency(e.target.value)}
 
                 >
-                  <option value="USD">USD</option>
-                  <option value="AUD">AUD</option>
-                  <option value="EUR">EUR</option>
-                  <option value="GBP">GBP</option>
-                  <option value="CAD">CAD</option>
+                  {OFFER_CURRENCIES.map((code) => <option key={code} value={code}>{code}</option>)}
                 </Select>
               </div>
 
