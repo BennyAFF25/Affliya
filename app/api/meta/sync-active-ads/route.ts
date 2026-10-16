@@ -1,3 +1,4 @@
+import { settlementExclusionReason, settleStoppedAdSpend } from "../../../../utils/adSpend/settlements";
 import { settlementQuote, settlementAud } from '../../../../utils/adSpend/settlementFx';
 import { tryWriteMoneyFlowAudit } from "../../../../utils/moneyFlowAudit";
 import { getFundingCoverage } from "../../../../utils/adSpend/fundingCoverage";
@@ -19,8 +20,11 @@ const META_API_VERSION = 'v21.0';
 type LiveAdRow = {
   id: string;
   status: string | null;
+  billing_state?: string | null;
+  terminated_by_business_at?: string | null;
   offer_id: string | null;
   ad_idea_id?: string | null;
+  meta_campaign_id?: string | null;
   meta_ad_id: string | null;
   business_email: string | null;
   affiliate_email: string | null;
@@ -239,8 +243,7 @@ async function run(req: Request) {
   const { data: rows, error: listErr } = await supabase
     .from('live_ads')
     .select('*')
-    .in('status', ['active', 'live', 'ACTIVE', 'LIVE'])
-    .not('meta_ad_id', 'is', null);
+    .or('status.in.(active,live,ACTIVE,LIVE,paused,PAUSED,archived,ARCHIVED,stopped,STOPPED,ended,ENDED,completed,COMPLETED,deleted,DELETED),billing_state.eq.TERMINATED_BY_BUSINESS,terminated_by_business_at.not.is.null');
 
   if (listErr) {
     console.error('[sync-active-ads] live_ads list error', listErr);
@@ -285,6 +288,23 @@ async function run(req: Request) {
     const batchResults = await Promise.all(
       batch.map(async (ad): Promise<PerAdResult> => {
         const liveAdId = ad.id;
+
+        const stopped = ad.billing_state === 'TERMINATED_BY_BUSINESS' || !!ad.terminated_by_business_at ||
+          !['active', 'live'].includes((ad.status || '').toLowerCase());
+        const exclusion = settlementExclusionReason(ad, stopped ? 'stranded_recovery' : 'threshold_settlement', stopped);
+        if (exclusion) return { liveAdId, ok: true, wouldSettle: false,
+          settlement: { attempted: false, success: false, message: exclusion } };
+        if (stopped) {
+          const unpaid = Math.max(0, num(ad.spend) - num(ad.spend_transferred));
+          // Also retry final hold release on already-settled terminal rows.
+          if (dryRun) return { liveAdId, ok: true, unpaid, wouldSettle: unpaid > 0 };
+          const result = await settleStoppedAdSpend({ supabase: supabase as never, liveAdId,
+            status: ad.billing_state === 'TERMINATED_BY_BUSINESS' || ad.terminated_by_business_at ? 'stopped' : ad.status || 'stopped',
+            adIdeaId: ad.ad_idea_id });
+          shouldKickTransferProcessor ||= result.chargedAmount > 0;
+          return { liveAdId, ok: result.success && !result.error, unpaid,
+            settlement: { attempted: true, ...result } };
+        }
 
         // Basic guards
         if (!ad.business_email || !ad.affiliate_email || !ad.meta_ad_id) {

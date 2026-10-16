@@ -1,3 +1,4 @@
+import { settlementExclusionReason, settleStoppedAdSpend } from "../../../../utils/adSpend/settlements";
 import { getAffiliateCampaignFundingReadiness } from "../../../../utils/paidCampaignLaunchReadiness";
 import { guardPaidCurrency } from "../../../../utils/currency/paidCurrencyGuard";
 import { reserveLaunchHold, releaseLaunchHold, FUNDING_ERROR } from "../../../../utils/wallet/launchHolds";
@@ -181,44 +182,6 @@ export async function POST(req: Request) {
     metaActivated = action === 'RESUME';
     console.log('[✅ Meta control success]', metaJson);
 
-    // 5) Settlement on pause/archive (unless skipped)
-    let settlement: any = null;
-    let settlementError: any = null;
-    let settlementSkipped = false;
-
-    if (action === 'PAUSE' || action === 'ARCHIVE') {
-      if (skipSettlement) {
-        settlementSkipped = true;
-        console.log('[💸 Settlement] Skipped (skipSettlement=true)', { liveAdId });
-      } else {
-        try {
-          const settleUrl = new URL('/api/ad-spend/settle', req.url);
-          console.log('[💸 Settlement] Calling', settleUrl.toString(), { liveAdId });
-
-          const settleRes = await fetch(settleUrl, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ liveAdId }),
-          });
-
-          settlement = await settleRes.json().catch(() => null);
-
-          if (!settleRes.ok || !settlement?.success) {
-            console.error('[❌ Settlement failed]', {
-              status: settleRes.status,
-              settlement,
-            });
-            settlementError = settlement || { error: 'SETTLEMENT_FAILED' };
-          } else {
-            console.log('[✅ Settlement success]', settlement);
-          }
-        } catch (e: any) {
-          console.error('[❌ Settlement exception]', e);
-          settlementError = { error: 'SETTLEMENT_EXCEPTION', message: e?.message };
-        }
-      }
-    }
-
     // 6) Update Nettmark DB status (+ try optional billing fields)
     const nowIso = new Date().toISOString();
 
@@ -262,6 +225,18 @@ export async function POST(req: Request) {
       if (fallbackErr) {
         console.error('[❌ Failed to update local live_ads status]', fallbackErr);
       }
+    }
+
+    // Meta has stopped delivery and local state is recoverable by the worker.
+    let settlement = null;
+    let settlementError = null;
+    const stopping = action === 'PAUSE' || action === 'ARCHIVE';
+    const exclusion = stopping ? settlementExclusionReason(liveAd, 'control-ad') : null;
+    const settlementSkipped = stopping && (!!skipSettlement || !!exclusion);
+    if (stopping && !settlementSkipped) {
+      settlement = await settleStoppedAdSpend({ supabase: supabase as never, liveAdId,
+        status: localStatus, adIdeaId: liveAd.ad_idea_id });
+      if (!settlement.success || settlement.error) settlementError = settlement;
     }
 
     // Record the latest control outcome so older automatic pause reasons are not reused.

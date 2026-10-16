@@ -16,6 +16,29 @@ const DEFAULT_SETTLEMENT_THRESHOLD = 25;
 const DEFAULT_WALLET_BUFFER = 10;
 const DEFAULT_BATCH_MAX_ROWS = 50;
 
+// Owner campaigns must never be charged by settlement, even with a stranded override.
+export const PROTECTED_META_CAMPAIGN_IDS = ['120251784604850679'] as const;
+
+function envIds(name: string): string[] {
+  return (process.env[name] || '').split(',').map(id => id.trim()).filter(Boolean);
+}
+
+export function settlementExclusionReason(ad: {
+  id: string; meta_campaign_id?: string | null; billing_state?: string | null;
+}, path: string, stranded = false): string | null {
+  const excluded = new Set<string>([...PROTECTED_META_CAMPAIGN_IDS, ...envIds('SETTLEMENT_EXCLUDED_META_CAMPAIGN_IDS')]);
+  const reason = ad.meta_campaign_id && excluded.has(ad.meta_campaign_id)
+    ? 'PROTECTED_META_CAMPAIGN'
+    : stranded && ad.billing_state === 'TERMINATED_BY_BUSINESS' && !envIds('SETTLEMENT_STRANDED_ALLOW_IDS').includes(ad.id)
+      ? 'BUSINESS_TERMINATED_MANUAL_REVIEW' : null;
+  if (reason) console.warn('[ad-spend] settlement skipped', {
+    event: 'SETTLEMENT_SKIPPED', reason, path, liveAdId: ad.id,
+    metaCampaignId: ad.meta_campaign_id ?? null, billingState: ad.billing_state ?? null,
+    manualReview: reason === 'BUSINESS_TERMINATED_MANUAL_REVIEW',
+  });
+  return reason;
+}
+
 type QueryResult = Promise<{ data: unknown; error: { message?: string; code?: string } | null }>;
 
 type QueryBuilder = QueryResult & {
@@ -48,6 +71,7 @@ type SubsidyClaim = ActivationSubsidyRow & {
 
 type LiveAdSettlementRow = {
   id: string;
+  meta_campaign_id: string | null;
   affiliate_email: string | null;
   affiliate_user_id: string | null;
   business_email: string | null;
@@ -98,6 +122,7 @@ export type AdSpendSettlementConfig = {
 
 export type AdSpendSettlementLedgerResult = {
   success: boolean;
+  skipped?: string;
   error?: string;
   liveAdId: string;
   affiliateEmail?: string;
@@ -287,13 +312,14 @@ export async function settleAdSpendLedger(params: {
   supabase: SupabaseLike;
   liveAdId: string;
   chunkAmount?: number | null;
+  force?: boolean;
 }): Promise<AdSpendSettlementLedgerResult> {
   const { supabase, liveAdId } = params;
-  const requestedChunk = params.chunkAmount == null ? null : roundMoney(Math.max(0, params.chunkAmount));
+  const requestedChunk = params.force || params.chunkAmount == null ? null : roundMoney(Math.max(0, params.chunkAmount));
 
   const { data: liveAdData, error: liveAdError } = await supabase
     .from("live_ads")
-    .select("id, affiliate_email, affiliate_user_id, business_email, business_id, offer_id, spend, spend_transferred")
+    .select("id, meta_campaign_id, affiliate_email, affiliate_user_id, business_email, business_id, offer_id, spend, spend_transferred")
     .eq("id", liveAdId)
     .maybeSingle();
 
@@ -320,6 +346,13 @@ export async function settleAdSpendLedger(params: {
   const spend = roundMoney(Number(liveAd.spend ?? 0));
   const transferredBefore = roundMoney(Number(liveAd.spend_transferred ?? 0));
   const unpaidBefore = roundMoney(Math.max(0, spend - transferredBefore));
+
+  const exclusion = settlementExclusionReason(liveAd, params.force ? 'force_settlement' : 'threshold_settlement');
+  if (exclusion) return {
+    success: true, skipped: exclusion, liveAdId, spend, transferredBefore,
+    transferredAfter: transferredBefore, unpaidBefore, unpaidAfter: unpaidBefore,
+    chargedAmount: 0, transferStatus: 'not_required', message: exclusion,
+  };
 
   if (!affiliateEmail || !businessEmail || !offerId) {
     return {
@@ -599,6 +632,10 @@ export async function processAdSpendTransferBatches(params: {
 
   const groups = new Map<string, AdSpendSettlementRow[]>();
   for (const row of rows) {
+    const { data: ad, error: adError } = await supabase.from('live_ads')
+      .select('id, meta_campaign_id').eq('id', row.live_ad_id).maybeSingle();
+    if (adError || !ad) throw new Error('Settlement campaign exclusion lookup failed');
+    if (settlementExclusionReason(ad as { id: string; meta_campaign_id: string | null }, 'transfer_batch')) continue;
     const currency = await guardPaidCurrency({ supabase, liveAdId: row.live_ad_id, settlementOnly: true });
     if (!currency.allowed || (currency.campaignCurrency !== "AUD" &&
       !(row.currency === "AUD" && row.original_currency === currency.campaignCurrency &&
@@ -790,4 +827,29 @@ export async function processAdSpendTransferBatches(params: {
       remainingAvailableAud: remainingAvailable,
     },
   };
+}
+
+/** Flush stored spend after delivery stops; failures must never undo a Meta pause. */
+export async function settleStoppedAdSpend(params: {
+  supabase: SupabaseLike; liveAdId: string; status: string; adIdeaId?: string | null;
+}): Promise<AdSpendSettlementLedgerResult> {
+  try {
+    const result = await settleAdSpendLedger({ supabase: params.supabase, liveAdId: params.liveAdId, force: true });
+    if (result.skipped) return result;
+    if (!result.success || result.unpaidAfter > 0 || result.error) {
+      console.warn('[ad-spend] stopped settlement deferred', { liveAdId: params.liveAdId, status: params.status,
+        error: result.error, unpaidAfter: result.unpaidAfter });
+    } else if (params.status.toLowerCase() !== 'paused' && params.adIdeaId) {
+      const { error } = await params.supabase.rpc('release_launch_hold', {
+        p_reference_type: 'ad_ideas', p_reference_id: params.adIdeaId,
+      });
+      if (error) throw new Error(`Final hold release failed: ${error.message}`);
+    }
+    return result;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn('[ad-spend] stopped settlement failed', { liveAdId: params.liveAdId, status: params.status, error: message });
+    return { success: false, error: message, liveAdId: params.liveAdId, spend: 0,
+      transferredBefore: 0, transferredAfter: 0, unpaidBefore: 0, unpaidAfter: 0, chargedAmount: 0 };
+  }
 }
