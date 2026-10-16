@@ -1,3 +1,4 @@
+process.env.PAID_LAUNCH_CURRENCIES = 'AUD'; // pins AUD-only containment mode for this test
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import assert from "node:assert/strict";
 import React from "react";

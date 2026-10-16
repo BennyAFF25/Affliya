@@ -9,7 +9,7 @@ async function run() {
   const originalFlag = process.env.PAID_LAUNCH_CURRENCIES;
   globalThis.fetch = async () => { throw new Error('External calls forbidden in tests'); };
   try {
-    delete process.env.PAID_LAUNCH_CURRENCIES;
+    process.env.PAID_LAUNCH_CURRENCIES = 'AUD';
     assert.deepEqual(paidLaunchCurrencies(), ['AUD']);
     assert.equal(checkPaidCurrency('USD','USD','USD').allowed,false);
     process.env.PAID_LAUNCH_CURRENCIES = 'AUD,USD,EUR, usd';

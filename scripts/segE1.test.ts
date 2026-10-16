@@ -11,7 +11,7 @@ async function main() {
  globalThis.fetch=async()=>{throw new Error('No network allowed');};
  const flag=process.env.PAID_LAUNCH_CURRENCIES, buffer=process.env.FX_BUFFER_BPS;
  try {
-  delete process.env.PAID_LAUNCH_CURRENCIES; process.env.FX_BUFFER_BPS='400';
+  process.env.PAID_LAUNCH_CURRENCIES='AUD'; process.env.FX_BUFFER_BPS='400';
   assert.deepEqual(paidLaunchCurrencies(),['AUD']);
   for(const [currency, rate, expected] of [['USD',1.5,34.32],['GBP',2,45.76]] as const){
    let reads=0; const calls:any[]=[];

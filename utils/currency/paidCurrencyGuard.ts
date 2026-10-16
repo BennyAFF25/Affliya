@@ -3,7 +3,7 @@ import { verifyMetaAccountCurrency } from "./verifyMetaAccountCurrency";
 import { resolveOfferPaidReadiness } from "../offerReadiness";
 export { PAID_CURRENCY_BLOCK_MESSAGE } from "./paidCurrencyMessage";
 
-export function paidLaunchCurrencies(value = process.env.PAID_LAUNCH_CURRENCIES ?? "AUD") {
+export function paidLaunchCurrencies(value = process.env.PAID_LAUNCH_CURRENCIES ?? "AUD,USD,GBP,CAD") {
   return [...new Set(value.split(',').map(code => code.trim().toUpperCase())
     .filter(code => ['AUD', 'USD', 'GBP', 'CAD'].includes(code)))];
 }

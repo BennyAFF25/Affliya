@@ -1,3 +1,4 @@
+process.env.PAID_LAUNCH_CURRENCIES = 'AUD'; // pins AUD-only containment mode for this test
 /* eslint-disable @typescript-eslint/no-explicit-any -- Supabase query-chain test doubles. */
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';

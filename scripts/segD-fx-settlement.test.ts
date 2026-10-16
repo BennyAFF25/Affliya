@@ -41,7 +41,7 @@ async function run() {
     writes = [];
     process.env.PAID_LAUNCH_CURRENCIES = ''; // Launch switch never disables settlement of existing spend.
     const result = await settleAdSpendLedger({ supabase: db, liveAdId: 'ad' });
-    delete process.env.PAID_LAUNCH_CURRENCIES;
+    process.env.PAID_LAUNCH_CURRENCIES = 'AUD';
     assert.equal(result.chargedAmount, currency === 'AUD' ? 15 : 22.5);
     assert.equal(result.transferredAfter,20);
     const payload = writes.find(w => w.table === 'atomic_rpc').values;
