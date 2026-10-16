@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { scanWalletLedgerDrift } from '../utils/wallet/ledgerDrift';
 
 // Explicit operator command only. SELECTs only; never load or print credentials.
 async function main() {
@@ -8,18 +9,7 @@ async function main() {
   const client = createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   });
-  let count = 0;
-  const size = 1000;
-  for (let offset = 0; ; offset += size) {
-    const { data, error } = await client.from('wallet_ledger_reconciliation')
-      .select('affiliate_email,currency,canonical_minor,ledger_minor,drift_minor,has_drift,canonical_floor_applied,floor_explanation')
-      .eq('has_drift', true).order('affiliate_email').order('currency')
-      .range(offset, offset + size - 1);
-    if (error || !data) throw new Error('Reconciliation SELECT failed');
-    for (const row of data) console.log(JSON.stringify(row));
-    count += data.length;
-    if (data.length < size) break;
-  }
+  const count = await scanWalletLedgerDrift(client, row => console.log(JSON.stringify(row)));
   console.log(`Wallet ledger drift rows: ${count}`);
   if (count > 0) process.exitCode = 1;
 }

@@ -1,6 +1,10 @@
 {
   "crons": [
     {
+      "path": "/api/cron/ledger-drift",
+      "schedule": "0 * * * *"
+    },
+    {
       "path": "/api/meta/sync-active-ads",
       "schedule": "*/5 * * * *"
     },
