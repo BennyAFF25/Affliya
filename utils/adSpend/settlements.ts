@@ -1,10 +1,9 @@
-import { settlementQuote, settlementAud, fundedOriginal, settlementFxFields } from './settlementFx';
+import { settlementQuote, settlementAud, fundedOriginal } from './settlementFx';
 import { isDefinitiveStripeFailure } from '../stripeOperationFailure';
-import { recordCampaignCurrency, withRecordedCurrency } from '../currency/recordCurrency';
 import { guardPaidCurrency } from "../currency/paidCurrencyGuard";
 import crypto from "crypto";
 import { buildNettmarkStripeMetadata, createStripeClient, getPlatformBalanceSnapshot } from "../stripe";
-import { getActivationSubsidyRemaining, toMoney, type ActivationSubsidyRow } from "../activationSubsidies";
+import { getActivationSubsidyRemaining, type ActivationSubsidyRow } from "../activationSubsidies";
 import { getWalletBalanceSnapshot } from "../wallet/balance";
 
 // Initialize only when a Stripe operation runs, never during Next.js build/page collection.
@@ -16,8 +15,6 @@ function getStripe() {
 const DEFAULT_SETTLEMENT_THRESHOLD = 25;
 const DEFAULT_WALLET_BUFFER = 10;
 const DEFAULT_BATCH_MAX_ROWS = 50;
-
-type JsonRecord = Record<string, unknown>;
 
 type QueryResult = Promise<{ data: unknown; error: { message?: string; code?: string } | null }>;
 
@@ -58,14 +55,6 @@ type LiveAdSettlementRow = {
   offer_id: string | null;
   spend: number | string | null;
   spend_transferred: number | string | null;
-};
-
-type ExistingSettlementRow = {
-  id: string;
-  status: string | null;
-  amount: number | string | null;
-  transferred_after: number | string | null;
-  unpaid_after: number | string | null;
 };
 
 export type AdSpendSettlementRow = {
@@ -183,11 +172,6 @@ export function buildAdSpendSettlementKey(liveAdId: string, transferredAfter: nu
   return `${liveAdId}:${roundMoney(transferredAfter)}`;
 }
 
-function isUniqueViolation(error: unknown) {
-  if (!error || typeof error !== "object") return false;
-  return "code" in error && error.code === "23505";
-}
-
 async function resolveBusinessTransferDestination(supabase: SupabaseLike, businessId: string | null, businessEmail: string) {
   let query = supabase.from("business_profiles").select("id, stripe_account_id").limit(1);
   query = businessId ? query.eq("id", businessId) : query.eq("business_email", businessEmail);
@@ -267,20 +251,6 @@ export function getSettlementFundingState(params: {
     blocked: false,
     message: "Settlement is funded and ready for transfer.",
   };
-}
-
-async function findExistingSettlementByKey(supabase: SupabaseLike, settlementKey: string) {
-  const { data, error } = await supabase
-    .from("ad_spend_settlements")
-    .select("id, status, amount, live_ad_id, affiliate_email, business_email, offer_id, spend, transferred_before, transferred_after, unpaid_before, unpaid_after")
-    .eq("settlement_key", settlementKey)
-    .maybeSingle();
-
-  if (error) {
-    throw new Error(`existing settlement lookup failed: ${error.message}`);
-  }
-
-  return (data as ExistingSettlementRow | null) ?? null;
 }
 
 async function findReservedActivationSubsidy(supabase: SupabaseLike, params: {
@@ -461,185 +431,25 @@ export async function settleAdSpendLedger(params: {
   const unpaidAfter = roundMoney(Math.max(0, spend - transferredAfter));
   const settlementKey = buildAdSpendSettlementKey(liveAdId, transferredAfter);
 
-  const existingSettlement = await findExistingSettlementByKey(supabase, settlementKey);
-  if (existingSettlement) {
-    return {
-      success: true,
-      liveAdId,
-      affiliateEmail,
-      businessEmail,
-      offerId,
-      settlementId: existingSettlement.id,
-      settlementKey,
-      spend,
-      transferredBefore,
-      transferredAfter: Number(existingSettlement.transferred_after ?? transferredAfter),
-      unpaidBefore,
-      unpaidAfter: Number(existingSettlement.unpaid_after ?? unpaidAfter),
-      chargedAmount: Number(existingSettlement.amount ?? chargedAmount),
-      availableBalanceBefore,
-      transferStatus: existingSettlement.status === "transfer_succeeded" ? "not_required" : "transfer_pending",
-      message: "Settlement already recorded (idempotent).",
-    };
+  const { data: atomic, error: atomicError } = await supabase.rpc("settle_live_ad_spend", {
+    p_live_ad_id: liveAdId, p_expected_previous: transferredBefore,
+    p_original_amount: originalAmount ?? chargedAmount, p_amount_aud: chargedAmount,
+    p_wallet_amount_aud: walletChargeAmount, p_subsidy_id: reservedSubsidy?.id ?? null,
+    p_subsidy_amount_aud: subsidyAppliedAmount, p_original_currency: currency.campaignCurrency,
+    p_fx_rate: fx?.rate ?? null, p_fx_source: fx?.source ?? null, p_fx_rate_date: fx?.rate_date ?? null,
+  });
+  if (atomicError) throw new Error(`Atomic settlement failed: ${atomicError.message}`);
+  const applied = atomic as { id?: string; applied: boolean; transferred_after: number };
+  if (!applied || typeof applied.applied !== "boolean" || !Number.isFinite(Number(applied.transferred_after))) {
+    throw new Error("Atomic settlement returned an invalid result");
   }
-
-  const { data: updatedRowsData, error: claimErr } = await supabase
-    .from("live_ads")
-    .update({ spend_transferred: transferredAfter })
-    .eq("id", liveAdId)
-    .eq("spend_transferred", transferredBefore)
-    .select("id");
-
-  const updatedRows = (updatedRowsData as { id: string }[] | null) ?? null;
-
-  if (claimErr) {
-    throw new Error(`live_ads claim update failed: ${claimErr.message}`);
-  }
-
-  if (!updatedRows || updatedRows.length === 0) {
-    const { data: latestData, error: latestErr } = await supabase
-      .from("live_ads")
-      .select("spend, spend_transferred")
-      .eq("id", liveAdId)
-      .maybeSingle();
-
-    const latest = (latestData as Pick<LiveAdSettlementRow, "spend" | "spend_transferred"> | null) ?? null;
-
-    if (latestErr) {
-      throw new Error(`live_ads refetch failed after claim miss: ${latestErr.message}`);
-    }
-
-    const latestSpend = roundMoney(Number(latest?.spend ?? spend));
-    const latestTransferred = roundMoney(Number(latest?.spend_transferred ?? transferredBefore));
-    return {
-      success: true,
-      liveAdId,
-      affiliateEmail,
-      businessEmail,
-      offerId,
-      settlementKey,
-      spend: latestSpend,
-      transferredBefore,
-      transferredAfter: latestTransferred,
-      unpaidBefore,
-      unpaidAfter: roundMoney(Math.max(0, latestSpend - latestTransferred)),
-      chargedAmount: 0,
-      availableBalanceBefore,
-      transferStatus: "not_required",
-      message: "Settlement already processed by another worker.",
-    };
-  }
-
-  if (reservedSubsidy && subsidyAppliedAmount > 0) {
-    const consumedBefore = toMoney(reservedSubsidy.consumed_amount);
-    const consumedAfter = roundMoney(consumedBefore + subsidyAppliedAmount);
-    const subsidyStatus = consumedAfter >= toMoney(reservedSubsidy.subsidy_amount) ? "consumed" : "partially_consumed";
-
-    const { data: subsidyRowsData, error: subsidyErr } = await supabase
-      .from("business_activation_subsidies")
-      .update({
-        consumed_amount: consumedAfter,
-        consumed_by_affiliate_email: affiliateEmail,
-        live_ad_id: liveAdId,
-        consumed_at: new Date().toISOString(),
-        status: subsidyStatus,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", reservedSubsidy.id)
-      .eq("consumed_amount", consumedBefore)
-      .select("id");
-
-    const subsidyRows = (subsidyRowsData as { id: string }[] | null) ?? null;
-
-    if (subsidyErr) {
-      await supabase.from("live_ads").update({ spend_transferred: transferredBefore }).eq("id", liveAdId).eq("spend_transferred", transferredAfter);
-      throw new Error(`activation subsidy update failed: ${subsidyErr.message}`);
-    }
-
-    if (!subsidyRows || subsidyRows.length === 0) {
-      await supabase.from("live_ads").update({ spend_transferred: transferredBefore }).eq("id", liveAdId).eq("spend_transferred", transferredAfter);
-      return {
-        success: false,
-        error: "ACTIVATION_SUBSIDY_RACE",
-        liveAdId,
-        affiliateEmail,
-        businessEmail,
-        offerId,
-        spend,
-        transferredBefore,
-        transferredAfter: transferredBefore,
-        unpaidBefore,
-        unpaidAfter: unpaidBefore,
-        chargedAmount: 0,
-        availableBalanceBefore,
-        message: "Starter spend changed while settling this ad. Please retry.",
-      };
-    }
-  }
-
-  if (walletChargeAmount > 0) {
-    const walletDeductionPayload = {
-      affiliate_email: affiliateEmail,
-      business_email: businessEmail,
-      offer_id: offerId,
-      ad_id: liveAdId,
-      amount: walletChargeAmount,
-      ...(fx ? settlementFxFields(subsidyAppliedAmount === 0 ? originalAmount! : walletChargeAmount / fx.rate, currency.campaignCurrency, fx) : {}),
-      description:
-        subsidyAppliedAmount > 0
-          ? `Meta ad spend settlement (starter spend applied: $${subsidyAppliedAmount.toFixed(2)})`
-          : "Meta ad spend settlement",
-      settlement_key: settlementKey,
-      business_id: typeof liveAd.business_id === "string" ? liveAd.business_id : null,
-      affiliate_user_id: typeof liveAd.affiliate_user_id === "string" ? liveAd.affiliate_user_id : null,
-    };
-
-    const { error: deductionErr } = await withRecordedCurrency(fx ? { currency: "AUD", currency_source: "verified" } : recordCampaignCurrency(currency), currencyFields => supabase
-      .from("wallet_deductions")
-      .insert({ ...walletDeductionPayload, ...currencyFields }));
-
-    if (deductionErr && !isUniqueViolation(deductionErr)) {
-      await supabase.from("live_ads").update({ spend_transferred: transferredBefore }).eq("id", liveAdId).eq("spend_transferred", transferredAfter);
-      throw new Error(`wallet_deductions insert failed: ${deductionErr.message}`);
-    }
-  }
-
-  const settlementPayload = {
-    settlement_key: settlementKey,
-    live_ad_id: liveAdId,
-    affiliate_email: affiliateEmail,
-    business_email: businessEmail,
-    offer_id: offerId,
-    business_id: typeof liveAd.business_id === "string" ? liveAd.business_id : null,
-    affiliate_user_id: typeof liveAd.affiliate_user_id === "string" ? liveAd.affiliate_user_id : null,
-    amount: chargedAmount,
-    ...(fx ? settlementFxFields(originalAmount!, currency.campaignCurrency, fx) : {}),
-    spend,
-    transferred_before: transferredBefore,
-    transferred_after: transferredAfter,
-    unpaid_before: unpaidBefore,
-    unpaid_after: unpaidAfter,
-    status: chargedAmount > 0 ? "pending_funds" : "transfer_succeeded",
-    next_retry_at: new Date().toISOString(),
-    metadata: {
-      source: "app/api/ad-spend/settle/route.ts",
-      walletChargeAmount,
-      subsidyAppliedAmount,
-      activationSubsidyId: reservedSubsidy?.id ?? null,
-    },
-  } satisfies JsonRecord;
-
-  const { data: insertedSettlement, error: settlementErr } = await withRecordedCurrency(fx ? { currency: "AUD", currency_source: "verified" } : recordCampaignCurrency(currency), currencyFields => supabase
-    .from("ad_spend_settlements")
-    .insert({ ...settlementPayload, ...currencyFields })
-    .select("id")
-    .maybeSingle());
-
-  if (settlementErr && !isUniqueViolation(settlementErr)) {
-    throw new Error(`ad_spend_settlements insert failed: ${settlementErr.message}`);
-  }
-
-  const settlementRow = settlementErr ? await findExistingSettlementByKey(supabase, settlementKey) : insertedSettlement;
+  if (!applied?.applied) return {
+    success: true, liveAdId, spend, transferredBefore,
+    transferredAfter: Number(applied?.transferred_after ?? transferredBefore), unpaidBefore,
+    unpaidAfter: roundMoney(Math.max(0, spend - Number(applied?.transferred_after ?? transferredBefore))),
+    chargedAmount: 0, transferStatus: "not_required", message: "Settlement already advanced; no charge applied.",
+  };
+  const settlementRow = applied;
 
   return {
     success: true,

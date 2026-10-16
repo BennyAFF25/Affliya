@@ -1,4 +1,5 @@
 "use client";
+import { CurrencyEstimate } from "../../../../../components/CurrencyEstimate";
 import { validateAdCopy } from "../../../../../utils/meta/adCopyValidation";
 
 import React, { useMemo, useRef, useState } from "react";
@@ -302,6 +303,7 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
                 </select>
               </label>
             </div>
+            <CurrencyEstimate currency={currency} amount={Number(form.budget_amount_dollars)} />
             {!currency && !currencyLoading && <p role="status" className="text-sm text-amber-200">The campaign currency could not be verified. Reload, or ask the business to set its offer currency.</p>}
             <div className="flex flex-wrap items-center gap-2 -mt-1 overflow-x-auto">
               <span className="text-[11px] text-gray-500 mr-1">Quick add:</span>

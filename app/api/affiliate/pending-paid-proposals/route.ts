@@ -118,6 +118,7 @@ export async function GET() {
           funding: funding ? {
             ready: funding.ready,
             requiredAmount: funding.requiredAmount,
+            holdAudEstimate: funding.holdAudEstimate,
             deficit: funding.deficit,
           } : null,
         };

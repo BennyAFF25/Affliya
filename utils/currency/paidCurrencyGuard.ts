@@ -1,7 +1,12 @@
+import { verifyMetaAccountCurrency } from "./verifyMetaAccountCurrency";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { resolveOfferPaidReadiness } from "../offerReadiness";
-import { PAID_CURRENCY_BLOCK_MESSAGE } from "./paidCurrencyMessage";
 export { PAID_CURRENCY_BLOCK_MESSAGE } from "./paidCurrencyMessage";
+
+export function paidLaunchCurrencies(value = process.env.PAID_LAUNCH_CURRENCIES ?? "AUD") {
+  return [...new Set(value.split(',').map(code => code.trim().toUpperCase())
+    .filter(code => ['AUD', 'USD', 'GBP', 'CAD'].includes(code)))];
+}
 
 export function resolveOfferCurrency(proposalCurrency: unknown, offerCurrency: unknown, accountCurrency?: unknown) {
   const normalize = (value: unknown) => String(value ?? "").trim().toUpperCase();
@@ -20,13 +25,16 @@ export function resolveOfferCurrency(proposalCurrency: unknown, offerCurrency: u
 export function checkPaidCurrency(proposalCurrency: unknown, offerCurrency: unknown, accountCurrency: unknown) {
   const resolved = resolveOfferCurrency(proposalCurrency, offerCurrency, accountCurrency);
   if (!resolved.allowed) return resolved;
-  const reason = resolved.campaignCurrency !== "AUD" ? "unsupported_campaign_currency"
+  const reason = !paidLaunchCurrencies().includes(resolved.campaignCurrency) ? "unsupported_campaign_currency"
     : !resolved.metaAccountCurrency ? "missing_meta_account_currency" : null;
-  return { ...resolved, allowed: !reason, reason, message: reason ? PAID_CURRENCY_BLOCK_MESSAGE : null };
+  const message = reason === "missing_meta_account_currency"
+    ? "Meta ad account currency could not be verified. Reconnect Meta or try again before launch."
+    : reason ? `Paid launch is unavailable for ${resolved.campaignCurrency || "this currency"}. Enabled currencies: ${paidLaunchCurrencies().join(", ") || "none"}.` : null;
+  return { ...resolved, allowed: !reason, reason, message };
 }
 
-/** Read-only server guard. Connection matching mirrors upload-video exactly. Never defaults account currency. */
-export async function guardPaidCurrency(params: { supabase: any; offerId?: string; adIdea?: { currency?: unknown }; liveAdId?: string; settlementOnly?: boolean }) {
+/** Server authority. Launch callers refresh and persist live currency; advisory/settlement reads use saved evidence. */
+export async function guardPaidCurrency(params: { supabase: any; offerId?: string; adIdea?: { currency?: unknown }; liveAdId?: string; settlementOnly?: boolean; verifyLive?: boolean }) {
   try {
     let offerId = params.offerId;
     let idea = params.adIdea;
@@ -44,18 +52,23 @@ export async function guardPaidCurrency(params: { supabase: any; offerId?: strin
     const readiness = await resolveOfferPaidReadiness({ supabase: params.supabase, offerId: offerId || "" });
     const { pageId, adAccountId } = readiness.resolvedMeta;
     if (!pageId || !adAccountId) return checkPaidCurrency(idea?.currency, offer.data.currency, null);
-    const connection = await params.supabase.from("meta_connections").select("ad_account_currency")
+    const connection = await params.supabase.from("meta_connections").select("ad_account_currency,access_token")
       .eq("business_email", offer.data.business_email).eq("page_id", pageId).eq("ad_account_id", adAccountId)
       .order("created_at", { ascending: false }).limit(1).maybeSingle();
     if (connection.error) throw new Error("meta_currency_lookup_failed");
+    if (params.verifyLive) {
+      const verified = await verifyMetaAccountCurrency({ supabase: params.supabase, businessEmail: offer.data.business_email,
+        pageId, adAccountId, token: connection.data?.access_token, offerCurrency: offer.data.currency });
+      if (connection.data) connection.data.ad_account_currency = verified;
+    }
     const result = checkPaidCurrency(idea?.currency, offer.data.currency, connection.data?.ad_account_currency);
     if (params.settlementOnly && result.reason === "unsupported_campaign_currency" &&
-      ['USD', 'GBP', 'CAD'].includes(result.campaignCurrency) && result.metaAccountCurrency) {
+      ['AUD', 'USD', 'GBP', 'CAD'].includes(result.campaignCurrency) && result.metaAccountCurrency) {
       return { ...result, allowed: true, reason: null, message: null };
     }
     return result;
   } catch (error) {
-    return { ...checkPaidCurrency(null, null, null), reason: error instanceof Error ? error.message : "currency_lookup_failed" };
+    return { ...checkPaidCurrency(null, null, null), reason: "currency_lookup_failed", message: error instanceof Error ? error.message : "Unable to verify currency. Try again before launching." };
   }
 }
 

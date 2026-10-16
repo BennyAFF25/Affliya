@@ -43,17 +43,27 @@ function AffiliateLayoutShell({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     const userId = session?.user?.id;
-    if (!userId) { setAffiliateRole("checking"); return; }
+    if (isLoading || !userId) { setAffiliateRole("checking"); return; }
     let current = true;
     setAffiliateRole("checking");
-    void getAccountRole(userId).then(role => {
+    const deadline = setTimeout(() => { if (current) setAffiliateRole("error"); }, 7000);
+    const resolveRole = async () => {
+      try { return await getAccountRole(userId); }
+      catch {
+        await new Promise(resolve => setTimeout(resolve, 250));
+        if (!current) throw new Error("Role check cancelled");
+        return getAccountRole(userId);
+      }
+    };
+    void resolveRole().then(role => {
       if (!current) return;
+      clearTimeout(deadline);
       if (role === "affiliate") setAffiliateRole("affiliate");
       else if (role === "business") setAffiliateRole("business");
       else setAffiliateRole("blocked");
     }).catch(() => { if (current) setAffiliateRole("error"); });
-    return () => { current = false; };
-  }, [session?.user?.id, roleRetry]);
+    return () => { current = false; clearTimeout(deadline); };
+  }, [session?.user?.id, session?.access_token, isLoading, roleRetry]);
 
   useEffect(() => {
     if (affiliateRole === "business" && session?.user?.id) {

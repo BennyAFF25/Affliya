@@ -39,7 +39,3 @@ export async function settlementQuote(supabase: Parameters<typeof guardPaidCurre
     return null;
   }
 }
-export function settlementFxFields(original: number, currency: string, fx: AudRate) {
-  return { original_amount: original, original_currency: currency, fx_rate: fx.rate,
-    fx_source: fx.source, fx_rate_date: fx.rate_date };
-}

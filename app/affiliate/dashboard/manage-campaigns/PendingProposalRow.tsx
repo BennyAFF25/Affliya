@@ -21,6 +21,7 @@ export type PendingProposal = {
   timingMessage?: string | null;
   growthReady: boolean;
   funding: {
+    holdAudEstimate?: number | null;
     ready: boolean;
     requiredAmount: number;
     deficit: number;
@@ -32,7 +33,7 @@ export function PendingProposalRow({ proposal }: { proposal: PendingProposal }) 
   const funded = proposal.state === "funded_waiting_for_business";
   const timingUpdate = proposal.state === "timing_update_required";
   const metaCleanup = proposal.state === "meta_cleanup_required";
-  const crossCurrency = proposal.kind === "paid" && (proposal.state === "currency_blocked" || (!!proposal.currency && proposal.currency.toUpperCase() !== "AUD"));
+  const crossCurrency = proposal.kind === "paid" && proposal.state === "currency_blocked";
   const showCurrencyWarning = crossCurrency && proposal.state !== "loading" && !timingUpdate && !metaCleanup;
   const title = proposal.campaignName || proposal.title || proposal.offerTitle;
 
@@ -43,7 +44,7 @@ export function PendingProposalRow({ proposal }: { proposal: PendingProposal }) 
       : "WAITING FOR BUSINESS";
 
   const description = showCurrencyWarning
-    ? PAID_CURRENCY_BLOCK_MESSAGE
+    ? proposal.currencyBlock || PAID_CURRENCY_BLOCK_MESSAGE
     : proposal.kind === "organic" ? "Organic proposal sent for business review. No ad funding is required." : proposal.state === "loading" ? "Proposal saved. Checking campaign readiness…" : metaCleanup
     ? "This proposal has a saved Meta campaign from an earlier launch attempt. The brand needs to check that attempt and recover any incomplete setup in Nettmark before trying again. You do not need to resubmit or add funds to fix this. Contact the brand through your Nettmark inbox if it remains unresolved."
     : timingUpdate
@@ -72,8 +73,9 @@ export function PendingProposalRow({ proposal }: { proposal: PendingProposal }) 
               {proposal.offerTitle}
             </span>
             <span className="rounded-full border border-white/[0.07] bg-white/[0.02] px-2.5 py-1">
-              {proposal.state === "loading" ? "Checking status…" : proposal.funding ? crossCurrency ? "Paid launch blocked" : `Required at launch: ${formatMoney(proposal.funding.requiredAmount)}` : "Funding not checked"}
+              {proposal.state === "loading" ? "Checking status…" : proposal.funding ? `Required at launch: ${formatMoney(proposal.funding.requiredAmount, proposal.currency || "AUD")}` : "Funding not checked"}
             </span>
+            {proposal.currency !== "AUD" && proposal.funding?.holdAudEstimate != null ? <span>≈ A${proposal.funding.holdAudEstimate.toFixed(2)}</span> : null}
             {proposal.createdAt ? (
               <span className="rounded-full border border-white/[0.07] bg-white/[0.02] px-2.5 py-1">
                 Submitted {new Date(proposal.createdAt).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}

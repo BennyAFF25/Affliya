@@ -203,6 +203,17 @@ export default function AffiliateWalletPage() {
   const [billingError, setBillingError] = useState(false);
   const [billingStatusLoading, setBillingStatusLoading] = useState(true);
   const [pauseNotices, setPauseNotices] = useState<Record<string, PauseNotice>>({});
+  const [holds, setHolds] = useState<{ id: string; original_currency: string | null; original_amount: number | null; fx_rate: number | null; amount_minor: number; launch_remaining_minor: number | null }[]>([]);
+  const [holdsError, setHoldsError] = useState(false);
+  useEffect(() => {
+    const controller = new AbortController();
+    if (!user?.id) return;
+    void fetch('/api/affiliate/wallet-holds', { signal: controller.signal, cache: 'no-store' })
+      .then(async response => { if (!response.ok) throw new Error(); return response.json(); })
+      .then(body => { setHolds(body.holds || []); setHoldsError(false); })
+      .catch(() => { if (!controller.signal.aborted) setHoldsError(true); });
+    return () => controller.abort();
+  }, [user?.id, initialReadsSettled]);
   const [liveAdRows, setLiveAdRows] = useState<WalletLiveAd[]>([]);
   useEffect(() => {
     if (!session?.user?.email || !liveAdRows.length) {
@@ -603,8 +614,7 @@ export default function AffiliateWalletPage() {
   };
 
 
-  // All figures below are presentation-only and derive from the existing
-  // reads/ledger. The wallet is pooled, not reserved per campaign.
+  // Ledger figures use the canonical wallet reads; active launch holds appear separately.
   const walletMoney = (value: number | string | null | undefined) => {
     if (currency === 'AUD') {
       return formatAUD(value);
@@ -811,6 +821,12 @@ export default function AffiliateWalletPage() {
               All campaigns <ArrowUpRight className="h-3.5 w-3.5" />
             </Link>
           </div>
+          {holdsError ? <p className="mt-3 text-xs text-amber-200">Campaign holds could not be loaded. Refresh to try again.</p> : null}
+          {holds.map(hold => <div key={hold.id} className="mt-3 text-sm">
+            Campaign funding held: {hold.original_currency && hold.original_currency !== 'AUD' && hold.original_amount != null
+              ? formatMoney(hold.original_amount * (hold.launch_remaining_minor ?? hold.amount_minor) / hold.amount_minor, hold.original_currency) : formatAUD((hold.launch_remaining_minor ?? hold.amount_minor) / 100)}
+            {hold.original_currency && hold.original_currency !== 'AUD' && Number(hold.fx_rate) > 0 ? <span className="block text-xs text-slate-400">≈ A${((hold.launch_remaining_minor ?? hold.amount_minor) / 100).toFixed(2)}</span> : null}
+          </div>)}
           {readState.lockState !== 'ready' ? sectionPlaceholder(['lockState']) : fundedCampaigns.length ? (
             <div className="mt-4 divide-y divide-white/[0.07] overflow-hidden rounded-[17px] border border-white/[0.08] bg-[#101415]">
               {fundedCampaigns.map((ad) => {

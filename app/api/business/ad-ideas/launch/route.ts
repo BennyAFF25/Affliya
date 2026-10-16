@@ -138,7 +138,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const currencyGuard = await guardPaidCurrency({ supabase: admin, offerId, adIdea: idea });
+    const currencyGuard = await guardPaidCurrency({ supabase: admin, offerId, adIdea: idea, verifyLive: true });
     if (!currencyGuard.allowed) return jsonError("PAID_CURRENCY_BLOCKED", currencyGuard.message!, 409);
 
     // Fail before marking the proposal approved or creating ANY Meta resources.

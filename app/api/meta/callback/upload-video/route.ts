@@ -1,3 +1,4 @@
+import { verifyMetaAccountCurrency } from "../../../../../utils/currency/verifyMetaAccountCurrency";
 import { reserveLaunchHold, releaseLaunchHold, FUNDING_ERROR } from "../../../../../utils/wallet/launchHolds";
 import { recordCampaignCurrency, withRecordedCurrency } from '@/../utils/currency/recordCurrency';
 import { resolveCampaignSchedule } from "../../../../../utils/campaignSchedule";
@@ -233,24 +234,6 @@ export async function POST(req: Request) {
       );
     }
 
-    const fundingReady = await getAffiliateCampaignFundingReadiness({
-      supabase,
-      affiliateEmail,
-      offerId,
-      adIdea: adIdea as any,
-    });
-    if (!fundingReady.ready) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "AFFILIATE_CAMPAIGN_FUNDING_REQUIRED",
-          message: fundingReady.currencyBlock || `Affiliate campaign funding is short by ${fundingReady.deficit.toFixed(2)}.`,
-          funding: { requiredAmount: fundingReady.requiredAmount, deficit: fundingReady.deficit },
-        },
-        { status: 409 },
-      );
-    }
-
     const launchApproval = await assertAdIdeaLaunchApproved(supabase as any, {
       adIdeaId,
       offerId,
@@ -412,10 +395,35 @@ export async function POST(req: Request) {
     }
 
     const { access_token } = connection as any;
-    const currencyGuard = checkPaidCurrency((adIdea as any).currency, (offer as any).currency, (connection as any).ad_account_currency);
+    let verifiedCurrency: string;
+    try {
+      verifiedCurrency = await verifyMetaAccountCurrency({ supabase, businessEmail, pageId: selectedPageId,
+        adAccountId: selectedAdAccountId, token: access_token, offerCurrency: (offer as any).currency });
+    } catch (error) {
+      return NextResponse.json({ success: false, error: "PAID_CURRENCY_BLOCKED", message: error instanceof Error ? error.message : "Unable to verify Meta currency." }, { status: 409 });
+    }
+    const currencyGuard = checkPaidCurrency((adIdea as any).currency, (offer as any).currency, verifiedCurrency);
     if (!currencyGuard.allowed) {
       return NextResponse.json({ success: false, error: "PAID_CURRENCY_BLOCKED", message: currencyGuard.message }, { status: 409 });
     }
+    const fundingReady = await getAffiliateCampaignFundingReadiness({
+      supabase,
+      affiliateEmail,
+      offerId,
+      adIdea: adIdea as any,
+    });
+    if (!fundingReady.ready) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "AFFILIATE_CAMPAIGN_FUNDING_REQUIRED",
+          message: fundingReady.currencyBlock || `Affiliate campaign funding is short by ${fundingReady.deficit.toFixed(2)}.`,
+          funding: { requiredAmount: fundingReady.requiredAmount, deficit: fundingReady.deficit },
+        },
+        { status: 409 },
+      );
+    }
+
     cleanupAccessToken = access_token || null;
 
     if (!access_token) {

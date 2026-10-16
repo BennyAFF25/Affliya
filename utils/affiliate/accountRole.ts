@@ -11,7 +11,9 @@ export function getAccountRole(userId: string): Promise<string> {
     const { data, error } = await withProposalTimeout((supabase as unknown as SupabaseClient).from('profiles').select('role').eq('id', userId)
       .abortSignal(AbortSignal.timeout(5000)).maybeSingle(), 5000);
     if (error) throw error;
-    return String(data?.role || '').trim().toLowerCase();
+    const role = String(data?.role || '').trim().toLowerCase();
+    if (!role) throw new Error('Account role is not ready');
+    return role;
   })();
   roles.set(userId, { expires: Date.now() + 60000, result });
   void result.catch(() => { if (roles.get(userId)?.result === result) roles.delete(userId); });

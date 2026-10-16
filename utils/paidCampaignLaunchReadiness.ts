@@ -1,4 +1,5 @@
-import { getLaunchWalletAvailable } from "./wallet/launchHolds";
+import { getAudRate, fxBufferBps } from "./fx/rates";
+import { audHoldAmount, getLaunchWalletAvailable } from "./wallet/launchHolds";
 import { resolveCampaignSchedule } from "./campaignSchedule";
 import { getActivationSubsidyRemaining, type ActivationSubsidyRow } from "./activationSubsidies";
 import { getActiveLaunchFundAllocation, type LaunchFundAllocation } from "./launchFund";
@@ -21,6 +22,7 @@ type AdIdeaTimingInput = {
 };
 
 export type AffiliateCampaignFundingReadiness = {
+  holdAudEstimate?: number | null;
   currencyBlock?: string | null;
   ready: boolean;
   requiredAmount: number;
@@ -74,9 +76,20 @@ export async function getAffiliateCampaignFundingReadiness(params: {
     };
   }
 
+  let holdAudEstimate: number | null = null;
   const currency = params.currencyReadiness ?? await guardPaidCurrency(params);
+  if (currency.campaignCurrency && currency.campaignCurrency !== "AUD") {
+    try {
+      const rate = await getAudRate(currency.campaignCurrency, { client: params.supabase });
+      holdAudEstimate = audHoldAmount(requiredAmount, rate.rate, fxBufferBps());
+    } catch {
+      return { ready: false, currencyBlock: "Unable to verify campaign funding in AUD. Try again before launch.",
+        requiredAmount, holdAudEstimate: null, walletAvailable: 0, activationSubsidyAvailable: 0,
+        launchFundAvailable: 0, effectiveFunding: 0, deficit: 0 };
+    }
+  }
   if (!currency.allowed) return {
-    ready: false, currencyBlock: currency.message, requiredAmount,
+    ready: false, currencyBlock: currency.message, requiredAmount, holdAudEstimate,
     walletAvailable: 0, activationSubsidyAvailable: 0, launchFundAvailable: 0,
     effectiveFunding: 0, deficit: requiredAmount,
   };
@@ -107,9 +120,10 @@ export async function getAffiliateCampaignFundingReadiness(params: {
   const effectiveFunding = money(
     walletAvailable + activationSubsidyAvailable + launchFundAvailable,
   );
-  const deficit = money(Math.max(0, requiredAmount - effectiveFunding));
+  const deficit = money(Math.max(0, (holdAudEstimate ?? requiredAmount) - effectiveFunding));
 
   return {
+    holdAudEstimate,
     ready: requiredAmount > 0 && deficit <= 0,
     requiredAmount,
     walletAvailable,

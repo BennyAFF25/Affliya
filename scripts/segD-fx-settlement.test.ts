@@ -12,7 +12,12 @@ const { settlementAud } = require('../utils/adSpend/settlementFx');
 const { checkPaidCurrency } = require('../utils/currency/paidCurrencyGuard');
 let currency = 'USD', stale = false, mismatch = false, funding = 100;
 let writes: any[] = [];
-const db: any = { from(table: string) {
+let rpcApplied = true, rpcFails = false;
+const db: any = { async rpc(name: string, args: any) {
+  assert.equal(name, 'settle_live_ad_spend');
+  writes.push({ table: 'atomic_rpc', values: args });
+  return { data: { id: 'settlement', applied: rpcApplied, transferred_after: args.p_expected_previous + args.p_original_amount }, error: rpcFails ? {message:'forced transaction failure'} : null };
+}, from(table: string) {
   let mutation: any;
   const row = () => table === 'live_ads' ? { id: 'ad', ad_idea_id: 'idea', offer_id: 'offer', affiliate_email: 'a', business_email: 'b', spend: 20, spend_transferred: 5 }
     : table === 'offers' ? { currency, business_email: 'b' }
@@ -34,18 +39,25 @@ async function run() {
   assert.equal(settlementAud(0.01,1.5),0.02);
   for (currency of ['USD','GBP','CAD','AUD']) {
     writes = [];
+    process.env.PAID_LAUNCH_CURRENCIES = ''; // Launch switch never disables settlement of existing spend.
     const result = await settleAdSpendLedger({ supabase: db, liveAdId: 'ad' });
+    delete process.env.PAID_LAUNCH_CURRENCIES;
     assert.equal(result.chargedAmount, currency === 'AUD' ? 15 : 22.5);
     assert.equal(result.transferredAfter,20);
-    for (const table of ['wallet_deductions','ad_spend_settlements']) {
-      const payload = writes.find(w => w.table === table).values;
-      assert.equal(payload.amount,result.chargedAmount);
-      assert.equal(payload.currency,'AUD');
-      assert.equal(payload.original_currency,currency === 'AUD' ? undefined : currency);
-      assert.equal(payload.original_amount,currency === 'AUD' ? undefined : 15);
-    }
+    const payload = writes.find(w => w.table === 'atomic_rpc').values;
+    assert.equal(payload.p_amount_aud,result.chargedAmount);
+    assert.equal(payload.p_wallet_amount_aud,result.chargedAmount);
+    assert.equal(payload.p_original_currency,currency);
+    assert.equal(payload.p_original_amount,15);
+    assert.equal(payload.p_expected_previous,5);
+    assert.equal(writes.length,1,'all settlement mutations use one RPC');
     assert.equal(checkPaidCurrency(null,currency,currency).allowed,currency === 'AUD');
   }
+  currency = 'AUD'; writes = []; rpcApplied = false;
+  assert.equal((await settleAdSpendLedger({supabase:db,liveAdId:'ad'})).chargedAmount,0);
+  assert.equal(writes.length,1); rpcApplied = true; rpcFails = true; writes = [];
+  await assert.rejects(settleAdSpendLedger({supabase:db,liveAdId:'ad'}),/Atomic settlement failed/);
+  assert.equal(writes.length,1,'RPC failure never falls back to non-atomic writes'); rpcFails = false;
   currency = 'USD'; funding = 10; writes = [];
   const partial = await settleAdSpendLedger({ supabase: db, liveAdId: 'ad' });
   assert.equal(partial.chargedAmount,9.99); assert.equal(partial.transferredAfter,11.66);

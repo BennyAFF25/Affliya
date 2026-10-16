@@ -299,6 +299,15 @@ export async function POST(req: Request) {
       });
     }
 
+    // Resolve legacy currency from the offer; never assume AUD for unknown liabilities.
+    const payoutOffer = await supabase.from("offers").select("currency").eq("id", payout.offer_id).maybeSingle();
+    const payoutCurrency = String(payout.currency || payoutOffer.data?.currency || "").trim().toUpperCase();
+    if (payoutOffer.error || !payoutOffer.data || payoutCurrency !== "AUD" || (payoutOffer.data?.currency && payoutOffer.data.currency !== "AUD")) {
+      const blocked = await supabase.from("wallet_payouts").update({ status: "blocked_currency", payout_error_message: "Commission payout awaiting FX support." }).eq("id", payout_id);
+      if (blocked.error) throw blocked.error;
+      return NextResponse.json({ success: false, skipped: true, status: "blocked_currency", message: "Commission payout awaiting FX support; no charge or transfer made." }, { status: 409 });
+    }
+
     const amount = Number(payout.amount);
     if (!amount || isNaN(amount)) {
       return NextResponse.json({ error: "invalid_amount" }, { status: 400 });

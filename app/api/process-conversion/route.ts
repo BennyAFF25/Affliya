@@ -35,7 +35,8 @@ async function createPayoutsForConversion(opts: {
   };
 
   // Payout execution currently assumes AUD; no Stripe object exists at creation.
-  const payoutCurrency = recordCurrency('AUD', 'inferred');
+  const payoutCurrency = recordCurrency(offer.currency, 'inferred');
+  const payoutStatus = String(offer.currency || '').toUpperCase() === 'AUD' ? 'pending' : 'blocked_currency';
   const payoutMode: string = offer.payout_mode || 'upfront';
   const payoutInterval: string = offer.payout_interval || 'monthly';
   const payoutCycles: number | null = offer.recurring_term_months ?? offer.payout_cycles;
@@ -121,7 +122,7 @@ async function createPayoutsForConversion(opts: {
       affiliate_email: affiliateEmail,
       offer_id: offer.id,
       amount: payoutAmount,
-      status: 'pending',
+      status: payoutStatus,
       source_event_id: event.id,
       cycle_number: 1,
       available_at: withAffiliateConnectWindow(event.created_at).toISOString(),
@@ -160,7 +161,7 @@ async function createPayoutsForConversion(opts: {
       affiliate_email: affiliateEmail,
       offer_id: offer.id,
       amount: perCycle,
-      status: 'pending',
+      status: payoutStatus,
       source_event_id: event.id,
       cycle_number: i,
       available_at: availableAt.toISOString(),

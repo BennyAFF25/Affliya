@@ -136,7 +136,7 @@ export async function POST(req: Request) {
     }
 
     if (action === 'RESUME') {
-      const currency = await guardPaidCurrency({ supabase, liveAdId });
+      const currency = await guardPaidCurrency({ supabase, liveAdId, verifyLive: true });
       if (!currency.allowed) return NextResponse.json({ error: 'PAID_CURRENCY_BLOCKED', message: currency.message }, { status: 409 });
       const proposal = await supabase.from('ad_ideas').select('*').eq('id', liveAd.ad_idea_id).maybeSingle();
       if (proposal.error || !proposal.data || proposal.data.offer_id !== liveAd.offer_id || proposal.data.affiliate_email !== liveAd.affiliate_email) {
