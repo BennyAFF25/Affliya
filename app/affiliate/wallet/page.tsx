@@ -357,10 +357,8 @@ export default function AffiliateWalletPage() {
       try {
         const stripeRes = await fetch('/api/stripe-session?session_id=' + sessionId);
         const stripeSession = await stripeRes.json();
-        console.log('[📦 Stripe Session Data]', stripeSession);
 
         if (stripeSession.payment_status !== 'paid') {
-          console.debug('[Pending session not paid yet]');
           return;
         }
 
