@@ -60,7 +60,7 @@ async function run() {
     assert.match(renderWorkspace({ id: 'ad', _source: 'meta', ...stopped }), /Stopped by business/);
     assert.match(renderWorkspace({ id: 'ad', _source: 'meta', status: 'live' }, null), /Checking wallet…/);
     const rows: Record<string, unknown[]> = { wallet_topups: [{ amount_net: 15, status: 'succeeded' }], wallet_deductions: [], wallet_refunds: [], live_ads: [{ spend: 12.47, spend_transferred: 0, status: 'paused' }] };
-    const client = { from: (table: string) => {
+    const client = { rpc: async (name: string) => { assert.equal(name, 'get_launch_wallet_available'); return { data: 2.53, error: null }; }, from: (table: string) => {
       const query = { select: () => query, eq: () => query, then: (resolve: (value: unknown) => unknown) => Promise.resolve({ data: rows[table], error: null }).then(resolve) };
       return query;
     } };

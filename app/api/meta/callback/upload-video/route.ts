@@ -1,3 +1,4 @@
+import { reserveLaunchHold, releaseLaunchHold, FUNDING_ERROR } from "../../../../../utils/wallet/launchHolds";
 import { recordCampaignCurrency, withRecordedCurrency } from '@/../utils/currency/recordCurrency';
 import { resolveCampaignSchedule } from "../../../../../utils/campaignSchedule";
 import { checkPaidCurrency } from "../../../../../utils/currency/paidCurrencyGuard";
@@ -141,6 +142,8 @@ async function cleanupPartialMetaCampaign(params: {
 }
 
 export async function POST(req: Request) {
+  let heldReference: string | null = null;
+  let launchSucceeded = false;
   let liveAdRow: any = null;
   let createdCampaignId: string | null = null;
   let cleanupAccessToken: string | null = null;
@@ -554,6 +557,14 @@ export async function POST(req: Request) {
       : `act_${selectedAdAccountId}`;
 
     console.log("[meta-upload] clean_ad_account_id", cleanAdAccountId);
+
+    try {
+      await reserveLaunchHold(supabase, affiliateEmail, fundingReady.requiredAmount, adIdeaId);
+      heldReference = adIdeaId;
+    } catch (error) {
+      return NextResponse.json({ success: false, error: FUNDING_ERROR,
+        message: error instanceof Error ? error.message : "Unable to reserve campaign funding." }, { status: 409 });
+    }
 
     // Validate and upload IMAGE media before creating Meta campaigns/ad sets.
     // No failed creative upload should leave partially created ad objects.
@@ -1194,6 +1205,10 @@ export async function POST(req: Request) {
               );
             }
 
+            // Meta is active and a runtime row exists. Keep the reservation even
+            // if subsequent local bookkeeping or notifications fail.
+            launchSucceeded = true;
+            liveAdRow = insertedLiveAdRow;
             const { error: activateLocalError } = await supabase
               .from("live_ads")
               .update({ status: "active" })
@@ -1202,8 +1217,6 @@ export async function POST(req: Request) {
             if (activateLocalError) {
               console.error("[live_ads] failed to mark campaign active", activateLocalError);
             }
-
-            liveAdRow = insertedLiveAdRow;
 
             await enqueueAffiliateWebhookEvent({
               supabase,
@@ -1344,5 +1357,7 @@ export async function POST(req: Request) {
       },
       { status: 500 },
     );
+  } finally {
+    if (heldReference && !launchSucceeded) await releaseLaunchHold(supabase, heldReference);
   }
 }

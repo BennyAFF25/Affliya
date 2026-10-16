@@ -1,3 +1,6 @@
+import { getAffiliateCampaignFundingReadiness } from "../../../../utils/paidCampaignLaunchReadiness";
+import { guardPaidCurrency } from "../../../../utils/currency/paidCurrencyGuard";
+import { reserveLaunchHold, releaseLaunchHold, FUNDING_ERROR } from "../../../../utils/wallet/launchHolds";
 import { tryWriteMoneyFlowAudit } from "../../../../utils/moneyFlowAudit";
 // app/api/meta/control-ad/route.ts
 import { NextResponse } from 'next/server';
@@ -12,6 +15,8 @@ const META_API_VERSION = 'v21.0'; // keep in sync with other Meta routes
 const META_SYSTEM_USER_TOKEN = process.env.META_SYSTEM_USER_TOKEN!; // kept for consistency
 
 export async function POST(req: Request) {
+  let heldReference: string | null = null;
+  let metaActivated = false;
   try {
     const { liveAdId, action, skipSettlement, actor } = await req.json();
 
@@ -28,7 +33,7 @@ export async function POST(req: Request) {
     const { data: liveAd, error: liveErr } = await supabase
       .from('live_ads')
       .select(
-        'id, meta_ad_id, meta_campaign_id, status, business_email, affiliate_email, ad_set_id, billing_state, terminated_by_business_at'
+        'id, offer_id, ad_idea_id, meta_ad_id, meta_campaign_id, status, business_email, affiliate_email, ad_set_id, billing_state, terminated_by_business_at'
       )
       .eq('id', liveAdId)
       .single();
@@ -130,6 +135,26 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: 'INVALID_ACTION' }, { status: 400 });
     }
 
+    if (action === 'RESUME') {
+      const currency = await guardPaidCurrency({ supabase, liveAdId });
+      if (!currency.allowed) return NextResponse.json({ error: 'PAID_CURRENCY_BLOCKED', message: currency.message }, { status: 409 });
+      const proposal = await supabase.from('ad_ideas').select('*').eq('id', liveAd.ad_idea_id).maybeSingle();
+      if (proposal.error || !proposal.data || proposal.data.offer_id !== liveAd.offer_id || proposal.data.affiliate_email !== liveAd.affiliate_email) {
+        return NextResponse.json({ error: FUNDING_ERROR, message: 'Campaign funding context could not be loaded.' }, { status: 409 });
+      }
+      const funding = await getAffiliateCampaignFundingReadiness({ supabase, affiliateEmail: liveAd.affiliate_email,
+        offerId: liveAd.offer_id, adIdea: proposal.data });
+      if (!funding.ready) return NextResponse.json({ error: FUNDING_ERROR,
+        message: funding.currencyBlock || `Affiliate campaign funding is short by $${funding.deficit.toFixed(2)}.`,
+        funding: { requiredAmount: funding.requiredAmount, deficit: funding.deficit } }, { status: 409 });
+      try {
+        await reserveLaunchHold(supabase, liveAd.affiliate_email, funding.requiredAmount, liveAd.ad_idea_id);
+        heldReference = liveAd.ad_idea_id;
+      } catch (error) {
+        return NextResponse.json({ error: FUNDING_ERROR, message: error instanceof Error ? error.message : 'Unable to reserve campaign funding.' }, { status: 409 });
+      }
+    }
+
     // 4) Call Meta Ads API to update the status
     const url = `https://graph.facebook.com/${META_API_VERSION}/${targetId}?access_token=${encodeURIComponent(
       accessToken
@@ -153,6 +178,7 @@ export async function POST(req: Request) {
       );
     }
 
+    metaActivated = action === 'RESUME';
     console.log('[✅ Meta control success]', metaJson);
 
     // 5) Settlement on pause/archive (unless skipped)
@@ -258,5 +284,7 @@ export async function POST(req: Request) {
   } catch (err) {
     console.error('[❌ control-ad route error]', err);
     return NextResponse.json({ error: 'INTERNAL_ERROR' }, { status: 500 });
+  } finally {
+    if (heldReference && !metaActivated) await releaseLaunchHold(supabase, heldReference);
   }
 }

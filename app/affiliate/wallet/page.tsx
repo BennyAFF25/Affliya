@@ -7,7 +7,8 @@ import { loadWalletSection } from '../../../utils/wallet/loadSection';
 import React from "react";
 import { campaignStatusDetail } from "../../../utils/wallet/campaignStatus";
 import { type PauseNotice } from "../../../utils/wallet/pauseNotice";
-import { calculateSpendableBalance, isFundingPaused } from '../../../utils/wallet/spendableBalance';
+import { getLaunchWalletAvailable } from '../../../utils/wallet/launchHolds';
+import { isFundingPaused } from '../../../utils/wallet/spendableBalance';
 
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -176,6 +177,7 @@ export default function AffiliateWalletPage() {
   const [topupMinimumError, setTopupMinimumError] = useState(false);
   const [currency, setCurrency] = useState('AUD');
   const [loading, setLoading] = useState(false);
+  const [spendableBalance, setSpendableBalance] = useState(0);
   const [walletData, setWalletData] = useState<WalletTopup[]>([]);
   const [refunds, setRefunds] = useState<WalletRefund[]>([]);
   const [refundAmount, setRefundAmount] = useState('');
@@ -283,6 +285,9 @@ export default function AffiliateWalletPage() {
 
     const generation = ++readGeneration.current;
     await Promise.all([
+      loadWalletSection(getLaunchWalletAvailable(supabase, user.email).then(data => ({ data, error: null })), result => {
+        if (generation === readGeneration.current) setSpendableBalance(result.data);
+      }, state => { if (generation === readGeneration.current) setReadState(previous => ({ ...previous, available: state })); }),
       loadWalletSection(supabase
         .from('wallet_refunds')
         .select('amount, status, stripe_refund_id, created_at, source_topup_id')
@@ -410,12 +415,9 @@ export default function AffiliateWalletPage() {
     refunds,
   });
   const topupPreview = calculateChargeOnTopPreview(parseFloat(amount || '0'));
-  const availableBalance = walletSnapshot.availableBalance;
-  // Display only: Meta has already reported this spend, even though the wallet
-  // deduction has not yet been entered. Once settlement is recorded it moves
-  // into wallet_deductions and disappears from totalUnpaidSpend, preventing
-  // the displayed amount from being deducted twice.
-  const displayedSpendableBalance = calculateSpendableBalance(availableBalance, refundLockState.totalUnpaidSpend);
+  // Canonical ledger/refund totals stay unchanged; this read excludes campaign
+  // reservations and pending spend without counting overlapping amounts twice.
+  const displayedSpendableBalance = spendableBalance;
   const refundableBalance = walletSnapshot.refundableBalance;
   const availableToRefund = refundLockState.locked ? 0 : refundableBalance;
   const refundBlockReason = getRefundBlockReason(refundLockState, currency);
@@ -624,7 +626,7 @@ export default function AffiliateWalletPage() {
       if (activityFilter === 'refunds') return item.id.startsWith('refund-');
       return true;
     });
-  const balanceReady = ['topups', 'refunds', 'deductions', 'lockState'].every(key => readState[key] === 'ready');
+  const balanceReady = ['topups', 'refunds', 'deductions', 'lockState', 'available'].every(key => readState[key] === 'ready');
   const activityReady = ['topups', 'refunds', 'deductions'].every(key => readState[key] === 'ready');
   const sectionPlaceholder = (keys: string[]) => keys.some(key => readState[key] === 'error') ? (
     <div role="alert" className="p-4 text-xs text-amber-200">Could not load wallet data. <button type="button" className="underline" onClick={() => void refreshWalletState()}>Try again</button></div>
@@ -665,11 +667,11 @@ export default function AffiliateWalletPage() {
               {balanceReady ? (<>
               <p className="mt-3 break-words text-[37px] font-semibold leading-none tracking-tight text-white sm:text-[45px]">{walletMoney(displayedSpendableBalance)}</p>
               <p className="mt-3 text-[11px] leading-5 text-slate-400">
-                {walletMoney(refundLockState.totalUnpaidSpend)} pending Meta spend already deducted
+                {walletMoney(refundLockState.totalUnpaidSpend)} pending Meta spend and active campaign holds excluded
                 <span className="mx-2 text-slate-600">·</span>
                 {walletMoney(availableToRefund)} refundable now
               </p>
-              </>) : sectionPlaceholder(['topups', 'refunds', 'deductions', 'lockState'])}
+              </>) : sectionPlaceholder(['topups', 'refunds', 'deductions', 'lockState', 'available'])}
               <p className="mt-1 max-w-lg text-[10px] leading-4 text-slate-500">Estimated from the latest stored Meta spend. Your actual wallet ledger is updated when that spend settles; the pending amount is not deducted twice.</p>
             </div>
             <div className="grid w-full shrink-0 grid-cols-2 gap-2 sm:w-auto sm:min-w-[255px]">

@@ -1,0 +1,28 @@
+# Segment A atomic launch holds
+
+Status: implementation completed; database validation deferred to operator. Retained at the explicitly requested active plan path. Local files only; no database execution or network writes.
+
+Problem: readiness reads do not reserve wallet funds; concurrent launches/resumes can share capacity.
+Product intent: preserve AUD launch funding, subsidies, launch funds, wallet display and settlement economics while adding invisible safety, aligned with VISION, PRODUCT_PRINCIPLES, PRODUCT and BUSINESS_RULES.
+User impact: launch/resume fails before Meta when another campaign has reserved capacity.
+Existing implementation: balance.ts is canonical; seg7 views mirror rounding; seg9 accounts and seg10 holds are suitable. Business launch delegates to upload-video; control-ad owns resume. Settlement uses a watermark claim then deduction, not the older atomic settlement RPC (MONEY_FLOW documents this discrepancy).
+Approach: additive hold metadata and service-only mutation RPCs, account row serialization, canonical reads plus non-overlapping pending spend; full funding requirement retained with wallet-funded portion separately recorded and source reservations scoped by offer. Reserve in the shared Meta launch boundary; resume uses the same guard/readiness. Lifecycle triggers release on local rejection/stop and consume after deductions without blocking them.
+Affected systems: launch, resume, available-wallet reads, settlement lifecycle. Stripe, ad-insights auth, Meta payloads unchanged.
+Trade-offs/risks: no retroactive holds. Existing live campaigns continue settling. Legacy settlement is still multi-query; pending spend uses observed Meta spend, not unreported external spend. Database schema is verified only from repository migrations, not production. Deployment must apply SQL before app code. No database execution is authorized.
+Success criteria: competing holds serialize; references retry safely; insufficient funds/currency blocks before Meta; deductions survive hold bookkeeping failure; displayed ledger balance unchanged.
+Validation: focused local tests, TypeScript, diff review; SQL dry-run supplied for operator execution only.
+
+
+## Final implementation and validation
+
+- Migration/undo: `supabase/migrations/20261016190000_segA_atomic_launch_holds.sql`, `supabase/undo/20261016190000_segA_atomic_launch_holds.undo.sql`. Reuses seg9 account locks and seg10 holds; adds remaining/wallet/source metadata, consumption deduplication, service-only mutation functions and lifecycle triggers. No SQL was executed.
+- Read access: `get_launch_wallet_available(text,text)` is service-role accessible and authenticated-own-email only; authenticated callers cannot exclude a reference. Internal/source functions and all mutations are service-role only. SECURITY DEFINER functions pin search_path. Existing RLS/policies are unchanged.
+- Shared upload reserves before the first Meta asset/campaign write. Business launch delegates to it. Successful activation retains its hold through later notification/bookkeeping errors. Failure exits release in finally. Resume checks currency, saved proposal funding and atomic reservation before Meta.
+- Wallet availability excludes wallet-funded active holds and pending spend exceeding the matching hold. Source reservations preserve subsidies/launch funds and prevent reuse for another campaign on the same offer. Canonical balance/refund/Stripe calculations are unchanged. Pending-proposal enrichment retains constant query counts.
+- Settlement consumes after each wallet deduction INSERT via a trigger, decrementing remaining and wallet-funded amounts by the deducted amount. Deduction ID deduplicates consumption; SQL exceptions become WARNING logs and cannot fail the deduction. No hold is a no-op, preserving settlement for existing live campaigns. Source-only coverage remains reserved until lifecycle release, conservatively preventing reuse.
+- No retroactive holds/backfill, network writes, database application, production config changes, deployment, commit or push.
+- Passed: `npx tsc -p . --noEmit`; `scripts/segA-atomic-holds.test.ts`, currency-seg1-containment, currency-seg7-balances, launch-fund, pending-proposals-batching (1/14/140 proposals), test-user-findings-round-4-ui and paid-campaign-resume-banner. `git diff --check` passed.
+- Existing failures reproduced with original HEAD file contents: meta-launch-payload (old validateLaunchProposal source signature), ad-ideas-review-ui (missing historical RequirementCard), affiliate-wallet-ui (historical reconciliation handler hash dd0807f4 vs cfa2e5dc). Wallet UI assertions were updated for the new available read; unrelated hashes were preserved.
+- SQL application/undo, live schema compatibility, triggers and two-session contention were not executed or verified under the files-only constraint. Operator dry-run is `scripts/segA-atomic-holds.dry-run.sql` (choose a funded AUD proposal with no hold; BEGIN/ROLLBACK). It checks reference idempotency, wallet availability, release, unsupported currency and insufficient funding. Two-session concurrency still needs a staging check.
+- Existing-live implications: untouched active campaigns have no hold and continue settling; observed unpaid spend reduces availability for new launches. Their next explicit resume requires current currency/funding checks and creates a hold. No automatic Meta changes.
+- Deployment order: apply reviewed migration before deploying callers. Undo requires reverting callers first; undo removes Segment A runtime hold data. Existing watermark/ledger crash gaps and unreported Meta spend are pre-existing risks; this change does not replace settlement/reconciliation or provide a Meta spend cap.

@@ -53,9 +53,10 @@ assert.match(source, /Available to spend/);
 // The large wallet figure reflects Meta spend that has been reported but not
 // yet converted into wallet deductions. Once a settlement moves that amount
 // into the canonical ledger it must not be subtracted a second time.
-assert.match(source, /const displayedSpendableBalance = calculateSpendableBalance\(availableBalance, refundLockState\.totalUnpaidSpend\)/);
+assert.match(source, /const displayedSpendableBalance = spendableBalance/);
+assert.match(source, /getLaunchWalletAvailable\(supabase, user\.email\)/);
 assert.match(source, /walletMoney\(displayedSpendableBalance\)/);
-assert.match(source, /pending Meta spend already deducted/);
+assert.match(source, /pending Meta spend and active campaign holds excluded/);
 assert.match(source, /const availableToRefund = refundLockState\.locked \? 0 : refundableBalance/);
 assert.match(source, /const walletSnapshot = calculateWalletBalance\(/);
 assert.doesNotMatch(source, /const availableBalance = walletSnapshot\.availableBalance - /);

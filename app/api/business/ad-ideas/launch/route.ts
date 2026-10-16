@@ -328,6 +328,8 @@ export async function POST(req: Request) {
       },
     );
 
+    // The shared upload boundary atomically reserves funding before creating any
+    // Meta campaign and releases the hold on failed launches (including direct uploads).
     const launchResponse = await uploadCampaignToMeta(internalRequest);
     const launchJson = await launchResponse.json().catch(() => null);
 

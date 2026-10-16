@@ -1,3 +1,4 @@
+import { getLaunchWalletAvailable } from "./wallet/launchHolds";
 import { resolveCampaignSchedule } from "./campaignSchedule";
 import { getActivationSubsidyRemaining, type ActivationSubsidyRow } from "./activationSubsidies";
 import { expireLaunchFundAllocations, getActiveLaunchFundAllocation, type LaunchFundAllocation } from "./launchFund";
@@ -8,6 +9,7 @@ import { guardPaidCurrency } from "./currency/paidCurrencyGuard";
 type SupabaseLike = any;
 
 type AdIdeaFundingInput = {
+  id?: string | null;
   currency?: string | null;
   budget_amount?: number | string | null;
   daily_budget?: number | string | null;
@@ -53,10 +55,10 @@ export async function getAffiliateCampaignFundingReadiness(params: {
   adIdea: AdIdeaFundingInput;
   /** Advisory endpoints only. Omit at launch/money boundaries to keep strict enforcement. */
   currencyReadiness?: Awaited<ReturnType<typeof guardPaidCurrency>>;
-  /** Request-local canonical wallet snapshot for batch advisory checks only. */
+  /** Request-local wallet snapshot with hold-adjusted availableBalance; advisory only. */
   walletSnapshot?: ReturnType<typeof getWalletBalanceSnapshot>;
   /** Request-local advisory source batch; strict launch callers omit this. */
-  fundingSources?: Promise<{ activationSubsidyAvailable: number; launchFundAvailable: number }>;
+  fundingSources?: Promise<{ activationSubsidyAvailable: number; launchFundAvailable: number; reservationsApplied?: boolean }>;
 }): Promise<AffiliateCampaignFundingReadiness> {
   const affiliateEmail = String(params.affiliateEmail || "").trim().toLowerCase();
   const requiredAmount = getCampaignRequiredFundingDollars(params.adIdea);
@@ -81,12 +83,21 @@ export async function getAffiliateCampaignFundingReadiness(params: {
   };
 
   const [wallet, sources] = await Promise.all([
-    params.walletSnapshot ?? getWalletBalanceSnapshot(params.supabase, affiliateEmail),
+    params.walletSnapshot ?? Promise.resolve(null),
     params.fundingSources ?? loadFundingSources(params.supabase, affiliateEmail, params.offerId),
   ]);
-  const { activationSubsidyAvailable, launchFundAvailable } = sources;
+  const sourceReservation = sources.reservationsApplied ? { data: 0, error: null } : await params.supabase.rpc('get_launch_source_reserved', {
+    p_affiliate_email: affiliateEmail, p_offer_id: params.offerId,
+    p_exclude_reference_id: params.adIdea.id || null,
+  });
+  if (sourceReservation.error || sourceReservation.data == null || !Number.isFinite(Number(sourceReservation.data))) {
+    throw new Error('Failed to load reserved campaign funding sources.');
+  }
+  const reservedSources = Math.max(0, Number(sourceReservation.data));
+  const activationSubsidyAvailable = money(Math.max(0, sources.activationSubsidyAvailable - reservedSources));
+  const launchFundAvailable = money(Math.max(0, sources.launchFundAvailable - Math.max(0, reservedSources - sources.activationSubsidyAvailable)));
 
-  const walletAvailable = money(wallet.availableBalance);
+  const walletAvailable = money(params.currencyReadiness && wallet ? wallet.availableBalance : await getLaunchWalletAvailable(params.supabase, affiliateEmail, params.adIdea.id || undefined));
   const effectiveFunding = money(
     walletAvailable + activationSubsidyAvailable + launchFundAvailable,
   );
@@ -103,7 +114,7 @@ export async function getAffiliateCampaignFundingReadiness(params: {
   };
 }
 
-async function loadFundingSources(supabase: SupabaseLike, affiliateEmail: string, offerId: string) {
+async function loadFundingSources(supabase: SupabaseLike, affiliateEmail: string, offerId: string): Promise<{ activationSubsidyAvailable: number; launchFundAvailable: number; reservationsApplied?: boolean }> {
   const { data: subsidyRows, error: subsidyError } = await supabase
     .from("business_activation_subsidies")
     .select("id,status,subsidy_amount,consumed_amount,reserved_for_affiliate_email")
@@ -160,7 +171,12 @@ export async function loadCampaignFundingSources(supabase: SupabaseLike, affilia
       return [];
     }
   })();
-  const [subsidies, allocations] = await Promise.all([subsidyTask, allocationTask]);
+  const holdsTask = supabase.from('wallet_holds').select('launch_offer_id,launch_source_minor,wallet_accounts!inner(owner_email)')
+    .eq('wallet_accounts.owner_email', affiliateEmail).eq('status', 'active');
+  const [subsidies, allocations, holds] = await Promise.all([subsidyTask, allocationTask, holdsTask]);
+  if (holds.error) throw new Error(`Failed to load campaign holds: ${holds.error.message}`);
+  const reserved = new Map<string, number>();
+  for (const hold of holds.data || []) reserved.set(hold.launch_offer_id, (reserved.get(hold.launch_offer_id) || 0) + Number(hold.launch_source_minor || 0) / 100);
   if (subsidies.error) throw new Error(`Failed to load activation subsidy: ${subsidies.error.message}`);
   const subsidyByOffer = new Map<string, ActivationSubsidyRow>();
   for (const row of (subsidies.data || []) as ActivationSubsidyRow[]) {
@@ -174,9 +190,13 @@ export async function loadCampaignFundingSources(supabase: SupabaseLike, affilia
     const subsidy = subsidyByOffer.get(offerId);
     // Select the earliest eligible allocation before checking commitment, matching the single-offer helper.
     const allocation = allocationByOffer.get(offerId);
+    const sourceReserved = reserved.get(offerId) || 0;
+    const subsidyAmount = getActivationSubsidyRemaining(subsidy ?? null);
+    const promo = allocation && !String(allocation.allocated_for_campaign_id || "").trim() ? money(allocation.amount) : 0;
     return [offerId, {
-      activationSubsidyAvailable: getActivationSubsidyRemaining(subsidy ?? null),
-      launchFundAvailable: allocation && !String(allocation.allocated_for_campaign_id || "").trim() ? money(allocation.amount) : 0,
+      activationSubsidyAvailable: money(Math.max(0, subsidyAmount - sourceReserved)),
+      launchFundAvailable: money(Math.max(0, promo - Math.max(0, sourceReserved - subsidyAmount))),
+      reservationsApplied: true,
     }];
   }));
 }

@@ -1,3 +1,4 @@
+import { getLaunchWalletAvailable } from "../../../../utils/wallet/launchHolds";
 import { loadPaidCurrencyReadiness } from "../../../../utils/currency/paidCurrencyGuard";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
@@ -52,8 +53,8 @@ export async function GET() {
     const sourcesTask = offerIds.length ? loadCampaignFundingSources(admin, affiliateEmail, offerIds as string[])
       .then(data => ({ data, error: null as unknown }))
       .catch(error => ({ data: new Map(), error })) : Promise.resolve({ data: new Map(), error: null });
-    const walletTask = offerIds.length ? getWalletBalanceSnapshot(admin, affiliateEmail)
-      .then(data => ({ data, error: null as unknown })).catch(error => ({ data: null, error })) : Promise.resolve({ data: null, error: null });
+    const walletTask = offerIds.length ? Promise.all([getWalletBalanceSnapshot(admin, affiliateEmail), getLaunchWalletAvailable(admin, affiliateEmail)])
+      .then(([data, availableBalance]) => ({ data: { ...data, availableBalance }, error: null as unknown })).catch(error => ({ data: null, error })) : Promise.resolve({ data: null, error: null });
 
     const { data: offers, error: offerError } = offerIds.length
       ? await admin
@@ -84,7 +85,7 @@ export async function GET() {
             return await getAffiliateCampaignFundingReadiness({
               supabase: admin, affiliateEmail, offerId, adIdea: proposal,
               walletSnapshot: Promise.resolve(wallet.data!),
-              fundingSources: Promise.resolve(sources.data.get(offerId) || { activationSubsidyAvailable: 0, launchFundAvailable: 0 }),
+              fundingSources: Promise.resolve(sources.data.get(offerId) || { activationSubsidyAvailable: 0, launchFundAvailable: 0, reservationsApplied: true }),
               currencyReadiness: currency,
             });
           } catch (error) {

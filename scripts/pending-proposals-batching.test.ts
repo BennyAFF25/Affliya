@@ -8,7 +8,7 @@ let rpcReads = 0;
 const proposals = () => Array.from({ length: count }, (_, i) => ({ id: `${i}`, offer_id: `offer-${i}`, business_email: `brand-${i}@test.invalid`, currency, budget_amount: i === 0 ? 2000 : 1000 }));
 const db = {
   auth: { getUser: async () => ({ data: { user: email ? { email } : null } }) },
-  rpc: async (name: string) => { assert.equal(name, 'expire_affiliate_launch_fund_allocations'); rpcReads++; },
+  rpc: async (name: string) => { rpcReads++; if (name === 'get_launch_wallet_available') return { data: 15, error: null }; assert.equal(name, 'expire_affiliate_launch_fund_allocations'); },
   from(table: string) {
     reads[table] = (reads[table] || 0) + 1;
     const query = {
@@ -156,8 +156,8 @@ async function run() {
       Object.keys(reads).forEach(key => delete reads[key]); rpcReads = 0;
       const response = await GET(); assert.equal(response.status, 200);
       const body = await response.json(); assert.equal(body.proposals.length, count);
-      assert.equal(rpcReads, 1);
-      for (const table of ['ad_ideas', 'offers', 'meta_connections', 'business_entitlements', 'wallet_topups', 'wallet_deductions', 'wallet_refunds', 'business_activation_subsidies', 'affiliate_launch_fund_allocations']) assert.equal(reads[table], 1, table);
+      assert.equal(rpcReads, 2);
+      for (const table of ['ad_ideas', 'offers', 'meta_connections', 'business_entitlements', 'wallet_topups', 'wallet_deductions', 'wallet_refunds', 'business_activation_subsidies', 'affiliate_launch_fund_allocations', 'wallet_holds']) assert.equal(reads[table], 1, table);
       return body.proposals;
     };
     let rows = await check(); assert.equal(rows[0].funding.deficit, 1);
