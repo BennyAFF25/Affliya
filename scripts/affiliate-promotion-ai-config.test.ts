@@ -1,7 +1,7 @@
 import * as assert from "node:assert/strict";
 import { getPromotionAIConfig } from "../lib/affiliate/promotionAI";
 
-const enabled = { NETTMARK_AFFILIATE_AI_ENABLED: "true", OPENAI_API_KEY: "test-key" };
+const enabled = { NODE_ENV: "test" as const, NETTMARK_AFFILIATE_AI_ENABLED: "true", OPENAI_API_KEY: "test-key" };
 const kv = { ...enabled, KV_REST_API_URL: "https://nettmark-kv.upstash.io", KV_REST_API_TOKEN: "kv-token" };
 const legacy = { ...enabled, UPSTASH_REDIS_REST_URL: "https://nettmark-upstash.upstash.io", UPSTASH_REDIS_REST_TOKEN: "upstash-token" };
 

@@ -492,6 +492,8 @@ export function createAffiliateWebhookTestPayload(): AffiliateWebhookPayload {
       timezone: "Australia/Adelaide",
       country: "AU",
       plan: "free",
+      plan_status: "free",
+      trial_ends_at: null,
       meta_connected: false,
       signed_up_at: now,
       dashboard_url: "https://www.nettmark.com/business/my-business",

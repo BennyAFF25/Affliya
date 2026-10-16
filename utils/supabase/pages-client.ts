@@ -2,6 +2,6 @@
 
 import { createPagesBrowserClient } from '@supabase/auth-helpers-nextjs';
 import { type SupabaseClient } from '@supabase/supabase-js';
-import { type Database } from '@/../types/supabase';
 
-export const supabase: SupabaseClient<Database> = createPagesBrowserClient<Database>();
+// The checked-in Database type is an example, not the application schema.
+export const supabase: SupabaseClient = createPagesBrowserClient<any, "public", any>();

@@ -58,6 +58,7 @@ const loader = Module as unknown as { _load: (id: string, parent: unknown, isMai
 const originalLoad = loader._load;
 const env = { ...process.env };
 loader._load = function (name, parent, isMain) {
+  if (name === "next/server") return { ...originalLoad.call(this, name, parent, isMain) as object, after: () => undefined };
   if (name === "@supabase/auth-helpers-nextjs") return { createRouteHandlerClient: () => database };
   if (name === "next/headers") return { cookies: () => ({}) };
   if (name.includes("utils/creatorReferrals")) return { createCreatorCommissionFromPaidInvoice: async () => {}, reverseCreatorCommissionByInvoiceId: async () => {} };
@@ -144,8 +145,8 @@ async function main() {
     assert.equal((await valid.json()).entitlementUpdated, false); assert.ok(valid.headers.get("set-cookie")); assert.deepEqual(writes, []);
     reset(); tables.business_entitlements[0].billing_status = "subscription_active";
     assert.equal((await free.POST(post({ businessId: id }))).status, 200);
-    assert.ok(writes.some(w => w.table === "product_events"));
-    assert.ok(!writes.some(w => w.table === "business_entitlements")); assert.equal(sessionsCreated, 0);
+    assert.ok((writes as Array<{ table: string; value: unknown }>).some(w => w.table === "product_events"));
+    assert.ok(!(writes as Array<{ table: string; value: unknown }>).some(w => w.table === "business_entitlements")); assert.equal(sessionsCreated, 0);
     reset(); tables.offers = [];
     assert.equal((await completion.POST(post({ offerId }))).status, 409); assert.deepEqual(writes, []);
     reset(); tables.offers[0].business_email = "someone_else@example.test";
@@ -153,13 +154,13 @@ async function main() {
     reset();
     assert.equal((await completion.POST(post({ offerId }))).status, 200);
     assert.equal((await completion.POST(post({ offerId }))).status, 200);
-    assert.ok(!writes.some(w => w.table === "offers"), "Completion retries never insert another offer");
+    assert.ok(!(writes as Array<{ table: string; value: unknown }>).some(w => w.table === "offers"), "Completion retries never insert another offer");
     reset(); errors.product_events = { message: "telemetry unavailable" };
     assert.equal((await completion.POST(post({ offerId }))).status, 200, "Telemetry failure cannot block saved offers");
     reset(); errors.business_entitlements = { message: "temporary failure" };
     const failedEntry = await completion.POST(post({ offerId }));
     assert.equal(failedEntry.status, 503); assert.equal(failedEntry.headers.get("set-cookie"), null);
-    assert.ok(!writes.some(w => w.table === "offers"), "A failed billing-context read leaves the saved offer intact");
+    assert.ok(!(writes as Array<{ table: string; value: unknown }>).some(w => w.table === "offers"), "A failed billing-context read leaves the saved offer intact");
     const webhook = require("../app/api/business-subscription/webhook/route");
     reset();
     signedEvent = { id: "evt_fixture", type: "invoice.paid", livemode: true, created: 1791176500, api_version: "fixture",
@@ -168,7 +169,7 @@ async function main() {
     assert.equal((await webhook.POST(webhookRequest("invalid"))).status, 401);
     assert.deepEqual(writes, []);
     assert.equal((await webhook.POST(webhookRequest())).status, 200);
-    const recorded = writes.filter(w => w.table === "business_subscription_stripe_events").map(w => w.value as Row);
+    const recorded = (writes as Array<{ table: string; value: unknown }>).filter(w => w.table === "business_subscription_stripe_events").map(w => w.value as Row);
     const facts = recorded.find(row => row.processing_status === "processed")!.metadata;
     assert.equal(facts.livemode, true); assert.equal(facts.invoice_amount_paid, 7200); assert.equal(facts.invoice_currency, "aud"); assert.equal(facts.invoice_id, "in_fixture");
     assert.equal(facts.business_onboarding_funnel, "trial_first_v1"); assert.equal(facts.cancellation_requested, true); assert.ok(facts.trial_started_at && facts.trial_ends_at);

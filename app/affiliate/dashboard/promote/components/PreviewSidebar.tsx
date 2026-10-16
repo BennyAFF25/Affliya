@@ -12,7 +12,7 @@ interface PreviewSidebarProps {
   brandLogoUrl: string | null;
   videoPreviewUrl: string | null;
   thumbPreviewUrl: string | null;
-  creativeKind: "video" | "image" | null;
+  creativeKind?: "video" | "image" | null;
   form: AdFormState;
   ogMethod: "social" | "email" | "forum" | "other";
   ogFile: File | null;

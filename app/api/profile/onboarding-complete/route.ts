@@ -57,7 +57,7 @@ async function trackOnboardingOfferConversion(user: { id: string; email?: string
   }
 }
 
-export async function POST(req?: Request) {
+export async function POST(req: Request) {
   const supabase = createRouteHandlerClient({ cookies });
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user?.email) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });

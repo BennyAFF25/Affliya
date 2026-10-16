@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { createServerSupabaseClient, getOwnedBusinessForUser, getEntitlementOrThrow } from "../../../../utils/businessSubscriptions";
 import { recordBusinessFunnelEvent } from "../../../../utils/businessOnboardingServer";
-export async function POST(req?: Request) {
+export async function POST(req: Request) {
   const userClient = createRouteHandlerClient({ cookies });
   const { data: { user }, error } = await userClient.auth.getUser();
   if (error || !user?.email) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

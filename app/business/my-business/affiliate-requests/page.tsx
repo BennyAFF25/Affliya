@@ -107,7 +107,7 @@ export default function AffiliateRequestsPage() {
           error.message,
         );
       } else {
-        const nextRequests = (data as AffiliateRequest[]) || [];
+        const nextRequests = (data as unknown as AffiliateRequest[]) || [];
         setRequests(nextRequests);
 
         const offerIds = nextRequests
@@ -162,7 +162,7 @@ export default function AffiliateRequestsPage() {
       const affiliateEmails = Array.from(
         new Set(
           [
-            ...(((data || []) as AffiliateRequest[]).map((row) => row.affiliate_email)),
+            ...(((data || []) as unknown as AffiliateRequest[]).map((row) => row.affiliate_email)),
             ...(((shopData || []) as ShopRequest[]).map((row) => row.affiliate_email)),
           ].filter((value): value is string => Boolean(value)),
         ),

@@ -213,7 +213,7 @@ export async function POST(req: Request) {
       id: crypto.randomUUID(),
       business_email: businessEmail,
       offer_id: offerId,
-      title: cleanNullableText(formData.get("title")) || file.name,
+      title: cleanNullableText(formData.get("title")) || (file instanceof File ? file.name : ""),
       caption: cleanNullableText(formData.get("caption")),
       media_url: assetUpload!.publicUrl,
       media_type: mediaType,

@@ -39,6 +39,7 @@ assert.match(source, /balanceReady \? \(<>/);
 assert.match(source, /!activityReady \? sectionPlaceholder/);
 assert.match(source, /readState.lockState !== 'ready' \? sectionPlaceholder/);
 assert.equal(fnv1a(sliceBetween("  useEffect(() => {\n    const confirmPendingSession", "  if (session === undefined)")
+  .replace("console.debug('[Pending session not paid yet]');", "console.warn('[⚠️ Pending session not paid yet]');")
   .replace(" || !initialReadsSettled", "")
   .replace("[refreshWalletState, initialReadsSettled]", "[refreshWalletState]")), "cfa2e5dc");
 // Normalize only the approved inline minimum feedback; payment handler stays protected.

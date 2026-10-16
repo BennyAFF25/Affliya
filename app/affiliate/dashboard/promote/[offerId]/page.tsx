@@ -1706,11 +1706,6 @@ export default function PromoteOfferPage() {
         {mode === "ad" && (
           <PreviewSidebar
             mode={mode}
-            reachDaily={reachDaily}
-            reachMonthly={reachMonthly}
-            reachStatus={reachStatus}
-            reachMessage={reachMessage}
-            interestsIgnored={interestsIgnored}
             dailyConversions={dailyConversions}
             monthlyConversions={monthlyConversions}
             brandName={brandName}

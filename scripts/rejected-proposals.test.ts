@@ -40,16 +40,13 @@ async function run() {
     assert.equal(mutations.pop()!.status, 'rejected', 'reason remains optional');
     for (const code of ['42703', 'PGRST204']) {
       failures = [code];
-      assert.equal((await reject('Offer paused')).status, 200);
-      assert.deepEqual(mutations[1], { status: 'rejected', rejection_reason: 'Offer paused' });
+      assert.equal((await reject('Offer paused')).status, 500);
+      assert.equal(mutations.length, 1, 'never retry without the rejection timestamp');
       assert.ok(mutations[0].rejected_at); mutations = [];
     }
     failures = ['42501'];
     assert.equal((await reject()).status, 500);
     assert.equal(mutations.length, 1); mutations = [];
-    failures = ['42703', '42501'];
-    assert.equal((await reject()).status, 500);
-    assert.equal(mutations.length, 2); mutations = [];
     const pending = await POST(new Request('https://local.invalid', { method: 'POST', body: JSON.stringify({ id: 'idea', status: 'pending' }) }));
     assert.equal(pending.status, 200);
     assert.deepEqual(mutations.pop(), { status: 'pending' });
@@ -83,6 +80,7 @@ async function run() {
     const page = readFileSync('app/affiliate/dashboard/manage-campaigns/page.tsx', 'utf8');
     assert.match(page, /row.kind === "paid" && row.status === "rejected"/);
     assert.match(page, /REJECTED/);
+    assert.match(page, /Date not recorded/);
     assert.match(page, /proposal.campaignName \|\| offerNameById/);
     assert.match(page, /proposal.rejectedAt \?/); assert.match(page, /No reason given/);
     const workspace = readFileSync('components/business/ManageCampaignsWorkspace.tsx', 'utf8');

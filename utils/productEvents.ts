@@ -27,6 +27,7 @@ export async function logProductEvent(payload: {
     | "promotion_started"
     | "paid_promotion_submitted"
     | "organic_promotion_submitted"
+    | "organic_promotion_ready"
     | "onboarding_started"
     | "promotion_preference_selected"
     | "nettmark_partner_offer_activated"

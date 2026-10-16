@@ -74,7 +74,7 @@ async function run(req: Request) {
       });
     }
 
-    return NextResponse.json({ success: true, ...result });
+    return NextResponse.json({ ...result });
   } catch (err: unknown) {
     await tryWriteMoneyFlowAudit(supabase as never, {
       eventType: "ad_spend_transfer_batch_failed",

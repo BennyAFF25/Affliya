@@ -21,8 +21,9 @@ function errorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
 }
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params;
     const auth = createRouteHandlerClient({ cookies });
     const {
       data: { user },
@@ -42,7 +43,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     const { data: instance, error: instanceError } = await admin
       .from("recurring_commission_instances")
       .select("id, status, business_email")
-      .eq("id", params.id)
+      .eq("id", id)
       .eq("business_email", businessEmail)
       .maybeSingle();
 
@@ -54,18 +55,18 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       const { error } = await admin
         .from("recurring_commission_instances")
         .update({ status: "paused" })
-        .eq("id", params.id)
+        .eq("id", id)
         .eq("business_email", businessEmail);
 
       if (error) throw error;
-      return NextResponse.json({ ok: true, id: params.id, status: "paused" });
+      return NextResponse.json({ ok: true, id, status: "paused" });
     }
 
     if (action === "resume") {
       const { data: nextPending } = await admin
         .from("wallet_payouts")
         .select("available_at")
-        .eq("recurring_instance_id", params.id)
+        .eq("recurring_instance_id", id)
         .eq("status", "pending")
         .order("cycle_number", { ascending: true })
         .limit(1)
@@ -77,17 +78,17 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
           status: "active",
           next_payout_at: nextPending?.available_at || null,
         })
-        .eq("id", params.id)
+        .eq("id", id)
         .eq("business_email", businessEmail);
 
       if (error) throw error;
-      return NextResponse.json({ ok: true, id: params.id, status: "active" });
+      return NextResponse.json({ ok: true, id, status: "active" });
     }
 
     const { error: payoutUpdateError } = await admin
       .from("wallet_payouts")
       .update({ status: "cancelled" })
-      .eq("recurring_instance_id", params.id)
+      .eq("recurring_instance_id", id)
       .eq("business_email", businessEmail)
       .eq("status", "pending");
 
@@ -100,12 +101,12 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
         cancel_reason: typeof reason === "string" && reason.trim() ? reason.trim() : null,
         next_payout_at: null,
       })
-      .eq("id", params.id)
+      .eq("id", id)
       .eq("business_email", businessEmail);
 
     if (instanceUpdateError) throw instanceUpdateError;
 
-    return NextResponse.json({ ok: true, id: params.id, status: "cancelled" });
+    return NextResponse.json({ ok: true, id, status: "cancelled" });
   } catch (error: unknown) {
     console.error("[recurring-commissions.patch]", error);
     return NextResponse.json(

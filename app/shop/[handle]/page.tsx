@@ -204,9 +204,10 @@ async function getShopData(handle: string) {
 export default async function ShopPage({
   params,
 }: {
-  params: { handle: string };
+  params: Promise<{ handle: string }>;
 }) {
-  const data = await getShopData(params.handle);
+  const { handle } = await params;
+  const data = await getShopData(handle);
 
   if (!data) {
     notFound();
@@ -222,7 +223,7 @@ export default async function ShopPage({
     console.warn("[shop] increment view failed", err);
   }
 
-  const shopUrl = `https://www.nettmark.com/shop/${params.handle}`;
+  const shopUrl = `https://www.nettmark.com/shop/${handle}`;
   const hasOffers = data!.offers.length > 0;
 
   return (

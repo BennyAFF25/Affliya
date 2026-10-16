@@ -360,7 +360,7 @@ export default function AffiliateWalletPage() {
         console.log('[📦 Stripe Session Data]', stripeSession);
 
         if (stripeSession.payment_status !== 'paid') {
-          console.warn('[⚠️ Pending session not paid yet]');
+          console.debug('[Pending session not paid yet]');
           return;
         }
 
@@ -724,12 +724,13 @@ export default function AffiliateWalletPage() {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <h2 id="topup-heading" className="text-[15px] font-semibold">Add funds</h2>
-                <p className="mt-1 text-xs text-slate-400">Choose the wallet credit you want to add.</p>
+                {!billingStatusLoading && !billingError && billingReady ? <p className="mt-1 text-xs text-slate-400">Choose the wallet credit you want to add.</p> : null}
               </div>
-              <span className="rounded-full border border-white/10 px-3 py-1 text-[11px] font-medium text-slate-300">{currency}</span>
+              <button type="button" aria-label="Close" onClick={() => setWalletAction(null)} className="min-h-10 rounded-full border border-white/10 px-3 text-xs text-slate-300 hover:bg-white/5">Close</button>
             </div>
             <WalletBillingNotice loading={billingStatusLoading} error={billingError} ready={billingReady}
               onRetry={() => setBillingRetry(value => value + 1)} />
+            {!billingStatusLoading && !billingError && billingReady ? (<>
             <label htmlFor="wallet-topup-amount" className="mt-4 block text-[11px] font-semibold text-slate-300">Amount to credit ({currency})</label>
             <p id="wallet-topup-minimum" role={topupMinimumError ? "alert" : undefined}
               className={topupMinimumError ? "mt-1 text-xs text-amber-300" : "mt-1 text-xs text-slate-400"}>{WALLET_TOPUP_MINIMUM_MESSAGE}</p>
@@ -757,8 +758,9 @@ export default function AffiliateWalletPage() {
             <button type="button" onClick={handleTopUp} disabled={loading || billingStatusLoading || !billingReady}
               className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-[#00C2CB] px-4 text-sm font-bold text-[#0f0f0f] transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50">
               <CreditCard className="h-4 w-4" />
-              {loading ? 'Redirecting…' : billingStatusLoading ? 'Checking billing…' : billingReady ? 'Continue to Stripe' : 'Connect billing in Settings first'}
+              {loading ? 'Redirecting…' : 'Continue to Stripe'}
             </button>
+            </>) : null}
           </section>
         ) : null}
 

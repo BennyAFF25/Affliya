@@ -7,7 +7,7 @@ type StripeMetadataValue = string | number | boolean | null | undefined;
 
 export function normalizeStripeSecret(secret = process.env.STRIPE_SECRET_KEY) {
   const raw = String(secret || "");
-  const unquoted = raw.replace(/^\s*(["'])(.*)\1\s*$/s, "$2");
+  const unquoted = raw.replace(/^\s*(["'])([\s\S]*)\1\s*$/, "$2");
   const sanitized = unquoted.replace(/[\s\u0000-\u001F\u007F-\u009F\u200B-\u200D\uFEFF]/g, "");
 
   if (!sanitized) {

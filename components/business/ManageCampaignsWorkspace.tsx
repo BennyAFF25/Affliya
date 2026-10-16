@@ -252,7 +252,7 @@ export default function ManageCampaignsWorkspace(props: Props) {
     { id: "all", title: "All campaigns", count: campaigns.length },
     { id: "meta", title: "Meta Ads", count: meta.length },
     { id: "organic", title: "Organic", count: organic.length },
-    { id: "archived", title: "Archived", count: archived.length },
+    { id: "archived", title: "Archived", count: props.audience === "affiliate" ? (props.rejectedCount == null ? null : archived.length + props.rejectedCount) : archived.length },
     ...(props.audience === "affiliate" ? [{ id: "rejected" as const, title: "Rejected", count: props.rejectedCount ?? null }] : []),
   ];
 

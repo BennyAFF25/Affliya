@@ -88,12 +88,12 @@ export default function MoneyFlowHarnessPage() {
   }, []);
 
   useEffect(() => {
-    if (!selectedLiveAdId && liveAds[0]?.id) setSelectedLiveAdId(liveAds[0].id);
+    if (!selectedLiveAdId && liveAds[0]?.id) setSelectedLiveAdId(String(liveAds[0].id));
   }, [liveAds, selectedLiveAdId]);
 
   useEffect(() => {
     const pending = payouts.find((row) => row.status === "pending");
-    if (!selectedPayoutId && pending?.id) setSelectedPayoutId(pending.id);
+    if (!selectedPayoutId && pending?.id) setSelectedPayoutId(String(pending.id));
   }, [payouts, selectedPayoutId]);
 
   const headline = useMemo(() => {
@@ -175,7 +175,7 @@ export default function MoneyFlowHarnessPage() {
                 <select value={selectedLiveAdId} onChange={(e) => setSelectedLiveAdId(e.target.value)} className="w-full rounded-lg border border-[var(--border)] bg-transparent px-3 py-2">
                   <option value="">Choose live ad…</option>
                   {liveAds.map((ad) => (
-                    <option key={ad.id} value={ad.id}>{ad.id} — spend {ad.spend} / transferred {ad.spend_transferred}</option>
+                    <option key={String(ad.id)} value={String(ad.id)}>{String(ad.id)} — spend {String(ad.spend)} / transferred {String(ad.spend_transferred)}</option>
                   ))}
                 </select>
               </label>
@@ -212,7 +212,7 @@ export default function MoneyFlowHarnessPage() {
                 <select value={selectedPayoutId} onChange={(e) => setSelectedPayoutId(e.target.value)} className="w-full rounded-lg border border-[var(--border)] bg-transparent px-3 py-2">
                   <option value="">Choose payout…</option>
                   {payouts.map((payout) => (
-                    <option key={payout.id} value={payout.id}>{payout.id} — {payout.status} — ${payout.amount}</option>
+                    <option key={String(payout.id)} value={String(payout.id)}>{String(payout.id)} — {String(payout.status)} — ${String(payout.amount)}</option>
                   ))}
                 </select>
               </label>

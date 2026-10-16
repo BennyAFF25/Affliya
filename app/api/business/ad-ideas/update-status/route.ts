@@ -97,13 +97,9 @@ export async function POST(req: Request) {
       .eq("business_email", user.email)
       .select("id,status")
       .single();
-    let { data: updated, error: updateError } = await updateIdea(
+    const { data: updated, error: updateError } = await updateIdea(
       status === "rejected" ? { ...updateData, rejected_at: new Date().toISOString() } : updateData,
     );
-    // Allow rejection before the optional timestamp migration has rolled out.
-    if (status === "rejected" && updateError && ["42703", "PGRST204"].includes(updateError.code)) {
-      ({ data: updated, error: updateError } = await updateIdea(updateData));
-    }
 
     if (updateError) {
       throw new Error(`Failed to update ad idea: ${updateError.message}`);
