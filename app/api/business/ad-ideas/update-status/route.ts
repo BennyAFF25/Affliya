@@ -90,13 +90,20 @@ export async function POST(req: Request) {
       updateData.rejection_reason = rejectionReason;
     }
 
-    const { data: updated, error: updateError } = await admin
+    const updateIdea = (payload: Record<string, unknown>) => admin
       .from("ad_ideas")
-      .update(updateData)
+      .update(payload)
       .eq("id", adIdeaId)
       .eq("business_email", user.email)
       .select("id,status")
       .single();
+    let { data: updated, error: updateError } = await updateIdea(
+      status === "rejected" ? { ...updateData, rejected_at: new Date().toISOString() } : updateData,
+    );
+    // Allow rejection before the optional timestamp migration has rolled out.
+    if (status === "rejected" && updateError && ["42703", "PGRST204"].includes(updateError.code)) {
+      ({ data: updated, error: updateError } = await updateIdea(updateData));
+    }
 
     if (updateError) {
       throw new Error(`Failed to update ad idea: ${updateError.message}`);

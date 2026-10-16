@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 export type SubmissionKind = "paid" | "organic";
-export type AffiliateSubmission = { id:string; kind:SubmissionKind; offerId:string; offerTitle:string; status:string; createdAt:string|null; businessViewedAt:string|null; title:string; previewUrl:string|null; platform?:string|null; rejectionReason?:string|null };
+export type AffiliateSubmission = { id:string; kind:SubmissionKind; offerId:string; offerTitle:string; status:string; createdAt:string|null; businessViewedAt:string|null; title:string; previewUrl:string|null; platform?:string|null; campaignName?:string|null; rejectedAt?:string|null; rejectionReason?:string|null };
 export const cleanSubmissionStatus = (value:unknown) => String(value || "pending").trim().toLowerCase();
 export const isAwaitingProposalReview = (value:unknown) => ["pending","submitted","viewed","in_review","under_review"].includes(cleanSubmissionStatus(value));
 export const isArchivedCampaignStatus = (value?:string|null) => ["paused","archived","stopped","completed","ended","deleted"].includes(String(value || "unknown").trim().toLowerCase());
@@ -8,6 +8,9 @@ async function ownRows(client:SupabaseClient,table:string,columns:string,email:s
  const rows: Record<string,unknown>[] = [];
  for(let offset=0;;offset+=500) {
   const {data,error}=await client.from(table).select(columns).eq("affiliate_email",email).order("created_at",{ascending:false}).order("id",{ascending:false}).range(offset,offset+499).abortSignal(AbortSignal.timeout(8000));
+  if(error && table === "ad_ideas" && columns.includes(",rejected_at") && ["42703","PGRST204"].includes(error.code)) {
+   return ownRows(client,table,columns.replace(",rejected_at",""),email);
+  }
   if(error) throw error;
   const page=(data || []) as unknown as Record<string,unknown>[];
   rows.push(...page);
@@ -28,7 +31,7 @@ export async function loadAffiliatePaidCampaigns(client:SupabaseClient,email:str
 }
 export async function loadAffiliateSubmissions(client:SupabaseClient,email:string, loadTitles?: (ids:string[])=>Promise<{id:string;title:string}[]>):Promise<AffiliateSubmission[]> {
  const [ads,organic]=await Promise.all([
-  ownRows(client,"ad_ideas","id,offer_id,status,created_at,business_viewed_at,headline,caption,file_url,rejection_reason",email),
+  ownRows(client,"ad_ideas","id,offer_id,status,created_at,business_viewed_at,headline,caption,file_url,rejection_reason,campaign_name,rejected_at",email),
   ownRows(client,"organic_posts","id,offer_id,status,created_at,business_viewed_at,caption,platform,image_url,video_url",email)
  ]);
  const ids=[...new Set([...ads,...organic].map(row=>String(row.offer_id || "")).filter(Boolean))];
@@ -39,6 +42,8 @@ export async function loadAffiliateSubmissions(client:SupabaseClient,email:strin
   for(const row of data || []) titles.set(String(row.id),String(row.title || "Offer"));
  }
  const convert=(row:Record<string,unknown>,kind:SubmissionKind):AffiliateSubmission=>({
+  campaignName:typeof row.campaign_name === "string" ? row.campaign_name.trim() || null : null,
+  rejectedAt:row.rejected_at ? String(row.rejected_at) : null,
   rejectionReason:row.rejection_reason ? String(row.rejection_reason) : null,
   id:String(row.id),kind,offerId:String(row.offer_id || ""),offerTitle:titles.get(String(row.offer_id || "")) || "Offer",
   status:cleanSubmissionStatus(row.status),createdAt:row.created_at?String(row.created_at):null,businessViewedAt:row.business_viewed_at?String(row.business_viewed_at):null,

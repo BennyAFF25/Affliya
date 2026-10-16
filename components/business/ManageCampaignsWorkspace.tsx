@@ -74,10 +74,11 @@ type Props = SharedProps & (
       pendingContent: ReactNode;
       notice?: ReactNode;
       archivedContent?: ReactNode;
+      rejectedCount?: number | null;
     }
 );
 
-type FilterTab = "all" | "meta" | "organic" | "archived";
+type FilterTab = "all" | "meta" | "organic" | "archived" | "rejected";
 type SortMode = "newest" | "oldest" | "title" | "spend";
 
 // Palette aligned with docs/UI_DESIGN_SYSTEM.md: brand cyan, neutral dark
@@ -226,6 +227,7 @@ export default function ManageCampaignsWorkspace(props: Props) {
     const term = search.trim().toLowerCase();
     return campaigns
       .filter((item) => {
+        if (tab === "rejected") return false;
         if (tab === "meta" && item._source !== "meta") return false;
         if (tab === "organic" && item._source !== "organic") return false;
         if (tab === "archived" && isLive(item)) return false;
@@ -246,11 +248,12 @@ export default function ManageCampaignsWorkspace(props: Props) {
       });
   }, [campaigns, search, sort, statusFilter, tab]);
 
-  const tabs: { id: FilterTab; title: string; count: number }[] = [
+  const tabs: { id: FilterTab; title: string; count: number | null }[] = [
     { id: "all", title: "All campaigns", count: campaigns.length },
     { id: "meta", title: "Meta Ads", count: meta.length },
     { id: "organic", title: "Organic", count: organic.length },
     { id: "archived", title: "Archived", count: archived.length },
+    ...(props.audience === "affiliate" ? [{ id: "rejected" as const, title: "Rejected", count: props.rejectedCount ?? null }] : []),
   ];
 
   const renderActions = (campaign: Campaign, compact = false) => {
@@ -343,7 +346,7 @@ export default function ManageCampaignsWorkspace(props: Props) {
           </header>
 
           {props.audience === "affiliate" ? props.notice : null}
-          {props.audience === "affiliate" && tab === "archived" ? props.archivedContent : null}
+          {props.audience === "affiliate" && (tab === "archived" || tab === "rejected") ? props.archivedContent : null}
 
           <section aria-label="Campaign overview" className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-5">
             <MetricCard label="Live campaigns" value={loading ? "—" : String(live)} helper="Paid and organic" icon={<Activity className="h-5 w-5" />} />
@@ -375,7 +378,7 @@ export default function ManageCampaignsWorkspace(props: Props) {
                     className={"inline-flex min-h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-xl border px-3 text-[11px] font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00c2cb] " + (tab === item.id ? activeTab : inactiveTab)}
                   >
                     {item.title}
-                    <span className="rounded-full bg-black/25 px-2 py-0.5 text-[10px] text-[#63e8ee]">{loading ? "—" : item.count}</span>
+                    <span className="rounded-full bg-black/25 px-2 py-0.5 text-[10px] text-[#63e8ee]">{loading || item.count == null ? "—" : item.count}</span>
                   </button>
                 ))}
               </div>
@@ -425,7 +428,7 @@ export default function ManageCampaignsWorkspace(props: Props) {
                 {[0, 1, 2, 3].map((key) => <div key={key} className="h-16 animate-pulse rounded-xl bg-white/[0.045]" />)}
                 <p className="pt-2 text-center text-xs text-[#94a3b8]/75">Loading campaign data…</p>
               </div>
-            ) : filtered.length === 0 ? (
+            ) : tab === "rejected" ? null : filtered.length === 0 ? (
               <div className="flex min-h-[210px] flex-col items-center justify-center px-4 py-10 text-center">
                 <Search className="mb-4 h-6 w-6 text-[#00c2cb]" />
                 <h2 className="text-sm font-semibold text-white">No campaigns match this view</h2>

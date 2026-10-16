@@ -16,6 +16,8 @@ let states: unknown[] = [], index = 0;
 let effects: (() => unknown)[] = [];
 let fail = false;
 let offerRows = true;
+let proposalName: string | null = "AIRA | Resident Decline Tool | Traffic | Oct 2026";
+let rejectedAt: string | null = "2026-10-16T00:00:00Z";
 let releaseTitles: (() => void) | undefined;
 let titlesReady: Promise<void> = Promise.resolve();
 const selections: string[] = [];
@@ -29,7 +31,7 @@ const db = {
       then(resolve: (value: unknown) => unknown) {
         const rows = table === 'offers' ? (offerRows ? [{ id: 'offer', title, description }] : [])
           : table === 'live_ads' ? [{ id: '66f13993', offer_id: 'offer', ad_idea_id: 'idea', caption: description, status: 'archived' }]
-          : table === 'ad_ideas' ? [{ id: 'idea', offer_id: 'offer', headline: description, status: 'pending' }] : [];
+          : table === 'ad_ideas' ? [{ id: 'idea', offer_id: 'offer', headline: description, status: 'rejected', campaign_name: proposalName, rejected_at: rejectedAt }, { id: 'pending', offer_id: 'offer', status: 'pending' }] : [];
         // Respect the select projection: missing title must fail this regression.
         const data = rows.map(row => columns === '*' ? row : Object.fromEntries(Object.entries(row).filter(([key]) => columns.split(',').includes(key))));
         return (table === 'offers' ? titlesReady : Promise.resolve()).then(() => ({ data, error: fail && table === 'ad_ideas' ? new Error('fixture failure') : null })).then(resolve);
@@ -83,6 +85,9 @@ async function run() {
       assert.equal(campaign.display_title, title);
       assert.equal(campaign.titleLoading, false);
     }
+    const rejectedHtml = renderToStaticMarkup(loaded.props.archivedContent);
+    assert.match(rejectedHtml, /AIRA \| Resident Decline Tool/);
+    assert.match(rejectedHtml, /Rejected 16\/10\/2026/);
     const proposal = loaded.props.pendingContent[0].props.proposal;
     assert.equal(proposal.offerTitle, title);
     assert.match(renderToStaticMarkup(React.createElement(PendingProposalRow, { proposal })), /Nettmark Partner Programme/);
@@ -91,14 +96,27 @@ async function run() {
     assert.doesNotMatch(html, /Loading proposals…|Proposals temporarily unavailable/);
     const useState = React.useState;
     let hookIndex = 0;
+    let selectedTab = "rejected";
     React.useState = ((initial: unknown) => {
       const state = useState(initial);
-      return hookIndex++ === 0 ? ['archived', state[1]] : state;
+      return hookIndex++ === 0 ? [selectedTab, state[1]] : state;
     }) as typeof React.useState;
     try {
       html = renderToStaticMarkup(React.createElement(Workspace, loaded.props));
-      assert.match(html, /Nettmark Partner Programme/, 'Archived tab retains the offer title');
+      assert.match(html, /AIRA \| Resident Decline Tool/, 'Rejected tab shows rejected proposals');
+      assert.doesNotMatch(html, /No campaigns match this view/);
+      hookIndex = 0; selectedTab = 'archived';
+      html = renderToStaticMarkup(React.createElement(Workspace, loaded.props));
+      assert.match(html, /AIRA \| Resident Decline Tool/, 'Archived retains rejected proposals');
+      assert.match(html, /Nettmark Partner Programme/, 'Archived retains runtime campaigns');
     } finally { React.useState = useState; }
+    states = []; proposalName = null; rejectedAt = null;
+    render(); effects[1]();
+    await new Promise(resolve => setImmediate(resolve));
+    const historical = renderToStaticMarkup(render().props.archivedContent);
+    assert.match(historical, /Nettmark Partner Programme/);
+    assert.match(historical, />Rejected</);
+    assert.doesNotMatch(historical, /Rejected \d/);
     states = []; offerRows = false;
     render(); effects[1]();
     await new Promise(resolve => setImmediate(resolve));

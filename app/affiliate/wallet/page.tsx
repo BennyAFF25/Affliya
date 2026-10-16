@@ -1,5 +1,7 @@
 'use client';
 
+import { WalletBillingNotice } from "./WalletBillingNotice";
+
 import { MIN_WALLET_TOPUP_AUD, WALLET_TOPUP_MINIMUM_MESSAGE } from "@/../utils/wallet/topupValidation";
 import { loadWalletSection } from '../../../utils/wallet/loadSection';
 import React from "react";
@@ -726,14 +728,8 @@ export default function AffiliateWalletPage() {
               </div>
               <span className="rounded-full border border-white/10 px-3 py-1 text-[11px] font-medium text-slate-300">{currency}</span>
             </div>
-            {billingError ? <p role="alert" className="mt-3 text-xs text-amber-200">Could not check billing. <button className="underline" onClick={() => setBillingRetry(value => value + 1)}>Try again</button></p> : null}
-            {!billingReady && !billingError ? (
-              <div className="mt-4 rounded-xl border border-amber-400/20 bg-amber-400/[0.07] p-3 text-xs leading-5 text-amber-100">
-                <p className="font-semibold">Billing connection required</p>
-                <p className="mt-1">{topupBlockedReason || 'Connect billing in Affiliate Settings before adding funds.'}</p>
-                <Link href="/affiliate/settings" className="mt-2 inline-flex items-center gap-1 font-semibold text-[#63e8ee]">Open settings <ArrowRight className="h-3.5 w-3.5" /></Link>
-              </div>
-            ) : null}
+            <WalletBillingNotice loading={billingStatusLoading} error={billingError} ready={billingReady}
+              onRetry={() => setBillingRetry(value => value + 1)} />
             <label htmlFor="wallet-topup-amount" className="mt-4 block text-[11px] font-semibold text-slate-300">Amount to credit ({currency})</label>
             <p id="wallet-topup-minimum" role={topupMinimumError ? "alert" : undefined}
               className={topupMinimumError ? "mt-1 text-xs text-amber-300" : "mt-1 text-xs text-slate-400"}>{WALLET_TOPUP_MINIMUM_MESSAGE}</p>

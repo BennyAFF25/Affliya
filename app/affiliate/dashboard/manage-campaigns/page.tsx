@@ -292,6 +292,7 @@ export default function AffiliateManageCampaignsPage() {
         const row = paidMeta.find((item) => item.id === id);
         if (row) void syncSpendForPaidMeta(row);
       }}
+      rejectedCount={pendingLoading || pendingError ? null : rejectedProposals.length}
       archivedContent={<section aria-label="Rejected proposals" className="mb-4 space-y-3">
         <h2 className="text-sm font-semibold">Rejected proposals</h2>
         {pendingError ? <p role="alert">{pendingError} <button onClick={() => void fetchAll()} className="underline">Try again</button></p>
@@ -299,7 +300,8 @@ export default function AffiliateManageCampaignsPage() {
           : rejectedProposals.length ? rejectedProposals.map(proposal => (
             <article key={proposal.id} className="rounded-2xl border border-white/10 p-4">
               <span className="rounded-full bg-red-400/10 px-2 py-1 text-[10px] font-semibold text-red-300">REJECTED</span>
-              <p className="mt-3 text-sm font-semibold">{offerNameById[proposal.offerId] || proposal.title}</p>
+              <p className="mt-2 text-xs text-slate-400">Rejected{proposal.rejectedAt ? ` ${new Date(proposal.rejectedAt).toLocaleDateString("en-AU")}` : ""}</p>
+              <p className="mt-3 text-sm font-semibold">{proposal.campaignName || offerNameById[proposal.offerId] || proposal.offerTitle}</p>
               <p className="mt-2 whitespace-pre-wrap break-words text-xs text-slate-400">{proposal.rejectionReason?.trim() || 'No reason given'}</p>
             </article>
           )) : <p className="text-xs text-slate-400">No rejected proposals.</p>}
