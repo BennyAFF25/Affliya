@@ -1,4 +1,5 @@
 "use client";
+import { CurrencyEstimate } from "../../../../../components/CurrencyEstimate";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -107,7 +108,8 @@ function formatBudget(proposal: Proposal) {
   const suffix = String(proposal.budget_type || "DAILY").toUpperCase() === "LIFETIME"
     ? " total"
     : "/day";
-  const currency = /^[A-Z]{3}$/.test(String(proposal.currency || "")) ? String(proposal.currency) : "AUD";
+  const currency = /^[A-Z]{3}$/.test(String(proposal.currency || "")) ? String(proposal.currency) : "";
+  if (!currency) return `${amount.toFixed(2)} (currency not set)${suffix}`;
   const formatted = new Intl.NumberFormat("en-AU", { style: "currency", currency, currencyDisplay: "narrowSymbol" }).format(amount);
   return `${currency === "AUD" ? "A" : currency + " "}${formatted}${suffix}`;
 }
@@ -719,7 +721,7 @@ export default function AdIdeaProposalDetailPage() {
                 </div>
                 <div className="px-3">
                   <div className="text-xs text-slate-500">Affiliate budget</div>
-                  <div className="mt-1 text-sm font-semibold text-white sm:text-base">{formatBudget(proposal)}</div>
+                  <div className="mt-1 text-sm font-semibold text-white sm:text-base">{formatBudget(proposal)}<CurrencyEstimate currency={proposal.currency} amount={Number(proposal.budget_amount || 0) / 100 || Number(proposal.daily_budget || 0)} /></div>
                 </div>
                 <div className="pl-3">
                   <div className="text-xs text-slate-500">Your ad spend</div>

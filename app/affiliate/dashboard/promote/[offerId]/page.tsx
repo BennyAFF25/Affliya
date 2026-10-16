@@ -1,4 +1,5 @@
 "use client";
+import { resolveOfferCurrency } from "utils/currency/proposalCurrency";
 
 // Helper: friendlyObjective
 function friendlyObjective(objective?: string): string {
@@ -478,7 +479,7 @@ export default function PromoteOfferPage() {
 
       // Preview title + logo
       setBrandName(offer?.title || "Your Brand Name");
-      setOfferCurrency(String(offer?.currency || "").trim().toUpperCase());
+      setOfferCurrency(resolveOfferCurrency(null, offer?.currency).campaignCurrency);
       setCurrencyLoading(false);
       setBrandLogoUrl(offer?.logo_url || null);
       setParticipationMode(
@@ -1095,7 +1096,7 @@ export default function PromoteOfferPage() {
         throw new Error("Failed to fetch offer/business email");
 
       const business_email = offerRow.business_email;
-      const proposalCurrency = String(offerRow.currency || "").trim().toUpperCase();
+      const proposalCurrency = resolveOfferCurrency(null, offerRow.currency).campaignCurrency;
       if (!/^[A-Z]{3}$/.test(proposalCurrency)) {
         throw new Error("The business needs to set a campaign currency before submitting.");
       }

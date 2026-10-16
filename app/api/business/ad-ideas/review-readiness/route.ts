@@ -1,3 +1,4 @@
+import { createReadinessRateLookup } from "../../../../../utils/fx/rates";
 import { loadPaidCurrencyReadiness } from "../../../../../utils/currency/paidCurrencyGuard";
 import { NextResponse } from "next/server";
 import { validateLaunchProposal } from "../../../../../utils/meta/campaignConfiguration";
@@ -86,6 +87,7 @@ export async function GET() {
     const subscriptionReady = Boolean(entitlement?.canLaunchCampaign);
     const billingReady = Boolean(payment.hasPaymentMethod);
 
+    const rateLookup = createReadinessRateLookup(admin);
     const currencyReadiness = await loadPaidCurrencyReadiness(admin, (ideasResult.data || []).map((idea: { offer_id?: unknown }) => String(idea.offer_id || "")));
 
     const campaignEntries = await Promise.all(
@@ -110,7 +112,7 @@ export async function GET() {
                 affiliateEmail,
                 offerId,
                 adIdea: idea,
-                currencyReadiness: currencyReadiness(offerId, idea.currency),
+                currencyReadiness: currencyReadiness(offerId, idea.currency), rateLookup,
               }),
               getExistingPaidCampaignLaunch({
                 supabase: admin,
@@ -163,6 +165,7 @@ export async function GET() {
               alreadyLive,
               partialMetaState,
               blockers,
+              currency: currencyReadiness(offerId, idea.currency).campaignCurrency || null,
               currencyBlock: funding.currencyBlock || null,
               funding: {
                 ready: funding.ready,

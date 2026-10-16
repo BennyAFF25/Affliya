@@ -16,7 +16,7 @@ export function fxServiceClient() {
 }
 
 export async function getAudRate(currency: string, options: {
-  client?: any; fetch?: typeof fetch; now?: Date; refresh?: boolean;
+  client?: any; fetch?: typeof fetch; now?: Date; refresh?: boolean; cachedOnly?: boolean;
 } = {}): Promise<AudRate> {
   const base = currency.trim().toUpperCase();
   const now = options.now ?? new Date();
@@ -42,6 +42,10 @@ export async function getAudRate(currency: string, options: {
   const last = (data ?? []).find(sane) as AudRate | undefined;
   const normalize = (row: AudRate) => ({ ...row, rate: Number(row.rate) });
   if (!options.refresh && last?.rate_date === today && fresh(last)) return normalize(last);
+  if (options.cachedOnly) {
+    if (last && fresh(last)) return normalize(last);
+    throw new Error(`No usable cached ${base}/AUD rate`);
+  }
   const fetcher = options.fetch ?? fetch;
   for (const source of ['frankfurter', 'open.er-api']) {
     let row: AudRate;
@@ -78,4 +82,14 @@ export async function getAudRate(currency: string, options: {
   }
   if (last && fresh(last)) return normalize(last);
   throw new Error(`No usable ${base}/AUD FX rate within FX_MAX_STALENESS_HOURS (${maxHours}h)`);
+}
+
+/** Request-scoped promise cache: no provider fetch or cache writes in readiness listings. */
+export function createReadinessRateLookup(client: any) {
+  const quotes = new Map<string, Promise<AudRate>>();
+  return (currency: string) => {
+    const code = currency.trim().toUpperCase();
+    if (!quotes.has(code)) quotes.set(code, getAudRate(code, { client, cachedOnly: true }));
+    return quotes.get(code)!;
+  };
 }

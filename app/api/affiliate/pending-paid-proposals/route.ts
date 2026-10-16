@@ -1,3 +1,4 @@
+import { createReadinessRateLookup } from "../../../../utils/fx/rates";
 import { getLaunchWalletAvailable } from "../../../../utils/wallet/launchHolds";
 import { loadPaidCurrencyReadiness } from "../../../../utils/currency/paidCurrencyGuard";
 import { NextResponse } from "next/server";
@@ -65,6 +66,7 @@ export async function GET() {
       throw new Error(`Failed to load proposal offers: ${offerError.message}`);
     }
 
+    const rateLookup = createReadinessRateLookup(admin);
     const currencyTask = loadPaidCurrencyReadiness(admin, offerIds as string[], offers || []);
     const [currencyReadiness, entitlements, sources, wallet] = await Promise.all([currencyTask, entitlementsTask, sourcesTask, walletTask]);
     const offerMap = new Map((offers || []).map((offer: any) => [offer.id, offer]));
@@ -84,7 +86,7 @@ export async function GET() {
               supabase: admin, affiliateEmail, offerId, adIdea: proposal,
               walletSnapshot: Promise.resolve(wallet.data!),
               fundingSources: Promise.resolve(sources.data.get(offerId) || { activationSubsidyAvailable: 0, launchFundAvailable: 0, reservationsApplied: true }),
-              currencyReadiness: currency,
+              currencyReadiness: currency, rateLookup,
             });
           } catch (error) {
             console.warn("[affiliate/pending-paid-proposals] funding unavailable", error);
@@ -109,7 +111,7 @@ export async function GET() {
           businessEmail,
           campaignName: proposal.campaign_name || null,
           objective: proposal.objective || null,
-          currency: proposal.currency || null,
+          currency: currencyReadiness(offerId, proposal.currency).campaignCurrency || null,
           createdAt: proposal.created_at,
           state,
           timingMessage: timing.ok ? null : timing.message,

@@ -55,6 +55,7 @@ export async function getAffiliateCampaignFundingReadiness(params: {
   offerId: string;
   adIdea: AdIdeaFundingInput;
   /** Advisory endpoints only. Omit at launch/money boundaries to keep strict enforcement. */
+  rateLookup?: (currency: string) => ReturnType<typeof getAudRate>;
   currencyReadiness?: Awaited<ReturnType<typeof guardPaidCurrency>>;
   /** Request-local wallet snapshot with hold-adjusted availableBalance; advisory only. */
   walletSnapshot?: Promise<{ availableBalance: number }>;
@@ -80,10 +81,10 @@ export async function getAffiliateCampaignFundingReadiness(params: {
   const currency = params.currencyReadiness ?? await guardPaidCurrency(params);
   if (currency.campaignCurrency && currency.campaignCurrency !== "AUD") {
     try {
-      const rate = await getAudRate(currency.campaignCurrency, { client: params.supabase });
+      const rate = await (params.rateLookup ? params.rateLookup(currency.campaignCurrency) : getAudRate(currency.campaignCurrency, { client: params.supabase }));
       holdAudEstimate = audHoldAmount(requiredAmount, rate.rate, fxBufferBps());
     } catch {
-      return { ready: false, currencyBlock: "Unable to verify campaign funding in AUD. Try again before launch.",
+      return { ready: false, currencyBlock: currency.message || "Unable to verify campaign funding in AUD. Try again before launch.",
         requiredAmount, holdAudEstimate: null, walletAvailable: 0, activationSubsidyAvailable: 0,
         launchFundAvailable: 0, effectiveFunding: 0, deficit: 0 };
     }

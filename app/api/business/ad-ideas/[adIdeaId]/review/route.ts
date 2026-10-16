@@ -1,3 +1,4 @@
+import { resolveOfferCurrency } from "utils/currency/proposalCurrency";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
@@ -95,7 +96,7 @@ export async function GET(
         media_type: idea.media_type || null,
         call_to_action: idea.call_to_action || null,
         cta: idea.cta || null,
-        currency: idea.currency || offer?.currency || null,
+        currency: resolveOfferCurrency(idea.currency, offer?.currency).campaignCurrency || null,
         budget_amount: idea.budget_amount ?? null,
         budget_type: idea.budget_type || null,
         daily_budget: idea.daily_budget ?? null,

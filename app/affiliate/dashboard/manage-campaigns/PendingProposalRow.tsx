@@ -73,7 +73,7 @@ export function PendingProposalRow({ proposal }: { proposal: PendingProposal }) 
               {proposal.offerTitle}
             </span>
             <span className="rounded-full border border-white/[0.07] bg-white/[0.02] px-2.5 py-1">
-              {proposal.state === "loading" ? "Checking status…" : proposal.funding ? `Required at launch: ${formatMoney(proposal.funding.requiredAmount, proposal.currency || "AUD")}` : "Funding not checked"}
+              {proposal.state === "loading" ? "Checking status…" : proposal.funding ? `Required at launch: ${formatMoney(proposal.funding.requiredAmount, proposal.currency ?? null)}` : "Funding not checked"}
             </span>
             {proposal.currency !== "AUD" && proposal.funding?.holdAudEstimate != null ? <span>≈ A${proposal.funding.holdAudEstimate.toFixed(2)}</span> : null}
             {proposal.createdAt ? (

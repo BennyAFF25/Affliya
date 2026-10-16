@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { resolveOfferCurrency } from '../currency/paidCurrencyGuard';
+import { resolveOfferCurrency } from '../currency/proposalCurrency';
 import { getAudRate, fxBufferBps } from '../fx/rates';
 
 // Decimal multiplication avoids binary floating-point cent-boundary over-reservation.

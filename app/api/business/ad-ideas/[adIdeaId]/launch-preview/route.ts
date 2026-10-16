@@ -1,3 +1,4 @@
+import { resolveOfferCurrency } from "utils/currency/proposalCurrency";
 import { resolveCampaignSchedule } from "../../../../../../utils/campaignSchedule";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
@@ -43,7 +44,8 @@ export async function GET(
     if (offerError) throw offerError;
     if (!offer) return NextResponse.json({ error: "OFFER_NOT_FOUND" }, { status: 404 });
 
-    const check = validateLaunchProposal(idea, { currency: String(offer.currency || "") });
+    const currency = resolveOfferCurrency(idea.currency, offer.currency);
+    const check = validateLaunchProposal({ ...idea, currency: currency.campaignCurrency }, { currency: String(offer.currency || "") });
     const creative = buildSavedMetaCreative(idea);
     const schedule = resolveCampaignSchedule(idea);
     // Intent validation can reject legacy free-text interests; do not throw.
@@ -51,15 +53,15 @@ export async function GET(
     return NextResponse.json({
       proposalId: idea.id,
       status: idea.status,
-      configurationValid: check.ok,
-      errors: check.errors,
-      simulatedMetaPayload: check.ok ? {
+      configurationValid: check.ok && currency.allowed,
+      errors: [...check.errors, ...(currency.message ? [currency.message] : [])],
+      simulatedMetaPayload: check.ok && currency.allowed ? {
         campaign: {
           name: idea.campaign_name,
           objective: idea.objective,
           budgetAmountMinor: idea.budget_amount,
           budgetType: idea.budget_type,
-          currency: idea.currency || offer.currency,
+          currency: currency.campaignCurrency,
           startTime: schedule.start_time,
           endTime: schedule.end_time,
         },

@@ -1,3 +1,4 @@
+import { resolveOfferCurrency } from "utils/currency/proposalCurrency";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
@@ -32,7 +33,7 @@ export async function POST(req: Request, context: { params: Promise<{ offerId: s
 
     const { data: offer, error: offerError } = await (supabaseAdmin as any)
       .from("offers")
-      .select("id,title,business_email,meta_page_id,meta_ad_account_id")
+      .select("id,title,business_email,currency,meta_page_id,meta_ad_account_id")
       .eq("id", offerId)
       .maybeSingle();
 
@@ -89,7 +90,7 @@ export async function POST(req: Request, context: { params: Promise<{ offerId: s
       offer_id: offerId,
       meta: {
         budget,
-        currency: "AUD",
+        currency: resolveOfferCurrency(null, offer.currency).campaignCurrency || null,
         requestId: requestRow.id,
         source: "affiliate_promote",
         nextStep,

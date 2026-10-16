@@ -1,4 +1,5 @@
 "use client";
+import { CurrencyEstimate } from "../../../../../../components/CurrencyEstimate";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect,useState } from "react";
@@ -24,7 +25,7 @@ export default function SubmittedProposalPage(){
    .finally(()=>{window.clearTimeout(timeout);if(!cancelled)setLoading(false);});
   return ()=>{cancelled=true;window.clearTimeout(timeout);controller.abort();};
  },[params.kind,params.proposalId,session?.user?.id,isLoading,reload]);
- const field=(name:string,value:string|null|undefined)=><div className="min-w-0 rounded-2xl border border-[var(--border)] bg-[var(--secondary)] p-4"><dt className="text-xs text-[var(--muted-foreground)]">{name}</dt><dd className="mt-2 whitespace-pre-wrap break-words text-sm">{value || "Not saved"}</dd></div>;
+ const field=(name:string,value:React.ReactNode)=><div className="min-w-0 rounded-2xl border border-[var(--border)] bg-[var(--secondary)] p-4"><dt className="text-xs text-[var(--muted-foreground)]">{name}</dt><dd className="mt-2 whitespace-pre-wrap break-words text-sm">{value || "Not saved"}</dd></div>;
  const link=(name:string,value:string|null)=><div className="min-w-0 rounded-2xl border border-[var(--border)] bg-[var(--secondary)] p-4"><dt className="text-xs text-[var(--muted-foreground)]">{name}</dt><dd className="mt-2 break-all text-sm">{safeLink(value)?<a href={safeLink(value)!} target="_blank" rel="noopener noreferrer" className="text-[var(--primary)] underline">{value}</a>:value || "Not saved"}</dd></div>;
  return <main className="min-h-screen bg-[var(--background)] px-4 py-6 text-[var(--foreground)] sm:px-6"><div className="mx-auto max-w-4xl space-y-5">
   <Link href="/affiliate/dashboard/reviews" className="text-sm text-[var(--muted-foreground)]">← Back to submitted reviews</Link>
@@ -33,9 +34,10 @@ export default function SubmittedProposalPage(){
    <section className="rounded-3xl border border-[var(--border)] bg-[var(--card)] p-5"><h2 className="text-lg font-semibold">Submitted creative</h2>
     {isRenderableAssetUrl(proposal.mediaUrl)?String(proposal.mediaType).toLowerCase()==="video" || /\.(mp4|webm|mov)(\?|$)/i.test(proposal.mediaUrl || "")?<video controls playsInline src={proposal.mediaUrl!} poster={isRenderableAssetUrl(proposal.thumbnailUrl)?proposal.thumbnailUrl!:undefined} className="mt-4 max-h-[420px] w-full rounded-2xl bg-black object-contain"/>:<img src={proposal.mediaUrl!} alt="Submitted creative" className="mt-4 max-h-[420px] w-full rounded-2xl object-contain"/>:<p className="mt-3 text-sm text-[var(--muted-foreground)]">No media was saved with this proposal.</p>}
    </section>
+   {proposal.currencyBlock ? <p role="status" className="text-sm text-amber-200">{proposal.currencyBlock}</p> : null}
    <dl className="grid gap-3 sm:grid-cols-2">
     {field("Headline",proposal.headline)}{field("Caption",proposal.caption)}{field("CTA",label(proposal.cta))}{link("Destination URL",proposal.destinationUrl)}{link("Tracking URL",proposal.trackingUrl)}
-    {field("Budget",proposal.budget==null?proposal.kind==="organic"?"Not applicable to organic promotion":"Not saved":`${proposal.budget.toFixed(2)}${proposal.offerCurrency ? ` ${proposal.offerCurrency}` : " (currency not set)"} · ${label(proposal.budgetType)}`)}
+    {field("Budget",<>{proposal.budget==null?proposal.kind==="organic"?"Not applicable to organic promotion":"Not saved":`${proposal.budget.toFixed(2)}${proposal.offerCurrency ? ` ${proposal.offerCurrency}` : " (currency not set)"} · ${label(proposal.budgetType)}`} {proposal.kind === "paid" && proposal.budget != null ? <CurrencyEstimate currency={proposal.offerCurrency} amount={proposal.budget} /> : null}</>)}
     {field("Schedule",proposal.kind==="organic"?"Not scheduled through Nettmark":`Start: ${proposal.startAt ? date(proposal.startAt) + " (rolls forward if approval is later)" : "When the brand approves"}\nEnd: ${date(proposal.endAt)}`)}
     {field("Targeting",proposal.kind==="organic"?"Not applicable to organic promotion":`Countries: ${proposal.targeting.countries || "Not saved"}\nAges: ${proposal.targeting.ages.join("–") || "Not saved"}\nGender: ${proposal.targeting.gender || "Not saved"}\nInterests: ${proposal.targeting.interests || "Not saved"}\nAdvantage audience: ${proposal.targeting.advantageAudience==null?"Not saved":proposal.targeting.advantageAudience?"On":"Off"}`)}
     {field("Placements",proposal.kind==="organic"?proposal.platform:`${label(proposal.placementsType)}\n${proposal.placements.join(", ") || "Not saved"}`)}
