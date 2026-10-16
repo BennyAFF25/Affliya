@@ -3,16 +3,26 @@ import { resolveOfferPaidReadiness } from "../offerReadiness";
 import { PAID_CURRENCY_BLOCK_MESSAGE } from "./paidCurrencyMessage";
 export { PAID_CURRENCY_BLOCK_MESSAGE } from "./paidCurrencyMessage";
 
-export function checkPaidCurrency(proposalCurrency: unknown, offerCurrency: unknown, accountCurrency: unknown) {
+export function resolveOfferCurrency(proposalCurrency: unknown, offerCurrency: unknown, accountCurrency?: unknown) {
   const normalize = (value: unknown) => String(value ?? "").trim().toUpperCase();
-  // Only NULL/absent legacy snapshots fall back; blank or unknown snapshots block.
-  const campaignCurrency = normalize(proposalCurrency == null ? offerCurrency : proposalCurrency);
+  const campaignCurrency = normalize(offerCurrency);
+  const savedCurrency = normalize(proposalCurrency);
   const metaAccountCurrency = normalize(accountCurrency);
-  const allowed = campaignCurrency === "AUD" && metaAccountCurrency === "AUD";
-  const reason = !campaignCurrency ? "missing_campaign_currency" : campaignCurrency !== "AUD"
-    ? "unsupported_campaign_currency" : !metaAccountCurrency ? "missing_meta_account_currency"
-    : metaAccountCurrency !== "AUD" ? "unsupported_meta_account_currency" : null;
-  return { allowed, campaignCurrency, metaAccountCurrency, reason, message: allowed ? null : PAID_CURRENCY_BLOCK_MESSAGE };
+  const reason = !campaignCurrency ? "missing_campaign_currency"
+    : savedCurrency && savedCurrency !== campaignCurrency ? "proposal_currency_mismatch"
+    : metaAccountCurrency && metaAccountCurrency !== campaignCurrency ? "meta_account_currency_mismatch" : null;
+  const message = reason === "missing_campaign_currency" ? "This offer has no currency set — the brand must set it before paid launch"
+    : reason === "proposal_currency_mismatch" ? `Currency mismatch: offer ${campaignCurrency}, proposal ${savedCurrency}`
+    : reason === "meta_account_currency_mismatch" ? `Currency mismatch: offer ${campaignCurrency}, ad account ${metaAccountCurrency}` : null;
+  return { allowed: !reason, campaignCurrency, metaAccountCurrency, reason, message };
+}
+
+export function checkPaidCurrency(proposalCurrency: unknown, offerCurrency: unknown, accountCurrency: unknown) {
+  const resolved = resolveOfferCurrency(proposalCurrency, offerCurrency, accountCurrency);
+  if (!resolved.allowed) return resolved;
+  const reason = resolved.campaignCurrency !== "AUD" ? "unsupported_campaign_currency"
+    : !resolved.metaAccountCurrency ? "missing_meta_account_currency" : null;
+  return { ...resolved, allowed: !reason, reason, message: reason ? PAID_CURRENCY_BLOCK_MESSAGE : null };
 }
 
 /** Read-only server guard. Connection matching mirrors upload-video exactly. Never defaults account currency. */

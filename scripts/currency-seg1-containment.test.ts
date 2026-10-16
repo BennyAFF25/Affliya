@@ -47,7 +47,7 @@ async function run() {
     assert.equal(checkPaidCurrency(null, currency, "AUD").allowed, false);
     assert.equal(checkPaidCurrency("AUD", "AUD", currency).allowed, false);
   }
-  assert.equal(checkPaidCurrency("", "AUD", "AUD").allowed, false);
+  assert.equal(checkPaidCurrency("", "AUD", "AUD").allowed, true);
   const { settleAdSpendLedger, processAdSpendTransferBatches } = require("../utils/adSpend/settlements");
   for (const currency of ["USD", "GBP", "CAD"]) {
     offerCurrency = currency; proposalCurrency = null;
@@ -61,7 +61,7 @@ async function run() {
     const reimbursement = await processAdSpendTransferBatches({ supabase: db });
     assert.equal(reimbursement.processedSettlementCount, 0);
     assert.ok(writes.every(w => w.table === "ad_spend_settlements" && w.values.status === "transfer_blocked"));
-    assert.ok(writes[0].values.transfer_error_message.includes(PAID_CURRENCY_BLOCK_MESSAGE));
+    assert.ok(writes[0].values.transfer_error_message.includes("Currency mismatch"));
   }
   offerCurrency = "AUD"; proposalCurrency = null;
   assert.equal((await guardPaidCurrency({ supabase: db, liveAdId: "live" })).allowed, true);
@@ -72,7 +72,7 @@ async function run() {
     writes = [];
     const funding = await getAffiliateCampaignFundingReadiness({ supabase: db, offerId: "offer", affiliateEmail: "affiliate@test", adIdea: { currency: null, budget_amount: 2000 } });
     assert.equal(funding.ready, false);
-    assert.equal(funding.currencyBlock, PAID_CURRENCY_BLOCK_MESSAGE);
+    assert.equal(funding.currencyBlock, unsupported ? `Currency mismatch: offer AUD, ad account ${unsupported}` : PAID_CURRENCY_BLOCK_MESSAGE);
     assert.equal((await markLaunchFundCampaignWentLive({ supabase: db, liveAdId: "live", offerId: "offer", affiliateEmail: "affiliate@test" })).marked, false);
     assert.equal((await redeemLaunchFundForSettlement({ supabase: db, liveAdId: "live", amount: 10, allocationId: "allocation" })).redeemed, false);
     assert.equal((await settleAdSpendLedger({ supabase: db, liveAdId: "live" })).chargedAmount, 0);

@@ -23,6 +23,10 @@
     {
       "path": "/api/business-subscription/trial-reminders",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/fx-rates",
+      "schedule": "15 0 * * *"
     }
   ]
 }

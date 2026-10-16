@@ -7,7 +7,7 @@ import { getLaunchWalletAvailable, reserveLaunchHold, releaseLaunchHold } from '
 async function run() {
   const calls: Array<{ name: string; args: any }> = [];
   let rpcError = false;
-  const client = { rpc: async (name: string, args: any) => {
+  const client = { from: (table: string) => { const q: any = { select: () => q, eq: () => q, maybeSingle: async () => ({ data: table === 'ad_ideas' ? { offer_id: 'offer', currency: null } : { currency: 'AUD' } }) }; return q; }, rpc: async (name: string, args: any) => {
     calls.push({ name, args });
     return { data: name === 'reserve_launch_hold' ? 'hold-id' : 12.53, error: rpcError ? { message: 'insufficient funding' } : null };
   } };

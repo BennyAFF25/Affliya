@@ -11,7 +11,7 @@ function fixture(tables:Record<string,Row[]>,failure?:string){
  const client={from(table:string){
   const filters:[string,unknown][]=[],read={table,filters};let range:[number,number]|undefined;
   const query={
-   select(){return query;},order(){return query;},
+   select(){return query;},order(){return query;},abortSignal(){return query;},
    eq(key:string,value:unknown){filters.push([key,value]);return query;},
    in(key:string,values:unknown[]){filters.push([key,values]);return query;},
    range(start:number,end:number){range=[start,end];return query;},
@@ -30,7 +30,7 @@ function fixture(tables:Record<string,Row[]>,failure?:string){
  return {client:client as unknown as SupabaseClient,reads};
 }
 async function run(){
- const email="affiliate@example.test",offer={id:"offer",title:"Own brand"};
+ const email="affiliate@example.test",offer={id:"offer",title:"Own brand",currency:"AUD"};
  const paid={id:"a",offer_id:"offer",affiliate_email:email,status:"pending",created_at:"2026-10-09T00:00:00Z"};
  const tables={offers:[offer],ad_ideas:[paid,{...paid,id:"b",status:"viewed",business_viewed_at:"2026-10-09T01:00:00Z"},{...paid,id:"foreign",affiliate_email:"other@example.test"}],organic_posts:[{...paid,id:"c"}]};
  const list=await loadAffiliateSubmissions(fixture(tables).client,email);
@@ -52,6 +52,9 @@ async function run(){
  assert.equal(["ACTIVE","live","pending","paused","ARCHIVED","ended"].filter(status=>!isArchivedCampaignStatus(status)).length,3);
  const detailed=fixture({...tables,ad_ideas:[{...paid,headline:"Saved headline",caption:"Saved copy",budget_amount:2500,daily_budget:99,manual_placements:["facebook_feed"]}]});
  const proposal=await loadProposalDetails(detailed.client,email,"paid","a");
+ assert.equal(proposal?.offerCurrency,"AUD");
+ const missingCurrency=await loadProposalDetails(fixture({...tables,offers:[{...offer,currency:null}]}).client,email,"paid","a");
+ assert.equal(missingCurrency?.offerCurrency,null);
  assert.equal(proposal?.budget,25,"Convert saved minor units only once");
  assert.equal(proposal?.headline,"Saved headline");
  assert.deepEqual(proposal?.placements,["facebook_feed"]);

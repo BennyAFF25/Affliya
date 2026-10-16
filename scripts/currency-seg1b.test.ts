@@ -18,9 +18,9 @@ async function run() {
   for (const currency of ["USD", "GBP", "CAD", "", null]) {
     for (const proposal of [null, currency]) assert.equal(checkPaidCurrencyReadiness(proposal, currency).allowed, false);
   }
-  assert.equal(checkPaidCurrencyReadiness("", "AUD").allowed, false);
+  assert.equal(checkPaidCurrencyReadiness("", "AUD").allowed, true);
   assert.equal(checkPaidCurrencyReadiness("USD", "AUD", "AUD").allowed, false);
-  assert.equal(checkPaidCurrencyReadiness("AUD", "USD", null).allowed, true, "Proposal snapshot wins");
+  assert.equal(checkPaidCurrencyReadiness("AUD", "USD", null).allowed, false, "Offer currency is authoritative");
 
   for (const count of [1, 30]) {
     let reads = 0;

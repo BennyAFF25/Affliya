@@ -291,7 +291,7 @@ export async function POST(req: Request) {
     // Same campaign intent contract used when the affiliate submitted it.
     // Run before creating ANY remote Meta resources, never silently alter
     // the selected audience, budget, creative or other business-approved data.
-    const intentCheck = validateLaunchProposal({ ...adIdea, currency: (adIdea as any).currency ?? (offer as any).currency } as any, {
+    const intentCheck = validateLaunchProposal({ ...adIdea, currency: String((adIdea as any).currency || "").trim() || (offer as any).currency } as any, {
       currency: String((offer as any).currency || ""),
     });
     if (!intentCheck.ok) {
@@ -559,7 +559,7 @@ export async function POST(req: Request) {
     console.log("[meta-upload] clean_ad_account_id", cleanAdAccountId);
 
     try {
-      await reserveLaunchHold(supabase, affiliateEmail, fundingReady.requiredAmount, adIdeaId);
+      await reserveLaunchHold(supabase, affiliateEmail, fundingReady.requiredAmount, adIdeaId, currencyGuard.campaignCurrency);
       heldReference = adIdeaId;
     } catch (error) {
       return NextResponse.json({ success: false, error: FUNDING_ERROR,

@@ -67,7 +67,7 @@ async function fixture(options={}){
   if(url.pathname.startsWith("/api/affiliate/proposals/"))return json({ok:true,proposal:{
    id:otherId,kind:"paid",offerTitle:"Test brand",status:"pending",submittedAt:"2026-10-09T00:00:00Z",viewedAt:"2026-10-09T01:00:00Z",
    mediaUrl:null,thumbnailUrl:null,mediaType:null,headline:"Saved headline",caption:"Saved copy",cta:"SHOP_NOW",destinationUrl:row.website,trackingUrl:null,
-   budget:25,budgetType:"DAILY",startAt:null,endAt:null,platform:null,
+   budget:25,offerCurrency:"AUD",budgetType:"DAILY",startAt:null,endAt:null,platform:null,
    targeting:{countries:"GB",ages:["18","65"],gender:null,interests:"Shopping",advantageAudience:true},placements:["facebook_feed"],placementsType:"manual"
   }});
   if(url.pathname.endsWith("/generate-promotion"))return json({available:false});
@@ -98,7 +98,7 @@ async function main(){
   await details.click();
   await page.getByText("Submitted proposal · read only",{exact:true}).waitFor();
   await page.getByText("Saved headline",{exact:true}).waitFor();
-  await page.getByText("25.00 · DAILY (currency not saved)",{exact:true}).waitFor();
+  await page.getByText("25.00 AUD · DAILY",{exact:true}).waitFor();
   assert.equal(await page.locator("input,textarea").count(),0);
   await context.close();
  }

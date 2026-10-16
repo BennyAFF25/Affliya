@@ -35,7 +35,7 @@ export default function SubmittedProposalPage(){
    </section>
    <dl className="grid gap-3 sm:grid-cols-2">
     {field("Headline",proposal.headline)}{field("Caption",proposal.caption)}{field("CTA",label(proposal.cta))}{link("Destination URL",proposal.destinationUrl)}{link("Tracking URL",proposal.trackingUrl)}
-    {field("Budget",proposal.budget==null?proposal.kind==="organic"?"Not applicable to organic promotion":"Not saved":`${proposal.budget.toFixed(2)} · ${label(proposal.budgetType)} (currency not saved)`)}
+    {field("Budget",proposal.budget==null?proposal.kind==="organic"?"Not applicable to organic promotion":"Not saved":`${proposal.budget.toFixed(2)}${proposal.offerCurrency ? ` ${proposal.offerCurrency}` : " (currency not set)"} · ${label(proposal.budgetType)}`)}
     {field("Schedule",proposal.kind==="organic"?"Not scheduled through Nettmark":`Start: ${proposal.startAt ? date(proposal.startAt) + " (rolls forward if approval is later)" : "When the brand approves"}\nEnd: ${date(proposal.endAt)}`)}
     {field("Targeting",proposal.kind==="organic"?"Not applicable to organic promotion":`Countries: ${proposal.targeting.countries || "Not saved"}\nAges: ${proposal.targeting.ages.join("–") || "Not saved"}\nGender: ${proposal.targeting.gender || "Not saved"}\nInterests: ${proposal.targeting.interests || "Not saved"}\nAdvantage audience: ${proposal.targeting.advantageAudience==null?"Not saved":proposal.targeting.advantageAudience?"On":"Off"}`)}
     {field("Placements",proposal.kind==="organic"?proposal.platform:`${label(proposal.placementsType)}\n${proposal.placements.join(", ") || "Not saved"}`)}

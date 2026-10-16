@@ -148,7 +148,7 @@ export async function POST(req: Request) {
         message: funding.currencyBlock || `Affiliate campaign funding is short by $${funding.deficit.toFixed(2)}.`,
         funding: { requiredAmount: funding.requiredAmount, deficit: funding.deficit } }, { status: 409 });
       try {
-        await reserveLaunchHold(supabase, liveAd.affiliate_email, funding.requiredAmount, liveAd.ad_idea_id);
+        await reserveLaunchHold(supabase, liveAd.affiliate_email, funding.requiredAmount, liveAd.ad_idea_id, currency.campaignCurrency);
         heldReference = liveAd.ad_idea_id;
       } catch (error) {
         return NextResponse.json({ error: FUNDING_ERROR, message: error instanceof Error ? error.message : 'Unable to reserve campaign funding.' }, { status: 409 });

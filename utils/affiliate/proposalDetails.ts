@@ -5,7 +5,7 @@ const PAID="id,offer_id,status,created_at,business_viewed_at,file_url,thumbnail_
 const ORGANIC="id,offer_id,status,created_at,business_viewed_at,caption,platform,image_url,video_url,tracking_url,tracking_link";
 export type ProposalDetails = {
  id:string;kind:SubmissionKind;offerTitle:string;status:string;submittedAt:string|null;viewedAt:string|null;mediaUrl:string|null;thumbnailUrl:string|null;mediaType:string|null;
- headline:string|null;caption:string|null;cta:string|null;destinationUrl:string|null;trackingUrl:string|null;budget:number|null;budgetType:string|null;startAt:string|null;endAt:string|null;platform:string|null;
+ headline:string|null;caption:string|null;cta:string|null;destinationUrl:string|null;trackingUrl:string|null;budget:number|null;budgetType:string|null;offerCurrency?:string|null;startAt:string|null;endAt:string|null;platform:string|null;
  targeting:{countries:string|null;ages:string[];gender:string|null;interests:string|null;advantageAudience:boolean|null};placements:string[];placementsType:string|null;
 };
 const text=(value:unknown)=>value==null || value===""?null:String(value);
@@ -16,7 +16,7 @@ export async function loadProposalDetails(client:SupabaseClient,email:string,kin
  if(error) throw error;
  if(!data) return null;
  const row=data as unknown as Record<string,unknown>;
- const offer=await client.from("offers").select("title").eq("id",row.offer_id).maybeSingle();
+ const offer=await client.from("offers").select("title,currency").eq("id",row.offer_id).maybeSingle();
  if(offer.error) throw offer.error;
  const identity = kind === "organic" && (row.tracking_link || row.tracking_url)
    ? await client.from("profiles").select("id").eq("email",email).eq("role","affiliate").maybeSingle()
@@ -24,7 +24,7 @@ export async function loadProposalDetails(client:SupabaseClient,email:string,kin
  if (identity?.error) throw identity.error;
  const minor=Number(row.budget_amount || 0),legacy=Number(row.daily_budget || 0);
  return {
-  id:String(row.id),kind,offerTitle:String(offer.data?.title || "Offer"),status:String(row.status || "pending"),
+  id:String(row.id),kind,offerCurrency:text(offer.data?.currency)?.trim().toUpperCase() || null,offerTitle:String(offer.data?.title || "Offer"),status:String(row.status || "pending"),
   submittedAt:text(row.created_at),viewedAt:text(row.business_viewed_at),mediaUrl:text(row.file_url || row.video_url || row.image_url),thumbnailUrl:text(row.thumbnail_url),
   mediaType:text(row.media_type || (row.video_url?"video":row.image_url?"image":null)),headline:text(row.headline),caption:text(row.caption),cta:text(row.call_to_action || row.cta),
   destinationUrl:text(row.display_link),trackingUrl: kind === "organic" && !identity?.data?.id ? null : text(displayTrackingUrl(text(row.tracking_link || row.tracking_url), kind === "paid" ? { runtimeId: String(row.id) } : { affiliateId: identity?.data?.id })),
