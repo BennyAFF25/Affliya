@@ -82,7 +82,8 @@ export function calculateWalletBalance(params: {
 
   // Canonical LR-001 rule:
   // available/refundable wallet balance is derived from succeeded top-ups net of
-  // embedded top-up refund usage, then reduced by wallet_deductions.
+  // embedded top-up refund usage (including pending Segment B reservations),
+  // then reduced by wallet_deductions.
   // wallet_refunds is treated as audit history for now and is not subtracted again,
   // because current refund flow already mutates wallet_topups.amount_refunded.
   const totalTopupsCredited = Math.round(sumTopupsCredited(topups) * 100) / 100;

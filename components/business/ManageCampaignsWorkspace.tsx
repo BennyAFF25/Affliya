@@ -220,6 +220,7 @@ export default function ManageCampaignsWorkspace(props: Props) {
   const meta = campaigns.filter((item) => item._source === "meta");
   const organic = campaigns.filter((item) => item._source === "organic");
   const archived = campaigns.filter((item) => !isLive(item));
+  const archivedCount = props.audience === "affiliate" ? (props.rejectedCount == null ? null : archived.length + props.rejectedCount) : archived.length;
   const live = campaigns.length - archived.length;
   const spend = meta.reduce((sum, item) => sum + Number(item.spend || 0), 0);
 
@@ -252,7 +253,7 @@ export default function ManageCampaignsWorkspace(props: Props) {
     { id: "all", title: "All campaigns", count: campaigns.length },
     { id: "meta", title: "Meta Ads", count: meta.length },
     { id: "organic", title: "Organic", count: organic.length },
-    { id: "archived", title: "Archived", count: props.audience === "affiliate" ? (props.rejectedCount == null ? null : archived.length + props.rejectedCount) : archived.length },
+    { id: "archived", title: "Archived", count: archivedCount },
     ...(props.audience === "affiliate" ? [{ id: "rejected" as const, title: "Rejected", count: props.rejectedCount ?? null }] : []),
   ];
 
@@ -362,7 +363,7 @@ export default function ManageCampaignsWorkspace(props: Props) {
                 <MetricCard label="Organic posts" value={loading ? "—" : String(organic.length)} helper="All organic campaigns" icon={<Megaphone className="h-5 w-5" />} />
               </>
             )}
-            <div className="col-span-2 sm:col-span-1"><MetricCard label="Archived" value={loading ? "—" : String(archived.length)} helper="Paused and stopped" muted icon={<Archive className="h-5 w-5" />} /></div>
+            <div className="col-span-2 sm:col-span-1"><MetricCard label="Archived" value={loading || archivedCount === null ? "—" : String(archivedCount)} helper={props.audience === "affiliate" ? "Paused, stopped and rejected" : "Paused and stopped"} muted icon={<Archive className="h-5 w-5" />} /></div>
           </section>
 
           <section aria-label="Campaigns" className="mt-5 overflow-hidden rounded-[22px] border border-white/[0.085] bg-[#151718] shadow-[0_22px_60px_rgba(0,0,0,0.22)]">

@@ -1,3 +1,4 @@
+import { isDefinitiveStripeFailure } from '../stripeOperationFailure';
 import { recordCampaignCurrency, withRecordedCurrency } from '../currency/recordCurrency';
 import { guardPaidCurrency } from "../currency/paidCurrencyGuard";
 import crypto from "crypto";
@@ -669,13 +670,15 @@ async function updateSettlementStatuses(
   values: Record<string, unknown>,
 ) {
   if (!ids.length) return;
-  await supabase
+  const { error } = await supabase
     .from("ad_spend_settlements")
     .update({
       ...values,
       updated_at: new Date().toISOString(),
     })
-    .in("id", ids);
+    .in("id", ids)
+    .in("status", ["ledger_applied", "pending_funds", "transfer_ready", "transfer_failed", "transfer_blocked"]);
+  if (error) throw new Error(`Settlement status update failed: ${error.message}`);
 }
 
 async function markPendingFunds(supabase: SupabaseLike, ids: string[], message: string) {
@@ -697,17 +700,18 @@ async function markTransferBlocked(supabase: SupabaseLike, ids: string[], messag
 }
 
 async function markTransferFailure(supabase: SupabaseLike, ids: string[], errorMessage: string) {
-  const { data: existingRows } = await supabase
+  const { data: existingRows, error: readError } = await supabase
     .from("ad_spend_settlements")
     .select("id, transfer_retry_count")
     .in("id", ids);
 
+  if (readError) throw new Error(`Transfer retry lookup failed: ${readError.message}`);
   const rows = (Array.isArray(existingRows) ? existingRows : []) as TransferRetryRow[];
   await Promise.all(
     rows.map(async (row) => {
       const retryCount = Number(row.transfer_retry_count ?? 0) + 1;
       const nextRetryAt = new Date(Date.now() + computeRetryDelayMs(retryCount)).toISOString();
-      await supabase
+      const { error } = await supabase
         .from("ad_spend_settlements")
         .update({
           status: "transfer_failed",
@@ -717,7 +721,9 @@ async function markTransferFailure(supabase: SupabaseLike, ids: string[], errorM
           transfer_batch_id: null,
           updated_at: new Date().toISOString(),
         })
-        .eq("id", row.id);
+        .eq("id", row.id)
+        .eq("status", "transfer_processing");
+      if (error) throw new Error(`Transfer release failed: ${error.message}`);
     }),
   );
 }
@@ -844,14 +850,10 @@ export async function processAdSpendTransferBatches(params: {
       await markPendingFunds(supabase, deferredRows.map((row) => row.id), fundingState.message);
     }
 
-    await updateSettlementStatuses(supabase, readyRows.map((row) => row.id), {
-      status: "transfer_ready",
-      transfer_error_message: null,
-      next_retry_at: nowIso,
-    });
-
     const ids = readyRows.map((row) => String(row.id));
-    const batchKey = crypto.createHash("sha256").update(ids.slice().sort().join(",")).digest("hex").slice(0, 24);
+    // Persist this unique operation identity with the claim. Never reuse a batch
+    // identity for a different claimed subset or automatically retry processing rows.
+    const batchKey = crypto.randomUUID();
 
     const { data: claimedRows, error: claimErr } = await supabase
       .from("ad_spend_settlements")
@@ -861,7 +863,7 @@ export async function processAdSpendTransferBatches(params: {
         updated_at: new Date().toISOString(),
       })
       .in("id", ids)
-      .in("status", ["ledger_applied", "pending_funds", "transfer_ready", "transfer_failed"])
+      .in("status", ["ledger_applied", "pending_funds", "transfer_ready", "transfer_failed", "transfer_blocked"])
       .select("id, business_email, business_id, amount, settlement_key, live_ad_id, offer_id, affiliate_email");
 
     if (claimErr) {
@@ -871,10 +873,15 @@ export async function processAdSpendTransferBatches(params: {
     const claimList = Array.isArray(claimedRows) ? claimedRows : [];
     if (!claimList.length) continue;
 
+    readyAmount = roundMoney(claimList.reduce((sum, row) => sum + Number(row.amount || 0), 0));
     processedSettlementCount += claimList.length;
+    let stripeAccepted = false;
+    let stripeSubmitted = false;
 
     try {
-      const transfer = await getStripe().transfers.create(
+      const stripe = getStripe();
+      stripeSubmitted = true;
+      const transfer = await stripe.transfers.create(
         {
           amount: Math.round(readyAmount * 100),
           currency: "aud",
@@ -890,14 +897,15 @@ export async function processAdSpendTransferBatches(params: {
             settlement_key_last: claimList[claimList.length - 1]?.settlement_key || "",
           }),
         },
-        { idempotencyKey: `ad_spend_transfer_batch:${batchKey}:${Math.round(readyAmount * 100)}` },
+        { idempotencyKey: `ad_spend_transfer_batch:${batchKey}` },
       );
 
+      stripeAccepted = true;
       const settlementIds = claimList.map((row) => row.id);
       const now = new Date().toISOString();
       await Promise.all(
         settlementIds.map(async (id: string) => {
-          await supabase
+          const { error } = await supabase
             .from("ad_spend_settlements")
             .update({
               status: "transfer_succeeded",
@@ -907,7 +915,12 @@ export async function processAdSpendTransferBatches(params: {
               next_retry_at: null,
               updated_at: now,
             })
-            .eq("id", id);
+            .eq("id", id)
+            .eq("transfer_batch_id", batchKey);
+          if (error) {
+            console.error('Accepted transfer persistence failed; keep processing for reconciliation', { batchKey, stripeTransferId: transfer.id, id, error });
+            throw new Error(`Accepted transfer ${transfer.id} requires reconciliation: ${error.message}`);
+          }
         }),
       );
 
@@ -927,8 +940,17 @@ export async function processAdSpendTransferBatches(params: {
       remainingAvailable = roundMoney(Math.max(0, remainingAvailable - readyAmount));
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Stripe transfer failed";
-      await markTransferFailure(supabase, claimList.map((row) => row.id), errorMessage);
-      batches.push({ businessEmail, businessId, settlementCount: claimList.length, deferredSettlementCount: deferredRows.length, amount: readyAmount, batchKey, status: "failed", settlementStatus: "transfer_failed", error: errorMessage, platformAvailableBefore: remainingAvailable, platformAvailableAfter: remainingAvailable });
+      const canRelease = !stripeAccepted && (!stripeSubmitted || isDefinitiveStripeFailure(err));
+      if (canRelease) {
+        try { await markTransferFailure(supabase, claimList.map((row) => row.id), errorMessage); }
+        catch (releaseError) { console.error('Transfer claim release failed; reconcile batch', batchKey, releaseError); }
+      } else {
+        // Timeout/5xx or post-transfer database failure: never enqueue again.
+        console.error('Transfer batch requires reconciliation; claims retained', { batchKey, errorMessage });
+      }
+      const availableBefore = remainingAvailable;
+      if (!canRelease) remainingAvailable = roundMoney(Math.max(0, remainingAvailable - readyAmount));
+      batches.push({ businessEmail, businessId, settlementCount: claimList.length, deferredSettlementCount: deferredRows.length, amount: readyAmount, batchKey, status: "failed", settlementStatus: canRelease ? "transfer_failed" : "transfer_processing", error: errorMessage, platformAvailableBefore: availableBefore, platformAvailableAfter: remainingAvailable });
     }
   }
 

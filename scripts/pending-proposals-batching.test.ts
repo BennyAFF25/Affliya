@@ -8,7 +8,7 @@ let rpcReads = 0;
 const proposals = () => Array.from({ length: count }, (_, i) => ({ id: `${i}`, offer_id: `offer-${i}`, business_email: `brand-${i}@test.invalid`, currency, budget_amount: i === 0 ? 2000 : 1000 }));
 const db = {
   auth: { getUser: async () => ({ data: { user: email ? { email } : null } }) },
-  rpc: async (name: string) => { rpcReads++; if (name === 'get_launch_wallet_available') return { data: 15, error: null }; assert.equal(name, 'expire_affiliate_launch_fund_allocations'); },
+  rpc: async (name: string) => { rpcReads++; if (name === 'get_launch_wallet_available') return { data: 15, error: failure === 'wallet_available' ? { message: 'mock failure' } : null }; throw new Error(`Unexpected RPC: ${name}`); },
   from(table: string) {
     reads[table] = (reads[table] || 0) + 1;
     const query = {
@@ -23,6 +23,7 @@ const db = {
           : table === 'business_profiles' ? rows.map(row => ({ id: row.business_email, business_email: row.business_email }))
           : table === 'wallet_topups' ? [{ credited_amount: 15, status: 'succeeded' }]
           : table === 'business_activation_subsidies' ? [{ offer_id: 'offer-0', subsidy_amount: 3, consumed_amount: 1 }]
+          : table === 'wallet_holds' ? [{ launch_offer_id: 'offer-0', launch_source_minor: 100 }]
           : table === 'affiliate_launch_fund_allocations' ? [{ allocated_for_offer_id: 'offer-0', amount: 2, allocated_for_campaign_id: committed ? 'live' : null }, { allocated_for_offer_id: 'offer-0', amount: 99 }]
           : [];
         return Promise.resolve({ data, error: failure === table ? { message: 'mock failure' } : null }).then(resolve);
@@ -151,24 +152,46 @@ async function run() {
     const factorySource = readFileSync('utils/supabase/createServerClient.ts', 'utf8');
     assert.deepEqual([...factorySource.matchAll(/from ["']([^"']+)["']/g)].map(match => match[1]), ['@supabase/supabase-js']);
     assert.match(factorySource, /auth: \{ persistSession: false \}/);
+    const { getCampaignRequiredFundingDollars, getAffiliateCampaignFundingReadiness } = requireMocked('../utils/paidCampaignLaunchReadiness');
+    assert.equal(getCampaignRequiredFundingDollars({ budget_amount: 2200, daily_budget: 20 }), 22);
+    assert.equal(getCampaignRequiredFundingDollars({ budget_amount: 1500, daily_budget: 20 }), 15);
+    assert.equal(getCampaignRequiredFundingDollars({ budget_amount: 2000 }), 20);
+    assert.equal(getCampaignRequiredFundingDollars({ daily_budget: 20 }), 20);
+    let releaseWallet!: (value: unknown) => void;
+    let releaseSources!: (value: unknown) => void;
+    const started: string[] = [];
+    const parallel = getAffiliateCampaignFundingReadiness({
+      supabase: { rpc(name: string) {
+        started.push(name);
+        return new Promise(resolve => { releaseWallet = resolve; });
+      } },
+      affiliateEmail: 'affiliate@test.invalid', offerId: 'offer', adIdea: { id: 'idea', budget_amount: 2000 },
+      currencyReadiness: { allowed: true },
+      fundingSources: new Promise(resolve => { releaseSources = resolve; }),
+    });
+    assert.deepEqual(started, ['get_launch_wallet_available'], 'Wallet starts before sources finish');
+    releaseSources({ activationSubsidyAvailable: 3, launchFundAvailable: 0, reservationsApplied: true });
+    releaseWallet({ data: 15, error: null });
+    assert.equal((await parallel).deficit, 2);
     const { GET } = requireMocked('../app/api/affiliate/pending-paid-proposals/route');
     const check = async () => {
       Object.keys(reads).forEach(key => delete reads[key]); rpcReads = 0;
       const response = await GET(); assert.equal(response.status, 200);
       const body = await response.json(); assert.equal(body.proposals.length, count);
-      assert.equal(rpcReads, 2);
-      for (const table of ['ad_ideas', 'offers', 'meta_connections', 'business_entitlements', 'wallet_topups', 'wallet_deductions', 'wallet_refunds', 'business_activation_subsidies', 'affiliate_launch_fund_allocations', 'wallet_holds']) assert.equal(reads[table], 1, table);
+      assert.equal(rpcReads, 1, 'One available-balance RPC and no per-proposal or expiry RPCs');
+      for (const table of ['ad_ideas', 'offers', 'meta_connections', 'business_entitlements', 'business_activation_subsidies', 'affiliate_launch_fund_allocations', 'wallet_holds']) assert.equal(reads[table], 1, table);
+      for (const table of ['wallet_topups', 'wallet_deductions', 'wallet_refunds']) assert.equal(reads[table], undefined, 'No duplicate ledger snapshot');
       return body.proposals;
     };
-    let rows = await check(); assert.equal(rows[0].funding.deficit, 1);
-    committed = true; rows = await check(); assert.equal(rows[0].funding.deficit, 3, 'Committed earliest allocation cannot fall through to a newer uncommitted one'); committed = false;
+    let rows = await check(); assert.equal(rows[0].funding.deficit, 2);
+    committed = true; rows = await check(); assert.equal(rows[0].funding.deficit, 4, 'Committed earliest allocation cannot fall through to a newer uncommitted one'); committed = false;
     count = 14; await check(); count = 140; rows = await check();
     assert.equal(rows[139].state, 'funded_waiting_for_business');
     missingEntitlements = true; rows = await check(); assert.equal(reads.business_profiles, 1); assert.equal(rows[0].state, 'waiting_for_business'); missingEntitlements = false;
-    failure = 'affiliate_launch_fund_allocations'; rows = await check(); assert.equal(rows[0].funding.deficit, 3);
+    failure = 'affiliate_launch_fund_allocations'; rows = await check(); assert.equal(rows[0].funding.deficit, 4);
     failure = 'business_activation_subsidies'; rows = await check(); assert.ok(rows.every((row: { state: string }) => row.state === 'funding_unavailable'));
     currency = 'USD'; rows = await check(); assert.ok(rows.every((row: { state: string }) => row.state === 'currency_blocked'), 'Currency blocking takes precedence even when funding data fails'); currency = 'AUD';
-    failure = 'wallet_topups'; rows = await check(); assert.ok(rows.every((row: { state: string }) => row.state === 'funding_unavailable'));
+    failure = 'wallet_available'; rows = await check(); assert.ok(rows.every((row: { state: string }) => row.state === 'funding_unavailable'));
     failure = 'business_entitlements'; rows = await check(); assert.ok(rows.every((row: { state: string }) => row.state === 'waiting_for_business'));
     email = null; const before = JSON.stringify(reads); assert.equal((await GET()).status, 401); assert.equal(JSON.stringify(reads), before);
     const page = readFileSync('app/affiliate/dashboard/manage-campaigns/page.tsx', 'utf8');

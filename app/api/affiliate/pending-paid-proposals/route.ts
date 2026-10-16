@@ -7,8 +7,6 @@ import { createServerSupabaseClient } from "../../../../utils/supabase/createSer
 import { getBusinessEntitlements } from "../../../../utils/businessEntitlements";
 import { getAffiliateCampaignFundingReadiness, loadCampaignFundingSources, validatePaidCampaignTiming } from "../../../../utils/paidCampaignLaunchReadiness";
 
-import { getWalletBalanceSnapshot } from "../../../../utils/wallet/balance";
-
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -53,8 +51,8 @@ export async function GET() {
     const sourcesTask = offerIds.length ? loadCampaignFundingSources(admin, affiliateEmail, offerIds as string[])
       .then(data => ({ data, error: null as unknown }))
       .catch(error => ({ data: new Map(), error })) : Promise.resolve({ data: new Map(), error: null });
-    const walletTask = offerIds.length ? Promise.all([getWalletBalanceSnapshot(admin, affiliateEmail), getLaunchWalletAvailable(admin, affiliateEmail)])
-      .then(([data, availableBalance]) => ({ data: { ...data, availableBalance }, error: null as unknown })).catch(error => ({ data: null, error })) : Promise.resolve({ data: null, error: null });
+    const walletTask = offerIds.length ? getLaunchWalletAvailable(admin, affiliateEmail)
+      .then(availableBalance => ({ data: { availableBalance }, error: null as unknown })).catch(error => ({ data: null, error })) : Promise.resolve({ data: null, error: null });
 
     const { data: offers, error: offerError } = offerIds.length
       ? await admin

@@ -1,4 +1,4 @@
-import { recordCurrency, withRecordedCurrency } from '@/../utils/currency/recordCurrency';
+import { isDefinitiveStripeFailure, refundIdempotencyKey } from '@/../utils/stripeOperationFailure';
 import { NextResponse } from 'next/server';
 import { tryWriteMoneyFlowAudit } from '@/../utils/moneyFlowAudit';
 import supabase from '@/../utils/supabase/server-client';
@@ -24,30 +24,28 @@ function getCreditedTopupAmount(topup: WalletTopupRow) {
   return Number.isFinite(legacy) ? legacy : 0;
 }
 
-function isRpcMissing(error: unknown) {
-  if (!error || typeof error !== 'object') return false;
-  const code = 'code' in error ? error.code : null;
-  return code === 'PGRST202';
-}
-
 async function createStripeRefund(
   topup: WalletTopupRow,
   refundAmount: number,
   email: string,
+  attemptId: string,
+  onSubmit: () => void,
 ) {
   const metadata = buildNettmarkStripeMetadata('wallet_refund', {
     affiliate_email: email,
     source_topup_id: topup.id,
     wallet_topup_stripe_id: topup.stripe_id,
     refund_amount: refundAmount,
+    refund_attempt_id: attemptId,
   });
 
   if (topup.stripe_id.startsWith('ch_')) {
+    onSubmit();
     const refund = await stripe.refunds.create({
       amount: Math.round(refundAmount * 100),
       charge: topup.stripe_id,
       metadata,
-    });
+    }, { idempotencyKey: refundIdempotencyKey(attemptId) });
 
     return {
       refund,
@@ -67,6 +65,7 @@ async function createStripeRefund(
       throw new Error('No charge found for the given Payment Intent.');
     }
 
+    onSubmit();
     const refund = await stripe.refunds.create({
       amount: Math.round(refundAmount * 100),
       charge: chargeId,
@@ -74,7 +73,7 @@ async function createStripeRefund(
         ...metadata,
         stripe_charge_id: chargeId,
       },
-    });
+    }, { idempotencyKey: refundIdempotencyKey(attemptId) });
 
     return {
       refund,
@@ -104,6 +103,7 @@ async function createStripeRefund(
       throw new Error('No charge found for the given Checkout Session.');
     }
 
+    onSubmit();
     const refund = await stripe.refunds.create({
       amount: Math.round(refundAmount * 100),
       charge: chargeId,
@@ -113,7 +113,7 @@ async function createStripeRefund(
         checkout_session_id: topup.stripe_id,
         payment_intent_id: paymentIntentId,
       },
-    });
+    }, { idempotencyKey: refundIdempotencyKey(attemptId) });
 
     return {
       refund,
@@ -124,85 +124,8 @@ async function createStripeRefund(
   throw new Error('Invalid stripe_id format. Must be a charge, payment intent, or checkout session ID.');
 }
 
-async function recordWalletRefund(params: {
-  currency: unknown;
-  email: string;
-  topup: WalletTopupRow;
-  refundAmount: number;
-  stripeRefundId: string;
-  stripeChargeId: string;
-  stripeStatus: string | null;
-}) {
-  const rpcPayload = {
-    p_affiliate_email: params.email,
-    p_source_topup_id: params.topup.id,
-    p_stripe_refund_id: params.stripeRefundId,
-    p_stripe_charge_id: params.stripeChargeId,
-    p_amount: params.refundAmount,
-    p_status: params.stripeStatus || 'succeeded',
-  };
-
-  const currency = recordCurrency(params.currency, 'verified');
-  let rpc = await supabase.rpc('record_wallet_refund_with_currency', {
-    ...rpcPayload,
-    p_currency: currency.currency,
-    p_currency_source: currency.currency_source,
-  });
-  if (rpc.error?.code === 'PGRST202' || rpc.error?.code === '42883') {
-    rpc = await supabase.rpc('record_wallet_refund', rpcPayload);
-  }
-  const { data, error } = rpc;
-
-  if (error && !isRpcMissing(error)) {
-    throw error;
-  }
-
-  if (!error) {
-    return data;
-  }
-
-  const { error: insertError } = await withRecordedCurrency(recordCurrency(params.currency, 'verified'), currencyFields => supabase.from('wallet_refunds').insert({
-    ...currencyFields,
-    affiliate_email: params.email,
-    source_topup_id: params.topup.id,
-    stripe_refund_id: params.stripeRefundId,
-    stripe_charge_id: params.stripeChargeId,
-    amount: params.refundAmount,
-    status: params.stripeStatus || 'succeeded',
-  }));
-
-  if (insertError) {
-    throw insertError;
-  }
-
-  const refundedAfter = (Number(params.topup.amount_refunded) || 0) + params.refundAmount;
-
-  const { error: updateError } = await supabase
-    .from('wallet_topups')
-    .update({
-      amount_refunded: refundedAfter,
-      refunded_at: new Date().toISOString(),
-      status:
-        refundedAfter >= getCreditedTopupAmount(params.topup)
-          ? 'refunded'
-          : 'succeeded',
-    })
-    .eq('id', params.topup.id);
-
-  if (updateError) {
-    throw updateError;
-  }
-
-  return {
-    success: true,
-    fallback: true,
-    stripeRefundId: params.stripeRefundId,
-    sourceTopupId: params.topup.id,
-  };
-}
-
 export async function POST(req: Request) {
-  const { email, refundAmount, stripe_charge_id } = await req.json();
+  const { email, refundAmount, stripe_charge_id, requestId } = await req.json();
 
   console.log('[🧪 Refund Payload]', { email, refundAmount, stripe_charge_id });
 
@@ -213,7 +136,7 @@ export async function POST(req: Request) {
 
   const normalizedRefundAmount = Number(refundAmount);
 
-  if (!Number.isFinite(normalizedRefundAmount) || normalizedRefundAmount <= 0) {
+  if (!Number.isFinite(normalizedRefundAmount) || normalizedRefundAmount <= 0 || Math.abs(normalizedRefundAmount * 100 - Math.round(normalizedRefundAmount * 100)) > 1e-8) {
     return NextResponse.json({ error: 'Refund amount must be greater than 0' }, { status: 400 });
   }
 
@@ -372,22 +295,27 @@ export async function POST(req: Request) {
     );
   }
 
+  const { data: claim, error: claimError } = await supabase.rpc('claim_wallet_refund', {
+    p_email: email, p_topup: topup.id, p_amount: normalizedRefundAmount,
+    p_request_key: typeof requestId === 'string' && requestId ? requestId : `${topup.id}:${Math.round(normalizedRefundAmount * 100)}`,
+  });
+  if (claimError || !claim?.attempt?.id) {
+    return NextResponse.json({ error: claimError?.message || 'Refund claim failed' }, { status: 409 });
+  }
+  if (!claim.claimed) return NextResponse.json({ existing: true, attempt: claim.attempt }, { status: 409 });
+  const attemptId = claim.attempt.id as string;
+  let stripeReturned = false;
+  let stripeSubmitted = false;
   try {
-    const { refund, stripeChargeId } = await createStripeRefund(
-      topup,
-      normalizedRefundAmount,
-      email,
-    );
-
-    const ledgerResult = await recordWalletRefund({
-      currency: refund.currency,
-      email,
-      topup,
-      refundAmount: normalizedRefundAmount,
-      stripeRefundId: refund.id,
-      stripeChargeId,
-      stripeStatus: refund.status || null,
+    const { refund, stripeChargeId } = await createStripeRefund(topup, normalizedRefundAmount, email, attemptId, () => { stripeSubmitted = true; });
+    stripeReturned = true;
+    const status = refund.status === 'succeeded' ? 'succeeded'
+      : refund.status === 'failed' || refund.status === 'canceled' ? 'failed' : 'pending';
+    const { data: ledgerResult, error: finishError } = await supabase.rpc('finish_wallet_refund', {
+      p_id: attemptId, p_status: status, p_stripe_refund_id: refund.id,
+      p_charge_id: stripeChargeId, p_currency: refund.currency,
     });
+    if (finishError) throw finishError;
 
     try {
       await syncAffiliateWalletCache(supabase as never, email);
@@ -416,6 +344,14 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true, refund, ledger: ledgerResult });
   } catch (err: unknown) {
+    // An accepted refund or ambiguous transport failure retains its reservation.
+    if (!stripeReturned && (!stripeSubmitted || isDefinitiveStripeFailure(err))) {
+      const { error: releaseError } = await supabase.rpc('finish_wallet_refund', {
+        p_id: attemptId, p_status: 'failed', p_error: err instanceof Error ? err.message : 'Stripe rejected refund',
+      });
+      if (releaseError) console.error('Refund release failed; reconcile attempt', attemptId, releaseError);
+    }
+    console.error('Refund requires reconciliation', { attemptId, idempotencyKey: refundIdempotencyKey(attemptId) });
     await tryWriteMoneyFlowAudit(supabase as never, {
       eventType: 'wallet_refund_failed',
       severity: 'error',

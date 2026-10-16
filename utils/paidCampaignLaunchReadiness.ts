@@ -1,8 +1,7 @@
 import { getLaunchWalletAvailable } from "./wallet/launchHolds";
 import { resolveCampaignSchedule } from "./campaignSchedule";
 import { getActivationSubsidyRemaining, type ActivationSubsidyRow } from "./activationSubsidies";
-import { expireLaunchFundAllocations, getActiveLaunchFundAllocation, type LaunchFundAllocation } from "./launchFund";
-import { getWalletBalanceSnapshot } from "./wallet/balance";
+import { getActiveLaunchFundAllocation, type LaunchFundAllocation } from "./launchFund";
 
 import { guardPaidCurrency } from "./currency/paidCurrencyGuard";
 
@@ -56,7 +55,7 @@ export async function getAffiliateCampaignFundingReadiness(params: {
   /** Advisory endpoints only. Omit at launch/money boundaries to keep strict enforcement. */
   currencyReadiness?: Awaited<ReturnType<typeof guardPaidCurrency>>;
   /** Request-local wallet snapshot with hold-adjusted availableBalance; advisory only. */
-  walletSnapshot?: ReturnType<typeof getWalletBalanceSnapshot>;
+  walletSnapshot?: Promise<{ availableBalance: number }>;
   /** Request-local advisory source batch; strict launch callers omit this. */
   fundingSources?: Promise<{ activationSubsidyAvailable: number; launchFundAvailable: number; reservationsApplied?: boolean }>;
 }): Promise<AffiliateCampaignFundingReadiness> {
@@ -82,14 +81,21 @@ export async function getAffiliateCampaignFundingReadiness(params: {
     effectiveFunding: 0, deficit: requiredAmount,
   };
 
-  const [wallet, sources] = await Promise.all([
-    params.walletSnapshot ?? Promise.resolve(null),
+  const [walletAvailableRaw, sources, sourceReservation] = await Promise.all([
+    params.currencyReadiness && params.walletSnapshot
+      ? params.walletSnapshot.then(wallet => wallet.availableBalance)
+      : getLaunchWalletAvailable(params.supabase, affiliateEmail, params.adIdea.id || undefined),
     params.fundingSources ?? loadFundingSources(params.supabase, affiliateEmail, params.offerId),
+    params.fundingSources
+      ? params.fundingSources.then(sources => sources.reservationsApplied ? { data: 0, error: null } : loadReservedSources())
+      : loadReservedSources(),
   ]);
-  const sourceReservation = sources.reservationsApplied ? { data: 0, error: null } : await params.supabase.rpc('get_launch_source_reserved', {
-    p_affiliate_email: affiliateEmail, p_offer_id: params.offerId,
-    p_exclude_reference_id: params.adIdea.id || null,
-  });
+  function loadReservedSources() {
+    return params.supabase.rpc('get_launch_source_reserved', {
+      p_affiliate_email: affiliateEmail, p_offer_id: params.offerId,
+      p_exclude_reference_id: params.adIdea.id || null,
+    });
+  }
   if (sourceReservation.error || sourceReservation.data == null || !Number.isFinite(Number(sourceReservation.data))) {
     throw new Error('Failed to load reserved campaign funding sources.');
   }
@@ -97,7 +103,7 @@ export async function getAffiliateCampaignFundingReadiness(params: {
   const activationSubsidyAvailable = money(Math.max(0, sources.activationSubsidyAvailable - reservedSources));
   const launchFundAvailable = money(Math.max(0, sources.launchFundAvailable - Math.max(0, reservedSources - sources.activationSubsidyAvailable)));
 
-  const walletAvailable = money(params.currencyReadiness && wallet ? wallet.availableBalance : await getLaunchWalletAvailable(params.supabase, affiliateEmail, params.adIdea.id || undefined));
+  const walletAvailable = money(walletAvailableRaw);
   const effectiveFunding = money(
     walletAvailable + activationSubsidyAvailable + launchFundAvailable,
   );
@@ -151,7 +157,7 @@ async function loadFundingSources(supabase: SupabaseLike, affiliateEmail: string
   return { activationSubsidyAvailable, launchFundAvailable };
 }
 
-/** Advisory batch: one expiry operation and two reads, independent of offer/budget count. */
+/** Read-only advisory batch: source and reservation reads are independent of proposal count. */
 export async function loadCampaignFundingSources(supabase: SupabaseLike, affiliateEmail: string, offerIds: string[]) {
   const subsidyTask = supabase.from("business_activation_subsidies")
     .select("offer_id,id,status,subsidy_amount,consumed_amount,reserved_for_affiliate_email")
@@ -159,7 +165,6 @@ export async function loadCampaignFundingSources(supabase: SupabaseLike, affilia
     .in("status", ["reserved", "partially_consumed"]);
   const allocationTask = (async () => {
     try {
-      await expireLaunchFundAllocations(supabase);
       const result = await supabase.from("affiliate_launch_fund_allocations").select("*")
         .eq("affiliate_email", affiliateEmail).in("allocated_for_offer_id", offerIds)
         .in("status", ["allocated", "reserved"]).gt("expires_at", new Date().toISOString())
@@ -172,7 +177,7 @@ export async function loadCampaignFundingSources(supabase: SupabaseLike, affilia
     }
   })();
   const holdsTask = supabase.from('wallet_holds').select('launch_offer_id,launch_source_minor,wallet_accounts!inner(owner_email)')
-    .eq('wallet_accounts.owner_email', affiliateEmail).eq('status', 'active');
+    .eq('wallet_accounts.owner_email', affiliateEmail).eq('wallet_accounts.currency', 'AUD').eq('status', 'active');
   const [subsidies, allocations, holds] = await Promise.all([subsidyTask, allocationTask, holdsTask]);
   if (holds.error) throw new Error(`Failed to load campaign holds: ${holds.error.message}`);
   const reserved = new Map<string, number>();

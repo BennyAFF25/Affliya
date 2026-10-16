@@ -1,0 +1,23 @@
+-- READ THIS PROCEDURE; this file alone does not create parallel sessions.
+-- Supabase Management API executes a request on one connection. Without dblink
+-- credentials/extension, genuine independent transactions require TWO requests.
+-- Use a disposable staging wallet and two existing ad_ideas for that same email.
+-- Configure identical email, amount, idea_a and idea_b in BOTH companion files.
+-- Require: no existing holds for either idea, no subsidy or launch-fund allocation,
+-- wallet available >= amount and < 2*amount (e.g. wallet 10 AUD, each hold 10 AUD).
+-- 1. Send segA-concurrent-holds-session-a.sql via the Management API.
+-- 2. Within 5 seconds send segA-concurrent-holds-session-b.sql independently.
+-- A holds the reservation/account lock for 20 seconds. B has a 2-second lock
+-- timeout. B MUST report PASS: competing reservation blocked, never return a hold.
+-- Both end with intentional RAISE EXCEPTION, so the whole request rolls back,
+-- including account creation/holds. HTTP errors are EXPECTED; inspect messages.
+-- If B instead reports FAIL, serialization is broken. If A fails a fixture check,
+-- fix the fixture and repeat. A must report PASS: first reservation held.
+-- No Stripe/Meta calls, no persistent fixtures, no node/service-env runner needed.
+-- Limitation: rollback-only requests cannot demonstrate a committed winner making
+-- a later waiter insufficient: after A rolls back B could legitimately succeed.
+-- Thus lock_timeout forces B to fail WHILE A owns the only available funds.
+-- The fixture checks prove that, if A committed, B would be underfunded; the lock
+-- timeout proves B cannot pass the check concurrently with A's reservation.
+-- Run on default READ COMMITTED; both requests explicitly select that isolation.
+SELECT 'Run both companion session SQL files concurrently as described above' AS instructions;
