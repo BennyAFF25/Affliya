@@ -1,3 +1,4 @@
+import { settlementQuote, settlementAud } from './settlementFx';
 type Row = Record<string, unknown>;
 type Result<T> = { data: T | null; error: unknown };
 type Query = PromiseLike<Result<Row[]>> & {
@@ -16,8 +17,15 @@ export function nextDayBudget(idea: Record<string, unknown> | null, spend = 0) {
 export async function getFundingCoverage(client: { from: (table: string) => unknown }, ad: { id: string; affiliate_email?: string | null; ad_idea_id?: string | null }, spend: number) {
   const ads = await (client.from('live_ads') as Query).select('*').eq('affiliate_email', ad.affiliate_email);
   if (ads.error) throw new Error('PENDING_SPEND_UNAVAILABLE');
-  const unpaid = (ads.data || []).reduce((sum: number, row: Row) => sum + Math.max(0,
-    Number(row.id === ad.id ? spend : row.spend || 0) - Number(row.spend_transferred || 0)), 0);
+  const quotes = new Map<string, Awaited<ReturnType<typeof settlementQuote>>>();
+  const unpaidAmounts = await Promise.all((ads.data || []).map(async row => {
+    const quote = await settlementQuote(client, String(row.id));
+    if (!quote) throw new Error('FX_SETTLEMENT_DEFERRED');
+    quotes.set(String(row.id), quote);
+    const amount = Math.max(0, Number(row.id === ad.id ? spend : row.spend || 0) - Number(row.spend_transferred || 0));
+    return quote.fx ? settlementAud(amount, quote.fx.rate) : amount;
+  }));
+  const unpaid = unpaidAmounts.reduce((sum, amount) => sum + amount, 0);
   // The wallet is pooled: reserve all running campaigns' next-day budgets,
   // plus this campaign's budget when assessing a paused campaign for recovery.
   const campaigns = (ads.data || []).filter(row => row.id === ad.id ||
@@ -31,7 +39,9 @@ export async function getFundingCoverage(client: { from: (table: string) => unkn
       if (result.error || !result.data) throw new Error('CAMPAIGN_BUDGET_UNAVAILABLE');
       idea = result.data;
     }
-    return nextDayBudget(idea, Number(row.id === ad.id ? spend : row.spend || 0));
+    const budget = nextDayBudget(idea, Number(row.id === ad.id ? spend : row.spend || 0));
+    const quote = quotes.get(String(row.id));
+    return quote?.fx ? settlementAud(budget, quote.fx.rate) : budget;
   }));
   return { unpaid: Math.round(unpaid * 100) / 100,
     nextDayBudget: Math.round(budgets.reduce((sum, budget) => sum + budget, 0) * 100) / 100 };

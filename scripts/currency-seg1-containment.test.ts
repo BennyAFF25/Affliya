@@ -56,7 +56,7 @@ async function run() {
     const settled = await settleAdSpendLedger({ supabase: db, liveAdId: "live" });
     assert.equal(settled.chargedAmount, 0);
     assert.equal(settled.transferredAfter, 5);
-    assert.equal(settled.error, "PAID_CURRENCY_BLOCKED");
+    assert.equal(settled.error, "FX_SETTLEMENT_DEFERRED");
     assert.equal(writes.length, 0);
     const reimbursement = await processAdSpendTransferBatches({ supabase: db });
     assert.equal(reimbursement.processedSettlementCount, 0);

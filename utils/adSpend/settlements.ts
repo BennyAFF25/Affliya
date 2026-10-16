@@ -1,3 +1,4 @@
+import { settlementQuote, settlementAud, fundedOriginal, settlementFxFields } from './settlementFx';
 import { isDefinitiveStripeFailure } from '../stripeOperationFailure';
 import { recordCampaignCurrency, withRecordedCurrency } from '../currency/recordCurrency';
 import { guardPaidCurrency } from "../currency/paidCurrencyGuard";
@@ -77,6 +78,12 @@ export type AdSpendSettlementRow = {
   business_id: string | null;
   affiliate_user_id: string | null;
   amount: number;
+  currency?: string | null;
+  original_currency?: string | null;
+  original_amount?: number | null;
+  fx_rate?: number | null;
+  fx_source?: string | null;
+  fx_rate_date?: string | null;
   status: string;
   transfer_retry_count?: number | null;
   next_retry_at?: string | null;
@@ -380,13 +387,13 @@ export async function settleAdSpendLedger(params: {
     };
   }
 
-  const currency = await guardPaidCurrency({ supabase, liveAdId });
-  if (!currency.allowed) {
-    console.warn("[ad-spend] settlement skipped: PAID_CURRENCY_BLOCKED", { liveAdId, reason: currency.reason });
-    return { success: true, error: "PAID_CURRENCY_BLOCKED", liveAdId, spend,
+  const quote = await settlementQuote(supabase, liveAdId);
+  if (!quote) {
+    return { success: true, error: "FX_SETTLEMENT_DEFERRED", liveAdId, spend,
       transferredBefore, transferredAfter: transferredBefore, unpaidBefore, unpaidAfter: unpaidBefore,
-      chargedAmount: 0, message: currency.message! };
+      chargedAmount: 0, message: "Currency or fresh FX unavailable; retry next run." };
   }
+  const { currency, fx } = quote;
   const walletSnapshot = await getWalletBalanceSnapshot(supabase as never, affiliateEmail);
   const availableBalanceBefore = roundMoney(walletSnapshot.availableBalance);
   const reservedSubsidy = await findReservedActivationSubsidy(supabase, {
@@ -416,7 +423,11 @@ export async function settleAdSpendLedger(params: {
     };
   }
 
-  const chargedAmount = roundMoney(
+  const originalAmount = fx ? fundedOriginal(
+    Math.min(unpaidBefore, requestedChunk != null && requestedChunk > 0 ? requestedChunk : unpaidBefore),
+    fx.rate, effectiveFundingBefore,
+  ) : null;
+  const chargedAmount = fx ? settlementAud(originalAmount!, fx.rate) : roundMoney(
     Math.min(
       unpaidBefore,
       requestedChunk != null && requestedChunk > 0 ? requestedChunk : unpaidBefore,
@@ -446,7 +457,7 @@ export async function settleAdSpendLedger(params: {
   const subsidyAppliedAmount = roundMoney(Math.min(chargedAmount, subsidyRemaining));
   const walletChargeAmount = roundMoney(Math.max(0, chargedAmount - subsidyAppliedAmount));
 
-  const transferredAfter = roundMoney(transferredBefore + chargedAmount);
+  const transferredAfter = roundMoney(transferredBefore + (originalAmount ?? chargedAmount));
   const unpaidAfter = roundMoney(Math.max(0, spend - transferredAfter));
   const settlementKey = buildAdSpendSettlementKey(liveAdId, transferredAfter);
 
@@ -573,6 +584,7 @@ export async function settleAdSpendLedger(params: {
       offer_id: offerId,
       ad_id: liveAdId,
       amount: walletChargeAmount,
+      ...(fx ? settlementFxFields(subsidyAppliedAmount === 0 ? originalAmount! : walletChargeAmount / fx.rate, currency.campaignCurrency, fx) : {}),
       description:
         subsidyAppliedAmount > 0
           ? `Meta ad spend settlement (starter spend applied: $${subsidyAppliedAmount.toFixed(2)})`
@@ -582,7 +594,7 @@ export async function settleAdSpendLedger(params: {
       affiliate_user_id: typeof liveAd.affiliate_user_id === "string" ? liveAd.affiliate_user_id : null,
     };
 
-    const { error: deductionErr } = await withRecordedCurrency(recordCampaignCurrency(currency), currencyFields => supabase
+    const { error: deductionErr } = await withRecordedCurrency(fx ? { currency: "AUD", currency_source: "verified" } : recordCampaignCurrency(currency), currencyFields => supabase
       .from("wallet_deductions")
       .insert({ ...walletDeductionPayload, ...currencyFields }));
 
@@ -601,6 +613,7 @@ export async function settleAdSpendLedger(params: {
     business_id: typeof liveAd.business_id === "string" ? liveAd.business_id : null,
     affiliate_user_id: typeof liveAd.affiliate_user_id === "string" ? liveAd.affiliate_user_id : null,
     amount: chargedAmount,
+    ...(fx ? settlementFxFields(originalAmount!, currency.campaignCurrency, fx) : {}),
     spend,
     transferred_before: transferredBefore,
     transferred_after: transferredAfter,
@@ -616,7 +629,7 @@ export async function settleAdSpendLedger(params: {
     },
   } satisfies JsonRecord;
 
-  const { data: insertedSettlement, error: settlementErr } = await withRecordedCurrency(recordCampaignCurrency(currency), currencyFields => supabase
+  const { data: insertedSettlement, error: settlementErr } = await withRecordedCurrency(fx ? { currency: "AUD", currency_source: "verified" } : recordCampaignCurrency(currency), currencyFields => supabase
     .from("ad_spend_settlements")
     .insert({ ...settlementPayload, ...currencyFields })
     .select("id")
@@ -750,7 +763,7 @@ export async function processAdSpendTransferBatches(params: {
 
   const { data: pendingRows, error: pendingErr } = await supabase
     .from("ad_spend_settlements")
-    .select("id, settlement_key, live_ad_id, affiliate_email, business_email, offer_id, business_id, affiliate_user_id, amount, status, transfer_retry_count, next_retry_at, transfer_error_message, stripe_transfer_id, created_at")
+    .select("id, settlement_key, live_ad_id, affiliate_email, business_email, offer_id, business_id, affiliate_user_id, amount, currency, original_amount, original_currency, fx_rate, fx_source, fx_rate_date, status, transfer_retry_count, next_retry_at, transfer_error_message, stripe_transfer_id, created_at")
     .in("status", ["ledger_applied", "pending_funds", "transfer_ready", "transfer_failed", "transfer_blocked"])
     .lte("next_retry_at", nowIso)
     .order("created_at", { ascending: true })
@@ -776,8 +789,11 @@ export async function processAdSpendTransferBatches(params: {
 
   const groups = new Map<string, AdSpendSettlementRow[]>();
   for (const row of rows) {
-    const currency = await guardPaidCurrency({ supabase, liveAdId: row.live_ad_id });
-    if (!currency.allowed) {
+    const currency = await guardPaidCurrency({ supabase, liveAdId: row.live_ad_id, settlementOnly: true });
+    if (!currency.allowed || (currency.campaignCurrency !== "AUD" &&
+      !(row.currency === "AUD" && row.original_currency === currency.campaignCurrency &&
+        Number(row.original_amount) > 0 && Number(row.fx_rate) > 0 && row.fx_source && row.fx_rate_date &&
+        settlementAud(Number(row.original_amount), Number(row.fx_rate)) === Number(row.amount)))) {
       console.warn("[ad-spend] reimbursement skipped: PAID_CURRENCY_BLOCKED", { settlementId: row.id, reason: currency.reason });
       await markTransferBlocked(supabase, [row.id], `${currency.message} (${currency.reason})`);
       continue;

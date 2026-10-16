@@ -1,0 +1,17 @@
+# Segment D — AUD settlement of foreign Meta spend
+
+Status: completed (retained at explicitly requested plans/active/segD.md); files only. No SQL execution, push, Stripe/Meta calls or deployment.
+
+Product intent: explicit founder direction extends existing wallet-funded reimbursement to USD/GBP/CAD live spend, preserving predictable funding, offer currency authority and non-AUD launch containment. No commission/commercial-model changes. Historical docs say cross-currency policy unknown; this instruction establishes settlement policy only.
+
+Evidence: utils/adSpend/settlements.ts claims live_ads watermark then applies subsidy/deduction and queues the same ad_spend_settlements row for AUD Stripe transfer. No separate liability/transfer-item table. Segment A consume_launch_hold uses deduction.amount in AUD major units. Existing multi-query crash/rollback limitations remain; live schema and remote main are unverified. Local main inspected, working tree initially clean.
+
+Units: live_ads.spend/spend_transferred, settlement.spend/transferred_before/transferred_after/unpaid_before/unpaid_after and chunkAmount stay original Meta major units. Settlement.amount, wallet_deductions.amount, subsidy consumption and transfers are AUD major units. original_amount records the source portion represented by that row (wallet portion excludes subsidy); original_currency and fx_* preserve quote evidence. AUD writes omit the new fields (NULL). FX rate is AUD per original unit, date is provider UTC date selected on settlement day by rates.ts, allowing fresh prior-day quotes under its existing guard.
+
+Policy: half-up cents of original × rate; NO settlement buffer. FX_BUFFER_BPS only sizes launch holds. Partial funding selects the largest source cent amount whose rounded AUD conversion fits funding. Unknown/mismatched currency or unavailable fresh quote defers before any watermark/funding write, structured warning, retries next run. Transfer retries use persisted conversion evidence, never reprice.
+
+Approach: reuse currency context resolution with a settlement-only mode, rates cache/provider and existing bookkeeping; additive nullable metadata and exact column-drop undo; mocked regression tests, containment tests, TypeScript and diff checks. AUD math/control path retained. New metadata requires migration before runtime rollout. Undo discards added metadata and requires reverting dependent code first.
+
+Risks: existing non-atomic multi-query settlement failure recovery is unchanged. No production schema/provider verification. Success: source/AUD units remain distinct, stale quotes cannot debit or advance, AUD regression and launch block pass.
+
+Validation: Segment D mocked end-to-end ledger tests passed (USD/GBP/CAD, half-up tie, partial funding, AUD payload parity, stale/mismatch/unknown zero-write deferral and launch block). Segment C FX, Segment A holds and currency Segment 1 containment passed; containment expectation updated for structured deferral code. npx tsc -p . --noEmit passed. Focused ESLint passed after documenting test module mocking; existing React version settings warning remains. git diff --check passed. No build or live SQL/provider/Stripe/Meta verification performed; all external calls in tests mocked. No configuration changes. Remaining follow-up: separately authorised migration rollout and operational verification; pre-existing multi-query crash consistency remains a risk.

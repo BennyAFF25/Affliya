@@ -26,7 +26,7 @@ export function checkPaidCurrency(proposalCurrency: unknown, offerCurrency: unkn
 }
 
 /** Read-only server guard. Connection matching mirrors upload-video exactly. Never defaults account currency. */
-export async function guardPaidCurrency(params: { supabase: any; offerId?: string; adIdea?: { currency?: unknown }; liveAdId?: string }) {
+export async function guardPaidCurrency(params: { supabase: any; offerId?: string; adIdea?: { currency?: unknown }; liveAdId?: string; settlementOnly?: boolean }) {
   try {
     let offerId = params.offerId;
     let idea = params.adIdea;
@@ -48,7 +48,12 @@ export async function guardPaidCurrency(params: { supabase: any; offerId?: strin
       .eq("business_email", offer.data.business_email).eq("page_id", pageId).eq("ad_account_id", adAccountId)
       .order("created_at", { ascending: false }).limit(1).maybeSingle();
     if (connection.error) throw new Error("meta_currency_lookup_failed");
-    return checkPaidCurrency(idea?.currency, offer.data.currency, connection.data?.ad_account_currency);
+    const result = checkPaidCurrency(idea?.currency, offer.data.currency, connection.data?.ad_account_currency);
+    if (params.settlementOnly && result.reason === "unsupported_campaign_currency" &&
+      ['USD', 'GBP', 'CAD'].includes(result.campaignCurrency) && result.metaAccountCurrency) {
+      return { ...result, allowed: true, reason: null, message: null };
+    }
+    return result;
   } catch (error) {
     return { ...checkPaidCurrency(null, null, null), reason: error instanceof Error ? error.message : "currency_lookup_failed" };
   }

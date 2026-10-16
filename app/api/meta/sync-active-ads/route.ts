@@ -1,3 +1,4 @@
+import { settlementQuote, settlementAud } from '../../../../utils/adSpend/settlementFx';
 import { tryWriteMoneyFlowAudit } from "../../../../utils/moneyFlowAudit";
 import { getFundingCoverage } from "../../../../utils/adSpend/fundingCoverage";
 import { shouldPauseForFunding } from "../../../../utils/adSpend/pauseGuardrail";
@@ -371,8 +372,11 @@ async function run(req: Request) {
         }
 
         // 2d) Automated settlement + pause decision
-        const meetsChunkThreshold = unpaid >= settlementConfig.thresholdAmount;
-        const nearWalletEdge = walletAvailable > 0 && walletAvailable - unpaid <= settlementConfig.walletBuffer;
+        const quote = await settlementQuote(supabase, liveAdId);
+        if (!quote) return { liveAdId, ok: true, spend, unpaid, error: 'FX_SETTLEMENT_DEFERRED' };
+        const unpaidAud = quote.fx ? settlementAud(unpaid, quote.fx.rate) : unpaid;
+        const meetsChunkThreshold = unpaidAud >= settlementConfig.thresholdAmount;
+        const nearWalletEdge = walletAvailable > 0 && walletAvailable - unpaidAud <= settlementConfig.walletBuffer;
         const shouldSettle = unpaid > 0 && walletAvailable > 0 && (meetsChunkThreshold || nearWalletEdge);
         const coverage = await getFundingCoverage(supabase, ad, spend);
         const fundingReserve = Math.max(settlementConfig.walletBuffer, coverage.nextDayBudget);
