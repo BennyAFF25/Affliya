@@ -1,3 +1,4 @@
+import { computeOfferMetaReady, type OfferMetaRow, type MetaConnectionRow } from "../../../../utils/offerMetaReadiness";
 import { NextResponse } from "next/server";
 import supabaseAdmin from "@/../utils/supabase/server-client";
 
@@ -16,15 +17,22 @@ export async function GET(req: Request) {
 
     const { data: offers, error: offerError } = await (supabaseAdmin as any)
       .from("offers")
-      .select("id, business_email")
+      .select("id, business_email, meta_page_id, meta_ad_account_id")
       .in("id", rawOfferIds);
     if (offerError) throw new Error(offerError.message || "Failed to load offers");
 
-    const offerRows = (offers || []) as Array<{ id: string; business_email: string | null }>;
-    const businessEmails = Array.from(new Set(offerRows.map((offer) => offer.business_email).filter(Boolean)));
+    const offerRows = (offers || []) as Array<OfferMetaRow & { id: string; business_email: string | null }>;
+    const businessEmails = Array.from(new Set(offerRows.map((offer) => offer.business_email).filter((email): email is string => Boolean(email))));
 
-    if (!businessEmails.length) {
-      return NextResponse.json({ ok: true, readiness: {} });
+    const { data: connections, error: connectionError } = businessEmails.length
+      ? await supabaseAdmin.from("meta_connections").select("business_email,page_id,ad_account_id").in("business_email", businessEmails)
+      : { data: [], error: null };
+    if (connectionError) throw new Error("Failed to load Meta readiness");
+    const connectionsByBusiness = new Map<string, MetaConnectionRow[]>();
+    for (const connection of connections || []) {
+      const rows = connectionsByBusiness.get(connection.business_email) || [];
+      rows.push(connection);
+      connectionsByBusiness.set(connection.business_email, rows);
     }
 
     const { data: assets, error: assetError } = await (supabaseAdmin as any)
@@ -36,7 +44,10 @@ export async function GET(req: Request) {
 
     if (assetError) throw new Error(assetError.message || "Failed to load assets");
 
-    const readiness = Object.fromEntries(rawOfferIds.map((offerId) => [offerId, { total: 0, organic: 0, paid: 0 }]));
+    const readiness = Object.fromEntries(offerRows.map((offer) => [offer.id, {
+      total: 0, organic: 0, paid: 0,
+      metaReady: computeOfferMetaReady(offer, connectionsByBusiness.get(offer.business_email || "") || []).metaReady,
+    }]));
     const offerBusinessMap = new Map(offerRows.map((offer) => [offer.id, offer.business_email]));
 
     for (const asset of (assets || []) as any[]) {

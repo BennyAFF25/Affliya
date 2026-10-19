@@ -1,5 +1,6 @@
 "use client";
 
+import { computeOfferMetaReady } from "../../../utils/offerMetaReadiness";
 import { formatMoney } from "../../../utils/currency";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
@@ -39,6 +40,7 @@ interface Offer {
   readyOrganicCreativeCount?: number;
   readyPaidCreativeCount?: number;
   participationMode?: "open" | "approval_required" | "private";
+  metaReady: boolean;
   createdAt: number;
 }
 
@@ -61,7 +63,7 @@ function MarketplaceRow({
   const [requested, setRequested] = useState(alreadyRequested);
   const [starting, setStarting] = useState(false);
 
-  const adsEnabled = !!offer.meta_page_id && !!offer.meta_ad_account_id;
+  const adsEnabled = offer.metaReady;
   const trackingReady = !!offer.meta_pixel_id;
   const isPending = currentStatus === "pending";
   const isApproved = currentStatus === "approved";
@@ -326,6 +328,7 @@ export default function AffiliateMarketplace() {
       const threshold = commissions.length ? Math.max(...commissions) * 0.9 : 0;
 
       const formatted: Offer[] = typedData.map((offer) => ({
+        metaReady: computeOfferMetaReady(offer).metaReady,
         id: offer.id,
         title: offer.title,
         createdAt: Date.parse(offer.created_at ?? "") || 0,
@@ -353,6 +356,7 @@ export default function AffiliateMarketplace() {
       formatted.forEach((offer) => {
         const readiness = readinessMap[offer.id];
         if (!readiness) return;
+        offer.metaReady = readiness.metaReady ?? offer.metaReady;
         offer.readyCreativeCount = Number(readiness.total || 0);
         offer.readyOrganicCreativeCount = Number(readiness.organic || 0);
         offer.readyPaidCreativeCount = Number(readiness.paid || 0);
@@ -396,8 +400,8 @@ export default function AffiliateMarketplace() {
   const counts = useMemo(() => {
     return {
       all: offers.length,
-      ads: offers.filter((offer) => !!offer.meta_page_id && !!offer.meta_ad_account_id).length,
-      organic: offers.filter((offer) => !offer.meta_page_id || !offer.meta_ad_account_id).length,
+      ads: offers.filter((offer) => offer.metaReady).length,
+      organic: offers.filter((offer) => !offer.metaReady).length,
       pending: offers.filter((offer) => requestStatusByOfferId[offer.id] === "pending").length,
     };
   }, [offers, requestStatusByOfferId]);
@@ -407,7 +411,7 @@ export default function AffiliateMarketplace() {
     return offers.filter((offer) => {
       const matchesSearch = !query || offer.title.toLowerCase().includes(query) || offer.description.toLowerCase().includes(query);
       const matchesType = filterType === "All" || offer.type === filterType.toLowerCase();
-      const adsEnabled = !!offer.meta_page_id && !!offer.meta_ad_account_id;
+      const adsEnabled = offer.metaReady;
       const matchesStatus =
         statusFilter === "all" ||
         (statusFilter === "ads" && adsEnabled) ||

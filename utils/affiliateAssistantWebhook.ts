@@ -1,3 +1,4 @@
+import { computeOfferMetaReady } from "./offerMetaReadiness";
 import { SupabaseClient } from "@supabase/supabase-js";
 
 export type AffiliateWebhookEventType =
@@ -256,7 +257,7 @@ async function loadBrandSnapshot(supabase: SupabaseClient, row: OutboxRow) {
   } satisfies AffiliateWebhookBrand;
 }
 
-async function loadOfferSnapshot(
+export async function loadOfferSnapshot(
   supabase: SupabaseClient,
   offerId: string | null,
 ) {
@@ -265,12 +266,22 @@ async function loadOfferSnapshot(
   const { data: offer, error } = await supabase
     .from("offers")
     .select(
-      "id,title,description,website,commission,commission_value,currency,price,type,logo_url,hero_image_url,image_urls,brand_guidelines,recurring_monthly_commission_value",
+      "id,business_email,meta_page_id,meta_ad_account_id,meta_pixel_id,title,description,website,commission,commission_value,currency,price,type,logo_url,hero_image_url,image_urls,brand_guidelines,recurring_monthly_commission_value",
     )
     .eq("id", offerId)
     .maybeSingle();
 
   if (error || !offer) return null;
+
+  let meta = computeOfferMetaReady(offer);
+  if (!meta.metaReady && offer.business_email?.trim()) {
+    const { data: connections, error: connectionsError } = await supabase
+      .from("meta_connections")
+      .select("page_id,ad_account_id")
+      .eq("business_email", offer.business_email.trim());
+    if (connectionsError) throw new Error(`Failed to load Meta connections: ${connectionsError.message}`);
+    meta = computeOfferMetaReady(offer, connections || []);
+  }
 
   const assets = [
     offer.logo_url ? { type: "logo", url: offer.logo_url } : null,
@@ -294,10 +305,10 @@ async function loadOfferSnapshot(
             0,
         )
       : Number(offer.commission ?? offer.commission_value ?? 0),
-    currency: offer.currency || "AUD",
+    currency: offer.currency || null,
     products: [],
     campaign_rules: offer.brand_guidelines || null,
-    allowed_channels: ["facebook_ads", "organic"],
+    allowed_channels: meta.metaReady ? ["organic", "facebook_ads"] : ["organic"],
     restricted_claims: [],
     assets,
     landing_url: offer.website || null,

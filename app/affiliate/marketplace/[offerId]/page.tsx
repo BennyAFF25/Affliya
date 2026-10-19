@@ -15,6 +15,7 @@ import {
   Tag,
   Users,
 } from 'lucide-react';
+import { computeOfferMetaReady } from '../../../../utils/offerMetaReadiness';
 import { formatMoney } from '../../../../utils/currency';
 import { supabase } from '../../../../utils/supabase/pages-client';
 import { normalizeOfferDestination } from '../../../../utils/offers/presentation';
@@ -22,6 +23,7 @@ import { getActivationSubsidyBadgeLabel, getActivationSubsidyRemaining } from '.
 
 type Offer = {
   id: string;
+  metaReady?: boolean;
   business_name?: string;
   title?: string;
   description?: string;
@@ -41,7 +43,7 @@ type Offer = {
 };
 
 function getPromotionMode(offer: Offer | null) {
-  const adsEnabled = !!offer?.meta_page_id && !!offer?.meta_ad_account_id;
+  const adsEnabled = offer?.metaReady;
   if (adsEnabled) {
     return {
       label: 'Ads enabled',
@@ -125,13 +127,13 @@ export default function AffiliateOfferProfilePage() {
         if(cancelled) return;
         if(error) throw error;
         if(!data) throw new Error('This offer is unavailable or has been removed.');
-        setOffer(data as Offer);
+        setOffer({ ...data, metaReady: computeOfferMetaReady(data).metaReady } as Offer);
         setLoading(false); // Optional readiness must not hold the entire offer page.
         const timeout=window.setTimeout(()=>controller.abort(),8000);
         try {
           const res=await fetch(`/api/offers/content-readiness?offerIds=${encodeURIComponent(offerId)}`,{cache:'no-store',signal:controller.signal});
           const body=await res.json().catch(()=>null),readiness=body?.ok?body.readiness?.[offerId]:null;
-          if(!cancelled && res.ok && readiness) setOffer(current=>current?.id===offerId?{...current,readyCreativeCount:Number(readiness.total || 0),readyOrganicCreativeCount:Number(readiness.organic || 0),readyPaidCreativeCount:Number(readiness.paid || 0)}:current);
+          if(!cancelled && res.ok && readiness) setOffer(current=>current?.id===offerId?{...current,metaReady:readiness.metaReady ?? current.metaReady,readyCreativeCount:Number(readiness.total || 0),readyOrganicCreativeCount:Number(readiness.organic || 0),readyPaidCreativeCount:Number(readiness.paid || 0)}:current);
         } catch { /* Best-effort readiness never hides the authoritative offer. */ }
         finally {window.clearTimeout(timeout);}
       } catch(error:unknown) {if(!cancelled)setLoadError(error instanceof Error?error.message:'Could not load this offer.');}
