@@ -55,9 +55,9 @@ function getPromotionMode(offer: Offer | null) {
   }
 
   return {
-    label: 'Organic only',
+    label: 'Paid setup pending',
     tone: 'border-white/10 bg-white/[0.04] text-white/70',
-    helper: 'Paid ads stay locked until the business connects Meta.',
+    helper: 'Organic promotion is available now. You can submit a paid campaign proposal; it can launch once the business finishes Meta setup.',
   };
 }
 

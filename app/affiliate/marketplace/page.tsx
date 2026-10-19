@@ -143,11 +143,11 @@ function MarketplaceRow({
 
         <div className="flex flex-wrap gap-1.5">
           <span className={`rounded-full border px-2 py-1 text-[10px] ${adsEnabled ? "border-emerald-400/25 bg-emerald-500/10 text-emerald-300" : "border-[var(--border)] bg-[var(--secondary)] text-[var(--muted-foreground)]"}`}>
-            {adsEnabled ? "Ads enabled" : "Organic only"}
+            {adsEnabled ? "Ads enabled" : "Paid setup pending"}
           </span>
           <span className="rounded-full border border-[var(--border)] bg-[var(--secondary)] px-2 py-1 text-[10px] text-[var(--muted-foreground)]">{typeLabel}</span>
           <span className="rounded-full border border-[var(--border)] bg-[var(--secondary)] px-2 py-1 text-[10px] text-[var(--muted-foreground)]">
-            {adsEnabled ? "Paid + organic" : "Organic only"}
+            {adsEnabled ? "Paid + organic" : "Paid setup pending"}
           </span>
         </div>
 
@@ -174,7 +174,7 @@ function MarketplaceRow({
           ) : (
             <div className={`inline-flex items-center gap-2 text-xs font-medium ${adsEnabled ? "text-emerald-300" : "text-[var(--muted-foreground)]"}`}>
               <span className={`h-2 w-2 rounded-full ${adsEnabled ? "bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,.4)]" : "bg-zinc-500"}`} />
-              {adsEnabled ? "Ads enabled" : "Organic only"}
+              {adsEnabled ? "Ads enabled" : "Paid setup pending"}
             </div>
           )}
           {trackingReady ? (
@@ -221,7 +221,7 @@ function MarketplaceRow({
           <p className="text-lg font-semibold text-[#00c2cb]">{offer.commission}%</p>
         </div>
         <div className="mt-3 flex flex-wrap gap-1.5">
-          <span className={`rounded-full border px-2 py-1 text-[10px] ${adsEnabled ? "border-emerald-400/25 bg-emerald-500/10 text-emerald-300" : "border-[var(--border)] bg-[var(--secondary)] text-[var(--muted-foreground)]"}`}>{adsEnabled ? "Ads enabled" : "Organic only"}</span>
+          <span className={`rounded-full border px-2 py-1 text-[10px] ${adsEnabled ? "border-emerald-400/25 bg-emerald-500/10 text-emerald-300" : "border-[var(--border)] bg-[var(--secondary)] text-[var(--muted-foreground)]"}`}>{adsEnabled ? "Ads enabled" : "Paid setup pending"}</span>
           <span className="rounded-full border border-[var(--border)] bg-[var(--secondary)] px-2 py-1 text-[10px] text-[var(--muted-foreground)]">{typeLabel}</span>
           {trackingReady ? <span className="rounded-full border border-[#00c2cb]/30 bg-[#00c2cb]/10 px-2 py-1 text-[10px] text-[#63e6ec]">Tracking ready</span> : null}
         </div>
@@ -439,7 +439,7 @@ export default function AffiliateMarketplace() {
   const tabs: { key: MarketplaceStatus; label: string; count: number }[] = [
     { key: "all", label: "All Offers", count: counts.all },
     { key: "ads", label: "Ads Enabled", count: counts.ads },
-    { key: "organic", label: "Organic Only", count: counts.organic },
+    { key: "organic", label: "Paid setup pending", count: counts.organic },
     { key: "pending", label: "Pending Approval", count: counts.pending },
   ];
 
@@ -482,7 +482,7 @@ export default function AffiliateMarketplace() {
             <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as MarketplaceStatus)} className="h-11 rounded-xl border border-[var(--border)] bg-[var(--secondary)] px-3 text-xs text-[var(--foreground)] outline-none focus:border-[#00c2cb]/50 xl:min-w-[150px]">
               <option value="all">All Statuses</option>
               <option value="ads">Ads Enabled</option>
-              <option value="organic">Organic Only</option>
+              <option value="organic">Paid setup pending</option>
               <option value="pending">Pending Approval</option>
             </select>
             <div className="flex items-center gap-2 xl:ml-3">
