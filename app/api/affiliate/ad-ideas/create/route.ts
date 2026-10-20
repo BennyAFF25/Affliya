@@ -46,14 +46,14 @@ export async function POST(req: Request) {
     if (String(offer.business_email).toLowerCase() === user.email.toLowerCase()) {
       return NextResponse.json({ success: false, message: "Use an affiliate account for a different business." }, { status: 403 });
     }
-    // Browser has already run /api/affiliate/offers/:id/start. Check participation
-    // without creating another affiliate request or duplicate notification.
+    // Verify business approval independently of the browser, without creating
+    // another affiliate request or duplicate notification.
     const { data: participation, error: participationError } = await admin.from("affiliate_requests")
       .select("id,status").eq("offer_id", offerId).ilike("affiliate_email", user.email)
       .limit(1).maybeSingle();
     if (participationError) throw participationError;
-    if (!participation || !["approved", "pending"].includes(String(participation.status).toLowerCase())) {
-      return NextResponse.json({ success: false, message: "Start promoting this offer before submitting a proposal." }, { status: 409 });
+    if (!participation || !["approved", "active", "accepted"].includes(String(participation.status).toLowerCase())) {
+      return NextResponse.json({ success: false, message: "Business approval is required before submitting a proposal." }, { status: 409 });
     }
 
     const connectedCurrency = String(offer.currency || "").trim().toUpperCase();

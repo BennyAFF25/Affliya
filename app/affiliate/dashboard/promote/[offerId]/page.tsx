@@ -21,6 +21,7 @@ function friendlyObjective(objective?: string): string {
   }
 }
 
+import { promotionDraftKey, readPromotionDraft, promotionJson, withPromotionTimeout, type SavedPromotionMedia } from "../../../../../utils/affiliate/promotionDraft";
 import { PaidCurrencyWarning } from "../components/PaidCurrencyWarning";
 import React, { useState, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { nmToast } from "@/components/ui/toast";
@@ -79,10 +80,10 @@ export default function PromoteOfferPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [currencyLoading, setCurrencyLoading] = useState(true);
   const [offerCurrency, setOfferCurrency] = useState<string>("");
-  useEffect(()=>{if(session?.user?.email && !draftOwner.current)draftOwner.current={id:session.user.id,email:session.user.email};},[session?.user?.id,session?.user?.email]);
+  useEffect(()=>{if(session?.user?.email)draftOwner.current={id:session.user.id,email:session.user.email};},[session?.user?.id,session?.user?.email]);
   const userEmail=session?.user?.email || draftOwner.current?.email || "";
   const requireSubmissionSession=async()=>{
-    try {const result=await ensureSubmissionSession(supabase,draftOwner.current?.id);setSessionError(null);return result.user;}
+    try {const result=await withPromotionTimeout(ensureSubmissionSession(supabase,draftOwner.current?.id));setSessionError(null);return result.user;}
     catch(error){setSessionError(error instanceof Error?error.message:"Sign in again. Your draft is still here.");throw error;}
   };
 
@@ -100,7 +101,6 @@ export default function PromoteOfferPage() {
   const [brandContentReload, setBrandContentReload] = useState(0);
   const [selectedAdBrandCreative, setSelectedAdBrandCreative] = useState<ContentLibraryAsset | null>(null);
   const [selectedOrganicBrandCreative, setSelectedOrganicBrandCreative] = useState<ContentLibraryAsset | null>(null);
-  const [promotionStartedLogged, setPromotionStartedLogged] = useState(false);
   const [aiOrganicCopyApplied, setAiOrganicCopyApplied] = useState(false);
 
   useEffect(() => {
@@ -108,18 +108,6 @@ export default function PromoteOfferPage() {
     if (requestedMode === "organic") setMode("organic");
     if (requestedMode === "ad") setMode("ad");
   }, [searchParams]);
-
-  useEffect(() => {
-    if (promotionStartedLogged || !offerId) return;
-    void logProductEvent({
-      eventType: "promotion_started",
-      actorRole: "affiliate",
-      offerId,
-      promotionType: mode === "ad" ? "paid" : "organic",
-      meta: { source: mode === "ad" ? adCreativeSource : organicCreativeSource },
-    });
-    setPromotionStartedLogged(true);
-  }, [adCreativeSource, mode, offerId, organicCreativeSource, promotionStartedLogged]);
 
   // Wallet balance state (real-time gating)
   const [walletBalance, setWalletBalance] = useState<number>(0);
@@ -331,6 +319,14 @@ export default function PromoteOfferPage() {
   const walletDeficit = Math.max(0, requiredBudget - effectiveLaunchBalance);
   const canRunWithWallet = effectiveLaunchBalance >= requiredBudget;
 
+  const initialForm = useRef(form);
+  const [wizardStep, setWizardStep] = useState(1);
+  const [savedMedia, setSavedMedia] = useState<SavedPromotionMedia | null>(null);
+  const [draftNote, setDraftNote] = useState<string | null>(null);
+  const [draftReady, setDraftReady] = useState<string | null>(null);
+  const draftCleared = useRef(false);
+  const discardedDraft = useRef(false);
+  const draftKey = userEmail ? promotionDraftKey(userEmail, offerId) : null;
   // Media
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -340,10 +336,52 @@ export default function PromoteOfferPage() {
 
   useEffect(() => {
     if (adCreativeSource === "upload" && !useLogoCreative && !videoFile && !imageFile) {
-      setVideoPreviewUrl(null);
-      setThumbPreviewUrl(null);
+      setVideoPreviewUrl(savedMedia?.type === "video" ? savedMedia.url : null);
+      setThumbPreviewUrl(savedMedia?.type === "video" ? savedMedia.thumbnail : savedMedia?.url || null);
     }
-  }, [adCreativeSource, useLogoCreative, imageFile, videoFile]);
+  }, [adCreativeSource, useLogoCreative, imageFile, videoFile, savedMedia]);
+
+  useEffect(() => {
+    if (!draftKey) return;
+    draftCleared.current = false; discardedDraft.current = false;
+    try {
+      const draft = readPromotionDraft(localStorage.getItem(draftKey));
+      if (draft) {
+        setForm({ ...initialForm.current, ...draft.form }); setWizardStep(draft.step);
+        setAdCreativeSource(draft.source); setUseLogoCreative(draft.logo);
+        setSelectedAdBrandCreative(draft.brand); setSavedMedia(draft.media);
+        setDraftNote(`Draft restored.${draft.reselect ? " Re-select files that were not uploaded yet." : ""}`);
+      } else {
+        setForm(initialForm.current); setWizardStep(1); setAdCreativeSource("upload"); setUseLogoCreative(false);
+        setSelectedAdBrandCreative(null); setSavedMedia(null); setDraftNote(null);
+      }
+      setVideoFile(null); setImageFile(null); setThumbnailFile(null);
+      setDraftReady(draftKey);
+    } catch (error) { setDraftNote(error instanceof Error ? error.message : "Draft storage is unavailable."); }
+  }, [draftKey]);
+
+  useEffect(() => {
+    if (!draftKey || draftReady !== draftKey || draftCleared.current) return;
+    if (discardedDraft.current) {
+      if (JSON.stringify(form) === JSON.stringify(initialForm.current) && wizardStep === 1 && !videoFile && !imageFile && !thumbnailFile && !savedMedia && !selectedAdBrandCreative && !useLogoCreative && adCreativeSource === "upload") return;
+      discardedDraft.current = false;
+    }
+    try {
+      localStorage.setItem(draftKey, JSON.stringify({ version: 1, form, step: wizardStep, source: adCreativeSource,
+        logo: useLogoCreative, brand: selectedAdBrandCreative, media: savedMedia,
+        reselect: !!(videoFile || imageFile || thumbnailFile) && (!savedMedia || (savedMedia.type === "video" && !savedMedia.thumbnail)) }));
+    } catch { setDraftNote("Draft could not be saved on this device. Keep this page open to retain your work."); }
+  }, [draftKey, draftReady, form, wizardStep, adCreativeSource, useLogoCreative, selectedAdBrandCreative, savedMedia, videoFile, imageFile, thumbnailFile]);
+
+  const discardDraft = () => {
+    try { if (draftKey) localStorage.removeItem(draftKey); }
+    catch { setDraftNote("Could not discard the saved draft. Check browser storage settings."); return; }
+    discardedDraft.current = true;
+    setDraftReady(draftKey); setDraftNote(null); setForm(initialForm.current); setWizardStep(1);
+    setSavedMedia(null); setVideoFile(null); setImageFile(null); setThumbnailFile(null);
+    setUseLogoCreative(false); setAdCreativeSource("upload"); setSelectedAdBrandCreative(null);
+    setVideoPreviewUrl(null); setThumbPreviewUrl(null); setThumbnailError(null); setSubmitError(null);
+  };
 
   // Thumbnail validation (Meta does NOT accept SVG thumbnails)
   const ALLOWED_THUMB_MIME = ["image/jpeg", "image/png", "image/webp"];
@@ -427,26 +465,52 @@ export default function PromoteOfferPage() {
   const [participationMode, setParticipationMode] = useState<"open" | "approval_required" | "private">("open");
   const [participationStatus, setParticipationStatus] = useState<"approved" | "pending" | "rejected" | null>(null);
 
-  const ensurePromotionAccess = async () => {
-    const response = await fetch(`/api/affiliate/offers/${offerId}/start`, { method: "POST" });
-    const json = await response.json().catch(() => null);
-
-    if (!response.ok || !json?.ok) {
-      throw new Error(json?.message || json?.error || "This offer is not available right now.");
-    }
-
-    const nextStatus = json?.participation?.status || null;
-    if (nextStatus === "approved" || nextStatus === "pending" || nextStatus === "rejected") {
-      setParticipationStatus(nextStatus);
-    }
-    if (json?.participationMode === "open" || json?.participationMode === "approval_required" || json?.participationMode === "private") {
-      setParticipationMode(json.participationMode);
-    }
-
-    if (nextStatus !== "approved") {
-      throw new Error(json?.message || "This offer requires approval before promotion can start.");
-    }
+  const [accessLoaded, setAccessLoaded] = useState(false);
+  const [accessError, setAccessError] = useState<string | null>(null);
+  const [accessSending, setAccessSending] = useState(false);
+  const accessFlight = useRef(false);
+  const applyAccess = (json: any) => {
+    setParticipationMode(json.participationMode);
+    const status = json.participation?.status;
+    setParticipationStatus(status === "none" ? null : status);
+    setAccessLoaded(true); setAccessError(null);
+    return status;
   };
+  const refreshAccess = async () => {
+    try { return applyAccess(await promotionJson(`/api/affiliate/offers/${offerId}/start`)); }
+    catch (error) { setAccessError(error instanceof Error ? error.message : "Could not check access."); throw error; }
+  };
+  useEffect(() => {
+    if (!userEmail || !offerId) return;
+    setAccessLoaded(false);
+    void refreshAccess().catch(() => {});
+  }, [userEmail, offerId]);
+
+  const requestAccess = async () => {
+    if (accessFlight.current) return;
+    accessFlight.current = true; setAccessSending(true); setAccessError(null);
+    try {
+      await requireSubmissionSession();
+      applyAccess(await promotionJson(`/api/affiliate/offers/${offerId}/start`, { method: "POST" }));
+    } catch (error) { setAccessError(error instanceof Error ? error.message : "Could not request access."); }
+    finally { accessFlight.current = false; setAccessSending(false); }
+  };
+  const ensurePromotionAccess = async () => {
+    const current = await promotionJson(`/api/affiliate/offers/${offerId}/start`);
+    const status = applyAccess(current);
+    if (status === "approved") return;
+    if (current.participationMode === "open" && status !== "rejected") {
+      const joined = await promotionJson(`/api/affiliate/offers/${offerId}/start`, { method: "POST" });
+      if (applyAccess(joined) === "approved") return;
+    }
+    throw new Error("Business approval is required before submitting. Your draft has been kept.");
+  };
+  const submitBlockedReason = !accessLoaded ? "Check offer access before submitting."
+    : accessError ? "Refresh offer access before submitting."
+    : participationStatus === "rejected" ? "Access was rejected. Contact support to reopen it."
+    : participationStatus !== "approved" && participationMode !== "open"
+      ? participationStatus === "pending" ? "Request sent — waiting for the business to approve. You can keep building your draft." : "Request access above before submitting. You can build your draft meanwhile."
+      : null;
 
   useEffect(() => {
     if (session === undefined || session === null) return;
@@ -482,11 +546,6 @@ export default function PromoteOfferPage() {
       setOfferCurrency(resolveOfferCurrency(null, offer?.currency).campaignCurrency);
       setCurrencyLoading(false);
       setBrandLogoUrl(offer?.logo_url || null);
-      setParticipationMode(
-        offer?.participation_mode === "approval_required" || offer?.participation_mode === "private"
-          ? offer.participation_mode
-          : "open",
-      );
       setOfferMetaState({
         hasPage: !!offer?.meta_page_id,
         hasAdAccount: !!(offer as OfferRow | null)?.meta_ad_account_id,
@@ -613,31 +672,33 @@ export default function PromoteOfferPage() {
   const [metaDemandSending, setMetaDemandSending] = useState(false);
   const [metaDemandSent, setMetaDemandSent] = useState(false);
 
+  const metaDemandFlight = useRef(false);
+  const [metaDemandError, setMetaDemandError] = useState<string | null>(null);
   const requestBusinessPaidPromotion = async () => {
-    if (!offerId || metaDemandSending || metaDemandSent) return;
+    if (!offerId || metaDemandFlight.current || metaDemandSent) return;
+    metaDemandFlight.current = true; setMetaDemandError(null);
     setMetaDemandSending(true);
     try {
-      await ensurePromotionAccess();
-      const response = await fetch(`/api/affiliate/offers/${offerId}/paid-promotion-request`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      await requireSubmissionSession();
+      // Demand can be recorded while access is pending; it does not submit a campaign.
+      const access = await promotionJson(`/api/affiliate/offers/${offerId}/start`, { method: "POST" });
+      applyAccess(access);
+      const json = await promotionJson(`/api/affiliate/offers/${offerId}/paid-promotion-request`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ budget: Number(form.budget_amount_dollars || 0) }),
       });
-      const json = await response.json().catch(() => null);
-      if (!response.ok || !json?.ok) {
-        throw new Error(json?.error || "Could not notify the business.");
-      }
       if (json?.alreadyEnabled) {
         nmToast.success("Paid promotion is already enabled. Refreshing...");
         window.location.reload();
         return;
       }
       setMetaDemandSent(true);
-      nmToast.success("Business notified — we'll let you know when paid promotion is enabled.");
+      nmToast.success("Paid-promotion request recorded. Business notification queued.");
     } catch (error: any) {
+      setMetaDemandError(error?.message || "Could not notify the business.");
       nmToast.error(error?.message || "Could not notify the business.");
     } finally {
-      setMetaDemandSending(false);
+      metaDemandFlight.current = false; setMetaDemandSending(false);
     }
   };
 
@@ -1057,17 +1118,19 @@ export default function PromoteOfferPage() {
           throw new Error("Please enter a valid bid cap amount when using Bid Cap.");
         }
       }
-      const isVideoCreative = !!videoFile;
+      const reusableMedia = adCreativeSource === "upload" && !useLogoCreative && !videoFile && !imageFile ? savedMedia : null;
+      const isVideoCreative = !!videoFile || reusableMedia?.type === "video";
       const isImageCreative = !!imageFile;
       const usingBrandContent = adCreativeSource === "brand" && !!selectedAdBrandCreative;
       const selectedCreativeId = usingBrandContent ? selectedAdBrandCreative?.id || null : null;
 
-      if (!usingBrandContent && !(useLogoCreative && brandLogoUrl) && !isVideoCreative && !isImageCreative) {
+      if (!usingBrandContent && !(useLogoCreative && brandLogoUrl) && !isVideoCreative && !isImageCreative && !reusableMedia) {
         throw new Error("Please upload either a video or a photo.");
       }
 
       if (isVideoCreative) {
         let thumbnailUrl: string | null = null;
+        if (reusableMedia?.thumbnail) thumbnailUrl = reusableMedia.thumbnail;
         if (thumbnailFile) {
           thumbnailUrl = thumbnailFile.name;
         }
@@ -1131,8 +1194,8 @@ export default function PromoteOfferPage() {
       // 2) Upload creative media to "ad-ideas-assets" bucket
       const ts = Date.now();
 
-      let creativePublicUrl: string | null = null;
-      let thumbPublicUrl: string | null = null;
+      let creativePublicUrl: string | null = reusableMedia?.url || null;
+      let thumbPublicUrl: string | null = reusableMedia?.thumbnail || null;
 
       if (usingBrandContent && selectedAdBrandCreative) {
         creativePublicUrl = selectedAdBrandCreative.media_url;
@@ -1165,6 +1228,7 @@ export default function PromoteOfferPage() {
           .getPublicUrl(imagePath).data.publicUrl;
       }
 
+      if (creativePublicUrl && !usingBrandContent && !useLogoCreative) setSavedMedia({ url: creativePublicUrl, thumbnail: thumbPublicUrl, type: isVideoCreative ? "video" : "image" });
       if (thumbnailFile) {
         const thumbPath = `thumbnails/${ts}-thumb-${sanitize(thumbnailFile.name)}`;
         const { error: upThumbErr } = await supabase.storage
@@ -1178,6 +1242,8 @@ export default function PromoteOfferPage() {
           .from("ad-ideas-assets")
           .getPublicUrl(thumbPath).data.publicUrl;
       }
+
+      if (creativePublicUrl && !usingBrandContent && !useLogoCreative) setSavedMedia({ url: creativePublicUrl, thumbnail: thumbPublicUrl, type: isVideoCreative ? "video" : "image" });
 
       // Force stronger optimisation defaults (critical for spend)
       const optimisation_goal =
@@ -1206,8 +1272,8 @@ export default function PromoteOfferPage() {
         // media
         file_url: creativePublicUrl,
         thumbnail_url: thumbPublicUrl,
-        media_type: videoFile ? "VIDEO" : "IMAGE",
-        type: videoFile ? "Video" : "Photo",
+        media_type: isVideoCreative ? "VIDEO" : "IMAGE",
+        type: isVideoCreative ? "Video" : "Photo",
         business_creative_id: selectedCreativeId,
 
         // campaign/adset/ad
@@ -1297,6 +1363,8 @@ export default function PromoteOfferPage() {
         meta: { source: usingBrandContent ? "brand" : "upload", objective: form.objective },
       });
 
+      draftCleared.current = true;
+      try { if (draftKey) localStorage.removeItem(draftKey); } catch { /* The proposal is already saved. */ }
       nmToast.success("Campaign proposal submitted — pending business review. No wallet funds reserved.");
       router.push(`/affiliate/dashboard/manage-campaigns?submitted=${encodeURIComponent(createdIdeaId || "")}`);
       return true;
@@ -1514,6 +1582,12 @@ export default function PromoteOfferPage() {
             </button>
           </div>
         </div>
+        {participationStatus === "pending" && (
+          <div role="status" className="mb-4 rounded-2xl border border-amber-300/30 bg-amber-300/10 p-4 text-sm text-amber-200 lg:col-span-2">
+            <strong>Pending approval</strong>
+            <p className="mt-2">Your access request is waiting for business approval. You can keep building your draft.</p>
+          </div>
+        )}
         <AIPromotionPackPanel
           key={offerId + ":" + mode}
           offerId={offerId}
@@ -1535,6 +1609,17 @@ export default function PromoteOfferPage() {
         {/* LEFT: single card wizard */}
         {mode === "ad" && (
           <div className="space-y-4">
+            <div className="rounded-2xl border border-white/10 bg-[#151718] p-4 text-sm" role="status">
+              <strong>Offer access: {accessLoaded ? participationStatus || "Not requested" : "Checking…"}</strong>
+              <p className="mt-2">{submitBlockedReason || "You can submit a campaign proposal for business review."}</p>
+              {accessError && <p role="alert" className="mt-2 text-red-200">{accessError}</p>}
+              {accessLoaded && !participationStatus && participationMode === "approval_required" && <button type="button" disabled={accessSending} onClick={() => void requestAccess()} className="mt-3 rounded-full bg-[#00C2CB] px-4 py-2 text-black">{accessSending ? "Requesting…" : "Request access"}</button>}
+              <button type="button" onClick={() => void refreshAccess().catch(() => {})} className="ml-3 mt-3 underline">Refresh access status</button>
+            </div>
+            <div className="rounded-2xl border border-white/10 p-4 text-sm">
+              {draftNote && <p role="status">{draftNote}</p>}
+              <button type="button" onClick={discardDraft} className="underline">Discard draft</button>
+            </div>
             {(!offerMetaResolved || showMetaSetupWarning) && (
               <div aria-busy={!offerMetaResolved} aria-label="Paid promotion setup" className="relative rounded-2xl border border-cyan-500/30 bg-cyan-500/10 p-5 text-sm text-cyan-50">
                 {!offerMetaResolved && <div role="status" className="absolute inset-5 animate-pulse motion-reduce:animate-none space-y-3"><span className="sr-only">Loading paid promotion setup…</span><div className="h-5 w-3/4 rounded bg-cyan-100/10" /><div className="h-10 rounded bg-cyan-100/10" /><div className="h-10 w-48 rounded-xl bg-cyan-100/10" /></div>}
@@ -1552,7 +1637,7 @@ export default function PromoteOfferPage() {
                   disabled={metaDemandSending || metaDemandSent}
                   className="mt-4 rounded-xl bg-[#00C2CB] px-4 py-2.5 font-semibold text-black transition hover:brightness-110 disabled:cursor-default disabled:opacity-70"
                 >
-                  {metaDemandSent ? "Business notified ✓" : metaDemandSending ? "Notifying business..." : `I'm ready to run paid ads`}
+                  {metaDemandSent ? "Request recorded ✓" : metaDemandSending ? "Notifying business..." : `I'm ready to run paid ads`}
                 </button>
                 <p className="mt-2 text-xs text-cyan-100/70">
                   Submitting a full proposal also reserves no wallet funds. Setup and funding are enforced only before launch.
@@ -1561,6 +1646,7 @@ export default function PromoteOfferPage() {
               </div>
             )}
 
+            {metaDemandError && <p role="alert" className="text-sm text-red-200">{metaDemandError}</p>}
             {showSalesPixelWarning && (
               <div className="rounded-2xl border border-cyan-500/30 bg-cyan-500/10 p-4 text-sm text-cyan-100">
                 <div className="font-semibold">Sales campaigns still need a Meta pixel</div>
@@ -1571,6 +1657,10 @@ export default function PromoteOfferPage() {
             )}
 
             <AdCampaignWizard
+              step={wizardStep}
+              setStep={setWizardStep}
+              submitBlockedReason={submitBlockedReason}
+              savedMedia={adCreativeSource === "upload" && !useLogoCreative && !videoFile && !imageFile ? savedMedia : null}
               form={form}
               setForm={setForm}
               onInput={onInput}
@@ -1592,9 +1682,9 @@ export default function PromoteOfferPage() {
               interestsIgnored={interestsIgnored}
               offerId={offerId}
               videoFile={videoFile}
-              setVideoFile={setVideoFile}
+              setVideoFile={(file) => { if (file) setSavedMedia(null); setVideoFile(file); }}
               imageFile={imageFile}
-              setImageFile={setImageFile}
+              setImageFile={(file) => { if (file) setSavedMedia(null); setImageFile(file); }}
               thumbnailFile={thumbnailFile}
               setThumbnailFile={setThumbnailFile}
               thumbnailError={thumbnailError}
@@ -1606,7 +1696,7 @@ export default function PromoteOfferPage() {
               usingBrandContent={useLogoCreative || adCreativeSource === "brand"}
               suggestedLogoUrl={!brandCreatives.length ? brandLogoUrl : null}
               onUseSuggestedLogo={() => {
-                setUseLogoCreative(true);
+                setUseLogoCreative(true); setSavedMedia(null);
                 setAdCreativeSource("upload");
                 setVideoFile(null); setImageFile(null); setThumbnailFile(null);
                 setVideoPreviewUrl(null); setThumbPreviewUrl(brandLogoUrl);

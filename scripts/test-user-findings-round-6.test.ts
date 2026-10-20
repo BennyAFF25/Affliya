@@ -19,7 +19,7 @@ let role = 'affiliate';
 let graphFailure = false;
 const db = { auth: { getUser: async () => ({ data: { user: { id: 'user', email: 'affiliate@test.invalid' } } }) }, from(table: string) {
   const row = table === 'profiles' ? { role } : { id: 'offer', business_email: 'brand@test.invalid', status: 'active', participation_mode: 'open' };
-  const query = { select: () => query, eq: () => query, insert: () => query,
+  const query = { select: () => query, eq: () => query, limit: () => query, insert: () => query,
     maybeSingle: async () => ({ data: row, error: null }), then: (resolve: (value: unknown) => unknown) => Promise.resolve({ error: null }).then(resolve) };
   return query;
 } };

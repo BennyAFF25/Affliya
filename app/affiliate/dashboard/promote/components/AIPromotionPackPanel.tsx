@@ -26,11 +26,7 @@ export function AIPromotionPackPanel({ offerId, mode, creativeId, hasExistingCop
   const busyRef = useRef(false);
 
   useEffect(() => {
-    const controller = new AbortController();
-    void fetch("/api/affiliate/offers/" + offerId + "/generate-promotion", { cache: "no-store", signal: controller.signal })
-      .then(async response => { if (response.ok) { const data = await response.json(); if (!controller.signal.aborted && typeof data.available === "boolean") setAvailable(data.available); } })
-      .catch(() => { /* Manual promotion remains available. */ });
-    return () => { controller.abort(); generation.current?.abort(); };
+    return () => { generation.current?.abort(); };
   }, [offerId]);
 
   async function generate() {
@@ -40,10 +36,23 @@ export function AIPromotionPackPanel({ offerId, mode, creativeId, hasExistingCop
     const controller = new AbortController();
     generation.current = controller;
     try {
+      const availability = await fetch("/api/affiliate/offers/" + offerId + "/generate-promotion", { cache: "no-store", signal: controller.signal });
+      if (availability.status === 403) {
+        setStatus("AI suggestions unlock once the business approves your access");
+        return;
+      }
+      const availabilityData = await availability.json();
+      if (!availability.ok) throw new Error(availabilityData.error || "Could not check AI availability.");
+      setAvailable(availabilityData.available);
+      if (!availabilityData.available) return;
       const response = await fetch("/api/affiliate/offers/" + offerId + "/generate-promotion", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mode, ...(creativeId ? { creativeId } : {}) }), signal: controller.signal,
       });
+      if (response.status === 403) {
+        setStatus("AI suggestions unlock once the business approves your access");
+        return;
+      }
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || "Could not generate a draft.");
       const next = validatePromotionPack(data.pack);
@@ -77,13 +86,13 @@ export function AIPromotionPackPanel({ offerId, mode, creativeId, hasExistingCop
 
   if (available === false) return null;
   return (
-    <section aria-busy={available === null} className="mb-6 min-h-[180px] sm:min-h-[130px] rounded-3xl border border-white/10 bg-[#151718] p-5 text-white lg:col-span-2 sm:p-6" aria-label="AI promotion draft">
+    <section aria-busy={busy} className="mb-6 min-h-[180px] sm:min-h-[130px] rounded-3xl border border-white/10 bg-[#151718] p-5 text-white lg:col-span-2 sm:p-6" aria-label="AI promotion draft">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="flex items-center gap-2 text-base font-semibold"><Sparkles className="h-4 w-4 text-[#00C2CB]" />Start with a draft</h2>
           <p className="mt-2 text-sm leading-6 text-white/55">An angle, hooks and copy using this offer’s saved brand context. Review every claim before submitting.</p>
         </div>
-        <button type="button" onClick={generate} disabled={available !== true || busy} className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-full bg-[#00C2CB] px-5 py-2.5 text-sm font-semibold text-black hover:bg-[#19d1d8] disabled:opacity-50">
+        <button type="button" onClick={generate} disabled={busy} className="inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-full bg-[#00C2CB] px-5 py-2.5 text-sm font-semibold text-black hover:bg-[#19d1d8] disabled:opacity-50">
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
           {busy ? "Generating…" : pack ? "Generate again" : "Generate with AI"}
         </button>

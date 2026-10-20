@@ -1,3 +1,4 @@
+import { promotionRequestId } from "utils/affiliate/promotionRequests";
 import { after, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
@@ -91,19 +92,21 @@ export async function POST(_req: Request, context: { params: Promise<{ offerId: 
       );
     }
 
-    await (supabaseAdmin as any).from("product_events").insert({
-      event_type: participation.created
-        ? "affiliate_offer_participation_started"
-        : "affiliate_offer_participation_resumed",
-      actor_email: user.email,
-      actor_role: "affiliate",
-      offer_id: offerId,
-      meta: {
-        status: participation.status,
-        source: "start_promoting",
-        participationMode,
-      },
-    });
+    // A request for approval is not a promotion start. Existing historical starts
+    // are recognized; the deterministic key arbitrates concurrent first starts.
+    if (participation.status === "approved") {
+      const { data: previous, error: previousError } = await supabaseAdmin.from("product_events").select("id")
+        .eq("event_type", "promotion_started").eq("actor_email", user.email).eq("offer_id", offerId).limit(1).maybeSingle();
+      if (previousError) throw previousError;
+      if (!previous) {
+        const { error: eventError } = await supabaseAdmin.from("product_events").insert({
+          id: promotionRequestId("promotion-started", offerId, user.email),
+          event_type: "promotion_started", actor_email: user.email, actor_role: "affiliate", offer_id: offerId,
+          meta: { status: participation.status, source: "start_promoting", participationMode },
+        });
+        if (eventError && eventError.code !== "23505") throw eventError;
+      }
+    }
 
     const affiliateEmail = user.email;
     // Participation is durable. Notification latency must not block the first proposal.
@@ -162,5 +165,31 @@ export async function POST(_req: Request, context: { params: Promise<{ offerId: 
       { ok: false, error: error instanceof Error ? error.message : "Unexpected error" },
       { status: 500 },
     );
+  }
+}
+
+/** Read access without creating participation or sending a notification. */
+export async function GET(_req: Request, context: { params: Promise<{ offerId: string }> }) {
+  try {
+    const { offerId } = await context.params;
+    if (!UUID.test(offerId)) return NextResponse.json({ ok: false, error: "Invalid offer." }, { status: 400 });
+    const client = createRouteHandlerClient({ cookies });
+    const { data: { user }, error } = await client.auth.getUser();
+    if (error || !user?.email) return NextResponse.json({ ok: false, error: "Sign in again to check access." }, { status: 401 });
+    const { data: profile, error: profileError } = await client.from("profiles").select("role").eq("id", user.id).maybeSingle();
+    if (profileError) throw profileError;
+    if (profile?.role !== "affiliate") return NextResponse.json({ ok: false, error: "An affiliate account is required." }, { status: 403 });
+    const { data: offer, error: offerError } = await supabaseAdmin.from("offers").select("id,participation_mode").eq("id", offerId).maybeSingle();
+    if (offerError) throw offerError;
+    if (!offer) return NextResponse.json({ ok: false, error: "Offer not found." }, { status: 404 });
+    const { data: row, error: rowError } = await supabaseAdmin.from("affiliate_requests").select("status").eq("offer_id", offerId).eq("affiliate_email", user.email).order("created_at", { ascending: false }).limit(1).maybeSingle();
+    if (rowError) throw rowError;
+    if (offer.participation_mode != null && !["open", "approval_required", "private"].includes(String(offer.participation_mode).toLowerCase())) {
+      return NextResponse.json({ ok: false, error: "Offer access could not be verified." }, { status: 409 });
+    }
+    const status = String(row?.status || "none").toLowerCase();
+    return NextResponse.json({ ok: true, participationMode: normalizeOfferParticipationMode(offer.participation_mode), participation: { status: ["active", "accepted"].includes(status) ? "approved" : status } }, { headers: { "Cache-Control": "no-store" } });
+  } catch (error) {
+    return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "Could not check offer access." }, { status: 503 });
   }
 }

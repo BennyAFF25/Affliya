@@ -4,7 +4,7 @@ import { computeOfferMetaReady } from "../../../utils/offerMetaReadiness";
 import { formatMoney } from "../../../utils/currency";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "@supabase/auth-helpers-react";
 import AcceptTermsModal from "@/../app/components/AcceptTermsModal";
 import { supabase } from "../../../utils/supabase/pages-client";
@@ -235,6 +235,7 @@ function MarketplaceRow({
 }
 
 export default function AffiliateMarketplace() {
+  const searchParams = useSearchParams();
   const [offers, setOffers] = useState<Offer[]>([]);
   const [offersLoading, setOffersLoading] = useState(true);
   const [offersError, setOffersError] = useState<string | null>(null);
@@ -242,10 +243,13 @@ export default function AffiliateMarketplace() {
   const [reload, setReload] = useState(0);
   const [participatingIds, setParticipatingIds] = useState<string[]>([]);
   const [requestStatusByOfferId, setRequestStatusByOfferId] = useState<Record<string, RequestStatus>>({});
-  const [search, setSearch] = useState("");
-  const [filterType, setFilterType] = useState("All");
-  const [statusFilter, setStatusFilter] = useState<MarketplaceStatus>("all");
-  const [sortOrder, setSortOrder] = useState("Featured");
+  const [search, setSearch] = useState(() => searchParams.get("search") || searchParams.get("q") || "");
+  const [filterType, setFilterType] = useState(() => ({ recurring: "Recurring", "one-time": "One-Time" }[searchParams.get("type")?.toLowerCase() || ""] || "All"));
+  const [statusFilter, setStatusFilter] = useState<MarketplaceStatus>(() => {
+    const status = searchParams.get("status");
+    return status === "ads" || status === "organic" || status === "pending" ? status : "all";
+  });
+  const [sortOrder, setSortOrder] = useState(() => ({ recent: "Most Recent", commission: "Highest Commission", business: "Business Name", "Most Recent": "Most Recent", "Highest Commission": "Highest Commission", "Business Name": "Business Name" }[searchParams.get("sort") || ""] || "Featured"));
   const [page, setPage] = useState(1);
   const [showAcceptTerms, setShowAcceptTerms] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
@@ -526,7 +530,7 @@ export default function AffiliateMarketplace() {
         </div>
 
         <div className="mt-4 flex flex-col gap-3 text-xs text-[var(--muted-foreground)] sm:flex-row sm:items-center sm:justify-between">
-          <span>Showing {visibleOffers.length ? (safePage - 1) * PAGE_SIZE + 1 : 0}–{Math.min(safePage * PAGE_SIZE, sorted.length)} of {sorted.length} offers</span>
+          {offersLoading ? <span role="status">Loading offers…</span> : <span>Showing {visibleOffers.length ? (safePage - 1) * PAGE_SIZE + 1 : 0}–{Math.min(safePage * PAGE_SIZE, sorted.length)} of {sorted.length} offers</span>}
           {pageCount > 1 ? (
             <div className="flex items-center gap-1.5">
               <button onClick={() => setPage((value) => Math.max(1, value - 1))} disabled={safePage === 1} className="grid h-9 w-9 place-items-center rounded-lg border border-[var(--border)] bg-[var(--card)] text-[var(--muted-foreground)] disabled:opacity-30"><ChevronLeft className="h-4 w-4" /></button>

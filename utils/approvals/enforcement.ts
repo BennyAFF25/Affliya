@@ -1,3 +1,4 @@
+import { promotionRequestId } from "../affiliate/promotionRequests";
 type QueryResponse = {
   data: Record<string, unknown>[] | Record<string, unknown> | null;
   error: { message?: string | null } | null;
@@ -269,6 +270,7 @@ export async function ensureAffiliateOfferParticipation(
   const nextStatus: 'approved' | 'pending' = mode === 'approval_required' ? 'pending' : 'approved';
 
   const insertPayload: Record<string, unknown> = {
+    id: promotionRequestId('participation', params.offerId, params.affiliateEmail),
     offer_id: params.offerId,
     affiliate_email: params.affiliateEmail,
     status: nextStatus,
@@ -284,11 +286,14 @@ export async function ensureAffiliateOfferParticipation(
   if (insertError) {
     const conflict = String((insertError as { code?: string | null })?.code || '').toUpperCase();
     if (conflict === '23505') {
-      return {
-        ok: true,
-        status: nextStatus,
-        created: false,
-      };
+      // Re-read the winning row; approval may have changed during the race.
+      const { data: winner, error: winnerError } = await supabase.from('affiliate_requests')
+        .select('id, status').eq('offer_id', params.offerId).eq('affiliate_email', params.affiliateEmail).maybeSingle();
+      if (winnerError || !winner) throw new Error('Could not verify the concurrent access request. Refresh access status.');
+      const status = String((winner as { status?: string }).status || '').toLowerCase();
+      if (['approved', 'active', 'accepted'].includes(status)) return { ok: true, status: 'approved', created: false };
+      if (status === 'pending') return { ok: true, status: 'pending', created: false };
+      return { ok: false, status: 403, error: 'AFFILIATE_OFFER_REJECTED', message: 'Offer access is not approved.' };
     }
     throw new Error(`Failed to create affiliate participation: ${(insertError as { message?: string | null })?.message || insertError}`);
   }

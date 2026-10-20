@@ -15,6 +15,10 @@ import { INPUT } from "../constants";
 import { MetaInterestPicker } from "./MetaInterestPicker";
 
 interface AdCampaignWizardProps {
+  step?: number;
+  setStep?: (step: number) => void;
+  submitBlockedReason?: string | null;
+  savedMedia?: { url: string; thumbnail: string | null; type: 'image' | 'video' } | null;
   offerId: string;
   form: AdFormState;
   setForm: React.Dispatch<React.SetStateAction<AdFormState>>;
@@ -74,6 +78,7 @@ interface AdCampaignWizardProps {
 
 export function AdCampaignWizard(props: AdCampaignWizardProps) {
   const {
+    step: controlledStep, setStep: onStepChange, submitBlockedReason, savedMedia,
     offerId,
     form,
     setForm,
@@ -118,7 +123,9 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
     onNavigateToWallet,
   } = props;
 
-  const [step, setStep] = useState(1);
+  const [localStep, setLocalStep] = useState(1);
+  const step = controlledStep ?? localStep;
+  const setStep = onStepChange ?? setLocalStep;
   const [showAdvancedBidding, setShowAdvancedBidding] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submitting = useRef(false);
@@ -151,6 +158,7 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
       if (usingBrandContent && selectedBrandCreative) return true;
       if (videoFile) return !!thumbnailFile;
       if (imageFile) return true;
+      if (savedMedia) return savedMedia.type !== "video" || !!savedMedia.thumbnail || !!thumbnailFile;
       return false;
     }
 
@@ -167,7 +175,11 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
   );
 
   const onSubmitClick = async () => {
-    if (copyErrors.headline || copyErrors.caption) { setStep(3); return; }
+    if (submitBlockedReason) { setLocalSubmitError(submitBlockedReason); return; }
+    if (copyErrors.headline || copyErrors.caption) {
+      const message = [copyErrors.headline, copyErrors.caption].filter(Boolean).join(" ");
+      setLocalSubmitError(message); nmToast.error(message); setStep(3); return;
+    }
     if (submitting.current) return;
     submitting.current = true;
     setLocalSubmitError(null);
@@ -215,11 +227,14 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
       </div>
 
       <div className="px-4 sm:px-8 py-6 space-y-4 sm:space-y-6">
+        {step !== 4 && localSubmitError && <p role="alert" className="text-sm text-red-200">{localSubmitError}</p>}
+        {savedMedia && <p role="status" className="text-sm text-cyan-100">Uploaded {savedMedia.type} restored. <a className="underline" href={savedMedia.url} target="_blank" rel="noreferrer">Preview creative</a></p>}
         <div className="flex justify-between gap-2 text-[11px] sm:text-sm overflow-x-auto pb-1">
           {steps.map((s) => {
             const active = step === s.id;
             return (
               <button
+                type="button"
                 key={s.id}
                 onClick={() => { if (s.id <= step || (s.id === step + 1 && canProceed())) setStep(s.id); }}
                 disabled={s.id > step && (s.id !== step + 1 || !canProceed())}
@@ -921,13 +936,13 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
 
             <label className="block">
               <span className="text-[#00C2CB] font-semibold text-base sm:text-lg">
-                Video Thumbnail {videoFile ? "(required for video)" : "(not needed for photo ads)"}
+                Video Thumbnail {videoFile || savedMedia?.type === "video" ? "(required for video)" : "(not needed for photo ads)"}
               </span>
               <input
                 type="file"
                 accept="image/png,image/jpeg,image/webp"
                 className={`${INPUT} w-full text-base`}
-                disabled={!videoFile || usingBrandContent}
+                disabled={(!videoFile && savedMedia?.type !== "video") || usingBrandContent}
                 onChange={(e) => {
                   const file = e.target.files?.[0] || null;
                   if (!file) {
@@ -1125,6 +1140,7 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           {step > 1 && (
             <button
+              type="button"
               onClick={() => setStep(step - 1)}
               className="px-4 py-2 rounded-md border border-[#2a2a2a] text-gray-300 hover:bg-[#151515]"
             >
@@ -1132,10 +1148,18 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
             </button>
           )}
 
-          {step === 3 && !canProceed() && !copyErrors.headline && !copyErrors.caption && <p role="status" className="text-sm text-amber-200">{videoFile ? "Add a valid video thumbnail to enable Next." : "Choose brand content or upload a photo or video to enable Next."}</p>}
-          {step === 2 && !form.end_time && <p role="status" className="text-sm text-amber-200">Choose an end date to continue.</p>}
+          {step < 4 && !canProceed() && <p role="status" className="text-sm text-amber-200">{
+            step === 1 ? "Enter a campaign name and choose an objective to continue."
+            : step === 2 ? !currency ? "Wait for the business campaign currency to load. If unavailable, ask the business to set it."
+              : !form.end_time ? "Choose an end date to continue."
+              : Number(form.budget_amount_dollars) <= 0 ? "Enter a budget greater than zero to continue."
+              : !form.location_countries ? "Choose at least one country to continue."
+              : "Choose a valid age range (minimum age 13) to continue."
+            : copyErrors.headline || copyErrors.caption || (videoFile || savedMedia?.type === "video" ? "Add a valid video thumbnail to enable Next." : "Choose brand content or upload a photo or video to enable Next.")
+          }</p>}
           {step < 4 && (
             <button
+              type="button"
               disabled={!canProceed()}
               onClick={() => setStep(step + 1)}
               className={`sm:ml-auto w-full sm:w-auto px-6 py-2 rounded-md transition ${
@@ -1148,19 +1172,20 @@ export function AdCampaignWizard(props: AdCampaignWizardProps) {
             </button>
           )}
 
-          {step === 4 && (submitError || localSubmitError) && (
+          {step === 4 && !submitBlockedReason && (submitError || localSubmitError) && (
             <p role="alert" aria-live="assertive" className="w-full rounded-xl border border-red-400/30 bg-red-400/10 p-3 text-sm text-red-200">
               Campaign not submitted: {submitError || localSubmitError}
             </p>
           )}
+          {step === 4 && submitBlockedReason && <p role="status" className="text-sm text-cyan-100">{submitBlockedReason}</p>}
           {step === 4 && (
             <button
               type="button"
               onClick={onSubmitClick}
               aria-busy={isSubmitting}
-              disabled={isSubmitting}
+              disabled={isSubmitting || !!submitBlockedReason}
               className={`sm:ml-auto w-full sm:w-auto px-6 py-2 rounded-md transition flex items-center justify-center gap-2 ${
-                isSubmitting
+                isSubmitting || !!submitBlockedReason
                   ? "bg-[#1a1a1a] text-gray-400 cursor-not-allowed"
                   : "bg-[#00C2CB] text-black hover:bg-[#00b0b8]"
               }`}
