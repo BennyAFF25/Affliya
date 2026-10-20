@@ -21,7 +21,7 @@ function friendlyObjective(objective?: string): string {
   }
 }
 
-import { promotionDraftKey, readPromotionDraft, promotionJson, withPromotionTimeout, type SavedPromotionMedia } from "../../../../../utils/affiliate/promotionDraft";
+import { isMeaningfulDraft, type PromotionDraft, promotionDraftKey, readPromotionDraft, promotionJson, withPromotionTimeout, type SavedPromotionMedia } from "../../../../../utils/affiliate/promotionDraft";
 import { PaidCurrencyWarning } from "../components/PaidCurrencyWarning";
 import React, { useState, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { nmToast } from "@/components/ui/toast";
@@ -345,7 +345,8 @@ export default function PromoteOfferPage() {
     if (!draftKey) return;
     draftCleared.current = false; discardedDraft.current = false;
     try {
-      const draft = readPromotionDraft(localStorage.getItem(draftKey));
+      let draft = readPromotionDraft(localStorage.getItem(draftKey));
+      if (draft && !isMeaningfulDraft(draft)) { localStorage.removeItem(draftKey); draft = null; }
       if (draft) {
         setForm({ ...initialForm.current, ...draft.form }); setWizardStep(draft.step);
         setAdCreativeSource(draft.source); setUseLogoCreative(draft.logo);
@@ -367,9 +368,11 @@ export default function PromoteOfferPage() {
       discardedDraft.current = false;
     }
     try {
-      localStorage.setItem(draftKey, JSON.stringify({ version: 1, form, step: wizardStep, source: adCreativeSource,
+      const draft: PromotionDraft = { version: 1, form, step: wizardStep, source: adCreativeSource,
         logo: useLogoCreative, brand: selectedAdBrandCreative, media: savedMedia,
-        reselect: !!(videoFile || imageFile || thumbnailFile) && (!savedMedia || (savedMedia.type === "video" && !savedMedia.thumbnail)) }));
+        reselect: !!(videoFile || imageFile || thumbnailFile) && (!savedMedia || (savedMedia.type === "video" && !savedMedia.thumbnail)) };
+      if (isMeaningfulDraft(draft)) localStorage.setItem(draftKey, JSON.stringify(draft));
+      else localStorage.removeItem(draftKey);
     } catch { setDraftNote("Draft could not be saved on this device. Keep this page open to retain your work."); }
   }, [draftKey, draftReady, form, wizardStep, adCreativeSource, useLogoCreative, selectedAdBrandCreative, savedMedia, videoFile, imageFile, thumbnailFile]);
 

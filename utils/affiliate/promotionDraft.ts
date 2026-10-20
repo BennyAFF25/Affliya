@@ -6,6 +6,27 @@ export type PromotionDraft = {
   version: 1; form: AdFormState; step: number; source: 'upload' | 'brand';
   logo: boolean; brand: ContentLibraryAsset | null; media: SavedPromotionMedia | null; reselect: boolean;
 };
+/** Only user content, changed settings, or selected media justify a saved draft. */
+export function isMeaningfulDraft(draft: PromotionDraft): boolean {
+  if (draft.media || draft.brand || draft.logo || draft.reselect) return true;
+  const form = draft.form;
+  if ([form.campaign_name, form.headline, form.caption, form.display_link]
+      .some(value => typeof value === 'string' && value.trim().length > 0)) return true;
+  if (form.interests?.length) return true;
+  // Schedule timestamps are deliberately excluded: the wizard pre-fills an end time.
+  const defaults = {
+    objective: 'OUTCOME_TRAFFIC', budget_amount_dollars: 10, budget_type: 'DAILY',
+    location_countries: 'AU', age_min: 18, age_max: 65, gender: '',
+    advantage_audience: false, call_to_action: 'LEARN_MORE',
+    bid_strategy: 'LOWEST_COST', bid_cap_dollars: '',
+  } as const;
+  if (Object.entries(defaults).some(([key, fallback]) => {
+    const value = form[key as keyof typeof defaults];
+    return value != null && value !== '' && value !== fallback;
+  })) return true;
+  return Object.entries(form.placements || {}).some(([key, enabled]) =>
+    enabled !== (key === 'facebook_feed' || key === 'instagram_feed'));
+}
 export function promotionDraftKey(email: string, offerId: string) {
   return `nettmark:paid-draft:${encodeURIComponent(email.trim().toLowerCase())}:${offerId}`;
 }
