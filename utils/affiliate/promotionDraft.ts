@@ -3,29 +3,19 @@ import type { ContentLibraryAsset } from '../contentLibrary';
 
 export type SavedPromotionMedia = { url: string; thumbnail: string | null; type: 'image' | 'video' };
 export type PromotionDraft = {
-  version: 1; form: AdFormState; step: number; source: 'upload' | 'brand';
+  version: 1; baseline?: AdFormState; form: AdFormState; step: number; source: 'upload' | 'brand';
   logo: boolean; brand: ContentLibraryAsset | null; media: SavedPromotionMedia | null; reselect: boolean;
 };
-/** Only user content, changed settings, or selected media justify a saved draft. */
-export function isMeaningfulDraft(draft: PromotionDraft): boolean {
+/** Compare against this offer's defaults, never a hard-coded approximation. */
+export function isMeaningfulDraft(draft: PromotionDraft, defaults: AdFormState): boolean {
   if (draft.media || draft.brand || draft.logo || draft.reselect) return true;
-  const form = draft.form;
-  if ([form.campaign_name, form.headline, form.caption, form.display_link]
-      .some(value => typeof value === 'string' && value.trim().length > 0)) return true;
-  if (form.interests?.length) return true;
-  // Schedule timestamps are deliberately excluded: the wizard pre-fills an end time.
-  const defaults = {
-    objective: 'OUTCOME_TRAFFIC', budget_amount_dollars: 10, budget_type: 'DAILY',
-    location_countries: 'AU', age_min: 18, age_max: 65, gender: '',
-    advantage_audience: false, call_to_action: 'LEARN_MORE',
-    bid_strategy: 'LOWEST_COST', bid_cap_dollars: '',
-  } as const;
-  if (Object.entries(defaults).some(([key, fallback]) => {
-    const value = form[key as keyof typeof defaults];
-    return value != null && value !== '' && value !== fallback;
-  })) return true;
-  return Object.entries(form.placements || {}).some(([key, enabled]) =>
-    enabled !== (key === 'facebook_feed' || key === 'instagram_feed'));
+  const baseline = draft.baseline || defaults;
+  return Object.keys(draft.form).some(key => {
+    // Legacy drafts lack their original clock-derived schedule baseline.
+    if (!draft.baseline && (key === 'start_time' || key === 'end_time')) return false;
+    const field = key as keyof AdFormState;
+    return JSON.stringify(draft.form[field]) !== JSON.stringify(baseline[field]);
+  });
 }
 export function promotionDraftKey(email: string, offerId: string) {
   return `nettmark:paid-draft:${encodeURIComponent(email.trim().toLowerCase())}:${offerId}`;

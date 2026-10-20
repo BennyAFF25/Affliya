@@ -319,7 +319,9 @@ export default function PromoteOfferPage() {
   const walletDeficit = Math.max(0, requiredBudget - effectiveLaunchBalance);
   const canRunWithWallet = effectiveLaunchBalance >= requiredBudget;
 
+  const formDefaults = useRef(form);
   const initialForm = useRef(form);
+  const [defaultsReady, setDefaultsReady] = useState<string | null>(null);
   const [wizardStep, setWizardStep] = useState(1);
   const [savedMedia, setSavedMedia] = useState<SavedPromotionMedia | null>(null);
   const [draftNote, setDraftNote] = useState<string | null>(null);
@@ -342,12 +344,15 @@ export default function PromoteOfferPage() {
   }, [adCreativeSource, useLogoCreative, imageFile, videoFile, savedMedia]);
 
   useEffect(() => {
-    if (!draftKey) return;
+    if (!draftKey || defaultsReady !== draftKey) return;
     draftCleared.current = false; discardedDraft.current = false;
     try {
       let draft = readPromotionDraft(localStorage.getItem(draftKey));
-      if (draft && !isMeaningfulDraft(draft)) { localStorage.removeItem(draftKey); draft = null; }
+      if (draft && !isMeaningfulDraft(draft, initialForm.current)) { localStorage.removeItem(draftKey); draft = null; }
       if (draft) {
+        // Retain the original baseline so untouched schedule defaults stay untouched.
+        draft.baseline ||= initialForm.current;
+        initialForm.current = draft.baseline;
         setForm({ ...initialForm.current, ...draft.form }); setWizardStep(draft.step);
         setAdCreativeSource(draft.source); setUseLogoCreative(draft.logo);
         setSelectedAdBrandCreative(draft.brand); setSavedMedia(draft.media);
@@ -359,22 +364,22 @@ export default function PromoteOfferPage() {
       setVideoFile(null); setImageFile(null); setThumbnailFile(null);
       setDraftReady(draftKey);
     } catch (error) { setDraftNote(error instanceof Error ? error.message : "Draft storage is unavailable."); }
-  }, [draftKey]);
+  }, [draftKey, defaultsReady]);
 
   useEffect(() => {
-    if (!draftKey || draftReady !== draftKey || draftCleared.current) return;
+    if (!draftKey || defaultsReady !== draftKey || draftReady !== draftKey || draftCleared.current) return;
     if (discardedDraft.current) {
       if (JSON.stringify(form) === JSON.stringify(initialForm.current) && wizardStep === 1 && !videoFile && !imageFile && !thumbnailFile && !savedMedia && !selectedAdBrandCreative && !useLogoCreative && adCreativeSource === "upload") return;
       discardedDraft.current = false;
     }
     try {
-      const draft: PromotionDraft = { version: 1, form, step: wizardStep, source: adCreativeSource,
+      const draft: PromotionDraft = { version: 1, baseline: initialForm.current, form, step: wizardStep, source: adCreativeSource,
         logo: useLogoCreative, brand: selectedAdBrandCreative, media: savedMedia,
         reselect: !!(videoFile || imageFile || thumbnailFile) && (!savedMedia || (savedMedia.type === "video" && !savedMedia.thumbnail)) };
-      if (isMeaningfulDraft(draft)) localStorage.setItem(draftKey, JSON.stringify(draft));
+      if (isMeaningfulDraft(draft, initialForm.current)) localStorage.setItem(draftKey, JSON.stringify(draft));
       else localStorage.removeItem(draftKey);
     } catch { setDraftNote("Draft could not be saved on this device. Keep this page open to retain your work."); }
-  }, [draftKey, draftReady, form, wizardStep, adCreativeSource, useLogoCreative, selectedAdBrandCreative, savedMedia, videoFile, imageFile, thumbnailFile]);
+  }, [draftKey, defaultsReady, draftReady, form, wizardStep, adCreativeSource, useLogoCreative, selectedAdBrandCreative, savedMedia, videoFile, imageFile, thumbnailFile]);
 
   const discardDraft = () => {
     try { if (draftKey) localStorage.removeItem(draftKey); }
@@ -518,6 +523,7 @@ export default function PromoteOfferPage() {
   useEffect(() => {
     if (session === undefined || session === null) return;
 
+    let cancelled = false;
     const go = async () => {
       setCurrencyLoading(true);
       setOfferCurrency("");
@@ -544,6 +550,8 @@ export default function PromoteOfferPage() {
         return;
       }
 
+      if (cancelled) return;
+
       // Preview title + logo
       setBrandName(offer?.title || "Your Brand Name");
       setOfferCurrency(resolveOfferCurrency(null, offer?.currency).campaignCurrency);
@@ -555,12 +563,10 @@ export default function PromoteOfferPage() {
         hasPixel: !!(offer as OfferRow | null)?.meta_pixel_id,
       });
       setOfferMetaResolved(true);
-      // Pre-fill Destination URL with the business website if available
-      if (offer?.website) {
-        setForm((p) => ({
-          ...p,
-          display_link: p.display_link || offer.website!,
-        }));
+      // Capture defaults independently of restored/user state, after async prefill.
+      if (!cancelled && draftKey && defaultsReady !== draftKey) {
+        initialForm.current = { ...formDefaults.current, display_link: offer?.website || "" };
+        setDefaultsReady(draftKey);
       }
 
       // Meta tokens must stay on the server. Reach estimates resolve the
@@ -586,7 +592,8 @@ export default function PromoteOfferPage() {
     };
 
     go();
-  }, [offerId, session, userEmail]);
+    return () => { cancelled = true; };
+  }, [offerId, session, userEmail, draftKey]);
 
   // Map our placements to Meta positions (publisher_platforms + *_positions)
   function buildPlacementTargeting(placements: Record<PlacementKey, boolean>) {
