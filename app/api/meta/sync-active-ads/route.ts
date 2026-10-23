@@ -1,4 +1,5 @@
 import { settlementExclusionReason, settleStoppedAdSpend } from "../../../../utils/adSpend/settlements";
+import { enqueueSafely } from "../../../../utils/email/notificationOutbox";
 import { settlementQuote, settlementAud } from '../../../../utils/adSpend/settlementFx';
 import { tryWriteMoneyFlowAudit } from "../../../../utils/moneyFlowAudit";
 import { getFundingCoverage } from "../../../../utils/adSpend/fundingCoverage";
@@ -487,6 +488,13 @@ async function run(req: Request) {
           return { liveAdId, ok: true, spend, walletAvailable, unpaid, settlement, autoPaused: true };
         }
         if (!shouldPauseAfterSettlement) {
+          if (walletAvailable > 0 && walletAvailable <= fundingReserve * 2) {
+            await enqueueSafely(supabase as never, {
+              key: "product:low-balance:" + liveAdId + ":" + new Date().toISOString().slice(0, 10),
+              kind: "wallet_low_balance", scope: "product", recipient: affiliateEmail,
+              payload: { campaign_id: liveAdId },
+            });
+          }
           return {
             liveAdId,
             ok: settlement.attempted ? settlement.success : true,
@@ -526,6 +534,16 @@ async function run(req: Request) {
         }
 
         autoPausedCount += 1;
+
+        const pauseEventKey = "product:low-funds-pause:" + liveAdId + ":" + new Date().toISOString().slice(0, 13);
+        await enqueueSafely(supabase as never, {
+          key: pauseEventKey, kind: "campaign_auto_paused",
+          scope: "product", recipient: affiliateEmail, payload: { campaign_id: liveAdId },
+        });
+        await enqueueSafely(supabase as never, {
+          key: pauseEventKey, kind: "campaign_auto_paused_business",
+          scope: "product", recipient: ad.business_email, payload: { campaign_id: liveAdId },
+        });
 
         return {
           liveAdId,
