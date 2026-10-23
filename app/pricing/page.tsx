@@ -44,7 +44,7 @@ export default function PricingPage() {
         <header className="mx-auto max-w-2xl text-center">
           <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-[#63e8ee]">Simple plans</p>
           <h1 className="mt-3 text-[31px] font-semibold tracking-tight sm:text-[43px]">Put affiliates to work for your business.</h1>
-          <p className="mt-3 text-sm leading-6 text-slate-400">Affiliates pay for their own ad spend. Your Growth subscription unlocks paid affiliate campaigns.</p>
+          <p className="mt-3 text-sm leading-6 text-slate-400">Ad spend on your Meta account is paid back from affiliate funds. Your Growth subscription unlocks paid affiliate campaigns.</p>
         </header>
         <section className="mx-auto mt-10 max-w-[720px] rounded-[24px] border border-[#00C2CB]/35 bg-[#151718] p-5 shadow-[0_25px_70px_rgba(0,0,0,0.25)] sm:p-8" aria-labelledby="growth-heading">
           <div className="flex flex-wrap items-center justify-between gap-3">

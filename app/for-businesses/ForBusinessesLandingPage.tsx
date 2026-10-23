@@ -35,7 +35,7 @@ export default function ForBusinessesLandingPage({ stats }: { stats: { offers: n
         </div>
 
         <h1 className="mt-5 text-4xl md:text-6xl font-extrabold leading-tight">
-          Get sales without paying for the ads.
+          Get sales from affiliate-funded Meta ads.
         </h1>
 
         <p className="mt-5 max-w-2xl text-gray-300 text-lg leading-relaxed">

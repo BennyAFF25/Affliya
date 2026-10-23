@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useRef, useState } from "react";
+import { resolveBusinessPlanChoice } from "../../../utils/businessPlanChoice";
 import { useRouter } from "next/navigation";
 import { useSessionContext } from "@supabase/auth-helpers-react";
 import { Check, CreditCard, Megaphone, ShieldCheck, Sparkles, Zap } from "lucide-react";
@@ -19,8 +20,7 @@ export default function ChooseBusinessPlanPage() {
   const viewed = useRef<string | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<"free" | "growth">("growth");
   useEffect(() => {
-    const plan = new URLSearchParams(window.location.search).get("plan");
-    if (plan === "free" || plan === "growth") setSelectedPlan(plan);
+    setSelectedPlan(resolveBusinessPlanChoice(new URLSearchParams(window.location.search).get("plan")));
   }, []);
   const resumeSubscription = context?.trialEligible === false;
 

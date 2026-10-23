@@ -1,4 +1,5 @@
 'use client';
+import { resolveBusinessPlanChoice } from '../../utils/businessPlanChoice';
 import React from "react";
 
 import { Suspense, useEffect, useRef, useState } from 'react';
@@ -32,7 +33,7 @@ function CreateAccountInner() {
   const businessAttribution = extractAttributionFromSearchParams(new URLSearchParams(sp.toString()));
   const onboardingPath = role === 'affiliate'
     ? affiliateOnboardingPath(sp.get('offerId'), sp.get('mode'))
-    : buildHrefWithAttribution(`/business/choose-plan?plan=${sp.get('plan') === 'free' ? 'free' : 'growth'}`, businessAttribution);
+    : buildHrefWithAttribution(`/business/choose-plan?plan=${resolveBusinessPlanChoice(sp.get('plan'))}`, businessAttribution);
 
   useEffect(() => {
     try {

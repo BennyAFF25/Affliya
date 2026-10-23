@@ -13,11 +13,13 @@ for (const source of [demo, landing, picker, trial]) {
   assert.doesNotMatch(source, /A\$0 ad spend/);
 }
 assert.ok(demo.includes("Let affiliates fund your advertising."));
-assert.ok(landing.includes("Get sales without paying for the ads."));
+assert.ok(landing.includes("Get sales from affiliate-funded Meta ads."));
+for (const s of [demo, landing, read("app/pricing/page.tsx")]) assert.doesNotMatch(s, /without paying for|never pay for|No upfront|you pay: A\$0|Paid by affiliate|don.t pay a cent/i);
 assert.doesNotMatch(landing, /Trusted by growth teams|"DTC"/);
 assert.match(landing, /stats &&/);
-assert.match(read("app/create-account/page.tsx"), /sp.get\('plan'\) === 'free' \? 'free' : 'growth'/);
-assert.match(picker, /plan === "free" \|\| plan === "growth"/);
+assert.match(read("app/create-account/page.tsx"), /resolveBusinessPlanChoice\(sp.get\('plan'\)\)/);
+assert.match(picker, /useState<"free" \| "growth">\("growth"\)/);
+assert.match(picker, /resolveBusinessPlanChoice\(new URLSearchParams\(window.location.search\).get\("plan"\)\)/);
 for (const source of [picker, trial]) {
   assert.ok(source.includes("Organic affiliates only, no paid ads"));
   assert.ok(source.includes("We ask for a card to keep fake brands out, so affiliates can trust every offer."));

@@ -42,7 +42,7 @@ type Props = {
 };
 
 const quickProof = [
-  "No upfront affiliate ad spend",
+  "Ad spend paid back from affiliate funds",
   "You approve who promotes you",
   "You review campaigns before launch",
   "Pay commission on verified sales",
@@ -94,7 +94,7 @@ const controlItems = [
 const faqs = [
   {
     q: "Do I have to pay for the affiliate's advertising upfront?",
-    a: "No. Paid-media affiliates fund ad spend from their own pre-funded Nettmark wallet. Your business pays the agreed commission when a qualifying conversion is verified.",
+    a: "Meta bills the ads to your connected ad account, and Nettmark pays that spend back to you from the affiliate's pre-funded Nettmark wallet as it settles. Your business pays the agreed commission when a qualifying conversion is verified.",
   },
   {
     q: "How much commission do affiliates receive?",
@@ -249,7 +249,7 @@ export default function BusinessDemoLandingPage({
 <p className="mt-3 text-xs text-white/65">A$49/mo after day 14 only if you stay. Card required.</p>
             <div className="mt-8 flex flex-wrap gap-x-5 gap-y-2.5 text-[12px] text-white/38">
               {[
-                "No upfront affiliate ad spend",
+                "Ad spend paid back from affiliate funds",
                 "You approve who promotes you",
                 "Pay when verified sales happen",
               ].map((item) => (
@@ -271,7 +271,7 @@ export default function BusinessDemoLandingPage({
                     <div className="mt-1.5 text-sm font-medium text-white/78">Who pays for what?</div>
                   </div>
                   <span className="rounded-full border border-[#00C2CB]/20 bg-[#00C2CB]/[0.07] px-3 py-1.5 text-[10px] font-medium text-[#66e8ee]">
-                    Affiliate ad spend you pay: A$0
+                    Ad spend: paid back from affiliate funds
                   </span>
                 </div>
 
@@ -365,7 +365,7 @@ export default function BusinessDemoLandingPage({
               <div className="p-6 sm:p-9">
                 <div className="divide-y divide-white/[0.065]">
                   {[
-                    ["Affiliate ad spend", "A$500", "Paid by affiliate", "text-[#67e9ee]"],
+                    ["Affiliate ad spend", "A$500", "Paid back from affiliate funds", "text-[#67e9ee]"],
                     ["Tracked customer sales", "A$3,000", "Illustrative", "text-white"],
                     ["Commission", "A$600", "Paid on qualifying sales", "text-amber-200"],
                     ["Business revenue before other costs", "A$2,400", "After example commission", "text-emerald-200"],
@@ -381,10 +381,10 @@ export default function BusinessDemoLandingPage({
                 </div>
                 <div className="mt-4 flex items-center justify-between rounded-[22px] border border-[#00C2CB]/18 bg-[#00C2CB]/[0.055] px-5 py-5">
                   <div>
-                    <p className="text-sm font-medium text-white/82">Business upfront affiliate ad cost</p>
-                    <p className="mt-1 text-xs text-white/32">The affiliate funded the campaign.</p>
+                    <p className="text-sm font-medium text-white/82">Affiliate ad spend on your Meta account</p>
+                    <p className="mt-1 text-xs text-white/32">Paid back to you from the affiliate’s wallet.</p>
                   </div>
-                  <p className="text-4xl font-medium tracking-[-0.05em] text-[#62e7ed]">A$0</p>
+                  <p className="text-4xl font-medium tracking-[-0.05em] text-[#62e7ed]">Paid back</p>
                 </div>
               </div>
             </div>
@@ -522,7 +522,7 @@ export default function BusinessDemoLandingPage({
             <div className="relative mx-auto max-w-2xl">
               <BadgeCheck className="mx-auto h-7 w-7 text-[#62e7ed]" strokeWidth={1.5} />
               <h2 className="mt-6 text-3xl font-medium tracking-[-0.05em] sm:text-5xl">Ready to see if affiliates want to promote your business?</h2>
-              <p className="mx-auto mt-5 max-w-xl text-sm leading-6 text-white/46 sm:text-base">Create your first offer, set the commission and decide who gets approved. You never pay for the affiliate’s ad spend. Start The 14-Day Affiliate-Funded Launch with 14 days free.</p>
+              <p className="mx-auto mt-5 max-w-xl text-sm leading-6 text-white/46 sm:text-base">Create your first offer, set the commission and decide who gets approved. Ad spend on your Meta account is paid back from the affiliate’s funds. Start The 14-Day Affiliate-Funded Launch with 14 days free.</p>
               <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
                 <Link
                   href={signupHref}
