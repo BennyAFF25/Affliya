@@ -193,6 +193,13 @@ export async function POST(req: NextRequest) {
     const settlementIssue = validateAudTopup(session, balanceTx);
     if (settlementIssue) {
       await flagTopupReview(supabase as never, session.id, settlementIssue, "/api/stripe/reconcile-topup");
+      if (session.payment_status === "paid") {
+        const recipient = session.customer_email || session.metadata?.affiliate_email || session.metadata?.email;
+        if (recipient) await enqueueSafely(supabase as never, {
+          key: "platform:topup-review:" + session.id, kind: "wallet_review",
+          scope: "platform", recipient, payload: { checkout_session_id: session.id },
+        });
+      }
       return NextResponse.json({ ok: false, credited: false, manualReview: true, reason: settlementIssue });
     }
 
