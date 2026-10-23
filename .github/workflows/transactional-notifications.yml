@@ -41,3 +41,15 @@ jobs:
             app/api/notifications/resend-webhook/route.ts \
             app/api/notifications/status/route.ts \
             scripts/notifications-outbox.test.ts
+
+      - name: Check touched TypeScript modules for errors
+        shell: bash
+        run: |
+          set +e
+          yarn -s tsc --noEmit --pretty false > notification-types.log 2>&1
+          set -e
+          if grep -E '^(app/api/(notifications/|business-subscription/webhook/|stripe/(webhook/|refund/|reconcile-topup/)|run-payout/|meta/(control-ad/|sync-active-ads/)|business/ad-ideas/launch/|inbox/chat/)|utils/email/(notification|renderNettmarkEmail)|scripts/notifications-outbox.test.ts)' notification-types.log | grep 'error TS'; then
+            echo "New notification-related TypeScript diagnostics found"
+            exit 1
+          fi
+          echo "No TypeScript diagnostics in the touched notification modules."
