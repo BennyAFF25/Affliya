@@ -91,7 +91,7 @@ async function main() {
     assert.match(await terms.textContent(), /14-day/);
     assert.match(await terms.textContent(), /Card required/);
     assert.match(await terms.textContent(), /cancel before the trial ends/);
-    const growth = page.getByRole("button", { name: "Start my free trial", exact: true });
+    const growth = page.getByRole("button", { name: "Start my affiliate-funded launch, 14 days free", exact: true });
     const free = page.getByRole("button", { name: "Continue with Free", exact: true });
     assert.equal(await growth.isEnabled(), true); assert.equal(await free.isEnabled(), true);
     await free.scrollIntoViewIfNeeded();

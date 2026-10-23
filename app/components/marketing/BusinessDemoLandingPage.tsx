@@ -126,7 +126,7 @@ const faqs = [
   },
   {
     q: "How does Nettmark make money?",
-    a: "Growth is A$49/month after a 14-day free trial (card required, cancel anytime). There's also a 2.2% platform fee on wallet top-ups and business payouts. A Free plan exists for organic promotion only, with no paid affiliate ads. Stripe processing fees may also apply.",
+    a: "Growth is A$49/month after The 14-Day Affiliate-Funded Launch (14 days free) (card required, cancel anytime). There's also a 2.2% platform fee on wallet top-ups and business payouts. A Free plan exists for organic promotion only, with no paid affiliate ads. Stripe processing fees may also apply.",
   },
 ];
 
@@ -235,10 +235,10 @@ export default function BusinessDemoLandingPage({
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
               <Link
                 href={signupHref}
-                onClick={() => trackCta("hero_primary", "Start 14-day free trial", signupHref)}
+                onClick={() => trackCta("hero_primary", "Start my affiliate-funded launch, 14 days free", signupHref)}
                 className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#00C2CB] px-6 text-sm font-semibold text-[#051012] shadow-[0_12px_40px_rgba(0,194,203,.16)] transition hover:bg-[#19d5dc]"
               >
-                Start 14-day free trial <ArrowRight className="h-4 w-4" />
+                Start my affiliate-funded launch, 14 days free <ArrowRight className="h-4 w-4" />
               </Link>
               <button
                 onClick={() => scrollToHowItWorks("hero_secondary")}
@@ -246,7 +246,7 @@ export default function BusinessDemoLandingPage({
               >See how it works <ArrowDown className="h-4 w-4" /></button>
             </div>
 
-<p className="mt-3 text-xs text-white/65">14 days free, then A$49/month. Cancel anytime. Card required.</p>
+<p className="mt-3 text-xs text-white/65">A$49/mo after day 14 only if you stay. Card required.</p>
             <div className="mt-8 flex flex-wrap gap-x-5 gap-y-2.5 text-[12px] text-white/38">
               {[
                 "No upfront affiliate ad spend",
@@ -522,14 +522,14 @@ export default function BusinessDemoLandingPage({
             <div className="relative mx-auto max-w-2xl">
               <BadgeCheck className="mx-auto h-7 w-7 text-[#62e7ed]" strokeWidth={1.5} />
               <h2 className="mt-6 text-3xl font-medium tracking-[-0.05em] sm:text-5xl">Ready to see if affiliates want to promote your business?</h2>
-              <p className="mx-auto mt-5 max-w-xl text-sm leading-6 text-white/46 sm:text-base">Create your first offer, set the commission and decide who gets approved. You never pay for the affiliate’s ad spend. Growth starts with a card-required trial.</p>
+              <p className="mx-auto mt-5 max-w-xl text-sm leading-6 text-white/46 sm:text-base">Create your first offer, set the commission and decide who gets approved. You never pay for the affiliate’s ad spend. Start The 14-Day Affiliate-Funded Launch with 14 days free.</p>
               <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
                 <Link
                   href={signupHref}
-                  onClick={() => trackCta("footer", "Start 14-day free trial", signupHref)}
+                  onClick={() => trackCta("footer", "Start my affiliate-funded launch, 14 days free", signupHref)}
                   className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#00C2CB] px-6 text-sm font-semibold text-[#061012] shadow-[0_12px_40px_rgba(0,194,203,.15)] transition duration-300 hover:-translate-y-0.5 hover:bg-[#19d5dc]"
                 >
-                  Start 14-day free trial <ArrowRight className="h-4 w-4" />
+                  Start my affiliate-funded launch, 14 days free <ArrowRight className="h-4 w-4" />
                 </Link>
                 <button
                   onClick={() => scrollToHowItWorks("footer_secondary")}
@@ -539,13 +539,12 @@ export default function BusinessDemoLandingPage({
                 </button>
               </div>
             </div>
-            <p className="relative mt-3 text-xs text-white/60">14 days free, then A$49/month. Cancel anytime. Card required.</p>
+            <p className="relative mt-3 text-xs text-white/60">A$49/mo after day 14 only if you stay. Card required.</p>
           </div>
         </section>
       </main>
 
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-white/[0.07] bg-[#090a0a]/95 px-3 py-2 backdrop-blur-2xl md:hidden">
-        <p className="mb-2 text-center text-[10px] text-white/65">14 days free, then A$49/month. Cancel anytime. Card required.</p>
         <div className="mx-auto flex max-w-lg gap-2">
           <button
             onClick={() => scrollToHowItWorks("mobile_sticky")}
@@ -555,12 +554,13 @@ export default function BusinessDemoLandingPage({
           </button>
           <Link
             href={signupHref}
-            onClick={() => trackCta("mobile_sticky_signup", "Start 14-day free trial", signupHref)}
+            onClick={() => trackCta("mobile_sticky_signup", "Start my affiliate-funded launch, 14 days free", signupHref)}
             className="flex min-h-11 flex-1 items-center justify-center rounded-full bg-[#00C2CB] px-4 text-xs font-semibold text-[#061012]"
           >
-            Start 14-day free trial
+            Start my affiliate-funded launch, 14 days free
           </Link>
         </div>
+        <p className="mt-2 text-center text-[10px] text-white/65">A$49/mo after day 14 only if you stay. Card required.</p>
       </div>
 
       <style jsx global>{`

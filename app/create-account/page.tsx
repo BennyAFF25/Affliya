@@ -32,7 +32,7 @@ function CreateAccountInner() {
   const businessAttribution = extractAttributionFromSearchParams(new URLSearchParams(sp.toString()));
   const onboardingPath = role === 'affiliate'
     ? affiliateOnboardingPath(sp.get('offerId'), sp.get('mode'))
-    : buildHrefWithAttribution('/business/choose-plan?plan=growth', businessAttribution);
+    : buildHrefWithAttribution(`/business/choose-plan?plan=${sp.get('plan') === 'free' ? 'free' : 'growth'}`, businessAttribution);
 
   useEffect(() => {
     try {
@@ -283,7 +283,7 @@ function CreateAccountInner() {
 
             <p className="mt-6 max-w-lg text-[17px] leading-8 text-white/50">
               {isBusiness
-                ? 'Create your account, start your 14-day Growth trial with a card, then publish your offer. Growth is A$49/month afterward; cancel anytime.'
+                ? 'Create your account, start The 14-Day Affiliate-Funded Launch with a card, then publish your offer. Growth is A$49/month afterward; cancel anytime.'
                 : 'Create your account, browse available offers and start building campaigns around the products you want to promote.'}
             </p>
 
@@ -338,7 +338,7 @@ function CreateAccountInner() {
                   </h2>
                   <p className="mt-3 max-w-md text-sm leading-6 text-white/45">
                     {isBusiness
-                      ? 'Next: choose your Growth trial, then set up your first offer.'
+                      ? 'Next: choose The 14-Day Affiliate-Funded Launch, then set up your first offer.'
                       : 'Choose a brand and prepare your first promotion. You can add your public name and payout details later.'}
                   </p>
                 </div>
@@ -433,7 +433,7 @@ function CreateAccountInner() {
                 <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#00C2CB]/70" />
                 <p>
                   {isBusiness
-                    ? 'Next: start your 14-day Growth trial, then set up your offer. Growth requires a card and costs A$49/month after the trial unless you cancel. Free (organic only) remains available at the next step. By continuing, you agree to our Terms and Privacy Policy.'
+                    ? 'Next: start The 14-Day Affiliate-Funded Launch, then set up your offer. Growth requires a card and costs A$49/month after the trial unless you cancel. Free (Organic affiliates only, no paid ads) remains available at the next step. By continuing, you agree to our Terms and Privacy Policy.'
                     : 'No card required to join. By continuing, you agree to our Terms and Privacy Policy. Fee-based charges only apply later when money moves through wallets or payouts.'}
                 </p>
               </div>

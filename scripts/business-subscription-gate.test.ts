@@ -112,7 +112,7 @@ async function run() {
 
   // User-facing modal has the required copy and preserves intent.
   assert.match(modal, /Launch your paid affiliate ad/);
-  assert.match(modal, /\$49 AUD/);
+  assert.match(modal, /A\$49/);
   assert.match(modal, /nettmark:business-subscription-intent/);
   assert.match(modal, /submissionId/);
   assert.match(modal, /intendedAction/);

@@ -14,7 +14,7 @@ export function growthPricePeriod(price: GrowthPrice) {
 }
 type Props = {
   context: BusinessContinuationContext; busy: "free" | "growth" | null; error: string | null;
-  onGrowth: () => void; onFree: () => void; onRetry: () => void;
+  onGrowth: () => void; onFree: () => void; onRetry: () => void; selectedPlan?: "free" | "growth";
 };
 const benefits = [
   { icon: Zap, label: "Approve paid affiliate campaigns" },
@@ -23,7 +23,7 @@ const benefits = [
 ];
 const focus = "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#00C2CB]";
 
-export default function BusinessTrialFirstContinuation({ context, busy, error, onGrowth, onFree, onRetry }: Props) {
+export default function BusinessTrialFirstContinuation({ context, busy, error, onGrowth, onFree, onRetry, selectedPlan = "growth" }: Props) {
   const ready = Boolean(context.price && context.trialEligible === true && context.checkoutEnabled);
   const price = context.price?.formatted || "A$49";
   const trialDays = context.trialDays || 14;
@@ -39,8 +39,8 @@ export default function BusinessTrialFirstContinuation({ context, busy, error, o
         <div className="grid gap-4 md:grid-cols-[1.3fr_0.8fr]">
           <section className="rounded-[24px] border border-[#00C2CB]/40 bg-[#151718] p-5 sm:p-7" aria-labelledby="growth-plan">
             <div className="flex items-center justify-between gap-3">
-              <h2 id="growth-plan" className="text-xl font-semibold">Growth</h2>
-              <span className="rounded-full bg-[#00C2CB]/10 px-3 py-1 text-[10px] font-semibold text-[#63e8ee]">Selected · Recommended</span>
+              <h2 id="growth-plan" className="text-xl font-semibold">The 14-Day Affiliate-Funded Launch</h2>
+              <span className="rounded-full bg-[#00C2CB]/10 px-3 py-1 text-[10px] font-semibold text-[#63e8ee]">{selectedPlan === "growth" ? "Selected · Recommended" : "Recommended"}</span>
             </div>
             <p className="mt-4 text-lg font-semibold" data-testid="billing-terms">
               A$0 today, then {price}/{context.price ? growthPricePeriod(context.price) : "month"} after {trialDays} days.
@@ -60,13 +60,16 @@ export default function BusinessTrialFirstContinuation({ context, busy, error, o
             </ul>
             <button type="button" onClick={onGrowth} disabled={!!busy || !ready} aria-busy={busy === "growth"}
               className={`mt-7 flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-[#00C2CB] px-5 text-sm font-bold text-[#0f0f0f] hover:bg-[#16d3dc] disabled:opacity-50 ${focus}`}>
-              {busy === "growth" ? "Opening secure checkout…" : "Start my free trial"} <ArrowRight className="h-4 w-4" />
+              {busy === "growth" ? "Opening secure checkout…" : "Start my affiliate-funded launch, 14 days free"} <ArrowRight className="h-4 w-4" />
             </button>
-            <p className="mt-3 text-center text-xs text-[#cbd5e1]">Card required. You won't be charged until day 15 if you cancel before the trial ends.</p>
+            <p className="mt-3 text-center text-xs text-[#cbd5e1]">A$49/mo after day 14 only if you stay. Card required.</p>
+            <p className="mt-2 text-center text-xs text-[#94a3b8]">We ask for a card to keep fake brands out, so affiliates can trust every offer.</p>
           </section>
           <section className="rounded-[24px] border border-white/[0.09] bg-[#151718] p-5 sm:p-6" aria-labelledby="free-plan">
             <h2 id="free-plan" className="text-lg font-semibold">Free</h2>
+            <p className="mt-2 text-xs text-[#94a3b8]">Organic affiliates only, no paid ads</p>
             <p className="mt-4 text-sm font-semibold text-slate-200">A$0/month</p>
+            {selectedPlan === "free" && <p className="mt-2 text-xs text-[#63e8ee]">Selected</p>}
             <ul className="mt-5 space-y-3 text-xs leading-5 text-[#94a3b8]">
               <li>Listed in the affiliate marketplace</li>
               <li>Organic affiliate promotions</li>

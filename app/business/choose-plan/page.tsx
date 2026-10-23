@@ -17,6 +17,11 @@ export default function ChooseBusinessPlanPage() {
   const [reload, setReload] = useState(0);
   const [returnPending, setReturnPending] = useState(false);
   const viewed = useRef<string | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<"free" | "growth">("growth");
+  useEffect(() => {
+    const plan = new URLSearchParams(window.location.search).get("plan");
+    if (plan === "free" || plan === "growth") setSelectedPlan(plan);
+  }, []);
   const resumeSubscription = context?.trialEligible === false;
 
   useEffect(() => {
@@ -105,7 +110,7 @@ export default function ChooseBusinessPlanPage() {
   const signOut = <a href="/logout" className="inline-flex min-h-11 items-center px-4 text-sm underline">Sign out</a>;
   if (returnPending) return <main className="min-h-screen p-6"><p role="status">Confirming your checkout… Your offer is saved.</p>{signOut}</main>;
   if (!context) return <main className="min-h-screen p-6"><p role={error ? "alert" : "status"}>{error || "Step 2 of 3 · Preparing your plan choices…"}</p><p className="mt-3 text-sm">Verifying your business and current Growth pricing. Free remains available once verification completes.</p>{signOut}{error && <button className="mt-4 min-h-11 rounded-full border px-5" onClick={() => setReload(n => n + 1)}>Retry</button>}</main>;
-  if (context.treatment && context.trialEligible !== false) return <><div className="bg-[#0f0f0f] text-white">{signOut}</div><BusinessTrialFirstContinuation context={context} busy={busy} error={error} onGrowth={() => void chooseGrowth()} onFree={() => void chooseFree()} onRetry={() => setReload(n => n + 1)} /></>;
+  if (context.treatment && context.trialEligible !== false) return <><div className="bg-[#0f0f0f] text-white">{signOut}</div><BusinessTrialFirstContinuation selectedPlan={selectedPlan} context={context} busy={busy} error={error} onGrowth={() => void chooseGrowth()} onFree={() => void chooseFree()} onRetry={() => setReload(n => n + 1)} /></>;
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#121212] px-4 py-10 text-[#f5f7f8] sm:px-6 lg:px-8">
       <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
@@ -140,7 +145,8 @@ export default function ChooseBusinessPlanPage() {
             </div>
 
             <div className="mt-7">
-              <h2 className="text-[23px] font-semibold tracking-tight text-white">Organic</h2>
+              <h2 className="text-[23px] font-semibold tracking-tight text-white">Free{selectedPlan === "free" ? " · Selected" : ""}</h2>
+              <p className="mt-2 text-sm text-[#a0a7af]">Organic affiliates only, no paid ads</p>
               <div className="mt-1 flex items-end gap-2">
                 <span className="text-[38px] font-semibold leading-none tracking-[-0.04em] text-white">$0</span>
                 <span className="pb-1 text-sm text-[#7f8790]">forever</span>
@@ -178,7 +184,7 @@ export default function ChooseBusinessPlanPage() {
           <section className="plan-card plan-growth-card plan-enter plan-enter-3 relative flex min-h-[500px] flex-col overflow-hidden rounded-[24px] border border-[#16c8d5]/70 bg-[#191b1c]/95 p-6 shadow-[0_22px_75px_rgba(0,0,0,0.28),0_0_45px_rgba(22,200,213,0.08)] sm:p-7">
             <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-[#16c8d5]/[0.08] blur-3xl" />
             <div className="absolute right-6 top-6 rounded-full border border-[#16c8d5]/55 bg-[#0f292b]/80 px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.16em] text-[#22d6e1]">
-              Growth
+              {selectedPlan === "growth" ? "Growth · Selected" : "Growth"}
             </div>
 
             <div className="relative flex items-center gap-3">
@@ -191,7 +197,7 @@ export default function ChooseBusinessPlanPage() {
             </div>
 
             <div className="relative mt-7">
-              <h2 className="text-[23px] font-semibold tracking-tight text-white">Organic + Paid</h2>
+              <h2 className="text-[23px] font-semibold tracking-tight text-white">{resumeSubscription ? "Organic + Paid" : "The 14-Day Affiliate-Funded Launch"}</h2>
               <div className="mt-1 flex items-end gap-2">
                 <span className="text-[38px] font-semibold leading-none tracking-[-0.04em] text-white">{context?.price?.formatted || "Pricing unavailable"}</span>
                 <span className="pb-1 text-sm text-[#7f8790]">
@@ -229,14 +235,15 @@ export default function ChooseBusinessPlanPage() {
                   ? "Opening secure checkout..."
                   : resumeSubscription
                     ? "Continue subscription"
-                    : `Start ${context?.trialDays || ""}-day free trial`}
+                    : "Start my affiliate-funded launch, 14 days free"}
               </span>
             </button>
             <p className="relative mt-3 text-center text-[11px] text-[#7d858d]">
               {resumeSubscription
                 ? `Continue at ${context?.price?.formatted || "the verified checkout price"}/${context?.price ? growthPricePeriod(context.price) : "billing period"}. Cancel anytime.`
-                : `Card required. ${context?.trialDays || ""} days free. Then ${context?.price?.formatted || "pricing unavailable"}/${context?.price ? growthPricePeriod(context.price) : "billing period"} unless cancelled. ${context?.price?.taxNotice || ""}`}
+                : "A$49/mo after day 14 only if you stay. Card required."}
             </p>
+            <p className="relative mt-2 text-center text-[11px] text-[#7d858d]">We ask for a card to keep fake brands out, so affiliates can trust every offer.</p>
           </section>
         </div>
 
