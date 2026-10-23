@@ -53,3 +53,7 @@ jobs:
             exit 1
           fi
           echo "No TypeScript diagnostics in the touched notification modules."
+      - name: Reproduce production Next.js build
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+        run: yarn -s build
