@@ -28,3 +28,12 @@ Enqueue after *confirmed* application outcomes and only through the service role
 ## Testing
 
 Use mocked Stripe events and an isolated database or Supabase test project. Test duplicate events, Resend errors, later payment recovery, cancelled invoices, multiple recipients and retry exhaustion; never simulate these cases with live financial mutations.
+
+
+## Preview safety and CI verification (2026-10-23)
+
+The PR branch has branch-specific Preview-only placeholder values for \`SUPABASE_URL\`, \`NEXT_PUBLIC_SUPABASE_URL\`, \`SUPABASE_SERVICE_ROLE_KEY\`, \`NEXT_PUBLIC_SUPABASE_ANON_KEY\`, \`STRIPE_SECRET_KEY\`, \`STRIPE_APP_SECRET\`, and \`RESEND_API_KEY\`. Both notification flags explicitly equal \`false\`. These tokens are deliberately invalid, cannot communicate with real services, and must **not** be copied to production or main-branch Preview config.
+
+The notification-specific workflow runs isolated rendering/flag tests, targeted ESLint, touched-module TypeScript diagnostics and a production-style Next.js build with the same inert variables. The full build may not exercise external systems; real integration and webhook tests remain a release gate.
+
+Existing Business trial-first workflow may fail for unrelated baseline lint diagnostics; review that workflow independently rather than editing unrelated onboarding modules in this change.
