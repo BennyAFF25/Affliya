@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { createServerSupabaseClient } from "../../../../utils/businessSubscriptions";
 import { formatPublicUsername } from "../../../../utils/profileIdentity";
+import { enqueueSafely } from "../../../../utils/email/notificationOutbox";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -166,6 +167,27 @@ export async function POST(request: Request) {
       client_message_id: clientMessageId, body: text,
     }, { onConflict: "sender_user_id,client_message_id", ignoreDuplicates: true });
     if (error) throw error;
+    // Delay partner email so a message read shortly after posting sends no alert.
+    try {
+      const partnerId = ctx.identity.role === "business" ? contact.affiliateUserId : contact.businessUserId;
+      const [recipientResult, messageResult] = await Promise.all([
+        ctx.admin.from("profiles").select("email").eq("id", partnerId).maybeSingle(),
+        ctx.admin.from("inbox_chat_messages").select("id,read_at")
+          .eq("sender_user_id", ctx.identity.id).eq("client_message_id", clientMessageId).maybeSingle(),
+      ]);
+      if (!recipientResult.error && !messageResult.error && recipientResult.data?.email &&
+          messageResult.data?.id && !messageResult.data.read_at) {
+        await enqueueSafely(ctx.admin as never, {
+          key: "product:partner-message:" + partnerId + ":" + contact.key + ":" + Math.floor(Date.now() / 1800000),
+          kind: "partner_message", scope: "product", recipient: recipientResult.data.email,
+          payload: { message_id: messageResult.data.id, recipient_role: contact.partnerRole },
+          delayMinutes: 10,
+        });
+      }
+    } catch (notificationError) {
+      console.warn("[inbox/chat] notification enqueue skipped",
+        notificationError instanceof Error ? notificationError.message : "unknown");
+    }
     return NextResponse.json({ success: true }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     console.error("[inbox/chat] send failed", error);
