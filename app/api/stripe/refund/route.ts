@@ -1,4 +1,5 @@
 import { isDefinitiveStripeFailure, refundIdempotencyKey } from '@/../utils/stripeOperationFailure';
+import { enqueueSafely } from '@/../utils/email/notificationOutbox';
 import { NextResponse } from 'next/server';
 import { tryWriteMoneyFlowAudit } from '@/../utils/moneyFlowAudit';
 import supabase from '@/../utils/supabase/server-client';
@@ -342,14 +343,26 @@ export async function POST(req: Request) {
       },
     });
 
+    if (status === "succeeded") await enqueueSafely(supabase as never, {
+      key: "platform:refund:succeeded:" + refund.id,
+      kind: "wallet_refund_succeeded", scope: "platform", recipient: email,
+      payload: { attempt_id: attemptId, amount_cents: Math.round(normalizedRefundAmount * 100),
+        currency: refund.currency },
+    });
     return NextResponse.json({ success: true, refund, ledger: ledgerResult });
   } catch (err: unknown) {
     // An accepted refund or ambiguous transport failure retains its reservation.
-    if (!stripeReturned && (!stripeSubmitted || isDefinitiveStripeFailure(err))) {
+    const definitelyFailed = !stripeReturned && (!stripeSubmitted || isDefinitiveStripeFailure(err));
+    if (definitelyFailed) {
       const { error: releaseError } = await supabase.rpc('finish_wallet_refund', {
         p_id: attemptId, p_status: 'failed', p_error: err instanceof Error ? err.message : 'Stripe rejected refund',
       });
       if (releaseError) console.error('Refund release failed; reconcile attempt', attemptId, releaseError);
+      else await enqueueSafely(supabase as never, {
+        key: "platform:refund:failed:" + attemptId,
+        kind: "wallet_refund_failed", scope: "platform", recipient: email,
+        payload: { attempt_id: attemptId },
+      });
     }
     console.error('Refund requires reconciliation', { attemptId, idempotencyKey: refundIdempotencyKey(attemptId) });
     await tryWriteMoneyFlowAudit(supabase as never, {
