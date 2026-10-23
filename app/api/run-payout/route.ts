@@ -224,12 +224,6 @@ export async function POST(req: Request) {
       payout_mode: string | null;
     } | null = null;
 
-    if (typeof payout.affiliate_email === "string") await enqueueSafely(supabase as never, {
-      key: "platform:payout:transferred:" + payout.id,
-      kind: "payout_transferred", scope: "platform",
-      recipient: payout.affiliate_email,
-      payload: { payout_id: payout.id, amount_cents: Math.round(amount * 100), currency: "aud" },
-    });
     if (payout.recurring_instance_id) {
       const { data: instanceData, error: instanceError } = await supabase
         .from("recurring_commission_instances")
@@ -757,6 +751,12 @@ export async function POST(req: Request) {
         .eq("id", payout.recurring_instance_id);
     }
 
+    if (typeof payout.affiliate_email === "string") await enqueueSafely(supabase as never, {
+      key: "platform:payout:transferred:" + payout.id,
+      kind: "payout_transferred", scope: "platform",
+      recipient: payout.affiliate_email,
+      payload: { payout_id: payout.id, amount_cents: Math.round(amount * 100), currency: "aud" },
+    });
     return NextResponse.json({
       ok: true,
       payout_id,
