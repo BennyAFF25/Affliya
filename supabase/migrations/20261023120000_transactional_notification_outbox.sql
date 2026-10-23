@@ -10,6 +10,7 @@ create table if not exists public.notification_outbox (
   available_at timestamptz not null default now(),
   attempt_count integer not null default 0,
   provider_message_id text,
+  delivery_status text,
   last_error text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
