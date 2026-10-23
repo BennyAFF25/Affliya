@@ -3,6 +3,7 @@ import { getAffiliateCampaignFundingReadiness } from "../../../../utils/paidCamp
 import { guardPaidCurrency } from "../../../../utils/currency/paidCurrencyGuard";
 import { reserveLaunchHold, releaseLaunchHold, FUNDING_ERROR } from "../../../../utils/wallet/launchHolds";
 import { tryWriteMoneyFlowAudit } from "../../../../utils/moneyFlowAudit";
+import { enqueueSafely } from "../../../../utils/email/notificationOutbox";
 // app/api/meta/control-ad/route.ts
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
@@ -246,6 +247,13 @@ export async function POST(req: Request) {
       reasonCode: action === "PAUSE" ? (controlActor === "business" ? "BUSINESS_STOP" : "MANUAL_PAUSE") : action,
       metadata: { action, paused_at: nowIso },
     });
+    if (action === "RESUME" && typeof liveAd.affiliate_email === "string") {
+      await enqueueSafely(supabase as never, {
+        key: "product:campaign-resumed:" + liveAdId + ":" + nowIso,
+        kind: "campaign_resumed", scope: "product",
+        recipient: liveAd.affiliate_email, payload: { campaign_id: liveAdId },
+      });
+    }
     return NextResponse.json({
       success: true,
       newStatus: localStatus,
