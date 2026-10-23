@@ -362,6 +362,13 @@ if (!stripeSecretKey || !endpointSecret) {
           const sessionIssue = validateAudTopup(session);
           if (sessionIssue) {
             await flagTopupReview(supabase as never, session.id, sessionIssue, "/api/stripe/webhook");
+            if (session.payment_status === "paid") {
+              const recipient = session.customer_email || session.metadata?.affiliate_email || session.metadata?.email;
+              if (recipient) await enqueueSafely(supabase as never, {
+                key: "platform:topup-review:" + session.id, kind: "wallet_review",
+                scope: "platform", recipient, payload: { checkout_session_id: session.id },
+              });
+            }
             break;
           }
 
@@ -395,6 +402,13 @@ if (!stripeSecretKey || !endpointSecret) {
           const settlementIssue = validateAudTopup(session, balanceTx);
           if (settlementIssue) {
             await flagTopupReview(supabase as never, session.id, settlementIssue, "/api/stripe/webhook");
+            if (session.payment_status === "paid") {
+              const recipient = session.customer_email || session.metadata?.affiliate_email || session.metadata?.email;
+              if (recipient) await enqueueSafely(supabase as never, {
+                key: "platform:topup-review:" + session.id, kind: "wallet_review",
+                scope: "platform", recipient, payload: { checkout_session_id: session.id },
+              });
+            }
             break;
           }
 
