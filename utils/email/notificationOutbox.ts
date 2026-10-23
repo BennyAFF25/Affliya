@@ -7,7 +7,7 @@ export type NotificationKind =
   | "subscription_trial_converted" | "subscription_cancel_scheduled" | "subscription_cancelled"
   | "wallet_funded" | "wallet_payment_failed" | "wallet_review"
   | "wallet_refund_succeeded" | "wallet_refund_failed"
-  | "wallet_low_balance" | "campaign_auto_paused" | "campaign_launch_failed"
+  | "wallet_low_balance" | "campaign_auto_paused" | "campaign_auto_paused_business" | "campaign_launch_failed"
   | "campaign_resumed" | "campaign_earnings_available"
   | "payout_transferred" | "payout_failed" | "partner_message"
   | "subscription_reminder_48h" | "subscription_reminder_5d";
