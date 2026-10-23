@@ -9,6 +9,7 @@ import { createClient } from "@supabase/supabase-js";
 import { recordPlatformFeeLedger } from "@/../utils/feeAccounting";
 import { createStripeClient } from "@/../utils/stripe";
 import { syncAffiliateWalletCache } from "@/../utils/wallet/syncAffiliateWalletCache";
+import { enqueueSafely } from "@/../utils/email/notificationOutbox";
 
 export const config = {
   api: {
@@ -415,7 +416,7 @@ if (!stripeSecretKey || !endpointSecret) {
             platformAcctId,
           });
 
-          await creditWalletTopup({
+          const creditResult = await creditWalletTopup({
             currency: session.currency,
             email,
             checkoutSessionId: session.id,
@@ -426,9 +427,29 @@ if (!stripeSecretKey || !endpointSecret) {
             platformAcctId,
           });
 
+          if (creditResult.credited) await enqueueSafely(supabase as never, {
+            key: "platform:topup:" + session.id, kind: "wallet_funded", scope: "platform",
+            recipient: email, payload: {
+              checkout_session_id: session.id, currency: session.currency,
+              amount_cents: Math.round(creditedAmount * 100),
+            },
+          });
+
           break;
         }
 
+        case "payment_intent.payment_failed": {
+          const intent = event.data.object as Stripe.PaymentIntent;
+          if (intent.metadata?.nettmark_action === "wallet_topup" && intent.metadata?.affiliate_email) {
+            await enqueueSafely(supabase as never, {
+              key: "platform:topup-payment-failed:" + intent.id,
+              kind: "wallet_payment_failed", scope: "platform",
+              recipient: intent.metadata.affiliate_email,
+              payload: { payment_intent_id: intent.id },
+            });
+          }
+          break;
+        }
         case "charge.succeeded":
         case "charge.updated":
         case "payment_intent.succeeded": {
