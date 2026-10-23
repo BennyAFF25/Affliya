@@ -1,0 +1,43 @@
+name: Nettmark transactional notification checks
+on:
+  pull_request:
+    paths:
+      - "app/api/notifications/**"
+      - "app/api/business-subscription/webhook/**"
+      - "app/api/stripe/**"
+      - "app/api/run-payout/**"
+      - "app/api/meta/**"
+      - "app/api/business/ad-ideas/launch/**"
+      - "app/api/inbox/chat/**"
+      - "utils/email/**"
+      - "supabase/migrations/*transactional_notification*"
+      - "scripts/notifications-outbox.test.ts"
+      - "vercel.json"
+      - ".github/workflows/transactional-notifications.yml"
+permissions:
+  contents: read
+jobs:
+  notification-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install locked dependencies
+        run: |
+          corepack enable
+          corepack prepare yarn@1.22.22 --activate
+          yarn install --frozen-lockfile --ignore-scripts
+      - name: Test notification rendering and queue safety
+        run: yarn -s tsx scripts/notifications-outbox.test.ts
+      - name: Check notification module syntax and style
+        run: |
+          yarn -s eslint --no-config-lookup --config eslint.affiliate-onboarding.config.mjs \
+            utils/email/notificationOutbox.ts \
+            utils/email/notificationTemplates.ts \
+            app/api/notifications/dispatch/route.ts \
+            app/api/notifications/resend-webhook/route.ts \
+            app/api/notifications/status/route.ts \
+            scripts/notifications-outbox.test.ts
