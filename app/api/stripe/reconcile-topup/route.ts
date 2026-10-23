@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { recordPlatformFeeLedger } from "@/../utils/feeAccounting";
 import { createStripeClient } from "@/../utils/stripe";
+import { enqueueSafely } from "@/../utils/email/notificationOutbox";
 import { syncAffiliateWalletCache } from "@/../utils/wallet/syncAffiliateWalletCache";
 
 export const runtime = "nodejs";
@@ -192,6 +193,13 @@ export async function POST(req: NextRequest) {
     const settlementIssue = validateAudTopup(session, balanceTx);
     if (settlementIssue) {
       await flagTopupReview(supabase as never, session.id, settlementIssue, "/api/stripe/reconcile-topup");
+      if (session.payment_status === "paid") {
+        const recipient = session.customer_email || session.metadata?.affiliate_email || session.metadata?.email;
+        if (recipient) await enqueueSafely(supabase as never, {
+          key: "platform:topup-review:" + session.id, kind: "wallet_review",
+          scope: "platform", recipient, payload: { checkout_session_id: session.id },
+        });
+      }
       return NextResponse.json({ ok: false, credited: false, manualReview: true, reason: settlementIssue });
     }
 
@@ -217,6 +225,14 @@ export async function POST(req: NextRequest) {
       creditedAmount,
       nettmarkFeeAmount,
       platformAcctId,
+    });
+
+    if (creditResult.credited) await enqueueSafely(supabase as never, {
+      key: "platform:topup:" + session.id, kind: "wallet_funded",
+      scope: "platform", recipient: email, payload: {
+        checkout_session_id: session.id, currency: session.currency,
+        amount_cents: Math.round(creditedAmount * 100),
+      },
     });
 
     return NextResponse.json({

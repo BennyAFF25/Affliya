@@ -1,6 +1,7 @@
 // app/api/run-payout/route.ts
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
+import { enqueueSafely } from "@/../utils/email/notificationOutbox";
 import { createClient } from "@supabase/supabase-js";
 import {
   calculateChargeOnTopFee,
@@ -128,6 +129,13 @@ async function markPayoutFailure(opts: {
     console.error("[RUN_PAYOUT] Failed to persist payout failure state", updateError);
   }
 
+  if (!updateError && typeof payout?.affiliate_email === "string") {
+    await enqueueSafely(supabase as never, {
+      key: "platform:payout:failed:" + payoutId, kind: "payout_failed",
+      scope: "platform", recipient: payout.affiliate_email,
+      payload: { payout_id: payoutId },
+    });
+  }
   await tryWriteMoneyFlowAudit(supabase as never, {
     eventType: "wallet_payout_execution_failed",
     severity: "error",
@@ -743,6 +751,12 @@ export async function POST(req: Request) {
         .eq("id", payout.recurring_instance_id);
     }
 
+    if (typeof payout.affiliate_email === "string") await enqueueSafely(supabase as never, {
+      key: "platform:payout:transferred:" + payout.id,
+      kind: "payout_transferred", scope: "platform",
+      recipient: payout.affiliate_email,
+      payload: { payout_id: payout.id, amount_cents: Math.round(amount * 100), currency: "aud" },
+    });
     return NextResponse.json({
       ok: true,
       payout_id,
