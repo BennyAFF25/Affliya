@@ -14,7 +14,7 @@ for (const source of [demo, landing, picker, trial]) {
 }
 assert.ok(demo.includes("Let affiliates fund your advertising."));
 assert.ok(landing.includes("Get sales from affiliate-funded Meta ads."));
-for (const s of [demo, landing, read("app/pricing/page.tsx")]) assert.doesNotMatch(s, /without paying for|never pay for|No upfront|you pay: A\$0|Paid by affiliate|don.t pay a cent/i);
+for (const s of [demo, landing, read("app/pricing/page.tsx")]) assert.doesNotMatch(s, /without paying for|never pay for|No upfront|you pay: A\$0|Paid by affiliate|don.t pay a cent|prepay|cover spend|covers spend/i);
 assert.doesNotMatch(landing, /Trusted by growth teams|"DTC"/);
 assert.match(landing, /stats &&/);
 assert.match(read("app/create-account/page.tsx"), /resolveBusinessPlanChoice\(sp.get\('plan'\)\)/);

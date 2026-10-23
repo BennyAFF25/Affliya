@@ -61,8 +61,8 @@ export default function ForBusinessesLandingPage({ stats }: { stats: { offers: n
         <div className="grid md:grid-cols-3 gap-5">
           <BenefitCard
             icon={<Wallet className="h-5 w-5 text-[#7ff5fb]" />}
-            title="No ad prepay"
-            copy="Partners cover spend from their own wallet. You only pay a commission on confirmed sales."
+            title="Ad spend paid back from partner wallets"
+            copy="Meta bills your ad account, and Nettmark pays that spend back from the partner’s pre-funded wallet. You pay commission on confirmed sales."
           />
           <BenefitCard
             icon={<ShieldCheck className="h-5 w-5 text-[#7ff5fb]" />}
@@ -136,7 +136,7 @@ export default function ForBusinessesLandingPage({ stats }: { stats: { offers: n
         <div className="grid md:grid-cols-2 gap-4">
           <FAQ
             q="Who pays for the ads?"
-            a="Partners do. They pre‑fund spend from their own wallet — you never prepay."
+            a="Meta bills the ads to your connected ad account first. Partners pre‑fund a Nettmark wallet, and that spend is paid back to you from it as it settles."
           />
           <FAQ
             q="Do partners get full account access?"
