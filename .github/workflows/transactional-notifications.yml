@@ -57,6 +57,7 @@ jobs:
         env:
           NEXT_TELEMETRY_DISABLED: "1"
           NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co"
+          SUPABASE_URL: "https://example.supabase.co"
           NEXT_PUBLIC_SUPABASE_ANON_KEY: "ci-not-a-real-key"
           SUPABASE_SERVICE_ROLE_KEY: "ci-not-a-real-key"
           STRIPE_SECRET_KEY: "sk_test_ci_placeholder_not_real"
