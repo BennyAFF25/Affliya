@@ -53,7 +53,13 @@ jobs:
             exit 1
           fi
           echo "No TypeScript diagnostics in the touched notification modules."
-      - name: Reproduce production Next.js build
+      - name: Reproduce production Next.js build with inert configuration
         env:
           NEXT_TELEMETRY_DISABLED: "1"
+          NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co"
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: "ci-not-a-real-key"
+          SUPABASE_SERVICE_ROLE_KEY: "ci-not-a-real-key"
+          STRIPE_SECRET_KEY: "sk_test_ci_placeholder_not_real"
+          STRIPE_APP_SECRET: "sk_test_ci_placeholder_not_real"
+          CRON_SECRET: "ci-placeholder-never-used"
         run: yarn -s build
