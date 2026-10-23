@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
 import { createBusinessSubscriptionStripeClient } from "../../../../utils/businessSubscriptions";
+import { createStripeClient } from "../../../../utils/stripe";
 import { buildNotificationEmail } from "../../../../utils/email/notificationTemplates";
 import type { NotificationKind } from "../../../../utils/email/notificationOutbox";
 
@@ -58,6 +59,36 @@ async function preflight(db: SupabaseClient, row: NotificationRow) {
       const sub = await createBusinessSubscriptionStripeClient().subscriptions.retrieve(subscriptionId);
       return sub.status === "canceled";
     }
+  }
+  if (row.event_type === "wallet_payment_failed") {
+    const id = row.payload.payment_intent_id;
+    if (typeof id !== "string" || !process.env.STRIPE_SECRET_KEY) return false;
+    const intent = await createStripeClient(process.env.STRIPE_SECRET_KEY).paymentIntents.retrieve(id);
+    return intent.status !== "succeeded" && intent.status !== "processing";
+  }
+  if (row.event_type === "wallet_review") {
+    const session = row.payload.checkout_session_id;
+    if (typeof session !== "string") return false;
+    const { data, error } = await db.from("wallet_topups").select("status")
+      .eq("stripe_id", session).maybeSingle();
+    if (error) throw error;
+    return data?.status !== "succeeded";
+  }
+  if (row.event_type === "campaign_auto_paused" || row.event_type === "campaign_auto_paused_business") {
+    const campaign = row.payload.campaign_id;
+    if (typeof campaign !== "string") return false;
+    const { data, error } = await db.from("live_ads").select("status")
+      .eq("id", campaign).maybeSingle();
+    if (error) throw error;
+    return ["paused", "stopped"].includes(String(data?.status || "").toLowerCase());
+  }
+  if (row.event_type === "campaign_resumed") {
+    const campaign = row.payload.campaign_id;
+    if (typeof campaign !== "string") return false;
+    const { data, error } = await db.from("live_ads").select("status")
+      .eq("id", campaign).maybeSingle();
+    if (error) throw error;
+    return String(data?.status || "").toLowerCase() === "active";
   }
   if (row.event_type === "payout_transferred") {
     const id = row.payload.payout_id;
