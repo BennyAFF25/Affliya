@@ -1,4 +1,5 @@
 import { validateLaunchProposal } from "../../../../../utils/meta/campaignConfiguration";
+import { enqueueSafely } from "../../../../../utils/email/notificationOutbox";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
@@ -340,6 +341,11 @@ export async function POST(req: Request) {
         .eq("id", adIdeaId)
         .eq("business_email", user.email);
 
+      await enqueueSafely(admin as never, {
+        key: "product:launch-failed:" + adIdeaId + ":" + new Date().toISOString().slice(0, 10),
+        kind: "campaign_launch_failed", scope: "product", recipient: affiliateEmail,
+        payload: { ad_idea_id: adIdeaId },
+      });
       return NextResponse.json(
         {
           success: false,
