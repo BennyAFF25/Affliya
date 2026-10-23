@@ -62,6 +62,8 @@ function copyFor(kind: NotificationKind, payload: Payload): Copy {
       return { subject: "Your Nettmark campaign wallet balance is running low", heading: "Your campaign may run out of funding", badge: "Funding warning", tone: "warning", body: "The wallet balance available for your campaign is running low. Review your campaign and funding to avoid a potential pause.", href: WALLET, cta: "Review wallet" };
     case "campaign_auto_paused":
       return { subject: "A Nettmark campaign was paused due to low funds", heading: "Campaign paused: low funds", badge: "Campaign paused", tone: "warning", body: "Nettmark recorded an automated low-funds pause. Check the campaign and wallet balance before resuming. If the advertising platform shows a different status, contact support.", href: CAMPAIGNS, cta: "View campaigns" };
+    case "campaign_auto_paused_business":
+      return { subject: "A Nettmark affiliate campaign has been paused", heading: "Campaign paused due to low funds", badge: "Campaign paused", tone: "warning", body: "A partner's campaign associated with your offer has been paused after a low-funds condition. No action is required unless you want to discuss funding with the affiliate.", href: BIZ_CAMPAIGNS, cta: "View campaigns" };
     case "campaign_launch_failed":
       return { subject: "Your Nettmark campaign did not launch", heading: "Campaign launch unsuccessful", badge: "Campaign update", tone: "warning", body: "The attempted campaign launch didn't complete. Review the campaign in Nettmark before retrying.", href: CAMPAIGNS, cta: "Review campaigns" };
     case "campaign_resumed":
