@@ -45,7 +45,7 @@ export async function POST(req: Request) {
   });
   if (logError && logError.code !== "23505")
     return NextResponse.json({ error: "Unable to record delivery event" }, { status: 503 });
-  if (logError?.code === "23505") return NextResponse.json({ received: true, duplicate: true });
+  // Still apply the state update on a duplicate delivery, in case the earlier write failed.
   const { error } = await db.from("notification_outbox").update({
     delivery_status: event.type.slice("email.".length), updated_at: new Date().toISOString(),
   }).eq("id", row.id);
