@@ -14,6 +14,7 @@ import {
 } from "../../../../utils/creatorReferrals";
 
 import { recordConfirmedGrowthTrial, deliverPendingGrowthTrials } from "../../../../utils/marketing/startTrialServer";
+import { enqueueSafely, type NotificationInput } from "../../../../utils/email/notificationOutbox";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -190,7 +191,7 @@ export async function POST(req: Request) {
       event.type === "customer.subscription.deleted"
     ) {
       subscription = event.data.object as Stripe.Subscription;
-    } else if (event.type === "invoice.paid" || event.type === "invoice.payment_failed") {
+    } else if (event.type === "invoice.paid" || event.type === "invoice.payment_failed" || event.type === "invoice.payment_action_required") {
       const invoice = event.data.object as Stripe.Invoice;
       const subscriptionId = getSubscriptionIdFromInvoice(invoice);
       if (subscriptionId) {
@@ -325,6 +326,49 @@ export async function POST(req: Request) {
         subscriptionRequired: syncResult.subscriptionRequired,
       },
     });
+
+    // Observational only. Queued notifications cannot alter billing or fail an invoice webhook.
+    if (syncResult.businessEmail) {
+      const recipient = syncResult.businessEmail;
+      const billingNotifications: NotificationInput[] = [];
+      const core = { scope: "subscription" as const, recipient };
+      if (invoice && ["invoice.payment_failed", "invoice.payment_action_required"].includes(event.type) && invoice.amount_remaining > 0) {
+        const payload = { invoice_id: invoice.id, subscription_id: subscription.id,
+          amount_cents: invoice.amount_remaining, currency: invoice.currency };
+        if (event.type === "invoice.payment_failed") {
+          billingNotifications.push(
+            { ...core, key: "billing:failed:" + invoice.id, kind: "subscription_payment_failed", payload },
+            { ...core, key: "billing:reminder48:" + invoice.id, kind: "subscription_reminder_48h", payload, delayMinutes: 48 * 60 },
+            { ...core, key: "billing:reminder5d:" + invoice.id, kind: "subscription_reminder_5d", payload, delayMinutes: 5 * 24 * 60 },
+          );
+        } else {
+          billingNotifications.push({ ...core, key: "billing:action:" + invoice.id, kind: "subscription_action_required", payload });
+        }
+      }
+      if (invoice && event.type === "invoice.paid" && invoice.amount_paid > 0) {
+        const payload = { invoice_id: invoice.id, subscription_id: subscription.id,
+          amount_cents: invoice.amount_paid, currency: invoice.currency };
+        const recovered = (invoice.attempt_count || 0) > 1;
+        billingNotifications.push({ ...core, key: "billing:" + (recovered ? "recovered:" : "receipt:") + invoice.id,
+          kind: recovered ? "subscription_payment_recovered" : "subscription_receipt", payload });
+        const trialEnd = subscription.trial_end || 0;
+        if (invoice.billing_reason === "subscription_cycle" && trialEnd &&
+            Math.abs(invoice.created - trialEnd) <= 3 * 86400 && subscription.metadata?.trialEligibleAtCheckout === "true") {
+          billingNotifications.push({ ...core, key: "billing:trial-converted:" + subscription.id,
+            kind: "subscription_trial_converted", payload });
+        }
+      }
+      if (event.type === "customer.subscription.updated" && subscription.cancel_at_period_end) {
+        const end = subscription.cancel_at || subscription.items.data[0]?.current_period_end || subscription.trial_end || 0;
+        billingNotifications.push({ ...core, key: "billing:cancel-scheduled:" + subscription.id + ":" + end,
+          kind: "subscription_cancel_scheduled", payload: { subscription_id: subscription.id } });
+      }
+      if (event.type === "customer.subscription.deleted") {
+        billingNotifications.push({ ...core, key: "billing:cancelled:" + subscription.id,
+          kind: "subscription_cancelled", payload: { subscription_id: subscription.id } });
+      }
+      for (const item of billingNotifications) await enqueueSafely(supabase, item);
+    }
 
     await deliverPendingGrowthTrials(supabase).catch(() => console.warn("[meta-start-trial] reporting delivery failed"));
     return NextResponse.json({ received: true });
