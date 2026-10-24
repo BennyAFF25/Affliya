@@ -27,14 +27,14 @@ export type RenderNettmarkEmailArgs = {
 
 const BRAND = {
   name: "Nettmark",
-  accent: "#00C2CB",
-  bg: "#0F0F0F",
-  card: "#151718",
-  nested: "#101415",
-  border: "#2A2A2A",
-  text: "#FFFFFF",
-  body: "#E5E7EB",
-  muted: "#94A3B8",
+  accent: "#10B8C4",
+  bg: "#17191A",
+  card: "#101516",
+  nested: "#101516",
+  border: "#273133",
+  text: "#F4F7F7",
+  body: "#B9C5C7",
+  muted: "#849A9F",
   logoUrl: "https://www.nettmark.com/icon.png",
   siteUrl: "https://www.nettmark.com",
   supportEmail: "support@nettmark.com",
@@ -45,29 +45,29 @@ function escapeHtml(input: string) {
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
-    .replace(/\"/g, "&quot;")
+    .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 }
 
 function safeHref(href: string) {
   return String(href || "")
-    .replace(/[\n\r\t\"]+/g, "")
+    .replace(/[\n\r\t"]+/g, "")
     .trim();
 }
 
 function toneStyles(tone: NettmarkEmailTone) {
   switch (tone) {
     case "success":
-      return { bg: "#0A2618", text: "#A7F3D0", border: "#1F7A4A" };
+      return { bg: "transparent", text: "#8CCFB4", border: "#273133" };
     case "warning":
-      return { bg: "#2B220B", text: "#FDE68A", border: "#9A6B12" };
+      return { bg: "transparent", text: "#E1BE82", border: "#273133" };
     case "danger":
-      return { bg: "#2A1212", text: "#FECACA", border: "#A33A3A" };
+      return { bg: "transparent", text: "#E9A7A7", border: "#273133" };
     case "neutral":
-      return { bg: "#1A1A1A", text: "#CBD5E1", border: "#333333" };
+      return { bg: "transparent", text: "#9AAEB1", border: "#273133" };
     case "info":
     default:
-      return { bg: "#08282B", text: "#8CF5FA", border: "#14676C" };
+      return { bg: "transparent", text: "#10B8C4", border: "#273133" };
   }
 }
 
@@ -102,7 +102,7 @@ function rowsHtml(rows?: NettmarkEmailRow[]) {
     .join("");
 
   return `
-    <div style="margin-top:18px;border:1px solid ${BRAND.border};border-radius:18px;background:${BRAND.nested};padding:16px;">
+    <div style="margin-top:24px;border-top:1px solid ${BRAND.border};border-bottom:1px solid ${BRAND.border};padding:18px 0;">
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;width:100%;">
         <tbody>${content}</tbody>
       </table>
@@ -115,7 +115,7 @@ function noticeHtml(notice?: NettmarkEmailNotice) {
   const tone = toneStyles(notice.tone ?? "info");
 
   return `
-    <div style="margin-top:18px;padding:15px 16px;border-radius:18px;background:${tone.bg};border:1px solid ${tone.border};">
+    <div style="margin-top:20px;padding:4px 0 4px 14px;border-left:2px solid ${tone.text};">
       ${notice.title ? `<div style="color:${tone.text};font-size:12px;font-weight:800;letter-spacing:0.12em;text-transform:uppercase;">${escapeHtml(notice.title)}</div>` : ""}
       <div style="margin-top:${notice.title ? "7px" : "0"};color:${tone.text};font-size:13px;line-height:1.6;">
         ${escapeHtml(notice.body).replace(/\n/g, "<br/>")}
@@ -134,7 +134,7 @@ function buttonsHtml(
     ? `
       <td style="padding:0 10px 0 0;">
         <a href="${safeHref(cta.href)}"
-          style="display:inline-block;background:${BRAND.accent};color:#071011;padding:12px 18px;border-radius:999px;font-weight:800;text-decoration:none;font-size:13px;line-height:1.2;">
+          style="display:inline-block;background:${BRAND.accent};color:#081315;padding:13px 22px;border-radius:9px;font-weight:700;text-decoration:none;font-size:13px;line-height:1.2;">
           ${escapeHtml(cta.label)}
         </a>
       </td>
@@ -145,7 +145,7 @@ function buttonsHtml(
     ? `
       <td>
         <a href="${safeHref(secondaryCta.href)}"
-          style="display:inline-block;background:#191B1C;color:${BRAND.body};padding:12px 18px;border-radius:999px;border:1px solid ${BRAND.border};font-weight:750;text-decoration:none;font-size:13px;line-height:1.2;">
+          style="display:inline-block;background:transparent;color:${BRAND.body};padding:12px 18px;border-radius:9px;border:1px solid ${BRAND.border};font-weight:650;text-decoration:none;font-size:13px;line-height:1.2;">
           ${escapeHtml(secondaryCta.label)}
         </a>
       </td>
@@ -174,6 +174,7 @@ export function renderNettmarkEmail(args: RenderNettmarkEmailArgs) {
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <meta name="color-scheme" content="dark" />
+    <meta name="format-detection" content="telephone=no" />
     <meta name="supported-color-schemes" content="dark" />
     <title>${BRAND.name}</title>
   </head>
@@ -185,12 +186,12 @@ export function renderNettmarkEmail(args: RenderNettmarkEmailArgs) {
         <td align="center">
           <table role="presentation" width="620" cellspacing="0" cellpadding="0" style="width:100%;max-width:620px;">
             <tr>
-              <td style="padding:0 4px 14px;">
+              <td style="padding:0 4px 18px;">
                 <table role="presentation" width="100%" cellspacing="0" cellpadding="0">
                   <tr>
                     <td style="vertical-align:middle;">
-                      <img src="${BRAND.logoUrl}" width="38" height="38" alt="Nettmark" style="display:inline-block;vertical-align:middle;border-radius:11px;" />
-                      <span style="display:inline-block;vertical-align:middle;margin-left:10px;color:${BRAND.text};font-size:17px;font-weight:800;letter-spacing:-0.02em;">Nettmark</span>
+                      <img src="${BRAND.logoUrl}" width="36" height="36" alt="Nettmark" style="display:inline-block;vertical-align:middle;border-radius:8px;" />
+                      <span style="display:inline-block;vertical-align:middle;margin-left:10px;color:${BRAND.text};font-size:17px;font-weight:700;letter-spacing:-0.02em;">Nettmark</span>
                     </td>
                     <td align="right" style="vertical-align:middle;">
                       <span style="color:${BRAND.muted};font-size:11px;">Distribution, simplified.</span>
@@ -201,14 +202,14 @@ export function renderNettmarkEmail(args: RenderNettmarkEmailArgs) {
             </tr>
 
             <tr>
-              <td style="background:${BRAND.card};border:1px solid ${BRAND.border};border-radius:24px;padding:24px;box-shadow:0 22px 60px rgba(0,0,0,0.22);">
+              <td style="background:${BRAND.card};border:1px solid ${BRAND.border};border-radius:18px;padding:32px 30px;">
                 ${badge?.text ? `
-                  <div style="display:inline-block;padding:6px 10px;border-radius:999px;background:${badgeStyle.bg};color:${badgeStyle.text};border:1px solid ${badgeStyle.border};font-size:10px;font-weight:800;letter-spacing:0.14em;text-transform:uppercase;">
+                  <div style="padding-top:22px;border-top:1px solid ${BRAND.border};color:${badgeStyle.text};font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;">
                     ${escapeHtml(badge.text)}
                   </div>
                 ` : ""}
 
-                <h1 style="margin:${badge?.text ? "14px" : "0"} 0 0;color:${BRAND.text};font-size:24px;line-height:1.24;font-weight:700;letter-spacing:-0.025em;">
+                <h1 style="margin:${badge?.text ? "18px" : "0"} 0 0;color:${BRAND.text};font-size:27px;line-height:1.3;font-weight:700;letter-spacing:-0.025em;">
                   ${escapeHtml(args.heading)}
                 </h1>
 
@@ -221,7 +222,7 @@ export function renderNettmarkEmail(args: RenderNettmarkEmailArgs) {
                   <p style="margin:18px 0 0;color:${BRAND.muted};font-size:12px;line-height:1.55;">${escapeHtml(args.footerNote).replace(/\n/g, "<br/>")}</p>
                 ` : ""}
 
-                <div style="margin-top:22px;border-top:1px solid ${BRAND.border};padding-top:16px;">
+                <div style="margin-top:32px;border-top:1px solid ${BRAND.border};padding-top:18px;">
                   <p style="margin:0;color:${BRAND.muted};font-size:12px;line-height:1.55;">
                     Need help? Reply to this email or contact
                     <a href="mailto:${BRAND.supportEmail}" style="color:${BRAND.accent};text-decoration:none;font-weight:700;">${BRAND.supportEmail}</a>.

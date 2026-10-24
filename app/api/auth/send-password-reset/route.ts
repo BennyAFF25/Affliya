@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
+import { renderNettmarkEmail } from "../../../../utils/email/renderNettmarkEmail";
 
 export const runtime = "nodejs";
 
@@ -12,15 +13,6 @@ function getAppUrl() {
     process.env.APP_URL ||
     "https://www.nettmark.com"
   ).replace(/\/$/, "");
-}
-
-function escapeHtml(input: unknown) {
-  return String(input ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
 }
 
 export async function POST(req: Request) {
@@ -92,61 +84,21 @@ export async function POST(req: Request) {
     const resend = new Resend(process.env.RESEND_API_KEY);
     const fromEmail = process.env.RESEND_FROM_EMAIL || "no-reply@nettmark.com";
     const fromName = process.env.RESEND_FROM_NAME || "Nettmark";
-    const safeEmail = escapeHtml(email);
-    const logoUrl = `${appUrl}/icon.png`;
+    const html = renderNettmarkEmail({
+      previewText: "Use this secure link to reset your Nettmark password.",
+      badge: { text: "Account security", tone: "info" },
+      heading: "Reset your password",
+      body: `We received a request to reset the password for ${email}.\n\nUse the button below to choose a new password. If you didn't request this, you can ignore this email.`,
+      cta: { label: "Set a new password", href: resetUrl },
+      rows: [{ label: "Reset link", value: "Open secure reset link", href: resetUrl }],
+      footerNote: "For your security, never share your reset link with anyone.",
+    });
 
     await resend.emails.send({
       from: `${fromName} <${fromEmail}>`,
       to: email,
       subject: "Reset your Nettmark password",
-      html: `<!doctype html>
-<html>
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Reset your Nettmark password</title>
-  </head>
-  <body style="margin:0;padding:0;background:#f4f7f8;font-family:Inter,Arial,sans-serif;color:#101828;">
-    <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">
-      Use this secure link to reset your Nettmark password.
-    </div>
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f4f7f8;padding:32px 12px;">
-      <tr>
-        <td align="center">
-          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-radius:18px;overflow:hidden;border:1px solid #dce8ea;box-shadow:0 18px 60px rgba(16,24,40,0.08);">
-            <tr>
-              <td style="background:#061415;padding:28px 28px 24px;text-align:center;">
-                <img src="${logoUrl}" width="54" height="54" alt="Nettmark" style="display:block;margin:0 auto 14px;border-radius:14px;" />
-                <div style="font-size:12px;letter-spacing:0.18em;text-transform:uppercase;color:#7ff5fb;">Nettmark</div>
-                <h1 style="margin:10px 0 0;font-size:25px;line-height:1.2;color:#ffffff;">Reset your password</h1>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:30px 28px;">
-                <p style="margin:0 0 14px;font-size:15px;line-height:1.6;color:#344054;">We received a request to reset the password for <strong>${safeEmail}</strong>.</p>
-                <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#344054;">Click the button below to choose a new password. If you didn’t request this, you can safely ignore this email.</p>
-                <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto 24px;">
-                  <tr>
-                    <td align="center" bgcolor="#00C2CB" style="border-radius:999px;">
-                      <a href="${resetUrl}" style="display:inline-block;padding:13px 24px;font-size:14px;font-weight:700;color:#031314;text-decoration:none;border-radius:999px;">Set a new password</a>
-                    </td>
-                  </tr>
-                </table>
-                <p style="margin:0 0 8px;font-size:12px;line-height:1.5;color:#667085;">Button not working? Copy and paste this link into your browser:</p>
-                <p style="margin:0;word-break:break-all;font-size:12px;line-height:1.5;color:#008c94;"><a href="${resetUrl}" style="color:#008c94;">${resetUrl}</a></p>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:18px 28px;background:#f8fbfb;border-top:1px solid #e5eef0;text-align:center;">
-                <p style="margin:0;font-size:12px;color:#667085;">Nettmark account security</p>
-              </td>
-            </tr>
-          </table>
-        </td>
-      </tr>
-    </table>
-  </body>
-</html>`,
+      html,
     });
   } catch (err) {
     console.error("[send-password-reset] Unexpected error", err);
