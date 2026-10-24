@@ -21,6 +21,9 @@ import { supabase } from "utils/supabase/pages-client";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { logProductEvent } from "../../../utils/productEvents";
 
+import { OFFER_ONBOARDING_BASELINE, differsFromOfferOnboardingBaseline, offerOnboardingDraftKey, readOfferOnboardingDraft } from "../../../utils/offerOnboardingDraft";
+import { businessOfferOnboardingSessionKey } from "../../../utils/businessOfferOnboardingNudge";
+
 function safeStorageFileName(name: string) {
   const normalized = name
     .normalize("NFKD")
@@ -77,6 +80,45 @@ export default function BusinessOnboardingPage() {
   const [logoPreview, setLogoPreview] = useState("");
   const [productImageFiles, setProductImageFiles] = useState<File[]>([]);
   const [productImagePreviews, setProductImagePreviews] = useState<string[]>([]);
+
+  const draftKey = session?.user?.id ? offerOnboardingDraftKey(session.user.id) : null;
+  const [draftReady, setDraftReady] = useState<string | null>(null);
+  const draftCleared = useRef(false);
+  const [draftNote, setDraftNote] = useState<string | null>(null);
+  const draftFields = useMemo(() => ({ offerName, websiteUrl, productPrice, commissionPercent, description,
+    currency, participationMode, offerType, conversionScope, eligibleProductIdsText, eligibleVariantIdsText }),
+    [offerName, websiteUrl, productPrice, commissionPercent, description, currency, participationMode,
+      offerType, conversionScope, eligibleProductIdsText, eligibleVariantIdsText]);
+
+  useEffect(() => {
+    if (!draftKey) return;
+    draftCleared.current = false;
+    let fields = { ...OFFER_ONBOARDING_BASELINE };
+    try {
+      const restored = readOfferOnboardingDraft(localStorage.getItem(draftKey));
+      if (restored) { fields = restored; setDraftNote("Draft restored. Re-select any images before publishing."); }
+      else { localStorage.removeItem(draftKey); setDraftNote(null); }
+    } catch { setDraftNote("Draft storage is unavailable on this device."); }
+    setOfferName(fields.offerName); setWebsiteUrl(fields.websiteUrl); setProductPrice(fields.productPrice);
+    setCommissionPercent(fields.commissionPercent); setDescription(fields.description); setCurrency(fields.currency);
+    setParticipationMode(fields.participationMode as typeof participationMode);
+    setOfferType(fields.offerType as typeof offerType); setConversionScope(fields.conversionScope as typeof conversionScope);
+    setEligibleProductIdsText(fields.eligibleProductIdsText); setEligibleVariantIdsText(fields.eligibleVariantIdsText);
+    setDraftReady(draftKey);
+  }, [draftKey]);
+
+  useEffect(() => {
+    if (!draftKey || draftReady !== draftKey || draftCleared.current) return;
+    try {
+      if (differsFromOfferOnboardingBaseline(draftFields)) localStorage.setItem(draftKey, JSON.stringify(draftFields));
+      else localStorage.removeItem(draftKey);
+    } catch { setDraftNote("Draft could not be saved on this device. Keep this page open to retain your work."); }
+  }, [draftKey, draftReady, draftFields]);
+
+  const dismissOnboarding = () => {
+    try { if (session?.user?.id) sessionStorage.setItem(businessOfferOnboardingSessionKey(session.user.id), "1"); } catch { /* Navigation remains available without storage. */ }
+    router.push("/business/dashboard");
+  };
 
   const progressItems = ["Product", "Commission", "Publish"];
   const progressPercent =
@@ -301,6 +343,8 @@ export default function BusinessOnboardingPage() {
           .eq("id", candidateOfferId.current).eq("business_email", session.user.email).maybeSingle();
         if (!persisted) throw new Error(insertError.message || "Could not publish offer.");
       }
+      draftCleared.current = true;
+      try { if (draftKey) localStorage.removeItem(draftKey); } catch { /* The offer is already saved. */ }
       savedOfferId.current = candidateOfferId.current;
       await complete(candidateOfferId.current);
     } catch (err: unknown) {
@@ -321,6 +365,10 @@ export default function BusinessOnboardingPage() {
     <main className="min-h-screen bg-[#05080b] px-3 py-4 text-white sm:px-6 lg:py-10">
       <div className="mx-auto w-full max-w-3xl">
         <div className="mb-4 flex items-center justify-between text-sm"><span>Step 3 of 3 · Set up your offer</span><a href="/logout" className="inline-flex min-h-11 items-center underline">Sign out</a></div>
+        {step < 5 && <div className="mb-4 flex items-center justify-between gap-3 text-sm text-slate-300">
+          <p role="status">{draftNote}</p>
+          <button type="button" onClick={dismissOnboarding} disabled={submitting} className="min-h-11 shrink-0 text-[#63e8ee] underline">Finish later</button>
+        </div>}
         <div className="rounded-[30px] border border-white/10 bg-[#101516]/95 p-4 shadow-[0_24px_80px_rgba(0,0,0,0.42)] sm:p-6 lg:p-8">
           {step < 5 && (
             <div className="mb-7 rounded-2xl border border-white/10 bg-white/[0.025] px-4 py-4 sm:px-5">

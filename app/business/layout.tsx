@@ -4,6 +4,10 @@ import React, { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useSession } from "@supabase/auth-helpers-react";
 import { useChatUnreadCount } from "@/components/inbox/useChatUnreadCount";
+import Link from "next/link";
+import { supabase } from "utils/supabase/pages-client";
+import { getBusinessEntitlement } from "utils/businessEntitlements";
+import { businessOfferOnboardingNudge, businessOfferOnboardingSessionKey, isBusinessOfferOnboardingExempt } from "utils/businessOfferOnboardingNudge";
 import BusinessSidebar from "./BusinessSidebar";
 import Topbar from "@/components/Topbar";
 import PaidCampaignResumeBanner from "@/../components/business/PaidCampaignResumeBanner";
@@ -49,6 +53,38 @@ export default function BusinessLayout({
       .catch(() => { if (active) setPlanPending(true); });
     return () => { active = false; };
   }, [session?.user?.id, isPlanScreen, router]);
+
+  const [offerNudge, setOfferNudge] = useState<{ userId: string; pathname: string; visible: boolean } | null>(null);
+  useEffect(() => {
+    const userId = session?.user?.id;
+    const businessEmail = session?.user?.email;
+    if (!userId || !businessEmail || planPending !== false) return;
+    let active = true;
+    const check = async () => {
+      setOfferNudge(null);
+      const currentPath = pathname + window.location.search;
+      if (isBusinessOfferOnboardingExempt(currentPath)) return;
+      try {
+        const key = businessOfferOnboardingSessionKey(userId);
+        const sessionFlag = sessionStorage.getItem(key) === "1";
+        const [entitlement, offers] = await Promise.all([
+          getBusinessEntitlement({ businessEmail, supabase }),
+          supabase.from("offers").select("id", { count: "exact", head: true }).eq("business_email", businessEmail),
+        ]);
+        if (!active || offers.error || offers.count === null) return;
+        const decision = businessOfferOnboardingNudge({ billingStatus: entitlement?.billingStatus,
+          offerCount: offers.count, pathname: currentPath, sessionFlag });
+        if (decision.shouldRedirect) {
+          // Persist before navigation so returning to the dashboard cannot loop.
+          sessionStorage.setItem(key, "1");
+          router.replace("/onboarding/for-business");
+        } else setOfferNudge({ userId, pathname, visible: decision.shouldShowBanner });
+      } catch { /* Fail open on entitlement, offer query, or browser storage errors. */ }
+    };
+    void check();
+    window.addEventListener("focus", check);
+    return () => { active = false; window.removeEventListener("focus", check); };
+  }, [session?.user?.id, session?.user?.email, pathname, planPending, router]);
 
   // Keep this step focused: no global sidebar, shortcuts or resume banners.
   if (isPlanScreen) return <div className="min-h-screen bg-[#0f0f0f]">{children}</div>;
@@ -141,6 +177,12 @@ export default function BusinessLayout({
 
         {/* Page content */}
         <main className="flex-1 overflow-y-auto bg-[var(--background)]">
+          {offerNudge?.visible && offerNudge.userId === session?.user?.id && offerNudge.pathname === pathname && (
+            <div role="status" className="sticky top-16 z-20 flex flex-wrap items-center justify-between gap-3 border-b border-white/10 bg-[#151718] px-4 py-3 text-sm !text-white shadow-[0_18px_45px_rgba(0,0,0,0.2)]">
+              <span>Finish your offer — affiliates can&apos;t find you yet</span>
+              <Link href="/onboarding/for-business" className="inline-flex min-h-11 items-center rounded-full border border-[#00C2CB]/30 px-4 font-semibold !text-[#63e8ee] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#00C2CB]">Finish offer</Link>
+            </div>
+          )}
           <PaidCampaignResumeBanner />
           {children}
         </main>
