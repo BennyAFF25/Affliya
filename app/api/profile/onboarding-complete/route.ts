@@ -100,7 +100,7 @@ export async function POST(req: Request) {
 
   const { data: entitlement, error: entitlementError } = await supabase
     .from('business_entitlements')
-    .select('billing_entry_mode')
+    .select('billing_entry_mode,billing_status,stripe_subscription_id')
     .eq('business_email', user.email)
     .limit(1)
     .maybeSingle();
@@ -120,10 +120,14 @@ export async function POST(req: Request) {
   } catch { /* Analytics must never block a saved offer. */ }
 
   const isLegacyDeferred = entitlement?.billing_entry_mode === 'legacy_deferred';
+  // Existing Stripe subscribers have already made their plan choice, including
+  // businesses that signed up before the plan-first metadata marker existed.
+  const hasSubscription = Boolean(entitlement.stripe_subscription_id ||
+    ['subscription_active', 'subscription_trialing'].includes(entitlement.billing_status || ''));
   const response = NextResponse.json({
     ok: true,
     billingEntryMode: isLegacyDeferred ? 'legacy_deferred' : 'plan_choice',
-    treatment: treatment && !isLegacyDeferred,
+    treatment: treatment && !isLegacyDeferred && !hasSubscription,
     offerId: offer?.id || null,
   });
 
@@ -138,8 +142,8 @@ export async function POST(req: Request) {
     maxAge: 0,
   });
 
-  if (isLegacyDeferred || user.user_metadata?.business_plan_first_v2 === true) {
-    // Plan-first signups already chose Growth/Free before creating the offer.
+  if (isLegacyDeferred || hasSubscription || user.user_metadata?.business_plan_first_v2 === true) {
+    // Plan-first signups and existing subscribers already chose a plan.
     // Never reopen the legacy post-offer plan gate for them.
     response.cookies.set(PLAN_CHOICE_COOKIE, '', {
       httpOnly: true,

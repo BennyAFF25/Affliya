@@ -108,6 +108,21 @@ async function main() {
       enrollFull(); tables.business_entitlements[0].growth_trial_used = true;
       assert.equal((await (await eligibility.GET(get("businessId=" + fullId))).json()).treatment, false);
     }
+    // Existing subscribers without plan-first metadata must not re-enter choice.
+    for (const entitlement of [
+      { billing_status: "subscription_trialing", stripe_subscription_id: "sub_fixture" },
+      { billing_status: "subscription_trialing" },
+      { billing_status: "subscription_active" },
+      { billing_status: "free", stripe_subscription_id: "sub_fixture" },
+    ]) {
+      reset();
+      tables.profiles[0].created_at = BUSINESS_FUNNEL_FULL_ROLLOUT_AT;
+      Object.assign(tables.business_entitlements[0], entitlement);
+      const completed = await completion.POST(post({ offerId }));
+      assert.equal(completed.status, 200);
+      assert.equal((await completed.json()).treatment, false);
+      assert.equal(completed.cookies.get("nettmark_business_plan_choice_v2")?.value, "");
+    }
     reset(); tables.profiles[0].created_at = BUSINESS_FUNNEL_FULL_ROLLOUT_AT; expectedCheckoutFunnel = "trial_first_v1_100";
     assert.equal((await checkout.POST(post({ businessId: id, requireTrial: true, returnTo: "/business/choose-plan" }))).status, 200);
     assert.equal(sessionsCreated, 1);
