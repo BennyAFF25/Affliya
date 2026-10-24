@@ -1,0 +1,30 @@
+name: Nettmark email branding checks
+on:
+  pull_request:
+    paths:
+      - "utils/email/renderNettmarkEmail.ts"
+      - "lib/email/templates.ts"
+      - "app/api/auth/send-password-reset/route.ts"
+      - "app/api/send-tracking-code/route.ts"
+      - "scripts/email-ui-unification.test.ts"
+      - ".github/workflows/email-branding.yml"
+permissions:
+  contents: read
+jobs:
+  email-branding:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install dependencies
+        run: |
+          corepack enable
+          corepack prepare yarn@1.22.22 --activate
+          yarn install --frozen-lockfile --ignore-scripts
+      - name: Email layout and routing tests
+        run: yarn -s tsx scripts/email-ui-unification.test.ts
+      - name: Focused email code lint
+        run: yarn -s eslint --no-config-lookup --config eslint.affiliate-onboarding.config.mjs utils/email/renderNettmarkEmail.ts app/api/auth/send-password-reset/route.ts app/api/send-tracking-code/route.ts scripts/email-ui-unification.test.ts
