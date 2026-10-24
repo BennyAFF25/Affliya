@@ -22,3 +22,11 @@ Founder explicitly wants the card-required 14-day Growth trial to be the dominan
 
 ## Guardrails
 No Stripe prices, trial length, trial used history, entitlement subscriptions, wallet/commission writes, or historical cohort assignments change. No retroactive reroute for existing accounts. Avoid introducing false event success on user click; confirm trial via webhook/Stripe data only.
+
+## Trial lifecycle follow-up — 24 Oct 2026 (completed)
+- Explicit requested outcome: help trial businesses publish their first offer; alert the founder after two hours without an offer. This supports the documented value-first onboarding outcome without changing commercial rules.
+- Verified implementation: trial-reminders uses the plan-first cohort, pending proposals, product_events and Resend; founder-notify renders an internal signup notification. Dashboard summary counts offers case-insensitively by business_email.
+- Approach: extract a shared internal sender and pure milestone/variant selection; add day 1/day 3 no-offer reminders and independent founder alerts; schedule hourly. Preserve day 10/12 and existing signup route responses/content.
+- Scope: code/tests/vercel schedule only; no SQL, billing, checkout, launch guards, funding, currency, webhooks, commit, push or deployment.
+- Risks: delivery followed by audit failure relies on Resend's 24-hour deduplication; live schema/delivery are not verified. Existing docs describe earlier onboarding order; explicit current request governs these reminder variants.
+- Validation: `node --import tsx scripts/growth-trial-lifecycle.test.ts` passed (selection/windows, repeat runs, both day-three variant transitions, founder two-hour boundary, cohort independence, missing admin address, failure isolation, preserved proposal skips); email UI regression passed; `node_modules/.bin/tsc -p . --noEmit` passed; diff review passed. No deployment or live email/database actions. Remote main freshness could not be fetched because .git is read-only; local main matches cached origin/main. Follow-up complete; parent funnel plan remains active.

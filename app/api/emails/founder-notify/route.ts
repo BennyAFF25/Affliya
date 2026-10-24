@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { Resend } from "resend";
+import { sendFounderNotification } from "../../../../utils/email/sendFounderNotification";
 import { renderNettmarkEmail } from "../../../../utils/email/renderNettmarkEmail";
 
 export const runtime = "nodejs";
@@ -16,7 +16,6 @@ export async function POST(req: Request) {
       );
     }
 
-    const resend = new Resend(process.env.RESEND_API_KEY);
     const subject = `🚀 New ${role} signup on Nettmark`;
 
     const html = renderNettmarkEmail({
@@ -38,12 +37,7 @@ export async function POST(req: Request) {
       recipientNote: "Internal Nettmark notification.",
     });
 
-    await resend.emails.send({
-      from: `${process.env.RESEND_FROM_NAME || "Nettmark"} <${process.env.RESEND_FROM_EMAIL}>`,
-      to: [process.env.ADMIN_NOTIFY_EMAIL],
-      subject,
-      html,
-    });
+    await sendFounderNotification({ subject, html });
 
     return NextResponse.json({ ok: true });
   } catch (e: any) {
