@@ -27,14 +27,14 @@ export type RenderNettmarkEmailArgs = {
 
 const BRAND = {
   name: "Nettmark",
-  accent: "#10B8C4",
-  bg: "#17191A",
-  card: "#101516",
-  nested: "#101516",
-  border: "#273133",
-  text: "#F4F7F7",
-  body: "#B9C5C7",
-  muted: "#849A9F",
+  accent: "#12CFE3",
+  bg: "#0B0F12",
+  card: "#11181C",
+  nested: "#0E1418",
+  border: "#1F2B31",
+  text: "#F5F9FA",
+  body: "#AEBCC2",
+  muted: "#7D9098",
   logoUrl: "https://www.nettmark.com/icon.png",
   siteUrl: "https://www.nettmark.com",
   supportEmail: "support@nettmark.com",
@@ -58,16 +58,16 @@ function safeHref(href: string) {
 function toneStyles(tone: NettmarkEmailTone) {
   switch (tone) {
     case "success":
-      return { bg: "transparent", text: "#8CCFB4", border: "#273133" };
+      return { bg: "transparent", text: BRAND.accent, border: BRAND.border };
     case "warning":
-      return { bg: "transparent", text: "#E1BE82", border: "#273133" };
+      return { bg: "transparent", text: "#E1BE82", border: BRAND.border };
     case "danger":
-      return { bg: "transparent", text: "#E9A7A7", border: "#273133" };
+      return { bg: "transparent", text: "#E9A7A7", border: BRAND.border };
     case "neutral":
-      return { bg: "transparent", text: "#9AAEB1", border: "#273133" };
+      return { bg: "transparent", text: "#9FB2B8", border: BRAND.border };
     case "info":
     default:
-      return { bg: "transparent", text: "#10B8C4", border: "#273133" };
+      return { bg: "transparent", text: BRAND.accent, border: BRAND.border };
   }
 }
 
@@ -134,7 +134,7 @@ function buttonsHtml(
     ? `
       <td style="padding:0 10px 0 0;">
         <a href="${safeHref(cta.href)}"
-          style="display:inline-block;background:${BRAND.accent};color:#081315;padding:13px 22px;border-radius:9px;font-weight:700;text-decoration:none;font-size:13px;line-height:1.2;">
+          style="display:inline-block;background:${BRAND.accent};color:#071014;padding:13px 22px;border-radius:10px;font-weight:700;text-decoration:none;font-size:13px;line-height:1.2;">
           ${escapeHtml(cta.label)}
         </a>
       </td>
@@ -145,7 +145,7 @@ function buttonsHtml(
     ? `
       <td>
         <a href="${safeHref(secondaryCta.href)}"
-          style="display:inline-block;background:transparent;color:${BRAND.body};padding:12px 18px;border-radius:9px;border:1px solid ${BRAND.border};font-weight:650;text-decoration:none;font-size:13px;line-height:1.2;">
+          style="display:inline-block;background:transparent;color:${BRAND.body};padding:12px 18px;border-radius:10px;border:1px solid ${BRAND.border};font-weight:650;text-decoration:none;font-size:13px;line-height:1.2;">
           ${escapeHtml(secondaryCta.label)}
         </a>
       </td>
@@ -168,20 +168,23 @@ export function renderNettmarkEmail(args: RenderNettmarkEmailArgs) {
     args.recipientNote ||
     `You are receiving this because you have an account or activity on ${BRAND.name}.`;
 
+  // Gmail for iOS may invert dark emails into pale layouts. Since September 2026,
+  // `color-scheme: light only` opts Google-hosted Gmail inboxes out of that
+  // forced recolouring while retaining our deliberately dark inline design.
   return `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <meta name="color-scheme" content="dark" />
+    <meta name="color-scheme" content="light only" />
     <meta name="format-detection" content="telephone=no" />
-    <meta name="supported-color-schemes" content="dark" />
+    <meta name="supported-color-schemes" content="light only" />
     <title>${BRAND.name}</title>
   </head>
-  <body style="margin:0;padding:0;background:${BRAND.bg};color:${BRAND.text};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,Helvetica,sans-serif;">
+  <body bgcolor="${BRAND.bg}" style="margin:0;padding:0;background:${BRAND.bg};color:${BRAND.text};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,Helvetica,sans-serif;">
     ${preview ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${preview}</div>` : ""}
 
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="width:100%;background:${BRAND.bg};padding:32px 12px;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" bgcolor="${BRAND.bg}" style="width:100%;background:${BRAND.bg};padding:32px 12px;">
       <tr>
         <td align="center">
           <table role="presentation" width="620" cellspacing="0" cellpadding="0" style="width:100%;max-width:620px;">
@@ -202,7 +205,7 @@ export function renderNettmarkEmail(args: RenderNettmarkEmailArgs) {
             </tr>
 
             <tr>
-              <td style="background:${BRAND.card};border:1px solid ${BRAND.border};border-radius:18px;padding:32px 30px;">
+              <td bgcolor="${BRAND.card}" style="background:${BRAND.card};border:1px solid ${BRAND.border};border-radius:18px;padding:32px 30px;">
                 ${badge?.text ? `
                   <div style="padding-top:22px;border-top:1px solid ${BRAND.border};color:${badgeStyle.text};font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;">
                     ${escapeHtml(badge.text)}
@@ -227,14 +230,14 @@ export function renderNettmarkEmail(args: RenderNettmarkEmailArgs) {
                     Need help? Reply to this email or contact
                     <a href="mailto:${BRAND.supportEmail}" style="color:${BRAND.accent};text-decoration:none;font-weight:700;">${BRAND.supportEmail}</a>.
                   </p>
-                  <p style="margin:8px 0 0;color:#667085;font-size:11px;">© ${year} Nettmark. All rights reserved.</p>
+                  <p style="margin:8px 0 0;color:${BRAND.muted};font-size:11px;">© ${year} Nettmark. All rights reserved.</p>
                 </div>
               </td>
             </tr>
 
             <tr>
               <td style="padding:14px 8px 0;text-align:center;">
-                <p style="margin:0;color:#667085;font-size:11px;line-height:1.5;">${escapeHtml(recipientNote)}</p>
+                <p style="margin:0;color:${BRAND.muted};font-size:11px;line-height:1.5;">${escapeHtml(recipientNote)}</p>
               </td>
             </tr>
           </table>
