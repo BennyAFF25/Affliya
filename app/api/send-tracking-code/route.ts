@@ -1,6 +1,4 @@
 import { renderNettmarkEmail } from "../../../utils/email/renderNettmarkEmail";
-import createClient from '@/../utils/supabase/server-client';
-const supabase = createClient;
 import { NextResponse } from 'next/server';
 import nodemailer from 'nodemailer';
 
