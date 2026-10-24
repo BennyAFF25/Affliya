@@ -1,0 +1,10 @@
+import assert from "node:assert/strict";
+import { onboardingSuccessStep } from "../utils/onboardingSuccessStep";
+const paid = onboardingSuccessStep(true);
+assert.equal(paid.href, "/business/my-business");
+assert.ok(!/choose how affiliates/i.test(paid.message));
+assert.match(paid.message, /connect Meta/);
+const free = onboardingSuccessStep(false);
+assert.equal(free.href, "/business/choose-plan");
+assert.match(free.message, /choose how affiliates can promote/);
+console.log("Onboarding success step copy passed");

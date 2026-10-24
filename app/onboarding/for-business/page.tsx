@@ -1,5 +1,6 @@
 "use client";
 
+import { onboardingSuccessStep } from "../../../utils/onboardingSuccessStep";
 import { OFFER_CURRENCIES, OFFER_CURRENCY_MESSAGE, isOfferCurrency, isOfferCurrencyCheckViolation } from "utils/currency/offerCurrencies";
 
 import React, { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
@@ -41,6 +42,7 @@ export default function BusinessOnboardingPage() {
   const { session, isLoading } = useSessionContext();
 
   const [step, setStep] = useState(1);
+  const [hasPlan, setHasPlan] = useState(false);
   const savedOfferId = useRef<string | null>(null);
   const candidateOfferId = useRef<string | null>(null);
   const openedFor = useRef<string | null>(null);
@@ -222,7 +224,7 @@ export default function BusinessOnboardingPage() {
       const result = await response.json().catch(() => null);
       if (!response.ok) throw new Error(result?.error?.startsWith("Your offer is saved") ? result.error : `Your offer is saved. ${result?.error || "Please retry to finish setup."}`);
       if (!newBusinessPlanFirst && result?.treatment) router.replace("/business/choose-plan");
-      else setStep(5);
+      else { setHasPlan(result?.hasPlan === true); setStep(5); }
     };
     void logProductEvent({ eventType: "offer_publish_clicked", actorRole: "business", meta: { source: "business_onboarding", retry_completion: Boolean(savedOfferId.current) } });
 
@@ -883,13 +885,13 @@ export default function BusinessOnboardingPage() {
                 Your offer is live
               </h2>
               <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-white/64">
-                Your offer is saved. Continue to choose how affiliates can promote your business.
+                {onboardingSuccessStep(hasPlan).message}
               </p>
               <button
-                onClick={() => router.replace("/business/my-business")}
+                onClick={() => router.replace(onboardingSuccessStep(hasPlan).href)}
                 className="mt-6 w-full max-w-xs rounded-2xl bg-[#00C2CB] px-5 py-3.5 text-sm font-semibold text-black transition hover:bg-[#28d3da]"
               >
-                Go to business dashboard
+                {onboardingSuccessStep(hasPlan).buttonLabel}
               </button>
             </section>
           )}

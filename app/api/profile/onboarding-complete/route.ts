@@ -128,6 +128,7 @@ export async function POST(req: Request) {
     ok: true,
     billingEntryMode: isLegacyDeferred ? 'legacy_deferred' : 'plan_choice',
     treatment: treatment && !isLegacyDeferred && !hasSubscription,
+    hasPlan: hasSubscription,
     offerId: offer?.id || null,
   });
 
