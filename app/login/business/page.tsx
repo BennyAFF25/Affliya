@@ -13,7 +13,8 @@ function safeBusinessReturnTo(value: string | null) {
     !raw ||
     !raw.startsWith("/business/") ||
     raw.startsWith("//") ||
-    raw.includes("\\")
+    raw.includes("\\") ||
+    /[\u0000-\u0020\u007f]/.test(raw)
   ) {
     return null;
   }
