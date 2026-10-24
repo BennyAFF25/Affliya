@@ -216,17 +216,16 @@ export function DbBackedInbox({
             supabase.from("offers").select("id, title"),
           ]);
 
-        // Updates are incomplete when the legacy one-way table is absent.
-        // Never present a failed read as a genuine zero-unread empty inbox.
+        // The legacy store is optional; notifications remain available without it.
         if (messageResult.error) {
-          console.error("[Inbox messages fetch failed]", messageResult.error.message);
           setMessages([]);
           setActiveTab("all");
           const missingLegacyTable = /inbox_messages/i.test(messageResult.error.message) &&
             /schema cache|does not exist|not found|relation|404/i.test(messageResult.error.message);
-          setLoadError(missingLegacyTable
-            ? "Older updates are temporarily unavailable because the legacy message store is not installed. Notifications below may be incomplete."
-            : "Some inbox updates could not be loaded. Notifications below may be incomplete.");
+          if (!missingLegacyTable) {
+            console.error("[Inbox messages fetch failed]", messageResult.error.message);
+            setLoadError("Some inbox updates could not be loaded. Notifications below may be incomplete.");
+          }
         } else {
           const rows = ((messageResult.data || []) as InboxMessageRow[]).filter(
             (row) => row.recipient_role === audience,
