@@ -31,6 +31,18 @@ function run() {
   assert.match(rendered, /color:#12CFE3/);
   assert.match(rendered, /background:#12CFE3/);
   assert.doesNotMatch(rendered, /#8CCFB4|#10B8C4|#17191A/);
+  // Preserve the branded Gmail iOS dark experience without white inner gutters.
+  assert.match(rendered, /class="nm-canvas-cell" align="center" bgcolor="#0B0F12"/);
+  assert.match(rendered, /class="nm-canvas" role="presentation"/);
+  assert.match(rendered, /background:#0B0F12;padding:0;/);
+  assert.match(rendered, /@media only screen and \(max-width:620px\)/);
+  assert.match(rendered, /td\.nm-card \{ border-radius:0 !important/);
+  // Apple Mail and other supporting clients get a genuine light variant.
+  assert.match(rendered, /:root \{ color-scheme: light dark; \}/);
+  assert.match(rendered, /@media \(prefers-color-scheme: light\)/);
+  assert.match(rendered, /background-color:#FFFFFF !important/);
+  assert.match(rendered, /color:#121C24 !important/);
+
 
 
   const customerRoutes = [
