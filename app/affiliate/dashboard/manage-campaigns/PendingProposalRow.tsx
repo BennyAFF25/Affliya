@@ -52,7 +52,7 @@ export function PendingProposalRow({ proposal }: { proposal: PendingProposal }) 
       ? "The proposed campaign start or end date needs updating. The business can reschedule this proposal without changing your approved budget or creative."
     : proposal.state === "funding_unavailable" ? "Proposal saved. Funding could not be checked; it will be verified before launch." : fundingRequired
     ? proposal.metaReady === false
-      ? "Paid proposals open · the brand still needs to connect Meta before this can launch"
+      ? `Paid proposals open · the brand still needs to connect Meta before this can launch.${(proposal.funding?.deficit || 0) > 0 ? ` You'll need to add ${formatMoney(proposal.funding?.deficit || 0, proposal.currency ?? null)}.` : ""}`
       : `The business has enabled paid promotion. Add ${formatMoney(proposal.funding?.deficit || 0)} to prepare this campaign for launch.`
     : funded
       ? "Campaign funding is ready. Waiting for the business to finish setup and approve the campaign."

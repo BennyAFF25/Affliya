@@ -72,6 +72,19 @@ async function main() {
       } }));
       assert.equal(card.includes("The business has enabled paid promotion"), ready);
       assert.equal(card.includes("Paid proposals open · the brand still needs to connect Meta before this can launch"), !ready);
+      if (!ready) {
+        const luxora = renderToStaticMarkup(React.createElement(PendingProposalRow, { proposal: {
+          id: "idea", offerId: "offer", offerTitle: "Offer", kind: "paid", state: "funding_required", metaReady: false, currency: "AUD",
+          growthReady: true, funding: { ready: false, requiredAmount: 20, deficit: 17.47 },
+        } as any }));
+        assert.ok(luxora.replace(/\u00a0/g, " ").includes("connect Meta before this can launch. You&#x27;ll need to add AUD 17.47."), luxora);
+        assert.ok(luxora.replace(/\u00a0/g, " ").includes("Required at launch: AUD 20.00"));
+        const noDeficit = renderToStaticMarkup(React.createElement(PendingProposalRow, { proposal: {
+          id: "idea", offerId: "offer", offerTitle: "Offer", kind: "paid", state: "funding_required", metaReady: false, currency: "AUD",
+          growthReady: true, funding: { ready: false, requiredAmount: 20, deficit: 0 },
+        } as any }));
+        assert.ok(!noDeficit.includes("need to add"));
+      }
     }
     assert.equal(notifications.length, 1, "route retries dedupe the proposal");
     assert.deepEqual(Object.keys(notifications[0]).sort(), ["body", "link_url", "title", "user_email"]);
