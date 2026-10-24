@@ -1,6 +1,7 @@
 import * as assert from "node:assert/strict";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { renderNettmarkEmail } from "../utils/email/renderNettmarkEmail";
 
 function read(file: string) {
   return fs.readFileSync(path.join(process.cwd(), file), "utf8");
@@ -8,13 +9,29 @@ function read(file: string) {
 
 function run() {
   const renderer = read("utils/email/renderNettmarkEmail.ts");
-  assert.match(renderer, /#10B8C4/i);
-  assert.match(renderer, /#101516/i);
+  assert.match(renderer, /#12CFE3/i);
+  assert.match(renderer, /#11181C/i);
   assert.match(renderer, /border-radius:18px/);
   assert.doesNotMatch(renderer, /box-shadow:0 22px 60px/);
   assert.match(renderer, /border-top:1px solid/);
   assert.match(renderer, /secondaryCta/);
   assert.match(renderer, /NettmarkEmailNotice/);
+  // iOS Gmail used to turn our dark emails pale. This is the opt-out for
+  // Google-hosted mail accounts added in September 2026.
+  const rendered = renderNettmarkEmail({
+    heading: "Your Nettmark account is ready",
+    body: "Start promoting with Nettmark.",
+    badge: { text: "Business account", tone: "success" },
+    cta: { label: "Create your first offer", href: "https://www.nettmark.com/onboarding/for-business" },
+  });
+  assert.match(rendered, /<meta name="color-scheme" content="light only" \/>/);
+  assert.match(rendered, /<meta name="supported-color-schemes" content="light only" \/>/);
+  assert.match(rendered, /bgcolor="#0B0F12"/);
+  assert.match(rendered, /bgcolor="#11181C"/);
+  assert.match(rendered, /color:#12CFE3/);
+  assert.match(rendered, /background:#12CFE3/);
+  assert.doesNotMatch(rendered, /#8CCFB4|#10B8C4|#17191A/);
+
 
   const customerRoutes = [
     "app/api/emails/ad-decision/route.ts",
