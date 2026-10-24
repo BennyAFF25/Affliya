@@ -45,13 +45,13 @@ function escapeHtml(input: string) {
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
-    .replace(/\"/g, "&quot;")
+    .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
 }
 
 function safeHref(href: string) {
   return String(href || "")
-    .replace(/[\n\r\t\"]+/g, "")
+    .replace(/[\n\r\t"]+/g, "")
     .trim();
 }
 
