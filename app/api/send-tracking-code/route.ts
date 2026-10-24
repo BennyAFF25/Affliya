@@ -1,3 +1,4 @@
+import { renderNettmarkEmail } from "../../../utils/email/renderNettmarkEmail";
 import createClient from '@/../utils/supabase/server-client';
 const supabase = createClient;
 import { NextResponse } from 'next/server';
@@ -20,16 +21,17 @@ export async function POST(req: Request) {
   });
 
   const mailOptions = {
-    from: `"FalconX" <${process.env.EMAIL_SENDER}>`,
+    from: `"Nettmark" <${process.env.EMAIL_SENDER}>`,
     to,
-    subject: 'Install FalconX Tracking Code',
-    html: `
-      <p>Hi there,</p>
-      <p>Please install the following tracking script on the <code>&lt;head&gt;</code> of your business website to enable affiliate tracking:</p>
-      <pre style="background:#f4f4f4;padding:10px;border-radius:6px;">${script}</pre>
-      <p>Once installed, FalconX will automatically track affiliate-driven sales and manage payouts.</p>
-      <p>– The FalconX Team</p>
-    `,
+    subject: 'Install your Nettmark tracking code',
+    html: renderNettmarkEmail({
+      previewText: "Your Nettmark tracking code installation instructions.",
+      badge: { text: "Tracking setup", tone: "info" },
+      heading: "Install your tracking code",
+      body: "Add the following script inside the <head> section of your business website to enable affiliate attribution.\n\n" + String(script) + "\n\nOnce installed, Nettmark can track eligible affiliate-driven activity according to your offer settings.",
+      cta: { label: "Open Nettmark", href: "https://www.nettmark.com" },
+      footerNote: "Only install tracking code you recognise and have authorised for your site.",
+    }),
   };
 
   try {
