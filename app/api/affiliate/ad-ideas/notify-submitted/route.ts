@@ -5,18 +5,11 @@ import { Resend } from "resend";
 import { createServerSupabaseClient } from "../../../../../utils/businessSubscriptions";
 import { getAffiliateUsername } from "../../../../../utils/profileIdentity";
 import { renderNettmarkEmail } from "../../../../../utils/email/renderNettmarkEmail";
+import { computeOfferMetaReady } from "../../../../../utils/offerMetaReadiness";
+import { notifyPaidProposal } from "../../../../../utils/affiliate/paidProposalNotification";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function escapeHtml(value: unknown) {
-  return String(value ?? "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/\"/g, "&quot;")
-    .replace(/'/g, "&#039;");
-}
 
 export async function POST(req: Request) {
   try {
@@ -62,7 +55,7 @@ export async function POST(req: Request) {
 
     const { data: offer, error: offerError } = await admin
       .from("offers")
-      .select("id,title,business_email")
+      .select("id,title,business_email,meta_page_id,meta_ad_account_id")
       .eq("id", idea.offer_id)
       .maybeSingle();
 
@@ -74,6 +67,15 @@ export async function POST(req: Request) {
         { status: 409 },
       );
     }
+
+    const reviewPath = `/business/my-business/ad-ideas?proposal=${encodeURIComponent(adIdeaId)}`;
+    const metaReady = computeOfferMetaReady(offer ?? {}).metaReady;
+    await notifyPaidProposal(admin, {
+      user_email: businessEmail,
+      title: "New paid campaign proposal",
+      body: "An affiliate submitted a paid campaign proposal for your review.",
+      link_url: reviewPath,
+    });
 
     if (!process.env.RESEND_API_KEY) {
       console.warn("[proposal-submitted] RESEND_API_KEY missing; proposal remains valid");
@@ -89,7 +91,7 @@ export async function POST(req: Request) {
     });
     const offerTitle = String(offer?.title || "your offer");
     const campaignName = String(idea.campaign_name || "Paid campaign proposal");
-    const reviewUrl = `https://www.nettmark.com/business/my-business/ad-ideas?proposal=${encodeURIComponent(adIdeaId)}`;
+    const reviewUrl = `https://www.nettmark.com${reviewPath}`;
     const budget = Number(idea.budget_amount || 0) > 0
       ? (Number(idea.budget_amount) / 100).toFixed(2)
       : null;
@@ -106,9 +108,10 @@ export async function POST(req: Request) {
         { label: "Affiliate", value: affiliateName },
         { label: "Campaign", value: campaignName },
         ...(budget ? [{ label: "Affiliate budget", value: `${budget} ${budgetType}` }] : []),
-        { label: "Your ad spend", value: "$0" },
+        { label: "Ad spend", value: "Ad spend is funded from the affiliate’s wallet: Meta bills your connected ad account and Nettmark pays that spend back from the affiliate’s funds." },
       ],
-      cta: { label: "Review campaign", href: reviewUrl },
+      notice: metaReady ? undefined : { body: "To approve and launch, connect your Facebook Page and Ad Account" },
+      cta: { label: metaReady ? "Review campaign" : "Review & connect Meta", href: reviewUrl },
       footerNote: "Communication stays inside Nettmark. Affiliate contact details are not shared.",
     });
 

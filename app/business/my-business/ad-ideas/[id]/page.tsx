@@ -250,7 +250,7 @@ function CommissionBillingForm({
       <div className="mb-3">
         <div className="text-sm font-semibold text-white">Commission payment method</div>
         <p className="mt-1 text-xs leading-5 text-slate-400">
-          This card is only used when tracked affiliate commissions become payable. Affiliate ad spend is still $0 to you.
+          This card is only used when tracked affiliate commissions become payable. Ad spend is funded from the affiliate’s wallet: Meta bills your connected ad account and Nettmark pays that spend back from the affiliate’s funds.
         </p>
       </div>
       <PaymentElement />
@@ -571,7 +571,7 @@ export default function AdIdeaProposalDetailPage() {
       return {
         label: "Add commission card",
         title: "Add commission payment method",
-        description: "Your Growth trial is active. Nettmark uses a separate Stripe account for tracked affiliate commissions, so save a commission card once before launch. Your ad spend remains $0.",
+        description: "Your Growth trial is active. Nettmark uses a separate Stripe account for tracked affiliate commissions, so save a commission card once before launch. Ad spend is funded from the affiliate’s wallet: Meta bills your connected ad account and Nettmark pays that spend back from the affiliate’s funds.",
         onClick: () => void beginCommissionBilling(),
       };
     }

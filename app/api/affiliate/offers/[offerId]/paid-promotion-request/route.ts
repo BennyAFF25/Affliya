@@ -136,7 +136,7 @@ export async function POST(req: Request, context: { params: Promise<{ offerId: s
           rows: [
             { label: "Affiliate", value: affiliateName },
             ...(budget > 0 ? [{ label: "Planned daily budget", value: `${budget.toFixed(2)} funded by affiliate` }] : []),
-            { label: "Your ad spend", value: "$0" },
+            { label: "Ad spend", value: "Ad spend is funded from the affiliate’s wallet: Meta bills your connected ad account and Nettmark pays that spend back from the affiliate’s funds." },
           ],
           notice: { title: "Next step", body: nextStepCopy, tone: "info" },
           cta: { label: ctaLabel, href: nextUrl },

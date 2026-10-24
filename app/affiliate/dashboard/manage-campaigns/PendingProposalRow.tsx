@@ -20,6 +20,7 @@ export type PendingProposal = {
   state: "currency_blocked" | "loading" | "waiting_for_business" | "funding_required" | "funded_waiting_for_business" | "funding_unavailable" | "timing_update_required" | "meta_cleanup_required";
   timingMessage?: string | null;
   growthReady: boolean;
+  metaReady?: boolean;
   funding: {
     holdAudEstimate?: number | null;
     ready: boolean;
@@ -50,7 +51,9 @@ export function PendingProposalRow({ proposal }: { proposal: PendingProposal }) 
     : timingUpdate
       ? "The proposed campaign start or end date needs updating. The business can reschedule this proposal without changing your approved budget or creative."
     : proposal.state === "funding_unavailable" ? "Proposal saved. Funding could not be checked; it will be verified before launch." : fundingRequired
-    ? `The business has enabled paid promotion. Add ${formatMoney(proposal.funding?.deficit || 0)} to prepare this campaign for launch.`
+    ? proposal.metaReady === false
+      ? "Paid proposals open · the brand still needs to connect Meta before this can launch"
+      : `The business has enabled paid promotion. Add ${formatMoney(proposal.funding?.deficit || 0)} to prepare this campaign for launch.`
     : funded
       ? "Campaign funding is ready. Waiting for the business to finish setup and approve the campaign."
       : "Proposal sent. No deposit is required while the business decides whether to enable paid promotion.";

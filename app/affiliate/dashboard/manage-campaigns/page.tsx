@@ -1,4 +1,5 @@
 "use client";
+import { computeOfferMetaReady, type OfferMetaRow } from "../../../../utils/offerMetaReadiness";
 import React from "react";
 import { withProposalTimeout } from "../../../../utils/affiliate/proposalTimeout";
 import { getSpendableWalletBalance } from "../../../../utils/wallet/spendableBalance";
@@ -118,12 +119,13 @@ export default function AffiliateManageCampaignsPage() {
             const ids = [...new Set([...submissions.map(row => row.offerId), ...campaigns.flatMap(result =>
               result.status === "fulfilled" ? result.value.map(row => row.offer_id).filter((id): id is string => Boolean(id)) : [])])];
             if (!ids.length || !current()) return;
-            const { data, error } = await withProposalTimeout(supabase.from("offers").select("id,title").in("id", ids));
+            const { data, error } = await withProposalTimeout(supabase.from("offers").select("id,title,business_email,meta_page_id,meta_ad_account_id").in("id", ids));
             if (error) throw error;
             if (!current()) return;
             const titles = Object.fromEntries(((data || []) as { id: string; title: string }[]).map(row => [row.id, row.title]));
+            const metaById = Object.fromEntries(((data || []) as (OfferMetaRow & { id: string })[]).map(offer => [offer.id, computeOfferMetaReady(offer).metaReady]));
             setOfferNameById(titles);
-            setPendingProposals(rows => rows.map(row => ({ ...row, offerTitle: titles[row.offerId] || row.offerTitle })));
+            setPendingProposals(rows => rows.map(row => ({ ...row, offerTitle: titles[row.offerId] || row.offerTitle, metaReady: metaById[row.offerId] })));
           }).catch(() => { /* Keep stored proposals and fallback titles available. */ })
             .finally(() => { if (current()) setOfferTitlesLoading(false); });
           if (!current()) return;

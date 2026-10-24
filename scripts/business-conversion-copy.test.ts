@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync, existsSync } from "node:fs";
 import Module from "node:module";
 const read = (path: string) => readFileSync(path, "utf8");
 const demo = read("app/components/marketing/BusinessDemoLandingPage.tsx");
@@ -12,6 +12,26 @@ for (const source of [demo, landing, picker, trial]) {
   assert.ok(source.includes("The 14-Day Affiliate-Funded Launch"));
   assert.doesNotMatch(source, /A\$0 ad spend/);
 }
+// Scan source files too: email row labels and values can split a claim.
+function checkAdSpendCopy(directory: string) {
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    const path = `${directory}/${entry.name}`;
+    if (entry.isDirectory()) checkAdSpendCopy(path);
+    else if (/\.(tsx?|html|md)$/.test(entry.name)) {
+      const source = read(path);
+      assert.doesNotMatch(source, /ad spend:? \$0|ad spend remains \$0|A\$0 ad spend|not charged to your card/i, path);
+      assert.doesNotMatch(source, /label: "Your ad spend", value: "\$0"/i, path);
+    }
+  }
+}
+for (const directory of ["app", "components", "utils", "emails"]) {
+  if (existsSync(directory)) checkAdSpendCopy(directory);
+}
+for (const path of [
+  "app/api/affiliate/ad-ideas/notify-submitted/route.ts",
+  "app/api/affiliate/offers/[offerId]/paid-promotion-request/route.ts",
+  "app/business/my-business/ad-ideas/[id]/page.tsx",
+]) assert.match(read(path), /Ad spend is funded from the affiliate’s wallet: Meta bills your connected ad account and Nettmark pays that spend back/);
 assert.ok(demo.includes("Let affiliates fund your advertising."));
 assert.ok(landing.includes("Get sales from affiliate-funded Meta ads."));
 for (const s of [demo, landing, read("app/pricing/page.tsx")]) assert.doesNotMatch(s, /without paying for|never pay for|No upfront|you pay: A\$0|Paid by affiliate|don.t pay a cent|prepay|cover spend|covers spend/i);
