@@ -12,6 +12,10 @@ for (const source of [demo, landing, picker, trial]) {
   assert.ok(source.includes("The 14-Day Affiliate-Funded Launch"));
   assert.doesNotMatch(source, /A\$0 ad spend/);
 }
+// Catch label/value claims even when JSX markup separates them.
+const zeroAdSpend = /ad spend[\s\S]{0,300}?\$0(?=[^\d]|$)/i;
+assert.match('<div>Ad spend</div><div className="value">$0</div>', zeroAdSpend);
+assert.doesNotMatch('<div>Ad spend</div><div>Funded from affiliate wallet</div>', zeroAdSpend);
 // Scan source files too: email row labels and values can split a claim.
 function checkAdSpendCopy(directory: string) {
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
@@ -19,6 +23,9 @@ function checkAdSpendCopy(directory: string) {
     if (entry.isDirectory()) checkAdSpendCopy(path);
     else if (/\.(tsx?|html|md)$/.test(entry.name)) {
       const source = read(path);
+      if (path.startsWith("app/") && entry.name.endsWith(".tsx")) {
+        assert.doesNotMatch(source, zeroAdSpend, path);
+      }
       assert.doesNotMatch(source, /ad spend:? \$0|ad spend remains \$0|A\$0 ad spend|not charged to your card/i, path);
       assert.doesNotMatch(source, /label: "Your ad spend", value: "\$0"/i, path);
     }

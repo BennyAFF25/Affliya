@@ -2,7 +2,7 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import { useSession } from "@supabase/auth-helpers-react";
+import { useSessionContext } from "@supabase/auth-helpers-react";
 import { ArrowRight, CheckCircle2, Clock3, ImageIcon, Megaphone } from "lucide-react";
 import { useRouter } from "next/navigation";
 import React, { useEffect, useState } from "react";
@@ -154,7 +154,7 @@ export default function AdIdeasPage() {
   const [highlightedProposalId, setHighlightedProposalId] = useState<string | null>(null);
   const [launchingId, setLaunchingId] = useState<string | null>(null);
 
-  const session = useSession();
+  const { session, isLoading: authLoading } = useSessionContext();
   const user = session?.user;
   const router = useRouter();
 
@@ -184,7 +184,7 @@ export default function AdIdeasPage() {
   };
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (authLoading || !session || typeof window === "undefined") return;
     const proposalId = new URLSearchParams(window.location.search).get("proposal");
     if (proposalId && /^[0-9a-f-]{36}$/i.test(proposalId)) {
       // Notification and login deep links should land on the specific review,
@@ -193,10 +193,10 @@ export default function AdIdeasPage() {
       return;
     }
     setHighlightedProposalId(null);
-  }, [router]);
+  }, [authLoading, session, router]);
 
   useEffect(() => {
-    if (session === undefined) return;
+    if (authLoading) return;
     if (session === null) {
       const returnTo = currentAdIdeasReturnTo();
       router.push(`/login/business?returnTo=${encodeURIComponent(returnTo)}`);
@@ -225,7 +225,7 @@ export default function AdIdeasPage() {
     };
 
     void loadBusiness();
-  }, [session, user?.email, router]);
+  }, [authLoading, session, user?.email, router]);
 
   useEffect(() => {
     if (!user?.email) return;
@@ -453,8 +453,8 @@ export default function AdIdeasPage() {
                             <div className="mt-1 text-lg font-semibold text-white">{formatBudget(idea)}</div>
                           </div>
                           <div className="rounded-2xl border border-white/10 bg-[#0d1011] px-3 py-3">
-                            <div className="text-xs text-slate-400">Your ad spend</div>
-                            <div className="mt-1 text-lg font-semibold text-white">$0</div>
+                            <div className="text-xs text-slate-400">Ad spend</div>
+                            <div className="mt-1 text-xs font-semibold text-white">Funded from affiliate wallet</div>
                           </div>
                         </div>
                       </div>

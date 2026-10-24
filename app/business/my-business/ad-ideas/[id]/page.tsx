@@ -3,7 +3,7 @@ import { CurrencyEstimate } from "../../../../../components/CurrencyEstimate";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useSession } from "@supabase/auth-helpers-react";
+import { useSessionContext } from "@supabase/auth-helpers-react";
 import { loadStripe } from "@stripe/stripe-js";
 import {
   Elements,
@@ -284,7 +284,7 @@ export default function AdIdeaProposalDetailPage() {
   const params = useParams<{ id: string }>();
   const proposalId = String(params?.id || "").trim();
   const router = useRouter();
-  const session = useSession();
+  const { session, isLoading: authLoading } = useSessionContext();
   const [proposal, setProposal] = useState<Proposal | null>(null);
   const [readiness, setReadiness] = useState<ReviewReadiness | null>(null);
   const [loading, setLoading] = useState(true);
@@ -335,7 +335,7 @@ export default function AdIdeaProposalDetailPage() {
         { cache: "no-store" },
       );
       if (proposalRes.status === 401) {
-        router.replace(`/login/business?returnTo=${encodeURIComponent(canonicalPath)}`);
+        router.replace(`/login/business?returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`);
         return;
       }
       const proposalJson = await proposalRes.json().catch(() => null);
@@ -351,7 +351,7 @@ export default function AdIdeaProposalDetailPage() {
       // proposal's own details behind a slow external billing/funding check.
       const readinessRes = await readinessPromise;
       if (readinessRes.status === 401) {
-        router.replace(`/login/business?returnTo=${encodeURIComponent(canonicalPath)}`);
+        router.replace(`/login/business?returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`);
         return;
       }
       const readinessJson = await readinessRes.json().catch(() => null);
@@ -381,13 +381,13 @@ export default function AdIdeaProposalDetailPage() {
   }, [canonicalPath, proposalId, router, session?.user?.email]);
 
   useEffect(() => {
-    if (session === undefined) return;
+    if (authLoading) return;
     if (session === null) {
-      router.replace(`/login/business?returnTo=${encodeURIComponent(canonicalPath)}`);
+      router.replace(`/login/business?returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`);
       return;
     }
     void load();
-  }, [session, canonicalPath, load, router]);
+  }, [authLoading, session, canonicalPath, load, router]);
 
   const launch = async () => {
     if (!proposal) return;
@@ -724,8 +724,8 @@ export default function AdIdeaProposalDetailPage() {
                   <div className="mt-1 text-sm font-semibold text-white sm:text-base">{formatBudget(proposal)}<CurrencyEstimate currency={proposal.currency} amount={Number(proposal.budget_amount || 0) / 100 || Number(proposal.daily_budget || 0)} /></div>
                 </div>
                 <div className="pl-3">
-                  <div className="text-xs text-slate-500">Your ad spend</div>
-                  <div className="mt-1 text-sm font-semibold text-white sm:text-base">$0</div>
+                  <div className="text-xs text-slate-500">Ad spend</div>
+                  <div className="mt-1 text-xs font-semibold text-white">Funded from affiliate wallet</div>
                 </div>
               </div>
             </section>
@@ -996,7 +996,7 @@ export default function AdIdeaProposalDetailPage() {
                   ) : null}
                   <div><dt className="text-slate-500">Submitted</dt><dd className="mt-1 text-slate-200">{formatDate(proposal.created_at)}</dd></div>
                   <div><dt className="text-slate-500">Business review</dt><dd className="mt-1 text-slate-200">{proposal.business_viewed_at ? `Viewed ${formatDate(proposal.business_viewed_at)}` : "Not viewed yet"}</dd></div>
-                  <div><dt className="text-slate-500">Your ad spend</dt><dd className="mt-1 flex items-center gap-1.5 font-semibold text-slate-100"><CircleDollarSign className="h-4 w-4 text-[#57c7d1]" />$0</dd></div>
+                  <div><dt className="text-slate-500">Ad spend</dt><dd className="mt-1 flex items-center gap-1.5 text-xs font-semibold text-slate-100"><CircleDollarSign className="h-4 w-4 text-[#57c7d1]" />Funded from affiliate wallet</dd></div>
                 </dl>
               </div>
             </details>
