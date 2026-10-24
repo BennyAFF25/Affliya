@@ -4,8 +4,8 @@ export type OnboardingSuccessStep = { message: string; buttonLabel: string; href
 export function onboardingSuccessStep(hasPlan: boolean): OnboardingSuccessStep {
   return hasPlan
     ? {
-        message: "Your offer is saved. Next, connect Meta from your dashboard so affiliates can send paid proposals.",
-        buttonLabel: "Go to your dashboard",
+        message: "Your offer is saved. Next, connect Meta from My Business so affiliates can send paid proposals.",
+        buttonLabel: "Go to My Business",
         href: "/business/my-business",
       }
     : {

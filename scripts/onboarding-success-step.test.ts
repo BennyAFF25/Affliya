@@ -8,3 +8,5 @@ const free = onboardingSuccessStep(false);
 assert.equal(free.href, "/business/choose-plan");
 assert.match(free.message, /choose how affiliates can promote/);
 console.log("Onboarding success step copy passed");
+assert.equal(paid.message, "Your offer is saved. Next, connect Meta from My Business so affiliates can send paid proposals.");
+assert.equal(paid.buttonLabel, "Go to My Business");
