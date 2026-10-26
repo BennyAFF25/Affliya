@@ -167,12 +167,13 @@ export default function Topbar() {
         {/* Sign Out – only when authenticated */}
         {user && (
           <button
+            aria-label="Sign out"
             onClick={async () => {
               const { error } = await signOutSession(supabase);
               if (!error) router.push("/");
             }}
             className="
-              flex items-center justify-center
+              flex min-h-11 min-w-11 items-center justify-center
               bg-[var(--primary)] hover:brightness-110
               text-[var(--primary-foreground)]
               px-2 py-1.5

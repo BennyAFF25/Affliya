@@ -481,7 +481,7 @@ function AffiliateDashboardContent() {
   }, [session, approvedIds]);
 
   const user = session?.user;
-  const firstName = (user?.email || "Partner").split("@")[0];
+  const firstName = profile?.username?.trim() || (user?.email || "Partner").split("@")[0];
   const [checklistState, setChecklistState] = useState({
     payouts: false,
     marketplace: false,
@@ -1248,7 +1248,7 @@ function AffiliateDashboardContent() {
                                 <button
                                   key={option.value}
                                   onClick={() => setTf(option.value)}
-                                  className={`px-2 py-0.5 text-[10px] rounded-full transition ${
+                                  className={`min-h-11 min-w-11 px-2 py-0.5 text-[10px] rounded-full transition ${
                                     tf === option.value
                                       ? "bg-[var(--primary)] text-[var(--primary-foreground)] font-semibold"
                                       : "text-[var(--muted-foreground)] hover:text-[var(--foreground)]"
