@@ -1,13 +1,19 @@
 "use client";
 import Script from 'next/script';
 import { usePathname } from 'next/navigation';
+import { supportWidgetHiddenRoute } from '../utils/supportWidget';
 
 export default function SupportWidget() {
   const pathname = usePathname();
-  const authPage = /^\/(?:login|create-account|signup|reset-password|auth)(?:\/|$)/.test(pathname || '');
-  // CSS also hides an already-loaded widget during client-side navigation.
-  if (authPage) return <style>{`#chatbase-bubble-button, #chatbase-bubble-window, #chatbase-message-bubbles, iframe[src*="chatbase.co"] { display: none !important; }`}</style>;
+  const hidden = supportWidgetHiddenRoute(pathname);
+  const mobileHidden = supportWidgetHiddenRoute(pathname, true);
+  // Hide already-loaded widgets too, including on client-side navigation.
+  const selectors = '#chatbase-bubble-button, #chatbase-bubble-window, #chatbase-message-bubbles, iframe[src*="chatbase.co"]';
+  const hideCss = `${selectors} { display: none !important; }`;
+  if (hidden) return <style>{hideCss}</style>;
   return (
+<>
+{mobileHidden && <style>{`@media (max-width: 767px) { ${hideCss} }`}</style>}
 <Script
               id="chatbase-embed"
               strategy="afterInteractive"
@@ -41,5 +47,6 @@ export default function SupportWidget() {
 `
               }}
             />
+</>
   );
 }
