@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import { PASSWORD_ERROR, validPassword } from '../../../utils/auth/credentials';
 import PasswordRules from '../../../components/PasswordRules';
 import toast from 'react-hot-toast';
+import { getAccountRole } from '../../../utils/affiliate/accountRole';
+import { passwordResetDestination } from '../../../utils/auth/passwordResetDestination';
 
 export default function UpdatePasswordPage() {
   const [password, setPassword] = useState('');
@@ -55,6 +57,8 @@ export default function UpdatePasswordPage() {
 
     setSaving(true);
 
+    // Retain the role hint if the password update ends the recovery session.
+    const before = await supabase.auth.getSession().catch(() => null);
     let error: { message: string } | null = null;
     try {
       const response = await fetch('/api/auth/update-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password }) });
@@ -65,8 +69,10 @@ export default function UpdatePasswordPage() {
     if (error) {
       toast.error(error.message || 'Failed to update password');
     } else {
-      toast.success('Password updated');
-      router.push('/login');
+      const after = await supabase.auth.getSession().catch(() => null);
+      const user = after?.data.session?.user || before?.data.session?.user;
+      const profileRole = user ? await getAccountRole(user.id).catch(() => '') : '';
+      router.replace(passwordResetDestination(!!after?.data.session, profileRole, user?.user_metadata?.role));
     }
 
     setSaving(false);

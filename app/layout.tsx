@@ -1,3 +1,4 @@
+import PasswordUpdatedNotice from '../components/PasswordUpdatedNotice';
 import SupportWidget from '../components/SupportWidget';
 import TrybePixel from "../components/marketing/TrybePixel";
 import ChatbaseIdentity from "../components/ChatbaseIdentity";
@@ -160,6 +161,7 @@ fbq('track', 'PageView');
                 alt=""
               />
             </noscript>
+            <PasswordUpdatedNotice />
             <SupportWidget />
             <ChatbaseIdentity />
             <Script
