@@ -1,4 +1,7 @@
 'use client';
+
+import { PASSWORD_ERROR, USERNAME_HINT, validPassword, validUsername } from '../../utils/auth/credentials';
+import PasswordRules from '../../components/PasswordRules';
 import { resolveBusinessPlanChoice } from '../../utils/businessPlanChoice';
 import React from "react";
 
@@ -96,26 +99,34 @@ function CreateAccountInner() {
     const trimmedEmail = email.trim();
 
     try {
+      if (!validPassword(password)) throw new Error(PASSWORD_ERROR);
       if (!trimmedUsername) {
         throw new Error(isBusiness ? 'Please enter your business name.' : 'Please choose a username.');
       }
-      if (!isBusiness && !/^[A-Za-z0-9._-]{3,24}$/.test(trimmedUsername)) {
+      if (!isBusiness && !validUsername(trimmedUsername)) {
         throw new Error('Username must be 3–24 characters using letters, numbers, dots, underscores or hyphens.');
       }
       if (!trimmedEmail) throw new Error('Please enter an email.');
 
       console.log('[SIGNUP] starting', { role, email: trimmedEmail, username: trimmedUsername });
 
-      const { data, error } = await supabase.auth.signUp({
-        email: trimmedEmail,
-        password,
-        options: {
-          emailRedirectTo: authRedirect,
-          data: { role, username: trimmedUsername, ...(isBusiness ? { business_plan_first_v2: true } : {}) },
-        },
+      const signupResponse = await fetch("/api/auth/signup", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: trimmedEmail,
+          password,
+          options: {
+            emailRedirectTo: authRedirect,
+            data: { role, username: trimmedUsername, ...(isBusiness ? { business_plan_first_v2: true } : {}) },
+          },
+        }),
       });
-
-      if (error) throw error;
+      const { data, error } = await signupResponse.json();
+      if (!signupResponse.ok || error) throw new Error(error || 'Sign up failed');
+      if (data?.session) {
+        const { error: sessionError } = await supabase.auth.setSession(data.session);
+        if (sessionError) throw sessionError;
+      }
 
       console.log('[SIGNUP] signUp success', {
         hasUser: !!data?.user,
@@ -321,7 +332,7 @@ function CreateAccountInner() {
             <button
               type="button"
               onClick={goHome}
-              className="text-xs text-white/38 transition hover:text-white/70"
+              className="min-h-11 min-w-11 text-xs text-white/38 transition hover:text-white/70"
             >
               Exit
             </button>
@@ -347,7 +358,7 @@ function CreateAccountInner() {
                 <button
                   type="button"
                   onClick={goHome}
-                  className="hidden shrink-0 text-xs text-white/32 transition hover:text-white/65 lg:block"
+                  className="hidden min-h-11 min-w-11 shrink-0 text-xs text-white/32 transition hover:text-white/65 lg:block"
                   aria-label="Go home"
                 >
                   Exit
@@ -374,7 +385,7 @@ function CreateAccountInner() {
                   <input
                     type="text"
                     required
-                    placeholder={isBusiness ? "Your business name" : "e.g. jamesmarkets"}
+                    placeholder={isBusiness ? "Your business name" : "e.g. sarahpromotes"}
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     className="w-full bg-transparent px-4 py-3.5 text-[15px] text-white outline-none placeholder:text-white/22"
@@ -382,11 +393,14 @@ function CreateAccountInner() {
                   />
                 </Field>
 
+                {!isBusiness && <p className="text-xs text-white/55">{USERNAME_HINT}</p>}
+
                 <Field label="Email" hint={isBusiness ? 'Use the email you manage the business with' : 'Used for your account and payout notifications'}>
                   <input
                     type="email"
                     required
-                    placeholder="you@company.com"
+                    placeholder="you@email.com"
+                    autoComplete="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="w-full bg-transparent px-4 py-3.5 text-[15px] text-white outline-none placeholder:text-white/22"
@@ -397,6 +411,7 @@ function CreateAccountInner() {
                   <div className="relative">
                     <input
                       type={showPwd ? 'text' : 'password'}
+                      autoComplete="new-password"
                       required
                       placeholder="••••••••"
                       value={password}
@@ -406,7 +421,7 @@ function CreateAccountInner() {
                     <button
                       type="button"
                       onClick={() => setShowPwd((s) => !s)}
-                      className="absolute inset-y-0 right-3 my-auto grid h-8 w-8 place-items-center rounded-full text-white/35 transition hover:bg-white/[0.05] hover:text-white/70"
+                      className="absolute inset-y-0 right-1 my-auto grid min-h-11 min-w-11 place-items-center rounded-full text-white/35 transition hover:bg-white/[0.05] hover:text-white/70"
                       aria-label={showPwd ? 'Hide password' : 'Show password'}
                     >
                       {showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -414,8 +429,10 @@ function CreateAccountInner() {
                   </div>
                 </Field>
 
+                <PasswordRules password={password} />
+
                 {err && (
-                  <p className="rounded-2xl border border-red-400/15 bg-red-400/[0.05] px-4 py-3 text-sm leading-5 text-red-200/85">
+                  <p role="alert" className="rounded-2xl border border-red-400/15 bg-red-400/[0.05] px-4 py-3 text-sm leading-5 text-red-200/85">
                     {err}
                   </p>
                 )}
@@ -434,8 +451,10 @@ function CreateAccountInner() {
                 <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#00C2CB]/70" />
                 <p>
                   {isBusiness
-                    ? 'Next: start The 14-Day Affiliate-Funded Launch, then set up your offer. Growth requires a card and costs A$49/month after the trial unless you cancel. Free (Organic affiliates only, no paid ads) remains available at the next step. By continuing, you agree to our Terms and Privacy Policy.'
-                    : 'No card required to join. By continuing, you agree to our Terms and Privacy Policy. Fee-based charges only apply later when money moves through wallets or payouts.'}
+                    ? 'Next: start The 14-Day Affiliate-Funded Launch, then set up your offer. Growth requires a card and costs A$49/month after the trial unless you cancel. Free (Organic affiliates only, no paid ads) remains available at the next step. By continuing, you agree to our'
+                    : 'No card required to join. By continuing, you agree to our'}
+                  {' '}<a className="underline" href="/legal/privacy/terms-of-service">Terms</a> and <a className="underline" href="/legal/privacy">Privacy Policy</a>.
+                  {!isBusiness && ' Fee-based charges only apply later when money moves through wallets or payouts.'}
                 </p>
               </div>
             </div>

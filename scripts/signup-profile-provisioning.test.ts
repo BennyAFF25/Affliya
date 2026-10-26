@@ -10,8 +10,11 @@ const lockdown = readFileSync("supabase/migrations/20261009224000_lockdown_publi
 // Both business and affiliate signups use the same form and Auth provisioning.
 // The browser must not perform upserts of id/email/role, or attempt to access
 // pre-signup financial records, because UPDATE grants are column-scoped.
-assert.match(signup, /supabase\.auth\.signUp\(/);
-assert.match(signup, /data: \{ role, username: trimmedUsername \}/);
+const signupRoute = readFileSync("app/api/auth/signup/route.ts", "utf8");
+assert.match(signup, /fetch\("\/api\/auth\/signup"/);
+assert.match(signupRoute, /supabase\.auth\.signUp\(/);
+assert.match(signup, /supabase\.auth\.setSession\(data.session\)/);
+assert.match(signup, /data: \{ role, username: trimmedUsername,/);
 assert.doesNotMatch(signup, /\.from\(['"]profiles['"]\)\s*\.upsert\(/);
 assert.doesNotMatch(signup, /pre_signup_revenue['"]\)/);
 assert.match(signup, /\.from\('profiles'\)\s*\.select\('role'\)/);
@@ -22,10 +25,10 @@ assert.match(signup, /signupInFlight\.current = false/);
 assert.match(signup, /router\.replace\(onboardingPath\)/);
 
 // The business login and email-confirmed redirect must stay read-only.
-assert.match(login, /\.from\("profiles"\)\s*\.select\("role"\)/);
+assert.match(login, /getAccountRole/);
 assert.doesNotMatch(login, /\.from\("profiles"\)\s*\.upsert\(/);
 assert.doesNotMatch(redirect, /\.from\("profiles"\)\s*\.insert\(/);
-assert.match(redirect, /\.from\("profiles"\)\s*\.select\("role"\)/);
+assert.match(readFileSync("utils/affiliate/accountRole.ts", "utf8"), /\.from\(['"]profiles['"]\)\s*\.select\(['"]role['"]\)/);
 
 // The migration creates profiles exactly once on auth.users inserts, rather
 // than widening profile role, email, and Stripe-field update permissions.

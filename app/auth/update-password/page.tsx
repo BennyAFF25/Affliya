@@ -3,6 +3,8 @@
 import { useEffect, useState, FormEvent } from 'react';
 import { supabase } from 'utils/supabase/pages-client';
 import { useRouter } from 'next/navigation';
+import { PASSWORD_ERROR, validPassword } from '../../../utils/auth/credentials';
+import PasswordRules from '../../../components/PasswordRules';
 import toast from 'react-hot-toast';
 
 export default function UpdatePasswordPage() {
@@ -42,8 +44,8 @@ export default function UpdatePasswordPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (password.length < 6) {
-      toast.error('Password must be at least 6 characters.');
+    if (!validPassword(password)) {
+      toast.error(PASSWORD_ERROR);
       return;
     }
     if (password !== confirm) {
@@ -53,7 +55,12 @@ export default function UpdatePasswordPage() {
 
     setSaving(true);
 
-    const { error } = await supabase.auth.updateUser({ password });
+    let error: { message: string } | null = null;
+    try {
+      const response = await fetch('/api/auth/update-password', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password }) });
+      const result = await response.json();
+      if (!response.ok) error = { message: result.error || 'Failed to update password' };
+    } catch { error = { message: 'Could not update password. Please try again.' }; }
 
     if (error) {
       toast.error(error.message || 'Failed to update password');
@@ -76,7 +83,7 @@ export default function UpdatePasswordPage() {
             Set a new password
           </h1>
           <p className="mt-2 text-sm leading-6 text-white/70">
-            Choose a new password for your Nettmark account. Use at least 6 characters.
+            Choose a new password for your Nettmark account. Use at least 8 characters including a number.
           </p>
         </div>
 
@@ -89,12 +96,12 @@ export default function UpdatePasswordPage() {
               <input
                 type={showPassword ? 'text' : 'password'}
                 required
-                minLength={6}
+                minLength={8}
                 autoComplete="new-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full rounded-xl border border-white/15 bg-black/40 px-3 py-3 pr-16 text-base text-white placeholder-white/40 outline-none focus:border-[#00C2CB] focus:ring-1 focus:ring-[#00C2CB]"
-                placeholder="At least 6 characters"
+                placeholder="At least 8 characters"
               />
               <button
                 type="button"
@@ -106,6 +113,7 @@ export default function UpdatePasswordPage() {
             </div>
           </div>
 
+          <PasswordRules password={password} />
           <div>
             <label className="mb-1.5 block text-xs font-medium text-white/65">
               Confirm password
@@ -114,7 +122,7 @@ export default function UpdatePasswordPage() {
               <input
                 type={showConfirm ? 'text' : 'password'}
                 required
-                minLength={6}
+                minLength={8}
                 autoComplete="new-password"
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
