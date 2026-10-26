@@ -5,6 +5,7 @@ import {
   ArrowLeft, CheckCheck, MessageCircle, RefreshCw, Search, Send,
   Store, UserRound,
 } from "lucide-react";
+import { formatInboxTimestamp } from "../../../utils/inboxTimestamp";
 import { supabase } from "utils/supabase/pages-client";
 
 type Contact = {
@@ -22,7 +23,7 @@ type Snapshot = {
 };
 type InboxAudience = "affiliate" | "business";
 
-const when = (value: string) => new Date(value).toLocaleString("en-AU", {
+const when = (value: string) => formatInboxTimestamp(value, {
   day: "numeric", month: "short", hour: "numeric", minute: "2-digit",
 });
 
@@ -66,14 +67,17 @@ export function InboxMessenger({ audience }: { audience: InboxAudience }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
+  const sendRevision = useRef(0);
 
   const refresh = useCallback(async () => {
+    const revision = sendRevision.current;
     try {
       const res = await fetch("/api/inbox/chat", { cache: "no-store", credentials: "same-origin" });
       const data = (await res.json().catch(() => null)) as Snapshot | null;
       if (!res.ok || !data?.success) throw new Error(data?.error || "Unable to load conversations.");
       setContacts(data.contacts);
-      setMessages(data.messages);
+      setMessages(previous => revision === sendRevision.current ? data.messages :
+        [...new Map([...data.messages, ...previous].map(message => [message.id, message])).values()]);
       setViewerId(data.viewerId);
       setError("");
       setActiveKey((current) =>
@@ -174,7 +178,12 @@ export function InboxMessenger({ audience }: { audience: InboxAudience }) {
       const result = await res.json().catch(() => null);
       if (!res.ok || !result?.success) throw new Error(result?.error || "Your message could not be sent.");
       setDraft("");
-      await refresh();
+      // Append the confirmed insert immediately; sending does not await a full inbox reload.
+      if (result.message) {
+        sendRevision.current++;
+        setMessages(previous => previous.some(message => message.id === result.message.id)
+          ? previous : [...previous, result.message]);
+      } else void refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Your message could not be sent.");
     } finally {

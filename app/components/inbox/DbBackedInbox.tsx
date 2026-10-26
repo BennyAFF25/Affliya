@@ -1,5 +1,7 @@
 "use client";
 
+import { formatInboxTimestamp, parseInboxTimestamp } from "../../../utils/inboxTimestamp";
+
 import React, { useEffect, useMemo, useState } from "react";
 import { useSession } from "@supabase/auth-helpers-react";
 import {
@@ -127,12 +129,7 @@ const roleLabel = (value?: string | null) => {
 
 const typeLabel = (value?: string | null) => roleLabel(value || "message");
 
-const dateLabel = (value?: string | null) => {
-  if (!value) return "Unknown date";
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return "Unknown date";
-  return parsed.toLocaleString();
-};
+const dateLabel = formatInboxTimestamp;
 
 const archiveStorageKey = (audience: InboxAudience, email?: string | null) =>
   email ? `nettmark_${audience}_inbox_${email}` : null;
@@ -341,7 +338,7 @@ export function DbBackedInbox({
 
     return [...messageEntries, ...notificationEntries].sort(
       (a, b) =>
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        parseInboxTimestamp(b.createdAt).getTime() - parseInboxTimestamp(a.createdAt).getTime(),
     );
   }, [messages, notifications]);
 

@@ -166,7 +166,14 @@ export async function POST(request: Request) {
       client_message_id: clientMessageId, body: text,
     }, { onConflict: "sender_user_id,client_message_id", ignoreDuplicates: true });
     if (error) throw error;
-    return NextResponse.json({ success: true }, { headers: { "Cache-Control": "no-store" } });
+    // Read by the idempotency key, including duplicate retries. Never invent a sent timestamp.
+    const { data: saved, error: readError } = await ctx.admin.from("inbox_chat_messages")
+      .select("id,offer_id,business_user_id,affiliate_user_id,sender_user_id,body,created_at,read_at")
+      .eq("sender_user_id", ctx.identity.id).eq("client_message_id", clientMessageId).single();
+    if (readError || !saved) throw readError || new Error("Message read-back failed");
+    const message = { id: saved.id, key: [saved.offer_id, saved.business_user_id, saved.affiliate_user_id].join(":"),
+      senderId: saved.sender_user_id, body: saved.body, createdAt: saved.created_at, readAt: saved.read_at };
+    return NextResponse.json({ success: true, message }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     console.error("[inbox/chat] send failed", error);
     return fail("Message could not be sent. Try again.", 503);
