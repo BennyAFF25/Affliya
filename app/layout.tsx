@@ -1,3 +1,4 @@
+import SupportWidget from '../components/SupportWidget';
 import TrybePixel from "../components/marketing/TrybePixel";
 import ChatbaseIdentity from "../components/ChatbaseIdentity";
 import './globals.css';
@@ -159,39 +160,7 @@ fbq('track', 'PageView');
                 alt=""
               />
             </noscript>
-            <Script
-              id="chatbase-embed"
-              strategy="afterInteractive"
-              dangerouslySetInnerHTML={{
-                __html: `
-(function(){
-  if(!window.chatbase||window.chatbase("getState")!=="initialized"){
-    window.chatbase=(...arguments)=>{
-      if(!window.chatbase.q){window.chatbase.q=[]}
-      window.chatbase.q.push(arguments)
-    };
-    window.chatbase=new Proxy(window.chatbase,{
-      get(target,prop){
-        if(prop==="q"){return target.q}
-        return(...args)=>target(prop,...args)
-      }
-    })
-  }
-
-  const load=function(){
-    const s=document.createElement("script");
-    s.src="https://www.chatbase.co/embed.min.js";
-    s.id="SIfIZPMuvWaYrY3TzaJrg";
-    s.domain="www.chatbase.co";
-    document.body.appendChild(s);
-  };
-
-  if(document.readyState==="complete"){load()}
-  else{window.addEventListener("load",load)}
-})();
-`
-              }}
-            />
+            <SupportWidget />
             <ChatbaseIdentity />
             <Script
               id="data-minimisation-footer-link"
