@@ -111,7 +111,9 @@ export function rankOnboardingOffers(offers: OnboardingOffer[]) {
     (isApproved(offer.requestStatus) ? 4 : offer.participationMode === "open" ? 2 : 0) +
     ((offer.readyOrganicCount || 0) > 0 ? 1 : 0) -
     (offer.requestStatus === "pending" ? 5 : 0);
-  return [...offers].sort((a, b) => score(b) - score(a) || a.title.localeCompare(b.title));
+  return [...offers].sort((a, b) =>
+    Number(/nettmark partner programme/i.test(a.title)) - Number(/nettmark partner programme/i.test(b.title)) ||
+    score(b) - score(a) || a.title.localeCompare(b.title));
 }
 
 export function canUsePreapprovedOrganic(

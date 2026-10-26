@@ -191,7 +191,7 @@ function AffiliateOnboarding() {
                 <div className="mt-1"><CommissionSummary offer={selected} /></div>
               </div>
             </div>
-            <p className="mt-4 text-sm leading-6 text-white/55">{selected.description || "Prepare a promotion around this offer."}</p>
+            <details className="mt-4 text-sm leading-6 text-white/55"><summary className="min-h-11 cursor-pointer">About this offer</summary><p>{selected.description || "Prepare a promotion around this offer."}</p></details>
 
             {waiting ? <div role="status" className="mt-5 rounded-2xl border border-white/10 bg-black/10 p-4">
               <div className="flex items-center gap-2 text-[#00C2CB]"><Check className="h-5 w-5" aria-hidden="true" /><p className="font-semibold">{pendingTitle ? "Request sent to " + pendingTitle : "Waiting for business approval"}</p></div>

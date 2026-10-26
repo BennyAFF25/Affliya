@@ -1,4 +1,6 @@
 "use client";
+
+import { affiliateLoginDestination } from "../../utils/affiliate/loginDestination";
 import { businessLoginDestination } from "../../utils/businessLoginDestination";
 
 import React, { useEffect } from "react";
@@ -32,7 +34,7 @@ export default function AuthRedirect() {
       const role = await getAccountRole(user.id);
 
       if (role === "affiliate") {
-        const destination = roleReturnTo(returnTo, role) || "/affiliate/dashboard";
+        const destination = await affiliateLoginDestination(roleReturnTo(returnTo, role), user.email);
         router.replace(destination);
       } else if (role === "business") {
         const destination = await businessLoginDestination(roleReturnTo(returnTo, role));

@@ -55,7 +55,7 @@ function getPromotionMode(offer: Offer | null) {
   }
 
   return {
-    label: 'Paid setup pending',
+    label: 'Organic now, paid soon',
     tone: 'border-white/10 bg-white/[0.04] text-white/70',
     helper: 'Organic promotion is available now. You can submit a paid campaign proposal; it can launch once the business finishes Meta setup.',
   };

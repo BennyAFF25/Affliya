@@ -1,4 +1,6 @@
 "use client";
+
+import { affiliateLoginDestination } from "../../../utils/affiliate/loginDestination";
 import { getAccountRole } from "../../../utils/affiliate/accountRole";
 
 import { useState } from "react";
@@ -46,7 +48,7 @@ export default function AffiliateLogin() {
       const next = new URLSearchParams(window.location.search).get("next");
       const safeNext = roleReturnTo(next, "affiliate");
       const role = data.user ? await getAccountRole(data.user.id) : "";
-      router.replace(role === "affiliate" ? safeNext || "/affiliate/dashboard" : "/auth-redirect");
+      router.replace(role === "affiliate" ? await affiliateLoginDestination(safeNext, data.user?.email) : "/auth-redirect");
     } catch (err: any) {
       console.error("[Affiliate login] unexpected error", err);
       setError("Login failed. Please try again.");
