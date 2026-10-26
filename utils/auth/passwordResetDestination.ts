@@ -15,3 +15,19 @@ export function passwordResetDestination(hasSession: boolean, profileRole?: unkn
 export function showPasswordUpdatedNoticeOn(pathname: string | null | undefined) {
   return !!pathname && !/^\/(?:auth-redirect|auth)(?:\/|$)/.test(pathname);
 }
+
+const safeInternal = (value: string | null) =>
+  value && value.startsWith('/') && !value.startsWith('//') && !value.includes('\\') && !/[\u0000-\u0020\u007f]/.test(value) ? value.slice(0, 500) : null;
+
+/** /login?role=business&next=/x -> /login/business?returnTo=/x (affiliate login uses ?next=). */
+export function roleLoginRedirect(search: string) {
+  const params = new URLSearchParams(search);
+  const role = params.get('role');
+  if (role !== 'business' && role !== 'affiliate') return null;
+  const next = safeInternal(params.get('next') || params.get('returnTo'));
+  const out = new URLSearchParams();
+  if (next) out.set(role === 'business' ? 'returnTo' : 'next', next);
+  for (const key of ['reset', 'passwordUpdated']) if (params.get(key)) out.set(key, params.get(key)!);
+  const query = out.toString();
+  return `/login/${role}${query ? `?${query}` : ''}`;
+}

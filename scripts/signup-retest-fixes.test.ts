@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { supportWidgetHiddenRoute } from '../utils/supportWidget';
 import { onboardingBrandKey, dedupeOnboardingOffers, rankOnboardingOffers, onboardingReadinessLabel, type OnboardingOffer } from '../utils/affiliate/onboarding';
 import { computeOfferMetaReady } from '../utils/offerMetaReadiness';
-import { passwordResetDestination, showPasswordUpdatedNoticeOn } from '../utils/auth/passwordResetDestination';
+import { passwordResetDestination, roleLoginRedirect, showPasswordUpdatedNoticeOn } from '../utils/auth/passwordResetDestination';
 
 for (const path of ['/login', '/login/affiliate', '/auth/update-password', '/create-account', '/affiliate/inbox', '/affiliate/inbox/compose', '/business/inbox', '/business/inbox/thread/1']) {
   assert.equal(supportWidgetHiddenRoute(path), true, path);
@@ -34,6 +34,15 @@ for (const p of ['/business/choose-plan', '/onboarding/for-partners', '/affiliat
 for (const p of ['/auth-redirect', '/auth/update-password', null]) assert.ok(!showPasswordUpdatedNoticeOn(p));
 const notice = readFileSync('components/PasswordUpdatedNotice.tsx', 'utf8');
 assert.match(notice, /sessionStorage/);
+assert.equal(roleLoginRedirect('?role=business&next=/business/choose-plan'), '/login/business?returnTo=%2Fbusiness%2Fchoose-plan');
+assert.equal(roleLoginRedirect('?role=affiliate&next=%2Faffiliate%2Fdashboard'), '/login/affiliate?next=%2Faffiliate%2Fdashboard');
+assert.equal(roleLoginRedirect('?role=business&returnTo=//evil.com'), '/login/business');
+assert.equal(roleLoginRedirect(''), null);
+assert.equal(roleLoginRedirect('?role=admin'), null);
+const resetPage = readFileSync('app/auth/update-password/page.tsx', 'utf8');
+// Regression: recovery sessions must reach SessionContextProvider via a full navigation.
+assert.match(resetPage, /window\.location\.assign\(passwordResetDestination/);
+assert.doesNotMatch(resetPage, /router\.(replace|push)\(passwordResetDestination/);
 console.log('Signup retest fixes passed');
 
 assert.equal(onboardingBrandKey({ business_email: "A@x.com", title: "Urban Spirit " }), onboardingBrandKey({ business_email: "a@x.com", title: "urban spirit" }));

@@ -73,7 +73,12 @@ export default function UpdatePasswordPage() {
       const user = after?.data.session?.user || before?.data.session?.user;
       const profileRole = user ? await getAccountRole(user.id).catch(() => '') : '';
       try { window.sessionStorage.setItem(PASSWORD_UPDATED_FLAG, '1'); } catch { /* Query param fallback below. */ }
-      router.replace(passwordResetDestination(!!after?.data.session, profileRole, user?.user_metadata?.role));
+      // Recovery sign-in emits PASSWORD_RECOVERY, which the shared SessionContextProvider
+      // ignores, and the password is changed server-side (no client USER_UPDATED). Without a
+      // full reload, pages using useSession() saw no session and bounced to login.
+      // A hard navigation re-hydrates the provider from the persisted auth cookie.
+      window.location.assign(passwordResetDestination(!!after?.data.session, profileRole, user?.user_metadata?.role));
+      return;
     }
 
     setSaving(false);

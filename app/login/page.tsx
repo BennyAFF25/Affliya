@@ -3,8 +3,15 @@
 import Link from "next/link";
 import { User, Briefcase } from "lucide-react";
 import MarketingHeader from "@/components/marketing/MarketingHeader";
+import { useEffect } from "react";
+import { roleLoginRedirect } from "../../utils/auth/passwordResetDestination";
 
 export default function LoginPage() {
+  useEffect(() => {
+    // Honour ?role=business|affiliate (used by page auth guards) instead of the generic chooser.
+    const target = roleLoginRedirect(window.location.search);
+    if (target) window.location.replace(target);
+  }, []);
   return (
     <div className="marketing-login-theme min-h-screen w-full flex flex-col bg-gradient-to-br from-[#00363a] via-black to-black">
       <MarketingHeader />
