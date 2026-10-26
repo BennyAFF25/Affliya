@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { supportWidgetHiddenRoute } from '../utils/supportWidget';
 import { onboardingBrandKey, dedupeOnboardingOffers, rankOnboardingOffers, onboardingReadinessLabel, type OnboardingOffer } from '../utils/affiliate/onboarding';
 import { computeOfferMetaReady } from '../utils/offerMetaReadiness';
-import { passwordResetDestination } from '../utils/auth/passwordResetDestination';
+import { passwordResetDestination, showPasswordUpdatedNoticeOn } from '../utils/auth/passwordResetDestination';
 
 for (const path of ['/login', '/login/affiliate', '/auth/update-password', '/create-account', '/affiliate/inbox', '/affiliate/inbox/compose', '/business/inbox', '/business/inbox/thread/1']) {
   assert.equal(supportWidgetHiddenRoute(path), true, path);
@@ -26,13 +26,14 @@ assert.match(api, /metaReady: computeOfferMetaReady\(row, connectionsByBusiness/
 assert.match(api, /select\("business_email,page_id,ad_account_id"\)/);
 assert.equal(onboardingReadinessLabel({ metaReady: computeOfferMetaReady({ business_email: 'brand@example.test' }, [{ page_id: 'page', ad_account_id: 'ads' }]).metaReady }), 'Ads enabled');
 assert.equal(onboardingReadinessLabel({ metaReady: computeOfferMetaReady({ business_email: 'brand@example.test' }, [{ page_id: 'one', ad_account_id: 'ads' }, { page_id: 'two' }]).metaReady }), 'Organic now, paid soon');
-for (const role of ['affiliate', 'business']) {
-  assert.equal(passwordResetDestination(true, role), (role === 'affiliate' ? '/affiliate/dashboard' : '/business/my-business') + '?passwordUpdated=1');
-  assert.equal(passwordResetDestination(false, role), `/login/${role}?reset=1&passwordUpdated=1`);
-  assert.equal(passwordResetDestination(true, '', role), passwordResetDestination(true, role));
-}
-assert.equal(passwordResetDestination(true, 'business', 'affiliate'), '/business/my-business?passwordUpdated=1');
-for (const session of [true, false]) for (const role of [undefined, 'admin', '/business/my-business']) assert.equal(passwordResetDestination(session, role), '/login?passwordUpdated=1');
+for (const role of ['affiliate', 'business', 'admin', undefined]) assert.equal(passwordResetDestination(true, role), '/auth-redirect?passwordUpdated=1');
+for (const role of ['affiliate', 'business']) assert.equal(passwordResetDestination(false, role), `/login/${role}?reset=1&passwordUpdated=1`);
+assert.equal(passwordResetDestination(false, '', 'business'), '/login/business?reset=1&passwordUpdated=1');
+for (const role of [undefined, 'admin', '/business/my-business']) assert.equal(passwordResetDestination(false, role), '/login?passwordUpdated=1');
+for (const p of ['/business/choose-plan', '/onboarding/for-partners', '/affiliate/dashboard', '/login/business', '/business/my-business']) assert.ok(showPasswordUpdatedNoticeOn(p), p);
+for (const p of ['/auth-redirect', '/auth/update-password', null]) assert.ok(!showPasswordUpdatedNoticeOn(p));
+const notice = readFileSync('components/PasswordUpdatedNotice.tsx', 'utf8');
+assert.match(notice, /sessionStorage/);
 console.log('Signup retest fixes passed');
 
 assert.equal(onboardingBrandKey({ business_email: "A@x.com", title: "Urban Spirit " }), onboardingBrandKey({ business_email: "a@x.com", title: "urban spirit" }));

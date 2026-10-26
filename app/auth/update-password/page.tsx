@@ -7,7 +7,7 @@ import { PASSWORD_ERROR, validPassword } from '../../../utils/auth/credentials';
 import PasswordRules from '../../../components/PasswordRules';
 import toast from 'react-hot-toast';
 import { getAccountRole } from '../../../utils/affiliate/accountRole';
-import { passwordResetDestination } from '../../../utils/auth/passwordResetDestination';
+import { PASSWORD_UPDATED_FLAG, passwordResetDestination } from '../../../utils/auth/passwordResetDestination';
 
 export default function UpdatePasswordPage() {
   const [password, setPassword] = useState('');
@@ -72,6 +72,7 @@ export default function UpdatePasswordPage() {
       const after = await supabase.auth.getSession().catch(() => null);
       const user = after?.data.session?.user || before?.data.session?.user;
       const profileRole = user ? await getAccountRole(user.id).catch(() => '') : '';
+      try { window.sessionStorage.setItem(PASSWORD_UPDATED_FLAG, '1'); } catch { /* Query param fallback below. */ }
       router.replace(passwordResetDestination(!!after?.data.session, profileRole, user?.user_metadata?.role));
     }
 
