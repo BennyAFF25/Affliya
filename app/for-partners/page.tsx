@@ -5,7 +5,8 @@ import React from "react";
 import Link from "next/link";
 import MarketingHeader from "@/components/marketing/MarketingHeader";
 
-const startHref = "/pricing";
+import { AFFILIATE_SIGNUP_HREF } from "../../utils/affiliate/signup";
+const startHref = AFFILIATE_SIGNUP_HREF;
 const demoHref = "/lp/partner-demo#interactive-demo";
 
 const reasons = [

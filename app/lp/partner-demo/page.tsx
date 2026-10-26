@@ -33,8 +33,8 @@ export default function PartnerDemoLandingPage() {
           href: "/for-partners",
         }}
         secondaryCta={{
-          label: "View pricing",
-          href: "/pricing",
+          label: "Create a free affiliate account",
+          href: "/create-account?role=affiliate",
         }}
         demoHref="https://app.storylane.io/demo/p83vbgruopoj?embed=inline"
         demoPadding="calc(65.41% + 25px)"

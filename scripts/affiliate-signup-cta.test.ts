@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { AFFILIATE_SIGNUP_HREF } from '../utils/affiliate/signup';
+const target = new URL(AFFILIATE_SIGNUP_HREF, 'https://nettmark.com');
+assert.equal(target.pathname, '/create-account');
+assert.equal(target.searchParams.get('role'), 'affiliate');
+assert.match(readFileSync('app/for-partners/page.tsx','utf8'), /const startHref = AFFILIATE_SIGNUP_HREF/);
+assert.doesNotMatch(readFileSync('app/for-partners/page.tsx','utf8'), /["']\/pricing["']/);
+assert.match(readFileSync('app/create-account/page.tsx','utf8'), /roleParam === 'affiliate'/);
+assert.doesNotMatch(readFileSync('app/lp/partner-demo/page.tsx','utf8'), /["']\/pricing["']/);
+console.log('Affiliate CTA tests passed');
