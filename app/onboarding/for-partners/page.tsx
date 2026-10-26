@@ -7,7 +7,7 @@ import { ArrowLeft, ArrowRight, Check, Loader2, Search } from "lucide-react";
 import AcceptTermsModal from "@/components/AcceptTermsModal";
 import { logProductEvent } from "@/../utils/productEvents";
 import {
-  affiliateOnboardingPath, isApproved, onboardingCommission, type OnboardingOffer, type PromotionMode,
+  affiliateOnboardingPath, isApproved, onboardingCommission, onboardingReadinessLabel, type OnboardingOffer, type PromotionMode,
 } from "@/../utils/affiliate/onboarding";
 
 const primary = "inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#00C2CB] px-6 py-3 text-sm font-semibold text-black transition hover:bg-[#19d1d8] disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#00C2CB]";
@@ -238,7 +238,7 @@ function AffiliateOnboarding() {
                     </div>
                     <p className="mt-3 line-clamp-2 text-sm leading-6 text-white/55">{offer.description || "Choose this brand to prepare your promotion."}</p>
                     <div className="mt-4"><CommissionSummary offer={offer} /></div>
-                    <p className="mt-2 text-xs text-white/55">{approved ? "Access approved" : pending ? "Approval pending" : offer.participationMode === "open" ? "Open to affiliates" : "Business approval required"}</p>
+                    <p className="mt-2 text-xs text-white/55">{onboardingReadinessLabel(offer)}{approved ? " · Access approved" : pending ? " · Approval pending" : offer.participationMode !== "open" ? " · Business approval required" : ""}</p>
                     <span className="mt-4 flex items-center justify-between border-t border-white/[0.07] pt-4 text-sm font-semibold">{pending ? "View request" : "Choose brand"}<ArrowRight className="h-4 w-4 text-[#00C2CB]" aria-hidden="true" /></span>
                   </button>
                 );

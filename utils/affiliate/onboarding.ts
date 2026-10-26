@@ -53,6 +53,7 @@ export type OnboardingOffer = {
   participationMode: "open" | "approval_required" | "private";
   requestStatus: string | null;
   readyOrganicCount: number | null;
+  metaReady?: boolean;
 };
 
 /** Display only: actual payouts remain authoritative in process-conversion. */
@@ -106,12 +107,26 @@ export function visibleOnboardingOffer(row: Record<string, unknown>, requestStat
   return participation !== "private" || isApproved(requestStatus);
 }
 
+export function onboardingReadinessLabel(offer: Pick<OnboardingOffer, "metaReady">) {
+  return offer.metaReady ? "Ads enabled" : "Organic now, paid soon";
+}
+
+/** One card per offer ID; distinct offers from the same brand remain distinct. */
+export function dedupeOnboardingOffers(offers: OnboardingOffer[]) {
+  return [...new Map(offers.map(offer => [offer.id, offer])).values()];
+}
+
+/** Same brand + same offer title = one onboarding card (re-created offers). */
+export function onboardingBrandKey(row: Record<string, unknown>) {
+  return `${String(row.business_email || "").trim().toLowerCase()}|${String(row.title || "").trim().toLowerCase()}`;
+}
+
 export function rankOnboardingOffers(offers: OnboardingOffer[]) {
   const score = (offer: OnboardingOffer) =>
     (isApproved(offer.requestStatus) ? 4 : offer.participationMode === "open" ? 2 : 0) +
     ((offer.readyOrganicCount || 0) > 0 ? 1 : 0) -
     (offer.requestStatus === "pending" ? 5 : 0);
-  return [...offers].sort((a, b) =>
+  return dedupeOnboardingOffers(offers).sort((a, b) =>
     Number(/nettmark partner programme/i.test(a.title)) - Number(/nettmark partner programme/i.test(b.title)) ||
     score(b) - score(a) || a.title.localeCompare(b.title));
 }

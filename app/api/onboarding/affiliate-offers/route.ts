@@ -1,4 +1,6 @@
+import { computeOfferMetaReady, type MetaConnectionRow } from "@/../utils/offerMetaReadiness";
 import { NextResponse } from "next/server";
+import { onboardingBrandKey } from "@/../utils/affiliate/onboarding";
 import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import supabaseAdmin from "@/../utils/supabase/server-client";
@@ -23,18 +25,39 @@ export async function GET() {
   ]);
   if (offerResult.error || requestResult.error) return NextResponse.json({ error: "Could not load marketplace offers. Please try again." }, { status: 503 });
   const requests = new Map<string, string>((requestResult.data || []).map(row => [String(row.offer_id), String(row.status).toLowerCase()]));
-  const rows = ((offerResult.data || []) as Record<string, unknown>[]).filter(row => visibleOnboardingOffer(row, requests.get(String(row.id))));
+  const visibleRows = ((offerResult.data || []) as Record<string, unknown>[]).filter(row => visibleOnboardingOffer(row, requests.get(String(row.id))));
+  // A brand that re-created the same offer shows once: prefer one the affiliate
+  // already requested, else the newest (rows arrive newest first).
+  const byBrandTitle = new Map<string, Record<string, unknown>>();
+  for (const row of visibleRows) {
+    const key = onboardingBrandKey(row);
+    const existing = byBrandTitle.get(key);
+    if (!existing || (!requests.get(String(existing.id)) && requests.get(String(row.id)))) byBrandTitle.set(key, row);
+  }
+  const keep = new Set(byBrandTitle.values());
+  const rows = visibleRows.filter(row => keep.has(row));
   // Only counts are exposed here; brand captions require approved offer access.
   const emails = [...new Set(rows.map(row => String(row.business_email)))];
+  const connectionsByBusiness = new Map<string, MetaConnectionRow[]>();
   let assets: Record<string, unknown>[] | null = null;
   if (emails.length) {
-    const result = await supabaseAdmin.from("business_creatives").select("id,business_email,offer_id,allow_organic,organic_preapproved,is_active,archived_at,media_url")
-      .in("business_email", emails).eq("is_active", true).is("archived_at", null);
+    const [result, connections] = await Promise.all([
+      supabaseAdmin.from("business_creatives").select("id,business_email,offer_id,allow_organic,organic_preapproved,is_active,archived_at,media_url")
+        .in("business_email", emails).eq("is_active", true).is("archived_at", null),
+      // Match marketplace content-readiness; never select or expose tokens.
+      supabaseAdmin.from("meta_connections").select("business_email,page_id,ad_account_id").in("business_email", emails),
+    ]);
     if (!result.error) assets = result.data as Record<string, unknown>[];
+    if (!connections.error) for (const connection of connections.data || []) {
+      const businessConnections = connectionsByBusiness.get(connection.business_email) || [];
+      businessConnections.push(connection);
+      connectionsByBusiness.set(connection.business_email, businessConnections);
+    }
   }
   const numberOrNull = (value: unknown) => value != null && Number.isFinite(Number(value)) ? Number(value) : null;
   const textOrNull = (value: unknown) => typeof value === "string" && value.trim() ? value : null;
   const offers: OnboardingOffer[] = rows.map(row => ({
+    metaReady: computeOfferMetaReady(row, connectionsByBusiness.get(String(row.business_email)) || []).metaReady,
     id: String(row.id), title: textOrNull(row.title) || "Brand offer",
     description: textOrNull(row.description) || "", logoUrl: textOrNull(row.logo_url),
     commission: numberOrNull(row.commission), commissionValue: numberOrNull(row.commission_value),
