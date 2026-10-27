@@ -20,11 +20,22 @@ export default function BusinessLogin() {
 
   useEffect(() => {
     const query = new URLSearchParams(window.location.search);
-    setReturnTo(
-      safeBusinessReturnTo(query.get("next")) ||
-        safeBusinessReturnTo(query.get("returnTo")),
-    );
-  }, []);
+    const next = safeBusinessReturnTo(query.get("next")) ||
+      safeBusinessReturnTo(query.get("returnTo"));
+    setReturnTo(next);
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user || await getAccountRole(session.user.id) !== "business") return;
+        const destination = await businessLoginDestination(next);
+        if (!cancelled) router.replace(destination);
+      } catch {
+        if (!cancelled) setError("Login failed. Please try again.");
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

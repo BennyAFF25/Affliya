@@ -123,7 +123,7 @@ export default function BusinessOnboardingPage() {
 
   const dismissOnboarding = () => {
     try { if (session?.user?.id) sessionStorage.setItem(businessOfferOnboardingSessionKey(session.user.id), "1"); } catch { /* Navigation remains available without storage. */ }
-    router.push("/business/dashboard");
+    router.push(returnTo || "/business/dashboard");
   };
 
   const progressItems = ["Product", "Commission", "Publish"];
