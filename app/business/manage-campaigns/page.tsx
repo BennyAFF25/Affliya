@@ -76,10 +76,10 @@ const ManageCampaignsBusiness = () => {
     ]);
     setLoadingCampaigns(false);
     // Optional currency lookup and previews do not hold the campaign list open.
-    void supabase.from("meta_connections").select("*")
+    void supabase.from("meta_connections").select("ad_account_currency")
       .eq("business_email", user.email).order("created_at", { ascending: false }).limit(1).maybeSingle()
       .then(({ data }) => {
-        const currency = data?.currency || data?.account_currency || data?.ad_account_currency;
+        const currency = data?.ad_account_currency;
         setMetaCurrency(typeof currency === "string" ? currency.toUpperCase() : "AUD");
       });
 

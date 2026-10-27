@@ -1,5 +1,6 @@
 "use client";
 import { getAccountRole } from "../../../utils/affiliate/accountRole";
+import { safeBusinessReturnTo } from "../../../utils/safeBusinessReturnTo";
 import { businessLoginDestination } from "../../../utils/businessLoginDestination";
 
 import { useEffect, useState } from "react";
@@ -7,28 +8,6 @@ import { useRouter } from "next/navigation";
 import MarketingHeader from "@/components/marketing/MarketingHeader";
 import { supabase } from "@/../utils/supabase/pages-client";
 
-function safeBusinessReturnTo(value: string | null) {
-  const raw = String(value || "").trim();
-  if (
-    !raw ||
-    !raw.startsWith("/business/") ||
-    raw.startsWith("//") ||
-    raw.includes("\\") ||
-    /[\u0000-\u0020\u007f]/.test(raw)
-  ) {
-    return null;
-  }
-  // Legacy notification links used ?proposal= on the listing page.
-  // Go directly to the owner-scoped review after authentication.
-  const [pathname, query] = raw.split("?", 2);
-  if (pathname === "/business/my-business/ad-ideas" && query) {
-    const proposalId = new URLSearchParams(query).get("proposal");
-    if (proposalId && /^[0-9a-f-]{36}$/i.test(proposalId)) {
-      return `/business/my-business/ad-ideas/${encodeURIComponent(proposalId)}`;
-    }
-  }
-  return raw.slice(0, 500);
-}
 
 export default function BusinessLogin() {
   const router = useRouter();

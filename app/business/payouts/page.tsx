@@ -192,29 +192,15 @@ export default function BusinessPayoutsPage() {
         setAffiliateStripeByEmail(stripeMap);
       }
 
-      const { data: settlements, error: settlementsErr } = await supabase
-        .from("ad_spend_settlements")
-        .select("amount, status")
-        .eq("business_email", userEmail);
-
-      if (!settlementsErr && settlements) {
-        const summary = (settlements as { amount: number | string | null; status: string | null }[]).reduce<AdSpendSettlementSummary>(
-          (acc, row) => {
-            const amount = Number(row.amount || 0) || 0;
-            const status = String(row.status || "");
-
-            if (status === "transfer_succeeded") acc.transferred += amount;
-            else if (status === "transfer_blocked") acc.blocked += amount;
-            else if (status === "transfer_failed") acc.failed += amount;
-            else acc.pending += amount;
-
-            return acc;
-          },
-          { transferred: 0, pending: 0, blocked: 0, failed: 0 },
-        );
-
-        setAdSpendSummary(summary);
-      }
+      // This financial ledger is server-only. The existing endpoint verifies
+      // the session/business role and scopes every settlement to its owner.
+      try {
+        const response = await fetch("/api/business/dashboard/summary", { cache: "no-store" });
+        if (response.ok) {
+          const summary = await response.json();
+          if (summary.adSpendSummary) setAdSpendSummary(summary.adSpendSummary);
+        }
+      } catch { /* Optional summary must not prevent commission history loading. */ }
 
       const offerIds = Array.from(
         new Set(rows.map((r) => r.offer_id).filter(Boolean)),

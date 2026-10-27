@@ -128,6 +128,14 @@ export async function GET() {
       affiliateOfferViews: null,
       campaigns,
       finance,
+      adSpendSummary: settlementRows.error ? null : (settlementRows.data || []).reduce((totals, row) => {
+        const amount = Number(row.amount || 0) || 0;
+        if (row.status === "transfer_succeeded") totals.transferred += amount;
+        else if (row.status === "transfer_blocked") totals.blocked += amount;
+        else if (row.status === "transfer_failed") totals.failed += amount;
+        else totals.pending += amount;
+        return totals;
+      }, { transferred: 0, pending: 0, blocked: 0, failed: 0 }),
       affiliateSeries: [...daily.values()].sort((a, b) => a.name.localeCompare(b.name)),
       activeCampaignCount: campaigns.length,
       pendingAdProposals: proposals.count ?? 0,

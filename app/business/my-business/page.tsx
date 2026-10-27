@@ -968,7 +968,7 @@ export default function MyBusinessPage() {
 
       <div data-mobile-view={mobileView} className="my-business-theme min-h-screen bg-[var(--background)] px-4 py-6 text-white sm:px-6 lg:px-10 lg:py-8">
         <div className="mx-auto grid w-full max-w-[1500px] gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
-          <div className="space-y-6">
+          <div className="min-w-0 space-y-6">
             <MobileBusinessOverview
               view={mobileView} onNavigate={setMobileView} loading={offersLoading}
               offers={offers} requests={affiliateRequestCount} adIdeas={pendingAdIdeaCount}
@@ -1244,7 +1244,7 @@ export default function MyBusinessPage() {
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-white/[0.08] bg-black/10 p-4 2xl:col-span-2">
+                <div data-payout-setup className="min-w-0 rounded-2xl border border-white/[0.08] bg-black/10 p-4 2xl:col-span-2">
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div className="flex gap-3">
                       <span className={`mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-full ${payoutsReady ? "bg-[#00C2CB] text-black" : "border border-white/15 text-slate-500"}`}>

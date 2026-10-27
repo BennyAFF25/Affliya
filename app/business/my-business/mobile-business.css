@@ -41,3 +41,19 @@
     outline-offset: 4px;
   }
 }
+
+@media (max-width: 767px) {
+  /* Keep payout access visible on the overview, using the existing setup card
+     and handlers. The full checklist remains in the Launch setup view. */
+  .my-business-theme[data-mobile-view="overview"] [data-mobile-panel="setup"] {
+    display: block;
+  }
+  .my-business-theme[data-mobile-view="overview"] [data-mobile-panel="setup"] > :first-child,
+  .my-business-theme[data-mobile-view="overview"] [data-mobile-panel="setup"] > .grid > :not([data-payout-setup]) {
+    display: none;
+  }
+  .my-business-theme [data-payout-setup] button {
+    width: 100%;
+    min-height: 44px;
+  }
+}

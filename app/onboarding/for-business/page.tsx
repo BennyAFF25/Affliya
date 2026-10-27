@@ -1,5 +1,6 @@
 "use client";
 
+import { safeBusinessReturnTo, businessContinuationDestination } from "../../../utils/safeBusinessReturnTo";
 import { onboardingSuccessStep } from "../../../utils/onboardingSuccessStep";
 import { OFFER_CURRENCIES, OFFER_CURRENCY_MESSAGE, isOfferCurrency, isOfferCurrencyCheckViolation } from "utils/currency/offerCurrencies";
 
@@ -42,6 +43,9 @@ export default function BusinessOnboardingPage() {
   const { session, isLoading } = useSessionContext();
 
   const [step, setStep] = useState(1);
+  const [returnTo, setReturnTo] = useState<string | null>(null);
+  useEffect(() => { setReturnTo(safeBusinessReturnTo(new URLSearchParams(window.location.search).get("next"))); }, []);
+  const planPath = returnTo ? `/business/choose-plan?next=${encodeURIComponent(returnTo)}` : "/business/choose-plan";
   const [hasPlan, setHasPlan] = useState(false);
   const savedOfferId = useRef<string | null>(null);
   const candidateOfferId = useRef<string | null>(null);
@@ -139,12 +143,12 @@ export default function BusinessOnboardingPage() {
         if (!response.ok) throw new Error("Could not verify your Growth plan choice.");
         const data = await response.json();
         if (!active) return;
-        if (data.required) router.replace("/business/choose-plan");
+        if (data.required) router.replace(planPath);
         else setPlanChecked(true);
       })
-      .catch(() => { if (active) router.replace("/business/choose-plan"); });
+      .catch(() => { if (active) router.replace(planPath); });
     return () => { active = false; };
-  }, [isLoading, session?.user?.email, newBusinessPlanFirst, router]);
+  }, [isLoading, session?.user?.email, newBusinessPlanFirst, router, planPath]);
 
   const parseIdList = (value: string) =>
     value
@@ -223,7 +227,7 @@ export default function BusinessOnboardingPage() {
       });
       const result = await response.json().catch(() => null);
       if (!response.ok) throw new Error(result?.error?.startsWith("Your offer is saved") ? result.error : `Your offer is saved. ${result?.error || "Please retry to finish setup."}`);
-      if (!newBusinessPlanFirst && result?.treatment) router.replace("/business/choose-plan");
+      if (!newBusinessPlanFirst && result?.treatment) router.replace(planPath);
       else { setHasPlan(result?.hasPlan === true); setStep(5); }
     };
     void logProductEvent({ eventType: "offer_publish_clicked", actorRole: "business", meta: { source: "business_onboarding", retry_completion: Boolean(savedOfferId.current) } });
@@ -888,7 +892,7 @@ export default function BusinessOnboardingPage() {
                 {onboardingSuccessStep(hasPlan).message}
               </p>
               <button
-                onClick={() => router.replace(onboardingSuccessStep(hasPlan).href)}
+                onClick={() => router.replace(businessContinuationDestination(onboardingSuccessStep(hasPlan).href, returnTo))}
                 className="mt-6 w-full max-w-xs rounded-2xl bg-[#00C2CB] px-5 py-3.5 text-sm font-semibold text-black transition hover:bg-[#28d3da]"
               >
                 {onboardingSuccessStep(hasPlan).buttonLabel}
