@@ -109,9 +109,9 @@ export default function BusinessLogin() {
         <MarketingHeader />
         <main className="flex flex-1 items-center justify-center px-4 py-8">
           {checkingSession ? (
-            <div role="status" className="flex items-center gap-3 py-12 text-white/60">
-              <Loader2 aria-hidden="true" className="h-5 w-5 animate-spin" />
-              Loading…
+            <div role="status" className="flex flex-col items-center justify-center gap-4 py-12 text-center">
+              <Loader2 aria-hidden="true" className="h-10 w-10 animate-spin text-[var(--primary)]" />
+              <p className="text-base font-medium text-[var(--foreground)]">Signing you in…</p>
             </div>
           ) : (
           <div className="relative w-full max-w-md">

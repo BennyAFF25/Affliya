@@ -44,6 +44,9 @@ async function run() {
   const loginSource = readFileSync('app/login/business/page.tsx', 'utf8');
   assert.match(loginSource, /\[checkingSession, setCheckingSession\] = useState\(true\)/);
   assert.match(loginSource, /checkingSession \? \([\s\S]*?role="status"[\s\S]*?animate-spin[\s\S]*?\) : \([\s\S]*?<form/);
+  assert.match(loginSource, /role="status" className="flex flex-col items-center justify-center gap-4 py-12 text-center"/);
+  assert.match(loginSource, /className="h-10 w-10 animate-spin text-\[var\(--primary\)\]"/);
+  assert.match(loginSource, /<p className="text-base font-medium text-\[var\(--foreground\)\]">Signing you in…<\/p>/);
   const existingSessionEffect = pageCallback('app/login/business/page.tsx', 'useEffect');
   async function checkExistingSession(search: string, role: string | null, cancel = false, failAt?: 'session' | 'role') {
     const routes: string[] = [];
