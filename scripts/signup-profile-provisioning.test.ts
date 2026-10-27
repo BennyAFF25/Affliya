@@ -12,7 +12,8 @@ const lockdown = readFileSync("supabase/migrations/20261009224000_lockdown_publi
 // pre-signup financial records, because UPDATE grants are column-scoped.
 const signupRoute = readFileSync("app/api/auth/signup/route.ts", "utf8");
 assert.match(signup, /fetch\("\/api\/auth\/signup"/);
-assert.match(signupRoute, /supabase\.auth\.signUp\(/);
+assert.match(signupRoute, /createSignupHandler/);
+assert.match(readFileSync("utils/auth/signupHandler.ts", "utf8"), /supabase\.auth\.signUp\(/);
 assert.match(signup, /supabase\.auth\.setSession\(data.session\)/);
 assert.match(signup, /data: \{ role, username: trimmedUsername,/);
 assert.doesNotMatch(signup, /\.from\(['"]profiles['"]\)\s*\.upsert\(/);

@@ -122,7 +122,8 @@ function CreateAccountInner() {
         }),
       });
       const { data, error } = await signupResponse.json();
-      if (!signupResponse.ok || error) throw new Error(error || 'Sign up failed');
+      if (signupResponse.status === 429) throw new Error('Too many attempts. Please wait a few minutes and try again.');
+      if (!signupResponse.ok || error) throw new Error(error || 'Please check your details and try again.');
       if (data?.session) {
         const { error: sessionError } = await supabase.auth.setSession(data.session);
         if (sessionError) throw sessionError;

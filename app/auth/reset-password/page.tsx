@@ -14,13 +14,20 @@ export default function ResetPasswordRequestPage() {
     setMessage(null);
 
     try {
-      await fetch('/api/auth/send-password-reset', {
+      const response = await fetch('/api/auth/send-password-reset', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       });
 
-      toast.success('Reset link sent');
+      if (!response.ok) {
+        const copy = response.status === 429 ? 'Please wait a few minutes and try again.' : 'Please check your email address and try again.';
+        toast.error(copy);
+        setMessage(copy);
+        setSending(false);
+        return;
+      }
+      toast.success('Check your email');
       setMessage('If an account exists for that email, a reset link has been sent.');
     } catch (error) {
       console.error('[reset-password] request failed', error);
@@ -53,6 +60,7 @@ export default function ResetPasswordRequestPage() {
             </label>
             <input
               type="email"
+              maxLength={254}
               required
               autoComplete="email"
               inputMode="email"

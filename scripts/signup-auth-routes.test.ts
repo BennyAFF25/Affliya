@@ -11,6 +11,8 @@ const auth = {
 };
 const original = (Module as any)._load;
 (Module as any)._load = function(name: string, ...args: any[]) {
+ // Rate limiting is exercised separately by auth-rate-limit.test.ts.
+ if (name.endsWith('/rateLimit')) return { authRateLimit: async () => true };
  if (name === '@supabase/supabase-js') return { createClient: () => ({ auth }) };
  if (name === '@supabase/auth-helpers-nextjs') return { createRouteHandlerClient: () => ({ auth }) };
  if (name === 'next/headers') return { cookies: () => ({}) };

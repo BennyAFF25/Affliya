@@ -8,7 +8,7 @@ assert.equal(USERNAME_HINT, '3–24 letters, numbers, . _ -');
 for (const name of ['abc', 'sarahpromotes', 'A.Z_1-', 'a'.repeat(24)]) assert.equal(validUsername(name), true);
 for (const name of ['ab', 'a'.repeat(25), 'test qa!', 'sarah@', 'ééé']) assert.equal(validUsername(name), false);
 for (const route of ['signup', 'update-password']) {
- const source = readFileSync(`app/api/auth/${route}/route.ts`, 'utf8');
+ const source = readFileSync(route === 'signup' ? 'utils/auth/signupHandler.ts' : `app/api/auth/${route}/route.ts`, 'utf8');
  assert.match(source, /validPassword\(body\?\.password\)/);
  assert.doesNotMatch(source, /service.role|admin\./i);
 }
