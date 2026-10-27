@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { useSession } from "@supabase/auth-helpers-react";
+import { useSessionContext } from "@supabase/auth-helpers-react";
 import { useChatUnreadCount } from "@/components/inbox/useChatUnreadCount";
 import Link from "next/link";
 import { supabase } from "utils/supabase/pages-client";
@@ -30,12 +30,20 @@ export default function BusinessLayout({
   children: React.ReactNode;
 }) {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
-  const session = useSession();
+  const { session, isLoading } = useSessionContext();
   const router = useRouter();
   const pathname = usePathname();
   const isPlanScreen = pathname === "/business/choose-plan";
   const [planPending, setPlanPending] = useState<boolean | null>(null);
   const chatUnreadCount = useChatUnreadCount(session?.user?.id);
+
+  useEffect(() => {
+    if (isLoading || session !== null) return;
+
+    const queryString = window.location.search;
+    const next = `${pathname}${queryString}`;
+    router.replace(`/login/business?next=${encodeURIComponent(next)}`);
+  }, [isLoading, session, pathname, router]);
 
   useEffect(() => {
     if (!session?.user?.id || isPlanScreen) return;
@@ -85,6 +93,14 @@ export default function BusinessLayout({
     window.addEventListener("focus", check);
     return () => { active = false; window.removeEventListener("focus", check); };
   }, [session?.user?.id, session?.user?.email, pathname, planPending, router]);
+
+  if (isLoading || session === null) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[var(--background)] text-[var(--foreground)]">
+        {isLoading ? "Loading…" : "Redirecting to business login…"}
+      </div>
+    );
+  }
 
   // Keep this step focused: no global sidebar, shortcuts or resume banners.
   if (isPlanScreen) return <div className="min-h-screen bg-[#0f0f0f]">{children}</div>;

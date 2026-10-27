@@ -40,10 +40,10 @@ export default function BusinessLogin() {
   const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
+    const query = new URLSearchParams(window.location.search);
     setReturnTo(
-      safeBusinessReturnTo(
-        new URLSearchParams(window.location.search).get("returnTo"),
-      ),
+      safeBusinessReturnTo(query.get("next")) ||
+        safeBusinessReturnTo(query.get("returnTo")),
     );
   }, []);
 
