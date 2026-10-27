@@ -1,0 +1,36 @@
+name: Growth billing recovery checks
+on:
+  pull_request:
+    paths:
+      - "app/api/business-subscription/payment-recovery/**"
+      - "utils/billingRecovery.ts"
+      - "scripts/business-billing-recovery.test.ts"
+      - "supabase/migrations/20261028093000_business_billing_recovery_emails.sql"
+      - "vercel.json"
+      - ".github/workflows/billing-recovery.yml"
+permissions:
+  contents: read
+jobs:
+  recovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install dependencies
+        run: |
+          corepack enable
+          corepack prepare yarn@1.22.22 --activate
+          yarn install --frozen-lockfile --ignore-scripts
+      - name: Recovery selection and templates
+        run: yarn -s tsx scripts/business-billing-recovery.test.ts
+      - name: Existing billing regression
+        run: yarn -s test:business-subscriptions
+      - name: New recovery typecheck
+        run: yarn -s tsc --noEmit --pretty false
+      - name: Next.js build
+        env:
+          NEXT_TELEMETRY_DISABLED: "1"
+        run: yarn -s build
