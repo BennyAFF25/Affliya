@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import { ArrowRight, ChartNoAxesColumnIncreasing, Check, ShieldCheck, Zap } from "lucide-react";
+import { ArrowRight, Check } from "lucide-react";
 import type { GrowthPrice } from "../../utils/businessOnboardingFunnel";
 
 export type BusinessContinuationContext = {
@@ -16,11 +16,6 @@ type Props = {
   context: BusinessContinuationContext; busy: "free" | "growth" | null; error: string | null;
   onGrowth: () => void; onFree: () => void; onRetry: () => void; selectedPlan?: "free" | "growth";
 };
-const benefits = [
-  { icon: Zap, label: "Approve paid affiliate campaigns" },
-  { icon: ChartNoAxesColumnIncreasing, label: "Launch through your connected Meta account" },
-  { icon: ShieldCheck, label: "Review campaigns before they go live" },
-];
 const focus = "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#00C2CB]";
 
 export default function BusinessTrialFirstContinuation({ context, busy, error, onGrowth, onFree, onRetry, selectedPlan = "growth" }: Props) {
