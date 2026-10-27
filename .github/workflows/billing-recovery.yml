@@ -30,7 +30,5 @@ jobs:
         run: yarn -s test:business-subscriptions
       - name: New recovery typecheck
         run: yarn -s tsc --noEmit --pretty false
-      - name: Next.js build
-        env:
-          NEXT_TELEMETRY_DISABLED: "1"
-        run: yarn -s build
+      # Full Next.js page-data build depends on production-only Supabase env vars.
+      # Typecheck and targeted regression remain self-contained in PR CI.
