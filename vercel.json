@@ -27,6 +27,10 @@
     {
       "path": "/api/cron/fx-rates",
       "schedule": "15 0 * * *"
+    },
+    {
+      "path": "/api/business-subscription/payment-recovery",
+      "schedule": "30 * * * *"
     }
   ]
 }
