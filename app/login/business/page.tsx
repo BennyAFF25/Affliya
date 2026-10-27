@@ -4,6 +4,7 @@ import { safeBusinessReturnTo } from "../../../utils/safeBusinessReturnTo";
 import { businessLoginDestination } from "../../../utils/businessLoginDestination";
 
 import { useEffect, useState } from "react";
+import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import MarketingHeader from "@/components/marketing/MarketingHeader";
 import { supabase } from "@/../utils/supabase/pages-client";
@@ -16,6 +17,7 @@ export default function BusinessLogin() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
@@ -27,11 +29,17 @@ export default function BusinessLogin() {
     void (async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        if (!session?.user || await getAccountRole(session.user.id) !== "business") return;
+        if (!session?.user || await getAccountRole(session.user.id) !== "business") {
+          if (!cancelled) setCheckingSession(false);
+          return;
+        }
         const destination = await businessLoginDestination(next);
         if (!cancelled) router.replace(destination);
       } catch {
-        if (!cancelled) setError("Login failed. Please try again.");
+        if (!cancelled) {
+          setError("Login failed. Please try again.");
+          setCheckingSession(false);
+        }
       }
     })();
     return () => { cancelled = true; };
@@ -100,6 +108,12 @@ export default function BusinessLogin() {
       <div className="marketing-auth-theme min-h-screen w-full flex flex-col bg-gradient-to-b from-[#0b1a1b] via-[#0b0b0b] to-black">
         <MarketingHeader />
         <main className="flex flex-1 items-center justify-center px-4 py-8">
+          {checkingSession ? (
+            <div role="status" className="flex items-center gap-3 py-12 text-white/60">
+              <Loader2 aria-hidden="true" className="h-5 w-5 animate-spin" />
+              Loading…
+            </div>
+          ) : (
           <div className="relative w-full max-w-md">
             {/* Soft glow behind card */}
             <div
@@ -219,6 +233,7 @@ export default function BusinessLogin() {
               </form>
             </div>
           </div>
+          )}
         </main>
       </div>
     </>

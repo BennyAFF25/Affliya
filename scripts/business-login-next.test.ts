@@ -41,21 +41,33 @@ async function run() {
     })();
     assert.deepEqual(routes, [value === next ? next : '/business/dashboard']);
   }
+  const loginSource = readFileSync('app/login/business/page.tsx', 'utf8');
+  assert.match(loginSource, /\[checkingSession, setCheckingSession\] = useState\(true\)/);
+  assert.match(loginSource, /checkingSession \? \([\s\S]*?role="status"[\s\S]*?animate-spin[\s\S]*?\) : \([\s\S]*?<form/);
   const existingSessionEffect = pageCallback('app/login/business/page.tsx', 'useEffect');
-  async function checkExistingSession(search: string, role: string | null, cancel = false) {
+  async function checkExistingSession(search: string, role: string | null, cancel = false, failAt?: 'session' | 'role') {
     const routes: string[] = [];
     const errors: string[] = [];
     let destinationCalls = 0;
+    let checkingSession = true;
+    const loadingUpdates: boolean[] = [];
+    let resolveSession!: () => void;
+    const sessionReady = new Promise<void>(resolve => { resolveSession = resolve; });
     const cleanup = runInNewContext(existingSessionEffect, {
       window: { location: { search } }, URLSearchParams, safeBusinessReturnTo,
+      setCheckingSession: (value: boolean) => { checkingSession = value; loadingUpdates.push(value); },
       setReturnTo: () => {}, setError: (error: string) => errors.push(error),
-      supabase: { auth: { getSession: async () => ({ data: { session: role === null ? null : { user: { id: 'user-id' } } } }) } },
-      getAccountRole: async (id: string) => { assert.equal(id, 'user-id'); return role; },
-      businessLoginDestination: async (value: string | null) => { destinationCalls++; return businessLoginDestination(value); },
+      supabase: { auth: { getSession: async () => { await sessionReady; if (failAt === 'session') throw new Error('session failed'); return { data: { session: role === null ? null : { user: { id: 'user-id' } } } }; } } },
+      getAccountRole: async (id: string) => { assert.equal(id, 'user-id'); assert.equal(checkingSession, true, 'loading persists while checking role'); if (failAt === 'role') throw new Error('role failed'); return role; },
+      businessLoginDestination: async (value: string | null) => { destinationCalls++; assert.equal(checkingSession, true, 'loading persists through destination gates'); return businessLoginDestination(value); },
       router: { replace: (path: string) => routes.push(path) },
     })();
+    assert.equal(checkingSession, true, 'form stays hidden while session is pending');
     if (cancel) cleanup();
+    resolveSession();
     await new Promise(resolve => setImmediate(resolve));
+    assert.equal(checkingSession, cancel || (role === 'business' && errors.length === 0), 'only completed non-business checks and errors reveal the form');
+    if (cancel) assert.deepEqual(loadingUpdates, [], 'unmounted pages do not update loading');
     return { routes, errors, destinationCalls };
   }
   const originalFetch = globalThis.fetch;
@@ -87,6 +99,12 @@ async function run() {
       assert.deepEqual(result, { routes: [], errors: [], destinationCalls: 0 });
     }
     assert.deepEqual((await checkExistingSession('', 'business', true)).routes, [], 'unmounted pages do not redirect');
+    for (const failAt of ['session', 'role'] as const) {
+      const failed = await checkExistingSession('', 'business', false, failAt);
+      assert.deepEqual(failed.routes, []);
+      assert.deepEqual(failed.errors, ['Login failed. Please try again.']);
+      assert.equal(failed.destinationCalls, 0);
+    }
     globalThis.fetch = async () => new Response(null, { status: 503 });
     const failedSession = await checkExistingSession('', 'business');
     assert.deepEqual(failedSession.routes, []);
