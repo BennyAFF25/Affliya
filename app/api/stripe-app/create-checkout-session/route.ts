@@ -14,12 +14,6 @@ if (!secret) {
   throw new Error("Missing STRIPE_APP_SECRET (or STRIPE_SECRET_KEY)");
 }
 
-// Safe log of which key is being used (prefix/suffix only)
-try {
-  // eslint-disable-next-line no-console
-  console.log("[stripe-app] using key:", `${secret.slice(0, 10)}...${secret.slice(-6)}`);
-} catch {}
-
 const stripe = new Stripe(secret, {
   // Keep TS + Stripe versions aligned across the repo
   apiVersion: "2025-08-27.basil" as Stripe.LatestApiVersion,

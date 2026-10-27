@@ -7,10 +7,13 @@ const migration = readFileSync(
   "utf8",
 );
 
-assert.match(settleRoute, /CRON_SECRET/);
-assert.match(settleRoute, /x-cron-secret/);
-assert.match(settleRoute, /Authorization|authorization/);
-assert.match(settleRoute, /UNAUTHORIZED/);
+assert.match(settleRoute, /authorizeCronRequest as isAuthorized/);
+assert.match(settleRoute, /const auth = isAuthorized\(req\)/);
+const authorization = readFileSync("utils/internalAuthorization.ts", "utf8");
+assert.match(authorization, /CRON_SECRET/);
+assert.match(authorization, /x-cron-secret/);
+assert.match(authorization, /Authorization|authorization/);
+assert.match(authorization, /UNAUTHORIZED/);
 
 for (const fn of [
   "credit_wallet_topup",

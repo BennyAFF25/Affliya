@@ -1,3 +1,4 @@
+import { authorizeCronRequest as isAuthorized } from "../../../../utils/internalAuthorization";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { tryWriteMoneyFlowAudit } from "@/../utils/moneyFlowAudit";
@@ -9,22 +10,6 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 );
 
-function isAuthorized(req: Request) {
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret) {
-    return { ok: false, status: 500, error: "SERVER_MISCONFIGURED" } as const;
-  }
-
-  const authHeader = req.headers.get("authorization");
-  const xCron = req.headers.get("x-cron-secret");
-  const ok =
-    authHeader === `Bearer ${cronSecret}` ||
-    xCron === cronSecret;
-
-  return ok
-    ? ({ ok: true } as const)
-    : ({ ok: false, status: 401, error: "UNAUTHORIZED" } as const);
-}
 
 export async function POST(req: Request) {
   const auth = isAuthorized(req);

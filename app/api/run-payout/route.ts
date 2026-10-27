@@ -1,3 +1,4 @@
+import { protectCriticalRoute } from "../../../utils/criticalRouteAuthServer";
 // app/api/run-payout/route.ts
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
@@ -190,7 +191,7 @@ async function getTransferReadiness(destinationAcct: string) {
   }
 }
 
-export async function POST(req: Request) {
+async function handlePost(req: Request) {
   try {
     const { payout_id } = await req.json();
 
@@ -778,3 +779,5 @@ export async function POST(req: Request) {
     );
   }
 }
+
+export const POST = protectCriticalRoute("payout", handlePost, () => supabase);

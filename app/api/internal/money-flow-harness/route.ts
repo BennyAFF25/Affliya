@@ -1,3 +1,4 @@
+import { authorizeCronRequest } from "../../../../utils/internalAuthorization";
 import { recordCurrency, withRecordedCurrency } from '@/../utils/currency/recordCurrency';
 import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
@@ -580,13 +581,15 @@ export async function POST(req: NextRequest) {
       }
 
       case "run_payout": {
+        if (!authorizeCronRequest(req).ok) return badRequest("Unauthorized", undefined, 401);
         const payoutId = String(body.payoutId || "");
         if (!payoutId) return badRequest("payoutId_required");
-        const result = await proxyJson(req, "/api/run-payout", { payout_id: payoutId });
+        const result = await proxyJson(req, "/api/run-payout", { payout_id: payoutId }, { authCron: true });
         return NextResponse.json({ ok: result.ok, action, result, state: await fetchHarnessState() }, { status: result.status });
       }
 
       case "run_refund": {
+        if (!authorizeCronRequest(req).ok) return badRequest("Unauthorized", undefined, 401);
         const amount = toAmount(body.amount, 5);
         if (amount <= 0) return badRequest("amount_must_be_positive");
         const stripeChargeId = body.stripeChargeId ? String(body.stripeChargeId) : undefined;
@@ -594,7 +597,7 @@ export async function POST(req: NextRequest) {
           email: AFFILIATE_EMAIL,
           refundAmount: amount,
           ...(stripeChargeId ? { stripe_charge_id: stripeChargeId } : {}),
-        });
+        }, { authCron: true });
         return NextResponse.json({ ok: result.ok, action, result, state: await fetchHarnessState() }, { status: result.status });
       }
 

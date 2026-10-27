@@ -1,3 +1,4 @@
+import { protectCriticalRoute } from "../../../../utils/criticalRouteAuthServer";
 import { isDefinitiveStripeFailure, refundIdempotencyKey } from '@/../utils/stripeOperationFailure';
 import { NextResponse } from 'next/server';
 import { tryWriteMoneyFlowAudit } from '@/../utils/moneyFlowAudit';
@@ -124,7 +125,7 @@ async function createStripeRefund(
   throw new Error('Invalid stripe_id format. Must be a charge, payment intent, or checkout session ID.');
 }
 
-export async function POST(req: Request) {
+async function handlePost(req: Request) {
   const { email, refundAmount, stripe_charge_id, requestId } = await req.json();
 
   console.log('[🧪 Refund Payload]', { email, refundAmount, stripe_charge_id });
@@ -373,3 +374,5 @@ export async function POST(req: Request) {
     );
   }
 }
+
+export const POST = protectCriticalRoute("refund", handlePost, () => supabase);

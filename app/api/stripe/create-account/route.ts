@@ -1,3 +1,4 @@
+import { protectCriticalRoute } from "../../../../utils/criticalRouteAuthServer";
 // Business Stripe Connect onboarding endpoint
 // File: app/api/stripe/create-account/route.ts
 
@@ -50,7 +51,7 @@ function getAdminSupabase() {
   });
 }
 
-export async function POST(req: Request) {
+async function handlePost(req: Request) {
   try {
     if (!process.env.STRIPE_SECRET_KEY) {
       return NextResponse.json(
@@ -213,3 +214,5 @@ export async function POST(req: Request) {
     );
   }
 }
+
+export const POST = protectCriticalRoute("business-connect", handlePost, getAdminSupabase);

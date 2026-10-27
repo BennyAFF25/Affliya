@@ -1,3 +1,4 @@
+import { protectCriticalRoute } from "../../../../utils/criticalRouteAuthServer";
 import { settlementExclusionReason, settleStoppedAdSpend } from "../../../../utils/adSpend/settlements";
 import { getAffiliateCampaignFundingReadiness } from "../../../../utils/paidCampaignLaunchReadiness";
 import { guardPaidCurrency } from "../../../../utils/currency/paidCurrencyGuard";
@@ -15,7 +16,7 @@ const supabase = createClient(
 const META_API_VERSION = 'v21.0'; // keep in sync with other Meta routes
 const META_SYSTEM_USER_TOKEN = process.env.META_SYSTEM_USER_TOKEN!; // kept for consistency
 
-export async function POST(req: Request) {
+async function handlePost(req: Request) {
   let heldReference: string | null = null;
   let metaActivated = false;
   try {
@@ -263,3 +264,5 @@ export async function POST(req: Request) {
     if (heldReference && !metaActivated) await releaseLaunchHold(supabase, heldReference);
   }
 }
+
+export const POST = protectCriticalRoute("control-ad", handlePost, () => supabase);

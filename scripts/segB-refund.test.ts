@@ -1,3 +1,5 @@
+// Business-logic regression fixtures use the existing trusted server contract.
+process.env.CRON_SECRET = 'offline-regression-fixture';
 import assert from 'node:assert/strict';
 import Module from 'node:module';
 
@@ -48,7 +50,7 @@ async function run() {
     for (stripeId of ['ch_source','pi_source','cs_source']) {
       for (mode of ['success','pending','failed','timeout','reject','dbfail','claimfail','duplicate']) {
         calls.length = 0;
-        await POST(new Request('http://local/api/stripe/refund', { method: 'POST', body: JSON.stringify({ email: 'a@test', refundAmount: 5 }) }));
+        await POST(new Request('http://local/api/stripe/refund', { method: 'POST', headers: { 'x-cron-secret': process.env.CRON_SECRET! }, body: JSON.stringify({ email: 'a@test', refundAmount: 5 }) }));
         assert.equal(calls[0].name, 'claim_wallet_refund');
         if (mode === 'claimfail' || mode === 'duplicate') { assert.equal(calls.length,1); continue; }
         assert.equal(calls[1].name,'stripe');

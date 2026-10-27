@@ -1,3 +1,4 @@
+import { protectCriticalRoute } from "../../../../../utils/criticalRouteAuthServer";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
@@ -33,7 +34,7 @@ const supabase = createClient(
   { auth: { persistSession: false } },
 );
 
-export async function POST(req: Request) {
+async function handlePost(req: Request) {
   try {
     const body = await req.json();
     const user_id = body.user_id as string | undefined;
@@ -155,3 +156,5 @@ export async function POST(req: Request) {
     );
   }
 }
+
+export const POST = protectCriticalRoute("affiliate-connect", handlePost, () => supabase);

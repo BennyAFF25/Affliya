@@ -60,7 +60,8 @@
     "test:currency-seg9-wallet-accounts": "node --import tsx scripts/currency-seg9-wallet-accounts.test.ts",
     "test:currency-seg11-dual-write": "node --import tsx scripts/currency-seg11-dual-write.test.ts",
     "check:wallet-ledger-drift": "node --import tsx scripts/check-wallet-ledger-drift.ts",
-    "test:auth-rate-limit": "tsx scripts/auth-rate-limit.test.ts"
+    "test:auth-rate-limit": "tsx scripts/auth-rate-limit.test.ts",
+    "test:critical-route-auth": "node --import tsx scripts/critical-route-auth.test.ts"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.2",

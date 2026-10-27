@@ -1,3 +1,5 @@
+// Business-logic regression fixtures use the existing trusted server contract.
+process.env.CRON_SECRET = 'offline-regression-fixture';
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-require-imports -- Isolated dependency mocks. */
 import assert from 'node:assert/strict';
 import Module from 'node:module';
@@ -28,14 +30,14 @@ async function run() {
     const { POST } = require('../app/api/run-payout/route');
     for (const code of ['USD','GBP','CAD',null]) for (recurring of [false,true]) {
       currency=code; offerCurrency=code; writes=[];
-      const response = await POST(new Request('https://test/api/run-payout',{ method:'POST',body:JSON.stringify({payout_id:'payout'}) }));
+      const response = await POST(new Request('https://test/api/run-payout',{ method:'POST',headers:{'x-cron-secret':process.env.CRON_SECRET!},body:JSON.stringify({payout_id:'payout'}) }));
       assert.equal(response.status,409);
       const body = await response.json();
       assert.equal(body.status,'blocked_currency'); assert.equal(body.skipped,true);
       assert.deepEqual(writes,[{table:'wallet_payouts',values:{status:'blocked_currency',payout_error_message:'Commission payout awaiting FX support.'}}]);
     }
     currency='AUD'; offerCurrency='USD'; recurring=false; writes=[];
-    assert.equal((await POST(new Request('https://test',{method:'POST',body:JSON.stringify({payout_id:'payout'})}))).status,409,'Legacy mislabelled AUD row blocked by offer');
+    assert.equal((await POST(new Request('https://test',{method:'POST',headers:{'x-cron-secret':process.env.CRON_SECRET!},body:JSON.stringify({payout_id:'payout'})}))).status,409,'Legacy mislabelled AUD row blocked by offer');
     console.log('Segment E one-off, recurring, unknown and legacy currencies skipped with no Stripe operations');
   } finally { loader._load=originalLoad; }
 }

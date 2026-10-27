@@ -1,3 +1,5 @@
+// Business-logic regression fixtures use the existing trusted server contract.
+process.env.CRON_SECRET = 'offline-regression-fixture';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import Module from 'node:module';
@@ -65,7 +67,7 @@ async function run() {
   global.fetch = (async () => { events.push('meta'); return Response.json(metaFails ? { error: 'failed' } : { success: true }, { status: metaFails ? 400 : 200 }); }) as typeof fetch;
   try {
     const { POST } = require('../app/api/meta/control-ad/route');
-    const resume = () => POST(new Request('https://nettmark.test/api/meta/control-ad', { method: 'POST', body: JSON.stringify({ liveAdId: 'live', action: 'RESUME' }) }));
+    const resume = () => POST(new Request('https://nettmark.test/api/meta/control-ad', { method: 'POST', headers: { 'x-cron-secret': process.env.CRON_SECRET! }, body: JSON.stringify({ liveAdId: 'live', action: 'RESUME' }) }));
     currencyAllowed = false;
     assert.equal((await resume()).status, 409);
     assert.deepEqual(events.splice(0), ['currency']);

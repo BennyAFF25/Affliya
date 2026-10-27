@@ -1,3 +1,5 @@
+// Business-logic regression fixtures use the existing trusted server contract.
+process.env.CRON_SECRET = 'offline-regression-fixture';
 /* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-require-imports */
 import assert from 'node:assert/strict';
 import Module from 'node:module';
@@ -52,14 +54,14 @@ async function run() {
   transferred = 0; fail = true;
   const control = require('../app/api/meta/control-ad/route');
   globalThis.fetch = async () => { events.push('meta-pause'); return new Response(JSON.stringify({success:true})); };
-  const response = await control.POST(new Request('http://local/api/meta/control-ad', {method:'POST',body:JSON.stringify({liveAdId:'ad',action:'PAUSE'})}));
+  const response = await control.POST(new Request('http://local/api/meta/control-ad', {method:'POST',headers:{'x-cron-secret':process.env.CRON_SECRET!},body:JSON.stringify({liveAdId:'ad',action:'PAUSE'})}));
   const body = await response.json();
   assert.equal(body.success,true); assert.equal(body.newStatus,'paused'); assert.ok(body.settlementError);
   assert.ok(events.indexOf('meta-pause') < events.lastIndexOf('settle_live_ad_spend'));
   assert.ok(events.indexOf('local-update') < events.lastIndexOf('settle_live_ad_spend'));
   const attempts = events.filter(e => e === 'settle_live_ad_spend').length;
   globalThis.fetch = async () => new Response(JSON.stringify({error:'mock rejection'}),{status:500});
-  const rejected = await control.POST(new Request('http://local/api/meta/control-ad',{method:'POST',body:JSON.stringify({liveAdId:'ad',action:'ARCHIVE'})}));
+  const rejected = await control.POST(new Request('http://local/api/meta/control-ad',{method:'POST',headers:{'x-cron-secret':process.env.CRON_SECRET!},body:JSON.stringify({liveAdId:'ad',action:'ARCHIVE'})}));
   assert.equal(rejected.status,500);
   assert.equal(events.filter(e => e === 'settle_live_ad_spend').length,attempts,'failed Meta control never settles');
   ad.meta_ad_id = null;
@@ -106,7 +108,7 @@ async function run() {
   globalThis.fetch = async () => new Response(JSON.stringify({success:true}));
   for (const action of ['PAUSE','ARCHIVE']) {
     const attemptsBefore = events.filter(e => e === 'settle_live_ad_spend' || e === 'release_launch_hold').length;
-    const body = await (await control.POST(new Request('http://local/api/meta/control-ad', {method:'POST',body:JSON.stringify({liveAdId:'ad',action})}))).json();
+    const body: any = await (await control.POST(new Request('http://local/api/meta/control-ad', {method:'POST',headers:{'x-cron-secret':process.env.CRON_SECRET!},body:JSON.stringify({liveAdId:'ad',action})}))).json();
     assert.equal(body.settlementSkipped,true);
     assert.equal(events.filter(e => e === 'settle_live_ad_spend' || e === 'release_launch_hold').length,attemptsBefore);
   }
