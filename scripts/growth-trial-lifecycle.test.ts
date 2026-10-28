@@ -70,6 +70,8 @@ async function run() {
     assert.deepEqual(sends.map(s => s.idempotencyKey), ["founder-trial-no-offer/brand", "growth-trial-1/brand"]);
     assert.equal(sends[1].subject, "Your offer isn't live yet — finish it in 2 minutes");
     assert.match(sends[1].html, /Finish my offer/);
+    assert.match(sends[1].html, /Manage billing or cancel trial/);
+    assert.match(sends[1].html, /https:\/\/billing\.stripe\.com\/p\/login\//);
     await invoke(); assert.equal(sends.length, 2, "second run sends nothing");
     events.length = sends.length = 0; cohort = false; ageMs = 7200000 - 1;
     await invoke(); assert.equal(sends.length, 0);
@@ -93,6 +95,10 @@ async function run() {
     pending = 1; await invoke(); assert.equal(sends[0].idempotencyKey, "growth-trial-10/brand");
     ageMs = 12 * 86400000; pending = 0;
     await invoke(); assert.equal(sends[1].idempotencyKey, "growth-trial-12/brand");
+    assert.match(sends[1].html, /Manage billing or cancel trial/);
+    assert.match(sends[1].html, /https:\/\/billing\.stripe\.com\/p\/login\//);
+    assert.match(sends[1].html, /using your billing email/);
+    assert.doesNotMatch(sends[1].html, /href="https:\/\/www\.nettmark\.com\/business\/settings"/);
     console.log("Growth trial lifecycle: pure selection, boundaries, route idempotency and failure isolation passed");
   } finally { loader._load = original; global.Date = RealDate; }
 }

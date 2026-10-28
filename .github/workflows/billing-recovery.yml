@@ -3,8 +3,10 @@ on:
   pull_request:
     paths:
       - "app/api/business-subscription/payment-recovery/**"
+      - "app/api/business-subscription/trial-reminders/**"
       - "utils/billingRecovery.ts"
       - "scripts/business-billing-recovery.test.ts"
+      - "scripts/growth-trial-lifecycle.test.ts"
       - "supabase/migrations/20261028093000_business_billing_recovery_emails.sql"
       - "vercel.json"
       - ".github/workflows/billing-recovery.yml"
@@ -26,6 +28,8 @@ jobs:
           yarn install --frozen-lockfile --ignore-scripts
       - name: Recovery selection and templates
         run: yarn -s tsx scripts/business-billing-recovery.test.ts
+      - name: Trial reminder billing-link and idempotency regression
+        run: yarn -s tsx scripts/growth-trial-lifecycle.test.ts
       - name: Existing billing regression
         run: yarn -s test:business-subscriptions
       - name: New recovery typecheck

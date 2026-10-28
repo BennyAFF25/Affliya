@@ -10,6 +10,11 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
+// Public Stripe-hosted billing portal. Customers verify ownership through
+// their billing email and do not need to recover their Nettmark password.
+// Keep this URL in sync with the active Stripe Billing portal login link.
+const STRIPE_GROWTH_BILLING_LOGIN_URL = "https://billing.stripe.com/p/login/14A7sN8fm8rM0CSaLMasg00";
+
 // Trial reminders are new-signup-only and never change billing, subscriptions,
 // payouts, approvals or campaign state. Not a manually callable public endpoint.
 function authorized(req: Request) {
@@ -122,10 +127,10 @@ export async function GET(req: Request) {
       ? "A strong commission, clear creative assets and a working landing page help affiliates decide to promote your business. Review your offer and make it easy for partners to pitch an ad."
       : day === 10
         ? `An affiliate wants to fund ads for you. You have a paid campaign proposal waiting for approval. Your Growth trial is scheduled to end on ${endDate}. Review the proposal before it ends.`
-        : `Your 14-day Growth trial is scheduled to end on ${endDate}. Growth is A$49/month after your trial unless you cancel. You can review your subscription and cancel through Stripe from Nettmark Business Settings before renewal.`;
-    const url = noOffer ? site + "/onboarding/for-business" : day === 3 ? site + "/business/my-business"
-      : day === 10 ? site + "/business/my-business/ad-ideas"
-      : site + "/business/settings";
+        : `Your 14-day Growth trial is scheduled to end on ${endDate}. Growth is A$49/month after your trial unless you cancel. You can review your payment method or cancel securely in Stripe using your billing email, even if you cannot sign in to Nettmark.`;
+    const url = day === 12 ? STRIPE_GROWTH_BILLING_LOGIN_URL : noOffer ? site + "/onboarding/for-business"
+      : day === 3 ? site + "/business/my-business"
+      : site + "/business/my-business/ad-ideas";
 
     // Resend dedupes within 24h; the durable product_events record prevents
     // repeat emails after that period if scheduled jobs are retried.
@@ -141,7 +146,10 @@ export async function GET(req: Request) {
           previewText: body,
           badge: { text: "Growth trial", tone: "info" },
           heading: subject, body,
-          cta: { href: url, label: noOffer ? "Finish my offer" : day === 12 ? "Manage or cancel Growth" : day === 10 ? "Review paid proposals" : "Improve your offer" },
+          cta: { href: url, label: noOffer ? "Finish my offer" : day === 12 ? "Manage billing or cancel trial" : day === 10 ? "Review paid proposals" : "Improve your offer" },
+          // Customers can always reach secure billing without logging back
+          // into Nettmark; early-trial messages keep offer activation primary.
+          secondaryCta: day === 12 ? undefined : { href: STRIPE_GROWTH_BILLING_LOGIN_URL, label: "Manage billing or cancel trial" },
           footerNote: "Card-required Growth trial: 14 days free, then A$49/month unless cancelled. This reminder does not change your plan.",
         }),
       }, { idempotencyKey: `growth-trial-${variant}/${businessId}` });
