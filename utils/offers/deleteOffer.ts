@@ -5,14 +5,15 @@ export async function deleteOfferRequest(req: Request, id: string, deps: {
   getUser: (req: Request) => Promise<{ id: string; email?: string | null } | null>;
   database: () => SupabaseClient;
 }) {
+  const dryRun = req.method === 'GET';
   try {
     const auth = await authorizeOfferDeletion(req, id, deps);
     if (auth.response) return auth.response;
     // One transaction checks dependencies, mutates the offer and queues the event.
-    const { data, error } = await deps.database().rpc('delete_business_offer', { p_offer_id: id });
+    const { data, error } = await deps.database().rpc('delete_business_offer', { p_offer_id: id, ...(dryRun ? { p_dry_run: true } : {}) });
     if (error) throw error;
     if (!data) return Response.json({ error: 'Offer not found' }, { status: 404 });
-    return Response.json({ ok: true, ...data });
+    return Response.json(dryRun ? data : { ok: true, ...data });
   } catch (error) {
     console.error('[offer-delete] transaction failed', error);
     return Response.json({ error: 'Could not delete offer. Please try again.' }, { status: 500 });

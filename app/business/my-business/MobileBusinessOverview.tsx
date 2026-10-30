@@ -78,6 +78,7 @@ interface Props {
   view: MobileBusinessView;
   onNavigate: (view: MobileBusinessView) => void;
   loading: boolean;
+  allOffersArchived?: boolean;
   offers: { id: string; title: string; commission: number }[];
   requests: number;
   adIdeas: number;
@@ -95,6 +96,7 @@ export default function MobileBusinessOverview({
   onNavigate,
   loading,
   offers,
+  allOffersArchived = false,
   requests,
   adIdeas,
   postIdeas,
@@ -153,8 +155,8 @@ export default function MobileBusinessOverview({
       : !hasOffer
         ? {
             eyebrow: "Next best action",
-            title: "Create your first offer",
-            description: "Get your business in front of affiliates and give them something to promote.",
+            title: allOffersArchived ? "All offers archived" : "Create your first offer",
+            description: allOffersArchived ? "Create a new offer to appear in the marketplace again. Affiliates keep existing campaigns." : "Get your business in front of affiliates and give them something to promote.",
             label: "Create new offer",
             href: "/business/my-business/create-offer",
             onClick: null as (() => void) | null,
@@ -172,7 +174,7 @@ export default function MobileBusinessOverview({
     ? `${pending} item${pending === 1 ? "" : "s"} waiting for review.`
     : hasOffer
       ? "Your offers are available. New affiliate activity will appear here."
-      : "No recent activity yet. Create an offer and affiliate activity will appear here.";
+      : allOffersArchived ? "All offers archived. Affiliates keep existing campaigns." : "No recent activity yet. Create an offer and affiliate activity will appear here.";
 
   return (
     <div className="mobile-business-overview space-y-4 pb-3">
@@ -184,7 +186,7 @@ export default function MobileBusinessOverview({
           </div>
           <span className="mt-0.5 inline-flex shrink-0 items-center gap-2 rounded-full border border-[#00C2CB]/30 bg-[#00C2CB]/[0.07] px-3 py-1.5 text-[11px] font-semibold text-[#63e8ee]">
             <span className={`h-2 w-2 rounded-full ${billingRequired ? "bg-amber-300" : "bg-[#00C2CB]"}`} />
-            {billingRequired ? "Action needed" : pending > 0 ? "Needs review" : hasOffer ? "Active" : "Getting started"}
+            {billingRequired ? "Action needed" : pending > 0 ? "Needs review" : hasOffer ? "Active" : allOffersArchived ? "All offers archived" : "Getting started"}
           </span>
         </div>
 
@@ -296,7 +298,7 @@ export default function MobileBusinessOverview({
         <div className="mt-4 overflow-hidden rounded-[18px] border border-white/[0.07] bg-black/10">
           {[
             { label: "Business profile", detail: "Available", done: true, status: "Complete" },
-            { label: "First offer", detail: hasOffer ? "Marketplace offer live" : "Create an offer to start", done: hasOffer, status: hasOffer ? "Complete" : "Not started" },
+            { label: "First offer", detail: hasOffer ? "Marketplace offer live" : allOffersArchived ? "All offers archived" : "Create an offer to start", done: hasOffer, status: hasOffer ? "Complete" : "Not started" },
             { label: "Brand assets", detail: "Upload when useful", done: false, status: "Optional" },
             { label: "Launch setup", detail: "Only required when a launch needs it", done: !billingRequired, status: billingRequired ? "Required" : "Optional" },
           ].map((item, index) => (

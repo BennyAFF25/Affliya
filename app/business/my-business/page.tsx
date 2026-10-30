@@ -232,6 +232,8 @@ export default function MyBusinessPage() {
   const [offersLoading, setOffersLoading] = useState<boolean>(true);
   const [loadingPaymentForm, setLoadingPaymentForm] = useState(false);
   const [deleteOffer, setDeleteOffer] = useState<Offer | null>(null);
+  const [deletePreview, setDeletePreview] = useState<{ willArchive: boolean; dependents: { table: string; count: number }[] } | null>(null);
+  const [previewLoadingId, setPreviewLoadingId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [loadingDeleteId, setLoadingDeleteId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -649,6 +651,26 @@ export default function MyBusinessPage() {
 
   // Guided setup UI removed: core financial/integration handlers stay available for contextual approval flows.
 
+  const previewDelete = async (offer: Offer) => {
+    if (previewLoadingId || loadingDeleteId) return;
+    setPreviewLoadingId(offer.id);
+    setDeleteError(null);
+    setDeletePreview(null);
+    try {
+      const res = await fetch(`/api/business/offers/${offer.id}/delete`, { cache: "no-store" });
+      const result = await res.json();
+      if (!res.ok || typeof result.willArchive !== "boolean" || !Array.isArray(result.dependents)) {
+        throw new Error(result.error || "Could not preview offer deletion.");
+      }
+      setDeletePreview(result);
+      setDeleteOffer(offer);
+    } catch (err: any) {
+      setDeleteError(err.message || "Could not preview offer deletion. Please try again.");
+    } finally {
+      setPreviewLoadingId(null);
+    }
+  };
+
   const handleDelete = async (id: string) => {
     if (loadingDeleteId) return;
     setLoadingDeleteId(id);
@@ -965,16 +987,17 @@ export default function MyBusinessPage() {
 
   return (
     <>
+      {deleteError && !deleteOffer && <p role="alert" className="mx-auto max-w-[1500px] px-4 py-3 text-sm text-red-300">{deleteError}</p>}
       <Dialog open={!!deleteOffer} onClose={() => { if (!loadingDeleteId) setDeleteOffer(null); }} className="relative z-50">
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" aria-hidden="true" />
         <div className="fixed inset-0 flex items-center justify-center p-4">
           <DialogPanel className="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-3xl border border-white/10 bg-[#151718] p-6 text-gray-200 shadow-2xl">
             <DialogTitle className="break-words text-xl font-semibold tracking-tight">Delete “{deleteOffer?.title}”?</DialogTitle>
-            <Description className="mt-4 text-sm leading-6 text-gray-300">This offer will be deleted permanently. If it has affiliates or activity, it will be archived instead and unavailable for new promotions. Existing campaigns and records will be preserved.</Description>
+            <Description className="mt-4 text-sm leading-6 text-gray-300">{deletePreview?.willArchive ? "This offer will be archived (paused), affiliates keep existing campaigns. It will be hidden from the marketplace." : "This offer will be deleted permanently."}</Description>
             {deleteError && <p role="alert" className="mt-4 text-sm text-red-300">{deleteError}</p>}
             <div className="mt-6 flex flex-col gap-3 sm:flex-row">
               <button data-autofocus type="button" disabled={!!loadingDeleteId} onClick={() => setDeleteOffer(null)} className="min-h-11 flex-1 rounded-full border border-white/15 px-5 py-3 text-sm font-semibold">Cancel</button>
-              <button type="button" disabled={!!loadingDeleteId} onClick={() => deleteOffer && handleDelete(deleteOffer.id)} className="min-h-11 flex-1 rounded-full border border-red-400/30 bg-red-500/10 px-5 py-3 text-sm font-semibold text-red-200 disabled:opacity-50">{loadingDeleteId ? "Deleting…" : "Delete offer"}</button>
+              <button type="button" disabled={!!loadingDeleteId} onClick={() => deleteOffer && handleDelete(deleteOffer.id)} className="min-h-11 flex-1 rounded-full border border-red-400/30 bg-red-500/10 px-5 py-3 text-sm font-semibold text-red-200 disabled:opacity-50">{loadingDeleteId ? "Deleting…" : deletePreview?.willArchive ? "Archive offer" : "Delete offer"}</button>
             </div>
           </DialogPanel>
         </div>
@@ -991,7 +1014,7 @@ export default function MyBusinessPage() {
           <div className="min-w-0 space-y-6">
             <MobileBusinessOverview
               view={mobileView} onNavigate={setMobileView} loading={offersLoading}
-              offers={activeOffers} requests={affiliateRequestCount} adIdeas={pendingAdIdeaCount}
+              offers={activeOffers} allOffersArchived={!offersLoading && offers.length > 0 && activeOfferCount === 0} requests={affiliateRequestCount} adIdeas={pendingAdIdeaCount}
               postIdeas={pendingPostIdeaCount} reviewHref={reviewSubmissionsHref}
               billingRequired={billingRequiredPrompt && !billingReady} onSupport={handleOpenAssistant}
             />
@@ -1418,12 +1441,12 @@ export default function MyBusinessPage() {
                         <div className="relative mt-4 rounded-2xl border border-white/10 bg-black/20 p-4">
                           <div className="flex flex-wrap items-center gap-2">
                             <span className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium ${trackingReady ? "border border-emerald-400/40 bg-emerald-500/15 text-emerald-200" : "border border-amber-400/40 bg-amber-500/15 text-amber-200"}`}>
-                              {trackingReady ? "Tracking ready" : "Marketplace live"}
+                              {offer.archived_at ? "Archived — hidden from marketplace" : trackingReady ? "Tracking ready" : "Marketplace live"}
                             </span>
                             <span className={`inline-flex items-center rounded-full px-3 py-1 text-[11px] font-medium ${metaStatus.tone}`}>{metaStatus.label}</span>
                           </div>
                           <p className="mt-2 text-xs leading-5 text-slate-400">
-                            {trackingReady ? "Tracking is connected for approved launches." : "Affiliates can request approval now. Tracking is handled contextually before launch when required."}
+                            {offer.archived_at ? "Affiliates keep existing campaigns." : trackingReady ? "Tracking is connected for approved launches." : "Affiliates can request approval now. Tracking is handled contextually before launch when required."}
                           </p>
                         </div>
 
@@ -1450,8 +1473,8 @@ export default function MyBusinessPage() {
                               ? `Invite affiliates (${approvedAffiliateRequestsByOffer[offer.id].length})`
                               : "No approved affiliates yet"}
                           </button>
-                          {!offer.archived_at && <button onClick={() => { setDeleteError(null); setDeleteOffer(offer); }} disabled={loadingDeleteId === offer.id} className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-2.5 text-sm font-semibold text-red-200 hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-50">
-                            {loadingDeleteId === offer.id ? "Deleting…" : "Delete offer"}
+                          {!offer.archived_at && <button onClick={() => previewDelete(offer)} disabled={!!loadingDeleteId || !!previewLoadingId} className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-2.5 text-sm font-semibold text-red-200 hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-50">
+                            {previewLoadingId === offer.id ? "Checking…" : loadingDeleteId === offer.id ? "Deleting…" : "Delete offer"}
                           </button>}
                           {metaStatus.needsSetup && trackingReady && (
                             <Link href={`/business/my-business/edit-offer/${offer.id}/#meta-setup`} prefetch={false} className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-[#00C2CB]/30 bg-[#00C2CB]/10 px-4 py-2.5 text-sm font-semibold text-[#7ff5fb] hover:bg-[#00C2CB]/15 sm:col-span-2">{metaStatus.actionLabel}</Link>

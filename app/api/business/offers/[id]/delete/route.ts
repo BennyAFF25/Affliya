@@ -16,3 +16,6 @@ export async function POST(req: Request, context: { params: Promise<{ id: string
     },
   });
 }
+
+// Preview uses the identical session and ownership boundary.
+export const GET = POST;
