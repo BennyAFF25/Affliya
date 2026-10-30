@@ -98,3 +98,20 @@ export function withCriticalRouteAuth(route: CriticalRoute, work: (req: Request)
     }
   };
 }
+
+// Session-only ownership boundary for offer deletion; never accepts cron credentials.
+export async function authorizeOfferDeletion(req: Request, offerId: string, deps: Omit<Dependencies, 'trusted'>) {
+  const user = await deps.getUser(req);
+  if (!user?.id || !user.email) return { response: Response.json({ error: 'Unauthorized' }, { status: 401 }) };
+  const db = deps.database();
+  const offer = await db.from('offers').select('*').eq('id', offerId).maybeSingle();
+  if (offer.error) throw new Error('Offer lookup failed');
+  if (!offer.data) return { response: Response.json({ error: 'Offer not found' }, { status: 404 }) };
+  const profile = await db.from('business_profiles').select('id').eq('business_email', emailKey(user.email)).maybeSingle();
+  if (profile.error) throw new Error('Ownership lookup failed');
+  const row = offer.data;
+  const owns = row.business_id === user.id || (!!profile.data?.id && row.business_id === profile.data.id)
+    || emailKey(row.business_email) === emailKey(user.email);
+  if (!owns) return { response: Response.json({ error: 'Forbidden' }, { status: 403 }) };
+  return { offer: row, user };
+}

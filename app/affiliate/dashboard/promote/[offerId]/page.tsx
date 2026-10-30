@@ -532,14 +532,14 @@ export default function PromoteOfferPage() {
         .from("offers")
         .select(
           "title, logo_url, business_email, website, currency, meta_page_id, meta_ad_account_id, meta_pixel_id, participation_mode",
-        )
+        ).is("archived_at", null)
         .eq("id", offerId)
         .single();
 
       if (offerErr?.message?.toLowerCase().includes("participation_mode")) {
         ({ data: offer, error: offerErr } = await (supabase as any)
           .from("offers")
-          .select("title, logo_url, business_email, website, currency, meta_page_id, meta_ad_account_id, meta_pixel_id")
+          .select("title, logo_url, business_email, website, currency, meta_page_id, meta_ad_account_id, meta_pixel_id").is("archived_at", null)
           .eq("id", offerId)
           .single());
       }
@@ -994,7 +994,7 @@ export default function PromoteOfferPage() {
       // Fetch business_email for this offer
       const { data: offerRow, error: offerErr } = await (supabase as any)
         .from("offers")
-        .select("business_email,currency")
+        .select("business_email,currency").is("archived_at", null)
         .eq("id", offerId)
         .single();
       if (offerErr || !offerRow?.business_email)
@@ -1162,7 +1162,7 @@ export default function PromoteOfferPage() {
       // 1) Get business email for this offer (needed for row)
       const { data: offerRow, error: offerErr } = await (supabase as any)
         .from("offers")
-        .select("business_email,currency")
+        .select("business_email,currency").is("archived_at", null)
         .eq("id", offerId)
         .single();
       if (offerErr || !offerRow)

@@ -43,7 +43,7 @@ export async function POST(req: Request, context: { params: Promise<{ offerId: s
     for (const columns of offerSelectVariants) {
       const result = await (supabaseAdmin as any)
         .from("offers")
-        .select(columns)
+        .select(columns).is("archived_at", null)
         .eq("id", offerId)
         .maybeSingle();
 

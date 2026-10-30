@@ -38,7 +38,7 @@ export async function POST(req: Request) {
 
     const { data: offer, error: offerError } = await admin
       .from("offers")
-      .select("id,business_email,currency,meta_page_id,meta_ad_account_id")
+      .select("id,business_email,currency,meta_page_id,meta_ad_account_id").is("archived_at", null)
       .eq("id", offerId).maybeSingle();
     if (offerError || !offer?.id || !offer?.business_email) {
       return NextResponse.json({ success: false, message: "Offer not found." }, { status: 404 });

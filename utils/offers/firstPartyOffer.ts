@@ -79,7 +79,7 @@ export async function getNettmarkPartnerProgrammeOffer<T = any>(
 ): Promise<T | null> {
   const primary = await supabase
     .from("offers")
-    .select(columns)
+    .select(columns).is("archived_at", null)
     .eq("system_key", NETTMARK_PARTNER_PROGRAMME_SYSTEM_KEY)
     .maybeSingle();
 
@@ -87,7 +87,7 @@ export async function getNettmarkPartnerProgrammeOffer<T = any>(
 
   const fallback = await supabase
     .from("offers")
-    .select(columns)
+    .select(columns).is("archived_at", null)
     .eq("business_email", NETTMARK_PARTNER_PROGRAMME_EMAIL)
     .ilike("title", NETTMARK_PARTNER_PROGRAMME_TITLE)
     .maybeSingle();

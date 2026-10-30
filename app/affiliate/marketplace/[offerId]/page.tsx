@@ -123,7 +123,7 @@ export default function AffiliateOfferProfilePage() {
     const fetchOffer = async () => {
       setLoading(true);setLoadError(null);setOffer(null);setCurrentSlide(0);
       try {
-        const {data,error}=await (supabase as any).from('offers').select('*').eq('id',offerId).maybeSingle();
+        const {data,error}=await (supabase as any).from('offers').select('*').is("archived_at", null).eq('id',offerId).maybeSingle();
         if(cancelled) return;
         if(error) throw error;
         if(!data) throw new Error('This offer is unavailable or has been removed.');

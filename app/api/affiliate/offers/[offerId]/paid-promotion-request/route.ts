@@ -30,7 +30,7 @@ export async function POST(req: Request, context: { params: Promise<{ offerId: s
 
     const { data: offer, error: offerError } = await (supabaseAdmin as any)
       .from("offers")
-      .select("id,title,business_email,currency,meta_page_id,meta_ad_account_id")
+      .select("id,title,business_email,currency,meta_page_id,meta_ad_account_id").is("archived_at", null)
       .eq("id", offerId)
       .maybeSingle();
 

@@ -82,7 +82,7 @@ export default function BusinessMarketplace() {
           type,
           website,
           created_at
-        `);
+        `).is("archived_at", null);
 
 
       const { data, error } = await offersQuery;
@@ -102,7 +102,7 @@ export default function BusinessMarketplace() {
         console.error("[❌ Error fetching offers]", error.message);
         const fallbackQuery = supabase
           .from("offers")
-          .select("id,title,business_email,description,commission,type,website");
+          .select("id,title,business_email,description,commission,type,website").is("archived_at", null);
         const { data: fallbackData, error: fallbackError } = await fallbackQuery;
 
         if (fallbackError) {

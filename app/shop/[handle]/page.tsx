@@ -114,7 +114,7 @@ async function getShopData(handle: string) {
 
   const { data: offers } = await supabase
     .from("offers")
-    .select("id, title, description, price, currency, logo_url, website")
+    .select("id, title, description, price, currency, logo_url, website").is("archived_at", null)
     .in("id", offerIds);
 
   const { data: overrides } = await supabase

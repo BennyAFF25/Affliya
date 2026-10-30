@@ -6,6 +6,8 @@ export type AffiliateWebhookEventType =
   | "brand.profile_updated"
   | "offer.created"
   | "offer.updated"
+  | "offer.archived"
+  | "offer.deleted"
   | "meta.connected"
   | "meta.disconnected"
   | "plan.upgraded"
@@ -323,7 +325,10 @@ async function buildPayload(
   const brand = await loadBrandSnapshot(supabase, row);
   if (!brand) throw new Error("Business snapshot unavailable");
 
-  const offer = await loadOfferSnapshot(supabase, row.offer_id);
+  // Archive/delete events carry their own snapshot and must survive hard deletion.
+  const offer = row.event_type === "offer.created" || row.event_type === "offer.updated"
+    ? await loadOfferSnapshot(supabase, row.offer_id)
+    : null;
   let data: Record<string, unknown> = { ...(row.data || {}) };
 
   if (row.event_type === "offer.created") {

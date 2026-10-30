@@ -22,7 +22,7 @@ async function authorize(context: RouteContext) {
   if (profileError) throw new PromotionAIError(503, "Could not verify your account. Please try again.");
   if (profile?.role !== "affiliate") throw new PromotionAIError(403, "An affiliate account is required.");
   // User-scoped offer read first; service client is used only after access verification.
-  const { data: offer, error: offerError } = await supabase.from("offers").select("*").eq("id", offerId).maybeSingle();
+  const { data: offer, error: offerError } = await supabase.from("offers").select("*").is("archived_at", null).eq("id", offerId).maybeSingle();
   if (offerError) throw new PromotionAIError(503, "Could not load this offer.");
   if (!offer?.business_email) throw new PromotionAIError(404, "Offer not found.");
   if (!["active", "approved", "live", "published"].includes(String(offer.status || "active").toLowerCase())) {

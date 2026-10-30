@@ -139,7 +139,7 @@ export default function MyShopPage() {
         } else {
           const { data: offerRows, error: offerError } = await supabase
             .from("offers")
-            .select("id, title, description, logo_url, business_email")
+            .select("id, title, description, logo_url, business_email").is("archived_at", null)
             .in("id", offerIds);
 
           if (offerError) throw offerError;

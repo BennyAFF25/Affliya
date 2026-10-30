@@ -17,7 +17,7 @@ export async function GET(req: Request) {
 
     const { data: offers, error: offerError } = await (supabaseAdmin as any)
       .from("offers")
-      .select("id, business_email, meta_page_id, meta_ad_account_id")
+      .select("id, business_email, meta_page_id, meta_ad_account_id").is("archived_at", null)
       .in("id", rawOfferIds);
     if (offerError) throw new Error(offerError.message || "Failed to load offers");
 

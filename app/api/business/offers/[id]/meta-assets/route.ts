@@ -17,10 +17,10 @@ function clean(value: unknown) {
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: Promise<{ offerId: string }> },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { offerId } = await params;
+    const { id: offerId } = await params;
     const body = await req.json().catch(() => null);
     const cookieStore = cookies();
     const userSupabase = createRouteHandlerClient({ cookies: () => cookieStore });

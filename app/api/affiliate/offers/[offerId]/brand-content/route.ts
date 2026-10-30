@@ -28,14 +28,14 @@ export async function GET(req: Request, context: { params: Promise<{ offerId: st
 
     let { data: offer, error: offerError } = await (supabaseAdmin as any)
       .from("offers")
-      .select("id, business_email, title, participation_mode")
+      .select("id, business_email, title, participation_mode").is("archived_at", null)
       .eq("id", offerId)
       .maybeSingle();
 
     if (offerError?.message?.toLowerCase().includes("participation_mode")) {
       ({ data: offer, error: offerError } = await (supabaseAdmin as any)
         .from("offers")
-        .select("id, business_email, title")
+        .select("id, business_email, title").is("archived_at", null)
         .eq("id", offerId)
         .maybeSingle());
     }

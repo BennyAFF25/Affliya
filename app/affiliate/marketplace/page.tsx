@@ -298,9 +298,10 @@ export default function AffiliateMarketplace() {
       const offerColumnsFallback = `id,title,created_at,business_email,description,commission,type,currency,price,commission_value,logo_url,website,meta_page_id,meta_ad_account_id,meta_pixel_id`;
 
       const offerPromise = (async () => {
-        let result = await supabase.from("offers").select(offerColumnsWithParticipationMode);
+        let result = await supabase.from("offers").select(offerColumnsWithParticipationMode).is("archived_at", null);
         if (result.error?.message?.toLowerCase().includes("participation_mode")) {
-          result = await supabase.from("offers").select(offerColumnsFallback);
+          const fallback = await supabase.from("offers").select(offerColumnsFallback).is("archived_at", null);
+          return { ...fallback, data: fallback.data?.map(offer => ({ ...offer, participation_mode: null })) ?? null };
         }
         return result;
       })();

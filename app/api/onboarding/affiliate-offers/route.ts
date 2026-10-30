@@ -20,7 +20,7 @@ export async function GET() {
   if (profileError) return NextResponse.json({ error: "Could not load your profile." }, { status: 503 });
   if (profile?.role !== "affiliate") return NextResponse.json({ error: "An affiliate account is required." }, { status: 403 });
   const [offerResult, requestResult] = await Promise.all([
-    supabase.from("offers").select("*").order("created_at", { ascending: false }).limit(200),
+    supabase.from("offers").select("*").is("archived_at", null).order("created_at", { ascending: false }).limit(200),
     supabase.from("affiliate_requests").select("offer_id, status").eq("affiliate_email", user.email),
   ]);
   if (offerResult.error || requestResult.error) return NextResponse.json({ error: "Could not load marketplace offers. Please try again." }, { status: 503 });

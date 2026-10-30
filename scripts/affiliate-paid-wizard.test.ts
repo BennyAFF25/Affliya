@@ -44,7 +44,7 @@ const db = {
   },
 };
 function reset() {
-  rows = { profiles: [{ id: 'user', role: 'affiliate' }], offers: [{ id: offerId, business_email: 'brand@test.invalid', title: 'Offer', status: 'active', participation_mode: 'approval_required', currency: 'AUD' }], affiliate_requests: [], product_events: [] };
+  rows = { profiles: [{ id: 'user', role: 'affiliate' }], offers: [{ archived_at: null, id: offerId, business_email: 'brand@test.invalid', title: 'Offer', status: 'active', participation_mode: 'approval_required', currency: 'AUD' }], affiliate_requests: [], product_events: [] };
   authenticated = true; failTable = ''; failCode = 'XX000'; failInsertOnly = false; sent = 0; deferred.length = 0;
 }
 const loader = Module as unknown as { _load: (name: string, parent: unknown, isMain: boolean) => any };
@@ -80,6 +80,11 @@ async function run() {
     const demand = requireMocked('../app/api/affiliate/offers/[offerId]/paid-promotion-request/route');
     const context = { params: Promise.resolve({ offerId }) };
     const request = () => new Request('https://test.invalid', { method: 'POST', body: JSON.stringify({ budget: 20 }) });
+    rows.offers[0].archived_at = '2026-10-30T12:00:00Z';
+    assert.equal((await start.POST(request(), context)).status, 404, 'archived offers reject new participation');
+    assert.equal((await demand.POST(request(), context)).status, 404, 'archived offers reject new paid demand');
+    assert.equal(rows.affiliate_requests.length, 0);
+    rows.offers[0].archived_at = null;
     assert.equal((await (await start.GET(request(), context)).json()).participation.status, 'none');
     assert.equal(rows.affiliate_requests.length, 0, 'opening the wizard is read only');
     const access = await Promise.all([start.POST(request(), context), start.POST(request(), context)]);

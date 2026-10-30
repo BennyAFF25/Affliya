@@ -40,7 +40,7 @@ export async function POST(_req: Request, context: { params: Promise<{ offerId: 
     for (const columns of offerSelectVariants) {
       const result = await (supabaseAdmin as any)
         .from("offers")
-        .select(columns)
+        .select(columns).is("archived_at", null)
         .eq("id", offerId)
         .maybeSingle();
 
@@ -179,7 +179,7 @@ export async function GET(_req: Request, context: { params: Promise<{ offerId: s
     const { data: profile, error: profileError } = await client.from("profiles").select("role").eq("id", user.id).maybeSingle();
     if (profileError) throw profileError;
     if (profile?.role !== "affiliate") return NextResponse.json({ ok: false, error: "An affiliate account is required." }, { status: 403 });
-    const { data: offer, error: offerError } = await supabaseAdmin.from("offers").select("id,participation_mode").eq("id", offerId).maybeSingle();
+    const { data: offer, error: offerError } = await supabaseAdmin.from("offers").select("id,participation_mode").is("archived_at", null).eq("id", offerId).maybeSingle();
     if (offerError) throw offerError;
     if (!offer) return NextResponse.json({ ok: false, error: "Offer not found." }, { status: 404 });
     const { data: row, error: rowError } = await supabaseAdmin.from("affiliate_requests").select("status").eq("offer_id", offerId).eq("affiliate_email", user.email).order("created_at", { ascending: false }).limit(1).maybeSingle();

@@ -4,6 +4,7 @@
 import "@/globals.css";
 import "./mobile-business.css";
 import MobileBusinessOverview, { type MobileBusinessView } from "./MobileBusinessOverview";
+import { Dialog, DialogPanel, DialogTitle, Description } from "@headlessui/react";
 import AcceptTermsModal from "@/../app/components/AcceptTermsModal";
 import Link from "next/link";
 import React, { useEffect, useState } from "react";
@@ -161,6 +162,8 @@ interface OnboardingProgressRow {
 }
 
 interface Offer {
+  archived_at?: string | null;
+  archived_reason?: string | null;
   id: string;
   title: string;
   description: string;
@@ -228,6 +231,8 @@ export default function MyBusinessPage() {
   const [hasAffiliateRequests, setHasAffiliateRequests] = useState(false);
   const [offersLoading, setOffersLoading] = useState<boolean>(true);
   const [loadingPaymentForm, setLoadingPaymentForm] = useState(false);
+  const [deleteOffer, setDeleteOffer] = useState<Offer | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [loadingDeleteId, setLoadingDeleteId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isEnablingPayouts, setIsEnablingPayouts] = useState(false);
@@ -332,7 +337,7 @@ export default function MyBusinessPage() {
       const { data, error } = await supabase
         .from("offers")
         .select(
-          "id,title,description,commission,type,site_host,meta_page_id,meta_ad_account_id,meta_pixel_id",
+          "id,title,description,commission,type,archived_at,archived_reason,site_host,meta_page_id,meta_ad_account_id,meta_pixel_id",
         )
         .eq("business_email", businessEmail);
 
@@ -340,7 +345,7 @@ export default function MyBusinessPage() {
         console.error("[❌ Error fetching business offers]", error.message);
         const { data: fallbackData, error: fallbackError } = await supabase
           .from("offers")
-          .select("id,title,description,commission,type,site_host")
+          .select("id,title,description,commission,type,archived_at,archived_reason,site_host")
           .eq("business_email", businessEmail);
 
         if (fallbackError) {
@@ -645,22 +650,22 @@ export default function MyBusinessPage() {
   // Guided setup UI removed: core financial/integration handlers stay available for contextual approval flows.
 
   const handleDelete = async (id: string) => {
-    console.log("[🗑 Attempting to delete offer]", id);
+    if (loadingDeleteId) return;
     setLoadingDeleteId(id);
+    setDeleteError(null);
     try {
-      const { error: deleteError } = await supabase
-        .from("offers")
-        .delete()
-        .eq("id", id);
-      if (deleteError) throw deleteError;
-
-      const updatedOffers = offers.filter((offer) => offer.id !== id);
-      setOffers(updatedOffers);
-      localStorage.setItem("my-offers", JSON.stringify(updatedOffers));
-      localStorage.setItem("marketplace-offers", JSON.stringify(updatedOffers));
-      console.log("[✅ Offer deleted and offers updated]");
+      const res = await fetch(`/api/business/offers/${id}/delete`, { method: "POST" });
+      const result = await res.json();
+      if (!res.ok || !result.ok) throw new Error(result.error || "Could not delete offer.");
+      setOffers(current => {
+        const updated = result.action === "archived"
+          ? current.map(offer => offer.id === id ? { ...offer, ...result.offer } : offer)
+          : current.filter(offer => offer.id !== result.id);
+        return updated;
+      });
+      setDeleteOffer(null);
     } catch (err: any) {
-      console.error("[❌ Delete Error]", err.message || err);
+      setDeleteError(err.message || "Could not delete offer. Please try again.");
     } finally {
       setLoadingDeleteId(null);
     }
@@ -912,7 +917,8 @@ export default function MyBusinessPage() {
   }
 
   const pendingSubmissionCount = pendingPostIdeaCount + pendingAdIdeaCount + affiliateRequestCount;
-  const activeOfferCount = offers.length;
+  const activeOffers = offers.filter(offer => !offer.archived_at);
+  const activeOfferCount = activeOffers.length;
   const profileComplete = Boolean(user?.email);
   const brandAssetsAvailable = hasTrackingConnected || hasMetaConnected || offers.some((offer) => Boolean(offer.meta_page_id) || Boolean(offer.site_host));
   const liveOfferLabel = offersLoading ? "Loading…" : `${activeOfferCount}`;
@@ -952,13 +958,27 @@ export default function MyBusinessPage() {
     ...(pendingPostIdeaCount > 0
       ? [{ title: "Organic post ideas submitted", details: `${pendingPostIdeaCount} organic post idea${pendingPostIdeaCount === 1 ? "" : "s"} pending approval.`, href: "/business/my-business/post-ideas" }]
       : []),
-    ...(offers.length > 0
-      ? [{ title: "Offers available", details: `${offers.length} marketplace offer${offers.length === 1 ? "" : "s"} available for affiliates.`, href: "/business/my-business/edit-offer" }]
+    ...(activeOfferCount > 0
+      ? [{ title: "Offers available", details: `${activeOfferCount} marketplace offer${activeOfferCount === 1 ? "" : "s"} available for affiliates.`, href: "/business/my-business/edit-offer" }]
       : []),
   ].slice(0, 4);
 
   return (
     <>
+      <Dialog open={!!deleteOffer} onClose={() => { if (!loadingDeleteId) setDeleteOffer(null); }} className="relative z-50">
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" aria-hidden="true" />
+        <div className="fixed inset-0 flex items-center justify-center p-4">
+          <DialogPanel className="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-3xl border border-white/10 bg-[#151718] p-6 text-gray-200 shadow-2xl">
+            <DialogTitle className="break-words text-xl font-semibold tracking-tight">Delete “{deleteOffer?.title}”?</DialogTitle>
+            <Description className="mt-4 text-sm leading-6 text-gray-300">This offer will be deleted permanently. If it has affiliates or activity, it will be archived instead and unavailable for new promotions. Existing campaigns and records will be preserved.</Description>
+            {deleteError && <p role="alert" className="mt-4 text-sm text-red-300">{deleteError}</p>}
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+              <button data-autofocus type="button" disabled={!!loadingDeleteId} onClick={() => setDeleteOffer(null)} className="min-h-11 flex-1 rounded-full border border-white/15 px-5 py-3 text-sm font-semibold">Cancel</button>
+              <button type="button" disabled={!!loadingDeleteId} onClick={() => deleteOffer && handleDelete(deleteOffer.id)} className="min-h-11 flex-1 rounded-full border border-red-400/30 bg-red-500/10 px-5 py-3 text-sm font-semibold text-red-200 disabled:opacity-50">{loadingDeleteId ? "Deleting…" : "Delete offer"}</button>
+            </div>
+          </DialogPanel>
+        </div>
+      </Dialog>
       {showAcceptTerms && user?.id && (
         <AcceptTermsModal
           userId={user.id}
@@ -971,7 +991,7 @@ export default function MyBusinessPage() {
           <div className="min-w-0 space-y-6">
             <MobileBusinessOverview
               view={mobileView} onNavigate={setMobileView} loading={offersLoading}
-              offers={offers} requests={affiliateRequestCount} adIdeas={pendingAdIdeaCount}
+              offers={activeOffers} requests={affiliateRequestCount} adIdeas={pendingAdIdeaCount}
               postIdeas={pendingPostIdeaCount} reviewHref={reviewSubmissionsHref}
               billingRequired={billingRequiredPrompt && !billingReady} onSupport={handleOpenAssistant}
             />
@@ -1383,7 +1403,7 @@ export default function MyBusinessPage() {
                           <div className="flex items-start gap-3">
                             <div className="grid h-10 w-10 place-items-center rounded-full bg-[#00C2CB]/10 text-[#7ff5fb]"><IconStorefront className="h-5 w-5" /></div>
                             <div>
-                              <h3 className="text-lg font-semibold tracking-tight text-white">{offer.title}</h3>
+                              <h3 className="text-lg font-semibold tracking-tight text-white">{offer.title}{offer.archived_at && <span className="ml-2 inline-flex rounded-full border border-white/15 px-2 py-1 align-middle text-xs font-semibold text-slate-400">Archived</span>}</h3>
                               <p className="mt-0.5 text-xs uppercase tracking-[0.16em] text-slate-500">{offer.type === "recurring" ? "Recurring offer" : "One-time offer"}</p>
                             </div>
                           </div>
@@ -1430,9 +1450,9 @@ export default function MyBusinessPage() {
                               ? `Invite affiliates (${approvedAffiliateRequestsByOffer[offer.id].length})`
                               : "No approved affiliates yet"}
                           </button>
-                          <button onClick={() => handleDelete(offer.id)} disabled={loadingDeleteId === offer.id} className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-2.5 text-sm font-semibold text-red-200 hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-50">
+                          {!offer.archived_at && <button onClick={() => { setDeleteError(null); setDeleteOffer(offer); }} disabled={loadingDeleteId === offer.id} className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-2.5 text-sm font-semibold text-red-200 hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-50">
                             {loadingDeleteId === offer.id ? "Deleting…" : "Delete offer"}
-                          </button>
+                          </button>}
                           {metaStatus.needsSetup && trackingReady && (
                             <Link href={`/business/my-business/edit-offer/${offer.id}/#meta-setup`} prefetch={false} className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-[#00C2CB]/30 bg-[#00C2CB]/10 px-4 py-2.5 text-sm font-semibold text-[#7ff5fb] hover:bg-[#00C2CB]/15 sm:col-span-2">{metaStatus.actionLabel}</Link>
                           )}

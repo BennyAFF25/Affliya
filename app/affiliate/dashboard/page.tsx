@@ -47,6 +47,7 @@ interface Profile {
 }
 
 interface Offer {
+  archived_at?: string | null;
   id: string;
   title: string;
   description: string;
@@ -496,7 +497,7 @@ function AffiliateDashboardContent() {
   const checklistDismissedStorageKey = user
     ? `affiliate-checklist-dismissed-${user.id}`
     : null;
-  const approvedOffers = offers.filter((offer) => approvedIds.includes(offer.id));
+  const approvedOffers = offers.filter((offer) => !offer.archived_at && approvedIds.includes(offer.id));
   // Continue a real marketplace offer, preferring one with an existing organic campaign.
   const firstOfferCampaign = (liveCampaigns || []).find((campaign: any) =>
     approvedOffers.some(offer => offer.id === campaign.offer_id)) || null;

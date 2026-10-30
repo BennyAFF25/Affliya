@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 
 const page = readFileSync('app/business/my-business/connect-meta/page.tsx', 'utf8');
 const callback = readFileSync('app/api/meta/callback/route.ts', 'utf8');
-const saveRoute = readFileSync('app/api/business/offers/[offerId]/meta-assets/route.ts', 'utf8');
+const saveRoute = readFileSync('app/api/business/offers/[id]/meta-assets/route.ts', 'utf8');
 
 assert.match(page, /Attach Meta assets to offers/);
 assert.match(page, /meta_page_id/);

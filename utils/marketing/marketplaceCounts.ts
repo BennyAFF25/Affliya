@@ -6,7 +6,7 @@ export const getMarketplaceCounts = unstable_cache(async () => {
   try {
     const admin = createServerSupabaseClient();
     const [offers, affiliates] = await Promise.all([
-      admin.from("offers").select("id", { count: "exact", head: true }).neq("participation_mode", "private"),
+      admin.from("offers").select("id", { count: "exact", head: true }).is("archived_at", null).neq("participation_mode", "private"),
       admin.from("profiles").select("id", { count: "exact", head: true }).eq("role", "affiliate"),
     ]);
     if (offers.error || affiliates.error ||
