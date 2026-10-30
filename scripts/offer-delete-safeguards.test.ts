@@ -123,6 +123,11 @@ async function run() {
   assert.match(ui, /<Dialog open=\{!!deleteOffer\}/); assert.match(ui, /!offer.archived_at && <button/);
   assert.match(ui, /setDeletePreview\(result\);\s+setDeleteOffer\(offer\)/);
   assert.match(ui, /Archived — hidden from marketplace/);
+  assert.match(ui, /<DialogTitle[^>]*>\{deletePreview\?\.willArchive \? "Archive" : "Delete"\} “\{deleteOffer\?\.title\}”\?<\/DialogTitle>/);
+  assert.match(ui, /deletePreview\?\.willArchive \? "Archive offer" : "Delete offer"/);
+  const inviteButton = ui.match(/(\{!offer\.archived_at && )?<button\b[^>]*>(?:(?!<button\b|<\/button>)[\s\S])*?Invite affiliates[\s\S]*?<\/button>\}/);
+  assert.ok(inviteButton, 'Offer cards retain the affiliate invite button');
+  assert.ok(inviteButton[1], 'Archived offer cards hide the affiliate invite button');
   assert.doesNotMatch(ui, /\.delete\(\)/);
   console.log('offer delete safeguards passed (offline route mocks and SQL contract checks)');
 }

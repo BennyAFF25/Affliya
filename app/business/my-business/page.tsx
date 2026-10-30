@@ -992,7 +992,7 @@ export default function MyBusinessPage() {
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" aria-hidden="true" />
         <div className="fixed inset-0 flex items-center justify-center p-4">
           <DialogPanel className="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-3xl border border-white/10 bg-[#151718] p-6 text-gray-200 shadow-2xl">
-            <DialogTitle className="break-words text-xl font-semibold tracking-tight">Delete “{deleteOffer?.title}”?</DialogTitle>
+            <DialogTitle className="break-words text-xl font-semibold tracking-tight">{deletePreview?.willArchive ? "Archive" : "Delete"} “{deleteOffer?.title}”?</DialogTitle>
             <Description className="mt-4 text-sm leading-6 text-gray-300">{deletePreview?.willArchive ? "This offer will be archived (paused), affiliates keep existing campaigns. It will be hidden from the marketplace." : "This offer will be deleted permanently."}</Description>
             {deleteError && <p role="alert" className="mt-4 text-sm text-red-300">{deleteError}</p>}
             <div className="mt-6 flex flex-col gap-3 sm:flex-row">
@@ -1453,7 +1453,7 @@ export default function MyBusinessPage() {
                         <div className="relative mt-5 grid grid-cols-1 gap-2 sm:grid-cols-2">
                           <Link href={`/business/my-business/edit-offer/${offer.id}/`} prefetch={false} className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl bg-[#00C2CB] px-4 py-2.5 text-sm font-semibold text-black hover:bg-[#14d5de]">Edit offer</Link>
                           <Link href="/business/my-business/affiliate-requests" prefetch={false} className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-white/15 bg-white/[0.04] px-4 py-2.5 text-sm font-semibold text-white hover:bg-white/10">View requests</Link>
-                          <button
+                          {!offer.archived_at && <button
                             type="button"
                             onClick={() => {
                               const approvedCount = approvedAffiliateRequestsByOffer[offer.id]?.length || 0;
@@ -1472,7 +1472,7 @@ export default function MyBusinessPage() {
                             {(approvedAffiliateRequestsByOffer[offer.id]?.length || 0) > 0
                               ? `Invite affiliates (${approvedAffiliateRequestsByOffer[offer.id].length})`
                               : "No approved affiliates yet"}
-                          </button>
+                          </button>}
                           {!offer.archived_at && <button onClick={() => previewDelete(offer)} disabled={!!loadingDeleteId || !!previewLoadingId} className="inline-flex min-h-[44px] w-full items-center justify-center rounded-xl border border-red-400/30 bg-red-500/10 px-4 py-2.5 text-sm font-semibold text-red-200 hover:bg-red-500/15 disabled:cursor-not-allowed disabled:opacity-50">
                             {previewLoadingId === offer.id ? "Checking…" : loadingDeleteId === offer.id ? "Deleting…" : "Delete offer"}
                           </button>}
