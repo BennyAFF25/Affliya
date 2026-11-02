@@ -3,6 +3,7 @@
 import { computeOfferMetaReady } from "../../../utils/offerMetaReadiness";
 import { formatMoney } from "../../../utils/currency";
 import { useEffect, useMemo, useState } from "react";
+import BrandLogo from "../../components/BrandLogo";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "@supabase/auth-helpers-react";
@@ -71,7 +72,6 @@ function MarketplaceRow({
   const estimatedPayout =
     offer.commissionValue ??
     (offer.price ? (offer.price * offer.commission) / 100 : null);
-  const logoFallback = offer.title.slice(0, 1).toUpperCase();
   const typeLabel = offer.type === "recurring" ? "Recurring" : "One-time";
   const primaryLabel = starting
     ? "Opening…"
@@ -111,15 +111,7 @@ function MarketplaceRow({
     <div className="group border-t border-[var(--border)] first:border-t-0 transition-colors hover:bg-[var(--secondary)]">
       <div className="hidden min-h-[94px] grid-cols-[minmax(280px,2.4fr)_minmax(170px,1.35fr)_minmax(105px,.8fr)_minmax(185px,1.35fr)_minmax(170px,1.15fr)_minmax(235px,1.45fr)] items-center gap-4 px-5 py-3 lg:grid">
         <div className="flex min-w-0 items-center gap-3">
-          {offer.logoUrl ? (
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--secondary)]">
-              <img src={offer.logoUrl} alt={`${offer.title} logo`} className="h-full w-full object-contain p-1.5" />
-            </div>
-          ) : (
-            <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl border border-[var(--border)] bg-[var(--secondary)] text-sm font-semibold text-[#00c2cb]">
-              {logoFallback}
-            </div>
-          )}
+          <BrandLogo src={offer.logoUrl} name={offer.title} size="md" />
           <div className="min-w-0">
             <div className="flex min-w-0 items-center gap-1.5">
               <p className="truncate text-sm font-semibold text-[var(--foreground)]">{offer.title}</p>
@@ -204,13 +196,7 @@ function MarketplaceRow({
 
       <div className="p-4 lg:hidden">
         <div className="flex items-start gap-3">
-          {offer.logoUrl ? (
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--secondary)]">
-              <img src={offer.logoUrl} alt={`${offer.title} logo`} className="h-full w-full object-contain p-1.5" />
-            </div>
-          ) : (
-            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-[var(--border)] bg-[var(--secondary)] text-sm font-semibold text-[#00c2cb]">{logoFallback}</div>
-          )}
+          <BrandLogo src={offer.logoUrl} name={offer.title} size="sm" />
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-1.5">
               <p className="truncate text-sm font-semibold text-[var(--foreground)]">{offer.title}</p>

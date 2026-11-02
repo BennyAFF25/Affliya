@@ -3,13 +3,13 @@
 import React from 'react';
 import { useSession } from '@supabase/auth-helpers-react';
 import Link from 'next/link';
+import BrandLogo from './BrandLogo';
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ArrowUpRight,
   BadgeCheck,
   ChevronRight,
-  Image as ImageIcon,
   TrendingUp,
 } from 'lucide-react';
 
@@ -137,7 +137,6 @@ export default function OfferCard({
   const canStart = !isPrivate && currentStatus !== 'pending';
 
   const name = offer.businessName || offer.title || 'Untitled offer';
-  const logoFallback = name.slice(0, 1).toUpperCase();
   const subtitle = readyCreativeLabel || promotionMode.helper;
   const channelLabel = offer.meta_page_id && offer.meta_ad_account_id ? 'Paid + organic' : 'Organic only';
 
@@ -205,15 +204,7 @@ export default function OfferCard({
       <div className="flex flex-col gap-4 px-5 py-5 sm:px-6 lg:min-h-[420px]">
         <div className="flex items-start justify-between gap-4">
           <div className="flex min-w-0 items-center gap-3.5">
-            {offer.logoUrl ? (
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-white/10 bg-black/20">
-                <img src={offer.logoUrl} alt={`${name} logo`} className="h-full w-full object-contain p-2" />
-              </div>
-            ) : (
-              <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl border border-[var(--sidebar-border)] bg-[#202329] text-sm font-semibold text-cyan-200">
-                {logoFallback}
-              </div>
-            )}
+            <BrandLogo src={offer.logoUrl} name={name} size="md" />
 
             <div className="min-w-0">
               <div className="mb-1 flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-emerald-300">
@@ -283,13 +274,7 @@ export default function OfferCard({
 
         <div className="flex flex-col gap-4 lg:flex-1 lg:flex-row lg:items-start lg:justify-between">
           <div className="flex min-w-0 flex-1 items-start gap-3.5">
-            <div className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-xl border border-[var(--sidebar-border)] bg-[#202329] text-zinc-500">
-              {offer.logoUrl ? (
-                <img src={offer.logoUrl} alt="Offer preview" className="h-full w-full object-cover" />
-              ) : (
-                <ImageIcon className="h-5 w-5" />
-              )}
-            </div>
+            <BrandLogo src={offer.logoUrl} name={name} size="md" alt="Offer preview" fit="cover" />
             <div className="min-w-0 flex-1">
               <p className="line-clamp-3 text-sm leading-6 text-zinc-300">
                 {offer.description || 'No description added for this offer yet.'}
