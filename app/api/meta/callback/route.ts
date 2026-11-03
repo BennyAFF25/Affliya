@@ -3,6 +3,7 @@
 import { NextResponse, NextRequest } from 'next/server'
 import { cookies } from 'next/headers'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { createServerSupabaseClient } from '../../../../utils/supabase/createServerClient'
 
 const META_APP_ID = process.env.NEXT_PUBLIC_META_APP_ID?.trim() || ''
 const META_APP_SECRET = process.env.META_APP_SECRET?.trim() || ''
@@ -185,7 +186,10 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const { error: upsertError } = await supabase
+    // meta_connections is locked down to service_role (20261009224000). The
+    // business_email above comes only from the verified Nettmark session.
+    const admin = createServerSupabaseClient()
+    const { error: upsertError } = await admin
       .from('meta_connections')
       .upsert(rows, { onConflict: 'business_email,ad_account_id,page_id' })
 

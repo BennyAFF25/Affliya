@@ -7,6 +7,7 @@ import { supabase } from "utils/supabase/pages-client";
 import { isTrackedLandingVisit } from "../../../../utils/tracking/visitMetrics";
 import CampaignDetailWorkspace from "../../../../components/campaigns/CampaignDetailWorkspace";
 import { getAffiliateUsername } from "../../../../utils/profileIdentity";
+import { loadOwnMetaConnections } from "@/../utils/meta/loadOwnMetaConnections";
 
 type Campaign = {
   id: string;
@@ -149,13 +150,8 @@ export default function BusinessCampaignDetailPage() {
 
         // ✅ Pull the latest Meta ad account currency from meta_connections
         // Supports either `ad_account_currency` or `currency` (some older rows may use `currency`).
-        const { data: metaConn, error: metaConnErr } = await (supabase as any)
-          .from("meta_connections")
-          .select("ad_account_currency, currency, created_at")
-          .eq("business_email", user.email as string)
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
+        const { data: metaConns, error: metaConnErr } = await loadOwnMetaConnections<{ ad_account_currency?: string | null; currency?: string | null }>();
+        const metaConn = metaConns?.length ? metaConns[metaConns.length - 1] : null;
 
         if (metaConnErr) {
           console.warn(

@@ -7,6 +7,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 // The checked-in Database type contains only the sample users table.
 const supabase = browserClient as unknown as SupabaseClient;
 import ManageCampaignsWorkspace from "../../../components/business/ManageCampaignsWorkspace";
+import { loadOwnMetaConnections } from "@/../utils/meta/loadOwnMetaConnections";
 
 const ManageCampaignsBusiness = () => {
   const session = useSession();
@@ -76,10 +77,9 @@ const ManageCampaignsBusiness = () => {
     ]);
     setLoadingCampaigns(false);
     // Optional currency lookup and previews do not hold the campaign list open.
-    void supabase.from("meta_connections").select("ad_account_currency")
-      .eq("business_email", user.email).order("created_at", { ascending: false }).limit(1).maybeSingle()
-      .then(({ data }) => {
-        const currency = data?.ad_account_currency;
+    void loadOwnMetaConnections<{ ad_account_currency?: string | null }>()
+      .then(({ data: rows }) => {
+        const currency = rows?.length ? rows[rows.length - 1]?.ad_account_currency : null;
         setMetaCurrency(typeof currency === "string" ? currency.toUpperCase() : "AUD");
       });
 

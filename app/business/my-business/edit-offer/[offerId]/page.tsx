@@ -7,6 +7,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/../utils/supabase/pages-client";
 import { Badge, Button, Card, Input, PageHeader, Select, Textarea } from "@/../components/ui";
+import { loadOwnMetaConnections } from "@/../utils/meta/loadOwnMetaConnections";
 
 interface Offer {
   id: string;
@@ -208,10 +209,7 @@ export default function EditOfferPage() {
     const fetchMetaConnections = async () => {
       if (!user?.email) return;
 
-      const { data } = await (supabase as any)
-        .from("meta_connections")
-        .select("page_id, page_name, ad_account_id, ad_account_name, pixel_id")
-        .eq("business_email", user.email as string);
+      const { data } = await loadOwnMetaConnections<MetaConnection>();
 
       if (data) setMetaConnections(data as MetaConnection[]);
     };

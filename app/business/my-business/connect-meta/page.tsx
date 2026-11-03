@@ -19,6 +19,7 @@ import {
   UserCircle2,
 } from "lucide-react";
 import { getMetaConnectErrorMessage, META_SUPPORT_EMAIL } from "@/../utils/meta/connectErrors";
+import { loadOwnMetaConnections } from "@/../utils/meta/loadOwnMetaConnections";
 
 type MetaConnection = {
   id: string;
@@ -173,23 +174,8 @@ function ConnectMetaPageInner() {
       setError(null);
 
       const [connectionsRes, offersRes] = await Promise.all([
-        supabase
-          .from("meta_connections")
-          .select(
-            `
-            id,
-            meta_user_name,
-            meta_user_email,
-            ad_account_id,
-            ad_account_name,
-            page_id,
-            page_name,
-            pixel_id,
-            pixel_name
-          `,
-          )
-          .eq("business_email", user.email as string)
-          .order("created_at", { ascending: true }),
+        // meta_connections is service_role only; read via the session-scoped route.
+        loadOwnMetaConnections<MetaConnection>(),
         supabase
           .from("offers")
           .select(

@@ -92,24 +92,20 @@ export default function ManageCampaignPage() {
   }
 
   const formatMoney = useCallback((value: number) => formatCurrencyAmount(value, metaCurrency || "AUD"), [metaCurrency]);
-  async function loadMetaCurrencyForBusiness(businessEmail?: string | null) {
-    if (!businessEmail) return;
-
-    const { data, error: connErr } = await supabase
-      .from("meta_connections")
-      .select("ad_account_currency, created_at")
-      .eq("business_email", businessEmail)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (connErr) {
+  async function loadMetaCurrencyForLiveAd(liveAdId?: string | null) {
+    if (!liveAdId) return;
+    // meta_connections is service_role only; the route checks this user owns the ad.
+    try {
+      const res = await fetch(`/api/meta/connection-currency?liveAdId=${encodeURIComponent(liveAdId)}`, { cache: "no-store" });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) {
+        console.warn("[⚠️ meta currency lookup failed]", json?.error || res.status);
+        return;
+      }
+      if (json?.currency) setMetaCurrency(String(json.currency).toUpperCase());
+    } catch (connErr) {
       console.warn("[⚠️ meta currency lookup failed]", connErr);
-      return;
     }
-
-    const cur = (data as { ad_account_currency?: string | null } | null)?.ad_account_currency;
-    if (cur) setMetaCurrency(String(cur).toUpperCase());
   }
 
   // --------------------
@@ -345,7 +341,7 @@ export default function ManageCampaignPage() {
 
       setCampaign(normalised);
       // pull currency from latest meta_connections for this business
-      await loadMetaCurrencyForBusiness((paid as any).business_email);
+      await loadMetaCurrencyForLiveAd((paid as any).id);
       return;
     }
 

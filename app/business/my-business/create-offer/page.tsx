@@ -11,6 +11,7 @@ import { Button, Card, Input, PageHeader, Select, Textarea } from "@/../componen
 import { v4 as uuidv4 } from "uuid";
 import { createPagesBrowserClient } from "@supabase/auth-helpers-nextjs";
 import { logProductEvent } from "@/../utils/productEvents";
+import { loadOwnMetaConnections } from "@/../utils/meta/loadOwnMetaConnections";
 
 function CreateOfferPageInner() {
   const router = useRouter();
@@ -196,10 +197,7 @@ function CreateOfferPageInner() {
       if (!userEmail) return;
     if (!isOfferCurrency(currency)) { alert(OFFER_CURRENCY_MESSAGE); return; }
 
-      const { data } = await supabase
-        .from("meta_connections")
-        .select("page_id, page_name, ad_account_id, ad_account_name, pixel_id")
-        .eq("business_email", userEmail);
+      const { data } = await loadOwnMetaConnections<any>();
 
       if (data) setMetaConnections(data);
     };
