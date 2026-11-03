@@ -31,6 +31,10 @@
     {
       "path": "/api/business-subscription/payment-recovery",
       "schedule": "30 * * * *"
+    },
+    {
+      "path": "/api/cron/proposal-reminders",
+      "schedule": "20 * * * *"
     }
   ]
 }
