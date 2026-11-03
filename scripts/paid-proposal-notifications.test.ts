@@ -35,11 +35,12 @@ const db = {
 const loader = Module as any;
 const original = loader._load;
 loader._load = function(name: string, ...args: any[]) {
+  if (name === "server-only") return {};
   if (name === "@supabase/auth-helpers-nextjs") return { createRouteHandlerClient: () => db };
   if (name === "next/headers") return { cookies: () => ({}) };
   if (name.endsWith("utils/businessSubscriptions")) return { createServerSupabaseClient: () => db };
   if (name.endsWith("utils/profileIdentity")) return { getAffiliateUsername: async () => "affiliate-name" };
-  if (name === "resend") return { Resend: class { emails = { send: async (args: any) => { html = args.html; } }; } };
+  if (name === "resend") return { Resend: class { emails = { send: async (args: any) => { html = args.html; return { error: null }; } }; } };
   return original.call(this, name, ...args);
 };
 async function main() {

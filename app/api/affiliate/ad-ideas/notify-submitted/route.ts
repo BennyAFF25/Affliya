@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
-import { Resend } from "resend";
+import { sendProposalEmail } from "../../../../../utils/email/sendProposalEmail";
 import { createServerSupabaseClient } from "../../../../../utils/businessSubscriptions";
 import { getAffiliateUsername } from "../../../../../utils/profileIdentity";
 import { renderNettmarkEmail } from "../../../../../utils/email/renderNettmarkEmail";
@@ -50,7 +50,7 @@ export async function POST(req: Request) {
     }
 
     if (String(idea.status || "").toLowerCase() !== "pending") {
-      return NextResponse.json({ success: true, skipped: true, reason: "proposal_not_pending" });
+      return NextResponse.json({ success: true, emailSent: false, skipped: true, reason: "proposal_not_pending" });
     }
 
     const { data: offer, error: offerError } = await admin
@@ -77,15 +77,7 @@ export async function POST(req: Request) {
       link_url: reviewPath,
     });
 
-    if (!process.env.RESEND_API_KEY) {
-      console.warn("[proposal-submitted] RESEND_API_KEY missing; proposal remains valid");
-      return NextResponse.json({ success: true, skipped: true, reason: "email_not_configured" });
-    }
-
-    const resend = new Resend(process.env.RESEND_API_KEY);
-    const fromEmail = process.env.RESEND_FROM_EMAIL || "onboarding@resend.dev";
-    const fromName = process.env.RESEND_FROM_NAME || "Nettmark";
-    const affiliateName = await getAffiliateUsername(admin as any, {
+    const affiliateName = await getAffiliateUsername(admin, {
       userId: user.id,
       email: affiliateEmail,
     });
@@ -115,14 +107,14 @@ export async function POST(req: Request) {
       footerNote: "Communication stays inside Nettmark. Affiliate contact details are not shared.",
     });
 
-    await resend.emails.send({
-      from: `${fromName} <${fromEmail}>`,
-      to: [businessEmail],
+    const result = await sendProposalEmail(admin, {
+      to: businessEmail,
       subject: `An affiliate wants to fund ads for ${offer?.title || "your offer"}`,
-      html,
+      html, idempotencyKey: `paid-proposal-submitted/${adIdeaId}`,
+      proposalId: adIdeaId, kind: "paid", stage: "submitted",
     });
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, emailSent: result.ok });
   } catch (error) {
     console.error("[affiliate/ad-ideas/notify-submitted]", error);
     return NextResponse.json(
