@@ -18,6 +18,7 @@ import {
   Sparkles,
   UserCircle2,
 } from "lucide-react";
+import { getMetaConnectErrorMessage, META_SUPPORT_EMAIL } from "@/../utils/meta/connectErrors";
 
 type MetaConnection = {
   id: string;
@@ -104,6 +105,7 @@ function ConnectMetaPageInner() {
   const isOnboard = searchParams?.get("onboard") === "1";
   const connectedParam = searchParams?.get("connected") === "1";
   const connected = connections.length > 0;
+  const metaErrorMessage = getMetaConnectErrorMessage(searchParams?.get("meta_error"));
 
   const returnTo = `/business/my-business/connect-meta${isOnboard ? "?onboard=1&connected=1" : "?connected=1"}`;
   const oauthUrl = `/api/meta/start?returnTo=${encodeURIComponent(returnTo)}`;
@@ -384,6 +386,36 @@ function ConnectMetaPageInner() {
                 )}
               </div>
             </div>
+          </section>
+        )}
+
+        {metaErrorMessage && (
+          <section
+            role="alert"
+            data-testid="meta-connect-error"
+            className="rounded-[24px] border border-amber-500/40 bg-amber-500/10 p-5 text-sm text-[var(--foreground)]"
+          >
+            <h2 className="text-base font-semibold">{metaErrorMessage.title}</h2>
+            <p className="mt-2 text-[var(--muted-foreground)]">{metaErrorMessage.body}</p>
+            {metaErrorMessage.link && (
+              <a
+                href={metaErrorMessage.link.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-3 inline-flex font-semibold text-[var(--primary)] underline"
+              >
+                {metaErrorMessage.link.label}
+              </a>
+            )}
+            {metaErrorMessage.showSupport && (
+              <p className="mt-3 text-[var(--muted-foreground)]">
+                Still stuck? Email{" "}
+                <a href={`mailto:${META_SUPPORT_EMAIL}`} className="font-semibold text-[var(--primary)] underline">
+                  {META_SUPPORT_EMAIL}
+                </a>{" "}
+                and we&apos;ll help you connect.
+              </p>
+            )}
           </section>
         )}
 
