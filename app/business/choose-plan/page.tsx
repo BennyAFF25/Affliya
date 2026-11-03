@@ -9,6 +9,8 @@ import { logProductEvent } from "../../../utils/productEvents";
 import BusinessTrialFirstContinuation, { growthPricePeriod, type BusinessContinuationContext } from "../../../components/business/BusinessTrialFirstContinuation";
 import { getAttributionFromWindow } from "../../../utils/marketing/attribution";
 
+import { shouldShowPlanChoiceAfterPublish } from "../../../utils/onboardingSuccessStep";
+
 export default function ChooseBusinessPlanPage() {
   const router = useRouter();
   // Preserve the login destination while keeping every existing plan decision.
@@ -44,7 +46,7 @@ export default function ChooseBusinessPlanPage() {
         setBusinessId(result.businessId);
         setContext(result);
         if (result.planFirst && result.planSelectionComplete &&
-          !new URLSearchParams(window.location.search).has("subscription")) {
+          !shouldShowPlanChoiceAfterPublish(window.location.search)) {
           continueTo(result.offerId ? "/business/my-business" : "/onboarding/for-business");
           return;
         }

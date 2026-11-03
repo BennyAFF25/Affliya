@@ -1,7 +1,8 @@
 "use client";
 
 import { safeBusinessReturnTo, businessContinuationDestination } from "../../../utils/safeBusinessReturnTo";
-import { onboardingSuccessStep } from "../../../utils/onboardingSuccessStep";
+import { onboardingSuccessStep, wizardResumeDecision, hasBusinessPlan } from "../../../utils/onboardingSuccessStep";
+import { getBusinessEntitlement } from "utils/businessEntitlements";
 import { OFFER_CURRENCIES, OFFER_CURRENCY_MESSAGE, isOfferCurrency, isOfferCurrencyCheckViolation } from "utils/currency/offerCurrencies";
 
 import React, { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
@@ -120,6 +121,27 @@ export default function BusinessOnboardingPage() {
       else localStorage.removeItem(draftKey);
     } catch { setDraftNote("Draft could not be saved on this device. Keep this page open to retain your work."); }
   }, [draftKey, draftReady, draftFields]);
+
+  // Reload/return after a successful publish: show the success step, never the wizard intro or a stale draft.
+  useEffect(() => {
+    const email = session?.user?.email;
+    if (!email || !draftKey || !planChecked) return;
+    let active = true;
+    void (async () => {
+      try {
+        const { count, error: countError } = await supabase.from("offers").select("id", { count: "exact", head: true }).eq("business_email", email);
+        if (!active || countError || wizardResumeDecision(count) !== "published") return;
+        draftCleared.current = true;
+        try { localStorage.removeItem(draftKey); } catch { /* Storage may be unavailable. */ }
+        setDraftNote(null);
+        const entitlement = await getBusinessEntitlement({ businessEmail: email, supabase }).catch(() => null);
+        if (!active) return;
+        setHasPlan(hasBusinessPlan(entitlement));
+        setStep(5);
+      } catch { /* Fail open to the wizard. */ }
+    })();
+    return () => { active = false; };
+  }, [session?.user?.email, draftKey, planChecked]);
 
   const dismissOnboarding = () => {
     try { if (session?.user?.id) sessionStorage.setItem(businessOfferOnboardingSessionKey(session.user.id), "1"); } catch { /* Navigation remains available without storage. */ }
@@ -351,6 +373,7 @@ export default function BusinessOnboardingPage() {
       }
       draftCleared.current = true;
       try { if (draftKey) localStorage.removeItem(draftKey); } catch { /* The offer is already saved. */ }
+      setDraftNote(null);
       savedOfferId.current = candidateOfferId.current;
       await complete(candidateOfferId.current);
     } catch (err: unknown) {

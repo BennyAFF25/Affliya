@@ -28,7 +28,7 @@ export function safeBusinessReturnTo(value: string | null) {
 export function businessContinuationDestination(destination: string, value: string | null) {
   const next = safeBusinessReturnTo(value);
   if (!next) return destination;
-  if (destination.startsWith("/onboarding/for-business") || destination === "/business/choose-plan") {
+  if (destination.startsWith("/onboarding/for-business") || destination.split("?")[0] === "/business/choose-plan") {
     const url = new URL(destination, "https://business-return.invalid");
     url.searchParams.set("next", next);
     return url.pathname + url.search + url.hash;
