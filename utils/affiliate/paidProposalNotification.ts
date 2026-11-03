@@ -21,3 +21,5 @@ export async function notifyPaidProposal(db: SupabaseClient, row: ProposalNotifi
     console.warn("[proposal-submitted] notification insert failed", error);
   }
 }
+
+export const notifyProposal = notifyPaidProposal;

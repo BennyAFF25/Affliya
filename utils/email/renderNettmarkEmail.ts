@@ -18,6 +18,7 @@ export type RenderNettmarkEmailArgs = {
   heading: string;
   body?: string;
   rows?: NettmarkEmailRow[];
+  image?: { src: string; alt: string };
   notice?: NettmarkEmailNotice;
   cta?: { label: string; href: string };
   secondaryCta?: { label: string; href: string };
@@ -249,7 +250,7 @@ export function renderNettmarkEmail(args: RenderNettmarkEmailArgs) {
                 </h1>
 
                 ${paragraphHtml(args.body)}
-                ${rowsHtml(args.rows)}
+                ${args.image ? `<img src="${escapeHtml(args.image.src)}" alt="${escapeHtml(args.image.alt)}" style="display:block;max-width:100%;height:auto;border-radius:12px;margin-top:24px;" />` : ""}${rowsHtml(args.rows)}
                 ${noticeHtml(args.notice)}
                 ${buttonsHtml(args.cta, args.secondaryCta)}
 

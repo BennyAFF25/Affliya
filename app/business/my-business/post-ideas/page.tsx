@@ -2,7 +2,7 @@
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PageHeader } from "@/../components/ui/page-header";
 import { useSession } from "@supabase/auth-helpers-react";
@@ -124,6 +124,23 @@ export default function PostIdeasPage() {
   const session = useSession();
   const user = session?.user;
   const router = useRouter();
+
+  const openedProposal = useRef<string | null>(null);
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("proposal");
+    if (!id || !/^[0-9a-f-]{36}$/i.test(id) || openedProposal.current === id) return;
+    const post = posts.find((item) => item.id === id);
+    if (!post) return;
+    openedProposal.current = id;
+    setSelectedPost(post);
+    setShowContextDetails(false);
+    if (post.status !== "pending") setShowRecent(true);
+    void trackBusinessSubscriptionClientEvent("campaign_review_opened", {
+      businessId, campaignId: post.id, submissionId: post.id,
+      intendedAction: "approve_organic_post", returnTo: "/business/my-business/post-ideas",
+      attribution: { source: "post_ideas_deep_link", offerId: post.offer_id },
+    });
+  }, [posts, businessId]);
 
   useEffect(() => {
     const fetchOffers = async () => {

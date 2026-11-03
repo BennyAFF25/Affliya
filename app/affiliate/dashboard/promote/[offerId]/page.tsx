@@ -1069,7 +1069,7 @@ export default function PromoteOfferPage() {
 
       await requireSubmissionSession(); // Uploads may outlive the old token.
       // Insert to organic_posts (RLS expects affiliate_email to match auth.email())
-      const { error: insertErr } = await (
+      const { data: organicPost, error: insertErr } = await (
         supabase.from("organic_posts") as any
       ).insert([
         {
@@ -1084,8 +1084,18 @@ export default function PromoteOfferPage() {
           business_creative_id: selectedCreativeId,
           status: "pending",
         } as any,
-      ]);
+      ]).select("id").single();
       if (insertErr) throw insertErr;
+      try {
+        const response = await fetch("/api/affiliate/organic-posts/notify-submitted", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ organicPostId: organicPost.id }),
+        });
+        if (!response.ok) console.warn("[organic-proposal-submitted] business notification failed");
+      } catch {
+        console.warn("[organic-proposal-submitted] business notification failed");
+      }
 
       nmToast.success("Organic post submitted for review");
       void logProductEvent({
@@ -1355,13 +1365,16 @@ export default function PromoteOfferPage() {
       }
       const createdIdeaId = String(submitJson.id || "") || null;
       if (createdIdeaId) {
-        void fetch("/api/affiliate/ad-ideas/notify-submitted", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ adIdeaId: createdIdeaId }),
-        }).catch((error) =>
-          console.warn("[proposal-submitted] business notification failed", error),
-        );
+        try {
+          const response = await fetch("/api/affiliate/ad-ideas/notify-submitted", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ adIdeaId: createdIdeaId }),
+          });
+          if (!response.ok) console.warn("[proposal-submitted] business notification failed");
+        } catch {
+          console.warn("[proposal-submitted] business notification failed");
+        }
       }
 
       void logProductEvent({
