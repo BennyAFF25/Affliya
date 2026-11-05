@@ -73,7 +73,7 @@ async function main() {
     });
     variant = { ...contextData }; writes = []; events = [];
     await page.goto(origin + "/business/choose-plan");
-    await page.getByRole("heading", { name: "Your offer is live.", exact: true }).waitFor();
+    await page.getByRole("heading", { name: "Your offer is live. Start Growth.", exact: true }).waitFor();
     assert.deepEqual(writes, [], "Visits never create trials/customers/charges");
     assert.equal(await page.locator('[data-funnel="trial_first_v1_100"]').count(), 1);
     assert.ok(events.some(e => e.eventType === "plan_choice_viewed" && e.meta.screen === "trial_first"));
@@ -113,7 +113,7 @@ async function main() {
     await page.goto(origin + "/business/choose-plan");
     await page.getByRole("heading", { name: "Organic", exact: true }).waitFor();
     await page.getByRole("button", { name: "Continue free", exact: true }).waitFor();
-    assert.equal(await page.getByRole("heading", { name: "Your offer is live.", exact: true }).count(), 0);
+    assert.equal(await page.getByRole("heading", { name: "Your offer is live. Start Growth.", exact: true }).count(), 0);
 
     variant = { ...contextData }; writes = [];
     await page.goto(origin + "/business/choose-plan?subscription=checkout_returned&session_id=another_users_session");
@@ -139,7 +139,7 @@ async function main() {
       assert.ok(events.some(e => e.eventType === "offer_publish_clicked"));
       failComplete = false;
       await page.getByRole("button", { name: "Finish setup", exact: true }).click();
-      await page.getByRole("heading", { name: "Your offer is live.", exact: true }).waitFor();
+      await page.getByRole("heading", { name: "Your offer is live. Start Growth.", exact: true }).waitFor();
       assert.equal(writes.filter(x => x === "/rest/v1/offers").length, 1, "Retry completion without duplicate persisted offers");
     }
     await browserContext.close();
