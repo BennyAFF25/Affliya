@@ -13,7 +13,7 @@ const token = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString
 const session = { access_token: token, refresh_token: "fixture-refresh", token_type: "bearer", expires_in: 86400, expires_at: expiresAt, user };
 
 const contextData = {
-  business_onboarding_funnel: "trial_first_v1_100", treatment: true, offerId,
+  business_onboarding_funnel: "trial_first_v1_100", treatment: true, offerId, businessId: userId,
   participationMode: "open", trialEligible: true, trialDays: 14, checkoutEnabled: true, billingError: null,
   price: { amount: 7200, currency: "AUD", interval: "month", intervalCount: 1, formatted: "AUD 72.00", taxNotice: "Your final total is shown in checkout." },
 };
@@ -107,7 +107,8 @@ async function main() {
     assert.deepEqual(writes, []);
     variant = { ...contextData, treatment: false, business_onboarding_funnel: "plan_choice_v1" };
     await page.goto(origin + "/business/choose-plan");
-    await page.getByRole("heading", { name: "Organic", exact: true }).waitFor();
+    await page.getByRole("heading", { name: "How should affiliates promote you?", exact: true }).waitFor();
+    await page.getByRole("heading", { name: "Free", exact: true }).waitFor();
     await page.getByRole("button", { name: "Continue free", exact: true }).waitFor();
     assert.equal(await page.getByRole("heading", { name: "Your offer is live. Start Growth.", exact: true }).count(), 0);
 
