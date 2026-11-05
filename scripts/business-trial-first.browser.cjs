@@ -78,21 +78,17 @@ async function main() {
     assert.equal(await page.locator('[data-funnel="trial_first_v1_100"]').count(), 1);
     assert.ok(events.some(e => e.eventType === "plan_choice_viewed" && e.meta.screen === "trial_first"));
     const terms = page.getByTestId("billing-terms");
-    assert.match(await terms.textContent(), /AUD 72.00\/month/);
-    assert.equal((await page.getByTestId("trial-today-price").innerText()).replace(/\s+/g, " ").trim(), "$0 Today");
+    assert.match(await terms.textContent(), /A\$0 today, then AUD 72\.00\/month after 14 days\./);
     await page.getByText("Final setup step", { exact: true }).waitFor();
-    await page.getByText("Finish setup by starting Growth to unlock paid affiliate campaigns. Free remains available.", { exact: true }).waitFor();
-    for (const benefit of ["Approve paid affiliate campaigns", "Launch through your connected Meta account", "Review campaigns before they go live"]) {
+    await page.getByText("So affiliates can run paid ads for your business with their own money. You approve campaigns before launch.", { exact: true }).waitFor();
+    for (const benefit of ["Affiliates fund and run Meta ads for your brand", "Approve every campaign before it runs", "Launch approved ads through your Meta account", "Everything in Free"]) {
       await page.getByText(benefit, { exact: true }).waitFor();
     }
-    await page.getByText("How affiliate-funded advertising works", { exact: true }).click();
-    await page.getByText(/Meta bills your ad account; Nettmark reimburses eligible spend/).waitFor();
-    await page.getByText("How affiliate-funded advertising works", { exact: true }).click();
-    assert.match(await terms.textContent(), /14-day/);
-    assert.match(await terms.textContent(), /Card required/);
-    assert.match(await terms.textContent(), /cancel before the trial ends/);
+    await page.getByRole("heading", { name: "How affiliate-funded advertising works", exact: true }).waitFor();
+    await page.getByText(/Nettmark tracks sales and reimburses eligible Meta spend/).waitFor();
+    await page.getByText("A$49/mo after day 14 only if you stay. Card required.", { exact: true }).waitFor();
     const growth = page.getByRole("button", { name: "Start my affiliate-funded launch, 14 days free", exact: true });
-    const free = page.getByRole("button", { name: "Continue with Free", exact: true });
+    const free = page.getByRole("button", { name: "Continue with Free (no paid ads)", exact: true });
     assert.equal(await growth.isEnabled(), true); assert.equal(await free.isEnabled(), true);
     await free.scrollIntoViewIfNeeded();
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
