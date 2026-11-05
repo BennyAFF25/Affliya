@@ -60,6 +60,7 @@
     "test:currency-seg9-wallet-accounts": "node --import tsx scripts/currency-seg9-wallet-accounts.test.ts",
     "test:currency-seg11-dual-write": "node --import tsx scripts/currency-seg11-dual-write.test.ts",
     "check:wallet-ledger-drift": "node --import tsx scripts/check-wallet-ledger-drift.ts",
+    "test:choose-plan-returnto": "node --import tsx scripts/choose-plan-returnto.test.ts",
     "test:connect-meta-returnto": "tsx scripts/connect-meta-returnto.test.ts",
     "test:meta-connect-errors": "tsx scripts/meta-connect-errors.test.ts",
     "test:meta-connections-service-role": "tsx scripts/meta-connections-service-role.test.ts",
