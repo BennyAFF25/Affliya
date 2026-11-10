@@ -14,14 +14,23 @@ export async function exchangeToken(shop: string, code: string, required: string
   if (!hasRequiredScopes(scopes, required)) throw new Error("missing_scopes");
   return { token: data.access_token as string, scopes };
 }
-export async function registerWebhooks(shop: string, token: string, base: string, request = fetch): Promise<void> {
+export function webhookCallbackUrl(base: string, environment: NodeJS.ProcessEnv | Record<string, string | undefined> = process.env): string {
+  const callback = `${base}/api/shopify/webhooks`;
+  const secret = environment.VERCEL_AUTOMATION_BYPASS_SECRET?.trim();
+  if (environment.VERCEL_ENV !== "preview" || !secret) return callback;
+  const url = new URL(callback);
+  url.searchParams.set("x-vercel-protection-bypass", secret);
+  return url.toString();
+}
+
+export async function registerWebhooks(shop: string, token: string, base: string, request = fetch, environment: NodeJS.ProcessEnv | Record<string, string | undefined> = process.env): Promise<void> {
   const version = process.env.SHOPIFY_API_VERSION?.trim() || "2026-10";
   if (!validShop(shop) || !/^\d{4}-\d{2}$/.test(version)) throw new Error("configuration");
   const response = await request(`https://${shop}/admin/api/${version}/graphql.json`, {
     method: "POST", headers: { "Content-Type": "application/json", "X-Shopify-Access-Token": token },
     body: JSON.stringify({
       query: `mutation RegisterUninstall($subscription: WebhookSubscriptionInput!) { webhookSubscriptionCreate(topic: APP_UNINSTALLED, webhookSubscription: $subscription) { webhookSubscription { id } userErrors { field message } } }`,
-      variables: { subscription: { uri: `${base}/api/shopify/webhooks`, format: "JSON" } },
+      variables: { subscription: { uri: webhookCallbackUrl(base, environment), format: "JSON" } },
     }), signal: AbortSignal.timeout(15000), redirect: "error", cache: "no-store",
   });
   if (!response.ok) throw new Error("webhook_registration");

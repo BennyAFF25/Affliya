@@ -34,6 +34,12 @@ Stage one permits only product/pixel/customer-event scopes (also `read_pixels`);
 
 Prepare/apply `supabase/migrations/20261110120000_shopify_stores.sql` separately through the authorized release process. It links `business_profiles.id` to a unique, validated shop domain, stores ciphertext/scopes/status/timestamps, enables RLS, and revokes client access. Status is exposed through an authenticated server route with an explicit safe column list. The manual destructive rollback is `supabase/undo/20261110120000_shopify_stores.undo.sql`; it deletes saved connections and requires reconnecting stores. Neither SQL script was applied as part of implementation.
 
+## Preview webhooks and Vercel automation bypass
+
+When `VERCEL_ENV=preview` and the trimmed `VERCEL_AUTOMATION_BYPASS_SECRET` is non-empty, automatic uninstall registration appends the URL-encoded `x-vercel-protection-bypass` query parameter to the webhook callback. Vercel injects this secret automatically when a project automation bypass exists. Production and development never append it. Never log the callback URL or secret.
+
+Compliance topic URLs configured in the Dev Dashboard must include this query parameter manually when targeting a protected Preview deployment; they do not use automatic registration.
+
 ## Routes and lifecycle
 
 - `GET /api/shopify/install?shop=mystore`: session/business verification, optional Shopify launch-query HMAC verification, normalization, signed ten-minute state containing user/business/shop/nonce, httpOnly SameSite=Lax nonce cookie (Secure in production), redirect to Shopify authorization.

@@ -5,7 +5,7 @@ import { NextRequest } from "next/server";
 import { readFileSync } from "node:fs";
 import { validShop, normalizeShop, verifyOAuthHmac, verifyWebhookHmac, signState, verifyState, hasRequiredScopes, requiredScopes, encryptToken, decryptToken } from "../lib/shopify/security";
 import { handleWebhook, type WebhookStore } from "../lib/shopify/webhooks";
-import { exchangeToken, registerWebhooks, revokeAccess } from "../lib/shopify/admin";
+import { exchangeToken, registerWebhooks, revokeAccess, webhookCallbackUrl } from "../lib/shopify/admin";
 
 async function main() {
   const secret = "mock-secret";
@@ -114,6 +114,20 @@ async function main() {
   await assert.rejects(exchangeToken(state.shop, "mock-code", required, async () => Response.json({ access_token: "mock", scope: "read_products" })), /missing_scopes/);
   await assert.rejects(exchangeToken(state.shop, "mock-code", required, async () => new Response(null, { status: 500 })), /token_exchange/);
   await assert.rejects(exchangeToken("evil.com", "mock-code", required, request), /invalid_shop/);
+  const webhookBase = "https://preview.example";
+  const plainCallback = `${webhookBase}/api/shopify/webhooks`;
+  const previewEnv = { VERCEL_ENV: "preview", VERCEL_AUTOMATION_BYPASS_SECRET: "  mock +/&?=secret  " };
+  const previewCallback = `${plainCallback}?x-vercel-protection-bypass=mock+%2B%2F%26%3F%3Dsecret`;
+  assert.equal(webhookCallbackUrl(webhookBase, previewEnv), previewCallback);
+  for (const VERCEL_ENV of ["production", "development", undefined]) {
+    assert.equal(webhookCallbackUrl(webhookBase, { ...previewEnv, VERCEL_ENV }), plainCallback);
+  }
+  assert.equal(webhookCallbackUrl(webhookBase, { VERCEL_ENV: "preview" }), plainCallback);
+  assert.equal(webhookCallbackUrl(webhookBase, { ...previewEnv, VERCEL_AUTOMATION_BYPASS_SECRET: " \t " }), plainCallback);
+  await registerWebhooks(state.shop, "mock-token", webhookBase, async (_url, options) => {
+    assert.equal(JSON.parse(String(options?.body)).variables.subscription.uri, previewCallback);
+    return Response.json({ data: { webhookSubscriptionCreate: { webhookSubscription: { id: "mock-preview-id" }, userErrors: [] } } });
+  }, previewEnv);
   delete process.env.SHOPIFY_API_VERSION;
   await registerWebhooks(state.shop, "mock-token", "https://preview.example", async (url, options) => {
     assert.equal(url, `https://${state.shop}/admin/api/2026-10/graphql.json`);
