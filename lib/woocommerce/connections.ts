@@ -38,7 +38,7 @@ export async function businessRoute(req: Request, action: 'connect' | 'status' |
     const storeUrl = normalizeStoreUrl(body.storeUrl); await resolveStore(storeUrl);
     let probe;
     try { probe = await storeRequest(storeUrl, '/wp-json/'); } catch { throw new Error('store_unreachable'); }
-    if (probe.status !== 200) throw new Error('store_unreachable');
+    if (probe.status !== 200) { console.warn('[woocommerce] store probe status', { status: probe.status }); throw new Error('store_unreachable'); }
     if (!probe.data || typeof probe.data !== 'object' || !Array.isArray((probe.data as { namespaces?: unknown }).namespaces) || !(probe.data as { namespaces: unknown[] }).namespaces.includes('wc/v3')) throw new Error('not_woocommerce');
     const base = baseUrl(req); if (!base.startsWith('https://')) throw new Error('configuration');
     const token = nonce(), hash = nonceHash(token), now = new Date().toISOString();

@@ -31,7 +31,8 @@ export async function storeRequest(store: string, path: string, options: { metho
     });
     const timer = setTimeout(() => request.destroy(new Error('store_unreachable')), 15000);
     request.on('close', () => clearTimeout(timer));
-    request.on('error', () => reject(new Error('store_unreachable')));
+    // Log only the transport error code (never the URL, which can carry credentials).
+    request.on('error', (error: NodeJS.ErrnoException) => { console.warn('[woocommerce] store request failed', { code: error.code || error.message.slice(0, 40) }); reject(new Error('store_unreachable')); });
     request.end(body);
   });
   if (result.status === 401 && options.key && !options.queryAuth && new URL(store).protocol === 'https:') return storeRequest(store, path, { ...options, queryAuth: true });
