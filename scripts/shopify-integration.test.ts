@@ -67,6 +67,10 @@ async function main() {
   assert.deepEqual(required, ["read_products", "write_pixels", "read_customer_events"]);
   assert.ok(hasRequiredScopes([...required, "read_pixels"], required));
   assert.ok(!hasRequiredScopes(["read_products"], required));
+  for (const scopes of ["read_products,write_pixels", "read_products,write_pixels,read_customer_events,read_pixels", "read_products,write_pixels,write_pixels"]) {
+    process.env.SHOPIFY_SCOPES = scopes;
+    assert.throws(() => requiredScopes());
+  }
   process.env.SHOPIFY_SCOPES = "read_orders";
   assert.throws(() => requiredScopes());
   process.env.SHOPIFY_SCOPES = "read_customers";
@@ -179,6 +183,9 @@ async function testRoutes(secret: string) {
   let rows: Row[] = [];
   let networkCalls = 0;
   let connectBeforeUpdate = false;
+  let pixelMode: "active" | "undeployed" = "undeployed";
+  let pixelId: string | null = null;
+  const lifecycle: string[] = [];
   const db = {
     auth: { getUser: async () => ({ data: { user }, error: null }) },
     from(table: string) {
@@ -224,7 +231,25 @@ async function testRoutes(secret: string) {
   globalThis.fetch = async (url, options) => {
     networkCalls++;
     if (String(url).endsWith("/graphql.json")) {
-      assert.equal(JSON.parse(String(options?.body)).variables.subscription.uri, "https://www.nettmark.com/api/shopify/webhooks");
+      const body = JSON.parse(String(options?.body));
+      if (body.query.includes("RegisterUninstall")) {
+        assert.equal(body.variables.subscription.uri, "https://www.nettmark.com/api/shopify/webhooks");
+        throw new Error("mock registration failure");
+      }
+      if (body.query.startsWith("query")) return Response.json({ data: { webPixel: pixelId ? { id: pixelId } : null } });
+      if (body.query.includes("webPixelDelete")) {
+        lifecycle.push("pixel_delete");
+        const old = pixelId; pixelId = null;
+        return Response.json({ data: { webPixelDelete: { deletedWebPixelId: old, userErrors: [] } } });
+      }
+      const action = body.query.includes("webPixelUpdate") ? "webPixelUpdate" : "webPixelCreate";
+      if (pixelMode === "undeployed") return Response.json({ data: { [action]: { userErrors: [{ message: "No web pixel extension found for this app." }] } } });
+      pixelId = "gid://shopify/WebPixel/1";
+      return Response.json({ data: { [action]: { webPixel: { id: pixelId }, userErrors: [] } } });
+    }
+    if (String(url).endsWith("/admin/api_permissions/current.json")) {
+      lifecycle.push("revoke");
+      return new Response(null, { status: 200 });
     }
     if (String(url).endsWith("/admin/oauth/access_token")) return Response.json({ access_token: "mock-offline", scope: "read_products,write_pixels,read_customer_events" });
     throw new Error("mock registration failure");
@@ -238,6 +263,7 @@ async function testRoutes(secret: string) {
     const install = load("../app/api/shopify/install/route") as { GET: (req: NextRequest) => Promise<Response> };
     const callback = load("../app/api/shopify/callback/route") as typeof install;
     const status = load("../app/api/shopify/status/route") as { GET: () => Promise<Response> };
+    const pixel = load("../app/api/shopify/pixel/route") as { POST: (req: NextRequest) => Promise<Response> };
     const disconnect = load("../app/api/shopify/disconnect/route") as { POST: (req: NextRequest) => Promise<Response> };
     const webhooks = load("../app/api/shopify/webhooks/route") as typeof disconnect;
     const started = await install.GET(new NextRequest("https://preview.example/api/shopify/install?shop=demo"));
@@ -276,6 +302,11 @@ async function testRoutes(secret: string) {
     assert.match(success.headers.get("set-cookie")!, /Max-Age=0/i);
     assert.match(String(rows[0].access_token_encrypted), /^v1:/);
     assert.equal(rows[0].status, "connected");
+    assert.equal(rows[0].pixel_status, "error");
+    assert.equal(rows[0].pixel_error, "extension_not_deployed", "undeployed extension does not break install");
+    pixelMode = "active";
+    assert.equal(new URL((await callback.GET(callbackRequest())).headers.get("location")!).searchParams.get("shopify"), "connected");
+    assert.equal(rows[0].pixel_status, "active", "callback automatically creates pixel");
     assert.ok(!JSON.stringify(await (await status.GET()).json()).includes("access_token"));
     rows[0].business_id = "other-business";
     const disconnectRequest = (origin = "https://preview.example") => new NextRequest("https://preview.example/api/shopify/disconnect", { method: "POST", headers: { origin, "Content-Type": "application/json" }, body: JSON.stringify({ id: owner }) });
@@ -291,8 +322,18 @@ async function testRoutes(secret: string) {
     assert.equal(new URL((await callback.GET(callbackRequest())).headers.get("location")!).searchParams.get("shopify"), "connected");
     assert.equal(rows[0].business_id, owner, "inactive store can be reassigned");
     rows[0].business_id = owner;
+    const pixelRequest = (origin = "https://preview.example") => new NextRequest("https://preview.example/api/shopify/pixel", { method: "POST", headers: { origin, "Content-Type": "application/json" }, body: JSON.stringify({ id: owner }) });
+    assert.equal((await pixel.POST(pixelRequest("https://evil.example"))).status, 403);
+    rows[0].business_id = "another-owner";
+    assert.equal((await pixel.POST(pixelRequest())).status, 404);
+    rows[0].business_id = owner;
+    assert.equal((await pixel.POST(pixelRequest())).status, 200);
+    assert.equal(rows[0].pixel_status, "active");
+    lifecycle.length = 0;
     await disconnect.POST(disconnectRequest());
     assert.equal(rows[0].status, "disconnected");
+    assert.equal(rows[0].pixel_status, "inactive");
+    assert.deepEqual(lifecycle, ["pixel_delete", "revoke"], "delete pixel before token revocation");
     assert.equal(rows[0].access_token_encrypted, null);
     const raw = Buffer.from("mock raw webhook bytes");
     const webhookRequest = (topic: string, hmac = createHmac("sha256", secret).update(raw).digest("base64")) => new NextRequest("https://preview.example/api/shopify/webhooks", { method: "POST", headers: { "x-shopify-topic": topic, "x-shopify-shop-domain": "demo.myshopify.com", "x-shopify-hmac-sha256": hmac }, body: raw });
@@ -308,6 +349,7 @@ async function testRoutes(secret: string) {
     uninstall.headers.set("x-shopify-triggered-at", new Date(Date.now() + 1000).toISOString());
     assert.equal((await webhooks.POST(uninstall)).status, 200);
     assert.equal(rows[0].status, "uninstalled");
+    assert.equal(rows[0].pixel_status, "inactive");
     assert.equal(rows[0].access_token_encrypted, null);
     for (const topic of ["customers/data_request", "customers/redact", "unknown"]) assert.equal((await webhooks.POST(webhookRequest(topic))).status, 200);
     failDb = true;

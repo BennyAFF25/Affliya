@@ -1,3 +1,4 @@
+import { activatePixel } from "../../../../lib/shopify/pixel";
 import { NextRequest, NextResponse } from "next/server";
 import { env, encryptToken, requiredScopes, validShop, verifyOAuthHmac, verifyState, stateSecret } from "../../../../lib/shopify/security";
 import { exchangeToken, registerWebhooks } from "../../../../lib/shopify/admin";
@@ -40,6 +41,11 @@ export async function GET(req: NextRequest) {
     }
     try { await registerWebhooks(shop, token, webhookBaseUrl(req)); }
     catch { console.warn("[shopify] uninstall webhook registration failed", { shop }); }
+    try {
+      const pixel = await activatePixel(shop, token, webhookBaseUrl(req));
+      const { error } = await admin.from("shopify_stores").update(pixel).eq("shop_domain", shop).eq("business_id", businessId).eq("status", "connected").eq("installed_at", now);
+      if (error) throw new Error("database");
+    } catch { console.warn("[shopify] pixel_status_failed", { shop }); }
     destination.searchParams.set("shopify", "connected");
   } catch (error) {
     destination.searchParams.set("shopify_error", errorReason(error));

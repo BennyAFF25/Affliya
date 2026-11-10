@@ -15,7 +15,10 @@ export async function exchangeToken(shop: string, code: string, required: string
   return { token: data.access_token as string, scopes };
 }
 export function webhookCallbackUrl(base: string, environment: NodeJS.ProcessEnv | Record<string, string | undefined> = process.env): string {
-  const callback = `${base}/api/shopify/webhooks`;
+  return protectedCallbackUrl(`${base}/api/shopify/webhooks`, environment);
+}
+
+export function protectedCallbackUrl(callback: string, environment: NodeJS.ProcessEnv | Record<string, string | undefined> = process.env): string {
   const secret = environment.VERCEL_AUTOMATION_BYPASS_SECRET?.trim();
   if (environment.VERCEL_ENV !== "preview" || !secret) return callback;
   const url = new URL(callback);

@@ -1,3 +1,4 @@
+import { deletePixel } from "../../../../lib/shopify/pixel";
 import { NextRequest, NextResponse } from "next/server";
 import { requireBusiness, errorReason, errorStatus } from "../../../../lib/shopify/server";
 import { decryptToken } from "../../../../lib/shopify/security";
@@ -14,10 +15,12 @@ export async function POST(req: NextRequest) {
     if (lookupError) throw new Error("database");
     if (!store) return NextResponse.json({ ok: true });
     if (store.access_token_encrypted) {
+      try { await deletePixel(store.shop_domain, decryptToken(store.access_token_encrypted)); }
+      catch { console.warn("[shopify] pixel_delete_failed", { shop: store.shop_domain }); }
       try { await revokeAccess(store.shop_domain, decryptToken(store.access_token_encrypted)); }
       catch { console.warn("[shopify] access revocation failed", { shop: store.shop_domain }); }
     }
-    const { error } = await admin.from("shopify_stores").update({ status: "disconnected", access_token_encrypted: null, updated_at: new Date().toISOString() }).eq("id", id).eq("business_id", businessId);
+    const { error } = await admin.from("shopify_stores").update({ status: "disconnected", pixel_status: "inactive", pixel_id: null, pixel_error: null, pixel_updated_at: new Date().toISOString(), access_token_encrypted: null, updated_at: new Date().toISOString() }).eq("id", id).eq("business_id", businessId);
     if (error) throw new Error("database");
     return NextResponse.json({ ok: true });
   } catch (error) {

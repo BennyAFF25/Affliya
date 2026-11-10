@@ -1,0 +1,17 @@
+client_id = "504d490cc8b4e692142ff5713bfa6de3"
+name = "Nettmark"
+application_url = "https://nettmark.com/api/shopify/install"
+embedded = false
+
+[access_scopes]
+scopes = "read_products,write_pixels,read_customer_events"
+
+[auth]
+redirect_urls = ["https://nettmark.com/api/shopify/callback", "https://www.nettmark.com/api/shopify/callback", "http://localhost:3000/api/shopify/callback", "https://affliya-git-feature-shopify-integration-bens-projects-28b82cca.vercel.app/api/shopify/callback"]
+
+[webhooks]
+api_version = "2026-10"
+
+[[webhooks.subscriptions]]
+compliance_topics = ["customers/data_request", "customers/redact", "shop/redact"]
+uri = "https://nettmark.com/api/shopify/webhooks"

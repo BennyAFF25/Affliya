@@ -65,7 +65,8 @@
     "test:meta-connections-service-role": "tsx scripts/meta-connections-service-role.test.ts",
     "test:auth-rate-limit": "tsx scripts/auth-rate-limit.test.ts",
     "test:shopify-integration": "node --import tsx scripts/shopify-integration.test.ts",
-    "test:critical-route-auth": "node --import tsx scripts/critical-route-auth.test.ts"
+    "test:critical-route-auth": "node --import tsx scripts/critical-route-auth.test.ts",
+    "test:shopify-pixel": "node --import tsx scripts/shopify-pixel.test.ts"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.2",

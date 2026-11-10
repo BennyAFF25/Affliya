@@ -18,11 +18,13 @@ export async function POST(req: NextRequest) {
     await handleWebhook(topic, shop, {
       async uninstall(domain, triggeredAt) {
         const admin = createServerSupabaseClient();
-        const { error } = await admin.from("shopify_stores").update({ status: "uninstalled", access_token_encrypted: null, uninstalled_at: triggeredAt, updated_at: new Date().toISOString() }).eq("shop_domain", domain).neq("status", "uninstalled").lt("installed_at", triggeredAt);
+        const { error } = await admin.from("shopify_stores").update({ status: "uninstalled", pixel_status: "inactive", pixel_id: null, pixel_error: null, pixel_updated_at: new Date().toISOString(), access_token_encrypted: null, uninstalled_at: triggeredAt, updated_at: new Date().toISOString() }).eq("shop_domain", domain).neq("status", "uninstalled").lt("installed_at", triggeredAt);
         if (error) throw new Error("database");
       },
       async redact(domain) {
         const admin = createServerSupabaseClient();
+        const { error: purgeError } = await admin.from("shopify_order_conversions").delete().eq("shop_domain", domain);
+        if (purgeError) throw new Error("database");
         const { error } = await admin.from("shopify_stores").delete().eq("shop_domain", domain);
         if (error) throw new Error("database");
       },

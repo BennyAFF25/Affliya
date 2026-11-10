@@ -51,10 +51,9 @@ export function stateSecret(): string { return process.env.SHOPIFY_STATE_SECRET?
 export function nonce(): string { return randomBytes(32).toString("base64url"); }
 export function requiredScopes(): string[] {
   const scopes = (process.env.SHOPIFY_SCOPES ?? "read_products,write_pixels,read_customer_events").split(",").map(s => s.trim()).filter(Boolean);
-  // Stage one deliberately excludes order access and protected customer data.
-  const allowed = new Set(["read_products", "write_pixels", "read_pixels", "read_customer_events"]);
-  if (!scopes.length || scopes.some(s => !allowed.has(s))) throw new Error("invalid_scopes_configuration");
-  return Array.from(new Set(scopes));
+  const exact = ["read_products", "write_pixels", "read_customer_events"];
+  if (scopes.length !== exact.length || exact.some(scope => !scopes.includes(scope))) throw new Error("invalid_scopes_configuration");
+  return exact;
 }
 export function hasRequiredScopes(granted: string[], required: string[]): boolean {
   return required.every(scope => granted.includes(scope));
