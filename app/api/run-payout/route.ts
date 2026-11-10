@@ -14,7 +14,10 @@ import {
 } from "@/../utils/stripe";
 import { tryWriteMoneyFlowAudit } from "@/../utils/moneyFlowAudit";
 
-const stripe = createStripeClient(process.env.STRIPE_SECRET_KEY as string);
+let stripe: ReturnType<typeof createStripeClient> | undefined;
+function getStripe() {
+  return stripe ??= createStripeClient(process.env.STRIPE_SECRET_KEY as string);
+}
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL as string,
@@ -42,7 +45,7 @@ async function resolvePaymentIntentStripeFee(paymentIntent: Stripe.PaymentIntent
     return { chargeId: null, stripeFeeAmount: null };
   }
 
-  const charge = await stripe.charges.retrieve(latestChargeId, {
+  const charge = await getStripe().charges.retrieve(latestChargeId, {
     expand: ["balance_transaction"],
   });
 
@@ -163,7 +166,7 @@ function resolvePayoutAvailableAtIso(payout: Record<string, any>) {
 
 async function getTransferReadiness(destinationAcct: string) {
   try {
-    const account = await stripe.accounts.retrieve(destinationAcct);
+    const account = await getStripe().accounts.retrieve(destinationAcct);
     const transfersCapability =
       typeof account === "object" && "capabilities" in account
         ? account.capabilities?.transfers
@@ -192,6 +195,10 @@ async function getTransferReadiness(destinationAcct: string) {
 }
 
 async function handlePost(req: Request) {
+  if (!process.env.STRIPE_SECRET_KEY?.trim()) {
+    return NextResponse.json({ error: "Stripe is not configured" }, { status: 503 });
+  }
+
   try {
     const { payout_id } = await req.json();
 
@@ -426,7 +433,7 @@ async function handlePost(req: Request) {
       );
     }
 
-    const pmList = await stripe.paymentMethods.list({
+    const pmList = await getStripe().paymentMethods.list({
       customer: customerId,
       type: "card",
       limit: 1,
@@ -449,9 +456,9 @@ async function handlePost(req: Request) {
 
     let paymentIntent: Stripe.PaymentIntent;
     if (payout.stripe_payment_intent_id) {
-      paymentIntent = await stripe.paymentIntents.retrieve(payout.stripe_payment_intent_id);
+      paymentIntent = await getStripe().paymentIntents.retrieve(payout.stripe_payment_intent_id);
     } else {
-      paymentIntent = await stripe.paymentIntents.create(
+      paymentIntent = await getStripe().paymentIntents.create(
         {
           amount: grossChargeAmountInCents,
           currency: "aud",
@@ -540,9 +547,9 @@ async function handlePost(req: Request) {
     let transfer: Stripe.Transfer;
     try {
       if (payout.stripe_transfer_id) {
-        transfer = await stripe.transfers.retrieve(payout.stripe_transfer_id);
+        transfer = await getStripe().transfers.retrieve(payout.stripe_transfer_id);
       } else {
-        transfer = await stripe.transfers.create(
+        transfer = await getStripe().transfers.create(
           {
             amount: payoutAmountInCents,
             currency: "aud",
