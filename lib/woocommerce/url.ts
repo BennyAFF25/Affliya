@@ -26,5 +26,6 @@ export async function resolveStore(input: string, resolve = lookup): Promise<{ u
   ]).finally(() => { if (timer) clearTimeout(timer); });
   const local = process.env.NODE_ENV === 'development' && host === 'localhost';
   if (!addresses.length || (!local && addresses.some(a => !publicAddress(a.address)))) throw new Error('invalid_store_url');
-  return { url, ...addresses[0] };
+  // Prefer IPv4: serverless egress (e.g. Vercel/AWS) often has no IPv6 route, so a v6-first pin hangs.
+  return { url, ...(addresses.find(a => a.family === 4) || addresses[0]) };
 }
