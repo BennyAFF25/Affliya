@@ -1,6 +1,6 @@
 # Shopify integration
 
-Stage one added an optional Shopify card in Business → My Business → Setup access / Readiness checklist alongside Meta. Stage two adds automatic app-pixel tracking as described below. Product import remains unimplemented; publication gates, tracking-readiness heuristics and billing are unchanged. Multiple stores can belong to a business. A connected shop cannot be reassigned to another business. Fresh OAuth can reassign disconnected or uninstalled shops; conditional writes prevent stealing a connected row.
+Stage one added an optional Shopify card in Business → My Business → Setup access / Readiness checklist alongside Meta. Stage two adds automatic app-pixel tracking as described below. Product import remains unimplemented; publication/approval gates and billing are unchanged. My Business displays current tracking readiness separately from the legacy gate heuristics. Multiple stores can belong to a business. A connected shop cannot be reassigned to another business. Fresh OAuth can reassign disconnected or uninstalled shops; conditional writes prevent stealing a connected row.
 
 ## Setup
 
@@ -123,3 +123,11 @@ Store metadata adds `pixel_id`, `pixel_status` (`active`, `inactive`, `error`), 
 6. With applicable marketing/analytics consent, follow a real Nettmark `/go/{ref}` link, complete a dev checkout, and verify one sanitized event, correct campaign/affiliate/business, scoped product amount and existing processor result. Repeat delivery to confirm order dedupe; test another business/affiliate link, missing attribution, expiry, denied consent, disconnect/reconnect, uninstall and shop redact. Inspect logs/status for safe outcomes only, never payloads or tokens.
 
 Mock-only checks: `yarn test:shopify-pixel` and `yarn test:shopify-integration`. Neither makes network/database calls. The new extension is also exercised through a mocked Shopify register/browser/analytics runtime. Live Shopify API behavior, CLI compilation, actual consent and checkout delivery remain release-time checks.
+
+## Tracking readiness and dev-store QA notes
+
+The My Business checklist requires a connected Shopify store with `pixel_status: active`, or a real non-Shopify merchant tracking event for the offer within the last seven days (among the latest 50 events). A website/site_host, Meta pixel ID, onboarding flag, or synthetic setup-button `test_pixel` event alone is not evidence of an installed Nettmark tracker. Historical Shopify purchases do not keep disconnected/uninstalled/inactive stores ready. Recent manual telemetry is bounded evidence, not a live reachability guarantee. The display no longer writes inferred tracking readiness into onboarding progress; existing historical flags and publication/approval gate heuristics remain unchanged.
+
+In Shopify admin, **Settings → Customer events** shows a single **Pixels** list, with no separate App pixels / Custom pixels tabs. The app pixel entry is named **Nettmark**.
+
+On development/password-protected storefronts, the first visit through a tracking link lands on the password page and drops the `nm_` parameters. Unlock the storefront, then reopen the original tracking link before testing attribution. This affects only dev/password-protected stores.
