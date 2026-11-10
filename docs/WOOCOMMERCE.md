@@ -1,0 +1,57 @@
+# WooCommerce connection and attributed orders
+
+Prepared implementation; migration and merchant delivery have not been verified against a database or remote store. No Shopify branch was merged. WooCommerce code is self-contained under `lib/woocommerce/`.
+
+## Why core attribution
+
+A business connects once and approves Nettmark in its own WooCommerce admin. No plugin or storefront snippet is installed. WooCommerce Order Attribution (core since 8.5) includes landing/session and UTM metadata in signed order webhooks. This feature is based on the founder's supplied WooCommerce 11.2.2/local-store verification; no external requests were made during implementation.
+
+For offers belonging to a connected Woo business, `/go/{ref}` adds absent `utm_source=nettmark`, `utm_medium=affiliate`, `utm_campaign=<nm_camp>`, `utm_content=<nm_aff>`. Existing merchant UTMs are preserved. A single server-only indexed relational lookup uses the existing offer → business email association and the new `(business_id,status)` index. Lookup errors/timeouts fail open to the original redirect. Owner previews and non-Woo redirects retain their existing behavior.
+
+Order attribution prefers `nm_aff/nm_camp/nm_src` extracted from `_wc_order_attribution_session_entry`; fallback requires `_wc_order_attribution_utm_source=nettmark` and uses UTM content/campaign. Session start more than seven days before paid/created GMT time is rejected; future session timestamps beyond five minutes are also rejected. Missing session time cannot establish an exact seven-day window. Core cookies are browser-session scoped, last non-direct click within that session, rather than a guaranteed seven-day cookie. Disabled Order Attribution, blocked cookies/consent plugins, stripped parameters, redirects and conflicting merchant UTMs can prevent attribution. Do not represent this as guaranteed tracking of every purchase.
+
+## Setup and environment
+
+Prepare/apply `supabase/migrations/20261110150000_woocommerce_integration.sql` only under explicit deployment/database authorization. It adds two service-role-only tables and two invoker functions; it does not change existing payout functions or policies. Migration was statically checked against repository code/migrations, not live schema. Manual undo is under `supabase/undo/`; disconnect first to clean up remote webhooks. Undo deletes Woo connection/order records, leaving canonical events and payouts intact.
+
+Set `WOOCOMMERCE_ENCRYPTION_KEY` to a random 32-byte key encoded as 64 hex characters or padded base64. `SHOPIFY_TOKEN_ENCRYPTION_KEY` is a fallback. HKDF-SHA256 with info `nettmark-woocommerce-v1` derives a separate AES-256-GCM key, with versioned ciphertext and random IVs. Keep the source key stable and backed up; changing it without re-encryption prevents credential cleanup and signature verification. Standard Supabase server/session variables and the existing auth rate limiter RPC/secret are also required. Never expose these keys to browser code.
+
+`NEXT_PUBLIC_BASE_URL` supplies the public callback origin, falling back to the request origin. Callback must be HTTPS. Preview only: nonempty `VERCEL_AUTOMATION_BYPASS_SECRET` is appended as `x-vercel-protection-bypass` on callback and webhook delivery URLs when `VERCEL_ENV=preview`; never production. Treat merchant webhook configuration as sensitive because the preview bypass appears there. Avoid platform/access logging of request URLs with bypass values.
+
+Store URLs require HTTPS, except `http://localhost` in development, reject credentials/query/fragments and private/loopback/link-local IP literals or DNS results. Explicit ports and WordPress subdirectory installs are supported. Transport pins a validated DNS address, checks all returned addresses, times out DNS and each HTTP attempt at 15 seconds, caps responses and never follows redirects. REST uses HTTP Basic; 401 retries once with query credentials on HTTPS only. No credential-bearing URL or response is logged. Nettmark only calls WooCommerce `/webhooks` REST endpoints; `/wp-json/` is an unauthenticated namespace probe.
+
+WooCommerce's coarse `read_write` key scope is necessary to create/delete webhooks; it permits more than Nettmark uses. Merchant approval is required. Only a live (`connected`) store blocks other businesses. A pending or disconnected row can be re-claimed by any business whose user then approves the key in that store's admin; the approval in WooCommerce is the proof of ownership, so an unapproved claim cannot squat a store URL. Previously recorded orders keep their original business and the `(store_id, order_id)` dedupe still applies after a re-claim.
+
+Stores must use WordPress pretty permalinks (the default for WooCommerce stores): the namespace probe uses `/wp-json/` and approval uses `/wc-auth/v1/authorize`. Plain-permalink sites fail the probe with `store_unreachable`/`not_woocommerce`.
+
+## Routes and lifecycle
+
+All routes are dynamic Node handlers under `/api/woocommerce`:
+
+- `POST connect`: same-origin signed-in business with provisioned profile; existing fail-closed rate limiter with isolated `woocommerce` buckets; bounded JSON `{storeUrl}`; guarded namespace probe; conditional pending connection with only a SHA-256 nonce hash and 15-minute expiry. Returns the Woo auth URL.
+- `POST callback`: public, bounded 8 KB JSON; validates hashed nonce/expiry and read_write credentials; verifies access via `GET /webhooks?per_page=1`; creates `order.created` and `order.updated` webhooks (`wp_api_v3`, active), each named `Nettmark order tracking`, using a fresh per-connection random secret. Saves encrypted credentials/secret and webhook IDs, clears the nonce. Partial installation saves connected/error with `webhook_creation_failed` and any known IDs, so disconnect can clean them up. No incoming callback object is stored or logged.
+- `GET status`: current business only; explicit safe columns exclude credentials and nonce.
+- `POST disconnect`: same-origin, ownership and rate limit; best-effort deletes both remote webhooks (`force=true`), then clears encrypted fields, IDs and nonce, marking disconnected/inactive. Failures cannot prevent local redaction. **Also revoke the Nettmark key manually under WooCommerce → Settings → Advanced → REST API.** WooCommerce exposes no key-revocation REST endpoint. The card confirms this before disconnect and reminds the merchant afterwards.
+- `POST webhooks?store=<uuid>`: 256 KB streamed cap; connected store and exact raw-body base64 HMAC-SHA256 verification before JSON parsing. Core `webhook_id=<digits>` form pings receive 200 (including pending installation); pings never enter order processing. Only order.created/order.updated are processed. Invalid signatures return 401, unknown/disconnected stores 404, transient failures 503 for delivery retry. Logs contain only store UUID and short outcome.
+
+The shared Setup access card appears in desktop readiness and the mobile Launch setup panel. Return parameters are consumed then stripped while preserving unrelated query parameters. Status is refreshed with bounded polling after return. Pending installs can be disconnected/retried. Existing readiness counters/launch gates are intentionally unchanged: connection is not proof a particular merchant has delivered an attributable order.
+
+## Minimized data and conversion pipeline
+
+After one JSON parse, an explicit reducer discards the incoming object. Only order ID, numeric major-unit total, uppercase currency, items `{product_id,variation_id,quantity,line_total}`, extracted attribution, and transient status/timing needed for gating survive. Landing URLs and raw metadata never persist. No names, emails, phones, addresses, customer IDs, IPs, user agents, notes, keys or payment details are retained from orders. Signed but malformed payloads are rejected; pending/on-hold orders create no event.
+
+Only processing/completed orders with valid Nettmark attribution resolve through `utils/tracking/campaignIdentity.ts`. The resolved affiliate must match its campaign, campaign/offer must belong to the connected business, and existing participation approval must pass. Mismatches record nothing. The canonical ledger still uses its existing internal affiliate identity column; it is not merchant customer data.
+
+`record_woocommerce_conversion` locks the connected store FOR SHARE and atomically claims unique `(store_id,order_id)` plus inserts `campaign_tracking_events` with IP/user-agent NULL and source `woocommerce_webhook`. Amounts are major units, event currency lowercase, following track-event normalization. Event data uses resolved campaign/affiliate attribution. The existing process-conversion handler is called directly in-process, without an HTTP hop. Woo variation IDs are accepted by existing conversionScope only for this source. Commission calculations, product eligibility, approvals, recurring terms, currency containment and payouts remain in the existing processor.
+
+Duplicate orders return `{duplicate:true}` without another event or processor call. A transient processor failure returns 503, but the committed claim means subsequent delivery is a duplicate and does not automatically replay processing. This deliberately follows the specified no-second-processor rule. Operational recovery must inspect the canonical event and processor markers and explicitly replay the existing processor; no new automatic financial retry system is introduced. 4xx processor outcomes remain its existing rejected/quarantined result.
+
+Refunded/cancelled/failed updates flag an existing Woo order as reversed with reversed_at; no event/commission/ledger/payout is reversed. Later paid statuses do not create another event for that order. Inspection of `process-conversion`, `run-payout`, and recurring commission controls found no verified generic safe per-order reversal mechanism. Founder follow-up: decide liability cancellation before payment versus refund/transfer recovery after settlement, partial refunds, recurring consequences, and reconciliation before implementing a money-flow change.
+
+## Validation and follow-ups
+
+`yarn -s test:woocommerce` is mock-only and blocks actual fetch. It covers reducers/PII, HMAC, HKDF encryption separation, URL/DNS guards, session window, scoped items, paid gating, identity/participation rejection, duplicate delivery, refund flags, DB/processor failures, callback success/partial setup, disconnect cleanup/redaction, preview URLs and actual mocked /go behavior. SQL shape and card confirmation are also checked statically. These tests do not prove PostgreSQL concurrency, live RLS/grants, Woo compatibility, browser rendering or production delivery.
+
+Known operational limits: network failures after Woo creates a webhook but before its ID is returned can leave an untracked remote webhook; merchant must remove Nettmark webhooks manually if reconnect produces duplicates. Concurrent callbacks use conditional saves and clean up the losing request's known webhook IDs; failed final DB writes can also require remote cleanup. Signature verification uses the current connection secret, so stale deliveries after reconnect fail verification.
+
+After Shopify PR #32 merges, unify the small generic business-session, streamed body, base-origin, preview bypass, constant-time HMAC and versioned encryption-format helpers. Preserve Woo's HKDF info separation and Woo-specific SSRF/transport constraints. Do not import from the unmerged Shopify branch.

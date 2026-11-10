@@ -184,6 +184,7 @@ function extractLineItems(eventData: Record<string, unknown>): LineItem[] {
         ),
         variantId: firstText(
           row.variant_id,
+          eventData.source === 'woocommerce_webhook' ? row.variation_id : null,
           row.variantId,
           row.item_id,
           row.itemId,

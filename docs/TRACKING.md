@@ -33,3 +33,7 @@
 - localStorage has no explicit seven-day expiry in `tracker.js`; cookies do. A single uniform attribution window cannot be claimed.
 
 Nettmark's own marketing attribution in `utils/marketing/` and creator-referral subscription attribution in `utils/creatorReferrals.ts` are separate from merchant sale attribution.
+
+## WooCommerce automatic order attribution
+
+The self-contained WooCommerce connection uses signed order webhooks and core Order Attribution metadata, with no plugin/snippet. Only paid, attributed orders for the connected business enter the existing event/commission processor, with atomic store/order deduplication and explicit PII reduction. Woo-connected /go links add absent UTMs; other redirects retain their behavior. Refunds only flag Woo records and do not reverse money. See [WOOCOMMERCE.md](WOOCOMMERCE.md) for setup, session/consent limits, permissions, manual key revocation and processing-replay limitations. Migration is prepared, not applied or live-verified.

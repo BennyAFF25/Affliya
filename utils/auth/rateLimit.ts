@@ -3,7 +3,7 @@ import { createHmac } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 
 type Rpc = (name: string, args: { p_bucket: string; p_limit: number; p_window_seconds: number }) => PromiseLike<{ data: unknown; error: unknown }>;
-export type AuthLimiter = (req: Request, scope: 'reset' | 'signup' | 'update', email?: string) => Promise<boolean>;
+export type AuthLimiter = (req: Request, scope: 'reset' | 'signup' | 'update' | 'woocommerce', email?: string) => Promise<boolean>;
 export function createAuthLimiter(deps: { rpc: Rpc; secret: () => string | undefined }): AuthLimiter {
   return async (req, scope, email) => {
     try {
