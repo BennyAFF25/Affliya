@@ -16,7 +16,10 @@ export async function storeRequest(store: string, path: string, options: { metho
   const result = await new Promise<{ status: number; data: unknown }>((resolve, reject) => {
     const request = (url.protocol === 'https:' ? https : http).request(url, {
       method: options.method || 'GET', headers, family: target.family,
-      lookup: (_hostname, _options, callback) => callback(null, target.address, target.family),
+      // Node (autoSelectFamily) calls lookup with { all: true } and then expects an address array.
+      lookup: ((_hostname: string, lookupOptions: { all?: boolean }, callback: (...args: unknown[]) => void) => lookupOptions?.all
+        ? callback(null, [{ address: target.address, family: target.family }])
+        : callback(null, target.address, target.family)) as never,
     }, response => {
       const chunks: Buffer[] = []; let size = 0;
       response.on('data', (chunk: Buffer) => { size += chunk.length; if (size > 262144) request.destroy(new Error('store_unreachable')); else chunks.push(chunk); });
