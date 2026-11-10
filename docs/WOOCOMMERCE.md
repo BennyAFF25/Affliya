@@ -1,6 +1,6 @@
 # WooCommerce connection and attributed orders
 
-Prepared implementation; migration and merchant delivery have not been verified against a database or remote store. No Shopify branch was merged. WooCommerce code is self-contained under `lib/woocommerce/`.
+Migration applied to staging only (2026-11-10). Verified end to end on the Preview against a local WooCommerce 11.2.2 store: connect/approve, webhook creation, attributed paid order recorded once (duplicate delivery ignored), unattributed and other-business orders ignored, refund flagged reversed, disconnect deleting webhooks and redacting credentials. Not yet applied or verified in production. No Shopify branch was merged. WooCommerce code is self-contained under `lib/woocommerce/`.
 
 ## Why core attribution
 
@@ -47,6 +47,10 @@ Only processing/completed orders with valid Nettmark attribution resolve through
 Duplicate orders return `{duplicate:true}` without another event or processor call. A transient processor failure returns 503, but the committed claim means subsequent delivery is a duplicate and does not automatically replay processing. This deliberately follows the specified no-second-processor rule. Operational recovery must inspect the canonical event and processor markers and explicitly replay the existing processor; no new automatic financial retry system is introduced. 4xx processor outcomes remain its existing rejected/quarantined result.
 
 Refunded/cancelled/failed updates flag an existing Woo order as reversed with reversed_at; no event/commission/ledger/payout is reversed. Later paid statuses do not create another event for that order. Inspection of `process-conversion`, `run-payout`, and recurring commission controls found no verified generic safe per-order reversal mechanism. Founder follow-up: decide liability cancellation before payment versus refund/transfer recovery after settlement, partial refunds, recurring consequences, and reconciliation before implementing a money-flow change.
+
+## Delivery reliability
+
+WooCommerce does not retry a failed webhook delivery; it increments a failure count and disables the webhook after 5 consecutive failures. A delivery that fails (network error, 5xx, timeout over 60s) therefore loses that order event unless a later `order.updated` for the same order arrives. Follow-up option: a periodic reconciliation that reads recent paid orders via REST (requires extending the `/webhooks`-only endpoint allowlist) and a card warning when a Nettmark webhook is disabled.
 
 ## Validation and follow-ups
 
