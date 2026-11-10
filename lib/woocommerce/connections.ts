@@ -37,7 +37,8 @@ export async function businessRoute(req: Request, action: 'connect' | 'status' |
     if (typeof body.storeUrl !== 'string' || body.storeUrl.length > 2048) throw new Error('invalid_store_url');
     const storeUrl = normalizeStoreUrl(body.storeUrl); await resolveStore(storeUrl);
     let probe;
-    try { probe = await storeRequest(storeUrl, '/wp-json/'); } catch { throw new Error('store_unreachable'); }
+    // The full REST index is often >1 MB (over the response cap); request only the namespaces list.
+    try { probe = await storeRequest(storeUrl, '/wp-json/?_fields=namespaces'); } catch { throw new Error('store_unreachable'); }
     if (probe.status !== 200) { console.warn('[woocommerce] store probe status', { status: probe.status }); throw new Error('store_unreachable'); }
     if (!probe.data || typeof probe.data !== 'object' || !Array.isArray((probe.data as { namespaces?: unknown }).namespaces) || !(probe.data as { namespaces: unknown[] }).namespaces.includes('wc/v3')) throw new Error('not_woocommerce');
     const base = baseUrl(req); if (!base.startsWith('https://')) throw new Error('configuration');
