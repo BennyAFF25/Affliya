@@ -3,6 +3,7 @@
 
 import "@/globals.css";
 import "./mobile-business.css";
+import ShopifyConnectCard from "../../../components/ShopifyConnectCard";
 import MobileBusinessOverview, { type MobileBusinessView } from "./MobileBusinessOverview";
 import { Dialog, DialogPanel, DialogTitle, Description } from "@headlessui/react";
 import AcceptTermsModal from "@/../app/components/AcceptTermsModal";
@@ -224,6 +225,10 @@ function getOfferMetaStatus(offer: Offer) {
 
 export default function MyBusinessPage() {
   const [mobileView, setMobileView] = useState<MobileBusinessView>("overview");
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has("shopify") || params.has("shopify_error")) setMobileView("setup");
+  }, []);
   const [offers, setOffers] = useState<Offer[]>([]);
   const [trackingVerifiedOfferIds, setTrackingVerifiedOfferIds] = useState<Set<string>>(new Set());
   const [trackingReadinessResolved, setTrackingReadinessResolved] = useState(false);
@@ -1251,6 +1256,8 @@ export default function MyBusinessPage() {
                     Open Meta setup
                   </Link>
                 </div>
+
+                <ShopifyConnectCard />
 
                 <div className="rounded-2xl border border-white/[0.08] bg-black/10 p-4">
                   <div className="flex items-start justify-between gap-3">
