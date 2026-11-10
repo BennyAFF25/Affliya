@@ -8,7 +8,7 @@ import MobileBusinessOverview, { type MobileBusinessView } from "./MobileBusines
 import { Dialog, DialogPanel, DialogTitle, Description } from "@headlessui/react";
 import AcceptTermsModal from "@/../app/components/AcceptTermsModal";
 import Link from "next/link";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useLayoutEffect, useState } from "react";
 import { PageHeader } from "@/../components/ui/page-header";
 import { useSession } from "@supabase/auth-helpers-react";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
@@ -225,7 +225,8 @@ function getOfferMetaStatus(offer: Offer) {
 
 export default function MyBusinessPage() {
   const [mobileView, setMobileView] = useState<MobileBusinessView>("overview");
-  useEffect(() => {
+  // Read before ShopifyConnectCard removes callback params in its passive effect.
+  useLayoutEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.has("shopify") || params.has("shopify_error")) setMobileView("setup");
   }, []);

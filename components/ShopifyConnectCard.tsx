@@ -1,5 +1,7 @@
 "use client";
 import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { stripShopifyParams } from "../lib/shopify/callback-params";
 
 type Store = { id: string; shop_domain: string; status: string };
 const connectionErrors: Record<string, string> = {
@@ -11,6 +13,7 @@ const connectionErrors: Record<string, string> = {
 };
 const buttonClass = "mt-4 inline-flex min-h-[44px] items-center justify-center rounded-full border border-[#00C2CB]/30 bg-[#00C2CB]/10 px-4 text-xs font-bold text-[#7ff5fb] disabled:opacity-50";
 export default function ShopifyConnectCard() {
+  const router = useRouter();
   const [stores, setStores] = useState<Store[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -25,8 +28,12 @@ export default function ShopifyConnectCard() {
     const params = new URLSearchParams(window.location.search);
     if (params.has("shopify_error")) setMessage(connectionErrors[params.get("shopify_error") || ""] || "Could not connect Shopify. Please try again.");
     else if (params.get("shopify") === "connected") setMessage("Shopify store connected.");
+    const search = stripShopifyParams(window.location.search);
+    if (search !== null) {
+      router.replace(`${window.location.pathname}${search}${window.location.hash}`, { scroll: false });
+    }
     load().catch(error => setMessage(error.message)).finally(() => setLoading(false));
-  }, []);
+  }, [router]);
   async function disconnect(id: string) {
     setBusy(true);
     try {

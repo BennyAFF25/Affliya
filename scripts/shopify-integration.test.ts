@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { stripShopifyParams } from "../lib/shopify/callback-params";
 import { createHmac, randomBytes } from "node:crypto";
 import Module, { createRequire } from "node:module";
 import { NextRequest } from "next/server";
@@ -8,6 +9,16 @@ import { handleWebhook, type WebhookStore } from "../lib/shopify/webhooks";
 import { exchangeToken, registerWebhooks, revokeAccess, webhookCallbackUrl } from "../lib/shopify/admin";
 
 async function main() {
+  assert.equal(stripShopifyParams(""), null);
+  assert.equal(stripShopifyParams("?other=1&shopify_extra=keep"), null);
+  assert.equal(stripShopifyParams("?shopify=connected"), "");
+  assert.equal(stripShopifyParams("?shopify_error="), "");
+  assert.equal(stripShopifyParams("?shopify=connected&shopify_error=failed&shopify=again"), "");
+  assert.equal(stripShopifyParams("?tab=setup&shopify=connected&next=%2fhello%20world&tab=other"), "?tab=setup&next=%2fhello%20world&tab=other");
+  assert.equal(stripShopifyParams("?%73hopify=connected&other=a+b&shopify_error=failed"), "?other=a+b");
+  const callbackUrl = new URL("https://example.invalid/business/my-business?shopify=connected&tab=setup#readiness");
+  assert.equal(`${callbackUrl.pathname}${stripShopifyParams(callbackUrl.search)}${callbackUrl.hash}`, "/business/my-business?tab=setup#readiness");
+
   const secret = "mock-secret";
   const params = new URLSearchParams({ shop: "demo.myshopify.com", code: "mock code", timestamp: "123", signature: "legacy" });
   const message = "code=mock code&shop=demo.myshopify.com&timestamp=123";

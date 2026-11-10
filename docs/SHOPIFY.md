@@ -1,6 +1,6 @@
 # Shopify: stage one — connect store
 
-Stage one adds an optional Shopify card in Business → My Business → Launch setup alongside Meta. It connects a store; it does not import products, install a pixel, mark tracking ready, gate publication, or change billing. Multiple stores can belong to a business. A connected shop cannot be reassigned to another business. Fresh OAuth can reassign disconnected or uninstalled shops; conditional writes prevent stealing a connected row.
+Stage one adds an optional Shopify card in Business → My Business → Setup access / Readiness checklist alongside Meta. It connects a store; it does not import products, install a pixel, mark tracking ready, gate publication, or change billing. Multiple stores can belong to a business. A connected shop cannot be reassigned to another business. Fresh OAuth can reassign disconnected or uninstalled shops; conditional writes prevent stealing a connected row.
 
 ## Setup
 
@@ -13,7 +13,7 @@ Use the public, non-embedded authorization-code app in Shopify's Dev Dashboard. 
 
 OAuth callback and all install/callback result redirects use the request origin to preserve nonce/session cookie host binding. Only the webhook subscription URI uses `NEXT_PUBLIC_BASE_URL` origin when configured. Shopify must allowlist every callback origin.
 
-App launch requires an existing logged-in Nettmark business session and a provisioned business profile. If absent, the business page receives an error; sign in and connect from Launch setup. No per-user grant is requested: the exchanged token is offline.
+App launch requires an existing logged-in Nettmark business session and a provisioned business profile. If absent, the business page receives an error; sign in and connect from Setup access / Readiness checklist. New businesses sign up at `/create-account?role=business`. No per-user grant is requested: the exchanged token is offline.
 
 Environment template: [`.env.example`](../.env.example) (this repository had no existing env example). Required server configuration:
 
@@ -31,6 +31,8 @@ Environment template: [`.env.example`](../.env.example) (this repository had no 
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Existing session client configuration |
 
 Stage one permits only product/pixel/customer-event scopes (also `read_pixels`); order and customer scopes are rejected, including `read_orders`. Extra implied scopes returned by Shopify are accepted, but all requested scopes must be granted. Preserve the encryption key securely: rotating it requires reconnecting stores or an explicitly planned decrypt/re-encrypt migration. Tokens are versioned AES-256-GCM ciphertext with random IVs; no plaintext token is exposed to clients.
+
+Shopify's grant screen shows its standard customer-data, staff-data and web-pixel disclosure for the pixel scopes (`write_pixels` / `read_customer_events`). This is expected and does not mean Nettmark stores customer data.
 
 Prepare/apply `supabase/migrations/20261110120000_shopify_stores.sql` separately through the authorized release process. It links `business_profiles.id` to a unique, validated shop domain, stores ciphertext/scopes/status/timestamps, enables RLS, and revokes client access. Status is exposed through an authenticated server route with an explicit safe column list. The manual destructive rollback is `supabase/undo/20261110120000_shopify_stores.undo.sql`; it deletes saved connections and requires reconnecting stores. Neither SQL script was applied as part of implementation.
 
@@ -71,11 +73,11 @@ Automated, mock-only checks: `yarn test:shopify-integration`, `yarn -s typecheck
 
 When authorized, apply the migration to a development database, configure env and allowlisted callback origin, then:
 
-1. Sign in as a business, open Launch setup, enter a dev-store name or full domain and connect. Approve scopes; verify redirect success, connected domain, encrypted token in admin-only SQL, required scopes and uninstall subscription.
+1. Sign in as a business, open Setup access / Readiness checklist, enter a dev-store name or full domain and connect. Approve scopes; verify redirect success, connected domain, encrypted token in admin-only SQL, required scopes and uninstall subscription.
 2. Confirm no token appears in status JSON, browser responses, logs or authenticated/anon table reads. Test another business/affiliate/anonymous session cannot view/disconnect that store or take ownership while connected. Verify fresh OAuth can reclaim a disconnected/uninstalled shop.
 3. Reject altered HMAC, hostname suffix/path/uppercase, expired/tampered state, missing/wrong nonce, another callback user and missing scopes. Callback must clear the cookie; reuse should fail. Verify Preview redirects use its allowlisted origin even with `NEXT_PUBLIC_BASE_URL` set to production.
 4. Disconnect and verify Shopify access revocation plus token null/status disconnected; reconnect. Simulate token-exchange/save failures; verify clear error redirects without sensitive logs. Simulate registration failure; installation should still succeed.
 5. Send validly signed uninstall and all three compliance deliveries using Shopify's tools; retry each. Verify uninstall timestamp/token, customer-topic 200 with no customer storage, shop redaction removes only that shop. Invalid raw-body HMAC → 401; unknown topic → 200. Simulate DB failure → 503, then retry.
-6. Confirm existing Meta, tracking, billing, offers and mobile Launch setup are unchanged. Revocation failure must still allow local disconnect.
+6. Confirm existing Meta, tracking, billing, offers and mobile Setup access / Readiness checklist are unchanged. Revocation failure must still allow local disconnect.
 
 Live Shopify behavior and applied database schema require this later validation; implementation work makes no network calls and applies no migrations. The PR targets `bot-staging` and should list the env, migration and dev-store steps above.
