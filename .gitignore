@@ -9,3 +9,6 @@ node_modules
 
 # Public environment template (contains no secrets)
 !.env.example
+
+# Shopify CLI build output
+extensions/*/dist/
