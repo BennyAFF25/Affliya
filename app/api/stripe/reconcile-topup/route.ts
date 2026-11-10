@@ -8,7 +8,10 @@ import { syncAffiliateWalletCache } from "@/../utils/wallet/syncAffiliateWalletC
 
 export const runtime = "nodejs";
 
-const stripe = createStripeClient((process.env.STRIPE_SECRET_KEY || "").trim());
+let stripe: ReturnType<typeof createStripeClient> | undefined;
+function getStripe() {
+  return stripe ??= createStripeClient((process.env.STRIPE_SECRET_KEY || "").trim());
+}
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -119,6 +122,10 @@ async function creditWalletTopup(params: {
 }
 
 export async function POST(req: NextRequest) {
+  if (!process.env.STRIPE_SECRET_KEY?.trim()) {
+    return NextResponse.json({ error: "Stripe is not configured" }, { status: 503 });
+  }
+
   try {
     const body = await req.json().catch(() => ({}));
     const sessionId = String(body?.session_id || body?.sessionId || "").trim();
@@ -127,7 +134,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing session_id" }, { status: 400 });
     }
 
-    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    const session = await getStripe().checkout.sessions.retrieve(sessionId);
     const sessionAction = session.metadata?.nettmark_action || session.metadata?.purpose;
 
     if (sessionAction !== "wallet_topup") {
@@ -162,13 +169,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing affiliate email" }, { status: 400 });
     }
 
-    const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId, {
+    const paymentIntent = await getStripe().paymentIntents.retrieve(paymentIntentId, {
       expand: ["latest_charge.balance_transaction"],
     });
 
     let latestCharge = paymentIntent.latest_charge;
     if (!latestCharge) {
-      const charges = await stripe.charges.list({ payment_intent: paymentIntentId, limit: 1 });
+      const charges = await getStripe().charges.list({ payment_intent: paymentIntentId, limit: 1 });
       latestCharge = charges.data[0] || null;
     }
 
@@ -177,7 +184,7 @@ export async function POST(req: NextRequest) {
     }
 
     const charge = typeof latestCharge === "string"
-      ? await stripe.charges.retrieve(latestCharge, { expand: ["balance_transaction"] })
+      ? await getStripe().charges.retrieve(latestCharge, { expand: ["balance_transaction"] })
       : latestCharge;
 
     const balanceTransaction = charge.balance_transaction;
@@ -186,7 +193,7 @@ export async function POST(req: NextRequest) {
     }
 
     const balanceTx = typeof balanceTransaction === "string"
-      ? await stripe.balanceTransactions.retrieve(balanceTransaction)
+      ? await getStripe().balanceTransactions.retrieve(balanceTransaction)
       : balanceTransaction;
 
     const settlementIssue = validateAudTopup(session, balanceTx);
@@ -197,7 +204,7 @@ export async function POST(req: NextRequest) {
 
     let platformAcctId = "unknown";
     try {
-      const platformAccount = await stripe.accounts.retrieve();
+      const platformAccount = await getStripe().accounts.retrieve();
       platformAcctId = platformAccount.id;
     } catch (err: unknown) {
       console.error("[❌ Stripe platform account retrieve error during top-up reconcile]", err);

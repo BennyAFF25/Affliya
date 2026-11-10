@@ -7,10 +7,13 @@ const log = (...args: any[]) => console.log("[stripe-app]", ...args);
 export const runtime = "nodejs";
 
 // Stripe revenue account
-const stripe = new Stripe(process.env.STRIPE_APP_SECRET!, {
+let stripe: Stripe | undefined;
+function getStripe() {
+  return stripe ??= new Stripe(process.env.STRIPE_APP_SECRET!, {
   // Match the Stripe SDK literal union type
   apiVersion: "2025-08-27.basil",
 });
+}
 
 // Supabase service role (webhooks bypass RLS)
 const supabase = createClient(
@@ -74,6 +77,10 @@ async function buffer(req: Request) {
 }
 
 export async function POST(req: Request) {
+  if (!process.env.STRIPE_APP_SECRET?.trim() || !process.env.STRIPE_APP_WEBHOOK_SECRET?.trim()) {
+    return NextResponse.json({ error: "Stripe is not configured" }, { status: 503 });
+  }
+
   const sig = req.headers.get("stripe-signature");
   if (!sig) {
     return NextResponse.json({ error: "Missing stripe-signature" }, { status: 400 });
@@ -83,7 +90,7 @@ export async function POST(req: Request) {
 
   try {
     const body = await buffer(req);
-    event = stripe.webhooks.constructEvent(
+    event = getStripe().webhooks.constructEvent(
       body,
       sig,
       process.env.STRIPE_APP_WEBHOOK_SECRET!
@@ -129,7 +136,7 @@ export async function POST(req: Request) {
       let subscription: Stripe.Subscription | null = null;
       if (subscriptionId) {
         try {
-          subscription = await stripe.subscriptions.retrieve(subscriptionId);
+          subscription = await getStripe().subscriptions.retrieve(subscriptionId);
         } catch {}
       }
 

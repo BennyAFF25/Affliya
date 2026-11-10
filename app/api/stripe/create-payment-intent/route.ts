@@ -2,9 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { calculateWalletTopupCharge, toStripeAmount } from '@/../utils/feeAccounting';
 import { buildNettmarkStripeMetadata, createStripeClient } from '@/../utils/stripe';
 
-const stripe = createStripeClient(process.env.STRIPE_SECRET_KEY as string);
+let stripe: ReturnType<typeof createStripeClient> | undefined;
+function getStripe() {
+  return stripe ??= createStripeClient(process.env.STRIPE_SECRET_KEY as string);
+}
 
 export async function POST(req: NextRequest) {
+  if (!process.env.STRIPE_SECRET_KEY?.trim()) {
+    return NextResponse.json({ error: "Stripe is not configured" }, { status: 503 });
+  }
+
   let amount;
   let email;
 
@@ -19,7 +26,7 @@ export async function POST(req: NextRequest) {
     const feeBreakdown = calculateWalletTopupCharge(principalAmount);
     amount = toStripeAmount(feeBreakdown.totalChargeAmount);
 
-    const paymentIntent = await stripe.paymentIntents.create({
+    const paymentIntent = await getStripe().paymentIntents.create({
       amount,
       currency: 'usd',
       receipt_email: email,
