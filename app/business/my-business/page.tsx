@@ -1,6 +1,8 @@
 "use client";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+import { COUNTRIES, normaliseCountry } from "../../../utils/countries";
+import { businessCardSetupMessage, reportBusinessCardSetupFailure } from "../../../utils/businessCardSetup";
 import "@/globals.css";
 import "./mobile-business.css";
 import MobileBusinessOverview, { type MobileBusinessView } from "./MobileBusinessOverview";
@@ -247,6 +249,8 @@ export default function MyBusinessPage() {
   const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [billingRequiredPrompt, setBillingRequiredPrompt] = useState(false);
   const [billingPromptHandled, setBillingPromptHandled] = useState(false);
+  const [businessCountry, setBusinessCountry] = useState("");
+  const [needsBusinessCountry, setNeedsBusinessCountry] = useState(false);
   const [businessAccountId, setBusinessAccountId] = useState<string | null>(null);
   const [onboardingComplete, setOnboardingComplete] = useState<boolean>(false);
   const [hasCard, setHasCard] = useState<boolean>(false);
@@ -509,6 +513,8 @@ export default function MyBusinessPage() {
         return;
       }
 
+      setBusinessCountry(normaliseCountry(data?.country) || "");
+      setNeedsBusinessCountry(!normaliseCountry(data?.country));
       if (data?.stripe_customer_id) {
         const customerId = data.stripe_customer_id as string;
         setBusinessCustomerId(customerId);
@@ -735,10 +741,13 @@ export default function MyBusinessPage() {
         body: JSON.stringify({
           role: "business",
           email,
+          stripe_account_id: businessAccountId || undefined,
+          country: businessCountry || undefined,
         }),
       });
 
       const data = await parseJsonSafe(res);
+      if (data?.code === "BUSINESS_COUNTRY_REQUIRED") setNeedsBusinessCountry(true);
       if (!res.ok || !data?.url) {
         throw new Error(data?.error || "Failed to start payouts onboarding");
       }
@@ -888,7 +897,8 @@ export default function MyBusinessPage() {
           redirect: "if_required",
         });
         if (result.error) {
-          toast.error(result.error.message || "Card setup failed");
+          void reportBusinessCardSetupFailure(result.error);
+          toast.error(businessCardSetupMessage(result.error));
         } else {
           const cardRes = await fetch("/api/stripe/check-customer-card", {
             method: "POST",
@@ -1307,9 +1317,17 @@ export default function MyBusinessPage() {
                     </div>
                     <div className="grid gap-2 2xl:min-w-[220px] sm:grid-cols-1">
                       {!payoutsReady && (
+                        <>
+                        {needsBusinessCountry && !businessAccountId && <label className="mb-3 block text-sm">Business country
+                          <select value={businessCountry} onChange={event => setBusinessCountry(event.target.value)} className="mt-2 block w-full rounded-xl border border-white/10 bg-[var(--card)] p-3">
+                            <option value="">Choose country</option>
+                            {COUNTRIES.map(country => <option key={country.code} value={country.code}>{country.name}</option>)}
+                          </select>
+                        </label>}
                         <button onClick={handleEnablePayouts} disabled={isEnablingPayouts} className="inline-flex min-h-[38px] items-center justify-center rounded-full bg-[#00C2CB] px-4 text-xs font-black text-black hover:bg-[#14d5de] disabled:opacity-60">
                           {isEnablingPayouts ? "Opening Stripe…" : businessAccountId ? "Continue Stripe setup" : "Enable payouts"}
                         </button>
+                        </>
                       )}
                       {businessAccountId && !payoutsReady && (
                         <button onClick={handleRefreshPayoutStatus} className="inline-flex min-h-[38px] items-center justify-center rounded-full border border-white/10 bg-white/[0.03] px-4 text-xs font-bold text-slate-200 hover:border-[#00C2CB]/35">

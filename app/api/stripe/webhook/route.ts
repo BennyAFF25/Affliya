@@ -1,3 +1,4 @@
+import { logBusinessCardSetupFailure } from "../../../../utils/businessCardSetupAudit";
 import { validateAudTopup, flagTopupReview } from "@/../utils/wallet/topupValidation";
 import { recordCurrency, withRecordedCurrency } from '@/../utils/currency/recordCurrency';
 export const runtime = "nodejs";
@@ -316,6 +317,19 @@ if (!stripeSecretKey || !endpointSecret) {
 
     try {
       switch (event.type) {
+        case "setup_intent.setup_failed": {
+          const intent = event.data.object as Stripe.SetupIntent;
+          const customerId = typeof intent.customer === "string" ? intent.customer : intent.customer?.id;
+          if (!customerId) break;
+          const { data: profile, error } = await supabase.from("business_profiles")
+            .select("id,business_email").eq("stripe_customer_id", customerId).maybeSingle();
+          if (error) throw error;
+          if (profile) await logBusinessCardSetupFailure(supabase as never, profile, {
+            code: intent.last_setup_error?.code, decline_code: intent.last_setup_error?.decline_code,
+            type: intent.last_setup_error?.type, setup_intent: intent.id,
+          }, "app/api/stripe/webhook/route.ts");
+          break;
+        }
         case "account.updated": {
           const account = event.data.object as Stripe.Account;
 
@@ -441,6 +455,8 @@ if (!stripeSecretKey || !endpointSecret) {
           console.log("[platform acct]", platformAcctId);
       }
     } catch (err: unknown) {
+      // Ask Stripe to retry if setup-failure diagnostics could not be persisted.
+      if (event.type === "setup_intent.setup_failed") return NextResponse.json({ error: "Could not record card setup failure." }, { status: 500 });
       console.error(
         "[❌ Webhook handler error]",
         err instanceof Error ? err.message : err,

@@ -1,3 +1,4 @@
+import { isOrganicCaptionTooLong, ORGANIC_CAPTION_ERROR } from "../../../../utils/organicCaption";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import { NextResponse } from "next/server";
@@ -107,6 +108,7 @@ export async function POST(req: Request) {
     }
 
     const caption = String(asset.caption || "").trim();
+    if (isOrganicCaptionTooLong(caption)) return NextResponse.json({ ok: false, error: ORGANIC_CAPTION_ERROR }, { status: 400 });
     const imageUrl = String(asset.media_type || "").toLowerCase() === "video" ? null : mediaUrl;
     const videoUrl = String(asset.media_type || "").toLowerCase() === "video" ? mediaUrl : null;
 

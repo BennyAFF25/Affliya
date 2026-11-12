@@ -1,3 +1,4 @@
+import { isCountryCode, normaliseCountry } from "../../../../utils/countries";
 import { protectCriticalRoute } from "../../../../utils/criticalRouteAuthServer";
 // Business Stripe Connect onboarding endpoint
 // File: app/api/stripe/create-account/route.ts
@@ -91,39 +92,13 @@ async function handlePost(req: Request) {
       .toString()
       .trim();
 
-    // 1) Create (or reuse) Express account (live/test depends on STRIPE_SECRET_KEY)
-    const account = existingAccountId
-      ? await stripe.accounts.retrieve(existingAccountId)
-      : await stripe.accounts.create({
-          type: "express",
-          email,
-          capabilities: {
-            transfers: { requested: true },
-          },
-          metadata: buildStripeMetadata({
-            email,
-            role: "business",
-            nettmark_platform: "nettmark",
-          }),
-        });
-
-    const accountId = account.id;
-    if (!accountId) {
-      return NextResponse.json(
-        { error: "Unable to resolve Stripe account ID" },
-        { status: 500 }
-      );
-    }
-
-    // 1.5) Persist to DB (THIS is what was missing)
-    // Use service role so RLS can’t block the write.
     const supabaseAdmin = getAdminSupabase();
 
     // Prefer update-by-email (you already have a row with business_email)
     // If no row exists, fallback to insert.
     const { data: existingBiz, error: findErr } = await supabaseAdmin
       .from("business_profiles")
-      .select("id, stripe_account_id")
+      .select("id, stripe_account_id, country")
       .eq("business_email", email)
       .maybeSingle();
 
@@ -135,12 +110,36 @@ async function handlePost(req: Request) {
       );
     }
 
+    const resolvedAccountId = existingAccountId || existingBiz?.stripe_account_id;
+    let country: string | null = null;
+    if (!resolvedAccountId) {
+      if (body.country !== undefined && !isCountryCode(body.country)) {
+        return NextResponse.json({ error: "Choose a valid two-letter country code." }, { status: 400 });
+      }
+      country = body.country || normaliseCountry(existingBiz?.country);
+      if (!country) {
+        return NextResponse.json({ code: "BUSINESS_COUNTRY_REQUIRED", error: "Choose your business country before connecting Stripe." }, { status: 400 });
+      }
+    }
+    const account = resolvedAccountId
+      ? await stripe.accounts.retrieve(resolvedAccountId)
+      : await stripe.accounts.create({
+          type: "express",
+          email,
+          country: country!,
+          capabilities: { transfers: { requested: true } },
+          metadata: buildStripeMetadata({ email, role: "business", nettmark_platform: "nettmark" }),
+        });
+    const accountId = account.id;
+    if (!accountId) return NextResponse.json({ error: "Unable to resolve Stripe account ID" }, { status: 500 });
+    const countryUpdate = !resolvedAccountId && country && (!existingBiz?.country || body.country !== undefined) ? { country } : {};
+
     if (existingBiz?.id) {
       // Only update if missing or different (safe)
       if (!existingBiz.stripe_account_id || existingBiz.stripe_account_id !== accountId) {
         const { error: upErr } = await supabaseAdmin
           .from("business_profiles")
-          .update({ stripe_account_id: accountId })
+          .update({ stripe_account_id: accountId, ...countryUpdate })
           .eq("id", existingBiz.id);
 
         if (upErr) {
@@ -156,6 +155,7 @@ async function handlePost(req: Request) {
         .from("business_profiles")
         .insert({
           business_email: email,
+          ...countryUpdate,
           stripe_account_id: accountId,
           stripe_onboarding_complete: false,
         });
