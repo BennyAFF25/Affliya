@@ -7,7 +7,10 @@ import { buildNettmarkStripeMetadata, createStripeClient } from "@/../utils/stri
 
 export const runtime = "nodejs";
 
-const stripe = createStripeClient((process.env.STRIPE_SECRET_KEY || "").trim());
+let stripe: ReturnType<typeof createStripeClient> | undefined;
+function getStripe() {
+  return stripe ??= createStripeClient((process.env.STRIPE_SECRET_KEY || "").trim());
+}
 
 function getBaseUrl() {
   const explicit = (process.env.NEXT_PUBLIC_BASE_URL || "").trim();
@@ -33,10 +36,11 @@ function absUrl(pathname: string) {
 }
 
 export async function POST(req: Request) {
+  if (!process.env.STRIPE_SECRET_KEY?.trim()) {
+    return NextResponse.json({ error: "Stripe is not configured" }, { status: 503 });
+  }
+
   try {
-    if (!process.env.STRIPE_SECRET_KEY) {
-      return NextResponse.json({ error: "Missing STRIPE_SECRET_KEY" }, { status: 500 });
-    }
 
     const supabase = createRouteHandlerClient({ cookies });
     const {
@@ -106,7 +110,7 @@ export async function POST(req: Request) {
       mode: process.env.STRIPE_SECRET_KEY.startsWith("sk_live_") ? "live" : "test",
     });
 
-    const session = await stripe.checkout.sessions.create({
+    const session = await getStripe().checkout.sessions.create({
       mode: "payment",
       adaptive_pricing: { enabled: false },
       customer_email: email,
