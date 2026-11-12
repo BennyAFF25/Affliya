@@ -1,3 +1,4 @@
+import { isOfferTrackingDisplayReady } from "../../../../utils/tracking/displayReadiness";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import {
@@ -24,6 +25,10 @@ export async function POST(req: NextRequest) {
     const verifiedOfferIds: string[] = [];
 
     for (const offerId of offerIds) {
+      if (body?.purpose === "display") {
+        if (await isOfferTrackingDisplayReady(supabase as unknown as QueryClient, offerId)) verifiedOfferIds.push(offerId);
+        continue;
+      }
       const readiness = await assertOfferTrackingReady(
         supabase as unknown as QueryClient,
         offerId,
