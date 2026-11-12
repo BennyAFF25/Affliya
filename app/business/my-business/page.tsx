@@ -1,6 +1,9 @@
 "use client";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+import { needsOrganicPostReview } from "../../../utils/organicCampaignIdentity";
+import { COUNTRIES, normaliseCountry, matchesCountryQuery } from "../../../utils/countries";
+import { businessCardSetupMessage, reportBusinessCardSetupFailure } from "../../../utils/businessCardSetup";
 import WooCommerceConnectCard from "../../../components/WooCommerceConnectCard";
 import "@/globals.css";
 import "./mobile-business.css";
@@ -255,6 +258,9 @@ export default function MyBusinessPage() {
   const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [billingRequiredPrompt, setBillingRequiredPrompt] = useState(false);
   const [billingPromptHandled, setBillingPromptHandled] = useState(false);
+  const [countryQuery, setCountryQuery] = useState("");
+  const [businessCountry, setBusinessCountry] = useState("");
+  const [needsBusinessCountry, setNeedsBusinessCountry] = useState(false);
   const [businessAccountId, setBusinessAccountId] = useState<string | null>(null);
   const [onboardingComplete, setOnboardingComplete] = useState<boolean>(false);
   const [hasCard, setHasCard] = useState<boolean>(false);
@@ -280,9 +286,9 @@ export default function MyBusinessPage() {
       const [{ data: postIdeas }, { data: adIdeas }] = await Promise.all([
         supabase
           .from("organic_posts")
-          .select("id")
+          .select("id,status,campaign_id,offer_id,business_email,affiliate_email")
           .in("offer_id", offerIds)
-          .eq("status", "pending"),
+          .in("status", ["pending", "approved"]),
 
         supabase
           .from("ad_ideas")
@@ -291,7 +297,12 @@ export default function MyBusinessPage() {
           .eq("status", "pending"),
       ]);
 
-      setPendingPostIdeaCount(postIdeas?.length || 0);
+      const campaigns = await supabase.from("live_campaigns")
+        .select("id,type,offer_id,business_email,affiliate_email")
+        .in("offer_id", offerIds).eq("type", "organic").eq("business_email", user.email!);
+      if (!campaigns.error) {
+        setPendingPostIdeaCount((postIdeas || []).filter(post => needsOrganicPostReview(post, campaigns.data || [])).length);
+      }
       setPendingAdIdeaCount(adIdeas?.length || 0);
     };
 
@@ -526,6 +537,8 @@ export default function MyBusinessPage() {
         return;
       }
 
+      setBusinessCountry(normaliseCountry(data?.country) || "");
+      setNeedsBusinessCountry(!normaliseCountry(data?.country));
       if (data?.stripe_customer_id) {
         const customerId = data.stripe_customer_id as string;
         setBusinessCustomerId(customerId);
@@ -729,6 +742,10 @@ export default function MyBusinessPage() {
 
   async function handleEnablePayouts() {
     if (isEnablingPayouts) return;
+    if (!businessAccountId && !businessCountry) {
+      setNeedsBusinessCountry(true);
+      return;
+    }
 
     try {
       setIsEnablingPayouts(true);
@@ -742,10 +759,13 @@ export default function MyBusinessPage() {
         body: JSON.stringify({
           role: "business",
           email,
+          stripe_account_id: businessAccountId || undefined,
+          country: businessCountry || undefined,
         }),
       });
 
       const data = await parseJsonSafe(res);
+      if (data?.code === "BUSINESS_COUNTRY_REQUIRED") setNeedsBusinessCountry(true);
       if (!res.ok || !data?.url) {
         throw new Error(data?.error || "Failed to start payouts onboarding");
       }
@@ -895,7 +915,8 @@ export default function MyBusinessPage() {
           redirect: "if_required",
         });
         if (result.error) {
-          toast.error(result.error.message || "Card setup failed");
+          void reportBusinessCardSetupFailure(result.error);
+          toast.error(businessCardSetupMessage(result.error));
         } else {
           const cardRes = await fetch("/api/stripe/check-customer-card", {
             method: "POST",
@@ -1317,9 +1338,20 @@ export default function MyBusinessPage() {
                     </div>
                     <div className="grid gap-2 2xl:min-w-[220px] sm:grid-cols-1">
                       {!payoutsReady && (
-                        <button onClick={handleEnablePayouts} disabled={isEnablingPayouts} className="inline-flex min-h-[38px] items-center justify-center rounded-full bg-[#00C2CB] px-4 text-xs font-black text-black hover:bg-[#14d5de] disabled:opacity-60">
+                        <>
+                        {!businessAccountId && (needsBusinessCountry || !businessCountry) && <div className="mb-3 block text-sm">
+                          <label htmlFor="business-connect-country">Business country</label>
+                          <input aria-label="Search business country" placeholder="Search country" value={countryQuery} onChange={event => setCountryQuery(event.target.value)} className="mt-2 block w-full rounded-xl border border-white/10 bg-[var(--card)] p-3" />
+                          <select id="business-connect-country" value={businessCountry} onChange={event => setBusinessCountry(event.target.value)} className="mt-2 block w-full rounded-xl border border-white/10 bg-[var(--card)] p-3">
+                            <option value="">Choose country</option>
+                            {COUNTRIES.filter(country => country.code === businessCountry || matchesCountryQuery(country, countryQuery)).map(country => <option key={country.code} value={country.code}>{country.name}</option>)}
+                          </select>
+                        </div>}
+                        {!businessAccountId && !businessCountry && <p className="text-xs text-slate-400">Choose your business country to enable payouts.</p>}
+                        <button onClick={handleEnablePayouts} disabled={isEnablingPayouts || (!businessAccountId && !businessCountry)} className="inline-flex min-h-[38px] items-center justify-center rounded-full bg-[#00C2CB] px-4 text-xs font-black text-black hover:bg-[#14d5de] disabled:opacity-60">
                           {isEnablingPayouts ? "Opening Stripe…" : businessAccountId ? "Continue Stripe setup" : "Enable payouts"}
                         </button>
+                        </>
                       )}
                       {businessAccountId && !payoutsReady && (
                         <button onClick={handleRefreshPayoutStatus} className="inline-flex min-h-[38px] items-center justify-center rounded-full border border-white/10 bg-white/[0.03] px-4 text-xs font-bold text-slate-200 hover:border-[#00C2CB]/35">

@@ -1,5 +1,6 @@
 "use client";
 
+import { ORGANIC_CAPTION_MAX_LENGTH } from "../../../../../utils/organicCaption";
 import React, { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   Check,
@@ -318,11 +319,12 @@ export function OrganicSubmissionForm({
               <div className="relative">
                 <textarea
                   value={ogCaption}
+                  maxLength={ORGANIC_CAPTION_MAX_LENGTH}
                   onChange={(e) => setOgCaption(e.target.value)}
                   placeholder="Write your caption here..."
                   className="min-h-[120px] w-full resize-none rounded-xl border border-white/10 bg-[#0c0f10] px-4 py-4 pr-16 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-cyan-500/40"
                 />
-                <span className="absolute bottom-3 right-4 text-xs text-zinc-600">{ogCaption.length} / 500</span>
+                <span className="absolute bottom-3 right-4 text-xs text-zinc-600">{ogCaption.length} / {ORGANIC_CAPTION_MAX_LENGTH}</span>
               </div>
             )}
 

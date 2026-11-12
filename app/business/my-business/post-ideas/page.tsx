@@ -1,9 +1,9 @@
 "use client";
+import { hasOrganicCampaign, type OrganicCampaignIdentity } from "../../../../utils/organicCampaignIdentity";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 import React, { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { PageHeader } from "@/../components/ui/page-header";
 import { useSession } from "@supabase/auth-helpers-react";
 import { supabase } from "@/../utils/supabase/pages-client";
@@ -25,13 +25,15 @@ interface ProfileRow {
 interface PostIdea {
   id: string;
   affiliate_email: string;
-  business_email?: string;
+  business_email: string;
   caption: string;
   platform: string;
   image_url: string;
   video_url?: string;
   status: string;
   created_at: string;
+  campaign_id?: string | null;
+  has_campaign?: boolean;
   offer_id: string;
   link?: string;
 }
@@ -123,7 +125,6 @@ export default function PostIdeasPage() {
   const [businessId, setBusinessId] = useState<string | null>(null);
   const session = useSession();
   const user = session?.user;
-  const router = useRouter();
 
   const openedProposal = useRef<string | null>(null);
   useEffect(() => {
@@ -197,6 +198,16 @@ export default function PostIdeasPage() {
         }
 
         const typedData = (data || []) as PostIdea[];
+        if (!typedData.length) { setPosts([]); return; }
+        const campaignIds = [...new Set(typedData.flatMap(post => [post.id, post.campaign_id].filter((id): id is string => !!id)))];
+        const offerIds = [...new Set(typedData.map(post => post.offer_id).filter(Boolean))];
+        // Exact ids (new stable/linked campaigns) plus legacy organic campaigns for the same offers.
+        const campaignResult = await supabase.from("live_campaigns")
+          .select("id,type,offer_id,business_email,affiliate_email")
+          .eq("business_email", session.user.email as string)
+          .or(`id.in.(${campaignIds.join(",")}),and(type.eq.organic,offer_id.in.(${offerIds.join(",")}))`);
+        if (campaignResult.error) throw new Error("Could not verify campaign setup. Please reload.");
+        for (const post of typedData) post.has_campaign = hasOrganicCampaign(post, (campaignResult.data || []) as OrganicCampaignIdentity[]);
         setPosts(typedData);
 
         typedData.filter((post) => post.status === "pending").forEach((post) => {
@@ -271,11 +282,14 @@ export default function PostIdeasPage() {
     void fetchOrganicPosts();
   }, [session]);
 
+  const [showBillingNotice, setShowBillingNotice] = useState(false);
+
   const handleStatusChange = async (
     postId: string,
     newStatus: Extract<PostStatus, "approved" | "rejected">,
     post: PostIdea,
   ) => {
+    if (newStatus === "rejected" && post.status === "approved") return;
     try {
       if (newStatus === "approved") {
         const readinessRes = await fetch("/api/business/tracking-readiness", {
@@ -295,13 +309,12 @@ export default function PostIdeasPage() {
         }
       }
 
-      const { error: updateError } = await (supabase as any)
-        .from("organic_posts")
-        .update({ status: newStatus })
-        .eq("id", postId);
+      if (newStatus === "rejected") {
+        const { error } = await (supabase as any).from("organic_posts").update({ status: "rejected" }).eq("id", postId);
+        if (error) throw error;
+      }
 
-      if (updateError) throw updateError;
-
+      let campaignId = post.campaign_id;
       let notificationLink = "/affiliate/inbox";
 
       if (newStatus === "approved") {
@@ -329,17 +342,14 @@ export default function PostIdeasPage() {
         const campaignJson = await campaignRes.json().catch(() => null);
 
         if (!campaignRes.ok || !campaignJson?.success) {
-          if (campaignJson?.error === "BUSINESS_PAYMENT_METHOD_REQUIRED") {
-            window.alert(campaignJson?.message || "Add business billing before approving this organic post.");
-            router.push("/business/my-business?billing=required&returnTo=/business/my-business/post-ideas");
-            return;
-          }
           throw new Error(
             campaignJson?.message ||
               "Failed to create the organic campaign after approval.",
           );
         }
 
+        setShowBillingNotice(true);
+        campaignId = campaignJson.campaignId;
         if (campaignJson?.campaignId) {
           notificationLink = `/affiliate/dashboard/manage-campaigns/${campaignJson.campaignId}`;
         }
@@ -374,19 +384,20 @@ export default function PostIdeasPage() {
 
       setPosts((prev) =>
         prev.map((item) =>
-          item.id === postId ? { ...item, status: newStatus } : item,
+          item.id === postId ? { ...item, status: newStatus, campaign_id: campaignId, has_campaign: newStatus === "approved" } : item,
         ),
       );
       setSelectedPost((prev) =>
-        prev && prev.id === postId ? { ...prev, status: newStatus } : prev,
+        prev && prev.id === postId ? { ...prev, status: newStatus, campaign_id: campaignId, has_campaign: newStatus === "approved" } : prev,
       );
     } catch (err) {
       console.error("❌ handleStatusChange error:", err);
+      window.alert(err instanceof Error ? err.message : "Could not update this post. Please retry.");
     }
   };
 
-  const pendingPosts = posts.filter((p) => p.status === "pending");
-  const reviewedPosts = posts.filter((p) => p.status !== "pending");
+  const pendingPosts = posts.filter((p) => (p.status === "pending" || (p.status === "approved" && !p.has_campaign)));
+  const reviewedPosts = posts.filter((p) => p.status !== "pending" && !(p.status === "approved" && !p.has_campaign));
   const approvedCount = posts.filter((p) => p.status === "approved").length;
   const selectedKind = selectedPost ? inferPostKind(selectedPost) : null;
   const selectedHandle = selectedPost
@@ -437,6 +448,7 @@ export default function PostIdeasPage() {
               </button>
             </div>
 
+            {showBillingNotice && <p role="status" className="mb-4 rounded-xl border border-cyan-500/25 p-4 text-sm">Post approved. Commission payments need a saved business card. <a className="text-[#00C2CB] underline" href="/business/my-business?billing=required">Review billing or add a card</a>.</p>}
             {pendingPosts.length === 0 ? (
               <div className="rounded-3xl border border-white/10 bg-[#111517] px-6 py-10 text-center text-white/65 shadow-[0_18px_50px_rgba(0,0,0,0.18)]">
                 <p className="text-lg font-semibold text-white">No new posts to review</p>
@@ -470,7 +482,6 @@ export default function PostIdeasPage() {
                             </p>
                             <div className="mt-3 flex flex-wrap gap-2 text-xs text-white/70">
                               <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">{kindLabel(kind, post.platform)}</span>
-                              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">{post.platform || "Platform not set"}</span>
                               {post.link && (
                                 <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">Tracked link attached</span>
                               )}
@@ -511,16 +522,16 @@ export default function PostIdeasPage() {
                               onClick={() => void handleStatusChange(post.id, "approved", post)}
                               className="flex-1"
                             >
-                              Approve
+                              {post.status === "approved" ? "Finish setup" : "Approve"}
                             </Button>
-                            <Button
+                            {post.status === "pending" && <Button
                               type="button"
                               variant="secondary"
                               onClick={() => void handleStatusChange(post.id, "rejected", post)}
                               className="flex-1"
                             >
                               Reject
-                            </Button>
+                            </Button>}
                           </div>
                         </div>
                       </div>
@@ -779,20 +790,20 @@ export default function PostIdeasPage() {
               </div>
 
               <div className="border-t border-[#151b1f] px-5 pb-5 pt-2">
-                {selectedPost.status === "pending" && (
+                {(selectedPost.status === "pending" || (selectedPost.status === "approved" && !selectedPost.has_campaign)) && (
                   <div className="mb-3 flex gap-2">
                     <button
                       onClick={() => void handleStatusChange(selectedPost.id, "approved", selectedPost)}
                       className="w-full rounded-xl bg-[#00C2CB] py-2.5 text-sm font-semibold text-black shadow-[0_0_20px_rgba(0,194,203,0.35)] transition hover:bg-[#00b0b8]"
                     >
-                      Approve &amp; publish
+                      {selectedPost.status === "approved" ? "Finish setup" : "Approve & publish"}
                     </button>
-                    <button
+                    {selectedPost.status === "pending" && <button
                       onClick={() => void handleStatusChange(selectedPost.id, "rejected", selectedPost)}
                       className="w-full rounded-xl border border-red-500/40 bg-[#2b1515] py-2.5 text-sm font-semibold text-red-300 transition hover:bg-[#3a1a1a]"
                     >
                       Reject
-                    </button>
+                    </button>}
                   </div>
                 )}
 

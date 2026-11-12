@@ -1,3 +1,4 @@
+import { getSiteUrl } from "../../../../../utils/getSiteUrl";
 import { validateAdCopy } from "../../../../../utils/meta/adCopyValidation";
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
@@ -56,6 +57,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, message: "Business approval is required before submitting a proposal." }, { status: 409 });
     }
 
+    // Paid proposals on offers without a connected Meta Page + ad account require a recorded
+    // Meta access request first. Connected offers already grant access. Organic uses a separate route.
+    if (!offer.meta_page_id || !offer.meta_ad_account_id) {
+      const { data: metaRequest, error: metaRequestError } = await admin.from("product_events").select("id")
+        .eq("event_type", "paid_promotion_meta_requested").eq("actor_email", user.email).eq("offer_id", offerId)
+        .limit(1).maybeSingle();
+      if (metaRequestError) throw metaRequestError;
+      if (!metaRequest) return NextResponse.json({ success: false, error: "META_ACCESS_REQUEST_REQUIRED", message: "Request Meta access before submitting a paid proposal." }, { status: 409 });
+    }
+
     const connectedCurrency = String(offer.currency || "").trim().toUpperCase();
     let accountCurrency = connectedCurrency;
     if (offer.meta_page_id && offer.meta_ad_account_id) {
@@ -112,7 +123,7 @@ export async function POST(req: Request) {
     row.affiliate_email = user.email;
     // Attribution identity is server-derived, never supplied by the browser.
     row.id = randomUUID();
-    row.tracking_link = `https://www.nettmark.com/go/${row.id}`;
+    row.tracking_link = `${getSiteUrl()}/go/${row.id}`;
     row.status = "pending";
     row.meta_status = null;
     row.meta_campaign_id = null;

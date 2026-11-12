@@ -1,3 +1,4 @@
+import { organicCaptionError } from "../../../../../../utils/organicCaption";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
@@ -151,7 +152,9 @@ export async function POST(req: Request, context: { params: Promise<{ offerId: s
       return NextResponse.json({ ok: false, error: "Creative is missing media" }, { status: 400 });
     }
 
-    const caption = String(asset.caption || "").trim();
+    const captionError = organicCaptionError(asset.caption);
+    if (captionError) return NextResponse.json({ ok: false, error: captionError }, { status: 400 });
+    const caption = (asset.caption || "").trim();
     const imageUrl = String(asset.media_type || "").toLowerCase() === "video" ? null : mediaUrl;
     const videoUrl = String(asset.media_type || "").toLowerCase() === "video" ? mediaUrl : null;
 

@@ -1,4 +1,7 @@
 "use client";
+
+import { getSiteUrl } from "../../../../../utils/getSiteUrl";
+import { isOrganicCaptionTooLong, ORGANIC_CAPTION_ERROR } from "../../../../../utils/organicCaption";
 import { resolveOfferCurrency } from "utils/currency/proposalCurrency";
 
 // Helper: friendlyObjective
@@ -260,7 +263,7 @@ export default function PromoteOfferPage() {
   // Derived tracking link
   // ─────────────────────────────
   const trackingLink = useMemo(
-    () => `https://www.nettmark.com/go/${offerId}___${session?.user?.id || ""}`,
+    () => `${getSiteUrl()}/go/${offerId}___${session?.user?.id || ""}`,
     [offerId, session?.user?.id],
   );
 
@@ -682,6 +685,16 @@ export default function PromoteOfferPage() {
   const [metaDemandSending, setMetaDemandSending] = useState(false);
   const [metaDemandSent, setMetaDemandSent] = useState(false);
 
+  useEffect(() => {
+    let cancelled = false;
+    setMetaDemandSent(false);
+    if (offerId) void fetch(`/api/affiliate/offers/${offerId}/paid-promotion-request`, { cache: "no-store" })
+      .then(async response => response.ok ? response.json() : null)
+      .then(result => { if (!cancelled && result?.requested) setMetaDemandSent(true); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [offerId]);
+
   const metaDemandFlight = useRef(false);
   const [metaDemandError, setMetaDemandError] = useState<string | null>(null);
   const requestBusinessPaidPromotion = async () => {
@@ -693,15 +706,10 @@ export default function PromoteOfferPage() {
       // Demand can be recorded while access is pending; it does not submit a campaign.
       const access = await promotionJson(`/api/affiliate/offers/${offerId}/start`, { method: "POST" });
       applyAccess(access);
-      const json = await promotionJson(`/api/affiliate/offers/${offerId}/paid-promotion-request`, {
+      await promotionJson(`/api/affiliate/offers/${offerId}/paid-promotion-request`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ budget: Number(form.budget_amount_dollars || 0) }),
       });
-      if (json?.alreadyEnabled) {
-        nmToast.success("Paid promotion is already enabled. Refreshing...");
-        window.location.reload();
-        return;
-      }
       setMetaDemandSent(true);
       nmToast.success("Paid-promotion request recorded. Business notification queued.");
     } catch (error: any) {
@@ -940,13 +948,13 @@ export default function PromoteOfferPage() {
   };
 
   // ─────────────────────────────
-  // Organic submit (direct insert to organic_posts)
+  // Organic submit (server validates caption and derives ownership)
   // ─────────────────────────────
   const handleOrganicSubmit = async () => {
     if(submissionInFlight.current) return;
     submissionInFlight.current=true;
     try {
-      const submissionUser=await requireSubmissionSession();
+      await requireSubmissionSession();
       await ensurePromotionAccess();
 
       const usingBrandContent = organicCreativeSource === "brand" && !!selectedOrganicBrandCreative;
@@ -990,16 +998,6 @@ export default function PromoteOfferPage() {
         );
         return;
       }
-
-      // Fetch business_email for this offer
-      const { data: offerRow, error: offerErr } = await (supabase as any)
-        .from("offers")
-        .select("business_email,currency").is("archived_at", null)
-        .eq("id", offerId)
-        .single();
-      if (offerErr || !offerRow?.business_email)
-        throw new Error("Could not resolve business email for this offer.");
-      const business_email = offerRow.business_email as string;
 
       // Optional upload (only for social with media)
       let image_url: string | null = null;
@@ -1068,24 +1066,13 @@ export default function PromoteOfferPage() {
       }
 
       await requireSubmissionSession(); // Uploads may outlive the old token.
-      // Insert to organic_posts (RLS expects affiliate_email to match auth.email())
-      const { data: organicPost, error: insertErr } = await (
-        supabase.from("organic_posts") as any
-      ).insert([
-        {
-          offer_id: offerId,
-          user_id: submissionUser.id,
-          affiliate_email: submissionUser.email,
-          business_email,
-          caption: captionForInsert,
-          platform, // Facebook/Instagram/TikTok OR Email/Forum
-          image_url,
-          video_url,
-          business_creative_id: selectedCreativeId,
-          status: "pending",
-        } as any,
-      ]).select("id").single();
-      if (insertErr) throw insertErr;
+      if (isOrganicCaptionTooLong(captionForInsert)) throw new Error(ORGANIC_CAPTION_ERROR);
+      const submitRes = await fetch("/api/affiliate/organic-posts/create", {
+        method: "POST", headers: { "content-type": "application/json" },
+        body: JSON.stringify({ offer_id: offerId, caption: captionForInsert, platform, image_url, video_url, business_creative_id: selectedCreativeId }),
+      });
+      const organicPost = await submitRes.json().catch(() => null);
+      if (!submitRes.ok || !organicPost?.success) throw new Error(organicPost?.message || "Could not submit organic post.");
       try {
         const response = await fetch("/api/affiliate/organic-posts/notify-submitted", {
           method: "POST",
@@ -1130,6 +1117,7 @@ export default function PromoteOfferPage() {
     try {
       const submissionUser=await requireSubmissionSession();
       await ensurePromotionAccess();
+      if (!offerMetaResolved || (!offerHasMetaLaunchSetup && !metaDemandSent)) throw new Error("Request Meta access above before submitting a paid proposal.");
 
       // UI-side safety: if Bid Cap selected, require a value
       if (form.bid_strategy === "BID_CAP") {
@@ -1649,7 +1637,7 @@ export default function PromoteOfferPage() {
                 <div className={offerMetaResolved ? undefined : "invisible"} aria-hidden={!offerMetaResolved}>
                 <div className="text-base font-semibold">Want to fund paid promotion for this offer?</div>
                 <p className="mt-1 text-cyan-100/85">
-                  The business hasn't finished paid-promotion setup yet. You can still build and submit the real campaign — they will review it before anything can launch.
+                  {showMetaSetupWarning ? "The business hasn’t finished paid-promotion setup yet. " : ""}Request Meta access below before submitting your paid proposal. You can keep building your draft.
                 </p>
                 <div className="mt-3 rounded-xl border border-cyan-400/20 bg-black/15 px-3 py-2 text-xs text-cyan-100/90">
                   Their brand · Their ad account · Their approval · Your ad spend
@@ -1660,7 +1648,7 @@ export default function PromoteOfferPage() {
                   disabled={metaDemandSending || metaDemandSent}
                   className="mt-4 rounded-xl bg-[#00C2CB] px-4 py-2.5 font-semibold text-black transition hover:brightness-110 disabled:cursor-default disabled:opacity-70"
                 >
-                  {metaDemandSent ? "Request recorded ✓" : metaDemandSending ? "Notifying business..." : `I'm ready to run paid ads`}
+                  {metaDemandSent ? "Request recorded ✓" : metaDemandSending ? "Notifying business..." : `Request Meta access`}
                 </button>
                 <p className="mt-2 text-xs text-cyan-100/70">
                   Submitting a full proposal also reserves no wallet funds. Setup and funding are enforced only before launch.
@@ -1682,7 +1670,7 @@ export default function PromoteOfferPage() {
             <AdCampaignWizard
               step={wizardStep}
               setStep={setWizardStep}
-              submitBlockedReason={submitBlockedReason}
+              submitBlockedReason={submitBlockedReason || (!offerMetaResolved ? "Checking Meta access…" : (!offerHasMetaLaunchSetup && !metaDemandSent) ? "Request Meta access above before submitting a paid proposal." : null)}
               savedMedia={adCreativeSource === "upload" && !useLogoCreative && !videoFile && !imageFile ? savedMedia : null}
               form={form}
               setForm={setForm}
