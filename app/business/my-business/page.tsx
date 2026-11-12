@@ -1,6 +1,7 @@
 "use client";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+import WooCommerceConnectCard from "../../../components/WooCommerceConnectCard";
 import "@/globals.css";
 import "./mobile-business.css";
 import ShopifyConnectCard from "../../../components/ShopifyConnectCard";
@@ -1198,6 +1199,7 @@ export default function MyBusinessPage() {
               </div>
 
               <div className="grid gap-3 2xl:grid-cols-2">
+                <WooCommerceConnectCard />
                 <div className="rounded-2xl border border-white/[0.08] bg-black/10 p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex gap-3">

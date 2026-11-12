@@ -3,7 +3,7 @@ import { createHmac } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
 
 type Rpc = (name: string, args: { p_bucket: string; p_limit: number; p_window_seconds: number }) => PromiseLike<{ data: unknown; error: unknown }>;
-export type AuthLimiter = (req: Request, scope: 'reset' | 'signup' | 'update', email?: string) => Promise<boolean>;
+export type AuthLimiter = (req: Request, scope: 'reset' | 'signup' | 'update' | 'woocommerce', email?: string) => Promise<boolean>;
 export function createAuthLimiter(deps: { rpc: Rpc; secret: () => string | undefined }): AuthLimiter {
   return async (req, scope, email) => {
     try {
@@ -11,10 +11,11 @@ export function createAuthLimiter(deps: { rpc: Rpc; secret: () => string | undef
       if (!secret) return false;
       const hash = (value: string) => createHmac('sha256', secret).update(value).digest('hex');
       const ip = req.headers.get('x-forwarded-for')?.split(',')[0].trim() || req.headers.get('x-real-ip')?.trim() || 'unknown';
-      const buckets: [string, number, number][] = [[`${scope}:ip:${hash(ip)}`, scope === 'reset' ? 5 : 10, scope === 'reset' ? 900 : 3600]];
+      const buckets: [string, number, number][] = [[`${scope}:ip:${hash(ip)}`, scope === 'reset' ? 5 : scope === 'woocommerce' ? 30 : 10, scope === 'reset' ? 900 : 3600]];
       if (email) {
         const identity = hash(email.trim().toLowerCase());
-        buckets.push([`${scope}:email:${identity}`, scope === 'reset' ? 3 : 5, scope === 'reset' ? 900 : 3600]);
+        // WooCommerce connect/disconnect share a bucket; allow retries after a typo or a declined approval.
+        buckets.push([`${scope}:email:${identity}`, scope === 'reset' ? 3 : scope === 'woocommerce' ? 20 : 5, scope === 'reset' ? 900 : 3600]);
         if (scope === 'reset') buckets.push([`reset:daily:${identity}`, 6, 86400]);
       }
       if (scope === 'reset') buckets.push(['reset:global', 200, 3600]);

@@ -7,7 +7,10 @@ let clicks = 0, shopHits = 0;
 const campaignId = "66f13993-0000-4000-8000-000000000000";
 const db = {
   auth: { getUser: async () => ({ data: { user: userEmail ? { email: userEmail } : null }, error: null }) },
-  rpc: async () => { shopHits++; return { error: null }; },
+  rpc: (name: string) => {
+    if (name === "woocommerce_offer_connected") return { abortSignal: async () => ({ data: false, error: null }) };
+    shopHits++; return Promise.resolve({ error: null });
+  },
   from(table: string) {
     const row = table === "live_campaigns" ? { id: campaignId, offer_id: "offer", status: "active", affiliate_email: owner }
       : table === "offers" ? { website: "https://merchant.example.test/product" }
