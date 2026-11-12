@@ -179,6 +179,8 @@ function CreateOfferPageInner() {
   const hasMetaConnections = metaConnections.length > 0;
 
   const [logoFile, setLogoFile] = useState<File | null>(null);
+
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
 
   // Auto-calc commissionValue
@@ -398,55 +400,66 @@ function CreateOfferPageInner() {
 
     let uploadedLogoUrl: string | null = null;
 
-    if (logoFile) {
-      const filePath = `${user.id}/logos/${Date.now()}_${safeStorageFileName(logoFile.name)}`;
-      const { error } = await supabase.storage
-        .from("offer-logos")
-        .upload(filePath, logoFile, {
-          cacheControl: "3600",
-          upsert: false,
-          contentType: logoFile.type,
-        });
-
-      if (!error) {
-        const { data: urlData } = supabase.storage
-          .from("offer-logos")
-          .getPublicUrl(filePath);
-        uploadedLogoUrl = urlData?.publicUrl || null;
-        setLogoUrl(uploadedLogoUrl);
-      } else {
-        console.error("[❌ Logo Upload Error]", error.message);
-      }
-    }
-
-    // multi-image upload for profile / carousel
     let uploadedHeroUrl: string | null = null;
     const uploadedImageUrls: string[] = [];
-
-    if (heroImageFiles && heroImageFiles.length > 0) {
-      for (const file of heroImageFiles) {
-        const heroPath = `${user.id}/products/${Date.now()}_${safeStorageFileName(file.name)}`;
-        const { error: heroError } = await supabase.storage
-          .from("profile-images")
-          .upload(heroPath, file, {
+    let uploadingFileName = logoFile?.name || "";
+    try {
+      if (logoFile) {
+        const filePath = `${user.id}/logos/${Date.now()}_${safeStorageFileName(logoFile.name)}`;
+        const { error } = await supabase.storage
+          .from("offer-logos")
+          .upload(filePath, logoFile, {
             cacheControl: "3600",
             upsert: false,
-            contentType: file.type,
+            contentType: logoFile.type,
           });
 
-        if (!heroError) {
-          const { data: heroUrlData } = supabase.storage
-            .from("profile-images")
-            .getPublicUrl(heroPath);
-          const publicUrl = heroUrlData?.publicUrl || null;
-          if (publicUrl) {
-            uploadedImageUrls.push(publicUrl);
-            if (!uploadedHeroUrl) uploadedHeroUrl = publicUrl;
-          }
+        if (!error) {
+          const { data: urlData } = supabase.storage
+            .from("offer-logos")
+            .getPublicUrl(filePath);
+          uploadedLogoUrl = urlData?.publicUrl || null;
+          setLogoUrl(uploadedLogoUrl);
         } else {
-          console.error("[❌ Hero Image Upload Error]", heroError.message);
+          throw new Error(error.message);
         }
       }
+
+      // multi-image upload for profile / carousel
+
+      if (heroImageFiles && heroImageFiles.length > 0) {
+        for (const file of heroImageFiles) {
+          uploadingFileName = file.name;
+          const heroPath = `${user.id}/products/${Date.now()}_${safeStorageFileName(file.name)}`;
+          const { error: heroError } = await supabase.storage
+            .from("profile-images")
+            .upload(heroPath, file, {
+              cacheControl: "3600",
+              upsert: false,
+              contentType: file.type,
+            });
+
+          if (!heroError) {
+            const { data: heroUrlData } = supabase.storage
+              .from("profile-images")
+              .getPublicUrl(heroPath);
+            const publicUrl = heroUrlData?.publicUrl || null;
+            if (publicUrl) {
+              uploadedImageUrls.push(publicUrl);
+              if (!uploadedHeroUrl) uploadedHeroUrl = publicUrl;
+            }
+          } else {
+            throw new Error(heroError.message);
+          }
+        }
+      }
+
+    } catch (error) {
+      setIsPublishing(false);
+      const message = `Image upload failed for "${uploadingFileName}": ${error instanceof Error ? error.message : "Upload failed"}. The offer was not published. Retry, or remove this image and publish without it.`;
+      setUploadError(message);
+      alert(message);
+      return;
     }
 
     const metaPageId = selectedPage || null;
@@ -752,9 +765,15 @@ function CreateOfferPageInner() {
                         URL.createObjectURL(file),
                       );
                       setHeroImagePreviews(previews);
+                      setUploadError(null);
                     }}
 
                   />
+                  {heroImageFiles.length > 0 && (
+                    <button type="button" className="mt-1 text-xs text-red-400 underline" onClick={() => { setHeroImageFiles([]); setHeroImagePreviews([]); setUploadError(null); }}>
+                      Remove images
+                    </button>
+                  )}
                   <p className="mt-1 text-xs text-gray-400">
                     These images will be used on your offer profile page (e.g.
                     product shots or brand hero images).
@@ -1243,9 +1262,22 @@ function CreateOfferPageInner() {
               <Input
                 type="file"
                 accept="image/*"
-                onChange={(e) => setLogoFile(e.target.files?.[0] || null)}
+                onChange={(e) => { setUploadError(null); setLogoFile(e.target.files?.[0] || null); }}
 
               />
+              {logoFile && (
+                <div className="mt-2 flex items-center gap-3 text-sm text-gray-300">
+                  <span className="truncate">{logoFile.name}</span>
+                  <button type="button" className="text-red-400 underline" onClick={() => { setLogoFile(null); setUploadError(null); }}>
+                    Remove logo
+                  </button>
+                </div>
+              )}
+              {uploadError && (
+                <p role="alert" className="mt-3 rounded-md border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-300">
+                  {uploadError}
+                </p>
+              )}
             </>
           )}
 

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSessionContext } from "@supabase/auth-helpers-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -258,6 +258,8 @@ export default function AffiliateReviewsPage() {
                     <div className="h-28 w-full overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--secondary)] sm:h-32 lg:h-[96px] lg:w-32">
                       {item.previewUrl ? (
                         <img src={item.previewUrl} alt="" className="h-full w-full object-cover" />
+                      ) : item.videoUrl ? (
+                        <video src={item.videoUrl} muted playsInline preload="metadata" className="h-full w-full object-cover" />
                       ) : (
                         <div className="grid h-full w-full place-items-center">
                           <FileImage className="h-6 w-6 text-[var(--muted-foreground)]" />

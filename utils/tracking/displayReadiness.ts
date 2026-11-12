@@ -1,7 +1,7 @@
 import type { QueryClient } from '../approvals/enforcement';
 
 type OrderedQuery = ReturnType<QueryClient['from']> & {
-  order: (column: string, options: { ascending: boolean }) => ReturnType<QueryClient['from']>;
+  order: (column: string, options: { ascending: boolean }) => OrderedQuery;
 };
 
 const MANUAL_EVIDENCE_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -37,9 +37,10 @@ export async function isOfferTrackingDisplayReady(supabase: QueryClient, offerId
     if (error) throw new Error('Tracking display Shopify lookup failed');
     if (store) return true;
   }
-  const eventQuery = supabase.from('campaign_tracking_events') as OrderedQuery;
-  const { data: events, error } = await eventQuery.order('created_at', { ascending: false })
-    .select('event_type,event_data,created_at').eq('offer_id', offerId).limit(50);
+  // supabase-js only exposes .order() after .select() (filter builder), not on from().
+  const eventQuery = supabase.from('campaign_tracking_events')
+    .select('event_type,event_data,created_at').eq('offer_id', offerId) as OrderedQuery;
+  const { data: events, error } = await eventQuery.order('created_at', { ascending: false }).limit(50);
   if (error) throw new Error('Tracking display merchant event lookup failed');
   return hasRecentManualTrackingEvent((events || []) as Record<string, unknown>[]);
 }

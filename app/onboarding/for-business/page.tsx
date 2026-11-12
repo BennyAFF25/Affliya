@@ -261,7 +261,7 @@ export default function BusinessOnboardingPage() {
 
         if (logoError) {
           throw new Error(
-            `Logo upload failed: ${logoError.message || "please try again or continue without a logo."}`,
+            `Logo upload failed for "${logoFile.name}": ${logoError.message || "please try again or continue without a logo."}`,
           );
         }
 
@@ -286,7 +286,7 @@ export default function BusinessOnboardingPage() {
 
         if (imageError) {
           throw new Error(
-            `Product image upload failed: ${imageError.message || "please try again or continue without an image."}`,
+            `Product image upload failed for "${file.name}": ${imageError.message || "please try again or continue without an image."}`,
           );
         }
 
