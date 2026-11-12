@@ -1,4 +1,6 @@
 "use client";
+
+import { getSiteUrl } from "../../../../../utils/getSiteUrl";
 import { isOrganicCaptionTooLong, ORGANIC_CAPTION_ERROR } from "../../../../../utils/organicCaption";
 import { resolveOfferCurrency } from "utils/currency/proposalCurrency";
 
@@ -261,7 +263,7 @@ export default function PromoteOfferPage() {
   // Derived tracking link
   // ─────────────────────────────
   const trackingLink = useMemo(
-    () => `https://www.nettmark.com/go/${offerId}___${session?.user?.id || ""}`,
+    () => `${getSiteUrl()}/go/${offerId}___${session?.user?.id || ""}`,
     [offerId, session?.user?.id],
   );
 

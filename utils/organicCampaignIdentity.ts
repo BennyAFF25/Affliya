@@ -21,3 +21,8 @@ export function findLegacyPairCampaign(post: OrganicPostIdentity, campaigns: Org
   if (post.status !== 'approved') return undefined;
   return campaigns.find(c => matchesOrganicCampaign(post, c));
 }
+
+/** Pending submissions and incomplete approved posts both need business attention. */
+export function needsOrganicPostReview(post: OrganicPostIdentity, campaigns: OrganicCampaignIdentity[]) {
+  return post.status === 'pending' || (post.status === 'approved' && !hasOrganicCampaign(post, campaigns));
+}

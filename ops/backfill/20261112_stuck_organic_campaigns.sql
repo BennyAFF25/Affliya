@@ -52,6 +52,7 @@ BEGIN
   END LOOP;
   IF (SELECT count(*) FROM recovery_ids) <> (SELECT count(*) FROM public.organic_posts op JOIN recovery_ids r ON r.id=op.id JOIN public.offers o ON o.id=op.offer_id) THEN RAISE EXCEPTION 'Missing post/offer'; END IF;
 END $$;
--- Canonical tracking URL: https://www.nettmark.com/go/<post_id>; no stored link needed.
-SELECT post_id, 'https://www.nettmark.com/go/' || post_id::text AS tracking_link FROM ops_private.organic_posts_backup_20261112_000000 WHERE applied;
+-- Return a deployment-relative path; the TS operator script uses getSiteUrl()
+-- via buildTrackingUrl() when an absolute deployment URL is needed.
+SELECT post_id, '/go/' || post_id::text AS tracking_path FROM ops_private.organic_posts_backup_20261112_000000 WHERE applied;
 COMMIT;

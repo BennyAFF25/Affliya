@@ -65,7 +65,7 @@
     "test:meta-connections-service-role": "tsx scripts/meta-connections-service-role.test.ts",
     "test:auth-rate-limit": "tsx scripts/auth-rate-limit.test.ts",
     "test:critical-route-auth": "node --import tsx scripts/critical-route-auth.test.ts",
-    "test:business-onboarding-billing": "node --import tsx scripts/business-onboarding-billing-fixes.test.ts && node --import tsx scripts/organic-campaign-backfill.test.ts"
+    "test:business-onboarding-billing": "node --import tsx scripts/business-onboarding-billing-fixes.test.ts && node --import tsx scripts/organic-campaign-backfill.test.ts && node --import tsx scripts/business-onboarding-billing-qa.test.ts"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.2",

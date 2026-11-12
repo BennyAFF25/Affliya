@@ -251,11 +251,21 @@ export const COUNTRIES: ReadonlyArray<{ code: string; name: string }> = [
   { code: "AX", name: "Åland Islands" }
 ];
 
+const COUNTRY_ALIASES: Record<string, readonly string[]> = {
+  GB: ["uk", "britain", "great britain", "england", "scotland", "wales", "northern ireland"],
+  US: ["usa", "america", "united states of america", "u.s.", "u.s.a."],
+};
+
+export function matchesCountryQuery(country: { code: string; name: string }, query: string): boolean {
+  const search = query.trim().toLowerCase();
+  return [country.name, country.code, ...(COUNTRY_ALIASES[country.code] || [])]
+    .some(value => value.toLowerCase().includes(search));
+}
+
 const countryKeys = new Map(COUNTRIES.flatMap(country => [
   [country.code.toLowerCase(), country.code], [country.name.toLowerCase(), country.code],
+  ...(COUNTRY_ALIASES[country.code] || []).map(alias => [alias, country.code]),
 ] as [string, string][]));
-for (const alias of ["uk", "england", "scotland", "wales", "great britain", "northern ireland"]) countryKeys.set(alias, "GB");
-for (const alias of ["usa", "united states of america", "u.s.", "u.s.a."]) countryKeys.set(alias, "US");
 
 export function normaliseCountry(value: unknown): string | null {
   return typeof value === "string" ? countryKeys.get(value.trim().toLowerCase()) || null : null;

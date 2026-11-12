@@ -1,3 +1,4 @@
+import { getSiteUrl } from "../../../../../utils/getSiteUrl";
 import { validateAdCopy } from "../../../../../utils/meta/adCopyValidation";
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
@@ -122,7 +123,7 @@ export async function POST(req: Request) {
     row.affiliate_email = user.email;
     // Attribution identity is server-derived, never supplied by the browser.
     row.id = randomUUID();
-    row.tracking_link = `https://www.nettmark.com/go/${row.id}`;
+    row.tracking_link = `${getSiteUrl()}/go/${row.id}`;
     row.status = "pending";
     row.meta_status = null;
     row.meta_campaign_id = null;

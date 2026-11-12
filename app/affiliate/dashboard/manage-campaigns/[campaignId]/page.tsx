@@ -1,5 +1,7 @@
 "use client";
 
+import { getSiteUrl } from "../../../../../utils/getSiteUrl";
+
 import React, { useEffect, useMemo, useState, useCallback } from "react";
 import { formatMoney as formatCurrencyAmount } from "../../../../../utils/currency";
 import { isTrackedLandingVisit } from "../../../../../utils/tracking/visitMetrics";
@@ -616,7 +618,7 @@ export default function ManageCampaignPage() {
 
   const trackingUrl = useMemo(() => {
     if (!campaignId) return "";
-    return `https://www.nettmark.com/go/${encodeURIComponent(campaignId)}`;
+    return `${getSiteUrl()}/go/${encodeURIComponent(campaignId)}`;
   }, [campaign?.tracking_link, campaignId, affiliateId]);
 
   const campaignTitle = useMemo(() => {

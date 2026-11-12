@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { INPUT } from "../constants";
 
-import { COUNTRIES } from "../../../../../utils/countries";
+import { COUNTRIES, matchesCountryQuery } from "../../../../../utils/countries";
 
 export function CountryMultiSelect({
   value,
@@ -39,11 +39,7 @@ export function CountryMultiSelect({
     onChange(Array.from(set).join(","));
   };
 
-  const filtered = COUNTRIES.filter(
-    (c) =>
-      c.code.toLowerCase().includes(query.toLowerCase()) ||
-      c.name.toLowerCase().includes(query.toLowerCase())
-  );
+  const filtered = COUNTRIES.filter(country => matchesCountryQuery(country, query));
 
   return (
     <div ref={ref} className="relative">

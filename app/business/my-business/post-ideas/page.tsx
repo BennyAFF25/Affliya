@@ -289,6 +289,7 @@ export default function PostIdeasPage() {
     newStatus: Extract<PostStatus, "approved" | "rejected">,
     post: PostIdea,
   ) => {
+    if (newStatus === "rejected" && post.status === "approved") return;
     try {
       if (newStatus === "approved") {
         const readinessRes = await fetch("/api/business/tracking-readiness", {
@@ -309,7 +310,7 @@ export default function PostIdeasPage() {
       }
 
       if (newStatus === "rejected") {
-        const { error } = await (supabase as any).from("organic_posts").update({ status: newStatus }).eq("id", postId);
+        const { error } = await (supabase as any).from("organic_posts").update({ status: "rejected" }).eq("id", postId);
         if (error) throw error;
       }
 
@@ -481,7 +482,6 @@ export default function PostIdeasPage() {
                             </p>
                             <div className="mt-3 flex flex-wrap gap-2 text-xs text-white/70">
                               <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">{kindLabel(kind, post.platform)}</span>
-                              <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">{post.platform || "Platform not set"}</span>
                               {post.link && (
                                 <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1">Tracked link attached</span>
                               )}
@@ -524,14 +524,14 @@ export default function PostIdeasPage() {
                             >
                               {post.status === "approved" ? "Finish setup" : "Approve"}
                             </Button>
-                            <Button
+                            {post.status === "pending" && <Button
                               type="button"
                               variant="secondary"
                               onClick={() => void handleStatusChange(post.id, "rejected", post)}
                               className="flex-1"
                             >
                               Reject
-                            </Button>
+                            </Button>}
                           </div>
                         </div>
                       </div>
@@ -798,12 +798,12 @@ export default function PostIdeasPage() {
                     >
                       {selectedPost.status === "approved" ? "Finish setup" : "Approve & publish"}
                     </button>
-                    <button
+                    {selectedPost.status === "pending" && <button
                       onClick={() => void handleStatusChange(selectedPost.id, "rejected", selectedPost)}
                       className="w-full rounded-xl border border-red-500/40 bg-[#2b1515] py-2.5 text-sm font-semibold text-red-300 transition hover:bg-[#3a1a1a]"
                     >
                       Reject
-                    </button>
+                    </button>}
                   </div>
                 )}
 

@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { assertAffiliateOfferApproved, assertOfferTrackingReady, type QueryClient } from './approvals/enforcement';
 import { isSubscriptionRequiredError } from './businessSubscriptionGate';
-import { isOrganicCaptionTooLong, ORGANIC_CAPTION_ERROR } from './organicCaption';
+import { organicCaptionError, ORGANIC_CAPTION_TYPE_ERROR } from './organicCaption';
 import { buildTrackingUrl } from './tracking/buildTrackingUrl';
 
 import { findLegacyPairCampaign, matchesOrganicCampaign, type OrganicCampaignIdentity } from './organicCampaignIdentity';
@@ -49,7 +49,8 @@ export async function approveOrganicPost(client: SupabaseClient, postId: string,
         subscriptionGate: 'paid_only', billingRequiredForApproval: false, action: 'legacy_pair_existing' };
     }
   }
-  if (isOrganicCaptionTooLong(post.caption)) return fail('CAPTION_TOO_LONG', ORGANIC_CAPTION_ERROR, 400);
+  const captionError = organicCaptionError(post.caption);
+  if (captionError) return fail(captionError === ORGANIC_CAPTION_TYPE_ERROR ? 'CAPTION_NOT_TEXT' : 'CAPTION_TOO_LONG', captionError, 400);
   for (const check of [
     () => assertOfferTrackingReady(client as unknown as QueryClient, post.offer_id),
     () => assertAffiliateOfferApproved(client as unknown as QueryClient, { offerId: post.offer_id, affiliateEmail: post.affiliate_email }),

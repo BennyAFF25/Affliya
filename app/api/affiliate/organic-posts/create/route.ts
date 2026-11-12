@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { createServerSupabaseClient } from "../../../../../utils/businessSubscriptions";
 import { assertAffiliateOfferApproved } from "../../../../../utils/approvals/enforcement";
-import { isOrganicCaptionTooLong, ORGANIC_CAPTION_ERROR } from "../../../../../utils/organicCaption";
+import { organicCaptionError, ORGANIC_CAPTION_TYPE_ERROR } from "../../../../../utils/organicCaption";
 
 export async function POST(req: Request) {
   try {
@@ -11,9 +11,8 @@ export async function POST(req: Request) {
     const { data: { user }, error: authError } = await client.auth.getUser();
     if (authError || !user?.email) return NextResponse.json({ message: "Sign in as an affiliate." }, { status: 401 });
     const input = await req.json().catch(() => ({}));
-    if (typeof input.caption !== "string" || isOrganicCaptionTooLong(input.caption)) {
-      return NextResponse.json({ message: ORGANIC_CAPTION_ERROR }, { status: 400 });
-    }
+    const captionError = typeof input.caption !== "string" ? ORGANIC_CAPTION_TYPE_ERROR : organicCaptionError(input.caption);
+    if (captionError) return NextResponse.json({ message: captionError }, { status: 400 });
     const admin = createServerSupabaseClient();
     const { data: profile, error: profileError } = await admin.from("profiles").select("role").eq("id", user.id).maybeSingle();
     if (profileError) throw profileError;
@@ -23,7 +22,7 @@ export async function POST(req: Request) {
     if (!offer) return NextResponse.json({ message: "Offer not found." }, { status: 404 });
     const approval = await assertAffiliateOfferApproved(admin as never, { offerId: offer.id, affiliateEmail: user.email });
     if (!approval.ok) return NextResponse.json({ message: approval.message }, { status: approval.status });
-    const { data, error: insertError } = await client.from("organic_posts").insert({
+    const { data, error: insertError } = await admin.from("organic_posts").insert({
       offer_id: offer.id, user_id: user.id, affiliate_email: user.email, business_email: offer.business_email,
       caption: input.caption, platform: input.platform || null, image_url: input.image_url || null,
       video_url: input.video_url || null, business_creative_id: input.business_creative_id || null, status: "pending",

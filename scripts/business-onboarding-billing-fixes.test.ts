@@ -170,6 +170,13 @@ async function run() {
     assert.equal((await organic.POST(request(approval))).status, 200); assert.equal(tables.organic_posts[0].campaign_id, "post");
     reset(); tables.organic_posts[0].caption = "a".repeat(501);
     assert.equal((await organic.POST(request(approval))).status, 400); assert.equal(tables.live_campaigns, undefined);
+    for (const caption of [42, {}, []]) {
+      reset(); tables.organic_posts[0].caption = caption;
+      const response = await organic.POST(request(approval));
+      assert.equal(response.status, 400);
+      assert.equal((await response.json()).message, "Caption must be text.");
+      assert.equal(calls.includes("live_campaigns:insert"), false);
+    }
     reset(); tables.organic_posts[0].business_email = "other@test.invalid";
     assert.equal((await organic.POST(request(approval))).status, 403);
     reset(); tables.live_campaigns = [{ id: "post", type: "organic", offer_id: "offer", business_email: "brand@test.invalid", affiliate_email: "affiliate@test.invalid" }];
@@ -228,6 +235,11 @@ async function run() {
     const submit = requireMocked("../app/api/affiliate/organic-posts/create/route");
     reset();
     assert.equal((await submit.POST(request({ caption: "a".repeat(501) }))).status, 400);
+    for (const caption of [42, {}, []]) {
+      const response = await submit.POST(request({ caption }));
+      assert.equal(response.status, 400);
+      assert.equal((await response.json()).message, "Caption must be text.");
+    }
     assert.equal(calls.some(call => call === "organic_posts:insert"), false);
 
     const failure = requireMocked("../app/api/stripe/setup-intent-failure/route");
