@@ -1,0 +1,23 @@
+name = "Nettmark tracking"
+type = "web_pixel_extension"
+runtime_context = "strict"
+uid = "00e9a718-4911-1b47-ca45-14ecdea3c0e5da67a5d7"
+
+[customer_privacy]
+analytics = true
+marketing = true
+preferences = false
+sale_of_data = "disabled"
+
+[settings]
+type = "object"
+
+[settings.fields.shopKey]
+name = "Shop domain"
+description = "Connected myshopify.com domain"
+type = "single_line_text_field"
+
+[settings.fields.ingestUrl]
+name = "Nettmark events URL"
+description = "Nettmark purchase ingestion endpoint"
+type = "single_line_text_field"

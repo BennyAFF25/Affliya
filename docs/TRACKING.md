@@ -18,6 +18,16 @@
 
 `/api/track.gif` is a compatibility adapter: it proxies query-string events to `/api/track-event` and returns a transparent GIF even if the handoff fails. It no longer creates payouts independently.
 
+## Automatic Shopify app pixel
+
+Connected stores now best-effort activate the strict-runtime app extension in `extensions/nettmark-pixel` through `lib/shopify/pixel.ts`. The Shopify connection card reports tracking status and offers an owner-authenticated activation retry. Extension deployment via Shopify CLI and prepared migration `20261110130000_shopify_pixel.sql` are required; see [SHOPIFY.md](SHOPIFY.md) for exact release steps. No manual snippet is needed once the app pixel is active; remove the old Customer Events snippet to avoid cross-path duplicates.
+
+The extension captures complete affiliate UUID/campaign pairs and source on page views, persists them with an explicit seven-day expiry (localStorage and cookie fallback), and posts only attributed `checkout_completed` purchases as text/plain JSON. The allowlisted payload contains shop, order ID, checkout token, value/currency, timestamp, attribution and reduced product/variant/quantity/line-total items. No buyer PII, raw URLs, IPs, user agents or browser/customer identifiers are recorded. Current redirects supply no click ID.
+
+`lib/shopify/pixel-events.ts` streams at most 8 KiB, validates a connected token-bearing store, resolves the existing runtime identity, checks affiliate/runtime/business/offer ownership plus existing participation, and uses the auth limiter's HMAC/RPC approach per IP+shop and per shop. Unresolved campaigns use the existing quarantine helper without purchase data; ownership/affiliate mismatches are dropped. A service-only transaction reserves `(shop_domain, order_id)` and writes `campaign_tracking_events` with `event_data.source = shopify_pixel`, then invokes the existing process-conversion handler locally. Commission, product scope, paid approval and payout rules are unchanged. Concurrent/duplicate order deliveries cannot insert a second event. Failed insertions roll back the dedupe claim. Stored events whose processing fails still need operational replay, as in the existing ingestion path; duplicates are not replay triggers.
+
+Shopify consent/privacy requirements can suppress pixel execution. Browser payloads are **not verified against server-side orders**; scopes remain exactly `read_products,write_pixels,read_customer_events`, without `read_orders`. Disconnect deletes the app pixel before revocation where possible, uninstall marks inactive, and shop redact purges shop connection/order-dedupe rows. Financial event ledgers are retained. These files/migration are prepared offline; no applied schema or live behavior is claimed.
+
 ## Product-scoped attribution
 
 `utils/offers/conversionScope.ts` supports `store_wide` or `specific_products`. It normalizes product/variant aliases, extracts line items, and sums matched line totals; without items it can use matching event-level product/variant IDs. Missing scope configuration/item data is quarantined or rejected; no matching products records a zero-payout processed result. Do not silently widen product scope to make conversion processing succeed.
@@ -26,10 +36,14 @@
 
 - Generic `tracker.js` supplies no sale amount or product lines; its conversion event cannot alone establish a payable sale. URL heuristics are not order verification.
 - Event ingestion is public/CORS-enabled; no merchant signature verification is visible. A browser payload is not independently verified merchant revenue.
-- Deduplication is per stored event and payout cycle, not a guaranteed external order ID. Repeated purchase events can receive different event IDs.
+- Outside the new Shopify app-pixel path, deduplication is per stored event and payout cycle, not a guaranteed external order ID. Repeated purchase events can receive different event IDs.
 - Ingestion returns success after event insertion even when conversion handoff fails; retry/replay automation is not defined by this path.
 - Redirects may resolve an `ad_ideas` ID, while strict billable identity accepts runtime rows. The Meta launch path updates local links after runtime insertion; confirm the external creative's actual URL before changing identity semantics.
 - Last-hyphen parsing can misread hyphenated email suffixes. Redirect affiliate parameter versus resolved campaign affiliate needs verification; UUID and Meta-ID branches do not enforce identical affiliate matching.
 - localStorage has no explicit seven-day expiry in `tracker.js`; cookies do. A single uniform attribution window cannot be claimed.
 
 Nettmark's own marketing attribution in `utils/marketing/` and creator-referral subscription attribution in `utils/creatorReferrals.ts` are separate from merchant sale attribution.
+
+## WooCommerce automatic order attribution
+
+The self-contained WooCommerce connection uses signed order webhooks and core Order Attribution metadata, with no plugin/snippet. Only paid, attributed orders for the connected business enter the existing event/commission processor, with atomic store/order deduplication and explicit PII reduction. Woo-connected /go links add absent UTMs; other redirects retain their behavior. Refunds only flag Woo records and do not reverse money. See [WOOCOMMERCE.md](WOOCOMMERCE.md) for setup, session/consent limits, permissions, manual key revocation and processing-replay limitations. Migration is prepared, not applied or live-verified.
