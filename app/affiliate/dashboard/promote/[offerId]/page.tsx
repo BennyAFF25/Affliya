@@ -954,7 +954,7 @@ export default function PromoteOfferPage() {
     if(submissionInFlight.current) return;
     submissionInFlight.current=true;
     try {
-      await requireSubmissionSession();
+      const submissionUser = await requireSubmissionSession();
       await ensurePromotionAccess();
 
       const usingBrandContent = organicCreativeSource === "brand" && !!selectedOrganicBrandCreative;
@@ -1013,7 +1013,7 @@ export default function PromoteOfferPage() {
       if (!usingBrandContent && ogFile) {
         const bucket = "organic-posts"; // ← Supabase storage bucket name
         const ts = Date.now();
-        const path = `${ts}-${sanitize(ogFile.name)}`;
+        const path = `${submissionUser.id}/${ts}-${sanitize(ogFile.name)}`;
         const { error: upErr } = await supabase.storage
           .from(bucket)
           .upload(path, ogFile, { upsert: true, contentType: ogFile.type });
@@ -1211,7 +1211,7 @@ export default function PromoteOfferPage() {
       } else if (useLogoCreative && brandLogoUrl) {
         creativePublicUrl = brandLogoUrl;
       } else if (videoFile) {
-        const videoPath = `videos/${ts}-${sanitize(videoFile.name)}`;
+        const videoPath = `${submissionUser.id}/videos/${ts}-${sanitize(videoFile.name)}`;
         const { error: upVidErr } = await supabase.storage
           .from("ad-ideas-assets")
           .upload(videoPath, videoFile, {
@@ -1223,7 +1223,7 @@ export default function PromoteOfferPage() {
           .from("ad-ideas-assets")
           .getPublicUrl(videoPath).data.publicUrl;
       } else if (imageFile) {
-        const imagePath = `images/${ts}-${sanitize(imageFile.name)}`;
+        const imagePath = `${submissionUser.id}/images/${ts}-${sanitize(imageFile.name)}`;
         const { error: upImgErr } = await supabase.storage
           .from("ad-ideas-assets")
           .upload(imagePath, imageFile, {
@@ -1238,7 +1238,7 @@ export default function PromoteOfferPage() {
 
       if (creativePublicUrl && !usingBrandContent && !useLogoCreative) setSavedMedia({ url: creativePublicUrl, thumbnail: thumbPublicUrl, type: isVideoCreative ? "video" : "image" });
       if (thumbnailFile) {
-        const thumbPath = `thumbnails/${ts}-thumb-${sanitize(thumbnailFile.name)}`;
+        const thumbPath = `${submissionUser.id}/thumbnails/${ts}-thumb-${sanitize(thumbnailFile.name)}`;
         const { error: upThumbErr } = await supabase.storage
           .from("ad-ideas-assets")
           .upload(thumbPath, thumbnailFile, {

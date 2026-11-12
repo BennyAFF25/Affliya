@@ -10,6 +10,7 @@ import Link from "next/link";
 import { Button, Card, Input, PageHeader, Select, Textarea } from "@/../components/ui";
 import { v4 as uuidv4 } from "uuid";
 import { createPagesBrowserClient } from "@supabase/auth-helpers-nextjs";
+import { safeStorageFileName } from "../../../../utils/storageFileName";
 import { logProductEvent } from "@/../utils/productEvents";
 import { loadOwnMetaConnections } from "@/../utils/meta/loadOwnMetaConnections";
 
@@ -390,13 +391,15 @@ function CreateOfferPageInner() {
     const destination = normalizeOfferDestination(website);
     if (!destination) { alert("Enter a complete website or product URL."); return; }
     if (isPublishing) return;
-    if (!candidateOfferIdRef.current) candidateOfferIdRef.current = uuidv4();
     setIsPublishing(true);
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) { setIsPublishing(false); alert("Please sign in again before publishing."); return; }
+    if (!candidateOfferIdRef.current) candidateOfferIdRef.current = uuidv4();
 
     let uploadedLogoUrl: string | null = null;
 
     if (logoFile) {
-      const filePath = `${Date.now()}_${logoFile.name}`;
+      const filePath = `${user.id}/logos/${Date.now()}_${safeStorageFileName(logoFile.name)}`;
       const { error } = await supabase.storage
         .from("offer-logos")
         .upload(filePath, logoFile, {
@@ -422,7 +425,7 @@ function CreateOfferPageInner() {
 
     if (heroImageFiles && heroImageFiles.length > 0) {
       for (const file of heroImageFiles) {
-        const heroPath = `${Date.now()}_${file.name}`;
+        const heroPath = `${user.id}/products/${Date.now()}_${safeStorageFileName(file.name)}`;
         const { error: heroError } = await supabase.storage
           .from("profile-images")
           .upload(heroPath, file, {

@@ -68,7 +68,8 @@
     "test:business-onboarding-billing": "node --import tsx scripts/business-onboarding-billing-fixes.test.ts && node --import tsx scripts/organic-campaign-backfill.test.ts && node --import tsx scripts/business-onboarding-billing-qa.test.ts",
     "test:shopify-integration": "node --import tsx scripts/shopify-integration.test.ts",
     "test:shopify-pixel": "node --import tsx scripts/shopify-pixel.test.ts",
-    "test:woocommerce": "tsx scripts/woocommerce-integration.test.ts && tsx scripts/woocommerce-transport.test.ts"
+    "test:woocommerce": "tsx scripts/woocommerce-integration.test.ts && tsx scripts/woocommerce-transport.test.ts",
+    "test:storage-policies": "node --import tsx scripts/storage-upload-policies.test.ts"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.2",
