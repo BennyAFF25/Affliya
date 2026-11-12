@@ -17,6 +17,7 @@ export const config = {
   },
 };
 
+function createPostHandler() {
 if (!process.env.STRIPE_SECRET_KEY || !process.env.STRIPE_WEBHOOK_SECRET) {
   console.error("[❌ Missing Stripe environment keys]");
 }
@@ -467,4 +468,15 @@ if (!stripeSecretKey || !endpointSecret) {
   };
 }
 
-export { POST };
+return POST;
+}
+
+let postHandler: ReturnType<typeof createPostHandler> | undefined;
+export async function POST(req: Request) {
+  if (!process.env.STRIPE_SECRET_KEY?.trim() || !process.env.STRIPE_WEBHOOK_SECRET?.trim()) {
+    return NextResponse.json({ error: "Stripe is not configured" }, { status: 503 });
+  }
+
+  postHandler ??= createPostHandler();
+  return postHandler(req);
+}

@@ -9,7 +9,10 @@ import { buildStripeMetadata, createStripeClient } from "@/../utils/stripe";
 
 export const runtime = "nodejs";
 
-const stripe = createStripeClient((process.env.STRIPE_SECRET_KEY || "").trim());
+let stripe: ReturnType<typeof createStripeClient> | undefined;
+function getStripe() {
+  return stripe ??= createStripeClient((process.env.STRIPE_SECRET_KEY || "").trim());
+}
 
 function getBaseUrl() {
   // Explicit base (recommended)
@@ -53,13 +56,11 @@ function getAdminSupabase() {
 }
 
 async function handlePost(req: Request) {
+  if (!process.env.STRIPE_SECRET_KEY?.trim()) {
+    return NextResponse.json({ error: "Stripe is not configured" }, { status: 503 });
+  }
+
   try {
-    if (!process.env.STRIPE_SECRET_KEY) {
-      return NextResponse.json(
-        { error: "Missing STRIPE_SECRET_KEY" },
-        { status: 500 }
-      );
-    }
 
     const body = await req.json().catch(() => ({}));
 
@@ -122,8 +123,8 @@ async function handlePost(req: Request) {
       }
     }
     const account = resolvedAccountId
-      ? await stripe.accounts.retrieve(resolvedAccountId)
-      : await stripe.accounts.create({
+      ? await getStripe().accounts.retrieve(resolvedAccountId)
+      : await getStripe().accounts.create({
           type: "express",
           email,
           country: country!,
@@ -185,7 +186,7 @@ async function handlePost(req: Request) {
     });
 
     // 3) Create onboarding link
-    const accountLink = await stripe.accountLinks.create({
+    const accountLink = await getStripe().accountLinks.create({
       account: accountId,
       refresh_url: refreshUrl,
       return_url: returnUrl,

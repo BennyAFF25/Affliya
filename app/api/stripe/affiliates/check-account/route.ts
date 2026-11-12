@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createStripeClient } from "@/../utils/stripe";
 
-const stripe = createStripeClient();
+let stripe: ReturnType<typeof createStripeClient> | undefined;
+function getStripe() {
+  return stripe ??= createStripeClient();
+}
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -10,6 +13,10 @@ const supabase = createClient(
 );
 
 export async function GET(req: Request) {
+  if (!process.env.STRIPE_SECRET_KEY?.trim()) {
+    return NextResponse.json({ error: "Stripe is not configured" }, { status: 503 });
+  }
+
   const { searchParams } = new URL(req.url);
   const user_id = searchParams.get("user_id");
   const email = searchParams.get("email");
@@ -49,7 +56,7 @@ export async function GET(req: Request) {
   }
 
   // 2) Pull truth from Stripe
-  const acct = await stripe.accounts.retrieve(profile.stripe_account_id);
+  const acct = await getStripe().accounts.retrieve(profile.stripe_account_id);
 
   const onboardingComplete =
     !!acct.details_submitted && !!acct.payouts_enabled;

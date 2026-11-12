@@ -6,7 +6,10 @@ import { buildStripeMetadata, createStripeClient } from "@/../utils/stripe";
 
 export const runtime = "nodejs";
 
-const stripe = createStripeClient((process.env.STRIPE_SECRET_KEY || "").trim());
+let stripe: ReturnType<typeof createStripeClient> | undefined;
+function getStripe() {
+  return stripe ??= createStripeClient((process.env.STRIPE_SECRET_KEY || "").trim());
+}
 
 function getBaseUrl() {
   const explicit = (process.env.NEXT_PUBLIC_BASE_URL || "").trim();
@@ -35,6 +38,10 @@ const supabase = createClient(
 );
 
 async function handlePost(req: Request) {
+  if (!process.env.STRIPE_SECRET_KEY?.trim()) {
+    return NextResponse.json({ error: "Stripe is not configured" }, { status: 503 });
+  }
+
   try {
     const body = await req.json();
     const user_id = body.user_id as string | undefined;
@@ -69,7 +76,7 @@ async function handlePost(req: Request) {
     const reusedExisting = !!accountId;
 
     if (!accountId) {
-      const account = await stripe.accounts.create({
+      const account = await getStripe().accounts.create({
         type: "express",
         country: "AU",
         email,
@@ -118,7 +125,7 @@ async function handlePost(req: Request) {
     const refreshUrl = `${origin}/affiliate/wallet?onboarding=refresh`;
     const returnUrl = `${origin}/affiliate/wallet?onboarding=return`;
 
-    const link = await stripe.accountLinks.create({
+    const link = await getStripe().accountLinks.create({
       account: accountId!,
       refresh_url: refreshUrl,
       return_url: returnUrl,

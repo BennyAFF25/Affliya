@@ -4,7 +4,10 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { calculateWalletTopupCharge, toStripeAmount } from '@/../utils/feeAccounting';
 import { buildNettmarkStripeMetadata, createStripeClient } from '@/../utils/stripe';
 
-const stripe = createStripeClient();
+let stripe: ReturnType<typeof createStripeClient> | undefined;
+function getStripe() {
+  return stripe ??= createStripeClient();
+}
 
 const allowedCurrencies = ['usd', 'aud', 'eur', 'gbp', 'cad', 'nzd'];
 
@@ -14,6 +17,10 @@ const baseUrl =
   'http://localhost:3000';
 
 export async function POST(req: Request) {
+  if (!process.env.STRIPE_SECRET_KEY?.trim()) {
+    return NextResponse.json({ error: "Stripe is not configured" }, { status: 503 });
+  }
+
   const { amount, currency } = await req.json();
   const selectedCurrency = (typeof currency === 'string' && allowedCurrencies.includes(currency.toLowerCase()))
     ? currency.toLowerCase()
@@ -36,7 +43,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    const session = await stripe.checkout.sessions.create({
+    const session = await getStripe().checkout.sessions.create({
       payment_method_types: ['card'],
       line_items: [
         {

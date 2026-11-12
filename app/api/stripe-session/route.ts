@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { createStripeClient } from '@/../utils/stripe';
 
-const stripe = createStripeClient();
+let stripe: ReturnType<typeof createStripeClient> | undefined;
+function getStripe() {
+  return stripe ??= createStripeClient();
+}
 
 function getErrorMessage(err: unknown) {
   if (err && typeof err === 'object' && 'message' in err) {
@@ -13,13 +16,17 @@ function getErrorMessage(err: unknown) {
 }
 
 export async function POST(req: NextRequest) {
+  if (!process.env.STRIPE_SECRET_KEY?.trim() || !process.env.STRIPE_WEBHOOK_SECRET?.trim()) {
+    return NextResponse.json({ error: "Stripe is not configured" }, { status: 503 });
+  }
+
   const sig = req.headers.get('stripe-signature')!;
   const rawBody = await req.text();
 
   let event: Stripe.Event;
 
   try {
-    event = stripe.webhooks.constructEvent(
+    event = getStripe().webhooks.constructEvent(
       rawBody,
       sig,
       process.env.STRIPE_WEBHOOK_SECRET!
@@ -44,6 +51,10 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
+  if (!process.env.STRIPE_SECRET_KEY?.trim()) {
+    return NextResponse.json({ error: "Stripe is not configured" }, { status: 503 });
+  }
+
   const { searchParams } = new URL(req.url);
   const sessionId = searchParams.get('session_id');
 
@@ -52,7 +63,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    const session = await getStripe().checkout.sessions.retrieve(sessionId);
     return new NextResponse(JSON.stringify(session), { status: 200 });
   } catch (err: unknown) {
     const message = getErrorMessage(err);

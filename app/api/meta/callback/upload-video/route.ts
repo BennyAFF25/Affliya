@@ -55,9 +55,12 @@ async function safeParse(res: Response) {
 const prefer = <T>(...vals: Array<T | null | undefined>) =>
   vals.find((v) => v !== undefined && v !== null) as T | undefined;
 
-const resend = process.env.RESEND_API_KEY
+let resend: Resend | null | undefined;
+function getResend() {
+  return resend ??= process.env.RESEND_API_KEY
   ? new Resend(process.env.RESEND_API_KEY)
   : null;
+}
 
 async function sendEmailSafe(args: {
   to: string;
@@ -65,6 +68,7 @@ async function sendEmailSafe(args: {
   html: string;
 }) {
   try {
+    const resend = getResend();
     if (!resend) {
       console.warn("[email] RESEND_API_KEY missing – skipping email");
       return;

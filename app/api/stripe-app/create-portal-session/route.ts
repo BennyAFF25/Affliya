@@ -5,17 +5,20 @@ import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { createClient } from "@supabase/supabase-js";
 
 // Stripe (revenue account) secret key
-const rawSecret =
-  process.env.STRIPE_APP_SECRET ?? process.env.STRIPE_SECRET_KEY ?? "";
-const secret = rawSecret.trim();
+let stripe: Stripe | undefined;
+function getStripe() {
+  const rawSecret =
+    process.env.STRIPE_APP_SECRET ?? process.env.STRIPE_SECRET_KEY ?? "";
+  const secret = rawSecret.trim();
 
-if (!secret) {
-  throw new Error("Missing STRIPE_APP_SECRET (or STRIPE_SECRET_KEY)");
-}
+  if (!secret) {
+    throw new Error("Missing STRIPE_APP_SECRET (or STRIPE_SECRET_KEY)");
+  }
 
-const stripe = new Stripe(secret, {
+  return stripe ??= new Stripe(secret, {
   apiVersion: "2025-08-27.basil" as Stripe.LatestApiVersion,
 });
+}
 
 function getBaseUrl() {
   const explicit = (
@@ -59,6 +62,10 @@ function supabaseAdmin() {
 }
 
 export async function POST(req: Request) {
+  if (!(process.env.STRIPE_APP_SECRET ?? process.env.STRIPE_SECRET_KEY)?.trim()) {
+    return NextResponse.json({ error: "Stripe is not configured" }, { status: 503 });
+  }
+
   try {
     const body = await req.json().catch(() => ({}));
     const accountType = body?.accountType; // "business" | "affiliate"
@@ -126,7 +133,7 @@ export async function POST(req: Request) {
 
     const baseUrl = getBaseUrl();
 
-    const portalSession = await stripe.billingPortal.sessions.create({
+    const portalSession = await getStripe().billingPortal.sessions.create({
       customer: stripeCustomerId,
       return_url: `${baseUrl}/${accountType}/settings`,
     });
