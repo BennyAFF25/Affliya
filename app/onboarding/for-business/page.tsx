@@ -22,22 +22,11 @@ import {
 import { supabase } from "utils/supabase/pages-client";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { safeStorageFileName } from "../../../utils/storageFileName";
 import { logProductEvent } from "../../../utils/productEvents";
 
 import { OFFER_ONBOARDING_BASELINE, differsFromOfferOnboardingBaseline, offerOnboardingDraftKey, readOfferOnboardingDraft } from "../../../utils/offerOnboardingDraft";
 import { businessOfferOnboardingSessionKey } from "../../../utils/businessOfferOnboardingNudge";
-
-function safeStorageFileName(name: string) {
-  const normalized = name
-    .normalize("NFKD")
-    .replace(/[^\x00-\x7F]/g, "")
-    .replace(/[^a-zA-Z0-9._-]+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "")
-    .toLowerCase();
-
-  return normalized || "image";
-}
 
 export default function BusinessOnboardingPage() {
   const router = useRouter();
