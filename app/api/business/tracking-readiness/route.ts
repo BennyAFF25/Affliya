@@ -1,42 +1,34 @@
-import { isOfferTrackingDisplayReady } from "../../../../utils/tracking/displayReadiness";
 import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { createClient } from "@supabase/supabase-js";
-import {
-  assertOfferTrackingReady,
-  type QueryClient,
-} from "@/../utils/approvals/enforcement";
+import { isOfferTrackingDisplayReady } from "@/../utils/tracking/displayReadiness";
+import { handleTrackingReadiness, type ReadinessDeps } from "@/../utils/tracking/readinessRequest";
+import { assertOfferTrackingReady, type QueryClient } from "@/../utils/approvals/enforcement";
 
-const supabaseUrl = process.env.SUPABASE_URL!;
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-
-const supabase = createClient(supabaseUrl, serviceRoleKey);
+export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => null);
-    const offerIds = Array.isArray(body?.offerIds)
-      ? body.offerIds.filter((id: unknown): id is string => typeof id === "string")
-      : [];
-
-    if (!offerIds.length) {
-      return NextResponse.json({ verifiedOfferIds: [] });
-    }
-
-    const verifiedOfferIds: string[] = [];
-
-    for (const offerId of offerIds) {
-      if (body?.purpose === "display") {
-        if (await isOfferTrackingDisplayReady(supabase as unknown as QueryClient, offerId)) verifiedOfferIds.push(offerId);
-        continue;
-      }
-      const readiness = await assertOfferTrackingReady(
-        supabase as unknown as QueryClient,
-        offerId,
-      );
-      if (readiness.ok) verifiedOfferIds.push(offerId);
-    }
-
-    return NextResponse.json({ verifiedOfferIds });
+    const admin = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, {
+      auth: { persistSession: false },
+    });
+    const result = await handleTrackingReadiness(body, {
+      getUser: async () => {
+        const { data, error } = await createRouteHandlerClient({ cookies }).auth.getUser();
+        return error ? null : data.user;
+      },
+      admin: admin as unknown as ReadinessDeps["admin"],
+      lookupOffers: async (offerIds) => {
+        const { data, error } = await admin.from("offers").select("id,business_email").in("id", offerIds);
+        if (error) throw new Error("Tracking readiness offer ownership lookup failed");
+        return (data || []) as { id: string; business_email: string | null }[];
+      },
+      checkDisplay: isOfferTrackingDisplayReady,
+      checkApproval: (client: QueryClient, offerId: string) => assertOfferTrackingReady(client, offerId),
+    });
+    return NextResponse.json(result.body, { status: result.status });
   } catch (error) {
     console.error("[tracking-readiness] unexpected error", error);
     return NextResponse.json({ error: "internal_error" }, { status: 500 });

@@ -49,12 +49,12 @@ async function run() {
   failure = 'shopify_stores';
   await assert.rejects(() => isOfferTrackingDisplayReady(db, 'offer'));
   const page = readFileSync('app/business/my-business/page.tsx', 'utf8');
-  const route = readFileSync('app/api/business/tracking-readiness/route.ts', 'utf8');
+  const route = readFileSync('app/api/business/tracking-readiness/route.ts', 'utf8') + readFileSync('utils/tracking/readinessRequest.ts', 'utf8');
   assert.match(page, /purpose: "display"/);
   assert.match(page, /const hasTrackingConnected = hasTrackingDerived/);
   assert.doesNotMatch(page, /trackingVerifiedOfferIds.size === 0\) return true|tracking_connected:\s*\n/);
   assert.match(page, /onTrackingChange=/);
-  assert.match(route, /body\?\.purpose === "display"/);
+  assert.match(route, /input\?\.purpose === "display"/);
   assert.match(route, /assertOfferTrackingReady\(/);
   console.log('tracking display readiness tests passed');
 }
