@@ -69,6 +69,7 @@
     "test:shopify-integration": "node --import tsx scripts/shopify-integration.test.ts",
     "test:shopify-pixel": "node --import tsx scripts/shopify-pixel.test.ts",
     "test:woocommerce": "tsx scripts/woocommerce-integration.test.ts && tsx scripts/woocommerce-transport.test.ts",
+    "test:qa-followups": "node --import tsx scripts/tracking-readiness-auth.test.ts && node --import tsx scripts/qa-followups-20261112.test.ts && node --import tsx scripts/tracking-readiness-real-client.test.ts && node --import tsx scripts/tracking-display-readiness.test.ts",
     "test:storage-policies": "node --import tsx scripts/storage-upload-policies.test.ts"
   },
   "dependencies": {

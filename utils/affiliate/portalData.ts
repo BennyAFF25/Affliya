@@ -1,6 +1,7 @@
+import { reviewMedia } from "./reviewMedia";
 import type { SupabaseClient } from "@supabase/supabase-js";
 export type SubmissionKind = "paid" | "organic";
-export type AffiliateSubmission = { id:string; kind:SubmissionKind; offerId:string; offerTitle:string; status:string; createdAt:string|null; businessViewedAt:string|null; title:string; previewUrl:string|null; platform?:string|null; campaignName?:string|null; rejectedAt?:string|null; rejectionReason?:string|null };
+export type AffiliateSubmission = { id:string; kind:SubmissionKind; offerId:string; offerTitle:string; status:string; createdAt:string|null; businessViewedAt:string|null; title:string; previewUrl:string|null; mediaType?:"video"|"image"; thumbnailUrl?:string|null; videoUrl?:string|null; platform?:string|null; campaignName?:string|null; rejectedAt?:string|null; rejectionReason?:string|null };
 export const cleanSubmissionStatus = (value:unknown) => String(value || "pending").trim().toLowerCase();
 export const isAwaitingProposalReview = (value:unknown) => ["pending","submitted","viewed","in_review","under_review"].includes(cleanSubmissionStatus(value));
 export const isArchivedCampaignStatus = (value?:string|null) => ["paused","archived","stopped","completed","ended","deleted"].includes(String(value || "unknown").trim().toLowerCase());
@@ -31,7 +32,7 @@ export async function loadAffiliatePaidCampaigns(client:SupabaseClient,email:str
 }
 export async function loadAffiliateSubmissions(client:SupabaseClient,email:string, loadTitles?: (ids:string[])=>Promise<{id:string;title:string}[]>):Promise<AffiliateSubmission[]> {
  const [ads,organic]=await Promise.all([
-  ownRows(client,"ad_ideas","id,offer_id,status,created_at,business_viewed_at,headline,caption,file_url,rejection_reason,campaign_name,rejected_at",email),
+  ownRows(client,"ad_ideas","id,offer_id,status,created_at,business_viewed_at,headline,caption,file_url,type,media_type,thumbnail_url,rejection_reason,campaign_name,rejected_at",email),
   ownRows(client,"organic_posts","id,offer_id,status,created_at,business_viewed_at,caption,platform,image_url,video_url",email)
  ]);
  const ids=[...new Set([...ads,...organic].map(row=>String(row.offer_id || "")).filter(Boolean))];
@@ -48,7 +49,7 @@ export async function loadAffiliateSubmissions(client:SupabaseClient,email:strin
   id:String(row.id),kind,offerId:String(row.offer_id || ""),offerTitle:titles.get(String(row.offer_id || "")) || "Offer",
   status:cleanSubmissionStatus(row.status),createdAt:row.created_at?String(row.created_at):null,businessViewedAt:row.business_viewed_at?String(row.business_viewed_at):null,
   title:String(row.headline || row.caption || (kind==="paid"?"Paid ad submission":"Organic promotion submission")),
-  previewUrl:row.file_url || row.image_url || row.video_url?String(row.file_url || row.image_url || row.video_url):null,platform:row.platform?String(row.platform):null
+  ...reviewMedia(row),platform:row.platform?String(row.platform):null
  });
  return [...ads.map(row=>convert(row,"paid")),...organic.map(row=>convert(row,"organic"))].sort((a,b)=>(Date.parse(b.createdAt || "") || 0)-(Date.parse(a.createdAt || "") || 0));
 }
