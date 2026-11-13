@@ -3,35 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { INPUT } from "../constants";
 
-const COUNTRIES: { code: string; name: string }[] = [
-  { code: "AU", name: "Australia" },
-  { code: "US", name: "United States" },
-  { code: "GB", name: "United Kingdom" },
-  { code: "NZ", name: "New Zealand" },
-  { code: "CA", name: "Canada" },
-  { code: "IE", name: "Ireland" },
-  { code: "DE", name: "Germany" },
-  { code: "FR", name: "France" },
-  { code: "ES", name: "Spain" },
-  { code: "IT", name: "Italy" },
-  { code: "NL", name: "Netherlands" },
-  { code: "SE", name: "Sweden" },
-  { code: "NO", name: "Norway" },
-  { code: "DK", name: "Denmark" },
-  { code: "FI", name: "Finland" },
-  { code: "SG", name: "Singapore" },
-  { code: "MY", name: "Malaysia" },
-  { code: "PH", name: "Philippines" },
-  { code: "ID", name: "Indonesia" },
-  { code: "IN", name: "India" },
-  { code: "JP", name: "Japan" },
-  { code: "KR", name: "South Korea" },
-  { code: "AE", name: "United Arab Emirates" },
-  { code: "SA", name: "Saudi Arabia" },
-  { code: "ZA", name: "South Africa" },
-  { code: "BR", name: "Brazil" },
-  { code: "MX", name: "Mexico" },
-];
+import { COUNTRIES, matchesCountryQuery } from "../../../../../utils/countries";
 
 export function CountryMultiSelect({
   value,
@@ -67,11 +39,7 @@ export function CountryMultiSelect({
     onChange(Array.from(set).join(","));
   };
 
-  const filtered = COUNTRIES.filter(
-    (c) =>
-      c.code.toLowerCase().includes(query.toLowerCase()) ||
-      c.name.toLowerCase().includes(query.toLowerCase())
-  );
+  const filtered = COUNTRIES.filter(country => matchesCountryQuery(country, query));
 
   return (
     <div ref={ref} className="relative">

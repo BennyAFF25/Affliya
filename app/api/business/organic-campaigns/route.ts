@@ -1,12 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import {
-  assertAffiliateOfferApproved,
-  assertOfferTrackingReady,
-  type QueryClient,
-} from "@/../utils/approvals/enforcement";
-import { isSubscriptionRequiredError } from "@/../utils/businessSubscriptionGate";
-import { assertBusinessPaymentReadyForCommission } from "@/../utils/businessPaymentReadiness";
+import { approveOrganicPost } from "../../../../utils/organicCampaignApproval";
 
 const supabaseUrl = process.env.SUPABASE_URL!;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -100,93 +94,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const trackingReady = await assertOfferTrackingReady(
-      supabase as unknown as QueryClient,
-      offerId,
-    );
-    if (!trackingReady.ok) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: trackingReady.error,
-          message: trackingReady.message,
-        },
-        { status: trackingReady.status },
-      );
-    }
-
-    const affiliateApproval = await assertAffiliateOfferApproved(
-      supabase as unknown as QueryClient,
-      { offerId, affiliateEmail },
-    );
-    if (!affiliateApproval.ok) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: affiliateApproval.error,
-          message: affiliateApproval.message,
-        },
-        { status: affiliateApproval.status },
-      );
-    }
-
-    const paymentReady = await assertBusinessPaymentReadyForCommission({
-      supabase: supabase as never,
-      businessEmail,
+    if (!body?.submissionId) return NextResponse.json({ success: false, message: "A post submission is required." }, { status: 400 });
+    const result = await approveOrganicPost(supabase, body.submissionId, {
+      context: { offerId, businessEmail, affiliateEmail },
     });
-    if (!paymentReady.ok) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: paymentReady.error,
-          message: paymentReady.message,
-          reason: paymentReady.reason,
-        },
-        { status: paymentReady.status },
-      );
-    }
-
-    const { data: insertedCampaign, error: insertError } = await supabase
-      .from("live_campaigns")
-      .insert([
-        {
-          type: "organic",
-          offer_id: offerId,
-          business_email: businessEmail,
-          affiliate_email: affiliateEmail,
-          media_url: body?.mediaUrl || null,
-          caption: body?.caption || null,
-          platform: body?.platform || null,
-          created_from: "post-ideas",
-          status: "live",
-        },
-      ])
-      .select("id")
-      .single();
-
-    if (insertError) {
-      console.error("[organic-campaigns] insert failed", insertError);
-      if (isSubscriptionRequiredError(insertError)) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "ORGANIC_GATE_MISCONFIGURED",
-            message: "Organic campaign launch is incorrectly blocked by the subscription gate. Apply the paid-ad-only gate migration.",
-          },
-          { status: 500 },
-        );
-      }
-      return NextResponse.json(
-        {
-          success: false,
-          error: "INSERT_FAILED",
-          message: "Failed to create the organic campaign.",
-        },
-        { status: 500 },
-      );
-    }
-
-    return NextResponse.json({ success: true, campaignId: insertedCampaign?.id });
+    return NextResponse.json(result, { status: result.success ? 200 : result.status });
   } catch (error) {
     console.error("[organic-campaigns] unexpected error", error);
     return NextResponse.json(

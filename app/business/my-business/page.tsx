@@ -1,13 +1,18 @@
 "use client";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
+import { needsOrganicPostReview } from "../../../utils/organicCampaignIdentity";
+import { COUNTRIES, normaliseCountry, matchesCountryQuery } from "../../../utils/countries";
+import { businessCardSetupMessage, reportBusinessCardSetupFailure } from "../../../utils/businessCardSetup";
+import WooCommerceConnectCard from "../../../components/WooCommerceConnectCard";
 import "@/globals.css";
 import "./mobile-business.css";
+import ShopifyConnectCard from "../../../components/ShopifyConnectCard";
 import MobileBusinessOverview, { type MobileBusinessView } from "./MobileBusinessOverview";
 import { Dialog, DialogPanel, DialogTitle, Description } from "@headlessui/react";
 import AcceptTermsModal from "@/../app/components/AcceptTermsModal";
 import Link from "next/link";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useLayoutEffect, useState } from "react";
 import { PageHeader } from "@/../components/ui/page-header";
 import { useSession } from "@supabase/auth-helpers-react";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
@@ -224,8 +229,14 @@ function getOfferMetaStatus(offer: Offer) {
 
 export default function MyBusinessPage() {
   const [mobileView, setMobileView] = useState<MobileBusinessView>("overview");
+  // Read before ShopifyConnectCard removes callback params in its passive effect.
+  useLayoutEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.has("shopify") || params.has("shopify_error")) setMobileView("setup");
+  }, []);
   const [offers, setOffers] = useState<Offer[]>([]);
   const [trackingVerifiedOfferIds, setTrackingVerifiedOfferIds] = useState<Set<string>>(new Set());
+  const [trackingRefresh, setTrackingRefresh] = useState(0);
   const [trackingReadinessResolved, setTrackingReadinessResolved] = useState(false);
   const [onboardingProgressRows, setOnboardingProgressRows] = useState<OnboardingProgressRow[]>([]);
   const [hasAffiliateRequests, setHasAffiliateRequests] = useState(false);
@@ -247,6 +258,9 @@ export default function MyBusinessPage() {
   const [showPaymentForm, setShowPaymentForm] = useState(false);
   const [billingRequiredPrompt, setBillingRequiredPrompt] = useState(false);
   const [billingPromptHandled, setBillingPromptHandled] = useState(false);
+  const [countryQuery, setCountryQuery] = useState("");
+  const [businessCountry, setBusinessCountry] = useState("");
+  const [needsBusinessCountry, setNeedsBusinessCountry] = useState(false);
   const [businessAccountId, setBusinessAccountId] = useState<string | null>(null);
   const [onboardingComplete, setOnboardingComplete] = useState<boolean>(false);
   const [hasCard, setHasCard] = useState<boolean>(false);
@@ -272,9 +286,9 @@ export default function MyBusinessPage() {
       const [{ data: postIdeas }, { data: adIdeas }] = await Promise.all([
         supabase
           .from("organic_posts")
-          .select("id")
+          .select("id,status,campaign_id,offer_id,business_email,affiliate_email")
           .in("offer_id", offerIds)
-          .eq("status", "pending"),
+          .in("status", ["pending", "approved"]),
 
         supabase
           .from("ad_ideas")
@@ -283,7 +297,12 @@ export default function MyBusinessPage() {
           .eq("status", "pending"),
       ]);
 
-      setPendingPostIdeaCount(postIdeas?.length || 0);
+      const campaigns = await supabase.from("live_campaigns")
+        .select("id,type,offer_id,business_email,affiliate_email")
+        .in("offer_id", offerIds).eq("type", "organic").eq("business_email", user.email!);
+      if (!campaigns.error) {
+        setPendingPostIdeaCount((postIdeas || []).filter(post => needsOrganicPostReview(post, campaigns.data || [])).length);
+      }
       setPendingAdIdeaCount(adIdeas?.length || 0);
     };
 
@@ -461,35 +480,44 @@ export default function MyBusinessPage() {
   }, [user?.email, supabase]);
 
   useEffect(() => {
+    const refresh = () => setTrackingRefresh(value => value + 1);
+    window.addEventListener("focus", refresh);
+    return () => window.removeEventListener("focus", refresh);
+  }, []);
+
+  useEffect(() => {
     if (offers.length === 0) {
       setTrackingVerifiedOfferIds(new Set());
       setTrackingReadinessResolved(true);
       return;
     }
 
+    let cancelled = false;
     const fetchTrackingReadiness = async () => {
       setTrackingReadinessResolved(false);
       try {
         const res = await fetch("/api/business/tracking-readiness", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ offerIds: offers.map((o) => o.id) }),
+          body: JSON.stringify({ offerIds: offers.map((o) => o.id), purpose: "display" }),
         });
         const json = await parseJsonSafe(res);
+        if (cancelled) return;
         if (!res.ok || !Array.isArray(json?.verifiedOfferIds)) {
           setTrackingVerifiedOfferIds(new Set());
           return;
         }
         setTrackingVerifiedOfferIds(new Set(json.verifiedOfferIds));
       } catch {
-        setTrackingVerifiedOfferIds(new Set());
+        if (!cancelled) setTrackingVerifiedOfferIds(new Set());
       } finally {
-        setTrackingReadinessResolved(true);
+        if (!cancelled) setTrackingReadinessResolved(true);
       }
     };
 
     fetchTrackingReadiness();
-  }, [offers]);
+    return () => { cancelled = true; };
+  }, [offers, trackingRefresh]);
 
   useEffect(() => {
     if (!session || !user?.email) return;
@@ -509,6 +537,8 @@ export default function MyBusinessPage() {
         return;
       }
 
+      setBusinessCountry(normaliseCountry(data?.country) || "");
+      setNeedsBusinessCountry(!normaliseCountry(data?.country));
       if (data?.stripe_customer_id) {
         const customerId = data.stripe_customer_id as string;
         setBusinessCustomerId(customerId);
@@ -562,16 +592,11 @@ export default function MyBusinessPage() {
     }
   }, [showPaymentForm, businessCustomerId, setupClientSecret]);
 
-  // ---- Readiness states from onboarding progress (fallbacks kept for resilience) ----
+  // ---- Readiness states (tracking requires display verification) ----
   const payoutsReadyDerived = !!onboardingComplete;
   const billingReadyDerived = !!businessCustomerId && !!hasCard;
   const hasAnyOfferDerived = offers.length > 0;
-  const hasTrackingDerived = offers.some((offer) => {
-    if (!offer.site_host) return false;
-    if (!trackingReadinessResolved) return true;
-    if (trackingVerifiedOfferIds.size === 0) return true;
-    return trackingVerifiedOfferIds.has(offer.id);
-  });
+  const hasTrackingDerived = trackingReadinessResolved && trackingVerifiedOfferIds.size > 0;
   const hasMetaDerived = offers.some(
     (offer) =>
       Boolean(offer.meta_page_id) ||
@@ -580,7 +605,7 @@ export default function MyBusinessPage() {
   );
 
   const hasAnyOffer = onboardingProgressRows.some((r) => r.first_offer_created) || hasAnyOfferDerived;
-  const hasTrackingConnected = onboardingProgressRows.some((r) => r.tracking_connected) || hasTrackingDerived;
+  const hasTrackingConnected = hasTrackingDerived;
   const payoutsReady = onboardingProgressRows.some((r) => r.payouts_enabled) || payoutsReadyDerived;
   const billingReady = onboardingProgressRows.some((r) => r.billing_connected) || billingReadyDerived;
   const hasMetaConnected = onboardingProgressRows.some((r) => r.meta_connected) || hasMetaDerived;
@@ -595,9 +620,6 @@ export default function MyBusinessPage() {
         business_email: user.email,
         offer_id: offer.id,
         first_offer_created: true,
-        tracking_connected:
-          onboardingProgressRows.find((r) => r.offer_id === offer.id)?.tracking_connected ||
-          (Boolean(offer.site_host) && (!trackingReadinessResolved || trackingVerifiedOfferIds.size === 0 || trackingVerifiedOfferIds.has(offer.id))),
         payouts_enabled: payoutsReady,
         billing_connected: billingReady,
         meta_connected: hasMetaConnected,
@@ -622,8 +644,6 @@ export default function MyBusinessPage() {
     billingReady,
     hasMetaConnected,
     payoutsRequiredNow,
-    trackingReadinessResolved,
-    trackingVerifiedOfferIds,
     onboardingProgressRows,
     supabase,
   ]);
@@ -722,6 +742,10 @@ export default function MyBusinessPage() {
 
   async function handleEnablePayouts() {
     if (isEnablingPayouts) return;
+    if (!businessAccountId && !businessCountry) {
+      setNeedsBusinessCountry(true);
+      return;
+    }
 
     try {
       setIsEnablingPayouts(true);
@@ -735,10 +759,13 @@ export default function MyBusinessPage() {
         body: JSON.stringify({
           role: "business",
           email,
+          stripe_account_id: businessAccountId || undefined,
+          country: businessCountry || undefined,
         }),
       });
 
       const data = await parseJsonSafe(res);
+      if (data?.code === "BUSINESS_COUNTRY_REQUIRED") setNeedsBusinessCountry(true);
       if (!res.ok || !data?.url) {
         throw new Error(data?.error || "Failed to start payouts onboarding");
       }
@@ -888,7 +915,8 @@ export default function MyBusinessPage() {
           redirect: "if_required",
         });
         if (result.error) {
-          toast.error(result.error.message || "Card setup failed");
+          void reportBusinessCardSetupFailure(result.error);
+          toast.error(businessCardSetupMessage(result.error));
         } else {
           const cardRes = await fetch("/api/stripe/check-customer-card", {
             method: "POST",
@@ -1192,6 +1220,7 @@ export default function MyBusinessPage() {
               </div>
 
               <div className="grid gap-3 2xl:grid-cols-2">
+                <WooCommerceConnectCard />
                 <div className="rounded-2xl border border-white/[0.08] bg-black/10 p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex gap-3">
@@ -1252,6 +1281,8 @@ export default function MyBusinessPage() {
                   </Link>
                 </div>
 
+                <ShopifyConnectCard onTrackingChange={() => setTrackingRefresh(value => value + 1)} />
+
                 <div className="rounded-2xl border border-white/[0.08] bg-black/10 p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex gap-3">
@@ -1307,9 +1338,20 @@ export default function MyBusinessPage() {
                     </div>
                     <div className="grid gap-2 2xl:min-w-[220px] sm:grid-cols-1">
                       {!payoutsReady && (
-                        <button onClick={handleEnablePayouts} disabled={isEnablingPayouts} className="inline-flex min-h-[38px] items-center justify-center rounded-full bg-[#00C2CB] px-4 text-xs font-black text-black hover:bg-[#14d5de] disabled:opacity-60">
+                        <>
+                        {!businessAccountId && (needsBusinessCountry || !businessCountry) && <div className="mb-3 block text-sm">
+                          <label htmlFor="business-connect-country">Business country</label>
+                          <input aria-label="Search business country" placeholder="Search country" value={countryQuery} onChange={event => setCountryQuery(event.target.value)} className="mt-2 block w-full rounded-xl border border-white/10 bg-[var(--card)] p-3" />
+                          <select id="business-connect-country" value={businessCountry} onChange={event => setBusinessCountry(event.target.value)} className="mt-2 block w-full rounded-xl border border-white/10 bg-[var(--card)] p-3">
+                            <option value="">Choose country</option>
+                            {COUNTRIES.filter(country => country.code === businessCountry || matchesCountryQuery(country, countryQuery)).map(country => <option key={country.code} value={country.code}>{country.name}</option>)}
+                          </select>
+                        </div>}
+                        {!businessAccountId && !businessCountry && <p className="text-xs text-slate-400">Choose your business country to enable payouts.</p>}
+                        <button onClick={handleEnablePayouts} disabled={isEnablingPayouts || (!businessAccountId && !businessCountry)} className="inline-flex min-h-[38px] items-center justify-center rounded-full bg-[#00C2CB] px-4 text-xs font-black text-black hover:bg-[#14d5de] disabled:opacity-60">
                           {isEnablingPayouts ? "Opening Stripe…" : businessAccountId ? "Continue Stripe setup" : "Enable payouts"}
                         </button>
+                        </>
                       )}
                       {businessAccountId && !payoutsReady && (
                         <button onClick={handleRefreshPayoutStatus} className="inline-flex min-h-[38px] items-center justify-center rounded-full border border-white/10 bg-white/[0.03] px-4 text-xs font-bold text-slate-200 hover:border-[#00C2CB]/35">
@@ -1415,9 +1457,7 @@ export default function MyBusinessPage() {
                 <div className="grid grid-cols-1 gap-5 2xl:grid-cols-2">
                   {offers.map((offer) => {
                     const metaStatus = getOfferMetaStatus(offer);
-                    const onboardingTrackingReady = onboardingProgressRows.some((row) => row.offer_id === offer.id && row.tracking_connected);
-                    const derivedTrackingReady = Boolean(offer.site_host) && (!trackingReadinessResolved || trackingVerifiedOfferIds.size === 0 || trackingVerifiedOfferIds.has(offer.id));
-                    const trackingReady = onboardingTrackingReady || derivedTrackingReady;
+                    const trackingReady = trackingReadinessResolved && trackingVerifiedOfferIds.has(offer.id);
 
                     return (
                       <div key={offer.id} className="group relative overflow-hidden rounded-[22px] border border-white/10 bg-white/[0.035] p-5 shadow-[0_18px_45px_rgba(0,0,0,0.55)] transition hover:border-[#00C2CB]/50">

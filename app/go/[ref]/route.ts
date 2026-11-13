@@ -1,3 +1,4 @@
+import { addWooUtms } from '../../../lib/woocommerce/orders';
 import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { isOwnerPreview } from "../../../utils/tracking/ownerPreview";
@@ -357,6 +358,13 @@ export async function GET(request: NextRequest, context: any) {
   if (!urlObj.searchParams.has("nm_src")) {
     urlObj.searchParams.set("nm_src", "nettmark");
   }
+
+  // Optional integration lookup must never prevent the existing redirect.
+  try {
+    const { data: connected, error } = await supabaseAdmin.rpc("woocommerce_offer_connected", { p_offer: offerId })
+      .abortSignal(AbortSignal.timeout(1000));
+    if (!error && connected === true) addWooUtms(urlObj);
+  } catch { /* Fail open to existing attribution. */ }
 
   const finalUrl = urlObj.toString();
   console.log("[go/ref] Redirecting to:", finalUrl);

@@ -38,7 +38,10 @@ const supabase = createClient(
   { auth: { persistSession: false } },
 );
 
-const stripe = createStripeClient(process.env.STRIPE_SECRET_KEY || "");
+let stripe: ReturnType<typeof createStripeClient> | undefined;
+function getStripe() {
+  return stripe ??= createStripeClient(process.env.STRIPE_SECRET_KEY || "");
+}
 
 function isHarnessEnabled() {
   if (process.env.ENABLE_MONEY_FLOW_HARNESS === "true") return true;
@@ -210,7 +213,7 @@ async function fetchHarnessState() {
       .eq("affiliate_email", AFFILIATE_EMAIL)
       .order("created_at", { ascending: false })
       .limit(5),
-    getPlatformBalanceSnapshot(stripe, "aud"),
+    getPlatformBalanceSnapshot(getStripe(), "aud"),
     supabase
       .from("platform_fee_ledger")
       .select("id, source_type, source_id, fee_category, amount, principal_amount, gross_amount, stripe_fee_amount, stripe_object_id, status, metadata, accrued_at, updated_at")
@@ -257,7 +260,7 @@ function sleep(ms: number) {
 
 async function resolveBalanceTransaction(paymentIntentId: string) {
   for (let attempt = 1; attempt <= 3; attempt++) {
-    const pi = await stripe.paymentIntents.retrieve(paymentIntentId, {
+    const pi = await getStripe().paymentIntents.retrieve(paymentIntentId, {
       expand: ["latest_charge.balance_transaction"],
     });
 
@@ -265,17 +268,17 @@ async function resolveBalanceTransaction(paymentIntentId: string) {
     if (pi.latest_charge) {
       latestCharge =
         typeof pi.latest_charge === "string"
-          ? await stripe.charges.retrieve(pi.latest_charge, {
+          ? await getStripe().charges.retrieve(pi.latest_charge, {
               expand: ["balance_transaction"],
             })
           : (pi.latest_charge as Stripe.Charge);
     }
 
     if (!latestCharge) {
-      const charges = await stripe.charges.list({ payment_intent: paymentIntentId, limit: 1 });
+      const charges = await getStripe().charges.list({ payment_intent: paymentIntentId, limit: 1 });
       const fallbackChargeId = charges.data[0]?.id;
       if (fallbackChargeId) {
-        latestCharge = await stripe.charges.retrieve(fallbackChargeId, {
+        latestCharge = await getStripe().charges.retrieve(fallbackChargeId, {
           expand: ["balance_transaction"],
         });
       }
@@ -284,7 +287,7 @@ async function resolveBalanceTransaction(paymentIntentId: string) {
     const balanceTransaction = latestCharge?.balance_transaction;
     if (latestCharge && balanceTransaction) {
       return typeof balanceTransaction === "string"
-        ? await stripe.balanceTransactions.retrieve(balanceTransaction)
+        ? await getStripe().balanceTransactions.retrieve(balanceTransaction)
         : balanceTransaction;
     }
 
@@ -305,7 +308,7 @@ async function simulateTopup(amount: number, opts: { paymentMethod?: string; lab
 
   const paymentMethod = opts.paymentMethod || "pm_card_visa";
 
-  const paymentIntent = await stripe.paymentIntents.create({
+  const paymentIntent = await getStripe().paymentIntents.create({
     amount: amountCents,
     currency: "aud",
     payment_method: paymentMethod,
@@ -330,7 +333,7 @@ async function simulateTopup(amount: number, opts: { paymentMethod?: string; lab
   const grossAmount = +(balanceTx.amount / 100).toFixed(2);
   const fees = +(balanceTx.fee / 100).toFixed(2);
   const stripeNetAmount = +(balanceTx.net / 100).toFixed(2);
-  const platformAccount = await stripe.accounts.retrieve();
+  const platformAccount = await getStripe().accounts.retrieve();
 
   const { data, error } = await supabase.rpc("credit_wallet_topup", {
     p_affiliate_email: AFFILIATE_EMAIL,
@@ -469,6 +472,10 @@ export async function POST(req: NextRequest) {
     return badRequest("money_flow_harness_disabled", { enable: "Set ENABLE_MONEY_FLOW_HARNESS=true or use non-production mode." }, 403);
   }
 
+  if (!process.env.STRIPE_SECRET_KEY?.trim()) {
+    return NextResponse.json({ error: "Stripe is not configured" }, { status: 503 });
+  }
+
   try {
     const body = (await req.json().catch(() => ({}))) as Json;
     const action = String(body.action || "state") as HarnessAction;
@@ -523,7 +530,7 @@ export async function POST(req: NextRequest) {
       }
 
       case "stripe_balance_state": {
-        return ok({ stripeBalance: await getPlatformBalanceSnapshot(stripe, "aud"), state: await fetchHarnessState() });
+        return ok({ stripeBalance: await getPlatformBalanceSnapshot(getStripe(), "aud"), state: await fetchHarnessState() });
       }
 
       case "process_ad_spend_transfers": {

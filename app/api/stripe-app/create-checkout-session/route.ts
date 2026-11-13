@@ -7,17 +7,20 @@ import { createClient } from "@supabase/supabase-js";
 export const runtime = "nodejs";
 
 // Choose the correct Stripe secret key (Revenue account preferred), trim to avoid hidden whitespace
-const rawSecret = process.env.STRIPE_APP_SECRET ?? process.env.STRIPE_SECRET_KEY ?? "";
-const secret = rawSecret.trim();
+let stripe: Stripe | undefined;
+function getStripe() {
+  const rawSecret = process.env.STRIPE_APP_SECRET ?? process.env.STRIPE_SECRET_KEY ?? "";
+  const secret = rawSecret.trim();
 
-if (!secret) {
-  throw new Error("Missing STRIPE_APP_SECRET (or STRIPE_SECRET_KEY)");
-}
+  if (!secret) {
+    throw new Error("Missing STRIPE_APP_SECRET (or STRIPE_SECRET_KEY)");
+  }
 
-const stripe = new Stripe(secret, {
+  return stripe ??= new Stripe(secret, {
   // Keep TS + Stripe versions aligned across the repo
   apiVersion: "2025-08-27.basil" as Stripe.LatestApiVersion,
 });
+}
 
 function getBaseUrl() {
   const explicit =
@@ -54,6 +57,10 @@ function supabaseAdmin() {
 }
 
 export async function POST(req: Request) {
+  if (!(process.env.STRIPE_APP_SECRET ?? process.env.STRIPE_SECRET_KEY)?.trim()) {
+    return NextResponse.json({ error: "Stripe is not configured" }, { status: 503 });
+  }
+
   try {
     const body = await req.json().catch(() => ({}));
     const accountType = (body?.accountType || "").toString().trim().toLowerCase();
@@ -89,7 +96,7 @@ export async function POST(req: Request) {
     // Resolve base URL for redirects
     const baseUrl = getBaseUrl();
 
-    const session = await stripe.checkout.sessions.create({
+    const session = await getStripe().checkout.sessions.create({
       mode: "subscription",
 
       line_items: [{ price: priceId, quantity: 1 }],

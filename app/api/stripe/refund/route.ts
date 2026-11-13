@@ -8,7 +8,10 @@ import { getWalletBalanceSnapshot } from '@/../utils/wallet/balance';
 import { getRefundLockState } from '@/../utils/wallet/refundLock';
 import { syncAffiliateWalletCache } from '@/../utils/wallet/syncAffiliateWalletCache';
 
-const stripe = createStripeClient();
+let stripe: ReturnType<typeof createStripeClient> | undefined;
+function getStripe() {
+  return stripe ??= createStripeClient();
+}
 
 type WalletTopupRow = {
   id: string;
@@ -42,7 +45,7 @@ async function createStripeRefund(
 
   if (topup.stripe_id.startsWith('ch_')) {
     onSubmit();
-    const refund = await stripe.refunds.create({
+    const refund = await getStripe().refunds.create({
       amount: Math.round(refundAmount * 100),
       charge: topup.stripe_id,
       metadata,
@@ -55,7 +58,7 @@ async function createStripeRefund(
   }
 
   if (topup.stripe_id.startsWith('pi_')) {
-    const charges = await stripe.charges.list({
+    const charges = await getStripe().charges.list({
       payment_intent: topup.stripe_id,
       limit: 1,
     });
@@ -67,7 +70,7 @@ async function createStripeRefund(
     }
 
     onSubmit();
-    const refund = await stripe.refunds.create({
+    const refund = await getStripe().refunds.create({
       amount: Math.round(refundAmount * 100),
       charge: chargeId,
       metadata: {
@@ -83,7 +86,7 @@ async function createStripeRefund(
   }
 
   if (topup.stripe_id.startsWith('cs_')) {
-    const session = await stripe.checkout.sessions.retrieve(topup.stripe_id);
+    const session = await getStripe().checkout.sessions.retrieve(topup.stripe_id);
     const paymentIntentId =
       typeof session.payment_intent === 'string'
         ? session.payment_intent
@@ -93,7 +96,7 @@ async function createStripeRefund(
       throw new Error('No payment intent found for the given Checkout Session.');
     }
 
-    const charges = await stripe.charges.list({
+    const charges = await getStripe().charges.list({
       payment_intent: paymentIntentId,
       limit: 1,
     });
@@ -105,7 +108,7 @@ async function createStripeRefund(
     }
 
     onSubmit();
-    const refund = await stripe.refunds.create({
+    const refund = await getStripe().refunds.create({
       amount: Math.round(refundAmount * 100),
       charge: chargeId,
       metadata: {
@@ -126,6 +129,10 @@ async function createStripeRefund(
 }
 
 async function handlePost(req: Request) {
+  if (!process.env.STRIPE_SECRET_KEY?.trim()) {
+    return NextResponse.json({ error: "Stripe is not configured" }, { status: 503 });
+  }
+
   const { email, refundAmount, stripe_charge_id, requestId } = await req.json();
 
   console.log('[🧪 Refund Payload]', { email, refundAmount, stripe_charge_id });

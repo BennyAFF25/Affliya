@@ -79,10 +79,6 @@ export async function POST(req: Request, context: { params: Promise<{ offerId: s
       console.warn("[paid-promotion-request][tracking readiness failed]", trackingError);
     }
 
-    if (growthReady && metaReady && trackingReady) {
-      return NextResponse.json({ ok: true, alreadyEnabled: true });
-    }
-
     const nextStep = !growthReady
       ? "growth"
       : !metaReady
@@ -112,7 +108,8 @@ export async function POST(req: Request, context: { params: Promise<{ offerId: s
     if (eventError?.code === "23514") throw new Error("Paid-promotion requests could not be saved because the database event policy does not allow them. Contact support; the business has not been notified.");
     if (eventError) throw eventError;
 
-    after(async () => {
+    // Already-connected businesses need no setup notification; retain the request evidence.
+    if (!growthReady || !metaReady || !trackingReady) after(async () => {
       try {
         const appUrl = (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "https://www.nettmark.com").replace(/\/$/, "");
         const nextUrl = !growthReady
@@ -164,5 +161,22 @@ export async function POST(req: Request, context: { params: Promise<{ offerId: s
       { ok: false, error: error instanceof Error ? error.message : "Unexpected error" },
       { status: 500 },
     );
+  }
+}
+
+export async function GET(_req: Request, context: { params: Promise<{ offerId: string }> }) {
+  try {
+    const { offerId } = await context.params;
+    if (!UUID.test(offerId)) return NextResponse.json({ error: "Invalid offer." }, { status: 400 });
+    const client = createRouteHandlerClient({ cookies });
+    const { data: { user }, error: authError } = await client.auth.getUser();
+    if (authError || !user?.email) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const { data, error } = await supabaseAdmin.from("product_events").select("id")
+      .eq("event_type", "paid_promotion_meta_requested").eq("actor_email", user.email).eq("offer_id", offerId)
+      .limit(1).maybeSingle();
+    if (error) throw error;
+    return NextResponse.json({ requested: Boolean(data) });
+  } catch {
+    return NextResponse.json({ error: "Could not check Meta access request." }, { status: 500 });
   }
 }

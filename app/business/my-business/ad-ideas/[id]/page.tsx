@@ -1,4 +1,5 @@
 "use client";
+import { businessCardSetupMessage, reportBusinessCardSetupFailure } from "../../../../../utils/businessCardSetup";
 import { CurrencyEstimate } from "../../../../../components/CurrencyEstimate";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -225,7 +226,8 @@ function CommissionBillingForm({
       });
 
       if (result.error) {
-        throw new Error(result.error.message || "Card setup failed.");
+        void reportBusinessCardSetupFailure(result.error);
+        throw new Error(businessCardSetupMessage(result.error));
       }
 
       const checkRes = await fetch("/api/stripe/check-customer-card", {

@@ -21,7 +21,7 @@ async function getUserEmail() {
 async function loadProfile(email: string) {
   const { data, error } = await admin
     .from("business_profiles")
-    .select("id,business_email,stripe_customer_id,stripe_account_id,stripe_onboarding_complete")
+    .select("id,business_email,country,stripe_customer_id,stripe_account_id,stripe_onboarding_complete")
     .eq("business_email", email)
     .order("created_at", { ascending: false })
     .limit(1)
@@ -79,7 +79,7 @@ export async function POST() {
           updated_at: new Date().toISOString(),
         })
         .eq("id", existing.id)
-        .select("id,business_email,stripe_customer_id,stripe_account_id,stripe_onboarding_complete")
+        .select("id,business_email,country,stripe_customer_id,stripe_account_id,stripe_onboarding_complete")
         .single();
       if (error) throw error;
       profile = data as typeof profile;
@@ -92,7 +92,7 @@ export async function POST() {
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         })
-        .select("id,business_email,stripe_customer_id,stripe_account_id,stripe_onboarding_complete")
+        .select("id,business_email,country,stripe_customer_id,stripe_account_id,stripe_onboarding_complete")
         .single();
       if (error) throw error;
       profile = data as typeof profile;

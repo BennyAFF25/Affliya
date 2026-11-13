@@ -1,3 +1,4 @@
+import { reviewMedia } from "@/../utils/affiliate/reviewMedia";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
@@ -15,6 +16,9 @@ type ReviewRow = {
   businessViewedAt: string | null;
   title: string;
   previewUrl: string | null;
+  mediaType: "video" | "image";
+  thumbnailUrl: string | null;
+  videoUrl: string | null;
   platform?: string | null;
 };
 
@@ -35,7 +39,7 @@ export async function GET() {
       await Promise.all([
         (supabaseAdmin as any)
           .from("ad_ideas")
-          .select("id,offer_id,status,created_at,headline,caption,file_url")
+          .select("id,offer_id,status,created_at,headline,caption,file_url,type,media_type,thumbnail_url")
           .eq("affiliate_email", email)
           .order("created_at", { ascending: false })
           .limit(50),
@@ -98,7 +102,7 @@ export async function GET() {
         createdAt: row.created_at || null,
         businessViewedAt: viewedAtBySubmission.get(String(row.id)) || null,
         title: String(row.headline || row.caption || "Paid ad submission"),
-        previewUrl: row.file_url || null,
+        ...reviewMedia(row),
       })),
       ...(organic || []).map((row: any) => ({
         id: String(row.id),
@@ -109,7 +113,7 @@ export async function GET() {
         createdAt: row.created_at || null,
         businessViewedAt: viewedAtBySubmission.get(String(row.id)) || null,
         title: String(row.caption || "Organic promotion submission"),
-        previewUrl: row.image_url || row.video_url || null,
+        ...reviewMedia(row),
         platform: row.platform || null,
       })),
     ].sort((a, b) => {

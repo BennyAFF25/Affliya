@@ -64,7 +64,13 @@
     "test:meta-connect-errors": "tsx scripts/meta-connect-errors.test.ts",
     "test:meta-connections-service-role": "tsx scripts/meta-connections-service-role.test.ts",
     "test:auth-rate-limit": "tsx scripts/auth-rate-limit.test.ts",
-    "test:critical-route-auth": "node --import tsx scripts/critical-route-auth.test.ts"
+    "test:critical-route-auth": "node --import tsx scripts/critical-route-auth.test.ts",
+    "test:business-onboarding-billing": "node --import tsx scripts/business-onboarding-billing-fixes.test.ts && node --import tsx scripts/organic-campaign-backfill.test.ts && node --import tsx scripts/business-onboarding-billing-qa.test.ts",
+    "test:shopify-integration": "node --import tsx scripts/shopify-integration.test.ts",
+    "test:shopify-pixel": "node --import tsx scripts/shopify-pixel.test.ts",
+    "test:woocommerce": "tsx scripts/woocommerce-integration.test.ts && tsx scripts/woocommerce-transport.test.ts",
+    "test:qa-followups": "node --import tsx scripts/tracking-readiness-auth.test.ts && node --import tsx scripts/qa-followups-20261112.test.ts && node --import tsx scripts/tracking-readiness-real-client.test.ts && node --import tsx scripts/tracking-display-readiness.test.ts",
+    "test:storage-policies": "node --import tsx scripts/storage-upload-policies.test.ts"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.2",
