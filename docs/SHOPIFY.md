@@ -1,61 +1,73 @@
 # Shopify integration
 
-Stage one added an optional Shopify card in Business → My Business → Setup access / Readiness checklist alongside Meta. Stage two adds automatic app-pixel tracking as described below. Product import remains unimplemented; publication/approval gates and billing are unchanged. My Business displays current tracking readiness separately from the legacy gate heuristics. Multiple stores can belong to a business. A connected shop cannot be reassigned to another business. Fresh OAuth can reassign disconnected or uninstalled shops; conditional writes prevent stealing a connected row.
+Repository draft only. No Shopify deployment, live app configuration, production environment change or remote migration is included. Production environment variables and `shopify app deploy` / config pushes still require explicit founder instruction and have **not** been done.
 
-## Setup
+The optional connector lives in Business → My Business → Setup access / Readiness checklist. Product import is unimplemented. Billing, offer approvals, attribution/commission processing and tracking-readiness rules remain unchanged. A connected shop cannot be taken by another business; a fresh Shopify grant can reassign disconnected/uninstalled shops.
 
-Use the public, non-embedded authorization-code app in Shopify's Dev Dashboard. Client ID: `504d490cc8b4e692142ff5713bfa6de3`. App URL: `https://nettmark.com/api/shopify/install`. Register callback URLs for each actual origin:
+## Installation and account continuation
 
-- `https://nettmark.com/api/shopify/callback`
+Shopify's application URL is `https://www.nettmark.com/api/shopify/install`. A Shopify launch with `shop` and `hmac` validates HMAC and immediately redirects to the authorization-code grant, with no required Nettmark login/UI beforehand. Invalid install HMAC returns 401. Every launch/reinstall starts OAuth, even when a shop row already exists.
+
+State is signed for ten minutes, bound to shop and a timing-safe httpOnly nonce cookie. It contains either **both** user/business IDs or explicit nulls for both. Partial/malformed bindings are rejected. A previously bound user/business cannot be replaced by a different session. OAuth callback validates HMAC, state, nonce, age and shop before exchange. The nonce cookie clears on callback success/failure.
+
+After scope acceptance, the callback exchanges the code for expiring offline credentials. With an eligible Nettmark business session and matching prior binding (or an unbound state), it connects immediately, registers uninstall via GraphQL and activates the pixel, then redirects to `/business/my-business?shopify=connected`. Session/ownership checks remain server-side.
+
+Without a session the grant is encrypted into service-role-only `shopify_pending_installs`: opaque random ID, shop, optional original user/business binding, encrypted token pair, scopes, expiries and creation time. No buyer PII. The browser gets only a signed opaque ID in an httpOnly, SameSite=Lax cookie (Secure in production), never a token. The grant is usable for one hour. It redirects to `/login/business?next=%2Fbusiness%2Fshopify%2Fcomplete`; that login offers `/create-account?role=business&next=%2Fbusiness%2Fshopify%2Fcomplete`. Signup/confirmation and the existing plan/onboarding gates retain the validated `/business/` continuation. This does not introduce a second auth or billing system.
+
+`GET /business/shopify/complete` requires the existing business session, atomically consumes the pending grant, validates expiry and any original binding, and applies the same ownership/conditional-write checks as an immediate connect. It registers the webhook, activates tracking and lands on My Business. Missing/expired/replayed grants yield safe `pending_expired`. Failure after consumption requires a fresh install. No-session retries retain the cookie/grant and go back to business login. Completion/error clears the pending cookie. Expired pending records cannot be used; physical cleanup occurs on subsequent installs, completion attempts and applicable uninstall/redact webhooks. There is no deployed periodic cleanup job in this change; arrange periodic service-only expired-row cleanup if a strict physical retention deadline is required.
+
+### Nettmark-initiated connect: Shopify-owned entrypoint
+
+The card has **no shop-domain input**. Its Connect Shopify store link goes to `/api/shopify/install` without a shop parameter, which redirects to the confirmed official Shopify App Store listing URL configured in server-only `SHOPIFY_APP_STORE_URL` (HTTPS `apps.shopify.com` only). Shopify selects/knows the shop and launches the application URL; OAuth above follows immediately.
+
+**Required configuration still missing:** the repository contains a client ID but no verified public/draft listing handle. Set `SHOPIFY_APP_STORE_URL` to the exact listing URL supplied by the Dev Dashboard before enabling this path. It is intentionally blank in `.env.example`; the code fails closed with `configuration` instead of inventing a listing or restoring a text field. Exact destination used: the configured official App Store listing URL, not an undocumented client-ID picker. Mock tests use `https://apps.shopify.com/mock-listing` solely as a fixture, never a production destination.
+
+Research: [Shopify staff guidance for public apps without a shop URL](https://community.shopify.dev/t/oauth-process-without-shop-url/26665) directs merchants to their App Store listing and states the centralized admin authorize endpoint is internal and unsuitable. [Official access-scope documentation](https://shopify.dev/docs/apps/build/authentication-authorization/manage-access-scopes) documents `https://admin.shopify.com/store/{STORE_NAME}/oauth/install?client_id={CLIENT_ID}` with an already-known store, not a generic picker. No documented domain-free generic client-ID picker was verified; the listing URL needs founder confirmation.
+
+## Setup and repo-only TOML
+
+Public non-embedded authorization-code app; client ID `504d490cc8b4e692142ff5713bfa6de3`. `embedded = false`; API version `2026-10`. The draft explicitly sets `access_scopes.use_legacy_install_flow = true` for the requested URL-parameter authorization-code flow. [Shopify app configuration](https://shopify.dev/docs/apps/build/cli-for-apps/app-configuration#access_scopes) documents that omitting it selects managed installation; the supported legacy option matches this standalone implementation. Production-intent callback allowlist:
+
 - `https://www.nettmark.com/api/shopify/callback`
-- `http://localhost:3000/api/shopify/callback`
-- `https://affliya-git-feature-shopify-integration-bens-projects-28b82cca.vercel.app/api/shopify/callback`
-- Any additional approved Preview origin with `/api/shopify/callback` (add it to app configuration first).
+- `https://nettmark.com/api/shopify/callback`
 
-OAuth callback and all install/callback result redirects use the request origin to preserve nonce/session cookie host binding. Webhook and app-pixel ingestion URLs use `NEXT_PUBLIC_BASE_URL` origin when configured. Shopify must allowlist every callback origin.
+The former Preview callback and localhost are removed from production-intent TOML. Use a separate explicitly authorized development configuration for local/Preview callbacks; do not push this draft to the live app. OAuth redirects preserve request origin and nonce/session host binding. Start real installs on www. The server canonicalizes Nettmark apex to www for webhook/pixel URLs. Canonical webhook/pixel origin should be `https://www.nettmark.com` (`NEXT_PUBLIC_BASE_URL`); apex redirects must not be used for webhook delivery.
 
-App launch requires an existing logged-in Nettmark business session and a provisioned business profile. If absent, the business page receives an error; sign in and connect from Setup access / Readiness checklist. New businesses sign up at `/create-account?role=business`. No per-user grant is requested: the exchanged token is offline.
-
-Environment template: [`.env.example`](../.env.example) (this repository had no existing env example). Required server configuration:
-
-| Variable | Purpose |
+| Server variable | Purpose |
 | --- | --- |
-| `SHOPIFY_CLIENT_ID` | App client ID |
+| `SHOPIFY_CLIENT_ID` | Existing public app client ID |
 | `SHOPIFY_CLIENT_SECRET` | OAuth and webhook HMAC secret |
-| `SHOPIFY_STATE_SECRET` | Optional independent state secret; falls back to client secret |
-| `SHOPIFY_TOKEN_ENCRYPTION_KEY` | Required random 32-byte key, base64 or hex; generate locally with `node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"` |
-| `SHOPIFY_SCOPES` | Defaults exactly to `read_products,write_pixels,read_customer_events` |
-| `SHOPIFY_API_VERSION` | Defaults to `2026-10` |
-| `NEXT_PUBLIC_BASE_URL` | Optional canonical webhook origin; otherwise request origin. OAuth always uses the request origin |
-| `SUPABASE_URL` or `NEXT_PUBLIC_SUPABASE_URL` | Existing Supabase server URL |
-| `SUPABASE_SERVICE_ROLE_KEY` | Existing server-only service role key |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Existing session client configuration |
+| `SHOPIFY_STATE_SECRET` | Optional independent signing key, fallback client secret |
+| `SHOPIFY_TOKEN_ENCRYPTION_KEY` | Existing random 32-byte AES key, base64 or 64 hex characters |
+| `SHOPIFY_SCOPES` | Exactly `write_pixels,read_customer_events` |
+| `SHOPIFY_API_VERSION` | `2026-10` |
+| `SHOPIFY_APP_STORE_URL` | Confirmed official `https://apps.shopify.com/<listing-handle>`; not yet known in repo |
+| `NEXT_PUBLIC_BASE_URL` | Canonical www origin for webhooks/pixel; OAuth retains request origin |
+| Supabase URL, service role and public anon key | Existing server/session configuration; never expose service role |
 
-Requested scopes must be exactly `read_products,write_pixels,read_customer_events`; configuration adding/removing any scope, including `read_pixels` or `read_orders`, is rejected. Extra implied scopes returned by Shopify are accepted, but all requested scopes must be granted. Preserve the encryption key securely: rotating it requires reconnecting stores or an explicitly planned decrypt/re-encrypt migration. Tokens are versioned AES-256-GCM ciphertext with random IVs; no plaintext token is exposed to clients.
+No `read_products`, `read_orders` or customer/PII scopes. Extra implied returned scopes are accepted, but both requested scopes must be granted. Keep encryption keys secure; rotation requires a planned migration or reconnection. Status returns an explicit safe metadata projection, never token columns; RLS/revoked client grants cover both connection and pending tables.
 
-Shopify's grant screen shows its standard customer-data, staff-data and web-pixel disclosure for the pixel scopes (`write_pixels` / `read_customer_events`). This is expected and does not mean Nettmark stores customer data.
+## Expiring offline tokens and schema rollout
 
-Prepare/apply `supabase/migrations/20261110120000_shopify_stores.sql` separately through the authorized release process. It links `business_profiles.id` to a unique, validated shop domain, stores ciphertext/scopes/status/timestamps, enables RLS, and revokes client access. Status is exposed through an authenticated server route with an explicit safe column list. The manual destructive rollback is `supabase/undo/20261110120000_shopify_stores.undo.sql`; it deletes saved connections and requires reconnecting stores. Neither SQL script was applied as part of implementation.
+[Shopify's migration guide](https://shopify.dev/docs/apps/build/authentication-authorization/migrate-to-expiring-offline-access-tokens) requires new public apps to request expiring tokens. Code exchange sends `application/x-www-form-urlencoded` with `client_id`, `client_secret`, `code`, `expiring=1`. Both access and refresh credentials are encrypted with the existing versioned AES-256-GCM helper. `expires_in` and `refresh_token_expires_in` are converted to absolute `access_token_expires_at` / `refresh_token_expires_at` timestamps; plaintext credentials are server-only and never logged.
 
-## Preview webhooks and Vercel automation bypass
+`lib/shopify/tokens.ts` returns valid access credentials before Admin API work, refreshing within sixty seconds of expiry using form-encoded `grant_type=refresh_token`. It stores the returned pair/expiries together before use, coalesces same-process refreshes and uses conditional writes across workers so refresh cannot overwrite a reconnect/disconnect. A losing writer rereads the current valid saved token. Invalid/expired refresh credentials clear tokens, mark disconnected/inactive and require fresh OAuth (`reauth_required`). Transient upstream failures keep credentials for retry but do not use stale access. Pixel retry, install-time registration/activation and disconnect pixel deletion/uninstall use this helper.
 
-When `VERCEL_ENV=preview` and the trimmed `VERCEL_AUTOMATION_BYPASS_SECRET` is non-empty, automatic uninstall registration appends the URL-encoded `x-vercel-protection-bypass` query parameter to the webhook callback. Vercel injects this secret automatically when a project automation bypass exists. Production and development never append it. Never log the callback URL or secret.
+Apply separately in order, only when authorized:
 
-Compliance topic URLs configured in the Dev Dashboard must include this query parameter manually when targeting a protected Preview deployment; they do not use automatic registration.
+1. `supabase/migrations/20261110120000_shopify_stores.sql`
+2. `supabase/migrations/20261110130000_shopify_pixel.sql`
+3. `supabase/migrations/20261114120000_shopify_review_readiness.sql`
 
-## Routes and lifecycle
+The new forward migration adds refresh ciphertext/expiry columns and the service-only pending table. A `NOT VALID` connected-token constraint preserves legacy rows without a data rewrite while enforcing full token pairs on new inserts/updates. Legacy connected rows lack refresh credentials and must reauthorize; the helper disconnects them before further Admin API use. Roll out SQL before new application code. After all legacy stores reauthorize/disconnect, constraint validation can be separately planned. No schema was applied or inspected remotely.
 
-- `GET /api/shopify/install?shop=mystore`: session/business verification, optional Shopify launch-query HMAC verification, normalization, signed ten-minute state containing user/business/shop/nonce, httpOnly SameSite=Lax nonce cookie (Secure in production), redirect to Shopify authorization.
-- `GET /api/shopify/callback`: strict shop, constant-time query HMAC, state expiry/cookie nonce/shop/session/business checks; offline token exchange; required-scope check; encryption and service-role save; best-effort GraphQL `webhookSubscriptionCreate` for `APP_UNINSTALLED`. Clears nonce cookie on success and failure. Redirects to `/business/my-business?shopify=connected` or `?shopify_error=<reason>`.
-- `GET /api/shopify/status`: only current business's connection metadata, no token, no caching.
-- `POST /api/shopify/disconnect`: same-origin request, session/business ownership check; nulls token and marks disconnected. Before clearing the token, best-effort deletes the app pixel and then revokes Shopify access via DELETE `/admin/api_permissions/current.json` (15-second timeout, redirects rejected). Failure warns with shop only and local disconnect still completes.
-- `POST /api/shopify/webhooks`: validates HMAC over exact raw bytes before dispatch, validates strict shop header. Invalid HMAC → 401; invalid shop → 400; transient processing/configuration errors → 503 for retries. Unknown topics → 200. No payload parsing or body logging.
+Manual rollback: `supabase/undo/20261114120000_shopify_review_readiness.undo.sql`. Roll back application code first; it deletes pending grants and refresh columns but retains original access ciphertext. Legacy application code cannot refresh retained expiring access tokens, which will expire (typically within an hour); rollback does not restore permanent tokens. Reapply the forward schema and reconnect before running expiring-token code again. The undo is destructive, lives outside migrations and must **never** be run as a forward migration. Earlier manual undo scripts remain separate.
 
-Uninstall clears the token, marks tracking inactive and marks uninstalled with timestamp; repeat delivery is a no-op. Uninstall uses the validated `X-Shopify-Triggered-At` timestamp (Date.parse; missing/invalid falls back to now) and only updates rows installed strictly before that event, preserving newer reconnects. Redaction purges the matching shop's order-dedupe rows and connection row; repeats succeed. Errors never log tokens, authorization codes, secrets, response payloads or raw webhook bodies. Webhook registration failure warns with the shop only and does not fail installation; check subscriptions in Shopify if a warning occurs. Reconnect may encounter an existing subscription, which remains usable; no parallel subscription is intentionally maintained.
+## Disconnect and webhook lifecycle
 
-## Compliance webhooks and data minimisation
+`POST /api/shopify/disconnect` retains same-origin, business ownership and confirmation requirements. It best-effort deletes the app pixel, then invokes [GraphQL `appUninstall`](https://shopify.dev/docs/api/admin-graphql/2026-10/mutations/appUninstall), the [official REST-uninstall equivalent](https://shopify.dev/changelog/posts/new-appuninstall-mutation-to-allow-apps-to-uninstall-themselves). No REST revoke remains. Versioned GraphQL POST uses the existing 15-second timeout and rejects redirects; transport, top-level GraphQL and mutation user errors are failures. Local disconnect still completes if remote operations fail, clearing both tokens/expiries and marking tracking inactive.
 
-In the Dev Dashboard / `shopify.app.toml`, configure mandatory compliance topics `customers/data_request`, `customers/redact`, and `shop/redact` to the public HTTPS `/api/shopify/webhooks` URL, API version `2026-10`. These compliance subscriptions **cannot be registered through the Admin API**. Configure them before app review; they are separate from the automatically registered uninstall subscription. Example app configuration:
+TOML declares both compliance topics and uninstall at the direct www HTTPS endpoint:
 
 ```toml
 [webhooks]
@@ -63,37 +75,35 @@ api_version = "2026-10"
 
 [[webhooks.subscriptions]]
 compliance_topics = ["customers/data_request", "customers/redact", "shop/redact"]
-uri = "https://nettmark.com/api/shopify/webhooks"
+uri = "https://www.nettmark.com/api/shopify/webhooks"
+
+[[webhooks.subscriptions]]
+topics = ["app/uninstalled"]
+uri = "https://www.nettmark.com/api/shopify/webhooks"
 ```
 
-No customer PII is retained: no names, emails, phone numbers, or addresses. Stage one stores only shop connection information; customer request/redaction webhooks acknowledge with 200 and perform no customer-data reads/writes. Shop redaction purges the shop connection. Stage-two purchase data and shop-redaction handling are described below. Product import remains a later stage.
+Connect-time `webhookSubscriptionCreate(APP_UNINSTALLED)` remains a best-effort complement. Compliance topics cannot be registered through the Admin API. Configured subscriptions must be released separately; repo TOML is not proof of live registration.
 
-## Validation and manual dev-store test plan
+`POST /api/shopify/webhooks` checks exact raw-byte HMAC before dispatch (401 for invalid HMAC), strict shop header (400), and returns 503 on transient processing failures for retries. Customer data-request/redact and unknown topics return 200 without reading/storing buyer data. Bodies and credentials are never logged. `shop/redact` deletes pending grants, order-dedupe rows and connection. Uninstall clears credentials/tracking then deletes the eligible connection (order dedupe cascades) and older pending grants. It uses `X-Shopify-Triggered-At` (invalid/missing falls back to now) and only touches connections installed before that event, protecting newer reinstalls. Repeated deliveries succeed. Financial event/commission ledgers remain; no buyer PII is added and no commission reversal occurs.
 
-Automated, mock-only checks: `yarn test:shopify-integration`, `yarn -s typecheck`, and changed-file ESLint. No network calls are required by tests.
+On protected Preview only, existing `VERCEL_AUTOMATION_BYPASS_SECRET` handling can append a URL-encoded bypass query for automatically registered callback URLs. Never print the secret or resulting URL. Production/development do not append it. Compliance test subscriptions for protected Preview require separately authorized configuration; production subscriptions use www without a redirect.
 
-When authorized, apply the migration to a development database, configure env and allowlisted callback origin, then:
+## Validation and remaining release work
 
-1. Sign in as a business, open Setup access / Readiness checklist, enter a dev-store name or full domain and connect. Approve scopes; verify redirect success, connected domain, encrypted token in admin-only SQL, required scopes and uninstall subscription.
-2. Confirm no token appears in status JSON, browser responses, logs or authenticated/anon table reads. Test another business/affiliate/anonymous session cannot view/disconnect that store or take ownership while connected. Verify fresh OAuth can reclaim a disconnected/uninstalled shop.
-3. Reject altered HMAC, hostname suffix/path/uppercase, expired/tampered state, missing/wrong nonce, another callback user and missing scopes. Callback must clear the cookie; reuse should fail. Verify Preview redirects use its allowlisted origin even with `NEXT_PUBLIC_BASE_URL` set to production.
-4. Disconnect and verify Shopify access revocation plus token null/status disconnected; reconnect. Simulate token-exchange/save failures; verify clear error redirects without sensitive logs. Simulate registration failure; installation should still succeed.
-5. Send validly signed uninstall and all three compliance deliveries using Shopify's tools; retry each. Verify uninstall timestamp/token, customer-topic 200 with no customer storage, shop redaction removes only that shop. Invalid raw-body HMAC → 401; unknown topic → 200. Simulate DB failure → 503, then retry.
-6. Confirm existing Meta, tracking, billing, offers and mobile Setup access / Readiness checklist are unchanged. Revocation failure must still allow local disconnect.
+Mock-only suites: `yarn test:shopify-integration`, `yarn test:shopify-pixel`, `node --import tsx scripts/shopify-disconnect-confirm.test.ts`; typecheck and changed-file ESLint. Tests stub all Shopify/database calls and never contact live services. See the completed implementation plan for actual results.
 
-Live Shopify behavior and applied database schema require this later validation; implementation work makes no network calls and applies no migrations. The PR targets `bot-staging` and should list the env, migration and dev-store steps above.
-
+Before review, separately authorize staging migration/env/config/extension release, confirm the App Store listing URL, and resolve Ben's billing decision in [listing draft](shopify-app-store/LISTING-COPY.md). Privacy/cookie additions are an [unpublished draft](shopify-app-store/PRIVACY-SHOPIFY-SECTION.md), not live policy changes. Live dev-store verification still needs: anonymous Shopify install → OAuth first → login/signup continuation → connected/tracking active; wrong-session/ownership/replay/expiry failures; expiring token refresh; disconnect including revoke failure; reinstall; signed compliance/uninstall retries; delayed-uninstall protection; buyer-PII absence; unchanged tracking readiness and financial processing. Review credentials should have no 2FA and be supplied privately. No live verification is claimed here.
 
 ## Stage two — automatic app pixel and attributed purchases
 
-`shopify.app.toml` configures the existing public app, exact three scopes, callback origins and mandatory compliance topics. `extensions/nettmark-pixel` is an isolated Shopify Web Pixel app extension, using the strict runtime and Shopify analytics/marketing consent requirements; preferences and sale-of-data are disabled. Shopify controls loading according to customer privacy/consent. It sends nothing for purchases without a captured affiliate/campaign pair. It does not send page views to Nettmark.
+`shopify.app.toml` configures the existing public app, exact two scopes, callback origins and mandatory compliance topics. `extensions/nettmark-pixel` is an isolated Shopify Web Pixel app extension, using the strict runtime and Shopify analytics/marketing consent requirements; preferences and sale-of-data are disabled. Shopify controls loading according to customer privacy/consent. It sends nothing for purchases without a captured affiliate/campaign pair. It does not send page views to Nettmark.
 
-On `page_viewed`, the extension captures a complete `nm_aff` (stable Nettmark UUID), `nm_camp` and `nm_src` from the page location. It preserves existing attribution on ordinary pages and does not combine partial pairs from different campaigns. A timestamped record is stored through Shopify's asynchronous localStorage API, with a seven-day cookie fallback. Both reads expire after seven days, matching redirect/tracker cookies; the older generic tracker has unexpired localStorage and is unchanged. Current `/go/{ref}` emits no click ID, so none is invented or collected.
+On `page_viewed`, the extension captures a complete `nm_aff` (stable Nettmark UUID) and `nm_camp` from the page location. It preserves existing attribution on ordinary pages and does not combine partial pairs from different campaigns. A timestamped record is stored through Shopify's asynchronous localStorage API, with a seven-day cookie fallback. Both reads expire after seven days, matching redirect/tracker cookies; the older generic tracker has unexpired localStorage and is unchanged. Current `/go/{ref}` emits no click ID, so none is invented or collected.
 
 On `checkout_completed`, a valid stored pair causes one `text/plain` JSON POST with `keepalive` and omitted credentials to `/api/shopify/pixel-events`, avoiding a CORS preflight. The only payload fields are:
 
-- `shop_domain`, `order_id`, optional `checkout_token`, `total_value` (major currency units), `currency`, `timestamp`;
-- `nm_aff`, `nm_camp`, `nm_src`;
+- `shop_domain`, `order_id`, `total_value` (major currency units), `currency`, `timestamp`;
+- `nm_aff`, `nm_camp`;
 - `line_items`, each containing only `product_id`, `variant_id`, `quantity`, `line_total` (major currency units). Product data is required by existing product-scoped commissions.
 
 No buyer names, emails, phones, addresses, customer IDs, browser/client IDs, fingerprints, full URLs, referrers, IPs or user agents are sent or stored by this path. Incoming unknown keys are stripped at every object boundary using explicit server allowlists, including each item. The server records `source: shopify_pixel` plus the sanitized purchase data; existing internal affiliate email linkage remains server-side infrastructure, not customer PII. IPs are used transiently for rate limiting, HMAC hashed with `RATE_LIMIT_SECRET` (fallback service role key), using the existing service-only `auth_rate_limit_hit` RPC: 60 requests per IP+shop and 600 per shop per minute, failing closed on limiter errors. As with the existing auth limiter, bucket rows persist without a new cleanup job; they contain HMAC digests, never raw IPs.
@@ -104,12 +114,12 @@ The service-only `record_shopify_conversion` SQL function atomically reserves `(
 
 Connect now best-effort reads/creates/updates this app's Shopify web pixel after saving the store. Only `shopKey` and `ingestUrl` are pixel settings. The ingestion URL follows the existing webhook origin logic (`NEXT_PUBLIC_BASE_URL` origin, otherwise request origin) and reuses the Preview-only automation bypass helper. That Preview-only URL may contain the automation bypass value; it is browser-visible, as explicitly required for protected Preview ingestion. Do not use a production bypass or add the Shopify token/other credentials to settings. Do not log URLs/settings or request/response bodies.
 
-Store metadata adds `pixel_id`, `pixel_status` (`active`, `inactive`, `error`), safe short `pixel_error` and `pixel_updated_at`. Missing deployed extension produces `extension_not_deployed` without failing store installation. Status exposes only safe metadata, excluding token and pixel ID. The connected card displays Tracking: Active/Not active and a turn-on/retry action. `POST /api/shopify/pixel` requires same-origin, signed-in business ownership and a connected row; activation writes guard the installation timestamp against reconnect races. Disconnect attempts pixel deletion before token revocation, then marks it inactive locally even if Shopify is unavailable. Uninstall marks inactive; Shopify removes the app pixel. Shop redaction explicitly deletes order-dedupe rows before deleting the store (also protected by a cascading foreign key). Existing financial event/payout ledgers remain intact; they contain no buyer PII from this path.
+Store metadata adds `pixel_id`, `pixel_status` (`active`, `inactive`, `error`), safe short `pixel_error` and `pixel_updated_at`. Missing deployed extension produces `extension_not_deployed` without failing store installation. Status exposes only safe metadata, excluding token and pixel ID. The connected card displays Tracking: Active/Not active and a turn-on/retry action. `POST /api/shopify/pixel` requires same-origin, signed-in business ownership and a connected row; activation writes guard the installation timestamp against reconnect races. Disconnect attempts pixel deletion before token revocation, then marks it inactive locally even if Shopify is unavailable. Uninstall deletes eligible connection/dedupe rows; Shopify removes the app pixel. Shop redaction explicitly deletes order-dedupe rows before deleting the store (also protected by a cascading foreign key). Existing financial event/payout ledgers remain intact; they contain no buyer PII from this path.
 
 ### Founder release steps (not executed)
 
-1. Review and apply `supabase/migrations/20261110120000_shopify_stores.sql` if not already applied, then `supabase/migrations/20261110130000_shopify_pixel.sql` through the authorized migration process. The new function uses existing event columns evidenced in application code; verify the target schema before applying. Never run the undo as a forward migration. Manual undo: `supabase/undo/20261110130000_shopify_pixel.undo.sql`; disable the pixel first, since dropping dedupe history can permit duplicate orders after re-enabling. Undo preserves existing events/payouts.
-2. In an environment authorized for network access, install Shopify CLI and the extension dependency (`npm install --prefix extensions/nettmark-pixel`). This checkout intentionally has no downloaded extension dependency or generated extension lockfile. The extension pins `@shopify/web-pixels-extension` to `2.18.0` (type-checked with strict TypeScript against that version).
+1. Review and apply `supabase/migrations/20261110120000_shopify_stores.sql` if not already applied, then `supabase/migrations/20261110130000_shopify_pixel.sql` and `supabase/migrations/20261114120000_shopify_review_readiness.sql` through the authorized migration process. The new function uses existing event columns evidenced in application code; verify the target schema before applying. Never run the undo as a forward migration. Manual undo: `supabase/undo/20261110130000_shopify_pixel.undo.sql`; disable the pixel first, since dropping dedupe history can permit duplicate orders after re-enabling. Undo preserves existing events/payouts.
+2. In an environment authorized for network access, install Shopify CLI and the extension dependency (`npm install --prefix extensions/nettmark-pixel`). The extension has its own checked-in package lock; do not change its configured UID. The extension pins `@shopify/web-pixels-extension` to `2.18.0` (type-checked with strict TypeScript against that version).
 3. From the repository root, link the existing app and deploy the app configuration/extension:
 
    ```sh
@@ -117,7 +127,7 @@ Store metadata adds `pixel_id`, `pixel_status` (`active`, `inactive`, `error`), 
    shopify app deploy --client-id 504d490cc8b4e692142ff5713bfa6de3
    ```
 
-   Select the existing Nettmark app, preserve/review the checked-in settings if CLI regenerates configuration, and complete Shopify's extension identity/version prompts. Confirm all callback URLs and the three compliance topics use API version `2026-10`. Shopify CLI deployment is distinct from the Next.js deployment. Extension type checks/builds happen in Shopify CLI; `extensions/` is excluded from Next.js TypeScript and repository ESLint.
+   Select the existing Nettmark app, preserve/review the checked-in settings if CLI regenerates configuration, and complete Shopify's extension identity/version prompts. Confirm both callback URLs and all compliance/uninstall subscriptions use the direct www URI and API version `2026-10`. Shopify CLI deployment is distinct from the Next.js deployment. Extension type checks/builds happen in Shopify CLI; `extensions/` is excluded from Next.js TypeScript and repository ESLint.
 4. Configure the stage-one server env above. No new mandatory env is needed; `RATE_LIMIT_SECRET` optionally separates limiter hashing from the service-role key. Confirm the existing auth limiter migration `20261027120000_auth_rate_limits.sql` is applied. For protected Preview, configure Vercel automation bypass and the exact Preview callback alias; a canonical base pointing at production sends pixel events there, so choose `NEXT_PUBLIC_BASE_URL` intentionally per environment.
 5. Deploy the Next.js change through a separately authorized release. Connect a development store (or click Turn on tracking / Retry on an existing connection). Check Tracking: Active. Remove any old manual Shopify Customer Events snippet before testing the app pixel: that legacy `/api/track-event` route has no Shopify-order dedupe and running both can record duplicate purchases. No manual snippet is needed for app-pixel stores.
 6. With applicable marketing/analytics consent, follow a real Nettmark `/go/{ref}` link, complete a dev checkout, and verify one sanitized event, correct campaign/affiliate/business, scoped product amount and existing processor result. Repeat delivery to confirm order dedupe; test another business/affiliate link, missing attribution, expiry, denied consent, disconnect/reconnect, uninstall and shop redact. Inspect logs/status for safe outcomes only, never payloads or tokens.

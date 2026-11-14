@@ -3,7 +3,7 @@ import { getAccountRole } from "../../../utils/affiliate/accountRole";
 import { safeBusinessReturnTo } from "../../../utils/safeBusinessReturnTo";
 import { businessLoginDestination } from "../../../utils/businessLoginDestination";
 
-import { useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import MarketingHeader from "@/components/marketing/MarketingHeader";
@@ -85,7 +85,7 @@ export default function BusinessLogin() {
         }
         router.replace(await businessLoginDestination(returnTo));
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error("[Business login] unexpected error", err);
       setError("Login failed. Please try again.");
     } finally {
@@ -95,6 +95,7 @@ export default function BusinessLogin() {
 
   return (
     <>
+      {/* eslint-disable-next-line react/no-unknown-property -- Next.js styled-jsx attributes. */}
       <style jsx global>{`
         input:-webkit-autofill,
         input:-webkit-autofill:hover,
@@ -153,10 +154,11 @@ export default function BusinessLogin() {
               </h1>
               <p className="text-xs text-white/65 mb-6">
                 {returnTo
-                  ? "Sign in to continue reviewing this campaign."
+                  ? "Sign in to continue to your business."
                   : "Sign in to manage offers, campaigns, and payouts for your brand."}
               </p>
 
+              {returnTo === "/business/shopify/complete" && <p className="mb-4 text-xs text-white/65">New to Nettmark? <a className="text-[#00C2CB]" href={`/create-account?role=business&next=${encodeURIComponent(returnTo)}`}>Create a business account</a> to finish connecting Shopify.</p>}
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <label className="block text-[11px] text-white/60 mb-1">

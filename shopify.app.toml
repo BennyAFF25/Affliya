@@ -1,17 +1,23 @@
 client_id = "504d490cc8b4e692142ff5713bfa6de3"
 name = "Nettmark"
-application_url = "https://nettmark.com/api/shopify/install"
+application_url = "https://www.nettmark.com/api/shopify/install"
 embedded = false
 
 [access_scopes]
-scopes = "read_products,write_pixels,read_customer_events"
+scopes = "write_pixels,read_customer_events"
+# Standalone app uses the authorization-code grant implemented by /api/shopify/install.
+use_legacy_install_flow = true
 
 [auth]
-redirect_urls = ["https://nettmark.com/api/shopify/callback", "https://www.nettmark.com/api/shopify/callback", "http://localhost:3000/api/shopify/callback", "https://affliya-git-feature-shopify-integration-bens-projects-28b82cca.vercel.app/api/shopify/callback"]
+redirect_urls = ["https://nettmark.com/api/shopify/callback", "https://www.nettmark.com/api/shopify/callback"]
 
 [webhooks]
 api_version = "2026-10"
 
 [[webhooks.subscriptions]]
 compliance_topics = ["customers/data_request", "customers/redact", "shop/redact"]
-uri = "https://nettmark.com/api/shopify/webhooks"
+uri = "https://www.nettmark.com/api/shopify/webhooks"
+
+[[webhooks.subscriptions]]
+topics = ["app/uninstalled"]
+uri = "https://www.nettmark.com/api/shopify/webhooks"
