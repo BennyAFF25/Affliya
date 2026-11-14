@@ -471,8 +471,17 @@ async function testRoutes(secret: string) {
     assert.match(String(pendingRows[0].refresh_token_encrypted), /^v1:/);
     assert.throws(() => pendingId("tampered"), /pending_expired/);
     const completionRequest = (cookie: string) => new NextRequest("https://preview.example/business/shopify/complete", { headers: { cookie } });
-    assert.equal(new URL((await complete.GET(completionRequest(pendingCookie))).headers.get("location")!).pathname, "/login/business");
+    const unauthenticated = await complete.GET(completionRequest(pendingCookie));
+    assert.equal(new URL(unauthenticated.headers.get("location")!).pathname, "/login/business");
+    assert.doesNotMatch(unauthenticated.headers.get("set-cookie") || "", /shopify_pending_install=;/);
     assert.equal(pendingRows.length, 1, "no session must not consume the grant");
+    user = { id: "user", email: "mock@example.invalid" };
+    role = "affiliate";
+    const forbidden = await complete.GET(completionRequest(pendingCookie));
+    assert.equal(new URL(forbidden.headers.get("location")!).searchParams.get("shopify_error"), "forbidden");
+    assert.doesNotMatch(forbidden.headers.get("set-cookie") || "", /Max-Age=0/i, "profile errors must keep the pending cookie");
+    assert.equal(pendingRows.length, 1, "role errors must not consume the grant");
+    role = "business";
     user = { id: "user", email: "mock@example.invalid" };
     assert.equal(new URL((await complete.GET(completionRequest(pendingCookie))).headers.get("location")!).searchParams.get("shopify"), "connected");
     assert.equal(pendingRows.length, 0);
