@@ -39,3 +39,9 @@ Commission readiness deliberately uses `business_profiles.stripe_customer_id`, n
 ## Risks to resolve before money changes
 
 Some service-role routes (`run-payout`, `process-conversion`, `ad-spend/settle`, `stripe/refund`) show no explicit session/owner verification in their handlers. Middleware is not a general guard. Deployment protection is unknown. Generic events lack durable external-order deduplication; ingestion success does not prove payout creation succeeded. Offers allow currency selection, while commission payout execution hardcodes AUD. No commission-payout cron is declared in `vercel.json`; automated settlement outside the checked-in business UI is unknown.
+
+## Shopify subscription provider (staging preparation)
+
+App Store-first businesses without Stripe billing history use Shopify for Free/Growth selection; existing Stripe brands are unchanged. Provider selection lives on business_entitlements. Stripe subscription checkout/portal, reminder jobs and entitlement sync exclude Shopify businesses. Shopify confirmation/webhook reconciliation writes the same entitlement statuses used by campaign gates. Default Growth parity is A$49 per 30 days and one 14-day trial; explicit currency/amount env overrides require release review.
+
+This does **not** migrate commission or usage/platform fees. feeAccounting defaults Nettmark's transaction fee to 220 bps; run-payout still charges principal plus fee through Stripe and transfers principal through Connect. Wallet topups also include fees/passthrough. A capped Shopify usage line item plus deduplicated appUsageRecordCreate could collect platform fees, but principal funding, cap failures, ledger reconciliation, refunds and prevention of duplicate Stripe fee collection require a separate design/decision. See plans/active/shopify-billing.md. No money movement or usage-record code changed; recurring billing is not a claim that all App Store fee requirements are resolved.

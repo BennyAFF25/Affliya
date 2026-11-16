@@ -153,7 +153,7 @@ async function main() {
   await registerWebhooks(state.shop, "mock-token", "https://preview.example", async (url, options) => {
     assert.equal(url, `https://${state.shop}/admin/api/2026-10/graphql.json`);
     const body = JSON.parse(String(options?.body));
-    assert.match(body.query, /APP_UNINSTALLED/);
+    assert.match(body.query, /APP_UNINSTALLED|APP_SUBSCRIPTIONS_UPDATE/);
     assert.equal(body.variables.subscription.uri, "https://preview.example/api/shopify/webhooks");
     return Response.json({ data: { webhookSubscriptionCreate: { webhookSubscription: { id: "mock-id" }, userErrors: [] } } });
   });
@@ -198,11 +198,17 @@ async function testRoutes(secret: string) {
   let connectBeforeUpdate = false;
   let pixelMode: "active" | "undeployed" = "undeployed";
   let pixelId: string | null = null;
+  let appStoreFreshBusiness = false, shopifyReinstall = false;
+  let billingClaims = 0;
   const lifecycle: string[] = [];
   const db = {
     auth: { getUser: async () => ({ data: { user }, error: null }) },
+    async rpc(name: string) {
+      assert.equal(name, "claim_shopify_billing"); billingClaims++;
+      return { data: true, error: null };
+    },
     from(table: string) {
-      let matched = table === "profiles" ? [{ id: user?.id, role }] as Row[] : table === "business_profiles" ? [{ id: owner, business_email: user?.email }] as Row[] : table === "shopify_pending_installs" ? pendingRows : table === "shopify_stores" ? rows : [];
+      let matched = table === "business_entitlements" ? [{ business_id: owner, billing_provider: shopifyReinstall ? "shopify" : "stripe", billing_status: shopifyReinstall ? "subscription_cancelled" : "free", stripe_subscription_id: appStoreFreshBusiness ? null : "mock-existing-subscription" }] as Row[] : table === "profiles" ? [{ id: user?.id, role }] as Row[] : table === "business_profiles" ? [{ id: owner, business_email: user?.email }] as Row[] : table === "shopify_pending_installs" ? pendingRows : table === "shopify_stores" ? rows : [];
       let update: Row | undefined;
       let insertion: Row | undefined;
       let deletion = false;
@@ -216,7 +222,7 @@ async function testRoutes(secret: string) {
           if (table === "shopify_pending_installs") pendingRows = pendingRows.filter(row => !matched.includes(row));
           else if (table === "shopify_stores") rows = rows.filter(row => !matched.includes(row));
         }
-        const data = selection ? matched.map(row => Object.fromEntries(selection.split(",").map(key => [key, row[key]]))) : matched;
+        const data = selection && selection !== "*" ? matched.map(row => Object.fromEntries(selection.split(",").map(key => [key, row[key]]))) : matched;
         return { data, error: null };
       };
       const query = {
@@ -254,7 +260,7 @@ async function testRoutes(secret: string) {
         if (revokeFails) return Response.json({ data: { appUninstall: { userErrors: [{ message: "mock-failure" }] } } });
         return Response.json({ data: { appUninstall: { app: { id: "mock-app" }, userErrors: [] } } });
       }
-      if (body.query.includes("RegisterUninstall")) {
+      if (body.query.includes("RegisterWebhook")) {
         assert.equal(body.variables.subscription.uri, "https://www.nettmark.com/api/shopify/webhooks");
         throw new Error("mock registration failure");
       }
@@ -486,6 +492,23 @@ async function testRoutes(secret: string) {
     assert.equal(new URL((await complete.GET(completionRequest(pendingCookie))).headers.get("location")!).searchParams.get("shopify"), "connected");
     assert.equal(pendingRows.length, 0);
     assert.equal(rows[0].shop_domain, "pending.myshopify.com");
+    assert.equal(billingClaims, 0, "existing Stripe brand is never moved to Shopify billing");
+    user = null;
+    const freshCookie = await pendingGrant();
+    user = { id: "user", email: "mock@example.invalid" };
+    appStoreFreshBusiness = true;
+    const freshCompletion = await complete.GET(completionRequest(freshCookie));
+    assert.equal(new URL(freshCompletion.headers.get("location")!).pathname, "/business/choose-plan");
+    assert.equal(billingClaims, 1, "App Store-first business claims Shopify billing");
+    shopifyReinstall = true;
+    rows.length = 0; // app/uninstalled has removed the connection.
+    user = null;
+    const reinstallCookie = await pendingGrant();
+    user = { id: "user", email: "mock@example.invalid" };
+    const reinstallCompletion = await complete.GET(completionRequest(reinstallCookie));
+    assert.equal(new URL(reinstallCompletion.headers.get("location")!).pathname, "/business/choose-plan", "App Store reinstall requires plan approval again");
+    assert.equal(billingClaims, 2);
+    appStoreFreshBusiness = false; shopifyReinstall = false;
     assert.equal(errorOf(await complete.GET(completionRequest(pendingCookie))), "pending_expired", "pending grant is one use");
     user = null;
     const expiredCookie = await pendingGrant();

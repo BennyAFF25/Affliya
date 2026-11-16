@@ -4,6 +4,7 @@ import { ArrowRight, Check } from "lucide-react";
 import type { GrowthPrice } from "../../utils/businessOnboardingFunnel";
 
 export type BusinessContinuationContext = {
+  billingProvider?: "stripe" | "shopify";
   business_onboarding_funnel: string; treatment: boolean; offerId: string | null;
   participationMode: string; trialEligible: boolean | null; trialDays: number;
   price: GrowthPrice | null; billingError: string | null; checkoutEnabled: boolean;

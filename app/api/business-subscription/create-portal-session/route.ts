@@ -1,3 +1,4 @@
+import { stripeBillingEligible } from '../../../../lib/shopify/billing';
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
@@ -43,6 +44,7 @@ export async function POST(req: Request) {
     }
 
     const entitlement = await getEntitlementOrThrow({ supabase: admin, businessId: business.id });
+    if (!await stripeBillingEligible(admin, business.id, entitlement.billingProvider)) return NextResponse.json({ error: "This business uses Shopify Billing. Manage your plan at /business/choose-plan.", code: "SHOPIFY_BILLING_REQUIRED" }, { status: 409 });
     const customerId = entitlement.subscriptionStripeCustomerId;
 
     if (!customerId || entitlement.isGrandfathered || !entitlementAllowsBillingAccess(entitlement)) {

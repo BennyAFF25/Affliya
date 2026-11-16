@@ -1,3 +1,4 @@
+import { confirmShopifyBilling, uninstallShopifyBilling } from '../../../../lib/shopify/billing';
 import { NextRequest, NextResponse } from "next/server";
 import { env, validShop, verifyWebhookHmac } from "../../../../lib/shopify/security";
 import { clearedTokens } from "../../../../lib/shopify/tokens";
@@ -16,9 +17,21 @@ export async function POST(req: NextRequest) {
     const triggeredHeader = req.headers.get("x-shopify-triggered-at");
     const parsed = triggeredHeader ? Date.parse(triggeredHeader) : NaN;
     const triggeredAt = new Date(Number.isFinite(parsed) ? parsed : Date.now()).toISOString();
+    if (topic === "app_subscriptions/update") {
+      // HMAC-authenticated event is a hint only: never activate from the payload.
+      const admin = createServerSupabaseClient();
+      const { data: store, error } = await admin.from("shopify_stores").select("business_id").eq("shop_domain", shop).eq("status", "connected").maybeSingle();
+      if (error) throw new Error("database");
+      if (store) {
+        const { data: entitlement, error } = await admin.from("business_entitlements").select("billing_provider").eq("business_id", store.business_id).single();
+        if (error) throw new Error("database");
+        if (entitlement.billing_provider === "shopify") await confirmShopifyBilling(admin, store.business_id);
+      }
+    }
     await handleWebhook(topic, shop, {
       async uninstall(domain, triggeredAt) {
         const admin = createServerSupabaseClient();
+        await uninstallShopifyBilling(admin, domain, triggeredAt);
         const { error } = await admin.from("shopify_stores").update({ status: "uninstalled", pixel_status: "inactive", pixel_id: null, pixel_error: null, pixel_updated_at: new Date().toISOString(), ...clearedTokens, uninstalled_at: triggeredAt, updated_at: new Date().toISOString() }).eq("shop_domain", domain).neq("status", "uninstalled").lt("installed_at", triggeredAt);
         if (error) throw new Error("database");
         const { data: inactive, error: lookupError } = await admin.from("shopify_stores").select("id").eq("shop_domain", domain).eq("status", "uninstalled").lt("installed_at", triggeredAt).maybeSingle();

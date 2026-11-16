@@ -222,6 +222,10 @@ export async function POST(req: Request) {
       sourceEventType: event.type,
     });
 
+    if (!syncResult) {
+      await markEvent({ stripeEventId: event.id, status: "ignored", errorMessage: "Business uses Shopify Billing", metadata: { reason: "shopify_billing" } });
+      return NextResponse.json({ received: true, ignored: true });
+    }
     await recordConfirmedGrowthTrial({ supabase, event, subscription });
 
     const consumedTrial =

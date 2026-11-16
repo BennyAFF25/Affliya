@@ -21,3 +21,7 @@ uri = "https://www.nettmark.com/api/shopify/webhooks"
 [[webhooks.subscriptions]]
 topics = ["app/uninstalled"]
 uri = "https://www.nettmark.com/api/shopify/webhooks"
+
+[[webhooks.subscriptions]]
+topics = ["app_subscriptions/update"]
+uri = "https://www.nettmark.com/api/shopify/webhooks"

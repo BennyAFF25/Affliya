@@ -141,3 +141,23 @@ The My Business checklist requires a connected Shopify store with `pixel_status:
 In Shopify admin, **Settings → Customer events** shows a single **Pixels** list, with no separate App pixels / Custom pixels tabs. The app pixel entry is named **Nettmark**.
 
 On development/password-protected storefronts, the first visit through a tracking link lands on the password page and drops the `nm_` parameters. Unlock the storefront, then reopen the original tracking link before testing attribution. This affects only dev/password-protected stores.
+
+## Shopify recurring billing (staging preparation, November 2026)
+
+App Store-first anonymous grants completed through the pending install flow can claim Shopify billing when there is no Stripe subscription/customer/history, reservation or grandfathering. Nettmark-initiated connections retain Stripe. `business_entitlements.billing_provider` selects the provider; existing rows default to Stripe. Choose plan supports Free (cancel Shopify Growth first) and Growth (merchant approval URL). Confirmation and HMAC-authenticated `app_subscriptions/update` events re-query Admin GraphQL with refreshed credentials; query parameters and webhook payloads never grant access. Uninstall cancels only Shopify entitlements with the existing installation timestamp guard.
+
+`shopBillingPreferences { currency }` is queried before creating Growth. AUD stores use `SHOPIFY_GROWTH_PRICE_AMOUNT` (default 49.00 AUD); other stores use USD with an explicitly configured positive `SHOPIFY_GROWTH_PRICE_USD_AMOUNT`. Missing/invalid USD pricing returns `growth_unavailable_currency`; Free remains available. Choose plan displays the AUD reference price and Shopify confirms the final amount and currency. Growth is EVERY_30_DAYS, unlike Stripe's calendar month, with a 14-day trial once per business. Charges remain test unless both VERCEL_ENV=production and SHOPIFY_BILLING_TEST=false. Confirm configured price/currency parity before release. No environment/configuration has been applied.
+
+Mutations have durable serialization. A pending approval reuses its stored URL. An uncertain create/cancel or persistence failure leaves mutation_pending set; do not blindly clear it or recreate a charge. An operator must inspect the shop's active subscriptions, reconcile the stored GID/status/trial and only then release the lock (separately authorized database work). A missing known GID or unknown active subscription fails closed. No automated recovery from ambiguous external mutation outcomes is claimed.
+
+See [billing plan](../plans/active/shopify-billing.md) for scope, rollback and the unresolved usage/platform-fee proposal. Recurring billing alone does not resolve fee compliance for existing Stripe Connect settlement. Live dev-store validation and App Store review remain outstanding.
+
+Legacy trial-column DDL is absent from the repository even though Stripe code uses it. Shopify records its own consumed trial in shopify_app_subscriptions; a new trial requires explicit unused legacy history and unused Shopify history. Missing legacy evidence fails closed to no trial. Verify those existing fields/history in staging before release. An abandoned Stripe checkout reservation conservatively keeps that business on Stripe.
+
+Rollout order: the migration MUST be applied before deploying this code because `getBusinessEntitlement` now selects `billing_provider`. No migration or deployment was performed here.
+
+Shopify now recommends Shopify App Pricing (managed pricing in Partner Dashboard) for new public apps. Requirement 1.2 accepts either managed pricing or Billing API. This implementation uses Billing API/manual pricing to integrate provider isolation and existing entitlements; retaining it versus adopting managed pricing is a founder release decision (custom control versus Dashboard-managed pricing/lifecycle).
+
+After uninstall, a business without a connected store or ACTIVE/FROZEN/PENDING Shopify subscription can use Stripe checkout; the locked reservation records `business_billing_provider_changed` with from/to. App Store reinstall without Stripe history claims Shopify again and returns to Choose plan for fresh approval. Trial history survives uninstall. Reconciliation uses `business_subscription_status_synced`, matching Stripe; duplicate observations do not duplicate audit events. Pending plan mutations return empty 503 webhook responses for retry; successful handling returns 200.
+
+Stripe recovery carries consumed Shopify trial evidence into `growth_trial_used` under the entitlement lock. Checkout reads trial history after reservation; the read-only plan context also suppresses another trial before reservation.

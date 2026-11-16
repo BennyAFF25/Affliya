@@ -1,3 +1,4 @@
+import { claimShopifyBilling } from '../../../../lib/shopify/billing';
 import { NextRequest, NextResponse } from "next/server";
 import { env, requiredScopes, validShop, verifyOAuthHmac, verifyState, stateSecret } from "../../../../lib/shopify/security";
 import { exchangeToken } from "../../../../lib/shopify/admin";
@@ -27,6 +28,7 @@ export async function GET(req: NextRequest) {
     const pair = await exchangeToken(shop, code, requiredScopes());
     if (session) {
       await connectShop(session.admin, session.businessId, shop, pair.scopes, encryptedTokens(pair), webhookBaseUrl(req));
+      if (state.userId === null && await claimShopifyBilling(session.admin, session.businessId, shop, true)) destination.pathname = "/business/choose-plan";
       destination.searchParams.set("shopify", "connected");
     } else {
       pending = await savePending(createServerSupabaseClient(), state, pair);
