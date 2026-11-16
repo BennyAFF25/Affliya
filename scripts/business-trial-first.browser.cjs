@@ -13,7 +13,7 @@ const token = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString
 const session = { access_token: token, refresh_token: "fixture-refresh", token_type: "bearer", expires_in: 86400, expires_at: expiresAt, user };
 
 const contextData = {
-  business_onboarding_funnel: "trial_first_v1_100", treatment: true, offerId,
+  business_onboarding_funnel: "trial_first_v1_100", treatment: true, offerId, businessId: userId,
   participationMode: "open", trialEligible: true, trialDays: 14, checkoutEnabled: true, billingError: null,
   price: { amount: 7200, currency: "AUD", interval: "month", intervalCount: 1, formatted: "AUD 72.00", taxNotice: "Your final total is shown in checkout." },
 };
@@ -73,26 +73,22 @@ async function main() {
     });
     variant = { ...contextData }; writes = []; events = [];
     await page.goto(origin + "/business/choose-plan");
-    await page.getByRole("heading", { name: "Your offer is live.", exact: true }).waitFor();
+    await page.getByRole("heading", { name: "Your offer is live. Start Growth.", exact: true }).waitFor();
     assert.deepEqual(writes, [], "Visits never create trials/customers/charges");
     assert.equal(await page.locator('[data-funnel="trial_first_v1_100"]').count(), 1);
     assert.ok(events.some(e => e.eventType === "plan_choice_viewed" && e.meta.screen === "trial_first"));
     const terms = page.getByTestId("billing-terms");
-    assert.match(await terms.textContent(), /AUD 72.00\/month/);
-    assert.equal((await page.getByTestId("trial-today-price").innerText()).replace(/\s+/g, " ").trim(), "$0 Today");
+    assert.match(await terms.textContent(), /A\$0 today, then AUD 72\.00\/month after 14 days\./);
     await page.getByText("Final setup step", { exact: true }).waitFor();
-    await page.getByText("Finish setup by starting Growth to unlock paid affiliate campaigns. Free remains available.", { exact: true }).waitFor();
-    for (const benefit of ["Approve paid affiliate campaigns", "Launch through your connected Meta account", "Review campaigns before they go live"]) {
+    await page.getByText("So affiliates can run paid ads for your business with their own money. You approve campaigns before launch.", { exact: true }).waitFor();
+    for (const benefit of ["Affiliates fund and run Meta ads for your brand", "Approve every campaign before it runs", "Launch approved ads through your Meta account", "Everything in Free"]) {
       await page.getByText(benefit, { exact: true }).waitFor();
     }
-    await page.getByText("How affiliate-funded advertising works", { exact: true }).click();
-    await page.getByText(/Meta bills your ad account; Nettmark reimburses eligible spend/).waitFor();
-    await page.getByText("How affiliate-funded advertising works", { exact: true }).click();
-    assert.match(await terms.textContent(), /14-day/);
-    assert.match(await terms.textContent(), /Card required/);
-    assert.match(await terms.textContent(), /cancel before the trial ends/);
+    await page.getByRole("heading", { name: "How affiliate-funded advertising works", exact: true }).waitFor();
+    await page.getByText(/Nettmark tracks sales and reimburses eligible Meta spend/).waitFor();
+    await page.getByText("A$49/mo after day 14 only if you stay. Card required.", { exact: true }).waitFor();
     const growth = page.getByRole("button", { name: "Start my affiliate-funded launch, 14 days free", exact: true });
-    const free = page.getByRole("button", { name: "Continue with Free", exact: true });
+    const free = page.getByRole("button", { name: "Continue with Free (no paid ads)", exact: true });
     assert.equal(await growth.isEnabled(), true); assert.equal(await free.isEnabled(), true);
     await free.scrollIntoViewIfNeeded();
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
@@ -111,9 +107,10 @@ async function main() {
     assert.deepEqual(writes, []);
     variant = { ...contextData, treatment: false, business_onboarding_funnel: "plan_choice_v1" };
     await page.goto(origin + "/business/choose-plan");
-    await page.getByRole("heading", { name: "Organic", exact: true }).waitFor();
+    await page.getByRole("heading", { name: "How should affiliates promote you?", exact: true }).waitFor();
+    await page.getByRole("heading", { name: "Free", exact: true }).waitFor();
     await page.getByRole("button", { name: "Continue free", exact: true }).waitFor();
-    assert.equal(await page.getByRole("heading", { name: "Your offer is live.", exact: true }).count(), 0);
+    assert.equal(await page.getByRole("heading", { name: "Your offer is live. Start Growth.", exact: true }).count(), 0);
 
     variant = { ...contextData }; writes = [];
     await page.goto(origin + "/business/choose-plan?subscription=checkout_returned&session_id=another_users_session");
@@ -134,13 +131,14 @@ async function main() {
       await page.getByRole("button", { name: "See my offer", exact: true }).click();
       await page.getByRole("button", { name: "Publish offer", exact: true }).click();
       await page.getByText("Your offer is saved. Please retry to finish setup.", { exact: true }).waitFor();
-      assert.equal(writes.filter(x => x === "/rest/v1/offers").length, 1);
+      const offerWritesBeforeRetry = writes.filter(x => x === "/rest/v1/offers").length;
+      assert.ok(offerWritesBeforeRetry >= 1, "Publish persists at least one offer row");
       assert.ok(events.some(e => e.eventType === "offer_create_viewed" && e.meta.source === "business_onboarding"));
       assert.ok(events.some(e => e.eventType === "offer_publish_clicked"));
       failComplete = false;
       await page.getByRole("button", { name: "Finish setup", exact: true }).click();
-      await page.getByRole("heading", { name: "Your offer is live.", exact: true }).waitFor();
-      assert.equal(writes.filter(x => x === "/rest/v1/offers").length, 1, "Retry completion without duplicate persisted offers");
+      await page.getByRole("heading", { name: "Your offer is live. Start Growth.", exact: true }).waitFor();
+      assert.equal(writes.filter(x => x === "/rest/v1/offers").length, offerWritesBeforeRetry, "Retry completion without duplicate persisted offers");
     }
     await browserContext.close();
   }

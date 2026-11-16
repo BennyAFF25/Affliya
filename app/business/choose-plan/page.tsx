@@ -1,5 +1,5 @@
 "use client";
-import { businessContinuationDestination } from "../../../utils/safeBusinessReturnTo";
+import { businessContinuationDestination, safeBusinessReturnTo } from "../../../utils/safeBusinessReturnTo";
 import React, { useEffect, useRef, useState } from "react";
 import { resolveBusinessPlanChoice } from "../../../utils/businessPlanChoice";
 import { useRouter } from "next/navigation";
@@ -13,9 +13,13 @@ import { shouldShowPlanChoiceAfterPublish } from "../../../utils/onboardingSucce
 
 export default function ChooseBusinessPlanPage() {
   const router = useRouter();
-  // Preserve the login destination while keeping every existing plan decision.
+  const continuationReturnTo = () => {
+    const query = new URLSearchParams(window.location.search);
+    return safeBusinessReturnTo(query.get("returnTo") ?? query.get("next"));
+  };
+  // Preserve the validated destination through plan selection and checkout.
   const continueTo = (destination: string) => router.replace(businessContinuationDestination(
-    destination, new URLSearchParams(window.location.search).get("next"),
+    destination, continuationReturnTo(),
   ));
   const { session, isLoading } = useSessionContext();
   const [businessId, setBusinessId] = useState<string | null>(null);
@@ -107,7 +111,7 @@ export default function ChooseBusinessPlanPage() {
     void logProductEvent({ eventType: "plan_growth_clicked", actorRole: "business", offerId: context.offerId, meta: { source: "plan_choice", intended_action: resumeSubscription ? "paid_subscription" : "free_trial", ...getAttributionFromWindow() } });
     try {
       const response = await fetch("/api/business-subscription/create-checkout-session", { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId, returnTo: businessContinuationDestination("/business/choose-plan", new URLSearchParams(window.location.search).get("next")), requireTrial: !resumeSubscription, intendedAction: resumeSubscription ? "continue_growth_subscription" : "start_growth_trial", attribution: getAttributionFromWindow() }) });
+        body: JSON.stringify({ businessId, returnTo: businessContinuationDestination("/business/choose-plan", continuationReturnTo()), requireTrial: !resumeSubscription, intendedAction: resumeSubscription ? "continue_growth_subscription" : "start_growth_trial", attribution: getAttributionFromWindow() }) });
       const result = await response.json();
       if (result.status === "already_subscribed" || result.status === "grandfathered") { continueTo(context?.planFirst && !context.offerId ? "/onboarding/for-business" : "/business/my-business"); return; }
       if (!response.ok || !result.url) throw new Error(result.error || result.message || "Could not start checkout.");

@@ -1,3 +1,5 @@
+import { safeBusinessReturnTo } from "./safeBusinessReturnTo";
+
 export type OnboardingSuccessStep = { message: string; buttonLabel: string; href: string };
 
 /** Post-publish next step: subscribed/trialing brands already chose a plan. */
@@ -21,7 +23,8 @@ export const POST_PUBLISH_CHOOSE_PLAN_HREF = "/business/choose-plan?plan=growth&
 /** True when choose-plan should render plans rather than auto-continue a brand that already chose Free. */
 export function shouldShowPlanChoiceAfterPublish(search: string): boolean {
   const params = new URLSearchParams(search);
-  return params.get("source") === "offer_published" || params.has("subscription");
+  return params.get("source") === "offer_published" || params.has("subscription") ||
+    Boolean(safeBusinessReturnTo(params.get("returnTo"))) || params.get("reason") === "meta_requires_growth";
 }
 
 /** A brand that already has an offer must not see the first-offer wizard intro again (e.g. after a reload). */
