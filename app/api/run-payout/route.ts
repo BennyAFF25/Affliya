@@ -4,7 +4,8 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createClient } from "@supabase/supabase-js";
 import {
-  calculateChargeOnTopFee,
+  calculateBusinessPayoutCharge,
+  resolveRecordedPayoutCharge,
   recordPlatformFeeLedger,
   toStripeAmount,
 } from "@/../utils/feeAccounting";
@@ -94,6 +95,10 @@ async function persistPayoutFeeLedger(params: {
     errorMessage,
   } = params;
 
+  // Zero fees create no revenue entry. wallet_payouts retains gross/principal and
+  // processor costs for reconciliation, including waived Shopify payouts.
+  if (nettmarkFeeAmount === 0) return;
+
   await recordPlatformFeeLedger(supabase as never, {
     sourceType: "wallet_payout",
     sourceId: String(payout.id),
@@ -157,7 +162,7 @@ function getErrorMessage(err: unknown) {
   return "unknown";
 }
 
-function resolvePayoutAvailableAtIso(payout: Record<string, any>) {
+function resolvePayoutAvailableAtIso(payout: { available_at?: string | null; created_at?: string | null }) {
   if (payout.available_at) return String(payout.available_at);
   const createdAt = payout.created_at ? new Date(payout.created_at) : new Date();
   createdAt.setDate(createdAt.getDate() + 14);
@@ -338,9 +343,8 @@ async function handlePost(req: Request) {
       );
     }
 
-    const feeBreakdown = calculateChargeOnTopFee(amount);
     const payoutAmountInCents = toStripeAmount(amount);
-    const grossChargeAmountInCents = toStripeAmount(feeBreakdown.grossAmount);
+
     if (payoutAmountInCents < 50) {
       return NextResponse.json(
         {
@@ -365,6 +369,46 @@ async function handlePost(req: Request) {
     if (bizErr || !business) {
       console.error("[RUN_PAYOUT] business_not_found", bizErr);
       return NextResponse.json({ error: "business_not_found" }, { status: 400 });
+    }
+
+    // Fail closed on provider lookup errors, including retries; never guess a charge policy.
+    let entitlementQuery = supabase.from("business_entitlements").select("billing_provider");
+    entitlementQuery = business.id
+      ? entitlementQuery.eq("business_id", business.id)
+      : entitlementQuery.eq("business_email", payout.business_email);
+    const entitlement = await entitlementQuery.maybeSingle();
+    if (entitlement.error) throw new Error("business_billing_provider_lookup_failed");
+    const billingProvider = entitlement.data?.billing_provider || "stripe";
+    let feeBreakdown = calculateBusinessPayoutCharge(amount, { billingProvider });
+    let existingPaymentIntent: Stripe.PaymentIntent | undefined;
+    if (payout.stripe_payment_intent_id) {
+      existingPaymentIntent = await getStripe().paymentIntents.retrieve(payout.stripe_payment_intent_id);
+      const gross = existingPaymentIntent.amount / 100;
+      feeBreakdown = resolveRecordedPayoutCharge(amount, gross, Math.round((gross - amount) * 100) / 100);
+    } else {
+      // Freeze amounts BEFORE creating Stripe objects. CAS makes concurrent requests and
+      // retries after a lost Stripe response reuse identical idempotency parameters even
+      // when the provider or server flag changes. Never overwrite an existing snapshot.
+      const snapshot = await supabase.from("wallet_payouts").update({
+        gross_charge_amount: feeBreakdown.grossAmount,
+        nettmark_fee_amount: feeBreakdown.feeAmount,
+      }).eq("id", payout.id).is("gross_charge_amount", null).is("stripe_payment_intent_id", null);
+      if (snapshot.error) throw snapshot.error;
+      const frozen = await supabase.from("wallet_payouts")
+        .select("gross_charge_amount,nettmark_fee_amount,stripe_payment_intent_id").eq("id", payout.id).single();
+      if (frozen.error || frozen.data?.gross_charge_amount == null)
+        throw new Error("payout_charge_snapshot_failed");
+      const frozenGross = Number(frozen.data.gross_charge_amount);
+      // Older rows may carry a gross amount without a stored fee; derive it so they stay payable.
+      const frozenFee = frozen.data.nettmark_fee_amount == null
+        ? Math.round((frozenGross - amount) * 100) / 100
+        : Number(frozen.data.nettmark_fee_amount);
+      feeBreakdown = resolveRecordedPayoutCharge(amount, frozenGross, frozenFee);
+      if (frozen.data.stripe_payment_intent_id) {
+        existingPaymentIntent = await getStripe().paymentIntents.retrieve(frozen.data.stripe_payment_intent_id);
+        const gross = existingPaymentIntent.amount / 100;
+        feeBreakdown = resolveRecordedPayoutCharge(amount, gross, Math.round((gross - amount) * 100) / 100);
+      }
     }
 
     let affiliateQuery = supabase
@@ -455,12 +499,12 @@ async function handlePost(req: Request) {
     const transferIdempotencyKey = buildTransferIdempotencyKey(payout.id);
 
     let paymentIntent: Stripe.PaymentIntent;
-    if (payout.stripe_payment_intent_id) {
-      paymentIntent = await getStripe().paymentIntents.retrieve(payout.stripe_payment_intent_id);
+    if (existingPaymentIntent) {
+      paymentIntent = existingPaymentIntent;
     } else {
       paymentIntent = await getStripe().paymentIntents.create(
         {
-          amount: grossChargeAmountInCents,
+          amount: toStripeAmount(feeBreakdown.grossAmount),
           currency: "aud",
           customer: customerId,
           payment_method: paymentMethodId,

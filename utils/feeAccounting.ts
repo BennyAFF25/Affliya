@@ -2,8 +2,8 @@ const DEFAULT_NETTMARK_FEE_BPS = 220;
 const DEFAULT_STRIPE_FEE_BPS = 175;
 const DEFAULT_STRIPE_FIXED_FEE = 0.3;
 
-function getConfiguredFeeBps() {
-  const raw = (process.env.NETTMARK_TRANSACTION_FEE_BPS || "").trim();
+function getConfiguredFeeBps(env: BusinessFeeEnvironment = process.env) {
+  const raw = (env.NETTMARK_TRANSACTION_FEE_BPS || "").trim();
   if (!raw) {
     return DEFAULT_NETTMARK_FEE_BPS;
   }
@@ -58,9 +58,8 @@ function roundCurrency(value: number) {
   return Math.round(value * 100) / 100;
 }
 
-export function calculateChargeOnTopFee(principalAmount: number) {
+export function calculateChargeOnTopFee(principalAmount: number, feeBps = getConfiguredFeeBps()) {
   const safePrincipal = roundCurrency(Math.max(0, Number(principalAmount) || 0));
-  const feeBps = getConfiguredFeeBps();
   const feeAmount = roundCurrency((safePrincipal * feeBps) / 10000);
   const grossAmount = roundCurrency(safePrincipal + feeAmount);
 
@@ -70,6 +69,37 @@ export function calculateChargeOnTopFee(principalAmount: number) {
     feeAmount,
     grossAmount,
   };
+}
+
+export type BusinessFeeEnvironment = {
+  [key: string]: string | undefined;
+  NETTMARK_TRANSACTION_FEE_BPS?: string;
+  SHOPIFY_BILLED_PLATFORM_FEE_ENABLED?: string;
+};
+
+export function resolveBusinessFeeBps(
+  billingProvider: string | null | undefined,
+  env: BusinessFeeEnvironment = process.env,
+) {
+  return billingProvider === "shopify" && env.SHOPIFY_BILLED_PLATFORM_FEE_ENABLED !== "true"
+    ? 0 : getConfiguredFeeBps(env);
+}
+
+export function calculateBusinessPayoutCharge(
+  principalAmount: number,
+  { billingProvider }: { billingProvider?: string | null },
+  env: BusinessFeeEnvironment = process.env,
+) {
+  return calculateChargeOnTopFee(principalAmount, resolveBusinessFeeBps(billingProvider, env));
+}
+
+/** Stripe's actual amount wins over current provider/flag and stale bookkeeping on retries. */
+export function resolveRecordedPayoutCharge(principal: number, gross: number, fee: number) {
+  if (![principal, gross, fee].every(Number.isFinite) || principal <= 0 || fee < 0 ||
+      toStripeAmount(principal + fee) !== toStripeAmount(gross)) {
+    throw new Error("payout_charge_amount_conflict");
+  }
+  return { principalAmount: principal, grossAmount: gross, feeAmount: fee, feeBps: principal ? Math.round(fee / principal * 10000) : 0 };
 }
 
 export function calculateWalletTopupCharge(principalAmount: number) {
