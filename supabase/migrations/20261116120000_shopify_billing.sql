@@ -26,7 +26,7 @@ GRANT ALL ON public.shopify_app_subscriptions TO service_role;
 
 -- Serialize provider selection with Stripe's reservation of a subscription customer.
 CREATE OR REPLACE FUNCTION public.claim_shopify_billing(p_business uuid, p_shop text) RETURNS boolean
-LANGUAGE plpgsql SECURITY INVOKER SET search_path = public AS $$
+LANGUAGE plpgsql SECURITY INVOKER SET search_path = public AS $fn$
 DECLARE e public.business_entitlements;
 BEGIN
   SELECT * INTO e FROM public.business_entitlements WHERE business_id=p_business FOR UPDATE;
@@ -44,10 +44,10 @@ BEGIN
   END IF;
   UPDATE public.business_entitlements SET billing_provider='shopify' WHERE business_id=p_business;
   RETURN true;
-END $$;
+END $fn$;
 
 CREATE OR REPLACE FUNCTION public.reserve_stripe_billing(p_business uuid) RETURNS boolean
-LANGUAGE plpgsql SECURITY INVOKER SET search_path=public AS $$
+LANGUAGE plpgsql SECURITY INVOKER SET search_path=public AS $fn$
 DECLARE e public.business_entitlements;
 BEGIN
   SELECT * INTO e FROM public.business_entitlements WHERE business_id=p_business FOR UPDATE;
@@ -60,20 +60,21 @@ BEGIN
         SELECT 1 FROM public.shopify_app_subscriptions WHERE business_id=p_business AND (trial_used OR trial_started_at IS NOT NULL)
       ) WHERE business_id=p_business;
     INSERT INTO public.business_entitlement_events(business_entitlement_id,business_id,business_email,event_type,billing_status,metadata)
-      VALUES(e.id,p_business,e.business_email,'business_billing_provider_changed',e.billing_status,
-        jsonb_build_object('from','shopify','to','stripe'));
+      VALUES(e.id,p_business,e.business_email,'business_subscription_status_synced',e.billing_status,
+        -- Reuses an allowed event_type (business_entitlement_events_type_check); the change is in metadata.
+        jsonb_build_object('source','billing_provider_change','from','shopify','to','stripe'));
     RETURN true;
   END IF;
   UPDATE public.business_entitlements SET stripe_billing_reserved=true WHERE business_id=p_business;
   RETURN true;
-END $$;
+END $fn$;
 REVOKE ALL ON FUNCTION public.reserve_stripe_billing(uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.reserve_stripe_billing(uuid) TO service_role;
 
 -- Atomic state + entitlement reconciliation. Older observations cannot undo uninstall/newer queries.
 CREATE OR REPLACE FUNCTION public.sync_shopify_billing(p_business uuid, p_shop text, p_state jsonb, p_observed timestamptz)
-RETURNS boolean LANGUAGE plpgsql SECURITY INVOKER SET search_path=public AS $$
-DECLARE e public.business_entitlements; s public.shopify_app_subscriptions; v_status text; v_billing text;
+RETURNS boolean LANGUAGE plpgsql SECURITY INVOKER SET search_path=public AS $fn$
+DECLARE e public.business_entitlements; s public.shopify_app_subscriptions; v_status text; v_billing text; v_effective text;
 BEGIN
   SELECT * INTO e FROM public.business_entitlements WHERE business_id=p_business FOR UPDATE;
   IF NOT FOUND OR e.billing_provider<>'shopify' THEN RETURN false; END IF;
@@ -86,13 +87,15 @@ BEGIN
     WHEN 'CANCELLED' THEN 'subscription_cancelled' WHEN 'DECLINED' THEN 'subscription_cancelled'
     WHEN 'EXPIRED' THEN 'subscription_cancelled' ELSE NULL END;
   IF v_billing IS NULL THEN RAISE EXCEPTION 'invalid_status'; END IF;
+  -- Computed outside IF: PL/pgSQL ends an IF condition at the first THEN token.
+  v_effective := CASE WHEN s.shopify_plan='free' THEN 'free' ELSE v_billing END;
   IF v_status <> 'CANCELLED' AND NOT EXISTS (
     SELECT 1 FROM public.shopify_stores WHERE business_id=p_business AND shop_domain=p_shop AND status='connected'
   ) THEN RETURN false; END IF;
   -- A repeated observation advances the watermark without rewriting entitlements/audit.
   IF s.status=v_status AND s.current_period_end IS NOT DISTINCT FROM (p_state->>'currentPeriodEnd')::timestamptz
     AND (s.trial_end IS NULL OR v_status<>'ACTIVE' OR s.trial_used)
-    AND e.billing_status=CASE WHEN s.shopify_plan='free' THEN 'free' ELSE v_billing END THEN
+    AND e.billing_status=v_effective THEN
     UPDATE public.shopify_app_subscriptions SET observed_at=p_observed WHERE business_id=p_business;
     RETURN false;
   END IF;
@@ -101,17 +104,17 @@ BEGIN
     trial_used=trial_used OR (v_status='ACTIVE' AND s.trial_end IS NOT NULL),
     trial_started_at=CASE WHEN v_status='ACTIVE' AND s.trial_end IS NOT NULL THEN COALESCE(trial_started_at,now()) ELSE trial_started_at END
     WHERE business_id=p_business;
-  UPDATE public.business_entitlements SET billing_status=CASE WHEN s.shopify_plan='free' THEN 'free' ELSE v_billing END,
+  UPDATE public.business_entitlements SET billing_status=v_effective,
     subscription_required=NOT (s.shopify_plan='growth' AND v_status='ACTIVE'),
     subscription_current_period_end=(p_state->>'currentPeriodEnd')::timestamptz,
     subscription_cancelled_at=CASE WHEN v_billing='subscription_cancelled' THEN COALESCE(subscription_cancelled_at,now()) ELSE NULL END
     WHERE business_id=p_business AND billing_provider='shopify';
   INSERT INTO public.business_entitlement_events(business_entitlement_id,business_id,business_email,event_type,billing_status,metadata)
     VALUES(e.id,p_business,e.business_email,'business_subscription_status_synced',
-      CASE WHEN s.shopify_plan='free' THEN 'free' ELSE v_billing END,
+      v_effective,
       jsonb_build_object('source','shopify_billing','subscriptionId',s.shopify_app_subscription_id,'status',v_status));
   RETURN true;
-END $$;
+END $fn$;
 REVOKE ALL ON FUNCTION public.claim_shopify_billing(uuid,text) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.sync_shopify_billing(uuid,text,jsonb,timestamptz) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.claim_shopify_billing(uuid,text) TO service_role;

@@ -301,7 +301,7 @@ async function main() {
   assert.match(sql, /ENABLE ROW LEVEL SECURITY/);
   assert.match(sql, /REVOKE ALL ON public.shopify_app_subscriptions FROM PUBLIC, anon, authenticated/);
   assert.match(sql, /FOR UPDATE/);
-  assert.match(sql, /business_billing_provider_changed/);
+  assert.match(sql, /billing_provider_change/);
   assert.match(sql, /business_subscription_status_synced/);
   assert.doesNotMatch(sql, /to_jsonb/);
   assert.match(sql, /status IN \('ACTIVE','FROZEN','PENDING'\)/);
