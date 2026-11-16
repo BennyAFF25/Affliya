@@ -38,7 +38,7 @@ export async function promotionJson(url: string, init: RequestInit = {}) {
     if (!response.ok || !json?.ok) throw new Error(json?.message || json?.error || 'Request failed. Try again.');
     return json;
   } catch (error) {
-    if (controller.signal.aborted) throw new Error('The request took too long. Check the status and try again. Your draft is still here.');
+    if (controller.signal.aborted) throw new Error('The request took too long. Check the status and try again. Your draft is still here.', { cause: error });
     throw error;
   } finally { clearTimeout(timer); }
 }
