@@ -3,11 +3,10 @@ import { createServerSupabaseClient } from '../../../utils/businessSubscriptions
 import { captureCreatorReferral, findActiveCreatorPartnerByCode, CREATOR_REFERRAL_COOKIE } from '../../../utils/creatorReferrals';
 import { referralEvent } from '../../../utils/growthPartners/events';
 import { ipHash } from '../../../utils/growthPartners/applications';
-import { growthOrigin } from '../../../utils/growthPartners/email';
 import { isLikelyAutomatedVisit } from '../../../utils/tracking/visitMetrics';
 import { randomUUID } from 'node:crypto';
 export async function GET(req: Request, { params }: { params: Promise<{ code: string }> }) {
-  const source = new URL(req.url), target = new URL('/for-businesses', growthOrigin());
+  const source = new URL(req.url), target = new URL('/for-businesses', source.origin);
   for (const [key,value] of source.searchParams) if (/^utm_/.test(key) || key === 'fbclid') target.searchParams.set(key,value.slice(0,500));
   const response = NextResponse.redirect(target,307);
   response.headers.set('X-Robots-Tag','noindex, nofollow');

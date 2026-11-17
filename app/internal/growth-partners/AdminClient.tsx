@@ -1,4 +1,5 @@
 'use client';
+import React from 'react';
 import { useEffect,useState } from 'react';
 type Row={id:string;[key:string]:unknown};
 type Report={rows?:Row[];count?:number;partner?:Row;referrals?:Row[];ledger?:Row[];events?:Row[];payouts?:Row[];flags?:string[]};

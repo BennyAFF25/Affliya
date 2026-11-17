@@ -1,3 +1,4 @@
+import React from 'react';
 import LoginForm from './LoginForm';
 export default async function GrowthLoginPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
   const query = await searchParams;

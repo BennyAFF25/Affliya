@@ -1,4 +1,5 @@
 'use client';
+import React from 'react';
 import { useState } from 'react';
 import { trackMetaStandardEvent } from '../../../utils/marketing/metaPixel';
 const categories = ['creator','educator','media_buyer','agency','consultant','accountant_or_advisor','other'];

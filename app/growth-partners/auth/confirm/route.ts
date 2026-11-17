@@ -3,12 +3,11 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
 import { NextResponse } from 'next/server';
 import { createServerSupabaseClient } from '../../../../utils/businessSubscriptions';
 import { getGrowthPartnerForUser } from '../../../../utils/growthPartners/accounts';
-import { growthOrigin } from '../../../../utils/growthPartners/email';
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const token = url.searchParams.get('token_hash');
   const type = url.searchParams.get('type');
-  const failure = () => NextResponse.redirect(`${growthOrigin()}/growth-partners/login?error=link`);
+  const failure = () => NextResponse.redirect(new URL('/growth-partners/login?error=link', url.origin));
   if (!token || !['magiclink','email'].includes(type || '')) return failure();
   const auth = createRouteHandlerClient({ cookies });
   try {
@@ -16,6 +15,6 @@ export async function GET(req: Request) {
     if (error || !data.user) return failure();
     const partner = await getGrowthPartnerForUser(createServerSupabaseClient(), data.user.id);
     if (!partner || !['active','suspended'].includes(partner.status)) { await auth.auth.signOut(); return failure(); }
-    return NextResponse.redirect(`${growthOrigin()}/growth-partners/dashboard`);
+    return NextResponse.redirect(new URL('/growth-partners/dashboard', url.origin));
   } catch { return failure(); }
 }

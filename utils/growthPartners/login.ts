@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AuthLimiter } from '../auth/rateLimit';
-import { growthOrigin, sendGrowthEmail } from './email';
+import type { sendGrowthEmail } from './email';
 export const loginResponse = { ok: true, message: 'If you have a Growth Partner account, a sign-in link will arrive shortly.' };
 export function createGrowthLoginHandler(deps: { limit: AuthLimiter; admin: () => SupabaseClient; send: typeof sendGrowthEmail }) {
   return async (req: Request) => {
@@ -15,7 +15,7 @@ export function createGrowthLoginHandler(deps: { limit: AuthLimiter; admin: () =
       if (identityError || identity.user?.email?.toLowerCase() !== email) return Response.json(loginResponse);
       const { data, error: linkError } = await db.auth.admin.generateLink({ type: 'magiclink', email });
       const token = data?.properties?.hashed_token;
-      if (!linkError && token) await deps.send(email, 'Sign in to Nettmark Growth Partners', { heading: 'Your secure sign-in link', body: 'Use this link to access your Growth Partner dashboard. If you did not request it, ignore this email.', cta: { label: 'Sign in', href: `${growthOrigin()}/growth-partners/auth/confirm?token_hash=${encodeURIComponent(token)}&type=magiclink` } });
+      if (!linkError && token) await deps.send(email, 'Sign in to Nettmark Growth Partners', { heading: 'Your secure sign-in link', body: 'Use this link to access your Growth Partner dashboard. If you did not request it, ignore this email.', cta: { label: 'Sign in', href: `${new URL(req.url).origin}/growth-partners/auth/confirm?token_hash=${encodeURIComponent(token)}&type=magiclink` } });
     } catch { console.warn('[growth-partners] Sign-in request unavailable'); }
     return Response.json(loginResponse);
   };

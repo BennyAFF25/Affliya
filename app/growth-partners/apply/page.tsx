@@ -1,3 +1,4 @@
+import React from 'react';
 import Link from 'next/link';
 import ApplicationForm from './ApplicationForm';
 export default function ApplyPage() {

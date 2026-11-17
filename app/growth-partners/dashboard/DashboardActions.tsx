@@ -1,4 +1,5 @@
 'use client';
+import React from 'react';
 import { useState } from 'react';
 export default function DashboardActions({referralUrl,profileRole}:{referralUrl:string|null;profileRole:string|null}) {
   const [message,setMessage]=useState(''),[busy,setBusy]=useState(false);
