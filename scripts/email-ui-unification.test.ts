@@ -55,7 +55,7 @@ function run() {
     "app/api/emails/founder-notify/route.ts",
     "app/api/emails/new-offer/route.ts",
     "utils/email/sendInboxNotificationEmail.ts",
-    "app/api/auth/send-password-reset/route.ts",
+    "utils/auth/passwordResetHandler.ts",
     "app/api/send-tracking-code/route.ts",
   ];
 
@@ -73,7 +73,9 @@ function run() {
   assert.doesNotMatch(legacyTemplates, /first 150 users/i);
   assert.doesNotMatch(legacyTemplates, /free for life/i);
 
-  const reset = read("app/api/auth/send-password-reset/route.ts");
+  const resetRoute = read("app/api/auth/send-password-reset/route.ts");
+  assert.match(resetRoute, /export const POST = createPasswordResetHandler\(\)/);
+  const reset = read("utils/auth/passwordResetHandler.ts");
   assert.match(reset, /Set a new password/);
   assert.match(reset, /resetUrl/);
   const tracking = read("app/api/send-tracking-code/route.ts");

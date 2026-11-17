@@ -68,7 +68,8 @@ export function parseCreatorReferralCookie(raw?: string | null): CreatorReferral
   try {
     const parsed = JSON.parse(raw) as Partial<CreatorReferralCookie>;
     if (!parsed.referralCode || !parsed.creatorPartnerId || !parsed.expiresAt) return null;
-    if (Date.parse(parsed.expiresAt) <= Date.now()) return null;
+    if (!Number.isFinite(Date.parse(parsed.expiresAt)) || Date.parse(parsed.expiresAt) <= Date.now()) return null;
+    if (!parsed.capturedAt || !Number.isFinite(Date.parse(parsed.capturedAt))) return null;
     return parsed as CreatorReferralCookie;
   } catch {
     return null;
@@ -185,7 +186,7 @@ export async function recordCreatorReferralSignupIntent(params: {
   const { data: priorBusiness, error: priorError } = await params.supabase.from('business_profiles').select('id,created_at').eq('business_email', businessEmail).maybeSingle();
   if (priorError) throw new Error('Business identity check failed');
   if (priorBusiness) {
-    if (Date.parse(priorBusiness.created_at) < Date.parse(cookie.capturedAt) - 600000) return reject('pre_existing_business');
+    if (Date.parse(priorBusiness.created_at) < Date.parse(cookie.capturedAt)) return reject('pre_existing_business');
     const { data: priorEntitlement, error } = await params.supabase.from('business_entitlements').select('stripe_subscription_id,growth_trial_used,is_grandfathered').eq('business_id', priorBusiness.id).maybeSingle();
     if (error) throw new Error('Business entitlement check failed');
     if (priorEntitlement?.stripe_subscription_id || priorEntitlement?.growth_trial_used || priorEntitlement?.is_grandfathered) return reject('existing_subscription_or_trial');

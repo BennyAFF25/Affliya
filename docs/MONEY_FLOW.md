@@ -39,3 +39,11 @@ Commission readiness deliberately uses `business_profiles.stripe_customer_id`, n
 ## Risks to resolve before money changes
 
 Some service-role routes (`run-payout`, `process-conversion`, `ad-spend/settle`, `stripe/refund`) show no explicit session/owner verification in their handlers. Middleware is not a general guard. Deployment protection is unknown. Generic events lack durable external-order deduplication; ingestion success does not prove payout creation succeeded. Offers allow currency selection, while commission payout execution hardcodes AUD. No commission-payout cron is declared in `vercel.json`; automated settlement outside the checked-in business UI is unknown.
+
+## Growth Partner subscription commissions
+
+This is separate from merchant-sale affiliate payouts and spend wallets. `utils/growthPartners/commissionMath.ts` calculates integer minor-unit collected monthly subscription revenue, excluding reported Stripe tax, discounts/pretax credits, non-subscription items and prorations, capped by collected revenue less tax. AUD invoices without reported tax default to a GST-inclusive 10/11 basis; `GROWTH_PARTNER_ASSUME_AUD_GST_INCLUSIVE=false` disables that fallback. Default terms are 50% for three successful unreversed periods per business, including resubscriptions; free, failed, grandfathered and suspended-partner cases do not earn commission.
+
+The RPC creates pending commissions with a default 14-day approval hold. Admin approval and manual payout recording are separate; recording does not transfer money. Selection must contain one partner/currency, approved commissions or pending negative clawbacks, and a positive net total. Cumulative partial refunds reduce unpaid commissions proportionally; full unpaid refunds reverse them. Paid refunds/disputes create negative clawbacks for subsequent settlement, with replay protection. Fully reversed unpaid periods release a slot; paid periods remain counted even after clawback. Legacy rows without collected amounts require reconciliation.
+
+Stripe reporting errors are isolated from entitlement processing and logged for reconciliation; webhook event deduplication means replay alone may not repair a missed reporting mutation. SQL execution and concurrent refund/payout behavior remain staging-review requirements.

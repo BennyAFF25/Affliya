@@ -117,7 +117,7 @@ BEGIN
   ELSIF lower(v_partner.partner_email)=lower(p_business_email) OR v_partner.user_id=v_intent.user_id OR v_partner.user_id=p_business_id OR EXISTS (
     SELECT 1 FROM public.growth_partner_applications a WHERE a.id=v_partner.application_id AND a.email=lower(p_business_email)
   ) THEN v_reason := 'self_referral_rejected';
-  ELSIF v_business.created_at < coalesce(v_intent.captured_at,v_intent.created_at)-interval '10 minutes' THEN v_reason := 'pre_existing_business';
+  ELSIF v_business.created_at < coalesce(v_intent.captured_at,v_intent.created_at) THEN v_reason := 'pre_existing_business';
   ELSIF EXISTS (SELECT 1 FROM public.business_entitlements be WHERE (be.business_id=p_business_id OR lower(be.business_email)=lower(p_business_email)) AND (be.is_grandfathered OR be.growth_trial_used OR be.stripe_subscription_id IS NOT NULL)) THEN v_reason := 'existing_subscription_or_trial';
   END IF;
   IF v_reason IS NOT NULL THEN
