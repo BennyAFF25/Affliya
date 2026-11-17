@@ -42,9 +42,9 @@ export default async function InternalCreatorReferralsPage({ searchParams }: { s
   const supabase = createClient(url, serviceRole, { auth: { persistSession: false } });
 
   const [partners, attributions, commissions] = await Promise.all([
-    supabase.from("creator_partners").select("id,display_name,partner_email,referral_code,status,commission_percentage,commission_duration_months,created_at").order("created_at", { ascending: false }).limit(50),
-    supabase.from("business_creator_attributions").select("id,business_id,business_email,creator_partner_id,referral_code,attributed_at,attribution_source,landing_session_id,first_subscription_id").order("attributed_at", { ascending: false }).limit(100),
-    supabase.from("creator_commission_ledger").select("id,creator_partner_id,business_id,stripe_invoice_id,stripe_subscription_id,gross_eligible_subscription_amount,commission_percentage,commission_amount,currency,commission_month_number,status,eligibility_date,reversal_reason").order("created_at", { ascending: false }).limit(100),
+    supabase.from("creator_partners").select("id,display_name,partner_email,referral_code,status,commission_percentage,commission_duration_months,created_at").eq("program", "creator").order("created_at", { ascending: false }).limit(50),
+    supabase.from("business_creator_attributions").select("id,business_id,business_email,creator_partner_id,referral_code,attributed_at,attribution_source,landing_session_id,first_subscription_id,creator_partners!inner(program)").eq("creator_partners.program", "creator").order("attributed_at", { ascending: false }).limit(100),
+    supabase.from("creator_commission_ledger").select("id,creator_partner_id,business_id,stripe_invoice_id,stripe_subscription_id,gross_eligible_subscription_amount,commission_percentage,commission_amount,currency,commission_month_number,status,eligibility_date,reversal_reason,creator_partners!inner(program)").eq("creator_partners.program", "creator").order("created_at", { ascending: false }).limit(100),
   ]);
 
   const rows = {
@@ -54,7 +54,7 @@ export default async function InternalCreatorReferralsPage({ searchParams }: { s
   };
 
   const pendingTotal = rows.commissions
-    .filter((row) => row.status === "pending" || row.status === "payable")
+    .filter((row) => row.status === "pending" || row.status === "approved")
     .reduce((sum, row) => sum + Number(row.commission_amount || 0), 0);
   const paidTotal = rows.commissions
     .filter((row) => row.status === "paid")
@@ -69,7 +69,7 @@ export default async function InternalCreatorReferralsPage({ searchParams }: { s
           <div className="mt-5 grid gap-3 sm:grid-cols-4">
             <Stat label="Creator partners" value={rows.partners.length} />
             <Stat label="Referred businesses" value={rows.attributions.length} />
-            <Stat label="Pending/payable" value={money(pendingTotal)} />
+            <Stat label="Pending/approved" value={money(pendingTotal)} />
             <Stat label="Paid" value={money(paidTotal)} />
           </div>
         </section>

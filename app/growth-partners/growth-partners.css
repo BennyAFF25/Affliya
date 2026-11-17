@@ -1,0 +1,26 @@
+.growth-partners { min-height:100vh; background:#0f0f0f; color:#fff; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+.gp-shell { max-width:1100px; margin:auto; padding:24px 16px 72px; }
+.gp-header { display:flex; justify-content:space-between; align-items:center; gap:16px; padding:8px 0 48px; }
+.gp-brand { font-size:28px; font-weight:700; letter-spacing:-1px; color:#fff!important; }
+.gp-brand span,.gp-accent { color:#00c2cb; }
+.gp-eyebrow { font-size:10px; text-transform:uppercase; letter-spacing:.2em; color:#94a3b8; }
+.gp-hero { padding:24px 0 48px; max-width:780px; }
+.gp-hero h1 { font-size:clamp(36px,6vw,64px); font-weight:600; letter-spacing:-.04em; line-height:1.08; margin:20px 0; color:#fff!important; }
+.growth-partners h2 { font-size:23px; font-weight:600; letter-spacing:-.025em; color:#fff!important; margin-bottom:16px; }
+.growth-partners h3 { font-size:16px; font-weight:600; color:#fff!important; margin-bottom:8px; }
+.growth-partners p { color:#cbd5e1; line-height:1.7; }
+.gp-card { border:1px solid #ffffff17; border-radius:24px; padding:24px; background:#151718; box-shadow:0 22px 60px #00000038; margin-bottom:24px; }
+.gp-grid { display:grid; gap:16px; }
+.gp-section { margin:40px 0; }
+.gp-button { display:inline-flex; justify-content:center; align-items:center; min-height:44px; border-radius:999px; background:#00c2cb!important; color:#080808!important; padding:10px 24px; font-weight:700; font-size:14px; margin-top:16px; }
+.gp-button:disabled { opacity:.5; }
+.gp-input { display:block; width:100%; margin-top:8px; padding:12px; border-radius:12px; border:1px solid #ffffff25; background:#0f0f0f; color:#fff; font-size:16px; }
+.gp-label { display:block; margin-bottom:20px; color:#cbd5e1; font-size:14px; }
+.gp-error { color:#fca5a5!important; margin:12px 0; }
+.gp-metric { background:#0000001a; border:1px solid #ffffff17; border-radius:17px; padding:16px; }
+.gp-metric strong { display:block; font-size:24px; margin-bottom:8px; }
+.gp-metric span { font-size:12px; color:#94a3b8; }
+.growth-partners :is(button,a,input,select):focus-visible { outline:2px solid #00c2cb; outline-offset:4px; }
+.gp-list > li { border-top:1px solid #ffffff12; padding:14px 0; }
+.gp-link { color:#63e8ee!important; text-decoration:underline; }
+@media(min-width:640px) { .gp-shell { padding:24px 32px 80px; } .gp-grid { grid-template-columns:repeat(3,minmax(0,1fr)); } .gp-form-grid { display:grid; grid-template-columns:1fr 1fr; gap:0 24px; } }

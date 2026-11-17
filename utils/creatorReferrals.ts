@@ -1,4 +1,6 @@
 import Stripe from "stripe";
+import { calculateEligibleSubscriptionRevenue, commissionHoldDays } from "./growthPartners/commissionMath";
+import { referralEvent } from "./growthPartners/events";
 import { SupabaseClient } from "@supabase/supabase-js";
 
 type CookieStoreLike = {
@@ -30,7 +32,9 @@ export type CreatorPartner = {
   partner_email?: string | null;
   referral_code: string;
   referral_url: string;
-  status: "invited" | "active" | "paused" | "terminated";
+  status: "invited" | "active" | "paused" | "terminated" | "suspended";
+  user_id?: string | null;
+  application_id?: string | null;
   commission_percentage: number;
   commission_duration_months: number;
 };
@@ -47,8 +51,8 @@ export function isSafeCreatorReferralCode(value: string) {
 }
 
 export function getCreatorReferralWindowDays() {
-  const raw = Number(process.env[CREATOR_REFERRAL_WINDOW_DAYS_ENV] || 30);
-  if (!Number.isFinite(raw) || raw <= 0) return 30;
+  const raw = Number(process.env[CREATOR_REFERRAL_WINDOW_DAYS_ENV] || 60);
+  if (!Number.isFinite(raw) || raw <= 0) return 60;
   return Math.min(Math.floor(raw), 365);
 }
 
@@ -94,7 +98,7 @@ export async function findActiveCreatorPartnerByCode(params: {
 
   const { data, error } = await params.supabase
     .from("creator_partners")
-    .select("id,display_name,partner_email,referral_code,referral_url,status,commission_percentage,commission_duration_months")
+    .select("id,display_name,partner_email,referral_code,referral_url,status,user_id,application_id,commission_percentage,commission_duration_months")
     .ilike("referral_code", code)
     .maybeSingle();
 
@@ -156,8 +160,18 @@ export async function recordCreatorReferralSignupIntent(params: {
     return { recorded: false, reason: "creator_partner_no_longer_active" };
   }
 
+  const reject = async (reason: string) => {
+    await referralEvent(params.supabase, partner.id, 'attribution_rejected', `${cookie.landingSessionId}:${reason}`, { reason });
+    return { recorded: false, reason };
+  };
+  if (params.userId && partner.user_id === params.userId) return reject('self_referral_rejected');
+  if (partner.application_id) {
+    const { data: application, error } = await params.supabase.from('growth_partner_applications').select('email').eq('id', partner.application_id).maybeSingle();
+    if (error) throw new Error('Application identity check failed');
+    if (application?.email === businessEmail) return reject('self_referral_rejected');
+  }
   if (partner.partner_email && partner.partner_email.toLowerCase() === businessEmail) {
-    return { recorded: false, reason: "self_referral_rejected" };
+    return reject('self_referral_rejected');
   }
 
   const { data: existingAttribution, error: existingAttributionError } = await params.supabase
@@ -167,7 +181,15 @@ export async function recordCreatorReferralSignupIntent(params: {
     .maybeSingle();
 
   if (existingAttributionError) throw new Error(`Failed to check existing creator attribution: ${existingAttributionError.message}`);
-  if (existingAttribution?.id) return { recorded: false, reason: "business_already_attributed" };
+  if (existingAttribution?.id) return reject('business_already_attributed');
+  const { data: priorBusiness, error: priorError } = await params.supabase.from('business_profiles').select('id,created_at').eq('business_email', businessEmail).maybeSingle();
+  if (priorError) throw new Error('Business identity check failed');
+  if (priorBusiness) {
+    if (Date.parse(priorBusiness.created_at) < Date.parse(cookie.capturedAt) - 600000) return reject('pre_existing_business');
+    const { data: priorEntitlement, error } = await params.supabase.from('business_entitlements').select('stripe_subscription_id,growth_trial_used,is_grandfathered').eq('business_id', priorBusiness.id).maybeSingle();
+    if (error) throw new Error('Business entitlement check failed');
+    if (priorEntitlement?.stripe_subscription_id || priorEntitlement?.growth_trial_used || priorEntitlement?.is_grandfathered) return reject('existing_subscription_or_trial');
+  }
 
   const { error } = await params.supabase.from("creator_referral_signup_intents").upsert(
     {
@@ -180,12 +202,14 @@ export async function recordCreatorReferralSignupIntent(params: {
       landing_path: cookie.landingPath || null,
       landing_referrer: cookie.landingReferrer || null,
       expires_at: cookie.expiresAt,
+      captured_at: cookie.capturedAt,
     },
     { onConflict: "business_email", ignoreDuplicates: true },
   );
 
   if (error) throw new Error(`Failed to record creator referral signup intent: ${error.message}`);
 
+  await referralEvent(params.supabase, partner.id, 'signup_intent', cookie.landingSessionId, {});
   const { data: business } = await params.supabase
     .from("business_profiles")
     .select("id,business_email")
@@ -234,115 +258,35 @@ export async function createCreatorCommissionFromPaidInvoice(params: {
   const stripeSubscriptionId = params.subscription.id || getSubscriptionIdFromInvoiceForCommissions(invoice);
   if (!stripeInvoiceId || !stripeSubscriptionId) return { created: false, reason: "missing_invoice_or_subscription_id" };
 
-  const grossAmount = getInvoiceAmountPaid(invoice);
-  if (grossAmount <= 0) return { created: false, reason: "free_or_zero_amount_invoice" };
-
-  if (String(invoice.status || "").toLowerCase() !== "paid") {
-    return { created: false, reason: "invoice_not_paid" };
+  const customerId = getRefId(params.subscription.customer);
+  const { data: entitlement, error: entitlementError } = await params.supabase.from('business_entitlements')
+    .select('business_id,is_grandfathered').eq('stripe_subscription_id', stripeSubscriptionId).maybeSingle();
+  if (entitlementError) throw new Error('Commission entitlement lookup failed');
+  if (!entitlement?.business_id) return { created: false, reason: 'no_business_entitlement' };
+  if (entitlement.is_grandfathered) return { created: false, reason: 'grandfathered_business' };
+  const { data: attribution, error } = await params.supabase.from('business_creator_attributions')
+    .select('id,creator_partner_id').eq('business_id', entitlement.business_id).maybeSingle();
+  if (error) throw new Error('Commission attribution lookup failed');
+  if (!attribution) return { created: false, reason: 'business_not_creator_attributed' };
+  const monthly = params.subscription.items.data.length > 0 && params.subscription.items.data.every(item => item.price.recurring?.interval === 'month' && item.price.recurring.interval_count === 1);
+  const result = calculateEligibleSubscriptionRevenue(invoice, monthly);
+  if (!result.eligible) {
+    await referralEvent(params.supabase, attribution.creator_partner_id, 'commission_skipped', stripeInvoiceId, { reason: result.reason }, entitlement.business_id);
+    return { created: false, reason: result.reason };
   }
-
-  const { data: existing, error: existingError } = await params.supabase
-    .from("creator_commission_ledger")
-    .select("id,status")
-    .eq("stripe_invoice_id", stripeInvoiceId)
-    .maybeSingle();
-
-  if (existingError) throw new Error(`Failed to check creator commission ledger idempotency: ${existingError.message}`);
-  if (existing?.id) return { created: false, reason: "duplicate_invoice", ledgerId: existing.id };
-
-  const customerId = getRefId((params.subscription as Stripe.Subscription & { customer?: StripeRef }).customer);
-  let entitlementQuery = params.supabase
-    .from("business_entitlements")
-    .select("business_id,business_email,is_grandfathered,stripe_subscription_id,subscription_stripe_customer_id")
-    .limit(1);
-
-  if (stripeSubscriptionId) {
-    entitlementQuery = entitlementQuery.eq("stripe_subscription_id", stripeSubscriptionId);
-  } else if (customerId) {
-    entitlementQuery = entitlementQuery.eq("subscription_stripe_customer_id", customerId);
+  const paidAt = new Date((invoice.status_transitions?.paid_at || invoice.created) * 1000).toISOString();
+  const { data, error: insertError } = await params.supabase.rpc('create_creator_subscription_commission', {
+    p_attribution_id: attribution.id, p_invoice_id: stripeInvoiceId, p_subscription_id: stripeSubscriptionId,
+    p_base: result.base, p_amount_paid: result.amountPaid, p_tax: result.taxAmount,
+    p_currency: invoice.currency, p_paid_at: paidAt, p_hold_days: commissionHoldDays(),
+  });
+  if (insertError?.code === '23505') return { created: false, reason: 'duplicate_invoice' };
+  if (insertError) throw new Error('Commission creation failed');
+  if (customerId) {
+    const { error: customerError } = await params.supabase.from('business_creator_attributions').update({ stripe_customer_id: customerId }).eq('id', attribution.id).is('stripe_customer_id', null);
+    if (customerError) throw new Error('Attribution customer update failed');
   }
-
-  const { data: entitlement, error: entitlementError } = await entitlementQuery.maybeSingle();
-  if (entitlementError) throw new Error(`Failed to load business entitlement for commission: ${entitlementError.message}`);
-  if (!entitlement?.business_id) return { created: false, reason: "no_business_entitlement" };
-  if (entitlement.is_grandfathered) return { created: false, reason: "grandfathered_business" };
-
-  const { data: attribution, error: attributionError } = await params.supabase
-    .from("business_creator_attributions")
-    .select("id,business_id,creator_partner_id,first_subscription_id")
-    .eq("business_id", entitlement.business_id)
-    .maybeSingle();
-
-  if (attributionError) throw new Error(`Failed to load creator attribution for commission: ${attributionError.message}`);
-  if (!attribution?.id) return { created: false, reason: "business_not_creator_attributed" };
-
-  const { data: partner, error: partnerError } = await params.supabase
-    .from("creator_partners")
-    .select("id,commission_percentage,commission_duration_months")
-    .eq("id", attribution.creator_partner_id)
-    .maybeSingle();
-
-  if (partnerError) throw new Error(`Failed to load creator partner terms: ${partnerError.message}`);
-  if (!partner?.id) return { created: false, reason: "creator_partner_missing" };
-
-  const duration = Math.max(0, Number(partner.commission_duration_months || DEFAULT_CREATOR_COMMISSION_DURATION_MONTHS));
-  if (duration <= 0) return { created: false, reason: "creator_commission_duration_zero" };
-
-  const { data: previousRows, error: previousError } = await params.supabase
-    .from("creator_commission_ledger")
-    .select("id")
-    .eq("business_id", entitlement.business_id)
-    .eq("creator_partner_id", attribution.creator_partner_id)
-    .eq("stripe_subscription_id", stripeSubscriptionId)
-    .in("status", ["pending", "payable", "paid", "reversed"]);
-
-  if (previousError) throw new Error(`Failed to count previous creator commission months: ${previousError.message}`);
-  const monthNumber = (previousRows?.length || 0) + 1;
-  if (monthNumber > duration) return { created: false, reason: "commission_duration_complete", monthNumber };
-
-  const commissionPercentage = Number(partner.commission_percentage ?? DEFAULT_CREATOR_COMMISSION_PERCENTAGE);
-  const commissionAmount = Math.round((grossAmount * commissionPercentage) / 100);
-  const currency = String(invoice.currency || "aud").toLowerCase();
-  const eligibilityDate = new Date((invoice.created || Math.floor(Date.now() / 1000)) * 1000).toISOString();
-
-  const { data: inserted, error: insertError } = await params.supabase
-    .from("creator_commission_ledger")
-    .insert({
-      creator_partner_id: attribution.creator_partner_id,
-      business_id: entitlement.business_id,
-      business_creator_attribution_id: attribution.id,
-      stripe_invoice_id: stripeInvoiceId,
-      stripe_subscription_id: stripeSubscriptionId,
-      gross_eligible_subscription_amount: grossAmount,
-      commission_percentage: commissionPercentage,
-      commission_amount: commissionAmount,
-      currency,
-      commission_month_number: monthNumber,
-      status: "pending",
-      eligibility_date: eligibilityDate,
-      metadata: {
-        source: "stripe_invoice_paid",
-        stripeCustomerId: customerId,
-        invoiceNumber: (invoice as Stripe.Invoice & { number?: string | null }).number || null,
-      },
-    })
-    .select("id")
-    .single();
-
-  if (insertError) {
-    if (insertError.code === "23505") return { created: false, reason: "duplicate_invoice" };
-    throw new Error(`Failed to create creator commission ledger entry: ${insertError.message}`);
-  }
-
-  if (!attribution.first_subscription_id) {
-    await params.supabase
-      .from("business_creator_attributions")
-      .update({ first_subscription_id: stripeSubscriptionId })
-      .eq("id", attribution.id)
-      .is("first_subscription_id", null);
-  }
-
-  return { created: true, ledgerId: inserted.id, monthNumber };
+  return data;
 }
 
 export async function reverseCreatorCommissionByInvoiceId(params: {
@@ -353,17 +297,9 @@ export async function reverseCreatorCommissionByInvoiceId(params: {
   const stripeInvoiceId = String(params.stripeInvoiceId || "").trim();
   if (!stripeInvoiceId) return { reversed: false, reason: "missing_invoice_id" };
 
-  const { data, error } = await params.supabase
-    .from("creator_commission_ledger")
-    .update({
-      status: "reversed",
-      reversal_reason: params.reason,
-      reversed_at: new Date().toISOString(),
-    })
-    .eq("stripe_invoice_id", stripeInvoiceId)
-    .in("status", ["pending", "payable"])
-    .select("id");
-
-  if (error) throw new Error(`Failed to reverse creator commission: ${error.message}`);
-  return { reversed: Boolean(data?.length), count: data?.length || 0 };
+  const { data, error } = await params.supabase.rpc('refund_creator_subscription_commission', {
+    p_invoice_id: stripeInvoiceId, p_refund_key: `void:${stripeInvoiceId}`, p_cumulative_amount: null, p_reason: params.reason,
+  });
+  if (error) throw new Error('Commission reversal failed');
+  return data;
 }

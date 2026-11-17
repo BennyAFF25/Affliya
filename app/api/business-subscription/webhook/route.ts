@@ -8,10 +8,7 @@ import {
   toIsoFromStripeSeconds,
 } from "../../../../utils/businessSubscriptions";
 import { trackBusinessSubscriptionAnalytics } from "../../../../utils/businessSubscriptionAnalytics";
-import {
-  createCreatorCommissionFromPaidInvoice,
-  reverseCreatorCommissionByInvoiceId,
-} from "../../../../utils/creatorReferrals";
+import { trackGrowthPartnerStripeEvent } from "../../../../utils/growthPartners/stripeEvents";
 
 import { recordConfirmedGrowthTrial, deliverPendingGrowthTrials } from "../../../../utils/marketing/startTrialServer";
 
@@ -145,11 +142,7 @@ export async function POST(req: Request) {
 
     if (event.type === "invoice.voided") {
       const invoice = event.data.object as Stripe.Invoice;
-      await reverseCreatorCommissionByInvoiceId({
-        supabase,
-        stripeInvoiceId: invoice.id || null,
-        reason: "stripe_invoice_voided",
-      });
+      await trackGrowthPartnerStripeEvent(supabase, stripe, event);
       await markEvent({
         stripeEventId: event.id,
         status: "processed",
@@ -162,11 +155,7 @@ export async function POST(req: Request) {
 
     if (event.type === "charge.refunded" || event.type === "charge.dispute.created") {
       const charge = event.data.object as Stripe.Charge & { invoice?: StripeObjectRef };
-      await reverseCreatorCommissionByInvoiceId({
-        supabase,
-        stripeInvoiceId: getRefId(charge.invoice),
-        reason: event.type === "charge.refunded" ? "stripe_charge_refunded" : "stripe_charge_disputed",
-      });
+      await trackGrowthPartnerStripeEvent(supabase, stripe, event);
       await markEvent({
         stripeEventId: event.id,
         status: "processed",
@@ -246,14 +235,7 @@ export async function POST(req: Request) {
       }
     }
 
-    if (event.type === "invoice.paid") {
-      const invoice = event.data.object as Stripe.Invoice;
-      await createCreatorCommissionFromPaidInvoice({
-        supabase,
-        invoice,
-        subscription,
-      });
-    }
+    await trackGrowthPartnerStripeEvent(supabase, stripe, event, subscription);
 
     if (["subscription_active", "subscription_trialing"].includes(syncResult.billingStatus)) {
       await trackBusinessSubscriptionAnalytics({

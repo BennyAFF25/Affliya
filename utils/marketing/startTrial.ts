@@ -93,8 +93,9 @@ export function buildStartTrial(params: {
 export function retryDelaySeconds(attempt: number) {
   return Math.min(1800, 60 * 2 ** Math.min(Math.max(attempt - 1, 0), 5));
 }
-export async function sendStartTrial(params: {
-  payload: StartTrialPayload; token: string; pixelId: string;
+export type MetaWebsitePayload = Omit<StartTrialPayload, "event_name" | "user_data"> & { event_name: "StartTrial" | "Lead"; user_data: Matching & { em: string[]; external_id?: string[] } };
+export async function sendMetaWebsiteEvent(params: {
+  payload: MetaWebsitePayload; token: string; pixelId: string;
   testEventCode?: string; fetcher?: typeof fetch;
 }): Promise<{ ok: boolean; error: string | null }> {
   if (!params.token || !/^[0-9]+$/.test(params.pixelId)) return { ok: false, error: "configuration_missing" };
@@ -117,3 +118,5 @@ export async function sendStartTrial(params: {
     return { ok: true, error: null };
   } catch { return { ok: false, error: "meta_request_failed" }; }
 }
+
+export const sendStartTrial = sendMetaWebsiteEvent;
