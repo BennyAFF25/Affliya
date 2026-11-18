@@ -11,7 +11,19 @@ export function growthEmailAllowed(email: string, env = process.env) {
     return allowed.startsWith('@') ? normalized.endsWith(allowed) : normalized === allowed;
   });
 }
-export const growthOrigin = () => (process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://www.nettmark.com').replace(/\/$/, '');
+/** Production keeps the canonical site; Preview/staging links point at this deployment's branch alias. */
+export function growthOrigin(env: Record<string, string | undefined> = process.env) {
+  if (env.VERCEL_ENV !== 'production') {
+    const host = env.VERCEL_BRANCH_URL || env.VERCEL_URL;
+    if (host) return `https://${host.replace(/^https?:\/\//, '').replace(/\/$/, '')}`;
+  }
+  return (env.NEXT_PUBLIC_SITE_URL || env.NEXT_PUBLIC_APP_URL || 'https://www.nettmark.com').replace(/\/$/, '');
+}
+/** Referral link shown to partners: stored canonical URL in production, this deployment's /r link elsewhere. */
+export function growthReferralUrl(partner: { referral_code?: string | null; referral_url?: string | null }, env: Record<string, string | undefined> = process.env) {
+  if (env.VERCEL_ENV === 'production' || !partner.referral_code) return partner.referral_url || null;
+  return `${growthOrigin(env)}/r/${encodeURIComponent(partner.referral_code)}`;
+}
 export async function sendGrowthEmail(to: string, subject: string, content: RenderNettmarkEmailArgs) {
   if (!growthEmailAllowed(to)) { console.info('[growth-partners] Email skipped', { recipient: `${to.slice(0, 1)}***@***` }); return { skipped: true }; }
   if (!process.env.RESEND_API_KEY || !process.env.RESEND_FROM_EMAIL) return { skipped: true };

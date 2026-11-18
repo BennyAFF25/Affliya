@@ -166,7 +166,7 @@ async function run() {
   for(const issue of ['unapproved row','different partner','mixed currency','nonpositive net clawback']) await test(`payout RPC rejection: ${issue}`,async()=>{
     const db=fake({}, {data:null,error:{message:issue}}); await assert.rejects(recordPartnerPayout(db,'partner',['bad'],'ref','','admin'),/one partner.*one currency.*approved.*clawbacks/);
   });
-  await test('nonproduction email guard permits QA aliases and denies other recipients',()=>{
+  await test('nonproduction email guard permits QA aliases and denies other recipients',async()=>{
     const env:any={VERCEL_ENV:'preview'};
     for(const email of ['nettmarkqa@mail.grokbot.com','NettmarkQA+growth@mail.grokbot.com']) assert.equal(growthEmailAllowed(email,env),true);
     for(const email of ['outsider@example.test','nettmarkqa@mail.grokbot.com.evil','other+nettmarkqa@mail.grokbot.com']) assert.equal(growthEmailAllowed(email,env),false);
@@ -178,6 +178,18 @@ async function run() {
     assert.equal(growthEmailAllowed('nettmarkqa+gp@mail.grokbot.com',configured),true,'QA mailbox stays allowed with an allowlist');
     assert.equal(growthEmailAllowed('x@unsafe.test',{...env,NON_PRODUCTION_EMAIL_ALLOWLIST:' , '} as any),false,'blank entries allow nothing');
     assert.equal(growthEmailAllowed('any@example.test',{VERCEL_ENV:'production'} as any),true);
+    const { growthOrigin, growthReferralUrl } = await import('../utils/growthPartners/email');
+    const { marketingTrackersAllowed } = await import('../utils/marketing/trackingScope');
+    const partner = { referral_code: 'ABCD1234', referral_url: 'https://www.nettmark.com/r/ABCD1234' };
+    assert.equal(growthReferralUrl(partner, { VERCEL_ENV: 'production', VERCEL_BRANCH_URL: 'x.vercel.app' }), 'https://www.nettmark.com/r/ABCD1234');
+    assert.equal(growthReferralUrl(partner, { VERCEL_ENV: 'preview', VERCEL_BRANCH_URL: 'affliya-git-x.vercel.app' }), 'https://affliya-git-x.vercel.app/r/ABCD1234');
+    assert.equal(growthOrigin({ VERCEL_ENV: 'production', VERCEL_URL: 'x.vercel.app', NEXT_PUBLIC_SITE_URL: 'https://www.nettmark.com/' }), 'https://www.nettmark.com');
+    assert.equal(growthOrigin({ VERCEL_ENV: 'preview', VERCEL_URL: 'dep.vercel.app', NEXT_PUBLIC_SITE_URL: 'https://www.nettmark.com' }), 'https://dep.vercel.app');
+    assert.equal(marketingTrackersAllowed('/', 'production'), true);
+    assert.equal(marketingTrackersAllowed('/', 'preview'), false);
+    for (const path of ['/growth-partners', '/growth-partners/apply', '/r/ABCD1234']) assert.equal(marketingTrackersAllowed(path, 'production'), false, path);
+    assert.match(fs.readFileSync('app/growth-partners/dashboard/page.tsx', 'utf8'), /href="\/growth-partners\/logout"/);
+    assert.match(fs.readFileSync('app/growth-partners/logout/page.tsx', 'utf8'), /replace\("\/growth-partners\/login"\)/);
   });
   await test('login identical generic response with and without partner',async()=>{
     let sent=0;

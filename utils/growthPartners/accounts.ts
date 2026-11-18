@@ -1,6 +1,6 @@
 import { randomInt } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { growthOrigin, sendGrowthEmail } from './email';
+import { growthOrigin, growthReferralUrl, sendGrowthEmail } from './email';
 export const codeAlphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 export function generatePartnerCode() { return Array.from({ length: 8 }, () => codeAlphabet[randomInt(codeAlphabet.length)]).join(''); }
 export async function withUniquePartnerCode<T>(insert: (code: string) => Promise<{ data: T; error: { code?: string } | null }>, generate = generatePartnerCode) {
@@ -34,8 +34,9 @@ export async function approveApplication(db: SupabaseClient, applicationId: stri
     } else userId = created.data.user.id;
   }
   const partnerId = await withUniquePartnerCode(async code => db.rpc('approve_growth_partner_application', { p_application_id: applicationId, p_user_id: userId, p_code: code, p_origin: growthOrigin(), p_reviewed_by: reviewedBy }));
-  const { data: partner, error: partnerError } = await db.from('creator_partners').select('referral_url').eq('id', partnerId).single();
+  const { data: partner, error: partnerError } = await db.from('creator_partners').select('referral_url,referral_code').eq('id', partnerId).single();
   if (partnerError) throw new Error('Activated partner lookup failed');
-  await sendGrowthEmail(application.email, 'Your Nettmark Growth Partner application is approved', { heading: 'Welcome to the programme', body: `Start referring businesses with your link: ${partner.referral_url}\n\nEarn 50% of eligible subscription revenue, excluding GST, for the first three successful paid monthly periods. Commissions are reviewed after a 14-day hold; payouts require admin approval.`, rows: [{ label: 'Referral link', value: partner.referral_url, href: partner.referral_url }], cta: { label: 'Sign in', href: `${growthOrigin()}/growth-partners/login` } });
+  const referralUrl = growthReferralUrl(partner) || partner.referral_url;
+  await sendGrowthEmail(application.email, 'Your Nettmark Growth Partner application is approved', { heading: 'Welcome to the programme', body: `Start referring businesses with your link: ${referralUrl}\n\nEarn 50% of eligible subscription revenue, excluding GST, for the first three successful paid monthly periods. Commissions are reviewed after a 14-day hold; payouts require admin approval.`, rows: [{ label: 'Referral link', value: referralUrl, href: referralUrl }], cta: { label: 'Sign in', href: `${growthOrigin()}/growth-partners/login` } });
   return partnerId;
 }
