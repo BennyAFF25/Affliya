@@ -104,7 +104,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 },
               }}
             />
-            <MarketingTrackerGate enabled={marketingTrackersEnabled}>
+            {marketingTrackersEnabled && <MarketingTrackerGate enabled={marketingTrackersEnabled}>
             <TrybePixel />
             <Script
               id="reddit-pixel-base"
@@ -138,7 +138,7 @@ rdt('track','PageVisit');
 `
               }}
             />
-            </MarketingTrackerGate>
+            </MarketingTrackerGate>}
             <Script
               id="meta-pixel-base"
               strategy="afterInteractive"
@@ -193,9 +193,9 @@ fbq('track', 'PageView');
 `
               }}
             />
-            <MarketingTrackerGate enabled={marketingTrackersEnabled}>
+            {marketingTrackersEnabled && <MarketingTrackerGate enabled={marketingTrackersEnabled}>
               <NettmarkOfferTracker />
-            </MarketingTrackerGate>
+            </MarketingTrackerGate>}
           </ThemeWrapper>
         </Providers>
       </body>
