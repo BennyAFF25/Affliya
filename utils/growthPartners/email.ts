@@ -3,9 +3,11 @@ import { renderNettmarkEmail, type RenderNettmarkEmailArgs } from '../email/rend
 export function growthEmailAllowed(email: string, env = process.env) {
   if (env.VERCEL_ENV === 'production') return true;
   const normalized = email.trim().toLowerCase();
-  if (!env.NON_PRODUCTION_EMAIL_ALLOWLIST) return /^nettmarkqa(?:\+[^@\s]+)?@mail\.grokbot\.com$/.test(normalized);
-  return env.NON_PRODUCTION_EMAIL_ALLOWLIST.split(',').some(entry => {
+  // The QA mailbox (+aliases) always works outside production; the allowlist only adds recipients.
+  if (/^nettmarkqa(?:\+[^@\s]+)?@mail\.grokbot\.com$/.test(normalized)) return true;
+  return (env.NON_PRODUCTION_EMAIL_ALLOWLIST || '').split(',').some(entry => {
     const allowed = entry.trim().toLowerCase();
+    if (!allowed) return false;
     return allowed.startsWith('@') ? normalized.endsWith(allowed) : normalized === allowed;
   });
 }

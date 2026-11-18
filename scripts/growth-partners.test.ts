@@ -175,6 +175,8 @@ async function run() {
     assert.equal(growthEmailAllowed('person+tag@safe.test',configured),true);
     assert.equal(growthEmailAllowed('tester+tag@example.test',configured),false,'explicit mailbox allowlist is exact');
     assert.equal(growthEmailAllowed('x@unsafe.test',configured),false);
+    assert.equal(growthEmailAllowed('nettmarkqa+gp@mail.grokbot.com',configured),true,'QA mailbox stays allowed with an allowlist');
+    assert.equal(growthEmailAllowed('x@unsafe.test',{...env,NON_PRODUCTION_EMAIL_ALLOWLIST:' , '} as any),false,'blank entries allow nothing');
     assert.equal(growthEmailAllowed('any@example.test',{VERCEL_ENV:'production'} as any),true);
   });
   await test('login identical generic response with and without partner',async()=>{
