@@ -23,4 +23,4 @@
 .growth-partners :is(button,a,input,select):focus-visible { outline:2px solid #00c2cb; outline-offset:4px; }
 .gp-list > li { border-top:1px solid #ffffff12; padding:14px 0; }
 .gp-link { color:#63e8ee!important; text-decoration:underline; }
-@media(min-width:640px) { .gp-shell { padding:24px 32px 80px; } .gp-grid { grid-template-columns:repeat(3,minmax(0,1fr)); } .gp-form-grid { display:grid; grid-template-columns:1fr 1fr; gap:0 24px; } }
+@media(min-width:640px) { .gp-shell { padding:24px 32px 80px; } .gp-grid { grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); } .gp-form-grid { display:grid; grid-template-columns:1fr 1fr; gap:0 24px; } }

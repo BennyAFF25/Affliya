@@ -251,6 +251,18 @@ async function run() {
       }
     } finally {loader._load=original;}
   });
+  await test('growth email content keeps links and programme terms', async () => {
+    const { growthEmailContent } = await import('../utils/growthPartners/emailContent');
+    const approved = growthEmailContent.approved('https://example.test/ref', 'https://example.test/login');
+    assert.equal(approved.cta?.href, 'https://example.test/login');
+    assert.equal(approved.rows?.[0].href, 'https://example.test/ref');
+    assert.match(JSON.stringify(approved.rows), /50%.*excluding GST/);
+    assert.match(JSON.stringify(approved.rows), /14-day hold/);
+    assert.equal(growthEmailContent.magicLink('https://example.test/link').cta?.href, 'https://example.test/link');
+    assert.match(growthEmailContent.magicLink('x').notice?.body || '', /only be used once/);
+    assert.ok(growthEmailContent.received().previewText);
+    assert.equal(growthEmailContent.adminNotify('https://example.test/review').cta?.href, 'https://example.test/review');
+  });
   await test('SQL source contracts awaiting reviewer staging verification',()=>{
     const sql=fs.readFileSync('supabase/migrations/20261117120000_growth_partners.sql','utf8');
     for(const pattern of [/FOR UPDATE/,/business_creator_attribution_id=a.id AND entry_type='commission'/,/n>p.commission_duration_months/,/partner_not_active/,/commission_skipped/,/duplicate_invoice/,/cumulative<=l.refunded_amount/,/l.status='paid' AND delta>0/,/commission_amount=target/,/cumulative=l.amount_paid THEN 'reversed'/,/Refund hold has not elapsed/,/l.creator_partner_id<>partner_id/,/Mixed currencies/,/total<=0/,/total:=total\+l.commission_amount/,/FROM PUBLIC,anon,authenticated/]) assert.match(sql,pattern);

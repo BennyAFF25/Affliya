@@ -12,8 +12,8 @@ export default function GrowthPartnerLogoutPage() {
       else window.location.replace("/growth-partners/login");
     }).catch(() => setError(true));
   }, []);
-  return <main role={error ? "alert" : "status"}>
-    {error ? "Could not sign out. Please retry." : "Signing out…"}
+  return <main className="mx-auto max-w-md"><div className="gp-card text-center" role={error ? "alert" : "status"}>
+    {error ? "Could not sign out. Please retry." : <><span aria-hidden="true" className="mx-auto mb-4 block h-8 w-8 animate-spin rounded-full border-2 border-white/20 border-t-[#00C2CB]" />Signing you out…</>}
     {error && <button onClick={() => window.location.reload()} className="ml-4 underline">Retry</button>}
-  </main>;
+  </div></main>;
 }

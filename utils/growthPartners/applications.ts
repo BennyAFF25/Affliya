@@ -1,3 +1,4 @@
+import { growthEmailContent } from './emailContent';
 import { createHash, randomUUID } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { checkoutMatching, hashMeta, sendMetaWebsiteEvent, type MetaWebsitePayload } from '../marketing/startTrial';
@@ -41,7 +42,7 @@ export async function submitGrowthApplication(db: SupabaseClient, input: Record<
   }
   const { error: statusError } = await db.from('growth_partner_applications').update({ meta_capi_status: status }).eq('id', data.id);
   if (statusError) console.warn('[growth-partners] Lead status update failed');
-  await sendGrowthEmail(fields.email, 'Your Nettmark Growth Partner application', { heading: 'Application received', body: 'Thank you for applying. We review every application and will email you if approved.' });
-  if (process.env.ADMIN_NOTIFY_EMAIL) await sendGrowthEmail(process.env.ADMIN_NOTIFY_EMAIL, 'New Growth Partner application', { heading: 'New application', body: 'An application is ready for review.', cta: { label: 'Review applications', href: `${growthOrigin()}/internal/growth-partners` } });
+  await sendGrowthEmail(fields.email, 'Your Nettmark Growth Partner application', growthEmailContent.received());
+  if (process.env.ADMIN_NOTIFY_EMAIL) await sendGrowthEmail(process.env.ADMIN_NOTIFY_EMAIL, 'New Growth Partner application', growthEmailContent.adminNotify(`${growthOrigin()}/internal/growth-partners`));
   return { ok: true, event_id: eventId };
 }

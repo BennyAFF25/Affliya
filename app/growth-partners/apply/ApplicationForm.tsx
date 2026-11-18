@@ -6,7 +6,7 @@ const categories = ['creator','educator','media_buyer','agency','consultant','ac
 export default function ApplicationForm() {
   const [busy,setBusy] = useState(false), [error,setError] = useState(''), [done,setDone] = useState(false), [ready,setReady] = useState(false);
   useEffect(() => setReady(true), []);
-  if (done) return <div role="status"><h3>Thank you for applying.</h3><p>We review every application. If approved, you will receive your referral link and sign-in instructions by email.</p></div>;
+  if (done) return <div role="status"><h3>Thank you for applying.</h3><p>We review every application. If approved, you will receive your referral link and sign-in instructions by email.</p><a className="gp-link mt-4 inline-block" href="/growth-partners/login">Sign in</a></div>;
   return <form onSubmit={async event => {
     event.preventDefault(); if (busy) return; setBusy(true); setError('');
     try {

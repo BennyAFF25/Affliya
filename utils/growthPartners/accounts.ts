@@ -1,3 +1,4 @@
+import { growthEmailContent } from './emailContent';
 import { randomInt } from 'node:crypto';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { growthOrigin, growthReferralUrl, sendGrowthEmail } from './email';
@@ -37,6 +38,6 @@ export async function approveApplication(db: SupabaseClient, applicationId: stri
   const { data: partner, error: partnerError } = await db.from('creator_partners').select('referral_url,referral_code').eq('id', partnerId).single();
   if (partnerError) throw new Error('Activated partner lookup failed');
   const referralUrl = growthReferralUrl(partner) || partner.referral_url;
-  await sendGrowthEmail(application.email, 'Your Nettmark Growth Partner application is approved', { heading: 'Welcome to the programme', body: `Start referring businesses with your link: ${referralUrl}\n\nEarn 50% of eligible subscription revenue, excluding GST, for the first three successful paid monthly periods. Commissions are reviewed after a 14-day hold; payouts require admin approval.`, rows: [{ label: 'Referral link', value: referralUrl, href: referralUrl }], cta: { label: 'Sign in', href: `${growthOrigin()}/growth-partners/login` } });
+  await sendGrowthEmail(application.email, 'Your Nettmark Growth Partner application is approved', growthEmailContent.approved(referralUrl, `${growthOrigin()}/growth-partners/login`));
   return partnerId;
 }
