@@ -67,7 +67,7 @@ Manual rollback: `supabase/undo/20261114120000_shopify_review_readiness.undo.sql
 
 `POST /api/shopify/disconnect` retains same-origin, business ownership and confirmation requirements. It best-effort deletes the app pixel, then invokes [GraphQL `appUninstall`](https://shopify.dev/docs/api/admin-graphql/2026-10/mutations/appUninstall), the [official REST-uninstall equivalent](https://shopify.dev/changelog/posts/new-appuninstall-mutation-to-allow-apps-to-uninstall-themselves). No REST revoke remains. Versioned GraphQL POST uses the existing 15-second timeout and rejects redirects; transport, top-level GraphQL and mutation user errors are failures. Local disconnect still completes if remote operations fail, clearing both tokens/expiries and marking tracking inactive.
 
-TOML declares both compliance topics and uninstall at the direct www HTTPS endpoint:
+TOML declares only the mandatory compliance topics at the direct www HTTPS endpoint. Shopify rejects app-specific topic subscriptions (such as `app/uninstalled`) together with `use_legacy_install_flow = true` on `shopify app deploy`, so uninstall is registered per shop instead:
 
 ```toml
 [webhooks]
@@ -76,13 +76,9 @@ api_version = "2026-10"
 [[webhooks.subscriptions]]
 compliance_topics = ["customers/data_request", "customers/redact", "shop/redact"]
 uri = "https://www.nettmark.com/api/shopify/webhooks"
-
-[[webhooks.subscriptions]]
-topics = ["app/uninstalled"]
-uri = "https://www.nettmark.com/api/shopify/webhooks"
 ```
 
-Connect-time `webhookSubscriptionCreate(APP_UNINSTALLED)` remains a best-effort complement. Compliance topics cannot be registered through the Admin API. Configured subscriptions must be released separately; repo TOML is not proof of live registration.
+Connect-time `webhookSubscriptionCreate(APP_UNINSTALLED)` (`registerWebhooks` in `lib/shopify/admin.ts`, called from the OAuth callback) is the registration for uninstall events; it is best-effort and failures are logged without secrets. Compliance topics cannot be registered through the Admin API. Configured subscriptions must be released separately; repo TOML is not proof of live registration.
 
 `POST /api/shopify/webhooks` checks exact raw-byte HMAC before dispatch (401 for invalid HMAC), strict shop header (400), and returns 503 on transient processing failures for retries. Customer data-request/redact and unknown topics return 200 without reading/storing buyer data. Bodies and credentials are never logged. `shop/redact` deletes pending grants, order-dedupe rows and connection. Uninstall clears credentials/tracking then deletes the eligible connection (order dedupe cascades) and older pending grants. It uses `X-Shopify-Triggered-At` (invalid/missing falls back to now) and only touches connections installed before that event, protecting newer reinstalls. Repeated deliveries succeed. Financial event/commission ledgers remain; no buyer PII is added and no commission reversal occurs.
 

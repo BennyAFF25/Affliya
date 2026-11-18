@@ -509,7 +509,7 @@ async function testRoutes(secret: string) {
     const card = readFileSync("components/ShopifyConnectCard.tsx", "utf8");
     assert.doesNotMatch(card, /<input|name="shop"|Shop domain/);
     const toml = readFileSync("shopify.app.toml", "utf8");
-    assert.match(toml, /topics = \["app\/uninstalled"\]/);
+    assert.doesNotMatch(toml, /^topics = /m, "app-specific topics are rejected with the legacy install flow; they are registered per shop");
     assert.match(toml, /compliance_topics = \["customers\/data_request", "customers\/redact", "shop\/redact"\]/);
     assert.doesNotMatch(toml, /read_products|localhost|vercel\.app/);
     assert.match(toml, /use_legacy_install_flow = true/);
