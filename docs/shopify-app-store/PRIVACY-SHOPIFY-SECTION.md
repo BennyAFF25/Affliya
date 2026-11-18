@@ -1,0 +1,23 @@
+# Shopify privacy and cookie policy additions — UNPUBLISHED DRAFT
+
+For founder/legal review before adding to Nettmark's live Privacy Policy or Cookie Policy. This file does not publish or amend either live policy.
+
+## Privacy Policy draft
+
+Nettmark's optional Shopify connector links a merchant's online store to their Nettmark business account so that Nettmark can attribute affiliate sales. The connector requests only Shopify's `write_pixels` and `read_customer_events` scopes to manage Nettmark's app web pixel and receive permitted storefront purchase events. It does not request product-import, order-reading or customer-reading scopes. Shopify may display standard customer/staff-data disclosures for these pixel permissions.
+
+We retain the shop's myshopify.com domain, the merchant's Nettmark staff/business account information, encrypted access and refresh credentials, granted scopes, and connection and tracking status. An installation awaiting business sign-in is held separately in encrypted server-only storage, usable for one hour; it is removed on completion, attempted completion after expiry, or a relevant uninstall/redaction delivery. Expired pending records are also purged when another installation is saved. Expiry prevents use even before physical cleanup. No customer information is needed to connect a store.
+
+For an attributed purchase, we collect the order identifier, purchase total and currency, relevant product/variant identifiers, item quantities and line totals, timestamp, and Nettmark affiliate/campaign attribution identifiers (`nm_aff` and `nm_camp`). Checkout tokens and attribution source strings are not collected by this pixel. We do not collect buyer names, buyer email addresses, phone numbers, billing/shipping addresses or Shopify customer IDs. We do not retain IP addresses as customer PII. Requests use IPs transiently to produce keyed rate-limit digests; raw IPs are not stored by this connector. Browser purchase events are not independent server-side order verification.
+
+The app web pixel uses Shopify's customer-privacy framework and is configured to require analytics and marketing consent. Shopify controls execution according to the shopper's applicable privacy choices. Nettmark does not sell this data; sale-of-data processing is disabled for the extension. We use minimized conversion data for affiliate attribution and the existing Nettmark commission workflows.
+
+The shop connection remains until disconnected or removed. Disconnect clears credentials and disables tracking; a non-connected status record can remain until uninstall or shop redaction. Validated `app/uninstalled` deliveries remove the connection, its credentials and the shop's order-deduplication rows, and remove older pending installation grants. A delayed uninstall does not remove a newer installation. Validated `shop/redact` deliveries delete the shop connection, pending grants and order-deduplication rows. Customer data-request/redaction deliveries are acknowledged without looking up buyers, because we hold no buyer identity data in this integration. Financial event/commission ledgers may be retained for accounting and reconciliation without buyer PII; deleting shop connections does not reverse or erase financial obligations.
+
+Contact **contact@nettmark.com** with questions about this connector or privacy requests. Before publication, reconcile overall account/event-ledger retention periods with Nettmark's live policy; this draft does not invent a statutory retention period.
+
+## Cookie Policy draft
+
+Nettmark attribution links use `nm_aff` and `nm_camp` storefront attribution cookies to associate a sale with a Nettmark affiliate and campaign. The Shopify pixel also stores a timestamped attribution record in Shopify's browser storage, with a cookie fallback, for up to seven days. It preserves complete attribution pairs rather than combining different campaigns. Shopify customer-privacy analytics/marketing requirements control whether the app pixel can run. No buyer name, email, phone, address, customer ID or IP-as-PII is placed in these attribution records. These identifiers support attribution and commission processing, not sale of shopper data.
+
+Nettmark also uses secure, httpOnly installation cookies on its own site: a ten-minute OAuth nonce and a signed, opaque pending-install identifier usable for one hour. They support secure connection and account continuation; they do not expose Shopify credentials to JavaScript. They are cleared at the relevant completion/error steps. Contact **contact@nettmark.com** for cookie/privacy enquiries.

@@ -62,8 +62,10 @@ async function ingressTests() {
   for (const secret of Object.values(pii).filter(x => typeof x === 'string')) assert(!serialized.includes(secret as string));
   assert(!serialized.includes('private-city'));
   const event = f.events[0];
-  assert.deepEqual(Object.keys(event.p_event_data).sort(), ['source','shop_domain','order_id','checkout_token','total_value','currency','nm_aff','nm_camp','nm_src','timestamp','line_items'].sort());
+  assert.deepEqual(Object.keys(event.p_event_data).sort(), ['source','shop_domain','order_id','total_value','currency','nm_aff','nm_camp','timestamp','line_items'].sort());
   assert.equal(event.p_event_data.source, 'shopify_pixel');
+  assert.ok(!serialized.includes('checkout-test'));
+  assert.ok(!('nm_src' in event.p_event_data));
   assert.equal(event.p_event_data.order_id, '123');
   assert.equal(event.p_amount, 99.5);
   assert.equal(computeEligibleConversionAmount({ offer: { conversion_scope: 'specific_products', eligible_product_ids: ['1'] }, grossAmount: 99.5, eventData: event.p_event_data }).eligibleAmount, 99.5);
@@ -160,6 +162,7 @@ async function extensionTests() {
   await page('');
   await subscribers.checkout_completed(checkout); assert.equal(sent.length,1);
   assert(!JSON.stringify(sent).includes('private')); assert.equal(sent[0].nm_aff, aff);
+  assert.ok(!('checkout_token' in sent[0])); assert.ok(!('nm_src' in sent[0]));
   // Cookie fallback and expiration both respect the seven-day window.
   storage.clear(); await subscribers.checkout_completed(checkout); assert.equal(sent.length,2);
   cookies.clear(); storage.set('nettmark_attribution_v1', JSON.stringify({ nm_aff: aff, nm_camp: campaignId, captured_at: Date.now()-8*86400000 }));

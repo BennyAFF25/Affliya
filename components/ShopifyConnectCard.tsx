@@ -8,8 +8,10 @@ type Store = { id: string; shop_domain: string; status: string; pixel_status?: s
 const connectionErrors: Record<string, string> = {
   unauthorized: "Please sign in as a business and try again.",
   forbidden: "Please sign in as a business and try again.",
-  invalid_shop: "Enter your store's myshopify.com domain, e.g. mystore.myshopify.com.",
+  invalid_shop: "Please start installation from Shopify and try again.",
   shop_already_connected: "This store is already connected to another Nettmark business.",
+  pending_expired: "This Shopify connection expired. Please connect again.",
+  reauth_required: "Please reconnect Shopify to renew access.",
   missing_scopes: "Shopify didn't grant the permissions Nettmark needs. Please approve all requested permissions.",
 };
 const buttonClass = "mt-4 inline-flex min-h-[44px] items-center justify-center rounded-full border border-[#00C2CB]/30 bg-[#00C2CB]/10 px-4 text-xs font-bold text-[#7ff5fb] disabled:opacity-50";
@@ -52,7 +54,15 @@ export default function ShopifyConnectCard({ onTrackingChange }: { onTrackingCha
     setBusy(true);
     try {
       const response = await fetch("/api/shopify/pixel", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
-      if (!response.ok) throw new Error("Could not turn on tracking. Please try again.");
+      if (!response.ok) {
+        const result = await response.json().catch(() => ({}));
+        if (result.error === "reauth_required") {
+          onTrackingChange?.();
+          await load();
+          throw new Error(connectionErrors.reauth_required);
+        }
+        throw new Error("Could not turn on tracking. Please try again.");
+      }
       onTrackingChange?.();
       await load();
     } catch (error) { setMessage(error instanceof Error ? error.message : "Could not turn on tracking."); }
@@ -74,11 +84,7 @@ export default function ShopifyConnectCard({ onTrackingChange }: { onTrackingCha
           <button type="button" className={buttonClass} disabled={busy} onClick={() => setDisconnectStore(store)}>Disconnect</button>
         </div>
       )) : (
-        <form action="/api/shopify/install" method="get" className="mt-3">
-          <label htmlFor="shopify-shop" className="text-xs text-slate-400">Shop domain</label>
-          <input id="shopify-shop" name="shop" required placeholder="mystore.myshopify.com" autoCapitalize="none" autoCorrect="off" className="mt-2 block min-h-[44px] w-full rounded-xl border border-white/10 bg-black/10 px-3 text-sm text-white" />
-          <button type="submit" className={buttonClass}>Connect Shopify store</button>
-        </form>
+        <a href="/api/shopify/install" className={buttonClass}>Connect Shopify store</a>
       )}
       <Dialog open={!!disconnectStore} onClose={() => { if (!busy) setDisconnectStore(null); }} className="relative z-50">
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm" aria-hidden="true" />

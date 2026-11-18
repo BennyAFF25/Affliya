@@ -31,7 +31,7 @@ export function verifyWebhookHmac(raw: Buffer, header: string | null, secret: st
   if (!header || header.length !== 44 || !/^[A-Za-z0-9+/]{43}=$/.test(header)) return false;
   return equal(Buffer.from(header, "base64"), createHmac("sha256", secret).update(raw).digest());
 }
-export type OAuthState = { nonce: string; userId: string; businessId: string; shop: string; issuedAt: number };
+export type OAuthState = { nonce: string; userId: string | null; businessId: string | null; shop: string; issuedAt: number };
 export function signState(state: OAuthState, secret: string): string {
   const payload = Buffer.from(JSON.stringify(state)).toString("base64url");
   return `${payload}.${createHmac("sha256", secret).update(payload).digest("base64url")}`;
@@ -42,7 +42,8 @@ export function verifyState(value: string, nonce: string | undefined, secret: st
       !equal(Buffer.from(signature, "base64url"), createHmac("sha256", secret).update(payload).digest())) throw new Error("invalid_state");
   const state: OAuthState = JSON.parse(Buffer.from(payload, "base64url").toString());
   if (!state || typeof state.nonce !== "string" || !nonce || !equal(Buffer.from(state.nonce), Buffer.from(nonce)) ||
-      typeof state.userId !== "string" || !state.userId || typeof state.businessId !== "string" || !state.businessId ||
+      !((state.userId === null && state.businessId === null) ||
+        (typeof state.userId === "string" && !!state.userId && typeof state.businessId === "string" && !!state.businessId)) ||
       typeof state.shop !== "string" || !validShop(state.shop) || !Number.isFinite(state.issuedAt) ||
       now < state.issuedAt || now - state.issuedAt > 10 * 60 * 1000) throw new Error("invalid_state");
   return state;
@@ -50,8 +51,8 @@ export function verifyState(value: string, nonce: string | undefined, secret: st
 export function stateSecret(): string { return process.env.SHOPIFY_STATE_SECRET?.trim() || env("SHOPIFY_CLIENT_SECRET"); }
 export function nonce(): string { return randomBytes(32).toString("base64url"); }
 export function requiredScopes(): string[] {
-  const scopes = (process.env.SHOPIFY_SCOPES ?? "read_products,write_pixels,read_customer_events").split(",").map(s => s.trim()).filter(Boolean);
-  const exact = ["read_products", "write_pixels", "read_customer_events"];
+  const scopes = (process.env.SHOPIFY_SCOPES ?? "write_pixels,read_customer_events").split(",").map(s => s.trim()).filter(Boolean);
+  const exact = ["write_pixels", "read_customer_events"];
   if (scopes.length !== exact.length || exact.some(scope => !scopes.includes(scope))) throw new Error("invalid_scopes_configuration");
   return exact;
 }

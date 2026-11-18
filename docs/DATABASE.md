@@ -55,3 +55,7 @@ RLS permits SELECT for anon/authenticated, with no INSERT/UPDATE/DELETE policies
 Confirm applied migration history, full DDL, policies/grants, storage buckets, core indexes, and actual foreign keys before database work. Browser inserts depend on RLS; service-role handlers and `SECURITY DEFINER` triggers need separate authorization review. Nullable stable links do not eliminate email joins. Source-event payout uniqueness protects one event's cycles; it does not by itself deduplicate repeated external orders recorded as different events.
 
 No migration or live database change was performed to create these docs.
+
+## Shopify review-readiness schema (prepared, not applied)
+
+`20261114120000_shopify_review_readiness.sql` adds encrypted refresh credentials and absolute access/refresh expiry timestamps to `shopify_stores`, plus service-role-only `shopify_pending_installs` for grants awaiting business authentication. Both tables revoke client access; status routes project metadata explicitly. The new connected-token constraint is `NOT VALID` to preserve existing legacy rows while enforcing complete expiring pairs for new writes. Legacy stores must OAuth again before Admin API work. No remote schema/data has been inspected or changed by this preparation. Manual undo is `supabase/undo/20261114120000_shopify_review_readiness.undo.sql`; never run it as a forward migration. See [SHOPIFY.md](SHOPIFY.md) for rollout order, pending expiry/cleanup, lifecycle deletion and rollback consequences.

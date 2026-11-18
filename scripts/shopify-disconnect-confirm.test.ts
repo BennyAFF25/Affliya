@@ -56,6 +56,17 @@ async function run() {
     }) as any;
     await button(render(), 'Disconnect store').props.onClick();
     assert.equal(refreshes, 2, 'successful disconnect refreshes checklist even if card reload fails');
+    state[0] = null;
+    state[1] = [{ ...store, pixel_status: 'error' }];
+    globalThis.fetch = (async (url: string) => url.endsWith('/pixel')
+      ? { ok: false, json: async () => ({ error: 'reauth_required' }) }
+      : { ok: true, json: async () => ({ stores: [] }) }) as any;
+    await button(render(), 'Retry tracking').props.onClick();
+    const expired = render();
+    assert.equal(refreshes, 3, 'expired Shopify credentials refresh readiness');
+    assert.ok(elements(expired).some(node => node.type === 'a' && node.props.children === 'Connect Shopify store'));
+    assert.ok(!elements(expired).some(node => node.type === 'input'));
+    assert.match(JSON.stringify(expired), /reconnect Shopify to renew access/);
   } finally { globalThis.fetch = originalFetch; loader._load = originalLoad; }
   console.log('Shopify disconnect confirmation tests passed');
 }
