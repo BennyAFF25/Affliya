@@ -6,6 +6,9 @@ embedded = false
 [access_scopes]
 scopes = "write_pixels,read_customer_events"
 # Standalone app uses the authorization-code grant implemented by /api/shopify/install.
+# Shopify rejects app-specific topic subscriptions with the legacy install flow, so app/uninstalled
+# (and app_subscriptions/update on the billing branch) are registered per shop in lib/shopify/admin.ts
+# registerWebhooks() at the OAuth callback. Only the mandatory compliance topics live here.
 use_legacy_install_flow = true
 
 [auth]
@@ -16,12 +19,4 @@ api_version = "2026-10"
 
 [[webhooks.subscriptions]]
 compliance_topics = ["customers/data_request", "customers/redact", "shop/redact"]
-uri = "https://www.nettmark.com/api/shopify/webhooks"
-
-[[webhooks.subscriptions]]
-topics = ["app/uninstalled"]
-uri = "https://www.nettmark.com/api/shopify/webhooks"
-
-[[webhooks.subscriptions]]
-topics = ["app_subscriptions/update"]
 uri = "https://www.nettmark.com/api/shopify/webhooks"

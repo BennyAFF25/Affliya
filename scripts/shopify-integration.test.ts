@@ -158,6 +158,13 @@ async function main() {
     return Response.json({ data: { webhookSubscriptionCreate: { webhookSubscription: { id: "mock-id" }, userErrors: [] } } });
   });
   await assert.rejects(registerWebhooks(state.shop, "mock-token", "https://preview.example", async () => Response.json({ data: { webhookSubscriptionCreate: { userErrors: [{ message: "mock" }] } } })));
+  const attempted: string[] = [];
+  await assert.rejects(registerWebhooks(state.shop, "mock-token", "https://preview.example", async (_url, options) => {
+    const topic = /topic: (APP_[A-Z_]+)/.exec(JSON.parse(String(options?.body)).query)![1];
+    attempted.push(topic);
+    return Response.json({ data: { webhookSubscriptionCreate: topic === "APP_UNINSTALLED" ? { userErrors: [{ message: "taken" }] } : { webhookSubscription: { id: "ok" }, userErrors: [] } } });
+  }));
+  assert.deepEqual(attempted, ["APP_UNINSTALLED", "APP_SUBSCRIPTIONS_UPDATE"], "one topic failing must not skip the other");
 
   await revokeAccess(state.shop, "mock-token", async (url, options) => {
     assert.equal(url, `https://${state.shop}/admin/api/2026-10/graphql.json`);
@@ -532,7 +539,7 @@ async function testRoutes(secret: string) {
     const card = readFileSync("components/ShopifyConnectCard.tsx", "utf8");
     assert.doesNotMatch(card, /<input|name="shop"|Shop domain/);
     const toml = readFileSync("shopify.app.toml", "utf8");
-    assert.match(toml, /topics = \["app\/uninstalled"\]/);
+    assert.doesNotMatch(toml, /^topics = /m, "app-specific topics are rejected with the legacy install flow; they are registered per shop");
     assert.match(toml, /compliance_topics = \["customers\/data_request", "customers\/redact", "shop\/redact"\]/);
     assert.doesNotMatch(toml, /read_products|localhost|vercel\.app/);
     assert.match(toml, /use_legacy_install_flow = true/);

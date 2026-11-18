@@ -55,13 +55,19 @@ export function protectedCallbackUrl(callback: string, environment: NodeJS.Proce
 }
 
 export async function registerWebhooks(shop: string, token: string, base: string, request = fetch, environment: NodeJS.ProcessEnv | Record<string, string | undefined> = process.env): Promise<void> {
+  // Both topics are registered per shop (the legacy install flow rejects app-level topic subscriptions in the TOML).
+  // A failure on one topic (e.g. already registered) must not skip the other.
+  let failed = false;
   for (const topic of ['APP_UNINSTALLED', 'APP_SUBSCRIPTIONS_UPDATE']) {
-    const data = await adminGraphql(shop, token,
-      `mutation RegisterWebhook($subscription: WebhookSubscriptionInput!) { webhookSubscriptionCreate(topic: ${topic}, webhookSubscription: $subscription) { webhookSubscription { id } userErrors { field message } } }`,
-      { subscription: { uri: webhookCallbackUrl(base, environment), format: "JSON" } }, request, 'webhook_registration');
-    const result = data.data?.webhookSubscriptionCreate;
-    if (data.errors?.length || result?.userErrors?.length || !result?.webhookSubscription?.id) throw new Error("webhook_registration");
+    try {
+      const data = await adminGraphql(shop, token,
+        `mutation RegisterWebhook($subscription: WebhookSubscriptionInput!) { webhookSubscriptionCreate(topic: ${topic}, webhookSubscription: $subscription) { webhookSubscription { id } userErrors { field message } } }`,
+        { subscription: { uri: webhookCallbackUrl(base, environment), format: "JSON" } }, request, 'webhook_registration');
+      const result = data.data?.webhookSubscriptionCreate;
+      if (data.errors?.length || result?.userErrors?.length || !result?.webhookSubscription?.id) failed = true;
+    } catch { failed = true; }
   }
+  if (failed) throw new Error("webhook_registration");
 }
 
 export async function revokeAccess(shop: string, token: string, request = fetch): Promise<void> {
