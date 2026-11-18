@@ -1,25 +1,43 @@
 import * as assert from "node:assert/strict";
-import Module from "node:module";
+import Module, { createRequire } from "node:module";
+const load = createRequire(__filename);
+import { isStripeBillingEligible } from "../lib/shopify/billingRoute";
 import * as helpers from "../utils/businessSubscriptions";
 import { BUSINESS_FUNNEL_ROLLOUT_AT, BUSINESS_FUNNEL_FULL_ROLLOUT_AT } from "../utils/businessOnboardingFunnel";
+// Dynamic Supabase/Stripe fixture rows deliberately model several API shapes.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Row = Record<string, any>;
 const id = "11111111-1111-4111-8111-111111111110", offerId = "22222222-2222-4222-8222-222222222222";
 let user: { id: string; email: string } | null;
-let tables: Record<string, Row[]>, writes: Array<{ table: string; value: unknown }>, errors: Record<string, any>;
+let tables: Record<string, Row[]>, writes: Array<{ table: string; value: unknown }>, errors: Record<string, unknown>;
 let sessionsCreated = 0, customersEnsured = 0, historical: Row[] = [], session: Row;
 let signedEvent: Row, syncCalls = 0;
 let expectedCheckoutFunnel = "trial_first_v1";
 const stripeEventIds = new Set<string>();
 const database = {
+  async rpc(name: string, args: Row) {
+    assert.equal(name, "reserve_stripe_billing");
+    const row = tables.business_entitlements.find(row => row.business_id === args.p_business);
+    if (!row) return { data: false, error: null };
+    if (row.billing_provider === "shopify") {
+      const shopify = tables.shopify_app_subscriptions?.find(sub => sub.business_id === args.p_business);
+      const connected = Boolean(tables.shopify_stores?.some(store => store.business_id === args.p_business && store.status === "connected"));
+      if (!isStripeBillingEligible(row.billing_provider, connected, shopify?.status)) return { data: false, error: null };
+      row.billing_provider = "stripe";
+      row.growth_trial_used ||= Boolean(shopify?.trial_used || shopify?.trial_started_at);
+    }
+    row.stripe_billing_reserved = true;
+    return { data: true, error: null };
+  },
   auth: { getUser: async () => ({ data: { user }, error: null }) },
   from(table: string) {
-    let rows = [...(tables[table] || [])], mutation = false, queryError: any = null;
+    let rows = [...(tables[table] || [])], mutation = false, queryError: unknown = null;
     const builder = {
       select: () => builder,
       eq: (key: string, value: unknown) => { rows = rows.filter(row => row[key] === value); return builder; },
       contains: (key: string, value: Row) => { rows = rows.filter(row => Object.entries(value).every(([k,v]) => row[key]?.[k] === v)); return builder; },
       order: () => builder, limit: (n: number) => { rows = rows.slice(0,n); return builder; },
-      insert: (value: any) => {
+      insert: (value: Row) => {
         mutation = true;
         if (table === "business_subscription_stripe_events") {
           if (stripeEventIds.has(value.stripe_event_id)) queryError = { code: "23505" };
@@ -74,11 +92,11 @@ loader._load = function (name, parent, isMain) {
 async function main() {
   Object.assign(process.env, { BUSINESS_SUBSCRIPTION_CHECKOUT_ENABLED: "true", STRIPE_NETTMARK_BUSINESS_MONTHLY_PRICE_ID: "price_test", STRIPE_BUSINESS_SUBSCRIPTION_WEBHOOK_SECRET: "whsec_fixture" });
   try {
-    const eligibility = require("../app/api/business-subscription/trial-eligibility/route");
-    const checkout = require("../app/api/business-subscription/create-checkout-session/route");
-    const returned = require("../app/api/business-subscription/get-session/route");
-    const free = require("../app/api/business-subscription/choose-free/route");
-    const completion = require("../app/api/profile/onboarding-complete/route");
+    const eligibility = load("../app/api/business-subscription/trial-eligibility/route");
+    const checkout = load("../app/api/business-subscription/create-checkout-session/route");
+    const returned = load("../app/api/business-subscription/get-session/route");
+    const free = load("../app/api/business-subscription/choose-free/route");
+    const completion = load("../app/api/profile/onboarding-complete/route");
     const post = (body: Row = {}) => new Request("https://nettmark.test/api", { method: "POST", body: JSON.stringify(body) });
     const get = (query = "") => new Request("https://nettmark.test/api?" + query);
     reset();
@@ -123,6 +141,19 @@ async function main() {
       assert.equal((await completed.json()).treatment, false);
       assert.equal(completed.cookies.get("nettmark_business_plan_choice_v2")?.value, "");
     }
+    reset();
+    tables.business_entitlements[0].billing_provider = "shopify";
+    tables.business_entitlements[0].billing_status = "subscription_cancelled";
+    tables.shopify_app_subscriptions = [{ business_id: id, shop_domain: "uninstalled.myshopify.com", status: "CANCELLED" }];
+    tables.shopify_stores = [];
+    const recoveredContext = await eligibility.GET(get("businessId=" + id));
+    assert.equal(recoveredContext.status, 200);
+    assert.notEqual((await recoveredContext.json()).billingProvider, "shopify", "uninstalled business UI offers Stripe checkout");
+    tables.shopify_app_subscriptions[0].trial_used = true;
+    assert.equal((await (await eligibility.GET(get("businessId=" + id))).json()).trialEligible, false, "recovery does not offer another trial");
+    assert.equal((await checkout.POST(post({ businessId: id, requireTrial: true }))).status, 409);
+    assert.equal(tables.business_entitlements[0].billing_provider, "stripe");
+    assert.equal(sessionsCreated, 0, "trial consumed on Shopify cannot create a second trial on Stripe");
     reset(); tables.profiles[0].created_at = BUSINESS_FUNNEL_FULL_ROLLOUT_AT; expectedCheckoutFunnel = "trial_first_v1_100";
     assert.equal((await checkout.POST(post({ businessId: id, requireTrial: true, returnTo: "/business/choose-plan" }))).status, 200);
     assert.equal(sessionsCreated, 1);
@@ -176,7 +207,7 @@ async function main() {
     const failedEntry = await completion.POST(post({ offerId }));
     assert.equal(failedEntry.status, 503); assert.equal(failedEntry.headers.get("set-cookie"), null);
     assert.ok(!(writes as Array<{ table: string; value: unknown }>).some(w => w.table === "offers"), "A failed billing-context read leaves the saved offer intact");
-    const webhook = require("../app/api/business-subscription/webhook/route");
+    const webhook = load("../app/api/business-subscription/webhook/route");
     reset();
     signedEvent = { id: "evt_fixture", type: "invoice.paid", livemode: true, created: 1791176500, api_version: "fixture",
       data: { object: { id: "in_fixture", object: "invoice", amount_paid: 7200, currency: "aud", billing_reason: "subscription_cycle", customer: "cus_test", subscription: "sub_test" } } };

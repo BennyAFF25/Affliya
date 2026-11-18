@@ -1,16 +1,8 @@
-import { protectedCallbackUrl } from './admin';
-import { validShop } from './security';
+import { protectedCallbackUrl, adminGraphql } from './admin';
 
 type PixelResult = { pixel_id: string | null; pixel_status: 'active' | 'error'; pixel_error: string | null; pixel_updated_at: string };
 export async function pixelGraphql(shop: string, token: string, query: string, variables: Record<string, unknown> = {}, request = fetch) {
-  const version = process.env.SHOPIFY_API_VERSION?.trim() || '2026-10';
-  if (!validShop(shop) || !/^\d{4}-\d{2}$/.test(version)) throw new Error('configuration');
-  const response = await request(`https://${shop}/admin/api/${version}/graphql.json`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': token },
-    body: JSON.stringify({ query, variables }), signal: AbortSignal.timeout(15000), redirect: 'error', cache: 'no-store',
-  });
-  if (!response.ok) throw new Error('pixel_api_failed');
-  const result = await response.json();
+  const result = await adminGraphql(shop, token, query, variables, request, 'pixel_api_failed');
   if (result.errors?.length) {
     // Inspect solely to classify; never persist Shopify error messages or bodies.
     if (result.errors.some((e: { message?: string }) => /no web pixel was found/i.test(e.message || ''))) throw new Error('pixel_not_found');

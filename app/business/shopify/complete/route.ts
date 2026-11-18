@@ -1,3 +1,4 @@
+import { claimShopifyBilling } from '../../../../lib/shopify/billing';
 import { NextRequest, NextResponse } from 'next/server';
 import { requireBusiness, webhookBaseUrl, BUSINESS_PAGE, errorReason } from '../../../../lib/shopify/server';
 import { PENDING_COOKIE, pendingCookieOptions, takePending, COMPLETE_PATH } from '../../../../lib/shopify/pending';
@@ -19,6 +20,7 @@ export async function GET(req: NextRequest) {
       access_token_encrypted: pending.access_token_encrypted, refresh_token_encrypted: pending.refresh_token_encrypted,
       access_token_expires_at: pending.access_token_expires_at, refresh_token_expires_at: pending.refresh_token_expires_at,
     }, webhookBaseUrl(req));
+    if (pending.user_id === null && await claimShopifyBilling(admin, businessId, pending.shop_domain, true)) destination.pathname = '/business/choose-plan';
     destination.searchParams.set('shopify', 'connected');
   } catch (error) {
     if (error instanceof Error && error.message === 'unauthorized') {

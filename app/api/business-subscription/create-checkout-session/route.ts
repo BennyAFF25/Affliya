@@ -1,3 +1,4 @@
+import { stripeBillingEligible } from '../../../../lib/shopify/billing';
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
@@ -66,6 +67,7 @@ export async function POST(req: Request) {
     if (!business) return NextResponse.json({ error: "Business not found or not authorized" }, { status: 403 });
 
     const entitlement = await getEntitlementOrThrow({ supabase: admin, businessId: business.id });
+    if (!await stripeBillingEligible(admin, business.id, entitlement.billingProvider)) return NextResponse.json({ error: "This business uses Shopify Billing. Manage your plan at /business/choose-plan.", code: "SHOPIFY_BILLING_REQUIRED" }, { status: 409 });
     if (entitlement.isGrandfathered) {
       return clearPlanChoice(NextResponse.json({ status: "grandfathered", message: "This business is grandfathered and does not require a Nettmark Business subscription.", entitlement }));
     }
@@ -73,6 +75,12 @@ export async function POST(req: Request) {
       return NextResponse.json({ status: "checkout_disabled", message: "Business subscription checkout is disabled.", entitlement }, { status: 403 });
     }
 
+    const priceId = getBusinessSubscriptionPriceId();
+    if (!priceId) return NextResponse.json({ error: "Missing STRIPE_NETTMARK_BUSINESS_MONTHLY_PRICE_ID" }, { status: 500 });
+
+    const reservation = await admin.rpc("reserve_stripe_billing", { p_business: business.id });
+    if (reservation.error) throw new Error("Could not reserve billing provider.");
+    if (!reservation.data) return NextResponse.json({ error: "This business uses Shopify Billing.", code: "SHOPIFY_BILLING_REQUIRED" }, { status: 409 });
     const { data: trialHistory, error: trialHistoryError } = await admin
       .from("business_entitlements")
       .select("growth_trial_used,growth_trial_started_at")
@@ -82,9 +90,6 @@ export async function POST(req: Request) {
     if (trialHistoryError) {
       throw new Error(`Failed to load Growth trial history: ${trialHistoryError.message}`);
     }
-
-    const priceId = getBusinessSubscriptionPriceId();
-    if (!priceId) return NextResponse.json({ error: "Missing STRIPE_NETTMARK_BUSINESS_MONTHLY_PRICE_ID" }, { status: 500 });
 
     const stripe = createBusinessSubscriptionStripeClient();
     if (body?.requireTrial === true) {

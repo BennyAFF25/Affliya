@@ -39,6 +39,7 @@ export async function GET(req: Request) {
   const cutoff = new Date(now.getTime() - 13 * 86400000).toISOString();
   const { data: trials, error } = await admin.from("business_entitlements")
     .select("business_id,business_email,billing_status,growth_trial_started_at,subscription_current_period_end")
+    .eq("billing_provider", "stripe")
     .eq("billing_status", "subscription_trialing")
     .gte("growth_trial_started_at", cutoff)
     .order("growth_trial_started_at", { ascending: true }).limit(400);

@@ -12,6 +12,7 @@ export type BusinessBillingStatus =
   | 'subscription_cancelled';
 
 export type BusinessEntitlement = {
+  billingProvider?: 'stripe' | 'shopify';
   businessId: string | null;
   businessEmail: string | null;
   billingStatus: BusinessBillingStatus;
@@ -28,6 +29,7 @@ export type BusinessEntitlement = {
 };
 
 type EntitlementRow = {
+  billing_provider?: string | null;
   business_id?: string | null;
   business_email?: string | null;
   billing_status?: string | null;
@@ -61,6 +63,7 @@ export function evaluateBusinessEntitlement(row: EntitlementRow): BusinessEntitl
   const canLaunchCampaign = isGrandfathered || hasActiveSubscription;
 
   return {
+    billingProvider: row.billing_provider === 'shopify' ? 'shopify' : 'stripe',
     businessId: row.business_id ?? null,
     businessEmail: row.business_email ?? null,
     billingStatus,
@@ -94,7 +97,7 @@ export async function getBusinessEntitlement(params: {
   let entitlementQuery = supabase
     .from('business_entitlements')
     .select(
-      'business_id,business_email,billing_status,is_grandfathered,subscription_required,subscription_stripe_customer_id,stripe_subscription_id,subscription_started_at,subscription_current_period_end,subscription_cancelled_at',
+      'billing_provider,business_id,business_email,billing_status,is_grandfathered,subscription_required,subscription_stripe_customer_id,stripe_subscription_id,subscription_started_at,subscription_current_period_end,subscription_cancelled_at',
     );
 
   entitlementQuery = businessId

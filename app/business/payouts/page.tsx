@@ -59,9 +59,9 @@ function toMoney(value: number | string | null | undefined) {
   return Math.round(n * 100) / 100;
 }
 
-function calculateEstimatedGrossCharge(principalAmount: number | string | null | undefined) {
+function calculateEstimatedGrossCharge(principalAmount: number | string | null | undefined, feeBps: number) {
   const principal = toMoney(principalAmount);
-  const nettmarkFee = toMoney(principal * 0.022);
+  const nettmarkFee = toMoney(principal * feeBps / 10000);
   const grossCharge = toMoney(principal + nettmarkFee);
 
   return {
@@ -98,6 +98,7 @@ function getSettlementBlockReason(payout: WPayout, hasStripe: boolean) {
 }
 
 export default function BusinessPayoutsPage() {
+  const [businessPayoutFeeBps, setBusinessPayoutFeeBps] = useState<number | null>(null);
   const [email, setEmail] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [payouts, setPayouts] = useState<WPayout[]>([]);
@@ -198,6 +199,7 @@ export default function BusinessPayoutsPage() {
         const response = await fetch("/api/business/dashboard/summary", { cache: "no-store" });
         if (response.ok) {
           const summary = await response.json();
+          if (typeof summary.businessPayoutFeeBps === "number") setBusinessPayoutFeeBps(summary.businessPayoutFeeBps);
           if (summary.adSpendSummary) setAdSpendSummary(summary.adSpendSummary);
         }
       } catch { /* Optional summary must not prevent commission history loading. */ }
@@ -269,9 +271,9 @@ export default function BusinessPayoutsPage() {
       pending.reduce((sum, p) => {
         const storedGross = toMoney(p.gross_charge_amount);
         if (storedGross > 0) return sum + storedGross;
-        return sum + calculateEstimatedGrossCharge(p.amount).grossCharge;
+        return sum + calculateEstimatedGrossCharge(p.amount, businessPayoutFeeBps ?? 0).grossCharge;
       }, 0),
-    [pending],
+    [pending, businessPayoutFeeBps],
   );
 
   // --- Actions
@@ -440,7 +442,7 @@ export default function BusinessPayoutsPage() {
                 your payment history.
               </p>
               <p className="mt-2 text-xs text-[var(--muted-foreground)]">
-                Businesses are charged payout principal plus the Nettmark payout fee. The affiliate still receives principal only.
+                {businessPayoutFeeBps === 0 ? "Your business pays payout principal only. The Nettmark payout fee is waived." : businessPayoutFeeBps == null ? "Fee estimate unavailable. Final charges are determined securely when settling." : "Businesses are charged payout principal plus the Nettmark payout fee. The affiliate still receives principal only."}
               </p>
               <p className="mt-1 text-xs text-[var(--muted-foreground)]">
                 Payouts are only settleable after the 14-day Stripe connect window and once the affiliate has connected Stripe.
@@ -450,7 +452,7 @@ export default function BusinessPayoutsPage() {
               <div className="rounded-md bg-[var(--secondary)] px-4 py-2 text-sm text-[var(--muted-foreground)] shadow-inner">
                 Pending Total:{" "}
                 <span className="font-semibold text-[var(--foreground)]">
-                  {currencyFmt.format(pendingTotal)}
+                  {businessPayoutFeeBps == null && pending.some((p) => p.gross_charge_amount == null) ? "Unavailable" : currencyFmt.format(pendingTotal)}
                 </span>
               </div>
               <button
@@ -609,6 +611,7 @@ export default function BusinessPayoutsPage() {
               offersById={offersById}
               affiliateStripeByEmail={affiliateStripeByEmail}
               currencyFmt={currencyFmt}
+              businessPayoutFeeBps={businessPayoutFeeBps}
               selectable={tab === "pending"}
               selected={selected}
               onToggle={(id, v) => setSelected((s) => ({ ...s, [id]: v }))}
@@ -705,6 +708,7 @@ function Table({
   offersById,
   affiliateStripeByEmail,
   currencyFmt,
+  businessPayoutFeeBps,
   selectable = false,
   selected,
   onToggle,
@@ -714,6 +718,7 @@ function Table({
   offersById: Record<string, string>;
   affiliateStripeByEmail: Record<string, string | null>;
   currencyFmt: Intl.NumberFormat;
+  businessPayoutFeeBps: number | null;
   selectable?: boolean;
   selected?: Record<string, boolean>;
   onToggle?: (id: string, v: boolean) => void;
@@ -802,8 +807,13 @@ function Table({
                   Principal to affiliate
                 </div>
                 {(() => {
-                  const estimated = calculateEstimatedGrossCharge(r.amount);
-                  const nettmarkFee = toMoney(r.nettmark_fee_amount) > 0 ? toMoney(r.nettmark_fee_amount) : estimated.nettmarkFee;
+                  if (businessPayoutFeeBps == null && r.gross_charge_amount == null) return <div>Fee estimate unavailable</div>;
+                  const estimated = calculateEstimatedGrossCharge(r.amount, businessPayoutFeeBps ?? 0);
+                  const nettmarkFee = r.nettmark_fee_amount != null
+                    ? toMoney(r.nettmark_fee_amount)
+                    : r.gross_charge_amount != null
+                      ? toMoney(Math.max(0, toMoney(r.gross_charge_amount) - toMoney(r.amount)))
+                      : estimated.nettmarkFee;
                   const grossCharge = toMoney(r.gross_charge_amount) > 0 ? toMoney(r.gross_charge_amount) : estimated.grossCharge;
                   const showBreakdown = nettmarkFee > 0 || grossCharge > 0 || toMoney(r.stripe_fee_amount) > 0;
 

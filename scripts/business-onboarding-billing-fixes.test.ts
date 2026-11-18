@@ -69,8 +69,8 @@ const stripe = {
   accountLinks: { create: async () => ({ url: "https://stripe.invalid/onboarding" }) },
   paymentMethods: { list: async () => ({ data: [{ id: "pm_fixture" }] }) },
   paymentIntents: {
-    create: async (input: Row) => { charges.push(input); return { id: "pi_fixture", status: "succeeded", latest_charge: null }; },
-    retrieve: async () => ({ id: "pi_fixture", status: "succeeded", latest_charge: null }),
+    create: async (input: Row) => { charges.push(input); return { id: "pi_fixture", amount: input.amount, status: "succeeded", latest_charge: null }; },
+    retrieve: async () => ({ id: "pi_fixture", amount: charges.at(-1)?.amount, status: "succeeded", latest_charge: null }),
   },
   transfers: {
     create: async (input: Row) => { if (transferFails) throw new Error("fixture transfer failed"); transfers.push(input); return { id: "tr_fixture" }; },

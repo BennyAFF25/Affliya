@@ -54,6 +54,7 @@ type StripeSubscriptionLike = {
 };
 
 type EntitlementWithIdRow = {
+  billing_provider?: string | null;
   id?: string | null;
   business_id?: string | null;
   business_email?: string | null;
@@ -306,7 +307,7 @@ export async function syncBusinessEntitlementFromStripeSubscription(params: {
 
   let entitlementQuery = params.supabase
     .from("business_entitlements")
-    .select("id,business_id,business_email,is_grandfathered,billing_status,subscription_required")
+    .select("id,business_id,business_email,is_grandfathered,billing_status,subscription_required,billing_provider")
     .limit(1);
 
   if (businessId) {
@@ -323,6 +324,7 @@ export async function syncBusinessEntitlementFromStripeSubscription(params: {
 
   const typedEntitlementRow = entitlementRow as EntitlementWithIdRow;
   const entitlement = evaluateBusinessEntitlement(typedEntitlementRow);
+  if (entitlement.billingProvider === "shopify") return null;
   if (entitlement.isGrandfathered) {
     return {
       businessId: entitlement.businessId,
@@ -349,6 +351,7 @@ export async function syncBusinessEntitlementFromStripeSubscription(params: {
       subscription_cancelled_at: cancelledAt,
     })
     .eq("business_id", entitlement.businessId)
+    .eq("billing_provider", "stripe")
     .select("business_id,business_email,billing_status,subscription_required,subscription_stripe_customer_id,stripe_subscription_id,subscription_started_at,subscription_current_period_end,subscription_cancelled_at")
     .single();
 
@@ -403,7 +406,7 @@ export async function getGrowthTrialEligibility(params: {
     .select("growth_trial_used,growth_trial_started_at").eq("business_id", params.business.id).maybeSingle();
   if (error) throw new Error("Could not verify Growth trial history.");
   if (data?.growth_trial_used || data?.growth_trial_started_at || params.entitlement.stripeSubscriptionId || params.entitlement.isGrandfathered) return false;
-  let customerId = params.entitlement.subscriptionStripeCustomerId;
+  const customerId = params.entitlement.subscriptionStripeCustomerId;
   if (!customerId) {
     const email = params.business.billing_email || params.business.business_email;
     const customers = await params.stripe.customers.search({ query: `email:'${email.replace(/'/g, "\\'")}'`, limit: 100 });

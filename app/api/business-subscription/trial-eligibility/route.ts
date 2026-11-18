@@ -1,3 +1,4 @@
+import { billingConfig, billingRow, shopifyTrialEligible, stripeBillingEligible } from '../../../../lib/shopify/billing';
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
@@ -28,6 +29,19 @@ export async function GET(req: Request) {
     const business = await getOwnedBusinessForUser({ supabase: admin, businessId, userId: user.id, userEmail: user.email });
     if (!business) return NextResponse.json({ error: "Business not found" }, { status: 403 });
     const entitlement = await getEntitlementOrThrow({ supabase: admin, businessId });
+    if (!await stripeBillingEligible(admin, businessId, entitlement.billingProvider)) {
+      const row = await billingRow(admin, businessId);
+      if (!row) throw new Error("Shopify billing unavailable");
+      const { data: history, error } = await admin.from("business_entitlements").select("*").eq("business_id", businessId).single();
+      if (error) throw new Error("Trial history unavailable");
+      const config = billingConfig();
+      return NextResponse.json({ businessId, billingProvider: "shopify", treatment: false, planFirst: false,
+        trialEligible: shopifyTrialEligible(history, row), trialDays: BUSINESS_GROWTH_TRIAL_DAYS,
+        checkoutEnabled: true, price: { amount: Math.round(Number(config.amount) * 100), currency: config.currencyCode,
+          interval: "day", intervalCount: 30, formatted: new Intl.NumberFormat("en-AU", { style: "currency", currency: config.currencyCode }).format(Number(config.amount)),
+          taxNotice: "Shopify confirms your final total." }, billingError: null,
+      }, { headers: { "Cache-Control": "private, no-store" } });
+    }
     const cohort = await getBusinessFunnelMetadata(admin, businessId);
     const [{ data: offer, error: offerError }, { data: entry, error: entryError }, { data: freeChoice, error: choiceError }] = await Promise.all([
       admin.from("offers").select("id,participation_mode").eq("business_email", business.business_email).order("created_at", { ascending: true }).limit(1).maybeSingle(),
@@ -51,6 +65,11 @@ export async function GET(req: Request) {
         getGrowthSubscriptionPrice(stripe),
         getGrowthTrialEligibility({ stripe, supabase: admin, business, entitlement }),
       ]);
+      // Recovery preserves the one-trial policy before the locked Stripe reservation.
+      if (entitlement.billingProvider === "shopify") {
+        const previous = await billingRow(admin, businessId);
+        if (previous?.trial_used || previous?.trial_started_at) trialEligible = false;
+      }
     } catch {
       billingError = "We couldn't verify Growth pricing and trial eligibility. Please retry, or continue with Free.";
     }
