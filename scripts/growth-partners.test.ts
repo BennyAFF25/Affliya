@@ -188,6 +188,16 @@ async function run() {
     assert.equal(marketingTrackersAllowed('/', 'production'), true);
     assert.equal(marketingTrackersAllowed('/', 'preview'), false);
     for (const path of ['/growth-partners', '/growth-partners/apply', '/r/ABCD1234']) assert.equal(marketingTrackersAllowed(path, 'production'), false, path);
+    const rootLayout = fs.readFileSync('app/layout.tsx', 'utf8');
+    assert.match(rootLayout, /marketingTrackersEnabled = process\.env\.VERCEL_ENV === 'production'/);
+    assert.match(rootLayout, /\{marketingTrackersEnabled && <>\s*<Script\s+id="meta-pixel-base"/, 'Meta pixel only renders on production deployments');
+    const { trackMetaStandardEvent } = await import('../utils/marketing/metaPixel');
+    const g = globalThis as any; const hadWindow = 'window' in g; const prevWindow = g.window;
+    g.window = {}; assert.doesNotThrow(() => trackMetaStandardEvent('Lead', {}, { eventID: 'evt' }), 'browser Lead is a no-op without the pixel');
+    const calls: unknown[][] = []; g.window = { fbq: (...args: unknown[]) => calls.push(args) };
+    trackMetaStandardEvent('Lead', {}, { eventID: 'evt_1' });
+    assert.deepEqual(calls[0], ['track', 'Lead', {}, { eventID: 'evt_1' }], 'production browser Lead keeps the shared event ID');
+    if (hadWindow) g.window = prevWindow; else delete g.window;
     assert.match(fs.readFileSync('app/growth-partners/dashboard/page.tsx', 'utf8'), /href="\/growth-partners\/logout"/);
     assert.match(fs.readFileSync('app/growth-partners/logout/page.tsx', 'utf8'), /replace\("\/growth-partners\/login"\)/);
   });
