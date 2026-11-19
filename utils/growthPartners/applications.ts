@@ -29,6 +29,9 @@ export async function submitGrowthApplication(db: SupabaseClient, input: Record<
   if (input.attribution && typeof input.attribution === 'object') for (const [key, value] of Object.entries(input.attribution)) {
     if ((/^utm_/.test(key) || ['fbclid','landing_referrer'].includes(key)) && typeof value === 'string') attribution[key.slice(0,50)] = value.slice(0,500);
   }
+  const { data: existing, error: existingError } = await db.from('creator_partners').select('id').eq('program','growth_partner').eq('partner_email',fields.email).in('status',['active','suspended','paused']);
+  if (existingError) throw new Error('Application could not be saved. Please try again.');
+  if (Array.isArray(existing) ? existing.length : existing) return { ok: true, duplicate: true };
   const eventId = `growth_lead_${randomUUID()}`;
   const { data, error } = await db.from('growth_partner_applications').insert({ ...fields, meta_event_id: eventId, attribution, ip_hash: ipHash(req), user_agent: req.headers.get('user-agent')?.slice(0,500) || null }).select('id').single();
   if (error?.code === '23505') return { ok: true, duplicate: true };

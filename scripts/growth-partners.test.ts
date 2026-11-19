@@ -226,6 +226,18 @@ async function run() {
     await submitGrowthApplication(preview,input,request,sender); assert.equal(sent,1);
     assert.ok(preview.writes.some((w:any)=>w.args[0].meta_capi_status==='skipped_non_production'));
   });
+  await test('application from an existing approved partner email is a silent duplicate',async()=>{
+    const input={email:'Partner@Example.test',full_name:'Existing Partner',category:'creator',profile_url:'https://example.test',audience_estimate:'<1k'};
+    const request=new Request('https://offline.test/api/growth-partners/apply');
+    const sender:any=async()=>{throw Error('Must not send');};
+    for(const rows of [{id:'p1'},[{id:'p1'}]]) {
+      const db=fake({creator_partners:rows});
+      const result:any=await submitGrowthApplication(db,input,request,sender);
+      assert.deepEqual(result,{ok:true,duplicate:true});
+      assert.equal(db.writes.length,0,'no application row is inserted');
+      assert.ok(db.calls.some((c:any)=>c.table==='creator_partners'&&c.method==='eq'&&c.args[1]==='partner@example.test'));
+    }
+  });
   await test('real redirect and admin API reject invalid/suspended codes and unauthorized users',async()=>{
     const loader=Module as any, original=loader._load;
     let user:any=null, db=fake();
