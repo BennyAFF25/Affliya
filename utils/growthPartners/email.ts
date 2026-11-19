@@ -1,0 +1,38 @@
+import { Resend } from 'resend';
+import { renderNettmarkEmail, type RenderNettmarkEmailArgs } from '../email/renderNettmarkEmail';
+export function growthEmailAllowed(email: string, env = process.env) {
+  if (env.VERCEL_ENV === 'production') return true;
+  const normalized = email.trim().toLowerCase();
+  // The QA mailbox (+aliases) always works outside production; the allowlist only adds recipients.
+  if (/^nettmarkqa(?:\+[^@\s]+)?@mail\.grokbot\.com$/.test(normalized)) return true;
+  return (env.NON_PRODUCTION_EMAIL_ALLOWLIST || '').split(',').some(entry => {
+    const allowed = entry.trim().toLowerCase();
+    if (!allowed) return false;
+    return allowed.startsWith('@') ? normalized.endsWith(allowed) : normalized === allowed;
+  });
+}
+/** Production keeps the canonical site; Preview/staging links point at this deployment's branch alias. */
+export function growthOrigin(env: Record<string, string | undefined> = process.env) {
+  if (env.VERCEL_ENV !== 'production') {
+    const host = env.VERCEL_BRANCH_URL || env.VERCEL_URL;
+    if (host) return `https://${host.replace(/^https?:\/\//, '').replace(/\/$/, '')}`;
+  }
+  return (env.NEXT_PUBLIC_SITE_URL || env.NEXT_PUBLIC_APP_URL || 'https://www.nettmark.com').replace(/\/$/, '');
+}
+/** Referral link shown to partners: stored canonical URL in production, this deployment's /r link elsewhere. */
+export function growthReferralUrl(partner: { referral_code?: string | null; referral_url?: string | null }, env: Record<string, string | undefined> = process.env) {
+  if (env.VERCEL_ENV === 'production' || !partner.referral_code) return partner.referral_url || null;
+  return `${growthOrigin(env)}/r/${encodeURIComponent(partner.referral_code)}`;
+}
+export async function sendGrowthEmail(to: string, subject: string, content: RenderNettmarkEmailArgs) {
+  if (!growthEmailAllowed(to)) { console.info('[growth-partners] Email skipped', { recipient: `${to.slice(0, 1)}***@***` }); return { skipped: true }; }
+  if (!process.env.RESEND_API_KEY || !process.env.RESEND_FROM_EMAIL) return { skipped: true };
+  try {
+    const result = await new Resend(process.env.RESEND_API_KEY).emails.send({
+      from: `${process.env.RESEND_FROM_NAME || 'Nettmark'} <${process.env.RESEND_FROM_EMAIL}>`,
+      to, subject, html: renderNettmarkEmail(content),
+    });
+    if (result.error) throw new Error('Email failed');
+    return { sent: true };
+  } catch { console.warn('[growth-partners] Email delivery failed'); return { sent: false }; }
+}
