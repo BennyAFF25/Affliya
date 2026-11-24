@@ -40,11 +40,11 @@ export default async function DashboardPage() {
       {partner.status !== 'active' && <div role="status" className="rounded-3xl border border-amber-400/30 bg-amber-500/10 p-5 text-amber-200"><strong>Your referral link is suspended</strong><p>You can still review your referrals and commissions. Contact Nettmark for help.</p></div>}
       <Card className="rounded-3xl border-white/10 bg-[#151718] p-6 text-white">
         <h2>Share your referral link</h2>
-        <p>Share it with new businesses. Registrations and subscription payments will appear here. New to this? Start with <a className="gp-link" href="#starter-kit">your starter kit</a> for templates and tips.</p>
+        <p>Share it with new businesses. Referred businesses appear here once they start a plan, followed by their subscription payments. New to this? Start with <a className="gp-link" href="#starter-kit">your starter kit</a> for templates and tips.</p>
         <ReferralLink referralUrl={referralUrl} />
       </Card>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard className="bg-[#151718] text-white" label="Referrals" value={referrals.length} helper="Businesses registered" />
+        <StatCard className="bg-[#151718] text-white" label="Referrals" value={referrals.length} helper="Counted once they start a plan" />
         <StatCard className="bg-[#151718] text-white" label="Pending" value={amounts('pending')} helper="Net of clawbacks" />
         <StatCard className="bg-[#151718] text-white" label="Approved (earned)" value={amounts('approved')} helper="Net of clawbacks" />
         <StatCard className="bg-[#151718] text-white" label="Paid" value={amounts('paid')} helper="Net of clawbacks" />
@@ -65,8 +65,8 @@ export default async function DashboardPage() {
       <section className="gp-card">
         <h2>Recent referrals</h2>
         {referrals.length ? <ul className="gp-list">{[...referrals].sort((a, b) => String(b.attributed_at).localeCompare(String(a.attributed_at))).slice(0, 20).map(row => <li key={String(row.id)} className="flex flex-wrap items-center justify-between gap-3">
-          <div><strong>Business {String(row.id).slice(0, 6).toUpperCase()}</strong><p className="text-sm">Registered {new Date(String(row.attributed_at)).toLocaleDateString('en-AU')}</p></div>
-          <StatusBadge status={row.first_paid_at ? 'active' : 'pending'} label={row.first_paid_at ? 'Paying' : row.first_trial_started_at ? 'Trial started' : 'Registered'} />
+          <div><strong>Business {String(row.id).slice(0, 6).toUpperCase()}</strong><p className="text-sm">Referred {new Date(String(row.attributed_at)).toLocaleDateString('en-AU')}</p></div>
+          <StatusBadge status={row.first_paid_at ? 'active' : 'pending'} label={row.first_paid_at ? 'Paying' : row.first_trial_started_at ? 'Trial started' : 'Checkout started'} />
         </li>)}</ul> : <EmptyState title="No referrals yet" description="Share your referral link with business owners to get started." />}
       </section>
       <StarterKit referralUrl={referralUrl} />

@@ -290,6 +290,9 @@ async function run() {
     assert.doesNotMatch(all, /\$\s?\d|A\$|USD|per month|guarantee|passive income|weekly payout|monthly payout/i);
     const page = fs.readFileSync('app/growth-partners/dashboard/page.tsx','utf8');
     assert.match(page, /<StarterKit referralUrl=\{referralUrl\} \/>/);
+    // Attribution is created when the business starts a plan (checkout), so the dashboard must not claim plain registrations.
+    assert.match(page, /once they start a plan/); assert.doesNotMatch(page, /Businesses registered|'Registered'/);
+    assert.match(all, /start their Nettmark plan within those 60 days/);
     const component = fs.readFileSync('app/growth-partners/dashboard/StarterKit.tsx','utf8');
     assert.match(component, /aria-label=\{`Copy \$\{title\} template`\}/); assert.match(component, /aria-live="polite"/); assert.match(component, /disabled=\{!referralUrl\}/);
     assert.match(fs.readFileSync('utils/growthPartners/commissionMath.ts','utf8'), /GROWTH_PARTNER_COMMISSION_HOLD_DAYS \?\? 14/);

@@ -50,7 +50,7 @@ export function starterKitTemplates(referralUrl: string | null): StarterTemplate
 export const starterKitDos = [
   'Personalise each message and reach out to businesses that genuinely fit.',
   'Say that you are a Nettmark Growth Partner when you share your link.',
-  'Ask businesses to sign up on the same device and browser where they opened your link.',
+  'Ask businesses to sign up and start their plan on the same device and browser where they opened your link.',
 ];
 
 export const starterKitDonts = [
@@ -62,7 +62,7 @@ export const starterKitDonts = [
 ];
 
 export const starterKitFaq = [
-  { q: 'How long does my link last?', a: 'The first partner link a business clicks is remembered on that browser for 60 days (first touch). A later click on another partner’s link doesn’t replace it. If the business clears cookies or signs up on a different device or browser, the referral can’t be tracked.' },
+  { q: 'How long does my link last?', a: 'The first partner link a business clicks is remembered on that browser for 60 days (first touch). A later click on another partner’s link doesn’t replace it. The business needs to start their Nettmark plan within those 60 days, on the same device and browser where they opened your link. If they clear cookies or switch device or browser first, the referral can’t be tracked.' },
   { q: 'Which businesses count?', a: 'New businesses that create a Nettmark account and start a subscription at nettmark.com after clicking your link. Businesses that were already on Nettmark, or had already started a subscription or trial, don’t count.' },
   { q: 'What do I earn?', a: '50% of eligible monthly subscription revenue, excluding GST, for each business’s first 3 paid months. Free trial periods and month 4 onwards don’t earn commission.' },
   { q: 'When do I get paid?', a: 'Each commission is held for 14 days after the payment, then reviewed and approved by Nettmark. Approved commissions are then paid out by Nettmark, and you can track every stage on this dashboard.' },
