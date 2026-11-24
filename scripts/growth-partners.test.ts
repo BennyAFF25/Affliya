@@ -275,6 +275,26 @@ async function run() {
     assert.ok(growthEmailContent.received().previewText);
     assert.equal(growthEmailContent.adminNotify('https://example.test/review').cta?.href, 'https://example.test/review');
   });
+  await test('starter kit inserts the referral link and only states implemented rules', async () => {
+    const kit = await import('../utils/growthPartners/starterKit');
+    const url = 'https://example.test/r/ABCDEFGH';
+    const templates = kit.starterKitTemplates(url);
+    assert.ok(templates.length >= 3 && templates.length <= 4);
+    assert.deepEqual(templates.map(t => t.id), ['cold-dm','email','social-post','text-intro']);
+    for (const template of templates) { assert.ok(template.body.includes(url)); assert.ok(!template.body.includes(kit.LINK_PLACEHOLDER)); }
+    for (const template of kit.starterKitTemplates(null)) assert.ok(template.body.includes(kit.LINK_PLACEHOLDER));
+    const all = JSON.stringify([kit.starterKitSteps, kit.starterKitFaq, kit.starterKitDonts, kit.starterKitPitch, kit.starterKitTemplates(url)]);
+    assert.match(all, /50%/); assert.match(all, /excluding GST/); assert.match(all, /first 3 paid months/); assert.match(all, /14 days/); assert.match(all, /60 days/);
+    assert.match(all, /own Meta ad account|own ad account/); assert.match(all, /self-referrals/i); assert.match(all, /same company email domain/);
+    // No invented pricing, payout schedules or income promises.
+    assert.doesNotMatch(all, /\$\s?\d|A\$|USD|per month|guarantee|passive income|weekly payout|monthly payout/i);
+    const page = fs.readFileSync('app/growth-partners/dashboard/page.tsx','utf8');
+    assert.match(page, /<StarterKit referralUrl=\{referralUrl\} \/>/);
+    const component = fs.readFileSync('app/growth-partners/dashboard/StarterKit.tsx','utf8');
+    assert.match(component, /aria-label=\{`Copy \$\{title\} template`\}/); assert.match(component, /aria-live="polite"/); assert.match(component, /disabled=\{!referralUrl\}/);
+    assert.match(fs.readFileSync('utils/growthPartners/commissionMath.ts','utf8'), /GROWTH_PARTNER_COMMISSION_HOLD_DAYS \?\? 14/);
+    assert.match(fs.readFileSync('utils/creatorReferrals.ts','utf8'), /DEFAULT_CREATOR_COMMISSION_PERCENTAGE = 50;[\s\S]*DURATION_MONTHS = 3;[\s\S]*\|\| 60\)/);
+  });
   await test('SQL source contracts awaiting reviewer staging verification',()=>{
     const sql=fs.readFileSync('supabase/migrations/20261117120000_growth_partners.sql','utf8');
     for(const pattern of [/FOR UPDATE/,/business_creator_attribution_id=a.id AND entry_type='commission'/,/n>p.commission_duration_months/,/partner_not_active/,/commission_skipped/,/duplicate_invoice/,/cumulative<=l.refunded_amount/,/l.status='paid' AND delta>0/,/commission_amount=target/,/cumulative=l.amount_paid THEN 'reversed'/,/Refund hold has not elapsed/,/l.creator_partner_id<>partner_id/,/Mixed currencies/,/total<=0/,/total:=total\+l.commission_amount/,/FROM PUBLIC,anon,authenticated/]) assert.match(sql,pattern);

@@ -26,3 +26,27 @@
 .gp-list > li { border-top:1px solid #ffffff12; padding:14px 0; }
 .gp-link { color:#63e8ee!important; text-decoration:underline; }
 @media(min-width:640px) { .gp-shell { padding:24px 32px 80px; } .gp-grid { grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); } .gp-form-grid { display:grid; grid-template-columns:1fr 1fr; gap:0 24px; } }
+.gp-kit .gp-kit-heading { margin-top:32px; }
+.gp-kit h4 { font-size:15px; font-weight:600; color:#fff; margin-bottom:4px; }
+.gp-steps { display:grid; gap:12px; margin-top:12px; }
+.gp-step { display:flex; gap:14px; align-items:flex-start; background:#0000001a; border:1px solid #ffffff17; border-radius:17px; padding:16px; }
+.gp-step-number { flex:none; display:inline-flex; align-items:center; justify-content:center; width:32px; height:32px; border-radius:999px; background:#00c2cb; color:#080808; font-weight:700; }
+.gp-kit-columns { display:grid; gap:16px; margin-top:24px; }
+.gp-bullets { list-style:disc; padding-left:20px; color:#cbd5e1; line-height:1.7; font-size:14px; }
+.gp-bullets li + li { margin-top:6px; }
+.gp-do li::marker { color:#34d399; }
+.gp-dont li::marker { color:#f87171; }
+.gp-templates { display:grid; gap:16px; margin-top:12px; }
+.gp-template { background:#0f0f0f; border:1px solid #ffffff17; border-radius:17px; padding:16px; min-width:0; }
+.gp-template-head { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-bottom:10px; }
+.gp-template-hint { font-size:12px; color:#94a3b8!important; line-height:1.4!important; }
+.gp-copy { flex:none; min-height:44px; min-width:84px; border-radius:999px; border:1px solid #00c2cb; color:#63e8ee; padding:8px 18px; font-weight:600; font-size:14px; background:transparent; }
+.gp-copy:hover:not(:disabled) { background:#00c2cb1f; }
+.gp-copy:disabled { opacity:.45; cursor:not-allowed; }
+.gp-template-body { white-space:pre-wrap; overflow-wrap:anywhere; font-family:inherit; font-size:14px; line-height:1.65; color:#e2e8f0; margin:0; }
+.gp-template-status { min-height:20px; font-size:12px; margin-top:6px; }
+.gp-faq { display:grid; gap:10px; margin-top:12px; }
+.gp-faq details { border:1px solid #ffffff17; border-radius:14px; padding:14px 16px; background:#0000001a; }
+.gp-faq summary { cursor:pointer; font-weight:600; color:#fff; min-height:24px; }
+.gp-faq details p { margin-top:8px; font-size:14px; }
+@media(min-width:768px) { .gp-steps { grid-template-columns:repeat(3,1fr); } .gp-kit-columns { grid-template-columns:1fr 1fr; } .gp-templates { grid-template-columns:1fr 1fr; } }

@@ -8,6 +8,7 @@ import { getGrowthPartnerForUser } from '../../../utils/growthPartners/accounts'
 import { allPartnerRows, commissionTotals, type LedgerSummaryRow } from '../../../utils/growthPartners/reporting';
 import { growthReferralUrl } from '../../../utils/growthPartners/email';
 import DashboardActions, { ReferralLink } from './DashboardActions';
+import StarterKit from './StarterKit';
 
 export const dynamic = 'force-dynamic';
 export default async function DashboardPage() {
@@ -29,6 +30,7 @@ export default async function DashboardPage() {
       <div key={currency}>{new Intl.NumberFormat('en-AU', { style: 'currency', currency }).format(total[key] / 100)}</div>
     )) : '—';
   };
+  const referralUrl = partner.status === 'active' ? growthReferralUrl(partner) : null;
   return (
     <main className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -38,8 +40,8 @@ export default async function DashboardPage() {
       {partner.status !== 'active' && <div role="status" className="rounded-3xl border border-amber-400/30 bg-amber-500/10 p-5 text-amber-200"><strong>Your referral link is suspended</strong><p>You can still review your referrals and commissions. Contact Nettmark for help.</p></div>}
       <Card className="rounded-3xl border-white/10 bg-[#151718] p-6 text-white">
         <h2>Share your referral link</h2>
-        <p>Share it with new businesses. Registrations and subscription payments will appear here.</p>
-        <ReferralLink referralUrl={partner.status === 'active' ? growthReferralUrl(partner) : null} />
+        <p>Share it with new businesses. Registrations and subscription payments will appear here. New to this? Start with <a className="gp-link" href="#starter-kit">your starter kit</a> for templates and tips.</p>
+        <ReferralLink referralUrl={referralUrl} />
       </Card>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard className="bg-[#151718] text-white" label="Referrals" value={referrals.length} helper="Businesses registered" />
@@ -67,6 +69,7 @@ export default async function DashboardPage() {
           <StatusBadge status={row.first_paid_at ? 'active' : 'pending'} label={row.first_paid_at ? 'Paying' : row.first_trial_started_at ? 'Trial started' : 'Registered'} />
         </li>)}</ul> : <EmptyState title="No referrals yet" description="Share your referral link with business owners to get started." />}
       </section>
+      <StarterKit referralUrl={referralUrl} />
       <p className="text-sm">Earn 50% of eligible subscription revenue excluding GST for the first 3 paid months. Commissions have a 14-day hold and payouts are reviewed and approved by Nettmark.</p>
       <Card className="rounded-3xl border-white/10 bg-[#151718] p-6 text-white"><DashboardActions profileRole={profileResult.data?.role || null} /></Card>
     </main>
