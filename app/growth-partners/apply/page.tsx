@@ -1,7 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { StepCard } from '../../../components/ui';
-import ApplicationForm from './ApplicationForm';
+import ApplicationSection from './ApplicationSection';
 
 const steps = [
   ['01', 'Apply', 'Tell us about your work and your business-owner audience. We review every application.'],
@@ -46,11 +46,7 @@ export default function ApplyPage() {
         <p>Creators, educators, media buyers, agencies, consultants, accountants and advisors: if you have a relevant business-owner audience or professional network, we would like to hear from you. Applications are selected for fit, relevance and credibility.</p>
         <p className="mt-3">Nettmark brings affiliate promotion and paid advertising together. Your role is to introduce businesses that could benefit.</p>
       </section>
-      <section className="gp-card" id="application">
-        <h2>Apply for the programme</h2>
-        <p className="mb-6">Tell us a little about yourself. We review every application.</p>
-        <ApplicationForm />
-      </section>
+      <div className="mb-6"><ApplicationSection id="application" /></div>
       <section className="gp-section">
         <h2>Frequently asked questions</h2>
         {questions.map(([question, answer]) => <details key={question} className="gp-card">
@@ -58,7 +54,6 @@ export default function ApplyPage() {
           <p className="mt-3">{answer}</p>
         </details>)}
       </section>
-      <p className="text-sm">By applying, you agree that we can contact you about your application. <Link className="gp-link" href="/legal/privacy">Privacy policy</Link></p>
     </main>
   );
 }

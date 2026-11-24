@@ -15,7 +15,7 @@ import {
   Wallet,
 } from "lucide-react";
 import MarketingHeader from "@/components/marketing/MarketingHeader";
-import ApplicationForm from "../growth-partners/apply/ApplicationForm";
+import ApplicationSection from "../growth-partners/apply/ApplicationSection";
 import { starterKitTemplates } from "../../utils/growthPartners/starterKit";
 import "../growth-partners/growth-partners.css";
 
@@ -254,28 +254,9 @@ function StarterKitPreview() {
 
 function ApplySection() {
   return (
-    <section id="apply" className="mt-10 scroll-mt-24 rounded-[24px] border border-cyan-400/30 bg-[linear-gradient(135deg,#09272b_0%,#0c1115_55%,#0c1115_100%)] p-6 lg:p-8" aria-labelledby="apply-title">
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]">
-        <div>
-          <Eyebrow>Apply now</Eyebrow>
-          <h2 id="apply-title" className="mt-3 text-2xl font-bold sm:text-3xl">Become a Growth Partner.</h2>
-          <p className="mt-3 text-sm leading-6 text-slate-300">
-            It takes about a minute. We review every application for fit, relevance and credibility. If you&apos;re
-            approved, your referral link and sign-in instructions arrive by email.
-          </p>
-          <p className="mt-4 text-sm text-slate-400">
-            Already approved? <Link href="/growth-partners/login" className="text-cyan-300 underline underline-offset-4">Sign in</Link>
-          </p>
-        </div>
-        <div className="growth-partners gp-embedded">
-          <ApplicationForm />
-          <p className="mt-4 text-xs text-slate-400">
-            By applying, you agree that we can contact you about your application.{" "}
-            <Link className="gp-link" href="/legal/privacy">Privacy policy</Link>
-          </p>
-        </div>
-      </div>
-    </section>
+    <div className="mt-10">
+      <ApplicationSection id="apply" />
+    </div>
   );
 }
 
