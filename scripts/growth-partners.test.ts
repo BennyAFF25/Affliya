@@ -19,7 +19,7 @@ function fake(rows: Record<string, any> = {}, rpcResult: any = { data: null, err
   const writes: any[] = [], calls: any[] = [];
   const db: any = { writes, calls, from(table: string) {
     const q: any = {};
-    for (const method of ['select','eq','ilike','in','is']) q[method] = (...args: any[]) => { calls.push({table, method, args}); return q; };
+    for (const method of ['select','eq','ilike','in','is','gte']) q[method] = (...args: any[]) => { calls.push({table, method, args}); return q; };
     for (const method of ['insert','upsert','update']) q[method] = (...args: any[]) => { writes.push({table, method, args}); return q; };
     const result = () => ({data: rows[table] ?? null, error: null});
     q.single = q.maybeSingle = async () => result();
@@ -226,6 +226,51 @@ async function run() {
     await submitGrowthApplication(preview,input,request,sender); assert.equal(sent,1);
     assert.ok(preview.writes.some((w:any)=>w.args[0].meta_capi_status==='skipped_non_production'));
   });
+  await test('admin notification: details, deep link, flags, non-blocking, not on duplicates',async()=>{
+    const prior={env:process.env.VERCEL_ENV,admin:process.env.ADMIN_NOTIFY_EMAIL,branch:process.env.VERCEL_BRANCH_URL,salt:process.env.GROWTH_PARTNER_IP_HASH_SALT};
+    process.env.VERCEL_ENV='preview'; process.env.VERCEL_BRANCH_URL='preview.example.test'; process.env.ADMIN_NOTIFY_EMAIL='contact@example.test'; process.env.GROWTH_PARTNER_IP_HASH_SALT='offline-salt';
+    try {
+      const id='11111111-2222-3333-4444-555555555555';
+      const input={email:'New@Example.test',full_name:'New Applicant',category:'media_buyer',profile_url:'https://example.test/me',audience_estimate:'1k-10k',attribution:{utm_source:'facebook',utm_medium:'paid_social',utm_campaign:'growth_partners',landing_path:'/partner-program',ignored:'x'}};
+      const request=new Request('https://offline.test/api/growth-partners/apply',{headers:{'x-forwarded-for':'203.0.113.9'}});
+      const sends:any[]=[]; const sender:any=async(to:string,subject:string,content:any)=>{sends.push({to,subject,content});return {sent:true};};
+      const db=fake({growth_partner_applications:[{id,status:'pending'},{id:'old',status:'rejected'}]});
+      const single=fake({growth_partner_applications:{id}});
+      const mixed:any={...single,from:(t:string)=>{const q=single.from(t);const base=db.from(t);q.ilike=()=>base;q.eq=(...a:any[])=>a[0]==='ip_hash'?base:q;return q;}};
+      const result:any=await submitGrowthApplication(mixed,input,request,async()=>({ok:true,error:null}),sender);
+      assert.equal(result.ok,true);
+      const admin=sends.find(s=>s.to==='contact@example.test'); assert.ok(admin,'admin email sent');
+      assert.equal(sends.filter(s=>s.to==='new@example.test').length,1,'applicant confirmation still sent');
+      assert.match(admin.subject,/New Applicant/);
+      assert.equal(admin.content.cta.href,`https://preview.example.test/internal/growth-partners?application=${id}`);
+      const rows=JSON.stringify(admin.content.rows);
+      for (const want of ['New Applicant','new@example.test','Media buyer','1k-10k','https://example.test/me','facebook / paid_social','growth_partners','/partner-program']) assert.ok(rows.includes(want),want);
+      assert.match(admin.content.notice.body,/Applied before with this email \(1 earlier: rejected\)/);
+      assert.match(admin.content.notice.body,/other application\(s\) from the same network/);
+      assert.doesNotMatch(JSON.stringify(admin.content),/token|magic|otp|203\.0\.113/i);
+      // Email failures never block the applicant.
+      const failing:any=async()=>{throw new Error('Resend down');};
+      const ok:any=await submitGrowthApplication(fake({growth_partner_applications:{id}}),input,request,async()=>({ok:true,error:null}),failing);
+      assert.equal(ok.ok,true); assert.ok(ok.event_id);
+      // Duplicates (pending email or approved partner) send nothing.
+      const never:any=async()=>{throw new Error('Must not send');};
+      const dupDb=fake({growth_partner_applications:null}); const insertDup:any={...dupDb,from:(t:string)=>{const q=dupDb.from(t);q.single=async()=>({data:null,error:{code:'23505'}});return q;}};
+      assert.deepEqual(await submitGrowthApplication(insertDup,input,request,async()=>({ok:true,error:null}),never),{ok:true,duplicate:true});
+      assert.deepEqual(await submitGrowthApplication(fake({creator_partners:[{id:'p'}]}),input,request,async()=>({ok:true,error:null}),never),{ok:true,duplicate:true});
+      // No admin address configured: no admin email.
+      delete process.env.ADMIN_NOTIFY_EMAIL; const solo:any[]=[];
+      await submitGrowthApplication(fake({growth_partner_applications:{id}}),input,request,async()=>({ok:true,error:null}),async(to:string)=>{solo.push(to);return {sent:true};});
+      assert.deepEqual(solo,['new@example.test']);
+    } finally { for (const [k,v] of Object.entries({VERCEL_ENV:prior.env,ADMIN_NOTIFY_EMAIL:prior.admin,VERCEL_BRANCH_URL:prior.branch,GROWTH_PARTNER_IP_HASH_SALT:prior.salt})) { if (v===undefined) delete process.env[k]; else process.env[k]=v; } }
+  });
+  await test('shared application section is used on both pages and promises no review timeframe',()=>{
+    const section=fs.readFileSync('app/growth-partners/apply/ApplicationSection.tsx','utf8'), form=fs.readFileSync('app/growth-partners/apply/ApplicationForm.tsx','utf8');
+    assert.match(fs.readFileSync('app/partner-program/page.tsx','utf8'),/<ApplicationSection id="apply"/);
+    assert.match(fs.readFileSync('app/growth-partners/apply/page.tsx','utf8'),/<ApplicationSection id="application"/);
+    assert.doesNotMatch(section+form,/within \d|\d+ (business )?days|hours?\b/i);
+    for (const value of ['creator','educator','media_buyer','agency','consultant','accountant_or_advisor','other']) assert.ok(form.includes(`'${value}'`),value);
+    assert.match(form,/landing_path: location\.pathname/);
+  });
   await test('application from an existing approved partner email is a silent duplicate',async()=>{
     const input={email:'Partner@Example.test',full_name:'Existing Partner',category:'creator',profile_url:'https://example.test',audience_estimate:'<1k'};
     const request=new Request('https://offline.test/api/growth-partners/apply');
@@ -306,8 +351,8 @@ async function run() {
   });
   await test('partner-program ad landing page embeds the real application form and keeps attribution', async () => {
     const page = fs.readFileSync('app/partner-program/page.tsx','utf8');
-    assert.match(page, /import ApplicationForm from "\.\.\/growth-partners\/apply\/ApplicationForm"/);
-    assert.match(page, /<section id="apply"/); assert.match(page, /<ApplicationForm \/>/);
+    assert.match(page, /import ApplicationSection from "\.\.\/growth-partners\/apply\/ApplicationSection"/);
+    assert.match(page, /<ApplicationSection id="apply" \/>/); assert.match(fs.readFileSync('app/growth-partners/apply/ApplicationSection.tsx','utf8'), /<ApplicationForm \/>/);
     assert.match(page, /Apply to become a Growth Partner/);
     assert.match(page, /own Meta ad account/); assert.match(page, /50%/); assert.match(page, /excluding GST/); assert.match(page, /first 3 paid months/); assert.match(page, /14-day hold/);
     assert.match(page, /Shopify App Store and pay through Shopify aren&apos;t eligible/);

@@ -28,7 +28,35 @@ export function leadSourcePath(path: unknown) {
 export function leadPayload(eventId: string, email: string, req: Request, sourcePath = '/growth-partners/apply'): MetaWebsitePayload {
   return { event_name: 'Lead', event_id: eventId, event_time: Math.floor(Date.now()/1000), action_source: 'website', event_source_url: `${growthOrigin()}${leadSourcePath(sourcePath)}`, user_data: { em: [hashMeta(email.trim().toLowerCase())], ...checkoutMatching(req) } };
 }
-export async function submitGrowthApplication(db: SupabaseClient, input: Record<string, unknown>, req: Request, sendLead = sendMetaWebsiteEvent) {
+type ApplicationFields = ReturnType<typeof validateApplication>;
+/** Light review hints for the admin email; never blocks or rejects an application. */
+export async function applicationReviewFlags(db: SupabaseClient, applicationId: string, email: string, ip: string | null) {
+  const flags: string[] = [];
+  try {
+    const { data: previous } = await db.from('growth_partner_applications').select('id,status').ilike('email', email);
+    const earlier = (Array.isArray(previous) ? previous : []).filter((row: { id?: string }) => row.id !== applicationId);
+    if (earlier.length) flags.push(`Applied before with this email (${earlier.length} earlier: ${[...new Set(earlier.map((row: { status?: string }) => row.status || 'unknown'))].join(', ')})`);
+    if (ip) {
+      const since = new Date(Date.now() - 30 * 86400000).toISOString();
+      const { data: sameIp } = await db.from('growth_partner_applications').select('id').eq('ip_hash', ip).gte('created_at', since);
+      const others = (Array.isArray(sameIp) ? sameIp : []).filter((row: { id?: string }) => row.id !== applicationId).length;
+      if (others) flags.push(`${others} other application(s) from the same network in the last 30 days`);
+    }
+  } catch { /* flags are advisory only */ }
+  return flags;
+}
+export function applicationReviewUrl(applicationId: string) {
+  return `${growthOrigin()}/internal/growth-partners?application=${encodeURIComponent(applicationId)}`;
+}
+async function notifyAdmin(db: SupabaseClient, applicationId: string, fields: ApplicationFields, attribution: Record<string, string>, ip: string | null, sendEmail: typeof sendGrowthEmail) {
+  const to = process.env.ADMIN_NOTIFY_EMAIL?.trim();
+  if (!to) return;
+  try {
+    const flags = await applicationReviewFlags(db, applicationId, fields.email, ip);
+    await sendEmail(to, `New Growth Partner application: ${fields.full_name}`, growthEmailContent.adminNotify(applicationReviewUrl(applicationId), { ...fields, attribution, flags }));
+  } catch { console.warn('[growth-partners] Admin notification failed'); }
+}
+export async function submitGrowthApplication(db: SupabaseClient, input: Record<string, unknown>, req: Request, sendLead = sendMetaWebsiteEvent, sendEmail = sendGrowthEmail) {
   const fields = validateApplication(input);
   const attribution: Record<string, string> = {};
   if (input.attribution && typeof input.attribution === 'object') for (const [key, value] of Object.entries(input.attribution)) {
@@ -38,7 +66,8 @@ export async function submitGrowthApplication(db: SupabaseClient, input: Record<
   if (existingError) throw new Error('Application could not be saved. Please try again.');
   if (Array.isArray(existing) ? existing.length : existing) return { ok: true, duplicate: true };
   const eventId = `growth_lead_${randomUUID()}`;
-  const { data, error } = await db.from('growth_partner_applications').insert({ ...fields, meta_event_id: eventId, attribution, ip_hash: ipHash(req), user_agent: req.headers.get('user-agent')?.slice(0,500) || null }).select('id').single();
+  const ip = ipHash(req);
+  const { data, error } = await db.from('growth_partner_applications').insert({ ...fields, meta_event_id: eventId, attribution, ip_hash: ip, user_agent: req.headers.get('user-agent')?.slice(0,500) || null }).select('id').single();
   if (error?.code === '23505') return { ok: true, duplicate: true };
   if (error || !data) throw new Error('Application could not be saved. Please try again.');
   let status = process.env.VERCEL_ENV === 'production' ? 'skipped_configuration' : 'skipped_non_production';
@@ -50,7 +79,8 @@ export async function submitGrowthApplication(db: SupabaseClient, input: Record<
   }
   const { error: statusError } = await db.from('growth_partner_applications').update({ meta_capi_status: status }).eq('id', data.id);
   if (statusError) console.warn('[growth-partners] Lead status update failed');
-  await sendGrowthEmail(fields.email, 'Your Nettmark Growth Partner application', growthEmailContent.received());
-  if (process.env.ADMIN_NOTIFY_EMAIL) await sendGrowthEmail(process.env.ADMIN_NOTIFY_EMAIL, 'New Growth Partner application', growthEmailContent.adminNotify(`${growthOrigin()}/internal/growth-partners`));
+  // Emails never block the applicant: sendGrowthEmail swallows transport errors and notifyAdmin catches the rest.
+  try { await sendEmail(fields.email, 'Your Nettmark Growth Partner application', growthEmailContent.received()); } catch { console.warn('[growth-partners] Applicant email failed'); }
+  await notifyAdmin(db, String(data.id), fields, attribution, ip, sendEmail);
   return { ok: true, event_id: eventId };
 }
