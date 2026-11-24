@@ -54,3 +54,7 @@ Preview e2e (staging data): apply page/API (noindex, duplicate, validation, CAPI
 
 ## Workspace delivery note
 Branch `feature/growth-partners` from `origin/bot-staging` `dd16b7c`; PR #42 into bot-staging, not merged. No main, production DB or production env changes.
+
+## Tracking verification (24 Nov 2026, staging qcwmrovdadlhgzweulee)
+Rolled-back SQL e2e (`/workspace/nettmark/qa/growth-partners-starter-kit-2026-11-24/staging-sql-e2e.sql`) passed: profile-trigger and checkout-RPC attribution, first touch kept, pre-existing/self/expired rejected, same-domain allowed, months 1-3 at 50% ex-GST (A$49 -> 2228c), month 4 and duplicate skipped, 14-day hold enforced, payout then refund -> clawback, pre-payout full refund reversed and frees the slot, partial refund prorated, suspended partner skipped.
+Known limits: attribution is recorded only when the business opens Stripe checkout, from the browser holding the 60-day cookie; Shopify-billed brands (#41) are never attributed and Shopify charges create no commission; webhook reporting failures are logged, not retried.
