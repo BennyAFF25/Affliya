@@ -1,5 +1,8 @@
 import type { RenderNettmarkEmailArgs } from '../email/renderNettmarkEmail';
 
+export type AdminApplicationDetails = { full_name: string; email: string; category: string; audience_estimate: string; profile_url: string; attribution?: Record<string, string>; flags?: string[] };
+const label = (value: string) => value.replaceAll('_', ' ').replace(/^./, c => c.toUpperCase());
+
 export const growthEmailContent = {
   magicLink(url: string): RenderNettmarkEmailArgs {
     return {
@@ -35,13 +38,30 @@ export const growthEmailContent = {
       body: 'We review every application. If approved, you will receive your referral link and sign-in instructions by email.',
     };
   },
-  adminNotify(reviewUrl: string): RenderNettmarkEmailArgs {
+  adminNotify(reviewUrl: string, application?: AdminApplicationDetails): RenderNettmarkEmailArgs {
+    if (!application) return { previewText: 'A Growth Partner application is ready for review.', badge: { text: 'Review needed', tone: 'warning' }, heading: 'New Growth Partner application', body: 'An application is ready for review.', cta: { label: 'Review application', href: reviewUrl } };
+    const a = application.attribution || {};
+    const source = [a.utm_source, a.utm_medium].filter(Boolean).join(' / ');
+    const rows = [
+      { label: 'Name', value: application.full_name },
+      { label: 'Email', value: application.email, href: `mailto:${application.email}` },
+      { label: 'Category', value: label(application.category) },
+      { label: 'Business owners reached', value: application.audience_estimate },
+      { label: 'Profile', value: application.profile_url, href: /^https?:\/\//i.test(application.profile_url) ? application.profile_url : undefined },
+      { label: 'Source', value: source || (a.fbclid ? 'facebook (click id only)' : 'Direct / unknown') },
+      ...(a.utm_campaign ? [{ label: 'Campaign', value: a.utm_campaign }] : []),
+      { label: 'Applied on', value: a.landing_path || 'Unknown page' },
+      ...(a.landing_referrer ? [{ label: 'Referrer', value: a.landing_referrer }] : []),
+    ];
     return {
-      previewText: 'A Growth Partner application is ready for review.',
+      previewText: `${application.full_name} applied to the Growth Partner Programme.`,
       badge: { text: 'Review needed', tone: 'warning' },
       heading: 'New Growth Partner application',
-      body: 'An application is ready for review.',
-      cta: { label: 'Review applications', href: reviewUrl },
+      body: `${application.full_name} has applied. Review the details and approve or reject it in the admin page.`,
+      rows,
+      ...(application.flags?.length ? { notice: { title: 'Check before approving', body: application.flags.join(' · '), tone: 'warning' as const } } : {}),
+      cta: { label: 'Review application', href: reviewUrl },
+      footerNote: 'Approving sends the partner their referral link. Nothing happens until you approve.',
     };
   },
 };
