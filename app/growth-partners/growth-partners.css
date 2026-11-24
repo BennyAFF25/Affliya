@@ -50,3 +50,5 @@
 .gp-faq summary { cursor:pointer; font-weight:600; color:#fff; min-height:24px; }
 .gp-faq details p { margin-top:8px; font-size:14px; }
 @media(min-width:768px) { .gp-steps { grid-template-columns:repeat(3,1fr); } .gp-kit-columns { grid-template-columns:1fr 1fr; } .gp-templates { grid-template-columns:1fr 1fr; } }
+.growth-partners.gp-embedded { min-height:0; background:transparent; }
+.growth-partners.gp-embedded .gp-input { background:#05090c; }

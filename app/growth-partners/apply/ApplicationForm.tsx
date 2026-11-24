@@ -12,7 +12,7 @@ export default function ApplicationForm() {
     try {
       const fields = Object.fromEntries(new FormData(event.currentTarget));
       const attribution = Object.fromEntries([...new URLSearchParams(location.search)].filter(([key]) => /^utm_/.test(key) || key === 'fbclid'));
-      const response = await fetch('/api/growth-partners/apply',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ ...fields, attribution: { ...attribution, landing_referrer: document.referrer } }) });
+      const response = await fetch('/api/growth-partners/apply',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ ...fields, attribution: { ...attribution, landing_referrer: document.referrer, landing_path: location.pathname } }) });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Please try again.');
       setDone(true);
