@@ -10,6 +10,9 @@ import {
 
 const root = process.cwd();
 const migrationSql = fs.readFileSync(path.join(root, 'supabase/migrations/20260728110000_creator_referral_attribution.sql'), 'utf8');
+const growthSql = fs.readFileSync(path.join(root, 'supabase/migrations/20261117120000_growth_partners.sql'), 'utf8');
+const commissionMath = fs.readFileSync(path.join(root, 'utils/growthPartners/commissionMath.ts'), 'utf8');
+const stripeEvents = fs.readFileSync(path.join(root, 'utils/growthPartners/stripeEvents.ts'), 'utf8');
 const creatorHelper = fs.readFileSync(path.join(root, 'utils/creatorReferrals.ts'), 'utf8');
 const captureRoute = fs.readFileSync(path.join(root, 'app/api/creator-referrals/capture/route.ts'), 'utf8');
 const attributeRoute = fs.readFileSync(path.join(root, 'app/api/creator-referrals/attribute/route.ts'), 'utf8');
@@ -38,7 +41,7 @@ async function run() {
   assert.match(captureRoute, /captureCreatorReferral/);
   assert.match(creatorHelper, /CREATOR_REFERRAL_ATTRIBUTION_WINDOW_DAYS/);
   delete process.env.CREATOR_REFERRAL_ATTRIBUTION_WINDOW_DAYS;
-  assert.equal(getCreatorReferralWindowDays(), 30, 'Referral attribution window defaults to 30 days.');
+  assert.equal(getCreatorReferralWindowDays(), 60, 'Referral attribution window defaults to 60 days.');
   process.env.CREATOR_REFERRAL_ATTRIBUTION_WINDOW_DAYS = '45';
   assert.equal(getCreatorReferralWindowDays(), 45, 'Referral attribution window is configurable.');
   delete process.env.CREATOR_REFERRAL_ATTRIBUTION_WINDOW_DAYS;
@@ -72,16 +75,18 @@ async function run() {
   assert.match(migrationSql, /status IN \('pending', 'payable', 'paid', 'reversed', 'rejected'\)/);
   assert.match(migrationSql, /creator_commission_ledger_invoice_key/);
   assert.match(webhookRoute, /event\.type === "invoice\.paid"/);
-  assert.match(webhookRoute, /createCreatorCommissionFromPaidInvoice/);
-  assert.match(creatorHelper, /select\("id,status"\)[\s\S]*eq\("stripe_invoice_id", stripeInvoiceId\)/, 'Duplicate webhook must be idempotent by invoice id.');
-  assert.match(creatorHelper, /free_or_zero_amount_invoice/, 'Free signup/free invoice creates no commission.');
-  assert.match(creatorHelper, /invoice_not_paid/, 'Failed invoices create no commission.');
-  assert.match(creatorHelper, /monthNumber > duration/, 'Commission duration limits eligible months.');
+  assert.match(webhookRoute, /trackGrowthPartnerStripeEvent/);
+  assert.match(stripeEvents, /createCreatorCommissionFromPaidInvoice/);
+  assert.match(growthSql, /duplicate_invoice/, 'Invoice deduplication lives in the transactional RPC.');
+  assert.match(creatorHelper, /create_creator_subscription_commission/);
+  assert.match(commissionMath, /free_or_zero_amount_invoice/);
+  assert.match(commissionMath, /invoice_not_paid/);
+  assert.match(growthSql, /n>p.commission_duration_months/);
   assert.match(webhookRoute, /charge\.refunded/);
   assert.match(webhookRoute, /charge\.dispute\.created/);
   assert.match(webhookRoute, /invoice\.voided/);
-  assert.match(creatorHelper, /status: "reversed"/);
-  assert.match(creatorHelper, /\.in\("status", \["pending", "payable"\]\)/, 'Only unpaid/unpaid-payout commissions are reversed automatically.');
+  assert.match(creatorHelper, /refund_creator_subscription_commission/);
+  assert.match(growthSql, /l.status IN \('pending','approved'\)/, 'Unpaid commissions reverse; paid commissions create clawbacks.');
   assert.match(creatorHelper, /grandfathered_business/);
 
   // G. Minimal internal reporting only.
@@ -91,7 +96,7 @@ async function run() {
   assert.match(reportingPage, /No payout controls exist here/);
 
   // H. Requirement-specific coverage labels.
-  const combined = migrationSql + creatorHelper + captureRoute + attributeRoute + homePage + createAccountPage + webhookRoute + reportingPage;
+  const combined = growthSql + commissionMath + stripeEvents + migrationSql + creatorHelper + captureRoute + attributeRoute + homePage + createAccountPage + webhookRoute + reportingPage;
   assert.match(combined, /nettmark_creator_referral/, '1. Referral cookie survives signup.');
   assert.match(combined, /ON CONFLICT \(business_id\) DO NOTHING/, '2. Business is attributed once.');
   assert.match(combined, /TO service_role/, '3. User cannot alter creator attribution.');

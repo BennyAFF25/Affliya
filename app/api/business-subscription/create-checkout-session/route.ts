@@ -1,3 +1,4 @@
+import { growthPartnerCheckoutMetadata } from "../../../../utils/growthPartners/checkout";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
@@ -138,6 +139,7 @@ export async function POST(req: Request) {
     const baseUrl = getBusinessSubscriptionBaseUrl();
     const cohort = await getBusinessFunnelMetadata(admin, business.id).catch(() => ({ business_id: business.id, business_onboarding_funnel: "unverified" }));
     const metadata = {
+      ...await growthPartnerCheckoutMetadata(admin, await cookies(), business.id, business.business_email, user.id),
       ...cohort,
       ...buildBusinessSubscriptionMetadata({ businessId: business.id, userId: user.id, businessEmail: business.business_email }),
       returnTo,

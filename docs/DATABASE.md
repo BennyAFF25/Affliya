@@ -55,3 +55,9 @@ RLS permits SELECT for anon/authenticated, with no INSERT/UPDATE/DELETE policies
 Confirm applied migration history, full DDL, policies/grants, storage buckets, core indexes, and actual foreign keys before database work. Browser inserts depend on RLS; service-role handlers and `SECURITY DEFINER` triggers need separate authorization review. Nullable stable links do not eliminate email joins. Source-event payout uniqueness protects one event's cycles; it does not by itself deduplicate repeated external orders recorded as different events.
 
 No migration or live database change was performed to create these docs.
+
+## Growth Partners (prepared offline, November 2026)
+
+`20261117120000_growth_partners.sql` extends creator partners, signup intents, immutable business attribution and the commission ledger; adds `growth_partner_applications`, `creator_referral_events` and `creator_partner_payouts`. Growth membership uses `creator_partners.program` and `user_id`, not a new profile role. New tables and privileged RPCs are service-role only; internal routes authenticate and enforce the marketing admin allowlist before service-role access.
+
+Commission creation locks attribution and partner rows, deduplicates invoice IDs and counts eligible periods across subscriptions. Refunds lock the original row and maintain a cumulative refund watermark; payouts lock selected rows and validate status, ownership, currency and positive net amount. The undo script requires ledger export and financial reconciliation after any payouts. Neither migration has been applied here; reviewer must verify schema compatibility, RLS, functions and concurrency on staging.

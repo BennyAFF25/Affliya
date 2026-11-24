@@ -8,6 +8,7 @@ import Providers from './Providers';
 import ThemeWrapper from '@/components/ThemeWrapper';
 import NettmarkOfferTracker from '../components/marketing/NettmarkOfferTracker';
 import BusinessProductAnalytics from '../components/analytics/BusinessProductAnalytics';
+import MarketingTrackerGate from '../components/marketing/MarketingTrackerGate';
 import { Toaster } from 'react-hot-toast';
 import Script from 'next/script';
 import { META_PIXEL_ID } from '@/../utils/marketing/metaPixel';
@@ -81,6 +82,8 @@ export const metadata = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  // Production marketing trackers, including the Meta pixel, stay off Preview/staging deployments.
+  const marketingTrackersEnabled = process.env.VERCEL_ENV === 'production';
   return (
     <html lang="en" className="dark bg-[#0b0b0b] text-white" suppressHydrationWarning>
       <body className="dark min-h-screen bg-gradient-to-b from-[#0b0b0b] to-[#0e0e0e] antialiased">
@@ -101,6 +104,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 },
               }}
             />
+            {marketingTrackersEnabled && <MarketingTrackerGate enabled={marketingTrackersEnabled}>
             <TrybePixel />
             <Script
               id="reddit-pixel-base"
@@ -134,6 +138,9 @@ rdt('track','PageVisit');
 `
               }}
             />
+            </MarketingTrackerGate>}
+            {/* Meta pixel (incl. browser Lead with CAPI dedupe) loads on production deployments only. */}
+            {marketingTrackersEnabled && <>
             <Script
               id="meta-pixel-base"
               strategy="afterInteractive"
@@ -161,6 +168,7 @@ fbq('track', 'PageView');
                 alt=""
               />
             </noscript>
+            </>}
             <PasswordUpdatedNotice />
             <SupportWidget />
             <ChatbaseIdentity />
@@ -188,7 +196,9 @@ fbq('track', 'PageView');
 `
               }}
             />
-            <NettmarkOfferTracker />
+            {marketingTrackersEnabled && <MarketingTrackerGate enabled={marketingTrackersEnabled}>
+              <NettmarkOfferTracker />
+            </MarketingTrackerGate>}
           </ThemeWrapper>
         </Providers>
       </body>
