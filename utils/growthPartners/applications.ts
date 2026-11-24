@@ -20,14 +20,19 @@ export function validateApplication(input: Record<string, unknown>) {
   if (!full_name || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !categories.includes(category) || !audiences.includes(audience_estimate) || !validUrl) throw new Error('Please complete all fields with valid details.');
   return { email, full_name, category, profile_url, audience_estimate };
 }
-export function leadPayload(eventId: string, email: string, req: Request): MetaWebsitePayload {
-  return { event_name: 'Lead', event_id: eventId, event_time: Math.floor(Date.now()/1000), action_source: 'website', event_source_url: `${growthOrigin()}/growth-partners/apply`, user_data: { em: [hashMeta(email.trim().toLowerCase())], ...checkoutMatching(req) } };
+// Pages that embed the application form; anything else reports the canonical apply page.
+export const GROWTH_APPLICATION_PATHS = ['/growth-partners/apply', '/partner-program'];
+export function leadSourcePath(path: unknown) {
+  return typeof path === 'string' && GROWTH_APPLICATION_PATHS.includes(path) ? path : '/growth-partners/apply';
+}
+export function leadPayload(eventId: string, email: string, req: Request, sourcePath = '/growth-partners/apply'): MetaWebsitePayload {
+  return { event_name: 'Lead', event_id: eventId, event_time: Math.floor(Date.now()/1000), action_source: 'website', event_source_url: `${growthOrigin()}${leadSourcePath(sourcePath)}`, user_data: { em: [hashMeta(email.trim().toLowerCase())], ...checkoutMatching(req) } };
 }
 export async function submitGrowthApplication(db: SupabaseClient, input: Record<string, unknown>, req: Request, sendLead = sendMetaWebsiteEvent) {
   const fields = validateApplication(input);
   const attribution: Record<string, string> = {};
   if (input.attribution && typeof input.attribution === 'object') for (const [key, value] of Object.entries(input.attribution)) {
-    if ((/^utm_/.test(key) || ['fbclid','landing_referrer'].includes(key)) && typeof value === 'string') attribution[key.slice(0,50)] = value.slice(0,500);
+    if ((/^utm_/.test(key) || ['fbclid','landing_referrer','landing_path'].includes(key)) && typeof value === 'string') attribution[key.slice(0,50)] = value.slice(0,500);
   }
   const { data: existing, error: existingError } = await db.from('creator_partners').select('id').eq('program','growth_partner').eq('partner_email',fields.email).in('status',['active','suspended','paused']);
   if (existingError) throw new Error('Application could not be saved. Please try again.');
@@ -39,7 +44,7 @@ export async function submitGrowthApplication(db: SupabaseClient, input: Record<
   let status = process.env.VERCEL_ENV === 'production' ? 'skipped_configuration' : 'skipped_non_production';
   if (productionCapiEnabled()) {
     try {
-      const result = await sendLead({ payload: leadPayload(eventId, fields.email, req), token: process.env.META_CAPI_ACCESS_TOKEN!, pixelId: NETTMARK_META_PIXEL_ID });
+      const result = await sendLead({ payload: leadPayload(eventId, fields.email, req, attribution.landing_path), token: process.env.META_CAPI_ACCESS_TOKEN!, pixelId: NETTMARK_META_PIXEL_ID });
       status = result.ok ? 'sent' : 'failed';
     } catch { status = 'failed'; }
   }

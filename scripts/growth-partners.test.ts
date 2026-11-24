@@ -304,6 +304,33 @@ async function run() {
     assert.match(fs.readFileSync('utils/growthPartners/commissionMath.ts','utf8'), /GROWTH_PARTNER_COMMISSION_HOLD_DAYS \?\? 14/);
     assert.match(fs.readFileSync('utils/creatorReferrals.ts','utf8'), /DEFAULT_CREATOR_COMMISSION_PERCENTAGE = 50;[\s\S]*DURATION_MONTHS = 3;[\s\S]*\|\| 60\)/);
   });
+  await test('partner-program ad landing page embeds the real application form and keeps attribution', async () => {
+    const page = fs.readFileSync('app/partner-program/page.tsx','utf8');
+    assert.match(page, /import ApplicationForm from "\.\.\/growth-partners\/apply\/ApplicationForm"/);
+    assert.match(page, /<section id="apply"/); assert.match(page, /<ApplicationForm \/>/);
+    assert.match(page, /Apply to become a Growth Partner/);
+    assert.match(page, /own Meta ad account/); assert.match(page, /50%/); assert.match(page, /excluding GST/); assert.match(page, /first 3 paid months/); assert.match(page, /14-day hold/);
+    assert.match(page, /Shopify App Store and pay through Shopify aren&apos;t eligible/);
+    assert.match(page, /canonical: "\/partner-program"/); assert.doesNotMatch(page, /index: false/);
+    assert.doesNotMatch(page, /testimonial|guarantee|passive income|\$\s?\d|A\$/i);
+    assert.doesNotMatch(page, /^export const (?!metadata\b)/m, 'page files may only export Next page fields');
+    const form = fs.readFileSync('app/growth-partners/apply/ApplicationForm.tsx','utf8');
+    assert.match(form, /\/\^utm_\/\.test\(key\) \|\| key === 'fbclid'/); assert.match(form, /landing_path: location\.pathname/); assert.match(form, /trackMetaStandardEvent\('Lead'/);
+    // Tracker scope: /partner-program is a normal production marketing page (PageView on), unlike /growth-partners/*.
+    const { isGrowthPartnerPath } = await import('../utils/marketing/trackingScope');
+    assert.equal(isGrowthPartnerPath('/partner-program'), false);
+    const { leadPayload, leadSourcePath } = await import('../utils/growthPartners/applications');
+    const req = new Request('https://offline.test/api/growth-partners/apply');
+    assert.match(leadPayload('e','a@b.test',req,'/partner-program').event_source_url, /\/partner-program$/);
+    assert.match(leadPayload('e','a@b.test',req).event_source_url, /\/growth-partners\/apply$/);
+    assert.equal(leadSourcePath('https://evil.test/x'), '/growth-partners/apply');
+    let payload: any; const db = fake({growth_partner_applications:{id:'application'}});
+    process.env.VERCEL_ENV='production'; process.env.META_CAPI_ACCESS_TOKEN='offline-fixture';
+    await submitGrowthApplication(db,{email:'lp@example.test',full_name:'LP Applicant',category:'agency',profile_url:'https://example.test',audience_estimate:'<1k',attribution:{utm_source:'facebook',fbclid:'fb.1',landing_path:'/partner-program'}},req,async(args:any)=>{payload=args.payload;return {ok:true,error:null};});
+    process.env.VERCEL_ENV='preview';
+    assert.match(payload.event_source_url, /\/partner-program$/);
+    assert.deepEqual(db.writes[0].args[0].attribution, {utm_source:'facebook',fbclid:'fb.1',landing_path:'/partner-program'});
+  });
   await test('SQL source contracts awaiting reviewer staging verification',()=>{
     const sql=fs.readFileSync('supabase/migrations/20261117120000_growth_partners.sql','utf8');
     for(const pattern of [/FOR UPDATE/,/business_creator_attribution_id=a.id AND entry_type='commission'/,/n>p.commission_duration_months/,/partner_not_active/,/commission_skipped/,/duplicate_invoice/,/cumulative<=l.refunded_amount/,/l.status='paid' AND delta>0/,/commission_amount=target/,/cumulative=l.amount_paid THEN 'reversed'/,/Refund hold has not elapsed/,/l.creator_partner_id<>partner_id/,/Mixed currencies/,/total<=0/,/total:=total\+l.commission_amount/,/FROM PUBLIC,anon,authenticated/]) assert.match(sql,pattern);
