@@ -227,7 +227,7 @@ export function renderNettmarkEmail(args: RenderNettmarkEmailArgs) {
                   <tr>
                     <td style="vertical-align:middle;">
                       <img src="${BRAND.logoUrl}" width="36" height="36" alt="Nettmark" style="display:inline-block;vertical-align:middle;border-radius:8px;" />
-                      <span style="display:inline-block;vertical-align:middle;margin-left:10px;color:${BRAND.text};font-size:17px;font-weight:700;letter-spacing:-0.02em;">Nettmark</span>
+                      <span class="nm-text" style="display:inline-block;vertical-align:middle;margin-left:10px;color:${BRAND.text};font-size:17px;font-weight:700;letter-spacing:-0.02em;">Nettmark</span>
                     </td>
                     <td align="right" style="vertical-align:middle;">
                       <span class="nm-muted" style="color:${BRAND.muted};font-size:11px;">Distribution, simplified.</span>

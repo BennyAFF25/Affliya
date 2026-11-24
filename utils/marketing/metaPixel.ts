@@ -27,7 +27,8 @@ export function trackMetaCustomEvent(eventName: string, params?: Record<string, 
   fbq("trackCustom", eventName);
 }
 
-export function trackMetaStandardEvent(eventName: string, params?: Record<string, unknown>) {
+export function trackMetaStandardEvent(eventName: string, params?: Record<string, unknown>, options?: { eventID: string }) {
+  if (options) { getFbq()?.("track", eventName, params || {}, options); return; }
   const fbq = getFbq();
   if (!fbq) return;
 
