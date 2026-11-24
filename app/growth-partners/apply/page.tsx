@@ -11,6 +11,7 @@ const steps = [
 ];
 const questions = [
   ['When are commissions paid?', 'Eligible payments enter a 14-day refund hold. Commissions and manual payouts are then reviewed and approved by Nettmark; payouts are not automatic.'],
+  ['Which businesses are eligible?', 'Businesses that sign up and pay for a Nettmark plan at nettmark.com through your link, including those that connect their Shopify store from inside Nettmark. Businesses that install Nettmark from the Shopify App Store and pay through Shopify are not eligible, so always send businesses to your link on nettmark.com.'],
   ['Does the free trial count?', 'No. Free trials and failed payments earn nothing. You earn only when an eligible subscription payment is collected. The first three successful paid monthly periods are eligible.'],
   ['How are commissions calculated?', 'GST, discounts and non-eligible fees are excluded from the commission basis. Refunds reduce commission.'],
   ['Do I need to join the affiliate marketplace?', 'No. Growth Partners refer businesses. You can choose to join the affiliate marketplace separately.'],
@@ -31,7 +32,7 @@ export default function ApplyPage() {
         <span className="gp-eyebrow">Your referral reward</span>
         <h2 className="mt-3"><span className="gp-accent">50%</span> of eligible subscription revenue, excluding GST</h2>
         <p>For each referred business’s first 3 paid months. Admin-approved payouts follow a 14-day hold; Nettmark reviews and approves payouts manually.</p>
-        <p className="mt-3 text-sm">Commission is based on eligible payments actually collected, after discounts and excluding GST, refunds and other fees.</p>
+        <p className="mt-3 text-sm">Commission is based on eligible payments actually collected, after discounts and excluding GST, refunds and other fees. Only Nettmark plans paid at nettmark.com count; Shopify App Store installs billed through Shopify are not eligible.</p>
       </section>
       <section className="gp-section">
         <h2>How it works</h2>

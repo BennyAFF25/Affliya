@@ -21,6 +21,7 @@ export const growthEmailContent = {
         { label: 'Referral link', value: referralUrl, href: referralUrl },
         { label: 'Commission', value: '50% of eligible subscription revenue, excluding GST' },
         { label: 'Duration', value: 'First 3 paid months' },
+        { label: 'Eligible', value: 'Nettmark plans paid at nettmark.com through your link, not Shopify App Store installs' },
         { label: 'Payouts', value: 'Reviewed and approved by Nettmark after a 14-day hold' },
       ],
       cta: { label: 'Sign in', href: loginUrl },

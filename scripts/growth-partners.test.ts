@@ -293,6 +293,12 @@ async function run() {
     // Attribution is created when the business starts a plan (checkout), so the dashboard must not claim plain registrations.
     assert.match(page, /once they start a plan/); assert.doesNotMatch(page, /Businesses registered|'Registered'/);
     assert.match(all, /start their Nettmark plan within those 60 days/);
+    // Ben 24 Nov: Stripe-billed nettmark.com plans only; Shopify App Store installs are not eligible.
+    assert.match(all, /install Nettmark from the Shopify App Store and pay through Shopify aren’t eligible/);
+    assert.match(JSON.stringify(kit.starterKitDos), /\/r\/ link on nettmark.com, not to the Shopify App Store/);
+    assert.match(fs.readFileSync('app/growth-partners/apply/page.tsx','utf8'), /Shopify App Store installs billed through Shopify are not eligible/);
+    const { growthEmailContent } = await import('../utils/growthPartners/emailContent');
+    assert.match(JSON.stringify(growthEmailContent.approved('https://x.test/r/A','https://x.test/l').rows), /not Shopify App Store installs/);
     const component = fs.readFileSync('app/growth-partners/dashboard/StarterKit.tsx','utf8');
     assert.match(component, /aria-label=\{`Copy \$\{title\} template`\}/); assert.match(component, /aria-live="polite"/); assert.match(component, /disabled=\{!referralUrl\}/);
     assert.match(fs.readFileSync('utils/growthPartners/commissionMath.ts','utf8'), /GROWTH_PARTNER_COMMISSION_HOLD_DAYS \?\? 14/);

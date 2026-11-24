@@ -46,4 +46,8 @@ This is separate from merchant-sale affiliate payouts and spend wallets. `utils/
 
 The RPC creates pending commissions with a default 14-day approval hold. Admin approval and manual payout recording are separate; recording does not transfer money. Selection must contain one partner/currency, approved commissions or pending negative clawbacks, and a positive net total. Cumulative partial refunds reduce unpaid commissions proportionally; full unpaid refunds reverse them. Paid refunds/disputes create negative clawbacks for subsequent settlement, with replay protection. Fully reversed unpaid periods release a slot; paid periods remain counted even after clawback. Legacy rows without collected amounts require reconciliation.
 
+Eligibility (Ben, 24 Nov 2026): only Stripe-billed Nettmark plans earn Growth Partner commission, i.e. businesses that sign up and pay at nettmark.com, including those that connect Shopify from inside Nettmark. Shopify App Store installs on Shopify Billing are not eligible and no Shopify commission path exists by design.
+
+v1 behaviour kept deliberately: attribution is recorded only when the business opens Stripe checkout, from the browser holding the 60-day first-touch cookie (no signup-time capture, to avoid unconfirmed-email claims); a period refunded after payout still counts towards the 3 periods (clawback only).
+
 Stripe reporting errors are isolated from entitlement processing and logged for reconciliation; webhook event deduplication means replay alone may not repair a missed reporting mutation. SQL execution and concurrent refund/payout behavior remain staging-review requirements.
