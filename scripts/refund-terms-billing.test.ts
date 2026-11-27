@@ -424,6 +424,24 @@ function fakeDb(entitlement: Row | null, opts: { failUpsert?: boolean } = {}) {
   ok("trial reminders v2: E3 for every cohort, once, skipped when cancelled");
 }
 
+{
+  const gate = readFileSync("app/components/legal/TermsVersionGate.tsx", "utf8");
+  assert.match(gate, /termsV2Enabled\(\)/, "gate only runs with Terms v2 on");
+  assert.match(gate, /if \(!enabled \|\| !userId \|\| skip \|\| !show\) return null/, "gate renders nothing when off or skipped");
+  assert.match(gate, /termsAcceptanceCurrent\(profile, true\)/, "gate compares terms_version with TERMS_VERSION");
+  const businessLayout = readFileSync("app/business/layout.tsx", "utf8");
+  assert.match(businessLayout, /<TermsVersionGate userId=\{session\?\.user\?\.id\} skip=\{pathname\?\.startsWith\("\/business\/my-business"\)\} \/>/, "business workspace (dashboard etc.) re-asks for Terms v2");
+  const affiliateLayout = readFileSync("app/affiliate/layout.tsx", "utf8");
+  assert.match(affiliateLayout, /<TermsVersionGate userId=\{session\?\.user\?\.id\} skip=\{pathname\?\.startsWith\("\/affiliate\/marketplace"\)\} \/>/, "affiliate workspace re-asks for Terms v2");
+  const v2 = readFileSync("app/components/legal/TermsOfServiceV2Content.tsx", "utf8");
+  const section = (n: number) => v2.slice(v2.indexOf(`>${n}. `), v2.indexOf(`>${n + 1}. `));
+  assert.match(section(12), /Disclaimers[\s\S]*as is[\s\S]*ACL_CARVE_OUT/, "clause 12 Disclaimers carries the ACL carve-out");
+  assert.match(section(13), /Limitation of Liability[\s\S]*ACL_CARVE_OUT/, "clause 13 Liability carries the ACL carve-out");
+  assert.match(section(14), /Changes to These Terms[\s\S]*at least 30 days/, "clause 14 has the fair-notice variation text");
+  assert.doesNotMatch(v2, /[Cc]ontinued use[^.]*constitutes acceptance/, "no continued-use acceptance");
+  ok("terms v2: workspace re-acceptance gate and renumbered carve-outs");
+}
+
 console.log(`refund policy / terms acceptance / billing emails: ${results.length} groups passed`);
 for (const name of results) console.log(`  ok - ${name}`);
 }

@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { Toast } from "@/components/Toast";
+import TermsVersionGate from "@/components/legal/TermsVersionGate";
 import { useInboxNotifier } from "../../utils/hooks/useInboxNotifier";
 import { useChatUnreadCount } from "@/components/inbox/useChatUnreadCount";
 import { getAccountRole } from "../../utils/affiliate/accountRole";
@@ -224,6 +225,7 @@ function AffiliateLayoutShell({ children }: { children: React.ReactNode }) {
             color: "var(--foreground)",
           }}
         >
+          <TermsVersionGate userId={session?.user?.id} skip={pathname?.startsWith("/affiliate/marketplace")} />
           {children}
         </main>
       </div>
