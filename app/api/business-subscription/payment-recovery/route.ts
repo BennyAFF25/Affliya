@@ -12,6 +12,7 @@ import {
 } from "../../../../utils/billingRecovery";
 import { renderNettmarkEmail } from "../../../../utils/email/renderNettmarkEmail";
 import { growthBillingPortalUrl, NETTMARK_LEGAL_ENTITY } from "../../../../utils/billingLinks";
+import { growthEmailAllowed } from "../../../../utils/growthPartners/email";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -135,6 +136,8 @@ export async function GET(req: Request) {
 
       const recipient = String(invoice.customer_email || business.business_email || "").trim();
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient)) { skipped++; continue; }
+      // Outside production, only QA/allowlisted mailboxes may receive recovery emails.
+      if (!growthEmailAllowed(recipient)) { skipped++; continue; }
       const claimedId = await claimStage(admin, { businessId, invoiceId, stage, email: recipient });
       if (!claimedId) { skipped++; continue; }
 
