@@ -16,25 +16,27 @@ export function selectBillingRecoveryStage(
   return "immediate";
 }
 
-export function billingRecoveryMessage(stage: BillingRecoveryStage, formattedAmount: string) {
+/** E5 copy (04-billing-emails-spec §4). Mentioning cancellation is fair and reduces chargebacks. */
+export function billingRecoveryMessage(stage: BillingRecoveryStage, formattedAmount: string, last4?: string | null) {
+  const card = last4 ? ` to your card ending ${last4}` : " to your card";
   switch (stage) {
     case "immediate":
       return {
-        subject: "Action required: your Nettmark Growth payment failed",
+        subject: `Action needed: your Nettmark Growth payment of ${formattedAmount} failed`,
         heading: "We couldn't process your Growth payment",
-        body: `Your Growth subscription invoice for ${formattedAmount} remains unpaid. Please use the secure link below to complete your payment or update your payment method.`,
+        body: `We couldn't charge ${formattedAmount}${card} for your Growth subscription. Please update your card or pay the invoice so your Growth features keep working. Your bank may retry automatically over the next few days.`,
       };
     case "after_48h":
       return {
-        subject: "Reminder: your Nettmark Growth payment is outstanding",
+        subject: `Reminder: ${formattedAmount} still outstanding on your Growth subscription`,
         heading: "Your Growth payment is still outstanding",
-        body: `Your Growth invoice for ${formattedAmount} is still unpaid. Your bank may retry automatically, but you can resolve it now using the secure link below.`,
+        body: `Your Growth payment of ${formattedAmount} is still unpaid. Update your card or pay now to avoid interruption.`,
       };
     case "after_5d":
       return {
-        subject: "Your Growth subscription payment remains unpaid",
-        heading: "Please review your outstanding Growth payment",
-        body: `Your Growth subscription invoice for ${formattedAmount} remains unpaid. To avoid any subscription restrictions under your billing settings, please resolve the invoice as soon as possible.`,
+        subject: "Final reminder: update your card to keep Nettmark Growth",
+        heading: "Please update your card to keep Growth",
+        body: `We still haven't been able to collect ${formattedAmount}. If it isn't paid when the automatic retries finish, your Growth subscription will be cancelled and your account will move to Free.`,
       };
   }
 }

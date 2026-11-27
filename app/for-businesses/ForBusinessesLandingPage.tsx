@@ -1,5 +1,7 @@
 "use client";
 
+import { termsV2Enabled } from "../../utils/legal/version";
+import { REFUND_SUMMARY } from "../../utils/legal/trialTerms";
 import React from "react";
 import Link from "next/link";
 import { ShieldCheck, Link2, Wallet } from "lucide-react";
@@ -150,6 +152,7 @@ export default function ForBusinessesLandingPage({ stats }: { stats: { offers: n
             q="What do we need to start?"
             a="Connect Meta and Stripe during onboarding and add a lightweight tracking tag."
           />
+          {termsV2Enabled() && <FAQ q="Can I get a refund on Growth?" a={REFUND_SUMMARY} />}
         </div>
       </section>
     </div>

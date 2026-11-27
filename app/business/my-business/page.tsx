@@ -11,6 +11,7 @@ import ShopifyConnectCard from "../../../components/ShopifyConnectCard";
 import MobileBusinessOverview, { type MobileBusinessView } from "./MobileBusinessOverview";
 import { Dialog, DialogPanel, DialogTitle, Description } from "@headlessui/react";
 import AcceptTermsModal from "@/../app/components/AcceptTermsModal";
+import { termsAcceptanceCurrent, termsProfileColumns } from "@/../utils/legal/version";
 import Link from "next/link";
 import React, { useEffect, useLayoutEffect, useState } from "react";
 import { PageHeader } from "@/../components/ui/page-header";
@@ -274,6 +275,7 @@ export default function MyBusinessPage() {
   const [launchInviteStatusByRequestId, setLaunchInviteStatusByRequestId] = useState<Record<string, "idle" | "sending" | "sent" | "error">>({});
 
   const [showAcceptTerms, setShowAcceptTerms] = useState(false);
+  const [termsPreviouslyAccepted, setTermsPreviouslyAccepted] = useState(false);
   const session = useSession();
   const user = session?.user;
   const supabase = createClientComponentClient();
@@ -315,11 +317,12 @@ export default function MyBusinessPage() {
     const checkTerms = async () => {
       const { data, error } = await supabase
         .from("profiles")
-        .select("terms_accepted")
+        .select(termsProfileColumns())
         .eq("id", user.id)
         .single();
 
-      if (!error && !data?.terms_accepted) {
+      if (!error && !termsAcceptanceCurrent(data as { terms_accepted?: boolean | null; terms_version?: string | null } | null)) {
+        setTermsPreviouslyAccepted((data as { terms_accepted?: boolean | null } | null)?.terms_accepted === true);
         setShowAcceptTerms(true);
       }
     };
@@ -1033,6 +1036,7 @@ export default function MyBusinessPage() {
       {showAcceptTerms && user?.id && (
         <AcceptTermsModal
           userId={user.id}
+          updatedTerms={termsPreviouslyAccepted}
           onAccepted={() => setShowAcceptTerms(false)}
         />
       )}

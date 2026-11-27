@@ -1,19 +1,19 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
-import { createServerSupabaseClient } from "../../../../utils/businessSubscriptions";
+import type Stripe from "stripe";
+import { createBusinessSubscriptionStripeClient, createServerSupabaseClient } from "../../../../utils/businessSubscriptions";
 import { renderNettmarkEmail } from "../../../../utils/email/renderNettmarkEmail";
-import { selectGrowthTrialReminder, shouldAlertFounder } from "../../../../utils/growthTrialLifecycle";
+import { selectGrowthTrialReminder, selectTrialBillingReminder, shouldAlertFounder, trialBillingReminderEmail } from "../../../../utils/growthTrialLifecycle";
 import { sendFounderNotification } from "../../../../utils/email/sendFounderNotification";
+import { STRIPE_GROWTH_BILLING_LOGIN_URL, growthBillingPortalUrl } from "../../../../utils/billingLinks";
+import { formatStripeAmount, stripeDate } from "../../../../utils/billingNotifications";
+import { growthEmailAllowed } from "../../../../utils/growthPartners/email";
+import { excludedTrialEmail } from "../../../../utils/marketing/startTrial";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
-
-// Public Stripe-hosted billing portal. Customers verify ownership through
-// their billing email and do not need to recover their Nettmark password.
-// Keep this URL in sync with the active Stripe Billing portal login link.
-const STRIPE_GROWTH_BILLING_LOGIN_URL = "https://billing.stripe.com/p/login/14A7sN8fm8rM0CSaLMasg00";
 
 // Trial reminders are new-signup-only and never change billing, subscriptions,
 // payouts, approvals or campaign state. Not a manually callable public endpoint.
@@ -37,11 +37,22 @@ export async function GET(req: Request) {
   const admin = createServerSupabaseClient();
   const now = new Date();
   const cutoff = new Date(now.getTime() - 13 * 86400000).toISOString();
-  const { data: trials, error } = await admin.from("business_entitlements")
-    .select("business_id,business_email,billing_status,growth_trial_started_at,subscription_current_period_end")
-    .eq("billing_status", "subscription_trialing")
-    .gte("growth_trial_started_at", cutoff)
+  // Billing reminders v2 (E3 2-day for every cohort, optional E2 7-day), based on
+  // the trial end rather than the trial age. Both flags default off.
+  const billingV2 = process.env.TRIAL_BILLING_REMINDERS_V2_ENABLED === "true";
+  const day7 = process.env.NETTMARK_DAY7_TRIAL_REMINDER === "true";
+  const billingPath = billingV2 || day7;
+  let trialQuery = admin.from("business_entitlements")
+    .select(billingPath
+      ? "business_id,business_email,billing_status,growth_trial_started_at,subscription_current_period_end,stripe_subscription_id"
+      : "business_id,business_email,billing_status,growth_trial_started_at,subscription_current_period_end")
+    .eq("billing_status", "subscription_trialing");
+  trialQuery = billingPath
+    ? trialQuery.or(`growth_trial_started_at.gte."${cutoff}",subscription_current_period_end.gt."${now.toISOString()}"`)
+    : trialQuery.gte("growth_trial_started_at", cutoff);
+  const { data: trialRows, error } = await trialQuery
     .order("growth_trial_started_at", { ascending: true }).limit(400);
+  const trials = (trialRows || []) as unknown as Array<{ business_id: string | null; business_email: string | null; growth_trial_started_at: string | null; subscription_current_period_end: string | null; stripe_subscription_id?: string | null }>;
   if (error) return NextResponse.json({ error: "Trial status unavailable" }, { status: 503 });
 
   const resend = new Resend(process.env.RESEND_API_KEY);
@@ -49,9 +60,17 @@ export async function GET(req: Request) {
   const site = (process.env.NEXT_PUBLIC_SITE_URL || "https://www.nettmark.com").replace(/\/$/, "");
   let sent = 0, skipped = 0, failed = 0;
 
+  let stripe: Stripe | null = null;
+  const portal = growthBillingPortalUrl();
+  const production = process.env.VERCEL_ENV === "production";
+
   for (const trial of trials || []) {
     const businessId = String(trial.business_id || "");
     const address = String(trial.business_email || "").trim();
+    if (billingPath && businessId && address) {
+      const outcome = await sendTrialBillingReminder({ businessId, address, trialEnd: trial.subscription_current_period_end, subscriptionId: trial.stripe_subscription_id || null });
+      if (outcome === "sent") sent++; else if (outcome === "failed") failed++;
+    }
     if (!businessId || !address || !trial.growth_trial_started_at) { skipped++; continue; }
     const ageDays = (now.getTime() - Date.parse(trial.growth_trial_started_at)) / 86400000;
     const { count: offerCount, error: offersError } = await admin.from("offers")
@@ -93,7 +112,7 @@ export async function GET(req: Request) {
       } catch { failed++; }
     }
 
-    const reminder = selectGrowthTrialReminder(ageDays, offerCount);
+    const reminder = selectGrowthTrialReminder(ageDays, offerCount, { includeDay12: !billingV2 });
     if (!reminder) { skipped++; continue; }
     const { day, noOffer, variant, eventType, dedupeEventTypes } = reminder;
     const trialEnd = trial.subscription_current_period_end;
@@ -168,4 +187,42 @@ export async function GET(req: Request) {
   return NextResponse.json({ ok: failed === 0, sent, skipped, failed }, {
     status: failed ? 503 : 200, headers: { "Cache-Control": "no-store" },
   });
+
+  /** E3 / E2 for any trialing business; Stripe is rechecked so cancelled trials get nothing. */
+  async function sendTrialBillingReminder(params: { businessId: string; address: string; trialEnd: string | null; subscriptionId: string | null }): Promise<"sent" | "skipped" | "failed"> {
+    if (!params.trialEnd || !params.subscriptionId) return "skipped";
+    const reminder = selectTrialBillingReminder((Date.parse(params.trialEnd) - now.getTime()) / 3600000, { e3: billingV2, e2: day7 });
+    if (!reminder) return "skipped";
+    if ((production && excludedTrialEmail(params.address)) || !growthEmailAllowed(params.address)) return "skipped";
+    try {
+      const { data: existing, error: existingError } = await admin.from("product_events")
+        .select("id").eq("actor_email", params.address).in("event_type", [reminder.eventType]).limit(1).maybeSingle();
+      if (existingError) return "failed";
+      if (existing) return "skipped";
+      stripe = stripe || createBusinessSubscriptionStripeClient();
+      const sub = await stripe.subscriptions.retrieve(params.subscriptionId, { expand: ["default_payment_method"] });
+      if (sub.status !== "trialing" || sub.cancel_at_period_end || sub.cancel_at || !sub.trial_end) return "skipped";
+      const item = sub.items?.data?.[0];
+      const unit = item?.price?.unit_amount;
+      if (unit == null) return "failed";
+      const pm = sub.default_payment_method;
+      const last4 = pm && typeof pm === "object" ? pm.card?.last4 || null : null;
+      const trialEndLabel = stripeDate(sub.trial_end);
+      const { subject, content } = trialBillingReminderEmail(reminder.stage, {
+        trialEnd: trialEndLabel, amount: formatStripeAmount(unit * (item?.quantity || 1), item?.price?.currency || "aud"), last4, portal,
+      });
+      const { error: sendError } = await resend.emails.send({
+        from, to: [params.address], replyTo: "contact@nettmark.com", subject, html: renderNettmarkEmail(content),
+      }, { idempotencyKey: reminder.idempotencyKey(params.businessId) });
+      if (sendError) return "failed";
+      const { error: logError } = await admin.from("product_events").insert({
+        event_type: reminder.eventType, actor_email: params.address, actor_role: "business",
+        meta: { business_id: params.businessId, stage: reminder.stage, trial_ends_at: new Date(sub.trial_end * 1000).toISOString(), source: "scheduled_growth_trial_billing_reminder" },
+      });
+      if (logError) console.warn("[growth-trial-reminders] billing reminder sent but audit failed", { stage: reminder.stage, businessId: params.businessId });
+      return "sent";
+    } catch {
+      return "failed";
+    }
+  }
 }

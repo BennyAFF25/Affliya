@@ -19,6 +19,10 @@ for (const stage of ["immediate", "after_48h", "after_5d"] as const) {
   const msg = billingRecoveryMessage(stage, "A$49.00");
   assert.match(msg.subject, /Growth|Nettmark/);
   assert.match(msg.body, /A\$49\.00/);
-  assert.doesNotMatch(msg.body, /charged again|cancelled|will be deleted/i);
+  assert.doesNotMatch(msg.body, /charged again|will be deleted/i);
 }
+// E5: card ending and the cancellation consequence on the final notice.
+assert.match(billingRecoveryMessage("immediate", "A$49.00", "4242").body, /card ending 4242/);
+assert.doesNotMatch(billingRecoveryMessage("immediate", "A$49.00", null).body, /ending/);
+assert.match(billingRecoveryMessage("after_5d", "A$49.00").body, /will be cancelled and your account will move to Free/);
 console.log("Billing recovery milestone and copy tests passed.");

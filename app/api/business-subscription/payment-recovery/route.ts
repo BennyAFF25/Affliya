@@ -6,12 +6,12 @@ import {
   createServerSupabaseClient,
 } from "../../../../utils/businessSubscriptions";
 import {
-  BILLING_RECOVERY_MAX_AGE_MS,
   billingRecoveryMessage,
   selectBillingRecoveryStage,
   type BillingRecoveryStage,
 } from "../../../../utils/billingRecovery";
 import { renderNettmarkEmail } from "../../../../utils/email/renderNettmarkEmail";
+import { growthBillingPortalUrl, NETTMARK_LEGAL_ENTITY } from "../../../../utils/billingLinks";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -111,7 +111,7 @@ export async function GET(req: Request) {
     if (!businessId || !subscriptionId) { skipped++; continue; }
 
     try {
-      const subscription = await stripe.subscriptions.retrieve(subscriptionId, { expand: ["latest_invoice"] });
+      const subscription = await stripe.subscriptions.retrieve(subscriptionId, { expand: ["latest_invoice", "default_payment_method"] });
       if (!["past_due", "unpaid"].includes(subscription.status) || subscription.cancel_at_period_end || subscription.cancel_at) {
         skipped++; continue;
       }
@@ -148,11 +148,15 @@ export async function GET(req: Request) {
 
         const amount = new Intl.NumberFormat("en-AU", { style: "currency", currency: "AUD" })
           .format(freshInvoice.amount_remaining / 100);
-        const message = billingRecoveryMessage(stage, amount);
+        const paymentMethod = subscription.default_payment_method;
+        const last4 = paymentMethod && typeof paymentMethod === "object" ? paymentMethod.card?.last4 || null : null;
+        const message = billingRecoveryMessage(stage, amount, last4);
         const link = freshInvoice.hosted_invoice_url || "https://www.nettmark.com/business/settings";
+        const portal = growthBillingPortalUrl();
         const { data: sendData, error: sendError } = await resend.emails.send({
           from,
           to: [recipient],
+          replyTo: "contact@nettmark.com",
           subject: message.subject,
           html: renderNettmarkEmail({
             previewText: message.body,
@@ -160,9 +164,9 @@ export async function GET(req: Request) {
             heading: message.heading,
             body: message.body,
             rows: [{ label: "Amount outstanding", value: amount }],
-            cta: { label: "Resolve my payment", href: link },
-            secondaryCta: { label: "Manage Growth billing", href: "https://www.nettmark.com/business/settings" },
-            footerNote: "This message concerns an outstanding Nettmark Growth invoice. It does not change your subscription or initiate another charge.",
+            cta: { label: "Pay or update card", href: link },
+            secondaryCta: { label: "Cancel instead", href: portal },
+            footerNote: `This message concerns an outstanding Nettmark Growth invoice. It does not change your subscription or initiate another charge. ${NETTMARK_LEGAL_ENTITY} · Manage or cancel: ${portal}`,
           }),
         }, { idempotencyKey: `growth-billing-recovery/${invoiceId}/${stage}` });
         if (sendError) throw new Error("Resend rejected recovery email.");

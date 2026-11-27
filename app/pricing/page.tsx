@@ -1,4 +1,6 @@
 "use client";
+import { termsV2Enabled } from "../../utils/legal/version";
+import { REFUND_SUMMARY } from "../../utils/legal/trialTerms";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -63,6 +65,11 @@ export default function PricingPage() {
           <button type="button" onClick={() => createAccount("business")} className="mt-7 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-[#00C2CB] px-4 text-sm font-bold text-[#0f0f0f] hover:bg-[#19d5dc]">
             Start 14-day free trial <ArrowRight className="h-4 w-4" />
           </button>
+          {termsV2Enabled() && (
+            <p className="mt-4 rounded-2xl border border-white/10 bg-black/20 px-4 py-3 text-xs leading-5 text-slate-300" data-testid="refund-summary">
+              <strong className="text-white">Refunds:</strong> {REFUND_SUMMARY} <Link href="/legal/privacy/terms-of-service#subscriptions-refunds" className="font-semibold text-[#63e8ee] underline">Full terms</Link>
+            </p>
+          )}
           <p className="mt-3 text-center text-xs text-slate-400">You choose the commission on verified sales. Nettmark also charges 2.2% on wallet top-ups and business payouts; Stripe processing fees may apply.</p>
         </section>
         <section className="mx-auto mt-4 max-w-[720px] rounded-[22px] border border-white/[0.09] bg-[#151718] p-5 sm:p-6" aria-labelledby="free-heading">
