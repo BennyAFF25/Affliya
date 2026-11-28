@@ -48,6 +48,8 @@ async function main() {
       if (url.hostname === "policy-fixture.supabase.co") {
         if (url.pathname === "/auth/v1/user") return json(user);
         if (url.pathname === "/auth/v1/token") return json(session);
+        // Read-only RPCs the editor legitimately calls on load (STABLE SQL function, no ledger change).
+        if (request.method() === "POST" && url.pathname === "/rest/v1/rpc/get_launch_wallet_available") return json(0);
         if (request.method() !== "GET") { writes.push(url.pathname); return json({ message: "Unexpected persistence write" }, 400); }
         const table = url.pathname.split("/").pop();
         const rows = table === "offers" ? [row] : table === "profiles" ? [{ id: userId, role: "affiliate", email: user.email, terms_accepted: true, onboarding_completed: true }] : table === "affiliate_requests" ? [{ status: "approved" }] : [];
@@ -58,6 +60,8 @@ async function main() {
       if (url.pathname === "/api/onboarding/affiliate-offers") return json({ offers, userId, termsAccepted: true });
       if (url.pathname.endsWith("/brand-content")) return json({ ok: true, assets: [] });
       if (url.pathname.endsWith("/generate-promotion")) return json({ available: false });
+      // GET /start is the editor's read-only access check; only POST joins or requests access.
+      if (url.pathname.endsWith("/start") && request.method() === "GET") return json({ ok: true, participationMode: "open", participation: { status: "approved" } });
       if (url.pathname.endsWith("/start") || url.pathname.endsWith("/ready-organic-promotion") || url.pathname.includes("/launch") || url.pathname.includes("/stripe/")) {
         writes.push(url.pathname); return json({ message: "Unexpected promotion/financial action" }, 400);
       }
