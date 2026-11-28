@@ -3,9 +3,12 @@ import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
 import { createServerSupabaseClient } from "../../utils/supabase/createServerClient";
 
 export const NONCE_COOKIE = "shopify_oauth_nonce";
+export const nonceCookieOptions = { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax" as const, path: "/api/shopify", maxAge: 600 };
 export const BUSINESS_PAGE = "/business/my-business";
 export function webhookBaseUrl(req: Request): string {
-  return new URL(process.env.NEXT_PUBLIC_BASE_URL?.trim() || req.url).origin;
+  const url = new URL(process.env.NEXT_PUBLIC_BASE_URL?.trim() || req.url);
+  if (url.hostname === "nettmark.com") url.hostname = "www.nettmark.com";
+  return url.origin;
 }
 export async function requireBusiness() {
   const session = createRouteHandlerClient({ cookies });
@@ -21,9 +24,16 @@ export async function requireBusiness() {
   return { user, businessId: business.id as string, admin };
 }
 export function errorReason(error: unknown): string {
-  const allowed = ["unauthorized", "forbidden", "business_profile_required", "invalid_shop", "invalid_hmac", "invalid_state", "session_mismatch", "missing_code", "missing_scopes", "token_exchange", "shop_already_connected", "database", "configuration", "invalid_scopes_configuration"];
+  const allowed = ["unauthorized", "forbidden", "business_profile_required", "invalid_shop", "invalid_hmac", "invalid_state", "session_mismatch", "missing_code", "missing_scopes", "token_exchange", "shop_already_connected", "database", "configuration", "invalid_scopes_configuration", "pending_expired", "reauth_required"];
   return error instanceof Error && allowed.includes(error.message) ? error.message : "connection_failed";
 }
 export function errorStatus(reason: string): number {
   return reason === "unauthorized" ? 401 : reason === "forbidden" ? 403 : reason === "database" || reason === "configuration" ? 503 : 400;
+}
+
+// Only an eligible business session binds the grant. Other visitors authenticate after OAuth.
+// Database/configuration failures stay fail-closed; requireBusiness still protects completion.
+export async function optionalBusiness() {
+  try { return await requireBusiness(); }
+  catch (error) { if (error instanceof Error && ["unauthorized", "forbidden", "business_profile_required"].includes(error.message)) return null; throw error; }
 }

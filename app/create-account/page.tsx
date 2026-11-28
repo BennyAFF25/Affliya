@@ -1,4 +1,5 @@
 'use client';
+import { businessContinuationDestination, safeBusinessReturnTo } from "../../utils/safeBusinessReturnTo";
 
 import { PASSWORD_ERROR, USERNAME_HINT, validPassword, validUsername } from '../../utils/auth/credentials';
 import PasswordRules from '../../components/PasswordRules';
@@ -39,13 +40,13 @@ function CreateAccountInner() {
   const businessAttribution = extractAttributionFromSearchParams(new URLSearchParams(sp.toString()));
   const onboardingPath = role === 'affiliate'
     ? affiliateOnboardingPath(sp.get('offerId'), sp.get('mode'))
-    : buildHrefWithAttribution(`/business/choose-plan?plan=${resolveBusinessPlanChoice(sp.get('plan'))}`, businessAttribution);
+    : businessContinuationDestination(buildHrefWithAttribution(`/business/choose-plan?plan=${resolveBusinessPlanChoice(sp.get('plan'))}`, businessAttribution), safeBusinessReturnTo(sp.get('next')));
 
   useEffect(() => {
     try {
       localStorage.setItem('intent.role', role);
       if (isBusiness) persistAttribution(businessAttribution);
-    } catch {}
+    } catch { /* Browser storage may be unavailable. */ }
   }, [role, isBusiness, sp]);
 
   const [username, setUsername] = useState('');
@@ -68,18 +69,18 @@ function CreateAccountInner() {
     (process.env.NEXT_PUBLIC_SITE_URL && process.env.NEXT_PUBLIC_SITE_URL.trim()) ||
     (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000');
 
-  async function postJson(path: string, payload: any) {
+  async function postJson(path: string, payload: unknown) {
     const url = `${baseUrl}${path}`;
     try {
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        keepalive: true as any,
+        keepalive: true,
         body: JSON.stringify(payload),
       });
 
       const text = await res.text().catch(() => '');
-      let json: any = null;
+      let json: unknown = null;
       try {
         json = text ? JSON.parse(text) : null;
       } catch {
@@ -88,9 +89,10 @@ function CreateAccountInner() {
 
       console.log(`[EMAIL POST] ${path} -> ${res.status}`, json);
       return { ok: res.ok, status: res.status, json };
-    } catch (e: any) {
-      console.error(`[EMAIL POST ERROR] ${path}`, e?.message || e);
-      return { ok: false, status: 0, json: { error: e?.message || String(e) } };
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      console.error(`[EMAIL POST ERROR] ${path}`, message);
+      return { ok: false, status: 0, json: { error: message } };
     }
   }
 
@@ -143,7 +145,7 @@ function CreateAccountInner() {
       });
 
       try {
-        const tasks: Promise<any>[] = [];
+        const tasks: Promise<unknown>[] = [];
 
         if (role === 'affiliate') {
           tasks.push(
@@ -237,9 +239,9 @@ function CreateAccountInner() {
       }
 
       router.replace(onboardingPath);
-    } catch (e: any) {
+    } catch (e) {
       console.error('[SIGNUP] failed:', e);
-      setErr(e?.message || 'Sign up failed');
+      setErr(e instanceof Error ? e.message : 'Sign up failed');
     } finally {
       setSubmitting(false);
       signupInFlight.current = false;
@@ -249,7 +251,7 @@ function CreateAccountInner() {
   const goHome = () => {
     try {
       localStorage.removeItem('intent.role');
-    } catch {}
+    } catch { /* Browser storage may be unavailable. */ }
     if (typeof window !== 'undefined') {
       window.location.href = '/';
     } else {
@@ -380,7 +382,7 @@ function CreateAccountInner() {
                 <div role="status" className="mt-7 space-y-4 rounded-2xl border border-[#00C2CB]/20 bg-[#00C2CB]/5 p-5">
                   <h3 className="text-lg font-semibold">Check your email</h3>
                   <p className="text-sm leading-6 text-white/65">Open the confirmation link sent to {email.trim()} to continue setting up your account.</p>
-                  <a href={isBusiness ? "/login/business" : `/login/affiliate?next=${encodeURIComponent(onboardingPath)}`} className="inline-block text-sm text-[#00C2CB]">Already confirmed? Sign in</a>
+                  <a href={isBusiness ? `/login/business?next=${encodeURIComponent(safeBusinessReturnTo(sp.get('next')) || onboardingPath)}` : `/login/affiliate?next=${encodeURIComponent(onboardingPath)}`} className="inline-block text-sm text-[#00C2CB]">Already confirmed? Sign in</a>
                 </div>
               ) : <form onSubmit={handleEmailSignup} className="mt-7 space-y-5">
                 <Field

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireBusiness, webhookBaseUrl, errorReason, errorStatus } from '../../../../lib/shopify/server';
-import { decryptToken } from '../../../../lib/shopify/security';
+import { validAccessToken } from '../../../../lib/shopify/tokens';
 import { isUuid } from '../../../../utils/tracking/campaignIdentity';
 import { activatePixel } from '../../../../lib/shopify/pixel';
 export const runtime = "nodejs";
@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
     const { data: store, error } = await admin.from('shopify_stores').select('shop_domain,access_token_encrypted,installed_at').eq('id', id).eq('business_id', businessId).eq('status', 'connected').maybeSingle();
     if (error) throw new Error('database');
     if (!store?.access_token_encrypted) return NextResponse.json({ error: 'store_unavailable' }, { status: 404 });
-    const pixel = await activatePixel(store.shop_domain, decryptToken(store.access_token_encrypted), webhookBaseUrl(req));
+    const pixel = await activatePixel(store.shop_domain, await validAccessToken(admin, store.shop_domain, businessId), webhookBaseUrl(req));
     const { data: saved, error: updateError } = await admin.from('shopify_stores').update(pixel).eq('id', id).eq('business_id', businessId).eq('status', 'connected').eq('installed_at', store.installed_at).select('pixel_status,pixel_error').maybeSingle();
     if (updateError || !saved) throw new Error('database');
     return NextResponse.json(saved, { headers: { 'Cache-Control': 'no-store' } });

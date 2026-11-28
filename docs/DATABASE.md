@@ -56,6 +56,10 @@ Confirm applied migration history, full DDL, policies/grants, storage buckets, c
 
 No migration or live database change was performed to create these docs.
 
+## Shopify review-readiness schema (prepared, not applied)
+
+`20261114120000_shopify_review_readiness.sql` adds encrypted refresh credentials and absolute access/refresh expiry timestamps to `shopify_stores`, plus service-role-only `shopify_pending_installs` for grants awaiting business authentication. Both tables revoke client access; status routes project metadata explicitly. The new connected-token constraint is `NOT VALID` to preserve existing legacy rows while enforcing complete expiring pairs for new writes. Legacy stores must OAuth again before Admin API work. No remote schema/data has been inspected or changed by this preparation. Manual undo is `supabase/undo/20261114120000_shopify_review_readiness.undo.sql`; never run it as a forward migration. See [SHOPIFY.md](SHOPIFY.md) for rollout order, pending expiry/cleanup, lifecycle deletion and rollback consequences.
+
 ## Growth Partners (prepared offline, November 2026)
 
 `20261117120000_growth_partners.sql` extends creator partners, signup intents, immutable business attribution and the commission ledger; adds `growth_partner_applications`, `creator_referral_events` and `creator_partner_payouts`. Growth membership uses `creator_partners.program` and `user_id`, not a new profile role. New tables and privileged RPCs are service-role only; internal routes authenticate and enforce the marketing admin allowlist before service-role access.

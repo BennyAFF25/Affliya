@@ -9,6 +9,7 @@ import { handleWebhook, type WebhookStore } from "../lib/shopify/webhooks";
 import { exchangeToken, registerWebhooks, revokeAccess, webhookCallbackUrl } from "../lib/shopify/admin";
 
 async function main() {
+  globalThis.fetch = async () => { throw new Error("Network forbidden in mock suite"); };
   assert.equal(stripShopifyParams(""), null);
   assert.equal(stripShopifyParams("?other=1&shopify_extra=keep"), null);
   assert.equal(stripShopifyParams("?shopify=connected"), "");
@@ -61,13 +62,16 @@ async function main() {
   assert.throws(() => verifyState("invalid", state.nonce, secret, now));
   assert.throws(() => verifyState(signState({ ...state, shop: "evil.com" }, secret), state.nonce, secret, now));
 
+  const anonymousState = { ...state, userId: null, businessId: null };
+  assert.deepEqual(verifyState(signState(anonymousState, secret), state.nonce, secret, now), anonymousState);
+  assert.throws(() => verifyState(signState({ ...state, userId: null }, secret), state.nonce, secret, now));
   const previousScopes = process.env.SHOPIFY_SCOPES;
   delete process.env.SHOPIFY_SCOPES;
   const required = requiredScopes();
-  assert.deepEqual(required, ["read_products", "write_pixels", "read_customer_events"]);
+  assert.deepEqual(required, ["write_pixels", "read_customer_events"]);
   assert.ok(hasRequiredScopes([...required, "read_pixels"], required));
   assert.ok(!hasRequiredScopes(["read_products"], required));
-  for (const scopes of ["read_products,write_pixels", "read_products,write_pixels,read_customer_events,read_pixels", "read_products,write_pixels,write_pixels"]) {
+  for (const scopes of ["write_pixels", "write_pixels,write_pixels", "write_pixels,read_customer_events,read_products", "read_products,write_pixels", "read_products,write_pixels,read_customer_events,read_pixels", "read_products,write_pixels,write_pixels"]) {
     process.env.SHOPIFY_SCOPES = scopes;
     assert.throws(() => requiredScopes());
   }
@@ -120,10 +124,12 @@ async function main() {
   process.env.SHOPIFY_CLIENT_SECRET = secret;
   const request: typeof fetch = async (url, options) => {
     assert.equal(url, `https://${state.shop}/admin/oauth/access_token`);
-    const payload = JSON.parse(String(options?.body));
-    assert.deepEqual(Object.keys(payload).sort(), ["client_id", "client_secret", "code"]);
-    assert.equal(payload.code, "mock-code");
-    return Response.json({ access_token: "mock-token", scope: [...required, "read_pixels"].join(",") });
+    assert.equal((options?.headers as Record<string, string>)["Content-Type"], "application/x-www-form-urlencoded");
+    const payload = new URLSearchParams(String(options?.body));
+    assert.deepEqual(Array.from(payload.keys()).sort(), ["client_id", "client_secret", "code", "expiring"]);
+    assert.equal(payload.get("code"), "mock-code");
+    assert.equal(payload.get("expiring"), "1");
+    return Response.json({ access_token: "mock-token", refresh_token: "mock-refresh", expires_in: 3600, refresh_token_expires_in: 7776000, scope: [...required, "read_pixels"].join(",") });
   };
   assert.equal((await exchangeToken(state.shop, "mock-code", required, request)).token, "mock-token");
   await assert.rejects(exchangeToken(state.shop, "mock-code", required, async () => Response.json({ access_token: "mock", scope: "read_products" })), /missing_scopes/);
@@ -154,12 +160,13 @@ async function main() {
   await assert.rejects(registerWebhooks(state.shop, "mock-token", "https://preview.example", async () => Response.json({ data: { webhookSubscriptionCreate: { userErrors: [{ message: "mock" }] } } })));
 
   await revokeAccess(state.shop, "mock-token", async (url, options) => {
-    assert.equal(url, `https://${state.shop}/admin/api_permissions/current.json`);
-    assert.equal(options?.method, "DELETE");
-    assert.deepEqual(options?.headers, { "X-Shopify-Access-Token": "mock-token" });
+    assert.equal(url, `https://${state.shop}/admin/api/2026-10/graphql.json`);
+    assert.equal(options?.method, "POST");
+    assert.match(JSON.parse(String(options?.body)).query, /appUninstall/);
+    assert.deepEqual(options?.headers, { "Content-Type": "application/json", "X-Shopify-Access-Token": "mock-token" });
     assert.equal(options?.redirect, "error");
     assert.ok(options?.signal instanceof AbortSignal);
-    return new Response(null, { status: 200 });
+    return Response.json({ data: { appUninstall: { app: { id: "mock-app" }, userErrors: [] } } });
   });
   await assert.rejects(revokeAccess(state.shop, "mock-token", async () => new Response(null, { status: 500 })), /revoke_access/);
   await assert.rejects(revokeAccess("evil.com", "mock-token", request), /invalid_shop/);
@@ -181,6 +188,12 @@ async function testRoutes(secret: string) {
   let role = "business";
   let failDb = false;
   let rows: Row[] = [];
+  let pendingRows: Row[] = [];
+  let refreshMode = "ok";
+  let refreshCalls = 0;
+  let beforeTokenSave: (() => void) | null = null;
+  let failTokenSave = false;
+  let revokeFails = false;
   let networkCalls = 0;
   let connectBeforeUpdate = false;
   let pixelMode: "active" | "undeployed" = "undeployed";
@@ -189,16 +202,20 @@ async function testRoutes(secret: string) {
   const db = {
     auth: { getUser: async () => ({ data: { user }, error: null }) },
     from(table: string) {
-      let matched = table === "profiles" ? [{ id: user?.id, role }] as Row[] : table === "business_profiles" ? [{ id: owner, business_email: user?.email }] as Row[] : rows;
+      let matched = table === "profiles" ? [{ id: user?.id, role }] as Row[] : table === "business_profiles" ? [{ id: owner, business_email: user?.email }] as Row[] : table === "shopify_pending_installs" ? pendingRows : table === "shopify_stores" ? rows : [];
       let update: Row | undefined;
       let insertion: Row | undefined;
       let deletion = false;
       let selection = "";
       const result = () => {
+        if (failTokenSave && update?.refresh_token_encrypted) return { data: null, error: { code: "mock-save-failure" } };
         if (failDb) return { data: null, error: { code: "mock-db-error" } };
         if (update) matched.forEach(row => Object.assign(row, update));
-        if (insertion) rows.push({ id: owner, ...insertion });
-        if (deletion) rows = rows.filter(row => !matched.includes(row));
+        if (insertion) (table === "shopify_pending_installs" ? pendingRows : rows).push({ id: owner, created_at: new Date().toISOString(), ...insertion });
+        if (deletion) {
+          if (table === "shopify_pending_installs") pendingRows = pendingRows.filter(row => !matched.includes(row));
+          else if (table === "shopify_stores") rows = rows.filter(row => !matched.includes(row));
+        }
         const data = selection ? matched.map(row => Object.fromEntries(selection.split(",").map(key => [key, row[key]]))) : matched;
         return { data, error: null };
       };
@@ -207,7 +224,7 @@ async function testRoutes(secret: string) {
         eq(key: string, value: unknown) { matched = matched.filter(row => row[key] === value); return query; },
         neq(key: string, value: unknown) { matched = matched.filter(row => row[key] !== value); return query; },
         lt(key: string, value: string) { matched = matched.filter(row => String(row[key]) < value); return query; },
-        update(value: Row) { if (connectBeforeUpdate) { matched.forEach(row => { row.status = "connected"; }); connectBeforeUpdate = false; } update = value; return query; },
+        update(value: Row) { if (beforeTokenSave && "refresh_token_encrypted" in value) { const run = beforeTokenSave; beforeTokenSave = null; run(); } if (connectBeforeUpdate) { matched.forEach(row => { row.status = "connected"; }); connectBeforeUpdate = false; } update = value; return query; },
         insert(value: Row) { insertion = value; return query; },
         delete() { deletion = true; return query; },
         order() { return query; },
@@ -232,6 +249,11 @@ async function testRoutes(secret: string) {
     networkCalls++;
     if (String(url).endsWith("/graphql.json")) {
       const body = JSON.parse(String(options?.body));
+      if (body.query.includes("appUninstall")) {
+        lifecycle.push("revoke");
+        if (revokeFails) return Response.json({ data: { appUninstall: { userErrors: [{ message: "mock-failure" }] } } });
+        return Response.json({ data: { appUninstall: { app: { id: "mock-app" }, userErrors: [] } } });
+      }
       if (body.query.includes("RegisterUninstall")) {
         assert.equal(body.variables.subscription.uri, "https://www.nettmark.com/api/shopify/webhooks");
         throw new Error("mock registration failure");
@@ -247,11 +269,18 @@ async function testRoutes(secret: string) {
       pixelId = "gid://shopify/WebPixel/1";
       return Response.json({ data: { [action]: { webPixel: { id: pixelId }, userErrors: [] } } });
     }
-    if (String(url).endsWith("/admin/api_permissions/current.json")) {
-      lifecycle.push("revoke");
-      return new Response(null, { status: 200 });
+    if (String(url).endsWith("/admin/oauth/access_token")) {
+      const payload = new URLSearchParams(String(options?.body));
+      if (payload.get("grant_type") === "refresh_token") {
+        refreshCalls++;
+        assert.ok(payload.get("refresh_token"));
+        if (refreshMode === "invalid") return new Response(null, { status: 400 });
+        if (refreshMode === "transient") return new Response(null, { status: 503 });
+        return Response.json({ access_token: "mock-rotated", refresh_token: "mock-refresh-rotated", expires_in: 3600, refresh_token_expires_in: 7776000 });
+      }
+      assert.equal(payload.get("expiring"), "1");
+      return Response.json({ access_token: "mock-offline", refresh_token: "mock-refresh", expires_in: 3600, refresh_token_expires_in: 7776000, scope: "write_pixels,read_customer_events" });
     }
-    if (String(url).endsWith("/admin/oauth/access_token")) return Response.json({ access_token: "mock-offline", scope: "read_products,write_pixels,read_customer_events" });
     throw new Error("mock registration failure");
   };
   console.warn = () => {};
@@ -266,6 +295,22 @@ async function testRoutes(secret: string) {
     const pixel = load("../app/api/shopify/pixel/route") as { POST: (req: NextRequest) => Promise<Response> };
     const disconnect = load("../app/api/shopify/disconnect/route") as { POST: (req: NextRequest) => Promise<Response> };
     const webhooks = load("../app/api/shopify/webhooks/route") as typeof disconnect;
+    const complete = load("../app/business/shopify/complete/route") as typeof install;
+    const { validAccessToken } = load("../lib/shopify/tokens") as typeof import('../lib/shopify/tokens');
+    const { webhookBaseUrl, errorReason } = load("../lib/shopify/server") as typeof import('../lib/shopify/server');
+    assert.equal(errorReason(new Error("untrusted upstream text")), "connection_failed");
+    process.env.NEXT_PUBLIC_BASE_URL = "https://nettmark.com";
+    assert.equal(webhookBaseUrl(new Request("https://preview.example")), "https://www.nettmark.com");
+    process.env.NEXT_PUBLIC_BASE_URL = "https://www.nettmark.com";
+    const { pendingId } = load("../lib/shopify/pending") as typeof import('../lib/shopify/pending');
+    process.env.SHOPIFY_APP_STORE_URL = "https://apps.shopify.com/mock-listing";
+    const listing = await install.GET(new NextRequest("https://preview.example/api/shopify/install"));
+    assert.equal(listing.headers.get("location"), process.env.SHOPIFY_APP_STORE_URL);
+    process.env.SHOPIFY_APP_STORE_URL = "https://evil.invalid/install";
+    assert.equal(new URL((await install.GET(new NextRequest("https://preview.example/api/shopify/install"))).headers.get("location")!).searchParams.get("shopify_error"), "configuration");
+    process.env.SHOPIFY_APP_STORE_URL = "https://apps.shopify.com/mock-listing";
+    const badLaunch = await install.GET(new NextRequest("https://preview.example/api/shopify/install?shop=demo&hmac=bad"));
+    assert.equal(badLaunch.status, 401);
     const started = await install.GET(new NextRequest("https://preview.example/api/shopify/install?shop=demo"));
     const authorization = new URL(started.headers.get("location")!);
     assert.equal(authorization.hostname, "demo.myshopify.com");
@@ -289,6 +334,8 @@ async function testRoutes(secret: string) {
     user = { id: "user", email: "mock@example.invalid" };
     role = "affiliate";
     assert.equal((await status.GET()).status, 403);
+    const affiliateLaunch = await install.GET(new NextRequest("https://preview.example/api/shopify/install?shop=demo"));
+    assert.equal(new URL(affiliateLaunch.headers.get("location")!).pathname, "/admin/oauth/authorize", "a nonbusiness session must not demand Nettmark UI before Shopify OAuth");
     role = "business";
     const invalidHmac = callbackRequest();
     invalidHmac.nextUrl.searchParams.set("hmac", "0".repeat(64));
@@ -329,9 +376,53 @@ async function testRoutes(secret: string) {
     rows[0].business_id = owner;
     assert.equal((await pixel.POST(pixelRequest())).status, 200);
     assert.equal(rows[0].pixel_status, "active");
-    lifecycle.length = 0;
-    await disconnect.POST(disconnectRequest());
+    rows[0].access_token_expires_at = new Date(Date.now() - 1000).toISOString();
+    const oldRefresh = rows[0].refresh_token_encrypted;
+    assert.deepEqual(await Promise.all([validAccessToken(db as never, "demo.myshopify.com", owner), validAccessToken(db as never, "demo.myshopify.com", owner)]), ["mock-rotated", "mock-rotated"]);
+    assert.equal(refreshCalls, 1, "parallel refreshes coalesce");
+    assert.notEqual(rows[0].refresh_token_encrypted, oldRefresh);
+    assert.equal(decryptToken(String(rows[0].refresh_token_encrypted)), "mock-refresh-rotated");
+    assert.equal(await validAccessToken(db as never, "demo.myshopify.com", owner), "mock-rotated");
+    assert.equal(refreshCalls, 1, "fresh access requires no refresh");
+    rows[0].access_token_expires_at = new Date(Date.now() - 1000).toISOString();
+    const persisted = rows[0].access_token_encrypted;
+    failTokenSave = true;
+    await assert.rejects(validAccessToken(db as never, "demo.myshopify.com", owner), /database/);
+    assert.equal(rows[0].access_token_encrypted, persisted, "failed persistence never publishes new token");
+    failTokenSave = false;
+    beforeTokenSave = () => Object.assign(rows[0], { access_token_encrypted: encryptToken("winner-access"), refresh_token_encrypted: encryptToken("winner-refresh"), access_token_expires_at: new Date(Date.now() + 3600000).toISOString() });
+    assert.equal(await validAccessToken(db as never, "demo.myshopify.com", owner), "winner-access", "concurrent saved token wins");
+    assert.equal(decryptToken(String(rows[0].refresh_token_encrypted)), "winner-refresh");
+    rows[0].access_token_expires_at = new Date(Date.now() - 1000).toISOString();
+    beforeTokenSave = () => Object.assign(rows[0], { status: "disconnected", access_token_encrypted: null, refresh_token_encrypted: null });
+    await assert.rejects(validAccessToken(db as never, "demo.myshopify.com", owner), /reauth_required/);
+    assert.equal(rows[0].status, "disconnected", "refresh cannot resurrect a disconnected store");
+    await callback.GET(callbackRequest());
+    rows[0].access_token_expires_at = new Date(Date.now() - 1000).toISOString();
+    refreshMode = "transient";
+    await assert.rejects(validAccessToken(db as never, "demo.myshopify.com", owner), /token_exchange/);
+    assert.equal(rows[0].status, "connected", "transient failures retain retryable credentials");
+    refreshMode = "invalid";
+    await assert.rejects(validAccessToken(db as never, "demo.myshopify.com", owner), /reauth_required/);
     assert.equal(rows[0].status, "disconnected");
+    assert.equal(rows[0].refresh_token_encrypted, null);
+    refreshMode = "ok";
+    await callback.GET(callbackRequest());
+    rows[0].refresh_token_expires_at = new Date(Date.now() - 1000).toISOString();
+    const beforeExpiredRefresh = refreshCalls;
+    await assert.rejects(validAccessToken(db as never, "demo.myshopify.com", owner), /reauth_required/);
+    assert.equal(refreshCalls, beforeExpiredRefresh, "expired refresh token is never sent");
+    assert.equal(rows[0].status, "disconnected");
+    await callback.GET(callbackRequest());
+    rows[0].refresh_token_encrypted = null;
+    await assert.rejects(validAccessToken(db as never, "demo.myshopify.com", owner), /reauth_required/);
+    assert.equal(rows[0].status, "disconnected", "legacy permanent token requires reauthorization");
+    assert.equal(new URL((await callback.GET(callbackRequest())).headers.get("location")!).searchParams.get("shopify"), "connected");
+    lifecycle.length = 0;
+    revokeFails = true;
+    await disconnect.POST(disconnectRequest());
+    revokeFails = false;
+    assert.equal(rows[0].status, "disconnected", "GraphQL mutation failure cannot prevent local disconnect");
     assert.equal(rows[0].pixel_status, "inactive");
     assert.deepEqual(lifecycle, ["pixel_delete", "revoke"], "delete pixel before token revocation");
     assert.equal(rows[0].access_token_encrypted, null);
@@ -348,9 +439,7 @@ async function testRoutes(secret: string) {
     const uninstall = webhookRequest("app/uninstalled");
     uninstall.headers.set("x-shopify-triggered-at", new Date(Date.now() + 1000).toISOString());
     assert.equal((await webhooks.POST(uninstall)).status, 200);
-    assert.equal(rows[0].status, "uninstalled");
-    assert.equal(rows[0].pixel_status, "inactive");
-    assert.equal(rows[0].access_token_encrypted, null);
+    assert.equal(rows.length, 0, "uninstall deletes connection (and FK-cascaded order dedupe)");
     for (const topic of ["customers/data_request", "customers/redact", "unknown"]) assert.equal((await webhooks.POST(webhookRequest(topic))).status, 200);
     failDb = true;
     assert.equal((await webhooks.POST(webhookRequest("shop/redact"))).status, 503);
@@ -358,6 +447,79 @@ async function testRoutes(secret: string) {
     assert.equal((await webhooks.POST(webhookRequest("shop/redact"))).status, 200);
     assert.equal(rows.length, 0);
     assert.equal((await webhooks.POST(webhookRequest("shop/redact"))).status, 200);
+    user = null;
+    const launchParams = new URLSearchParams({ shop: "pending.myshopify.com", timestamp: String(Date.now()) });
+    launchParams.set("hmac", createHmac("sha256", secret).update(Array.from(launchParams.entries()).sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => `${k}=${v}`).join("&")).digest("hex"));
+    async function pendingGrant(signOutAfterStart = false) {
+      const start = await install.GET(new NextRequest(`https://preview.example/api/shopify/install?${launchParams}`));
+      const auth = new URL(start.headers.get("location")!);
+      assert.equal(auth.hostname, "pending.myshopify.com", "anonymous Shopify launch immediately starts OAuth");
+      const cookie = start.headers.get("set-cookie")!.split(";")[0];
+      if (signOutAfterStart) user = null;
+      const q = new URLSearchParams({ shop: "pending.myshopify.com", state: auth.searchParams.get("state")!, code: "mock-code" });
+      q.set("hmac", createHmac("sha256", secret).update(Array.from(q.entries()).sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => `${k}=${v}`).join("&")).digest("hex"));
+      const granted = await callback.GET(new NextRequest(`https://preview.example/api/shopify/callback?${q}`, { headers: { cookie } }));
+      assert.equal(new URL(granted.headers.get("location")!).pathname, "/login/business");
+      assert.equal(new URL(granted.headers.get("location")!).searchParams.get("next"), "/business/shopify/complete");
+      const match = granted.headers.get("set-cookie")!.match(/shopify_pending_install=([^;,]+)/);
+      assert.ok(match);
+      assert.doesNotMatch(granted.headers.get("set-cookie")!, /mock-offline|mock-refresh/);
+      return `shopify_pending_install=${match[1]}`;
+    }
+    const pendingCookie = await pendingGrant();
+    assert.equal(pendingRows.length, 1);
+    assert.match(String(pendingRows[0].refresh_token_encrypted), /^v1:/);
+    assert.throws(() => pendingId("tampered"), /pending_expired/);
+    const completionRequest = (cookie: string) => new NextRequest("https://preview.example/business/shopify/complete", { headers: { cookie } });
+    const unauthenticated = await complete.GET(completionRequest(pendingCookie));
+    assert.equal(new URL(unauthenticated.headers.get("location")!).pathname, "/login/business");
+    assert.doesNotMatch(unauthenticated.headers.get("set-cookie") || "", /shopify_pending_install=;/);
+    assert.equal(pendingRows.length, 1, "no session must not consume the grant");
+    user = { id: "user", email: "mock@example.invalid" };
+    role = "affiliate";
+    const forbidden = await complete.GET(completionRequest(pendingCookie));
+    assert.equal(new URL(forbidden.headers.get("location")!).searchParams.get("shopify_error"), "forbidden");
+    assert.doesNotMatch(forbidden.headers.get("set-cookie") || "", /Max-Age=0/i, "profile errors must keep the pending cookie");
+    assert.equal(pendingRows.length, 1, "role errors must not consume the grant");
+    role = "business";
+    user = { id: "user", email: "mock@example.invalid" };
+    assert.equal(new URL((await complete.GET(completionRequest(pendingCookie))).headers.get("location")!).searchParams.get("shopify"), "connected");
+    assert.equal(pendingRows.length, 0);
+    assert.equal(rows[0].shop_domain, "pending.myshopify.com");
+    assert.equal(errorOf(await complete.GET(completionRequest(pendingCookie))), "pending_expired", "pending grant is one use");
+    user = null;
+    const expiredCookie = await pendingGrant();
+    pendingRows[0].expires_at = new Date(Date.now() - 1000).toISOString();
+    user = { id: "user", email: "mock@example.invalid" };
+    assert.equal(errorOf(await complete.GET(completionRequest(expiredCookie))), "pending_expired");
+    assert.equal(pendingRows.length, 0);
+    const boundCookie = await pendingGrant(true);
+    user = { id: "wrong-user", email: "wrong@example.invalid" };
+    assert.equal(errorOf(await complete.GET(completionRequest(boundCookie))), "session_mismatch", "pending binding survives a logged-out callback");
+    assert.equal(pendingRows.length, 0);
+    user = null;
+    const ownedCookie = await pendingGrant();
+    rows[0].business_id = "another-business";
+    user = { id: "user", email: "mock@example.invalid" };
+    assert.equal(errorOf(await complete.GET(completionRequest(ownedCookie))), "shop_already_connected");
+    assert.equal(rows[0].business_id, "another-business", "pending grant cannot steal a connected shop");
+    rows[0].business_id = owner;
+    const reinstall = await install.GET(new NextRequest(`https://preview.example/api/shopify/install?${launchParams}`));
+    assert.equal(new URL(reinstall.headers.get("location")!).pathname, "/admin/oauth/authorize", "existing connection never skips OAuth");
+    const card = readFileSync("components/ShopifyConnectCard.tsx", "utf8");
+    assert.doesNotMatch(card, /<input|name="shop"|Shop domain/);
+    const toml = readFileSync("shopify.app.toml", "utf8");
+    assert.doesNotMatch(toml, /^topics = /m, "app-specific topics are rejected with the legacy install flow; they are registered per shop");
+    assert.match(toml, /compliance_topics = \["customers\/data_request", "customers\/redact", "shop\/redact"\]/);
+    assert.doesNotMatch(toml, /read_products|localhost|vercel\.app/);
+    assert.match(toml, /use_legacy_install_flow = true/);
+    const sql = readFileSync("supabase/migrations/20261114120000_shopify_review_readiness.sql", "utf8");
+    assert.match(sql, /ADD COLUMN refresh_token_encrypted/);
+    assert.match(sql, /NOT VALID/);
+    assert.match(sql, /ENABLE ROW LEVEL SECURITY/);
+    assert.match(sql, /REVOKE ALL ON TABLE public.shopify_pending_installs FROM PUBLIC, anon, authenticated/);
+    assert.doesNotMatch(sql, /DROP TABLE|DROP COLUMN|UPDATE public\.shopify_stores/);
+    assert.doesNotMatch(readFileSync("app/api/shopify/status/route.ts", "utf8"), /refresh_token|expires_at/);
   } finally {
     loader._load = originalLoad;
     globalThis.fetch = originalFetch;

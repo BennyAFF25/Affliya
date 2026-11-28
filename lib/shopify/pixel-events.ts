@@ -9,8 +9,8 @@ export const MAX_PIXEL_BYTES = 8192;
 const WINDOW_MS = 7 * 86400000;
 type Item = { product_id: string | null; variant_id: string | null; quantity: number; line_total: number };
 export type PixelPayload = {
-  shop_domain: string; order_id: string; checkout_token: string | null; total_value: number;
-  currency: string; nm_aff: string | null; nm_camp: string | null; nm_src: string | null;
+  shop_domain: string; order_id: string; total_value: number;
+  currency: string; nm_aff: string | null; nm_camp: string | null;
   timestamp: string; line_items: Item[];
 };
 function record(value: unknown): Record<string, unknown> {
@@ -45,11 +45,11 @@ export function parsePixelPayload(value: unknown, now = Date.now()): PixelPayloa
   // Construct every persisted/forwarded field explicitly. Unknown keys (including PII) are discarded recursively.
   return {
     shop_domain: shop, order_id: text(v.order_id, /^(?:gid:\/\/shopify\/Order\/)?\d+$/, 100),
-    checkout_token: optional(v.checkout_token, /^[a-zA-Z0-9_-]+$/, 200), total_value: money(v.total_value),
+    total_value: money(v.total_value),
     currency: text(v.currency, /^[A-Z]{3}$/, 3),
     nm_aff: v.nm_aff == null || v.nm_aff === '' ? null : text(v.nm_aff, /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i, 36),
     nm_camp: optional(v.nm_camp, /^(?:[a-f0-9-]{36}|\d+)$/i, 100),
-    nm_src: optional(v.nm_src, /^[a-zA-Z0-9_-]+$/, 64), timestamp: new Date(time).toISOString(), line_items,
+    timestamp: new Date(time).toISOString(), line_items,
   };
 }
 
@@ -132,8 +132,8 @@ export function createPixelEventsHandler(deps: {
       if (!approval.ok) return respond(202, 'participation_rejected', { ok: true });
       const eventData = {
         source: 'shopify_pixel', shop_domain: payload.shop_domain, order_id: payload.order_id.replace(/^gid:\/\/shopify\/Order\//, ''),
-        checkout_token: payload.checkout_token, total_value: payload.total_value, currency: payload.currency,
-        nm_aff: payload.nm_aff, nm_camp: payload.nm_camp, nm_src: payload.nm_src, timestamp: payload.timestamp,
+        total_value: payload.total_value, currency: payload.currency,
+        nm_aff: payload.nm_aff, nm_camp: payload.nm_camp, timestamp: payload.timestamp,
         line_items: payload.line_items.map(item => ({ product_id: item.product_id, variant_id: item.variant_id, quantity: item.quantity, line_total: item.line_total })),
       };
       const { data: recorded, error: recordingError } = await admin.rpc('record_shopify_conversion', {

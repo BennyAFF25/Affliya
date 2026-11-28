@@ -3,7 +3,7 @@ import { register } from '@shopify/web-pixels-extension';
 // Match Nettmark redirect/tracker cookies; localStorage also expires explicitly.
 const WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 const KEY = 'nettmark_attribution_v1';
-type Attribution = { nm_aff: string; nm_camp: string; nm_src: string; captured_at: number };
+type Attribution = { nm_aff: string; nm_camp: string; captured_at: number };
 
 register(({ analytics, browser, settings }) => {
   // Serialize storage operations so a checkout cannot outrun an earlier page capture.
@@ -25,7 +25,7 @@ register(({ analytics, browser, settings }) => {
       const camp = url.searchParams.get('nm_camp');
       // Capture a complete pair together; never mix two campaigns' identities.
       if (!aff || !camp || !/^[a-f0-9-]{36}$/i.test(aff)) return;
-      const value = JSON.stringify({ nm_aff: aff, nm_camp: camp, nm_src: url.searchParams.get('nm_src') || 'nettmark', captured_at: Date.now() });
+      const value = JSON.stringify({ nm_aff: aff, nm_camp: camp, captured_at: Date.now() });
       try { await browser.localStorage.setItem(KEY, value); } catch { /* Cookie fallback. */ }
       try { await browser.cookie.set(`${KEY}=${encodeURIComponent(value)};path=/;max-age=604800;SameSite=Lax;Secure`); } catch { /* Storage may be unavailable. */ }
     }).catch(() => {});
@@ -38,9 +38,9 @@ register(({ analytics, browser, settings }) => {
     if (!checkout.order?.id || checkout.totalPrice?.amount == null || !checkout.currencyCode) return;
     const payload = {
       shop_domain: String(settings.shopKey), order_id: String(checkout.order.id),
-      checkout_token: checkout.token || null, total_value: Number(checkout.totalPrice.amount),
+      total_value: Number(checkout.totalPrice.amount),
       currency: checkout.currencyCode, nm_aff: attr.nm_aff, nm_camp: attr.nm_camp,
-      nm_src: attr.nm_src, timestamp: event.timestamp,
+      timestamp: event.timestamp,
       line_items: checkout.lineItems.map(item => ({
         product_id: item.variant?.product?.id || null, variant_id: item.variant?.id || null,
         quantity: item.quantity, line_total: Number(item.finalLinePrice.amount),
