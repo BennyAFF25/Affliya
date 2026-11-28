@@ -1,3 +1,4 @@
+import { growthPartnerCheckoutMetadata } from "../../../../utils/growthPartners/checkout";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
@@ -24,6 +25,9 @@ import { trackBusinessSubscriptionAnalytics } from "../../../../utils/businessSu
 import { checkoutMatching, excludedTrialEmail } from "../../../../utils/marketing/startTrial";
 
 import { getBusinessFunnelMetadata } from "../../../../utils/businessOnboardingServer";
+import { TERMS_VERSION, termsV2Enabled } from "../../../../utils/legal/version";
+import { findFreshCheckoutAcceptance, linkAcceptanceToStripe } from "../../../../utils/legal/acceptance";
+import { checkoutTermsConsentParams, checkoutTosConsentEnabled } from "../../../../utils/legal/checkoutConsent";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -135,9 +139,28 @@ export async function POST(req: Request) {
       }
     }
 
+    // Terms v2: a trial_start / paid_start acceptance for the current Terms must
+    // be recorded server-side (POST /api/legal/accept) in the last 30 minutes.
+    const termsV2 = termsV2Enabled();
+    const requiredTermsContext = trialEligible ? "trial_start" as const : "paid_start" as const;
+    const termsAcceptanceId = termsV2
+      ? await findFreshCheckoutAcceptance(admin, { userId: user.id, businessId: business.id, context: requiredTermsContext })
+      : null;
+    if (termsV2 && !termsAcceptanceId) {
+      return NextResponse.json({
+        status: "terms_required",
+        error: trialEligible
+          ? "Please review and accept the trial terms before starting checkout."
+          : "Please review and accept the subscription terms before starting checkout. Refresh the page if this keeps happening.",
+        termsVersion: TERMS_VERSION,
+        expectedContext: requiredTermsContext,
+      }, { status: 409 });
+    }
+
     const baseUrl = getBusinessSubscriptionBaseUrl();
     const cohort = await getBusinessFunnelMetadata(admin, business.id).catch(() => ({ business_id: business.id, business_onboarding_funnel: "unverified" }));
     const metadata = {
+      ...await growthPartnerCheckoutMetadata(admin, await cookies(), business.id, business.business_email, user.id),
       ...cohort,
       ...buildBusinessSubscriptionMetadata({ businessId: business.id, userId: user.id, businessEmail: business.business_email }),
       returnTo,
@@ -145,7 +168,14 @@ export async function POST(req: Request) {
       campaignId: campaignId || "",
       submissionId: submissionId || "",
       trialEligibleAtCheckout: trialEligible ? "true" : "false",
+      ...(termsAcceptanceId ? { terms_version: TERMS_VERSION, terms_acceptance_id: termsAcceptanceId } : {}),
     };
+
+    // Stripe Checkout terms checkbox + custom text. Gated separately because
+    // Stripe rejects consent_collection until a Terms URL is set in Public details.
+    const consentParams = checkoutTosConsentEnabled()
+      ? checkoutTermsConsentParams({ trialEligible, trialDays: BUSINESS_GROWTH_TRIAL_DAYS, price: await getGrowthSubscriptionPrice(stripe) })
+      : {};
 
     const subscriptionData = trialEligible
       ? {
@@ -163,6 +193,7 @@ export async function POST(req: Request) {
       metadata,
       payment_method_collection: "always",
       subscription_data: subscriptionData,
+      ...consentParams,
       success_url: appendReturnQuery(
         baseUrl,
         returnTo,
@@ -174,8 +205,12 @@ export async function POST(req: Request) {
         `subscription=cancelled${trialEligible ? "" : "&resume=1"}`,
       ),
     }, {
-      idempotencyKey: `business_subscription_checkout:${business.id}:${customerId}:${entitlement.billingStatus}:${entitlement.stripeSubscriptionId || "none"}:${trialEligible ? "trial" : "paid"}:${intendedAction || "general"}:${submissionId || "none"}`,
+      // Terms v2 sessions carry new parameters, so their key includes the terms
+      // version and acceptance id and cannot collide with older sessions.
+      idempotencyKey: `business_subscription_checkout:${business.id}:${customerId}:${entitlement.billingStatus}:${entitlement.stripeSubscriptionId || "none"}:${trialEligible ? "trial" : "paid"}:${intendedAction || "general"}:${submissionId || "none"}${termsAcceptanceId ? `:${TERMS_VERSION}:${termsAcceptanceId}` : ""}${checkoutTosConsentEnabled() ? ":tos" : ""}`,
     });
+
+    await linkAcceptanceToStripe(admin, termsAcceptanceId, { checkoutSessionId: session.id });
 
     await trackBusinessSubscriptionAnalytics({
       supabase: admin,

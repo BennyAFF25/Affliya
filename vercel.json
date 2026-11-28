@@ -35,6 +35,10 @@
     {
       "path": "/api/cron/proposal-reminders",
       "schedule": "20 * * * *"
+    },
+    {
+      "path": "/api/business-subscription/billing-notifications",
+      "schedule": "*/5 * * * *"
     }
   ]
 }
