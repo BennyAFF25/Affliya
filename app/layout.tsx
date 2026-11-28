@@ -201,6 +201,7 @@ fbq('track', 'PageView');
             </MarketingTrackerGate>}
           </ThemeWrapper>
         </Providers>
+        <Analytics />
       </body>
     </html>
   );
