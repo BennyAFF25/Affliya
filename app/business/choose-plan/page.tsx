@@ -6,7 +6,10 @@ import { useRouter } from "next/navigation";
 import { useSessionContext } from "@supabase/auth-helpers-react";
 import { Check, CreditCard, Megaphone, ShieldCheck, Sparkles, Zap } from "lucide-react";
 import { logProductEvent } from "../../../utils/productEvents";
-import BusinessTrialFirstContinuation, { growthPricePeriod, type BusinessContinuationContext } from "../../../components/business/BusinessTrialFirstContinuation";
+import BusinessTrialFirstContinuation, { growthConsentFor, growthPricePeriod, growthTermsInput, type BusinessContinuationContext, type GrowthConsent } from "../../../components/business/BusinessTrialFirstContinuation";
+import GrowthTermsConsent from "../../components/legal/GrowthTermsConsent";
+import { termsV2Enabled } from "../../../utils/legal/version";
+import { recordTermsAcceptance } from "../../../utils/legal/client";
 import { getAttributionFromWindow } from "../../../utils/marketing/attribution";
 
 import { shouldShowPlanChoiceAfterPublish } from "../../../utils/onboardingSuccessStep";
@@ -30,6 +33,11 @@ export default function ChooseBusinessPlanPage() {
     setSelectedPlan(resolveBusinessPlanChoice(new URLSearchParams(window.location.search).get("plan")));
   }, []);
   const resumeSubscription = context?.trialEligible === false;
+  const termsV2 = termsV2Enabled();
+  const [termsChecked, setTermsChecked] = useState(false);
+  // Terms v2 trial/refund wording is written for Stripe card billing, so Shopify-billed brands skip it:
+  // they approve the charge on Shopify's own approval screen (and Shopify handles refunds).
+  const growthTerms = termsV2 && context && context.billingProvider !== "shopify" && context.trialEligible !== null ? growthTermsInput(context, context.trialEligible) : null;
 
   useEffect(() => {
     if (isLoading) return;
@@ -101,13 +109,16 @@ export default function ChooseBusinessPlanPage() {
       continueTo(context?.planFirst && !context.offerId ? "/onboarding/for-business" : "/business/my-business");
     } catch (err) { setError(err instanceof Error ? err.message : "Could not select Free."); setBusy(null); }
   };
-  const chooseGrowth = async () => {
+  const chooseGrowth = async (consent?: GrowthConsent) => {
     if (!businessId || busy || returnPending || !context?.price || context.trialEligible === null) return;
+    if (termsV2 && context.billingProvider !== "shopify" && !consent) { setError("Please tick the box to confirm the trial and subscription terms."); return; }
     setBusy("growth"); setError(null);
     void logProductEvent({ eventType: "plan_growth_clicked", actorRole: "business", offerId: context.offerId, meta: { source: "plan_choice", intended_action: resumeSubscription ? "paid_subscription" : "free_trial", ...getAttributionFromWindow() } });
     try {
+      // Terms v2: the acceptance is recorded server-side before checkout can be created.
+      const termsAcceptanceId = consent ? await recordTermsAcceptance({ context: consent.context, businessId, summaryShown: consent.summaryShown }) : null;
       const response = await fetch(context?.billingProvider === "shopify" ? "/api/shopify/billing" : "/api/business-subscription/create-checkout-session", { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId, plan: "growth", returnTo: businessContinuationDestination("/business/choose-plan", new URLSearchParams(window.location.search).get("next")), requireTrial: !resumeSubscription, intendedAction: resumeSubscription ? "continue_growth_subscription" : "start_growth_trial", attribution: getAttributionFromWindow() }) });
+        body: JSON.stringify({ businessId, termsAcceptanceId, plan: "growth", returnTo: businessContinuationDestination("/business/choose-plan", new URLSearchParams(window.location.search).get("next")), requireTrial: !resumeSubscription, intendedAction: resumeSubscription ? "continue_growth_subscription" : "start_growth_trial", attribution: getAttributionFromWindow() }) });
       const result = await response.json();
       if (result.ok || result.status === "already_subscribed" || result.status === "grandfathered") { continueTo(context?.planFirst && !context.offerId ? "/onboarding/for-business" : "/business/my-business"); return; }
       if (!response.ok || !result.url) throw new Error(result.error || result.message || "Could not start checkout.");
@@ -117,7 +128,7 @@ export default function ChooseBusinessPlanPage() {
   const signOut = <a href="/logout" className="inline-flex min-h-11 items-center px-4 text-sm underline">Sign out</a>;
   if (returnPending) return <main className="min-h-screen p-6"><p role="status">Confirming your checkout… Your offer is saved.</p>{signOut}</main>;
   if (!context) return <main className="min-h-screen p-6"><p role={error ? "alert" : "status"}>{error || "Step 2 of 3 · Preparing your plan choices…"}</p><p className="mt-3 text-sm">Verifying your business and current Growth pricing. Free remains available once verification completes.</p>{signOut}{error && <button className="mt-4 min-h-11 rounded-full border px-5" onClick={() => setReload(n => n + 1)}>Retry</button>}</main>;
-  if (context.treatment && context.trialEligible !== false) return <><div className="bg-[#0f0f0f] text-white">{signOut}</div><BusinessTrialFirstContinuation selectedPlan={selectedPlan} context={context} busy={busy} error={error} onGrowth={() => void chooseGrowth()} onFree={() => void chooseFree()} onRetry={() => setReload(n => n + 1)} /></>;
+  if (context.treatment && context.trialEligible !== false) return <><div className="bg-[#0f0f0f] text-white">{signOut}</div><BusinessTrialFirstContinuation selectedPlan={selectedPlan} context={context} busy={busy} error={error} onGrowth={(consent) => void chooseGrowth(consent)} onFree={() => void chooseFree()} onRetry={() => setReload(n => n + 1)} /></>;
   return (
     <main className="relative min-h-screen overflow-hidden bg-[#121212] px-4 py-10 text-[#f5f7f8] sm:px-6 lg:px-8">
       <div className="pointer-events-none absolute inset-0 overflow-hidden" aria-hidden="true">
@@ -232,26 +243,27 @@ export default function ChooseBusinessPlanPage() {
               ))}
             </div>
 
+            {growthTerms && <GrowthTermsConsent terms={growthTerms} checked={termsChecked} onChange={setTermsChecked} disabled={!!busy} tone="card" />}
             <button
-              onClick={chooseGrowth}
-              disabled={!!busy || !businessId || !context?.price || context.trialEligible === null || !context.checkoutEnabled}
-              className="plan-primary relative mt-auto w-full overflow-hidden rounded-[14px] bg-[#16c8d5] px-5 py-3.5 text-sm font-bold text-[#061113] shadow-[0_10px_32px_rgba(22,200,213,0.18)] transition disabled:cursor-not-allowed disabled:opacity-50"
+              onClick={() => void chooseGrowth(growthTerms ? growthConsentFor(growthTerms) : undefined)}
+              disabled={!!busy || !businessId || !context?.price || context.trialEligible === null || !context.checkoutEnabled || (termsV2 && !termsChecked)}
+              className={`plan-primary relative ${growthTerms ? "mt-4" : "mt-auto"} w-full overflow-hidden rounded-[14px] bg-[#16c8d5] px-5 py-3.5 text-sm font-bold text-[#061113] shadow-[0_10px_32px_rgba(22,200,213,0.18)] transition disabled:cursor-not-allowed disabled:opacity-50`}
             >
               <span className="relative z-10">
                 {busy === "growth"
                   ? "Opening secure checkout..."
                   : resumeSubscription
-                    ? "Continue subscription"
-                    : "Start my affiliate-funded launch, 14 days free"}
+                    ? growthTerms ? "Continue to secure checkout" : "Continue subscription"
+                    : growthTerms ? `Start ${context?.trialDays || 14}-day free trial (card required)` : "Start my affiliate-funded launch, 14 days free"}
               </span>
             </button>
-            <p className="relative mt-3 text-center text-[11px] text-[#7d858d]">
+            {(context?.billingProvider === "shopify" || !growthTerms) && <p className="relative mt-3 text-center text-[11px] text-[#7d858d]">
               {context?.billingProvider === "shopify"
                 ? `Billed through Shopify: ${context.price?.formatted || "Growth"} every 30 days${resumeSubscription ? "" : " after your 14-day trial"}. Shopify confirms the final amount and currency. Cancel or switch to Free here anytime.`
                 : resumeSubscription
                 ? `Continue at ${context?.price?.formatted || "the verified checkout price"}/${context?.price ? growthPricePeriod(context.price) : "billing period"}. Cancel anytime.`
                 : "A$49/mo after day 14 only if you stay. Card required."}
-            </p>
+            </p>}
             {context?.billingProvider !== "shopify" && <p className="relative mt-2 text-center text-[11px] text-[#7d858d]">We ask for a card to keep fake brands out, so affiliates can trust every offer.</p>}
           </section>
         </div>

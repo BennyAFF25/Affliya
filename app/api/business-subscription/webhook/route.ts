@@ -8,12 +8,11 @@ import {
   toIsoFromStripeSeconds,
 } from "../../../../utils/businessSubscriptions";
 import { trackBusinessSubscriptionAnalytics } from "../../../../utils/businessSubscriptionAnalytics";
-import {
-  createCreatorCommissionFromPaidInvoice,
-  reverseCreatorCommissionByInvoiceId,
-} from "../../../../utils/creatorReferrals";
+import { trackGrowthPartnerStripeEvent } from "../../../../utils/growthPartners/stripeEvents";
 
 import { recordConfirmedGrowthTrial, deliverPendingGrowthTrials } from "../../../../utils/marketing/startTrialServer";
+import { enqueueBillingNotifications } from "../../../../utils/billingNotificationsServer";
+import { linkAcceptanceToStripe } from "../../../../utils/legal/acceptance";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -145,11 +144,7 @@ export async function POST(req: Request) {
 
     if (event.type === "invoice.voided") {
       const invoice = event.data.object as Stripe.Invoice;
-      await reverseCreatorCommissionByInvoiceId({
-        supabase,
-        stripeInvoiceId: invoice.id || null,
-        reason: "stripe_invoice_voided",
-      });
+      await trackGrowthPartnerStripeEvent(supabase, stripe, event);
       await markEvent({
         stripeEventId: event.id,
         status: "processed",
@@ -162,16 +157,16 @@ export async function POST(req: Request) {
 
     if (event.type === "charge.refunded" || event.type === "charge.dispute.created") {
       const charge = event.data.object as Stripe.Charge & { invoice?: StripeObjectRef };
-      await reverseCreatorCommissionByInvoiceId({
-        supabase,
-        stripeInvoiceId: getRefId(charge.invoice),
-        reason: event.type === "charge.refunded" ? "stripe_charge_refunded" : "stripe_charge_disputed",
-      });
+      await trackGrowthPartnerStripeEvent(supabase, stripe, event);
+      // Refund confirmation (E8): enqueue only; never sends inline or fails the webhook.
+      const notifications = event.type === "charge.refunded"
+        ? await enqueueBillingNotifications({ admin: supabase, stripe, event })
+        : null;
       await markEvent({
         stripeEventId: event.id,
         status: "processed",
         stripeCustomerId: getRefId(charge.customer as StripeObjectRef),
-        metadata: { ...auditFacts, eventType: event.type, creatorCommissionReversal: true },
+        metadata: { ...auditFacts, eventType: event.type, creatorCommissionReversal: true, ...(notifications ? { billingNotificationsEnqueued: notifications.enqueued } : {}) },
       });
       return NextResponse.json({ received: true });
     }
@@ -250,13 +245,14 @@ export async function POST(req: Request) {
       }
     }
 
-    if (event.type === "invoice.paid") {
-      const invoice = event.data.object as Stripe.Invoice;
-      await createCreatorCommissionFromPaidInvoice({
-        supabase,
-        invoice,
-        subscription,
-      });
+    await trackGrowthPartnerStripeEvent(supabase, stripe, event, subscription);
+
+    // Billing emails: enqueue to business_billing_notifications (sent by the
+    // billing-notifications cron). Flagged off by default; failures are logged only.
+    const notifications = await enqueueBillingNotifications({ admin: supabase, stripe, event, subscription });
+    const checkoutSession = event.type === "checkout.session.completed" ? event.data.object as Stripe.Checkout.Session : null;
+    if (checkoutSession?.metadata?.terms_acceptance_id) {
+      await linkAcceptanceToStripe(supabase, checkoutSession.metadata.terms_acceptance_id, { checkoutSessionId: checkoutSession.id, subscriptionId: subscription.id });
     }
 
     if (["subscription_active", "subscription_trialing"].includes(syncResult.billingStatus)) {
@@ -327,6 +323,12 @@ export async function POST(req: Request) {
         stripe_status: subscription.status,
         billingStatus: syncResult.billingStatus,
         subscriptionRequired: syncResult.subscriptionRequired,
+        billingNotificationsEnqueued: notifications.enqueued,
+        ...(checkoutSession ? {
+          consent_terms_of_service: checkoutSession.consent?.terms_of_service || null,
+          terms_version: checkoutSession.metadata?.terms_version || null,
+          terms_acceptance_id: checkoutSession.metadata?.terms_acceptance_id || null,
+        } : {}),
       },
     });
 

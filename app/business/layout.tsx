@@ -11,6 +11,7 @@ import { businessOfferOnboardingNudge, businessOfferOnboardingSessionKey, isBusi
 import BusinessSidebar from "./BusinessSidebar";
 import Topbar from "@/components/Topbar";
 import PaidCampaignResumeBanner from "@/../components/business/PaidCampaignResumeBanner";
+import TermsVersionGate from "@/components/legal/TermsVersionGate";
 import {
   MobileNavSlider,
   MobileNavTab,
@@ -200,6 +201,7 @@ export default function BusinessLayout({
             </div>
           )}
           <PaidCampaignResumeBanner />
+          <TermsVersionGate userId={session?.user?.id} skip={pathname?.startsWith("/business/my-business")} />
           {children}
         </main>
       </div>

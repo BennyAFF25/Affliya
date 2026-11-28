@@ -1,477 +1,320 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import type { ReactNode } from "react";
+import React, { type ReactNode } from "react";
 import {
   ArrowRight,
+  BadgeCheck,
+  Briefcase,
   Check,
   CircleDollarSign,
-  Globe2,
-  LockKeyhole,
-  Rocket,
-  Tag,
-  TrendingUp,
-  UserRound,
+  Clock3,
+  Link2,
+  Megaphone,
+  Store,
   UsersRound,
+  Wallet,
 } from "lucide-react";
 import MarketingHeader from "@/components/marketing/MarketingHeader";
+import ApplicationSection from "../growth-partners/apply/ApplicationSection";
+import { starterKitTemplates } from "../../utils/growthPartners/starterKit";
+import "../growth-partners/growth-partners.css";
 
+// Facebook/Meta ad landing page for the Growth Partner Programme (referral partners).
+// Copy must only state implemented programme rules (see utils/growthPartners/starterKit.ts).
 export const metadata: Metadata = {
-  title: "Nettmark Partner Program | Bring Businesses, Earn Commission",
+  title: "Nettmark Growth Partner Programme | Introduce brands, earn commission",
   description:
-    "Join the Nettmark Partner Program to refer new businesses, earn commission on successful activations, and unlock the Nettmark partner offer inside the affiliate marketplace.",
-  alternates: {
-    canonical: "/partner-program",
-  },
+    "Nettmark is the affiliate marketplace where approved affiliates fund and run ads on a brand's own Meta ad account. Introduce brands to Nettmark and earn 50% of their eligible subscription revenue, excluding GST, for their first 3 paid months.",
+  alternates: { canonical: "/partner-program" },
   openGraph: {
-    title: "Nettmark Partner Program",
+    title: "Nettmark Growth Partner Programme",
     description:
-      "Help bring new businesses onto Nettmark, earn commission, and access the Nettmark partner offer once you join as an affiliate.",
+      "Introduce brands to Nettmark, the marketplace where affiliates fund and run ads on the brand's own Meta ad account. Apply to become a Growth Partner.",
     url: "https://www.nettmark.com/partner-program",
     type: "website",
   },
 };
 
+const partnerFaq = [
+  {
+    q: "What is Nettmark?",
+    a: "Nettmark is an affiliate marketplace. Brands post commission offers, and approved affiliates fund and run ads directly on the brand's own Meta ad account. Brands pay for performance instead of upfront agency costs.",
+  },
+  {
+    q: "What does a Growth Partner do?",
+    a: "You introduce businesses to Nettmark using your personal referral link. You don't need to run ads yourself.",
+  },
+  {
+    q: "Which businesses count?",
+    a: "New businesses that sign up and pay for a Nettmark plan at nettmark.com through your link, including those that connect their Shopify store from inside Nettmark. Businesses that install Nettmark from the Shopify App Store and pay through Shopify aren't eligible.",
+  },
+  {
+    q: "How much can I earn?",
+    a: "50% of each referred business's eligible subscription revenue, excluding GST, for their first 3 paid months. Free trial periods don't earn commission.",
+  },
+  {
+    q: "When do I get paid?",
+    a: "Each commission is held for 14 days after the payment, then reviewed and approved by Nettmark before it is paid out. Payouts are not automatic.",
+  },
+  {
+    q: "How long does my referral link last?",
+    a: "The first partner link a business clicks is remembered on that browser for 60 days. They need to start their Nettmark plan within that window.",
+  },
+  {
+    q: "Does it cost anything to join?",
+    a: "No. Applying and joining are free. Applications are reviewed for fit, relevance and credibility.",
+  },
+];
+
 const faqSchema = {
   "@context": "https://schema.org",
   "@type": "FAQPage",
-  mainEntity: [
-    {
-      "@type": "Question",
-      name: "Do I need a special account type?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "No. You join with a normal affiliate account. The partner program lives inside the existing affiliate experience.",
-      },
-    },
-    {
-      "@type": "Question",
-      name: "Can I run ads to promote Nettmark?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "Yes. Once you have access to the Nettmark partner offer, you can use Nettmark's normal affiliate promotion flows, including ads where appropriate.",
-      },
-    },
-    {
-      "@type": "Question",
-      name: "What happens after I sign up?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "After signup, you can access the Nettmark partner offer in the marketplace and start using the platform's partner promotion flow.",
-      },
-    },
-    {
-      "@type": "Question",
-      name: "Is everyone accepted?",
-      acceptedAnswer: {
-        "@type": "Answer",
-        text: "No. The program is selective and limited while Nettmark brings in its first group of aligned partners.",
-      },
-    },
-  ],
+  mainEntity: partnerFaq.map((item) => ({
+    "@type": "Question",
+    name: item.q,
+    acceptedAnswer: { "@type": "Answer", text: item.a },
+  })),
 };
 
-const faqItems = [
-  {
-    q: "Do I need a special account type?",
-    a: "No. You join with a normal affiliate account. The partner program lives inside the existing affiliate experience.",
-  },
-  {
-    q: "Can I run ads to promote Nettmark?",
-    a: "Yes. Once you have the Nettmark partner offer, you can use the platform's normal affiliate promotion flow, including ads where appropriate.",
-  },
-  {
-    q: "What happens after I sign up?",
-    a: "You'll be able to access the Nettmark partner offer in the marketplace and use the platform's normal promotion flow from there.",
-  },
-  {
-    q: "When do I earn commission?",
-    a: "You earn when qualifying businesses join Nettmark, activate, and pay through the partner program flow.",
-  },
-  {
-    q: "Can I participate from anywhere?",
-    a: "Yes. The program is designed for reps, agencies, closers, and operators who can bring in the right businesses from anywhere.",
-  },
-  {
-    q: "Is everyone accepted?",
-    a: "No. We're keeping the first intake selective while partner spots are limited.",
-  },
-];
+const applyHref = "#apply";
 
 export default function PartnerProgramPage() {
   return (
     <div className="marketing-home-theme min-h-screen bg-[#05090c] text-white">
       <MarketingHeader />
-
-      <main className="mx-auto max-w-[1320px] px-5 pb-16 pt-6 sm:px-6 lg:px-8">
+      <main className="mx-auto max-w-[1180px] px-5 pb-16 pt-4 sm:px-6 lg:px-8">
         <Hero />
+        <WhatIsNettmark />
+        <WhoItsFor />
         <HowItWorks />
-        <LowerGrid />
-        <FooterTrust />
+        <StarterKitPreview />
+        <ApplySection />
+        <Faq />
+        <AffiliateAlternative />
       </main>
-
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
-      />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }} />
     </div>
+  );
+}
+
+function Eyebrow({ children }: { children: ReactNode }) {
+  return <div className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-400">{children}</div>;
+}
+
+function ApplyButton({ className = "" }: { className?: string }) {
+  return (
+    <a href={applyHref} className={`inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-cyan-400 px-6 py-3.5 text-sm font-bold text-black shadow-lg shadow-cyan-500/10 transition hover:bg-cyan-300 ${className}`}>
+      Apply to become a Growth Partner
+      <ArrowRight size={17} aria-hidden="true" />
+    </a>
   );
 }
 
 function Hero() {
   return (
-    <section className="grid gap-8 py-8 lg:py-10 xl:grid-cols-[minmax(0,1.05fr)_360px] xl:items-center xl:gap-10">
+    <section className="grid gap-8 py-8 lg:grid-cols-[minmax(0,1.15fr)_minmax(300px,0.85fr)] lg:items-center lg:py-12">
       <div>
-        <div className="mb-5 text-xs font-semibold uppercase tracking-[0.26em] text-cyan-400">
-          Partner Program
-        </div>
-
-        <h1 className="max-w-[760px] text-5xl font-bold leading-[1.04] tracking-[-0.04em] sm:text-6xl">
-          Earn by bringing
+        <Eyebrow>Nettmark Growth Partner Programme</Eyebrow>
+        <h1 className="mt-5 text-4xl font-bold leading-[1.06] tracking-[-0.035em] sm:text-5xl lg:text-6xl">
+          Know brands that want more sales?
           <br />
-          businesses to <span className="text-cyan-400">Nettmark.</span>
+          <span className="text-cyan-400">Introduce them to Nettmark.</span>
         </h1>
-
-        <p className="mt-5 max-w-[740px] text-base leading-7 text-slate-300 sm:text-lg">
-          Join Nettmark&apos;s first group of partners and earn commission when
-          you bring in qualifying businesses that activate and pay. You&apos;ll sign
-          up as an affiliate, unlock the Nettmark partner offer in the
-          marketplace, and use Nettmark&apos;s own promotion rails to help grow the
-          platform.
+        <p className="mt-5 max-w-[680px] text-base leading-7 text-slate-300 sm:text-lg">
+          Nettmark is an affiliate marketplace where brands post commission offers and approved affiliates fund and
+          run ads directly on the brand&apos;s own Meta ad account. Brands pay for performance, not upfront agency fees.
+          As a Growth Partner, you introduce the brands and earn when they subscribe.
         </p>
-
-        <div className="mt-7 grid max-w-[760px] gap-4 sm:grid-cols-3">
-          <MiniBenefit
-            icon={<CircleDollarSign size={21} />}
-            title="Earn on activation"
-            subtitle="Get paid when the right businesses join and activate"
-          />
-          <MiniBenefit
-            icon={<Globe2 size={21} />}
-            title="Work from anywhere"
-            subtitle="No quotas, fixed hours, or minimums"
-          />
-          <MiniBenefit
-            icon={<TrendingUp size={21} />}
-            title="Built-in promotion tools"
-            subtitle="Use Nettmark's offer flow, marketplace, and ad rails"
-          />
-        </div>
-
-        <div className="mt-7 flex flex-wrap items-center gap-3.5">
-          <Link
-            href="/create-account?role=affiliate"
-            className="flex items-center gap-2 rounded-xl bg-cyan-400 px-7 py-4 text-sm font-bold text-black shadow-lg shadow-cyan-500/10 transition hover:bg-cyan-300"
-          >
-            Become a partner
-            <ArrowRight size={17} />
-          </Link>
-
-          <a
-            href="#how-it-works"
-            className="rounded-xl border border-white/15 px-7 py-4 text-sm font-semibold text-white transition hover:bg-white/5"
-          >
+        <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
+          <ApplyButton />
+          <a href="#how-it-works" className="inline-flex min-h-[48px] items-center justify-center rounded-xl border border-white/15 px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-white/5">
             How it works
           </a>
         </div>
-
-        <div className="mt-4 flex items-center gap-2 text-sm text-slate-400">
-          <span className="grid h-4 w-4 place-items-center rounded-full bg-cyan-400 text-[10px] font-black text-black">
-            !
-          </span>
-          Limited partner spots. First intake open now.
-        </div>
+        <p className="mt-4 text-sm text-slate-400">
+          Free to apply. Already approved?{" "}
+          <Link href="/growth-partners/login" className="text-cyan-300 underline underline-offset-4">Sign in</Link>
+        </p>
       </div>
-
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px] xl:items-center">
-        <OrbitGraphic />
-
-        <div className="rounded-[24px] border border-cyan-400/30 bg-[#0c1115] p-6 xl:p-7 shadow-2xl shadow-cyan-500/5">
-          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-cyan-400">
-            Your impact. Your upside.
-          </div>
-
-          <div className="mt-4 text-5xl font-bold tracking-tight text-white">
-            New business growth
-          </div>
-
-          <p className="mt-3 text-sm leading-6 text-slate-300">
-            Bring the right businesses onto Nettmark and participate in the
-            growth that follows when they successfully activate.
-          </p>
-
-          <div className="my-5 border-t border-white/10" />
-
-          <div className="space-y-3 text-sm text-slate-300">
-            <CheckRow text="Join using a normal affiliate account" />
-            <CheckRow text="Unlock the Nettmark partner offer" />
-            <CheckRow text="Promote with content, outreach, or ads" />
-            <CheckRow text="Built for reps, agencies, and operators" />
-            <CheckRow text="Selective first intake" />
-          </div>
-
-          <div className="my-5 border-t border-white/10" />
-
-          <p className="text-sm text-slate-300">
-            Helping businesses grow.
-            <br />
-            <span className="text-cyan-400">Helping you earn.</span>
-          </p>
+      <div className="rounded-[24px] border border-cyan-400/30 bg-[#0c1115] p-6 shadow-2xl shadow-cyan-500/5 sm:p-7">
+        <Eyebrow>Your referral reward</Eyebrow>
+        <div className="mt-4 text-5xl font-bold tracking-tight text-white">50%</div>
+        <p className="mt-2 text-sm leading-6 text-slate-300">
+          of each referred business&apos;s eligible subscription revenue, excluding GST, for their first 3 paid months.
+        </p>
+        <div className="my-5 border-t border-white/10" />
+        <div className="space-y-3 text-sm text-slate-300">
+          <CheckRow text="Your own referral link and partner dashboard" />
+          <CheckRow text="Ready-to-send outreach templates" />
+          <CheckRow text="14-day hold, then payouts approved by Nettmark" />
+          <CheckRow text="No need to run ads yourself" />
         </div>
       </div>
     </section>
   );
 }
 
-function MiniBenefit({
-  icon,
-  title,
-  subtitle,
-}: {
-  icon: ReactNode;
-  title: string;
-  subtitle: string;
-}) {
+function WhatIsNettmark() {
+  const cards = [
+    { icon: <Store size={22} />, title: "Brands post offers", text: "Brands list what they sell and the commission they will pay affiliates for results." },
+    { icon: <Megaphone size={22} />, title: "Affiliates run the ads", text: "Approved affiliates fund and run Meta ads directly on the brand's own native ad account, not on someone else's." },
+    { icon: <CircleDollarSign size={22} />, title: "Brands pay for performance", text: "Because affiliates put up the ad spend, brands pay for results instead of upfront agency costs." },
+  ];
   return (
-    <div className="flex items-start gap-3 rounded-2xl border border-white/5 bg-white/[0.015] p-3">
-      <div className="grid h-11 w-11 shrink-0 place-items-center rounded-full border border-cyan-400/40 text-cyan-400">
-        {icon}
+    <section className="mt-6 rounded-[24px] border border-white/10 bg-[#0b1014] p-6 lg:p-8" aria-labelledby="what-is-nettmark">
+      <Eyebrow>What is Nettmark?</Eyebrow>
+      <h2 id="what-is-nettmark" className="mt-3 text-2xl font-bold sm:text-3xl">Not a standard affiliate platform.</h2>
+      <p className="mt-3 max-w-[760px] text-sm leading-6 text-slate-400 sm:text-base">
+        Most affiliate programmes stop at a coupon code or a tracking link. On Nettmark, affiliates run real ad campaigns
+        for a brand on the brand&apos;s own Meta ad account.
+      </p>
+      <div className="mt-6 grid gap-4 md:grid-cols-3">
+        {cards.map((card) => <Card key={card.title} {...card} />)}
       </div>
-      <div>
-        <div className="text-sm font-semibold">{title}</div>
-        <div className="mt-1 text-xs leading-5 text-slate-400">{subtitle}</div>
-      </div>
-    </div>
+    </section>
   );
 }
 
-function OrbitGraphic() {
+function WhoItsFor() {
+  const people = [
+    { icon: <Briefcase size={22} />, title: "Agency and marketing people", text: "Media buyers, marketers and agency teams who talk to brands about growth every day." },
+    { icon: <UsersRound size={22} />, title: "Consultants and advisors", text: "Consultants, accountants and advisors whose clients want more sales without agency retainers." },
+    { icon: <Store size={22} />, title: "Founders and operators", text: "People with contacts at ecommerce, DTC and Shopify brands, especially those already running Meta ads." },
+    { icon: <Megaphone size={22} />, title: "Community builders", text: "Creators, educators and community leads with an audience of business owners." },
+  ];
   return (
-    <div className="relative hidden min-h-[320px] items-center justify-center xl:flex">
-      <div className="absolute h-[330px] w-[330px] rounded-full border border-cyan-400/10" />
-      <div className="absolute h-[250px] w-[250px] rounded-full border border-cyan-400/20" />
-      <div className="absolute h-[170px] w-[170px] rounded-full border border-cyan-400/25" />
-      <div className="absolute h-[88px] w-[88px] rounded-full border border-cyan-400/35" />
-
-      <span className="absolute left-[28%] top-[22%] h-2 w-2 rounded-full bg-cyan-400 shadow-[0_0_20px_rgba(34,211,238,.9)]" />
-      <span className="absolute bottom-[18%] right-[20%] h-2 w-2 rounded-full bg-cyan-400 shadow-[0_0_20px_rgba(34,211,238,.9)]" />
-
-      <div className="grid h-16 w-16 place-items-center rounded-full border border-cyan-400/30 bg-cyan-400/10 text-3xl font-black text-cyan-400">
-        N
+    <section className="mt-8" aria-labelledby="who-its-for">
+      <Eyebrow>Who it&apos;s for</Eyebrow>
+      <h2 id="who-its-for" className="mt-3 text-2xl font-bold sm:text-3xl">People business owners already trust.</h2>
+      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {people.map((person) => <Card key={person.title} {...person} />)}
       </div>
-    </div>
+    </section>
   );
 }
 
 function HowItWorks() {
   const steps = [
-    {
-      icon: <UserRound size={24} />,
-      title: "Join",
-      text: "Create your account through the affiliate signup flow. No separate partner login is needed.",
-    },
-    {
-      icon: <Tag size={24} />,
-      title: "Get the Nettmark offer",
-      text: "Access the dedicated Nettmark partner offer inside the marketplace after you join.",
-    },
-    {
-      icon: <Rocket size={24} />,
-      title: "Bring businesses",
-      text: "Use your network, outreach, content, or ads to introduce qualified businesses to Nettmark.",
-    },
-    {
-      icon: <CircleDollarSign size={24} />,
-      title: "Earn commission",
-      text: "When those businesses activate and pay, you participate in the upside through the partner offer.",
-    },
+    { icon: <BadgeCheck size={22} />, title: "Apply and get approved", text: "Tell us about yourself below. Approved partners receive a personal referral link and dashboard." },
+    { icon: <Link2 size={22} />, title: "Share your link", text: "Send your nettmark.com referral link to business owners. The first partner link they click counts for 60 days." },
+    { icon: <Wallet size={22} />, title: "They sign up and pay", text: "The business creates a Nettmark account and pays for a monthly plan at nettmark.com." },
+    { icon: <Clock3 size={22} />, title: "You earn", text: "50% of eligible subscription revenue, excluding GST, for their first 3 paid months, after a 14-day hold and Nettmark approval." },
   ];
-
   return (
-    <section
-      id="how-it-works"
-      className="mt-8 rounded-[24px] border border-white/10 bg-[#0b1014] p-6 lg:mt-10 lg:p-8"
-    >
-      <div className="mb-7 text-xs font-semibold uppercase tracking-[0.25em] text-cyan-400">
-        How it works
-      </div>
-
-      <div className="grid gap-6 xl:grid-cols-[repeat(4,minmax(0,1fr))_240px] xl:gap-7">
+    <section id="how-it-works" className="mt-8 scroll-mt-24 rounded-[24px] border border-white/10 bg-[#0b1014] p-6 lg:p-8" aria-labelledby="how-it-works-title">
+      <Eyebrow>How it works</Eyebrow>
+      <h2 id="how-it-works-title" className="mt-3 text-2xl font-bold sm:text-3xl">Four steps from introduction to payout.</h2>
+      <ol className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {steps.map((step, index) => (
-          <div key={step.title} className="relative rounded-2xl border border-white/6 bg-white/[0.015] p-4 xl:border-0 xl:bg-transparent xl:p-0">
+          <li key={step.title} className="rounded-2xl border border-white/8 bg-white/[0.015] p-5">
             <div className="flex items-center gap-3">
-              <div className="grid h-12 w-12 place-items-center rounded-full border border-cyan-400/40 text-cyan-400">
-                {step.icon}
-              </div>
-              <span className="grid h-5 w-5 place-items-center rounded-full bg-cyan-400 text-[10px] font-black text-black">
-                {index + 1}
-              </span>
+              <div className="grid h-11 w-11 place-items-center rounded-full border border-cyan-400/40 text-cyan-400" aria-hidden="true">{step.icon}</div>
+              <span className="grid h-6 w-6 place-items-center rounded-full bg-cyan-400 text-xs font-black text-black" aria-hidden="true">{index + 1}</span>
             </div>
-
             <h3 className="mt-4 text-base font-semibold">{step.title}</h3>
             <p className="mt-2 text-sm leading-6 text-slate-400">{step.text}</p>
-
-            {index < steps.length - 1 && (
-              <ArrowRight
-                size={20}
-                className="absolute -right-4 top-4 hidden text-slate-500 xl:block"
-              />
-            )}
-          </div>
+          </li>
         ))}
-
-        <div className="border-t border-white/10 pt-6 xl:border-l xl:border-t-0 xl:pl-7 xl:pt-0">
-          <h3 className="text-lg font-semibold">Ready to start?</h3>
-          <p className="mt-2 text-sm leading-6 text-slate-400">
-            Join the first group of partners helping businesses discover
-            Nettmark.
-          </p>
-          <Link
-            href="/create-account?role=affiliate"
-            className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-cyan-400 px-5 py-3.5 text-sm font-bold text-black transition hover:bg-cyan-300"
-          >
-            Become a partner
-            <ArrowRight size={16} />
-          </Link>
-        </div>
-      </div>
+      </ol>
+      <p className="mt-6 rounded-2xl border border-cyan-400/20 bg-cyan-400/[0.04] p-4 text-sm leading-6 text-slate-300">
+        <strong className="text-white">Eligibility:</strong> only Nettmark plans paid at nettmark.com count, including
+        businesses that connect their Shopify store from inside Nettmark. Businesses that install Nettmark from the
+        Shopify App Store and pay through Shopify aren&apos;t eligible, so always send businesses to your link on
+        nettmark.com.
+      </p>
     </section>
   );
 }
 
-function LowerGrid() {
+function StarterKitPreview() {
+  const sample = starterKitTemplates(null)[0];
+  const included = [
+    "The key pitch: why brands say yes",
+    "Who to approach first",
+    "Four copy-ready templates: DM, email, social post and text, with your link filled in",
+    "Dos and don'ts, so you stay on the right side of the rules",
+  ];
   return (
-    <section className="mt-8 grid gap-6 xl:mt-10 xl:grid-cols-[minmax(0,1.2fr)_minmax(300px,0.88fr)_minmax(300px,0.88fr)] xl:items-start">
+    <section className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] lg:items-start" aria-labelledby="starter-kit-preview">
       <div>
-        <div className="mb-4 text-xs font-semibold uppercase tracking-[0.25em] text-cyan-400">
-          More than just a referral link
-        </div>
-
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-2 2xl:grid-cols-4">
-          <FeatureCard
-            icon={<UsersRound size={23} />}
-            title="Built for operators"
-            text="Made for reps, agencies, closers, and connectors who can open real doors with businesses."
-          />
-          <FeatureCard
-            icon={<Rocket size={23} />}
-            title="Tools to distribute"
-            text="Access marketplace infrastructure, promotion rails, and the Nettmark partner offer inside the platform."
-          />
-          <FeatureCard
-            icon={<TrendingUp size={23} />}
-            title="Clear growth angle"
-            text="You are helping bring new businesses onto Nettmark, not just dropping a generic referral link."
-          />
-          <FeatureCard
-            icon={<LockKeyhole size={23} />}
-            title="Limited first intake"
-            text="We're opening this to a small first cohort while we shape the right partner base."
-          />
-        </div>
+        <Eyebrow>Partner starter kit</Eyebrow>
+        <h2 id="starter-kit-preview" className="mt-3 text-2xl font-bold sm:text-3xl">You won&apos;t start from a blank page.</h2>
+        <p className="mt-3 text-sm leading-6 text-slate-400 sm:text-base">Every approved partner gets a starter kit in their dashboard, including:</p>
+        <ul className="mt-5 space-y-3 text-sm text-slate-300">
+          {included.map((item) => <li key={item}><CheckRow text={item} /></li>)}
+        </ul>
       </div>
+      <figure className="rounded-[24px] border border-white/10 bg-[#0b1014] p-6">
+        <figcaption className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">Example: {sample.title}</figcaption>
+        <blockquote className="mt-4 whitespace-pre-wrap break-words text-sm leading-7 text-slate-200">{sample.body}</blockquote>
+      </figure>
+    </section>
+  );
+}
 
-      <div className="rounded-[24px] border border-cyan-400/20 bg-[linear-gradient(135deg,#09272b_0%,#0c1115_55%,#0c1115_100%)] p-6 xl:p-7">
-        <div className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-400">
-          Ready to make an impact?
-        </div>
+function ApplySection() {
+  return (
+    <div className="mt-10">
+      <ApplicationSection id="apply" />
+    </div>
+  );
+}
 
-        <h3 className="mt-4 text-2xl font-bold">
-          Become a Nettmark partner today.
-        </h3>
+function Faq() {
+  return (
+    <section className="mt-10" aria-labelledby="faq-title">
+      <Eyebrow>FAQ</Eyebrow>
+      <h2 id="faq-title" className="mt-3 text-2xl font-bold sm:text-3xl">Questions partners ask.</h2>
+      <div className="mt-6 grid gap-3">
+        {partnerFaq.map((item) => (
+          <details key={item.q} className="rounded-2xl border border-white/10 bg-[#0b1014] p-5">
+            <summary className="cursor-pointer text-sm font-semibold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-400">{item.q}</summary>
+            <p className="mt-3 text-sm leading-6 text-slate-400">{item.a}</p>
+          </details>
+        ))}
+      </div>
+      <div className="mt-8 flex justify-center"><ApplyButton className="w-full sm:w-auto" /></div>
+    </section>
+  );
+}
 
-        <p className="mt-3 text-sm leading-6 text-slate-300">
-          Help more businesses grow, get access to the Nettmark partner offer,
-          and use the same marketplace and ad infrastructure Nettmark is built
-          on.
-        </p>
-
-        <div className="mt-6 rounded-2xl border border-cyan-400/30 bg-[#08191b] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)]">
-          <p className="text-sm font-semibold text-cyan-300">Important</p>
-          <p className="mt-2 text-sm leading-6 text-white/85">
-            This program is selective. We want strong partners who can bring in
-            aligned businesses and grow with us long term.
+function AffiliateAlternative() {
+  return (
+    <section className="mt-10 rounded-[24px] border border-white/10 bg-[#0b1014] px-6 py-5">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div>
+          <Eyebrow>Prefer to run the ads yourself?</Eyebrow>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
+            Affiliates can join the Nettmark marketplace separately, pick brand offers and run Meta campaigns for
+            commission.
           </p>
         </div>
-
-        <Link
-          href="/create-account?role=affiliate"
-          className="mt-6 inline-flex items-center gap-2 rounded-xl bg-cyan-400 px-6 py-3.5 text-sm font-bold text-black transition hover:bg-cyan-300"
-        >
-          Become a partner
-          <ArrowRight size={16} />
+        <Link href="/for-partners" className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-white/15 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/5">
+          Explore the affiliate marketplace
+          <ArrowRight size={16} aria-hidden="true" />
         </Link>
       </div>
-
-      <div className="rounded-[24px] border border-white/10 bg-[#0b1014] p-6 xl:p-7">
-        <div className="text-xs font-semibold uppercase tracking-[0.22em] text-cyan-400">
-          FAQ
-        </div>
-        <div className="mt-5 space-y-4">
-          {faqItems.map((item) => (
-            <div key={item.q} className="rounded-2xl border border-white/10 bg-black/20 p-4">
-              <p className="text-sm font-semibold text-white">{item.q}</p>
-              <p className="mt-2 text-sm leading-6 text-slate-400">{item.a}</p>
-            </div>
-          ))}
-        </div>
-      </div>
     </section>
   );
 }
 
-function FeatureCard({
-  icon,
-  title,
-  text,
-}: {
-  icon: ReactNode;
-  title: string;
-  text: string;
-}) {
+function Card({ icon, title, text }: { icon: ReactNode; title: string; text: string }) {
   return (
-    <div className="h-full rounded-[22px] border border-white/10 bg-[#0b1014] p-5 xl:p-6">
-      <div className="grid h-12 w-12 place-items-center rounded-full border border-cyan-400/35 text-cyan-400">
-        {icon}
-      </div>
+    <div className="h-full rounded-[20px] border border-white/10 bg-[#0b1014] p-5">
+      <div className="grid h-11 w-11 place-items-center rounded-full border border-cyan-400/35 text-cyan-400" aria-hidden="true">{icon}</div>
       <h3 className="mt-4 text-base font-semibold">{title}</h3>
       <p className="mt-2 text-sm leading-6 text-slate-400">{text}</p>
     </div>
   );
 }
 
-function FooterTrust() {
-  return (
-    <section className="mt-8 rounded-[24px] border border-white/10 bg-[#0b1014] px-6 py-5 xl:mt-10">
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <div className="text-xs font-semibold uppercase tracking-[0.24em] text-cyan-400">
-            Nettmark partner program
-          </div>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-400">
-            Join as an affiliate, access the Nettmark partner offer in the
-            marketplace, and help bring the next wave of businesses onto the
-            platform.
-          </p>
-        </div>
-        <Link
-          href="/create-account?role=affiliate"
-          className="inline-flex items-center gap-2 rounded-xl border border-white/15 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/5"
-        >
-          Become a partner
-          <ArrowRight size={16} />
-        </Link>
-      </div>
-    </section>
-  );
-}
-
 function CheckRow({ text }: { text: string }) {
   return (
-    <div className="flex items-start gap-3">
-      <div className="mt-0.5 grid h-5 w-5 place-items-center rounded-full bg-cyan-400 text-black">
+    <span className="flex items-start gap-3">
+      <span className="mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full bg-cyan-400 text-black" aria-hidden="true">
         <Check size={12} strokeWidth={3} />
-      </div>
+      </span>
       <span>{text}</span>
-    </div>
+    </span>
   );
 }

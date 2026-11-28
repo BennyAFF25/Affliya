@@ -19,6 +19,7 @@
     "test:business-payment-gate-placement": "tsx scripts/business-payment-gate-placement.test.ts",
     "test:business-billing-profile": "tsx scripts/business-billing-profile.test.ts",
     "test:ad-ideas-review-ui": "tsx scripts/ad-ideas-review-ui.test.ts",
+    "test:growth-partners": "node --import tsx scripts/growth-partners.test.ts",
     "test:creator-referrals": "tsx scripts/creator-referrals.test.ts",
     "test:launch-fund": "tsx scripts/launch-fund.test.ts",
     "codemod:insert-header": "tsx scripts/codemods/insertMarketingHeader.ts",
@@ -71,7 +72,8 @@
     "test:woocommerce": "tsx scripts/woocommerce-integration.test.ts && tsx scripts/woocommerce-transport.test.ts",
     "test:qa-followups": "node --import tsx scripts/tracking-readiness-auth.test.ts && node --import tsx scripts/qa-followups-20261112.test.ts && node --import tsx scripts/tracking-readiness-real-client.test.ts && node --import tsx scripts/tracking-display-readiness.test.ts",
     "test:storage-policies": "node --import tsx scripts/storage-upload-policies.test.ts",
-    "test:shopify-billing": "node --import tsx scripts/shopify-billing.test.ts && node --import tsx scripts/shopify-fee-waiver.test.ts"
+    "test:shopify-billing": "node --import tsx scripts/shopify-billing.test.ts && node --import tsx scripts/shopify-fee-waiver.test.ts",
+    "test:refund-terms-billing": "node --import tsx scripts/refund-terms-billing.test.ts"
   },
   "dependencies": {
     "@headlessui/react": "^2.2.2",

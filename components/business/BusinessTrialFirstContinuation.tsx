@@ -1,7 +1,10 @@
 "use client";
-import React from "react";
+import React, { useState } from "react";
 import { ArrowRight, Check } from "lucide-react";
 import type { GrowthPrice } from "../../utils/businessOnboardingFunnel";
+import GrowthTermsConsent from "../../app/components/legal/GrowthTermsConsent";
+import { termsV2Enabled } from "../../utils/legal/version";
+import { growthTermsCopy, growthTermsEvidence, type GrowthTermsInput } from "../../utils/legal/trialTerms";
 
 export type BusinessContinuationContext = {
   billingProvider?: "stripe" | "shopify";
@@ -13,14 +16,27 @@ export type BusinessContinuationContext = {
 export function growthPricePeriod(price: GrowthPrice) {
   return price.intervalCount === 1 ? price.interval : `${price.intervalCount} ${price.interval}s`;
 }
+/** Evidence captured when the Terms v2 consent box is ticked; recorded server-side before checkout. */
+export type GrowthConsent = { context: "trial_start" | "paid_start"; summaryShown: string };
+export function growthTermsInput(context: Pick<BusinessContinuationContext, "price" | "trialDays">, trialEligible: boolean): GrowthTermsInput | null {
+  if (!context.price) return null;
+  return { trialEligible, trialDays: context.trialDays || 14, price: context.price.formatted, period: growthPricePeriod(context.price), taxNotice: context.price.taxNotice };
+}
+export function growthConsentFor(terms: GrowthTermsInput): GrowthConsent {
+  const copy = growthTermsCopy(terms);
+  return { context: copy.context, summaryShown: growthTermsEvidence(copy) };
+}
 type Props = {
   context: BusinessContinuationContext; busy: "free" | "growth" | null; error: string | null;
-  onGrowth: () => void; onFree: () => void; onRetry: () => void; selectedPlan?: "free" | "growth";
+  onGrowth: (consent?: GrowthConsent) => void; onFree: () => void; onRetry: () => void; selectedPlan?: "free" | "growth";
 };
 const focus = "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#00C2CB]";
 
 export default function BusinessTrialFirstContinuation({ context, busy, error, onGrowth, onFree, onRetry, selectedPlan = "growth" }: Props) {
-  const ready = Boolean(context.price && context.trialEligible === true && context.checkoutEnabled);
+  const termsV2 = termsV2Enabled();
+  const [termsChecked, setTermsChecked] = useState(false);
+  const terms = termsV2 ? growthTermsInput(context, true) : null;
+  const ready = Boolean(context.price && context.trialEligible === true && context.checkoutEnabled && (!termsV2 || termsChecked));
   const price = context.price?.formatted || "A$49";
   const trialDays = context.trialDays || 14;
   return (
@@ -54,11 +70,12 @@ export default function BusinessTrialFirstContinuation({ context, busy, error, o
                 </li>
               ))}
             </ul>
-            <button type="button" onClick={onGrowth} disabled={!!busy || !ready} aria-busy={busy === "growth"}
-              className={`mt-7 flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-[#00C2CB] px-5 text-sm font-bold text-[#0f0f0f] hover:bg-[#16d3dc] disabled:opacity-50 ${focus}`}>
-              {busy === "growth" ? "Opening secure checkout…" : "Start my affiliate-funded launch, 14 days free"} <ArrowRight className="h-4 w-4" />
+            {terms && <GrowthTermsConsent terms={terms} checked={termsChecked} onChange={setTermsChecked} disabled={!!busy} />}
+            <button type="button" onClick={() => onGrowth(terms ? growthConsentFor(terms) : undefined)} disabled={!!busy || !ready} aria-busy={busy === "growth"}
+              className={`${terms ? "mt-4" : "mt-7"} flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-[#00C2CB] px-5 text-sm font-bold text-[#0f0f0f] hover:bg-[#16d3dc] disabled:opacity-50 ${focus}`}>
+              {busy === "growth" ? "Opening secure checkout…" : terms ? `Start ${trialDays}-day free trial (card required)` : "Start my affiliate-funded launch, 14 days free"} <ArrowRight className="h-4 w-4" />
             </button>
-            <p className="mt-3 text-center text-xs text-[#cbd5e1]">A$49/mo after day 14 only if you stay. Card required.</p>
+            {!terms && <p className="mt-3 text-center text-xs text-[#cbd5e1]">A$49/mo after day 14 only if you stay. Card required.</p>}
             <p className="mt-2 text-center text-xs text-[#94a3b8]">We ask for a card to keep fake brands out, so affiliates can trust every offer.</p>
           </section>
           <section className="rounded-[24px] border border-white/[0.09] bg-[#151718] p-5 sm:p-6" aria-labelledby="free-plan">

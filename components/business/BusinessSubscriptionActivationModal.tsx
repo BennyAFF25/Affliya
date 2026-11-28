@@ -1,6 +1,10 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import GrowthTermsConsent from "../../app/components/legal/GrowthTermsConsent";
+import { termsV2Enabled } from "../../utils/legal/version";
+import { recordTermsAcceptance } from "../../utils/legal/client";
+import { growthConsentFor, growthTermsInput, type BusinessContinuationContext } from "./BusinessTrialFirstContinuation";
 
 type SubscriptionIntent = {
   businessId?: string | null;
@@ -49,10 +53,25 @@ export function BusinessSubscriptionActivationModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
+  const termsV2 = termsV2Enabled();
+  const [termsChecked, setTermsChecked] = useState(false);
+  const [billingContext, setBillingContext] = useState<Pick<BusinessContinuationContext, "price" | "trialDays" | "trialEligible"> | null>(null);
 
   useEffect(() => {
     if (open && intent) void trackBusinessSubscriptionClientEvent("subscription_gate_viewed", intent);
   }, [open, intent]);
+
+  // Terms v2: show the exact trial or paid terms (price, trial end, refund line) before checkout.
+  useEffect(() => {
+    if (!open || !termsV2 || !intent?.businessId) return;
+    let cancelled = false;
+    void fetch(`/api/business-subscription/trial-eligibility?businessId=${encodeURIComponent(intent.businessId)}`, { cache: "no-store" })
+      .then(response => response.ok ? response.json() : null)
+      .then(result => { if (!cancelled && result) setBillingContext({ price: result.price || null, trialDays: result.trialDays || 14, trialEligible: result.trialEligible ?? null }); })
+      .catch(() => { if (!cancelled) setError("Could not load Growth pricing. Refresh and try again."); });
+    return () => { cancelled = true; };
+  }, [open, termsV2, intent?.businessId]);
+  const growthTerms = termsV2 && billingContext && billingContext.trialEligible !== null ? growthTermsInput(billingContext, billingContext.trialEligible) : null;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -79,6 +98,10 @@ export function BusinessSubscriptionActivationModal({
       setError("Missing business context. Refresh and try again.");
       return;
     }
+    if (termsV2 && (!growthTerms || !termsChecked)) {
+      setError("Please tick the box to confirm the subscription terms.");
+      return;
+    }
 
     setLoading(true);
     setError(null);
@@ -101,11 +124,14 @@ export function BusinessSubscriptionActivationModal({
         );
       }
 
+      const consent = growthTerms ? growthConsentFor(growthTerms) : null;
+      const termsAcceptanceId = consent ? await recordTermsAcceptance({ context: consent.context, businessId: intent.businessId, summaryShown: consent.summaryShown }) : null;
       const res = await fetch("/api/business-subscription/create-checkout-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           businessId: intent.businessId,
+          termsAcceptanceId,
           returnTo: intent.returnTo || window.location.pathname,
           intendedAction: intent.intendedAction || null,
           submissionId: intent.submissionId || null,
@@ -142,7 +168,7 @@ export function BusinessSubscriptionActivationModal({
 
   return (
     <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/70 px-3 py-0 backdrop-blur-sm sm:items-center sm:px-6 sm:py-6">
-      <div className="w-full max-w-lg rounded-t-[28px] border border-white/10 bg-[#101517] p-6 text-white shadow-2xl sm:rounded-[28px] sm:p-7">
+      <div className="max-h-[92dvh] w-full overflow-y-auto max-w-lg rounded-t-[28px] border border-white/10 bg-[#101517] p-6 text-white shadow-2xl sm:rounded-[28px] sm:p-7">
         <div className="mb-4 inline-flex rounded-full border border-[#00C2CB]/25 bg-[#00C2CB]/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[#7ff5fb]">
           Nettmark Business
         </div>
@@ -162,6 +188,9 @@ export function BusinessSubscriptionActivationModal({
           <li>✓ Access marketplace campaign tools</li>
           <li>✓ Cancel through billing settings</li>
         </ul>
+
+        {growthTerms && <GrowthTermsConsent terms={growthTerms} checked={termsChecked} onChange={setTermsChecked} disabled={loading} tone="card" />}
+        {termsV2 && !growthTerms && !error && <p className="mt-4 text-sm text-white/60" role="status">Loading your Growth terms…</p>}
 
         {error && (
           <div className="mt-4 rounded-xl border border-red-400/35 bg-red-500/10 px-4 py-3 text-sm text-red-100">
@@ -192,7 +221,7 @@ export function BusinessSubscriptionActivationModal({
           <button
             type="button"
             onClick={activate}
-            disabled={loading}
+            disabled={loading || (termsV2 && (!growthTerms || !termsChecked))}
             className="rounded-full bg-[#00C2CB] px-5 py-3 text-sm font-bold text-[#061113] transition hover:bg-[#2de0e8] disabled:cursor-wait disabled:opacity-70"
           >
             {loading ? "Opening Checkout…" : "Activate Nettmark Business"}

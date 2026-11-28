@@ -55,3 +55,15 @@ For `business_entitlements.billing_provider = 'shopify'`, the brand-side Nettmar
 Zero fees skip `platform_fee_ledger` entries; wallet_payouts keeps zero fee, principal-only gross and actual Stripe processor costs. No waiver ledger row is written, so no waiver metadata is required on that ledger. Positive fee entries retain existing upsert behavior. Harness payouts proxy run-payout and display stored amounts; marketing reporting sums actual ledger amounts. No separate commission receipt/email fee calculation was found.
 
 Shopify usage billing (merchant-approved usage line item with `cappedAmount` and `appUsageRecordCreate`) is deferred; the fee calculation is retained behind the flag for later. Public pricing copy in `app/pricing/page.tsx` and `BusinessDemoLandingPage` still says 2.2% on business payouts: unchanged, follow-up for Ben. No production configuration or database changes were executed.
+
+## Growth Partner subscription commissions
+
+This is separate from merchant-sale affiliate payouts and spend wallets. `utils/growthPartners/commissionMath.ts` calculates integer minor-unit collected monthly subscription revenue, excluding reported Stripe tax, discounts/pretax credits, non-subscription items and prorations, capped by collected revenue less tax. AUD invoices without reported tax default to a GST-inclusive 10/11 basis; `GROWTH_PARTNER_ASSUME_AUD_GST_INCLUSIVE=false` disables that fallback. Default terms are 50% for three successful unreversed periods per business, including resubscriptions; free, failed, grandfathered and suspended-partner cases do not earn commission.
+
+The RPC creates pending commissions with a default 14-day approval hold. Admin approval and manual payout recording are separate; recording does not transfer money. Selection must contain one partner/currency, approved commissions or pending negative clawbacks, and a positive net total. Cumulative partial refunds reduce unpaid commissions proportionally; full unpaid refunds reverse them. Paid refunds/disputes create negative clawbacks for subsequent settlement, with replay protection. Fully reversed unpaid periods release a slot; paid periods remain counted even after clawback. Legacy rows without collected amounts require reconciliation.
+
+Eligibility (Ben, 24 Nov 2026): only Stripe-billed Nettmark plans earn Growth Partner commission, i.e. businesses that sign up and pay at nettmark.com, including those that connect Shopify from inside Nettmark. Shopify App Store installs on Shopify Billing are not eligible and no Shopify commission path exists by design.
+
+v1 behaviour kept deliberately: attribution is recorded only when the business opens Stripe checkout, from the browser holding the 60-day first-touch cookie (no signup-time capture, to avoid unconfirmed-email claims); a period refunded after payout still counts towards the 3 periods (clawback only).
+
+Stripe reporting errors are isolated from entitlement processing and logged for reconciliation; webhook event deduplication means replay alone may not repair a missed reporting mutation. SQL execution and concurrent refund/payout behavior remain staging-review requirements.
