@@ -12,7 +12,32 @@ import {
 } from "../../../../utils/billingRecovery";
 import { renderNettmarkEmail } from "../../../../utils/email/renderNettmarkEmail";
 import { growthBillingPortalUrl, NETTMARK_LEGAL_ENTITY } from "../../../../utils/billingLinks";
+import { formatStripeAmount } from "../../../../utils/billingNotifications";
 import { growthEmailAllowed } from "../../../../utils/growthPartners/email";
+
+function paymentMethodLast4(pm: unknown): string | null {
+  if (!pm || typeof pm !== "object") return null;
+  const last4 = (pm as { card?: { last4?: string | null } }).card?.last4;
+  return last4 || null;
+}
+
+async function cardLast4(
+  stripe: ReturnType<typeof createBusinessSubscriptionStripeClient>,
+  subscription: { default_payment_method?: unknown; customer?: unknown },
+): Promise<string | null> {
+  const direct = paymentMethodLast4(subscription.default_payment_method);
+  if (direct) return direct;
+  const customer = subscription.customer;
+  const customerId = typeof customer === "string" ? customer : customer && typeof customer === "object" && "id" in customer ? String((customer as { id: string }).id) : "";
+  if (!customerId) return null;
+  try {
+    const record = await stripe.customers.retrieve(customerId, { expand: ["invoice_settings.default_payment_method"] });
+    if ("deleted" in record && record.deleted) return null;
+    return paymentMethodLast4(record.invoice_settings?.default_payment_method);
+  } catch {
+    return null;
+  }
+}
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -149,10 +174,8 @@ export async function GET(req: Request) {
           skipped++; continue;
         }
 
-        const amount = new Intl.NumberFormat("en-AU", { style: "currency", currency: "AUD" })
-          .format(freshInvoice.amount_remaining / 100);
-        const paymentMethod = subscription.default_payment_method;
-        const last4 = paymentMethod && typeof paymentMethod === "object" ? paymentMethod.card?.last4 || null : null;
+        const amount = formatStripeAmount(freshInvoice.amount_remaining, freshInvoice.currency);
+        const last4 = await cardLast4(stripe, subscription);
         const message = billingRecoveryMessage(stage, amount, last4);
         const link = freshInvoice.hosted_invoice_url || "https://www.nettmark.com/business/settings";
         const portal = growthBillingPortalUrl();
