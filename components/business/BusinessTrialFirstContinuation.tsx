@@ -7,6 +7,7 @@ import { termsV2Enabled } from "../../utils/legal/version";
 import { growthTermsCopy, growthTermsEvidence, type GrowthTermsInput } from "../../utils/legal/trialTerms";
 
 export type BusinessContinuationContext = {
+  billingProvider?: "stripe" | "shopify";
   business_onboarding_funnel: string; treatment: boolean; offerId: string | null;
   participationMode: string; trialEligible: boolean | null; trialDays: number;
   price: GrowthPrice | null; billingError: string | null; checkoutEnabled: boolean;

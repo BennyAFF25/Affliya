@@ -35,7 +35,9 @@ export default function ChooseBusinessPlanPage() {
   const resumeSubscription = context?.trialEligible === false;
   const termsV2 = termsV2Enabled();
   const [termsChecked, setTermsChecked] = useState(false);
-  const growthTerms = termsV2 && context && context.trialEligible !== null ? growthTermsInput(context, context.trialEligible) : null;
+  // Terms v2 trial/refund wording is written for Stripe card billing, so Shopify-billed brands skip it:
+  // they approve the charge on Shopify's own approval screen (and Shopify handles refunds).
+  const growthTerms = termsV2 && context && context.billingProvider !== "shopify" && context.trialEligible !== null ? growthTermsInput(context, context.trialEligible) : null;
 
   useEffect(() => {
     if (isLoading) return;
@@ -102,23 +104,23 @@ export default function ChooseBusinessPlanPage() {
     if (busy || returnPending) return;
     setBusy("free"); setError(null);
     try {
-      const response = await fetch("/api/business-subscription/choose-free", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessId, attribution: getAttributionFromWindow() }) });
+      const response = await fetch(context?.billingProvider === "shopify" ? "/api/shopify/billing" : "/api/business-subscription/choose-free", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ businessId, plan: "free", attribution: getAttributionFromWindow() }) });
       if (!response.ok) throw new Error("Could not select Free. Please retry.");
       continueTo(context?.planFirst && !context.offerId ? "/onboarding/for-business" : "/business/my-business");
     } catch (err) { setError(err instanceof Error ? err.message : "Could not select Free."); setBusy(null); }
   };
   const chooseGrowth = async (consent?: GrowthConsent) => {
     if (!businessId || busy || returnPending || !context?.price || context.trialEligible === null) return;
-    if (termsV2 && !consent) { setError("Please tick the box to confirm the trial and subscription terms."); return; }
+    if (termsV2 && context.billingProvider !== "shopify" && !consent) { setError("Please tick the box to confirm the trial and subscription terms."); return; }
     setBusy("growth"); setError(null);
     void logProductEvent({ eventType: "plan_growth_clicked", actorRole: "business", offerId: context.offerId, meta: { source: "plan_choice", intended_action: resumeSubscription ? "paid_subscription" : "free_trial", ...getAttributionFromWindow() } });
     try {
       // Terms v2: the acceptance is recorded server-side before checkout can be created.
       const termsAcceptanceId = consent ? await recordTermsAcceptance({ context: consent.context, businessId, summaryShown: consent.summaryShown }) : null;
-      const response = await fetch("/api/business-subscription/create-checkout-session", { method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ businessId, termsAcceptanceId, returnTo: businessContinuationDestination("/business/choose-plan", new URLSearchParams(window.location.search).get("next")), requireTrial: !resumeSubscription, intendedAction: resumeSubscription ? "continue_growth_subscription" : "start_growth_trial", attribution: getAttributionFromWindow() }) });
+      const response = await fetch(context?.billingProvider === "shopify" ? "/api/shopify/billing" : "/api/business-subscription/create-checkout-session", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ businessId, termsAcceptanceId, plan: "growth", returnTo: businessContinuationDestination("/business/choose-plan", new URLSearchParams(window.location.search).get("next")), requireTrial: !resumeSubscription, intendedAction: resumeSubscription ? "continue_growth_subscription" : "start_growth_trial", attribution: getAttributionFromWindow() }) });
       const result = await response.json();
-      if (result.status === "already_subscribed" || result.status === "grandfathered") { continueTo(context?.planFirst && !context.offerId ? "/onboarding/for-business" : "/business/my-business"); return; }
+      if (result.ok || result.status === "already_subscribed" || result.status === "grandfathered") { continueTo(context?.planFirst && !context.offerId ? "/onboarding/for-business" : "/business/my-business"); return; }
       if (!response.ok || !result.url) throw new Error(result.error || result.message || "Could not start checkout.");
       window.location.assign(result.url);
     } catch (err) { setError(err instanceof Error ? err.message : "Could not start checkout."); setBusy(null); }
@@ -255,12 +257,14 @@ export default function ChooseBusinessPlanPage() {
                     : growthTerms ? `Start ${context?.trialDays || 14}-day free trial (card required)` : "Start my affiliate-funded launch, 14 days free"}
               </span>
             </button>
-            {!growthTerms && <p className="relative mt-3 text-center text-[11px] text-[#7d858d]">
-              {resumeSubscription
+            {(context?.billingProvider === "shopify" || !growthTerms) && <p className="relative mt-3 text-center text-[11px] text-[#7d858d]">
+              {context?.billingProvider === "shopify"
+                ? `Billed through Shopify: ${context.price?.formatted || "Growth"} every 30 days${resumeSubscription ? "" : " after your 14-day trial"}. Shopify confirms the final amount and currency. Cancel or switch to Free here anytime.`
+                : resumeSubscription
                 ? `Continue at ${context?.price?.formatted || "the verified checkout price"}/${context?.price ? growthPricePeriod(context.price) : "billing period"}. Cancel anytime.`
                 : "A$49/mo after day 14 only if you stay. Card required."}
             </p>}
-            <p className="relative mt-2 text-center text-[11px] text-[#7d858d]">We ask for a card to keep fake brands out, so affiliates can trust every offer.</p>
+            {context?.billingProvider !== "shopify" && <p className="relative mt-2 text-center text-[11px] text-[#7d858d]">We ask for a card to keep fake brands out, so affiliates can trust every offer.</p>}
           </section>
         </div>
 
@@ -305,6 +309,8 @@ export default function ChooseBusinessPlanPage() {
         )}
       </div>
 
+      {/* styled-jsx is supplied by Next.js. */}
+      {/* eslint-disable-next-line react/no-unknown-property */}
       <style jsx>{`
         .plan-orb {
           position: absolute;

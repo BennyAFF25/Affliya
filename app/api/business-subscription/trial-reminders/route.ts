@@ -46,6 +46,7 @@ export async function GET(req: Request) {
     .select(billingPath
       ? "business_id,business_email,billing_status,growth_trial_started_at,subscription_current_period_end,stripe_subscription_id"
       : "business_id,business_email,billing_status,growth_trial_started_at,subscription_current_period_end")
+    .eq("billing_provider", "stripe")
     .eq("billing_status", "subscription_trialing");
   trialQuery = billingPath
     ? trialQuery.or(`growth_trial_started_at.gte."${cutoff}",subscription_current_period_end.gt."${now.toISOString()}"`)

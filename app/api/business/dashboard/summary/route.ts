@@ -1,3 +1,4 @@
+import { resolveBusinessFeeBps } from "../../../../../utils/feeAccounting";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createRouteHandlerClient } from "@supabase/auth-helpers-nextjs";
@@ -42,7 +43,7 @@ export async function GET() {
         .select("amount,status,stripe_transfer_id")
         .ilike("business_email", email),
       admin.from("business_entitlements")
-        .select("billing_status,subscription_current_period_end")
+        .select("billing_provider,billing_status,subscription_current_period_end")
         .ilike("business_email", email).limit(1).maybeSingle(),
     ]);
     const errors = [ads.error, organic.error, proposals.error, requests.error].filter(Boolean);
@@ -123,6 +124,7 @@ export async function GET() {
     const daysLeft = trialEnd ? Math.max(0, Math.ceil((new Date(trialEnd).getTime() - Date.now()) / 86400000)) : null;
     return NextResponse.json({
       success: true,
+      businessPayoutFeeBps: entitlement.error ? null : resolveBusinessFeeBps(entitlement.data?.billing_provider),
       trial: isTrial ? { daysLeft, endsAt: trialEnd } : null,
       // This system does not yet store verified affiliate offer view counts.
       affiliateOfferViews: null,

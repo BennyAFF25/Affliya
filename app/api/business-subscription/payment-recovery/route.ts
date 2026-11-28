@@ -125,6 +125,7 @@ export async function GET(req: Request) {
   // claiming a reminder and immediately before emailing the customer.
   const { data: businesses, error: listingError } = await admin.from("business_entitlements")
     .select("business_id,business_email,subscription_stripe_customer_id,stripe_subscription_id")
+    .eq("billing_provider", "stripe")
     .eq("is_grandfathered", false)
     .in("billing_status", ["subscription_past_due", "subscription_unpaid"])
     .order("updated_at", { ascending: false })
