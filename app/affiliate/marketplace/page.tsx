@@ -8,6 +8,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "@supabase/auth-helpers-react";
 import AcceptTermsModal from "@/../app/components/AcceptTermsModal";
+import { termsAcceptanceCurrent, termsProfileColumns } from "@/../utils/legal/version";
 import { supabase } from "../../../utils/supabase/pages-client";
 import {
   BadgeCheck,
@@ -238,6 +239,7 @@ export default function AffiliateMarketplace() {
   const [sortOrder, setSortOrder] = useState(() => ({ recent: "Most Recent", commission: "Highest Commission", business: "Business Name", "Most Recent": "Most Recent", "Highest Commission": "Highest Commission", "Business Name": "Business Name" }[searchParams.get("sort") || ""] || "Featured"));
   const [page, setPage] = useState(1);
   const [showAcceptTerms, setShowAcceptTerms] = useState(false);
+  const [termsPreviouslyAccepted, setTermsPreviouslyAccepted] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -247,10 +249,13 @@ export default function AffiliateMarketplace() {
       setUserId(user.id);
       const { data, error } = await (supabase as any)
         .from("profiles")
-        .select("terms_accepted")
+        .select(termsProfileColumns())
         .eq("id", user.id)
         .single();
-      if (!error && data?.terms_accepted !== true) setShowAcceptTerms(true);
+      if (!error && !termsAcceptanceCurrent(data)) {
+        setTermsPreviouslyAccepted(data?.terms_accepted === true);
+        setShowAcceptTerms(true);
+      }
     };
     checkTerms();
   }, []);
@@ -436,7 +441,7 @@ export default function AffiliateMarketplace() {
 
   return (
     <div className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
-      {showAcceptTerms && userId ? <AcceptTermsModal userId={userId} onAccepted={() => setShowAcceptTerms(false)} /> : null}
+      {showAcceptTerms && userId ? <AcceptTermsModal userId={userId} updatedTerms={termsPreviouslyAccepted} onAccepted={() => setShowAcceptTerms(false)} /> : null}
 
       <div className="mx-auto w-full max-w-[1540px] px-4 py-7 sm:px-6 lg:px-8">
         <div className="mb-5 flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">

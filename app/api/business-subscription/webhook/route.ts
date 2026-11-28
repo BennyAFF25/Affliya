@@ -11,6 +11,8 @@ import { trackBusinessSubscriptionAnalytics } from "../../../../utils/businessSu
 import { trackGrowthPartnerStripeEvent } from "../../../../utils/growthPartners/stripeEvents";
 
 import { recordConfirmedGrowthTrial, deliverPendingGrowthTrials } from "../../../../utils/marketing/startTrialServer";
+import { enqueueBillingNotifications } from "../../../../utils/billingNotificationsServer";
+import { linkAcceptanceToStripe } from "../../../../utils/legal/acceptance";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -156,11 +158,15 @@ export async function POST(req: Request) {
     if (event.type === "charge.refunded" || event.type === "charge.dispute.created") {
       const charge = event.data.object as Stripe.Charge & { invoice?: StripeObjectRef };
       await trackGrowthPartnerStripeEvent(supabase, stripe, event);
+      // Refund confirmation (E8): enqueue only; never sends inline or fails the webhook.
+      const notifications = event.type === "charge.refunded"
+        ? await enqueueBillingNotifications({ admin: supabase, stripe, event })
+        : null;
       await markEvent({
         stripeEventId: event.id,
         status: "processed",
         stripeCustomerId: getRefId(charge.customer as StripeObjectRef),
-        metadata: { ...auditFacts, eventType: event.type, creatorCommissionReversal: true },
+        metadata: { ...auditFacts, eventType: event.type, creatorCommissionReversal: true, ...(notifications ? { billingNotificationsEnqueued: notifications.enqueued } : {}) },
       });
       return NextResponse.json({ received: true });
     }
@@ -237,6 +243,14 @@ export async function POST(req: Request) {
 
     await trackGrowthPartnerStripeEvent(supabase, stripe, event, subscription);
 
+    // Billing emails: enqueue to business_billing_notifications (sent by the
+    // billing-notifications cron). Flagged off by default; failures are logged only.
+    const notifications = await enqueueBillingNotifications({ admin: supabase, stripe, event, subscription });
+    const checkoutSession = event.type === "checkout.session.completed" ? event.data.object as Stripe.Checkout.Session : null;
+    if (checkoutSession?.metadata?.terms_acceptance_id) {
+      await linkAcceptanceToStripe(supabase, checkoutSession.metadata.terms_acceptance_id, { checkoutSessionId: checkoutSession.id, subscriptionId: subscription.id });
+    }
+
     if (["subscription_active", "subscription_trialing"].includes(syncResult.billingStatus)) {
       await trackBusinessSubscriptionAnalytics({
         supabase,
@@ -305,6 +319,12 @@ export async function POST(req: Request) {
         stripe_status: subscription.status,
         billingStatus: syncResult.billingStatus,
         subscriptionRequired: syncResult.subscriptionRequired,
+        billingNotificationsEnqueued: notifications.enqueued,
+        ...(checkoutSession ? {
+          consent_terms_of_service: checkoutSession.consent?.terms_of_service || null,
+          terms_version: checkoutSession.metadata?.terms_version || null,
+          terms_acceptance_id: checkoutSession.metadata?.terms_acceptance_id || null,
+        } : {}),
       },
     });
 

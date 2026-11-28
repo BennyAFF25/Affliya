@@ -1,4 +1,6 @@
 import React from "react";
+import TermsOfServiceV2Content from "./TermsOfServiceV2Content";
+import { TERMS_PUBLISHED_LABEL, termsV2Enabled } from "../../../utils/legal/version";
 
 export type LegalPolicy = "terms" | "privacy" | "cookies";
 export const POLICY_TITLES: Record<LegalPolicy, string> = {
@@ -6,9 +8,19 @@ export const POLICY_TITLES: Record<LegalPolicy, string> = {
 };
 
 export default function LegalPolicyContent({ policy, showTitle = true }: { policy: LegalPolicy; showTitle?: boolean }) {
-  if (policy === "terms") return <TermsOfServiceContent showTitle={showTitle} />;
+  // Terms v2 is a draft pending legal review; the legacy wording below stays unchanged while the flag is off.
+  if (policy === "terms") return termsV2Enabled() ? <TermsOfServiceV2Content showTitle={showTitle} /> : <TermsOfServiceContent showTitle={showTitle} />;
   if (policy === "privacy") return <PrivacyPolicyContent showTitle={showTitle} />;
   return <CookiePolicyContent showTitle={showTitle} />;
+}
+
+/** Fixed publish date with Terms v2; the legacy pages showed the visitor's current date. */
+function LastUpdated() {
+  return (
+    <p className="text-sm text-gray-400 mb-10">
+      Last updated: {termsV2Enabled() ? TERMS_PUBLISHED_LABEL : new Date().toLocaleDateString()}
+    </p>
+  );
 }
 
 function TermsOfServiceContent({ showTitle }: { showTitle: boolean }) {
@@ -182,9 +194,7 @@ function PrivacyPolicyContent({ showTitle }: { showTitle: boolean }) {
           Privacy Policy
         </h1>}
 
-        <p className="text-sm text-gray-400 mb-10">
-          Last updated: {new Date().toLocaleDateString()}
-        </p>
+        <LastUpdated />
 
         <div className="space-y-6 text-sm leading-relaxed text-gray-300">
           <p>
@@ -361,6 +371,13 @@ function PrivacyPolicyContent({ showTitle }: { showTitle: boolean }) {
             <strong>Website:</strong> https://nettmark.com
           </p>
         </div>
+        {termsV2Enabled() && (
+          <p className="mt-6 text-sm leading-relaxed text-gray-300">
+            <strong>Terms acceptance records.</strong> When you accept our Terms of Service, we record the version you
+            accepted, the date and time, your IP address and your browser’s user agent, and link that record to any
+            subscription you start, so we can show what you agreed to.
+          </p>
+        )}
     </React.Fragment>
   );
 }
@@ -372,9 +389,7 @@ function CookiePolicyContent({ showTitle }: { showTitle: boolean }) {
           Cookie Policy
         </h1>}
 
-        <p className="text-sm text-gray-400 mb-10">
-          Last updated: {new Date().toLocaleDateString()}
-        </p>
+        <LastUpdated />
 
         <div className="space-y-6 text-sm leading-relaxed text-gray-300">
           <p>

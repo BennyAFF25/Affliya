@@ -9,6 +9,8 @@ import {
 } from "@/../utils/affiliate/onboarding";
 import { eligibleCreative } from "@/../utils/affiliate/promotionPack";
 
+import { termsAcceptanceCurrent, termsProfileColumns } from "@/../utils/legal/version";
+
 export const dynamic = "force-dynamic";
 
 export async function GET() {
@@ -16,7 +18,7 @@ export async function GET() {
   const { data: { user }, error: authError } = await supabase.auth.getUser();
   if (authError || !user?.email) return NextResponse.json({ error: "Please sign in to continue." }, { status: 401 });
   const { data: profile, error: profileError } = await supabase.from("profiles")
-    .select("role, terms_accepted").eq("id", user.id).maybeSingle();
+    .select(`role, ${termsProfileColumns()}`).eq("id", user.id).maybeSingle<{ role?: string | null; terms_accepted?: boolean | null; terms_version?: string | null }>();
   if (profileError) return NextResponse.json({ error: "Could not load your profile." }, { status: 503 });
   if (profile?.role !== "affiliate") return NextResponse.json({ error: "An affiliate account is required." }, { status: 403 });
   const [offerResult, requestResult] = await Promise.all([
@@ -72,7 +74,7 @@ export async function GET() {
       eligibleCreative(asset, row, "organic") && asset.organic_preapproved === true && !!asset.media_url).length,
   }));
   return NextResponse.json({
-    offers: rankOnboardingOffers(offers), termsAccepted: profile.terms_accepted === true,
+    offers: rankOnboardingOffers(offers), termsAccepted: termsAcceptanceCurrent(profile),
     userId: user.id,
   }, { headers: { "Cache-Control": "private, no-store" } });
 }
