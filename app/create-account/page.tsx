@@ -15,6 +15,9 @@ import { trackRedditConversion } from '@/../utils/marketing/redditConversions';
 import { logProductEvent } from "@/../utils/productEvents";
 import { affiliateOnboardingPath } from '@/../utils/affiliate/onboarding';
 import { extractAttributionFromSearchParams, buildHrefWithAttribution, persistAttribution } from '@/../utils/marketing/attribution';
+import { TERMS_VERSION, termsV2Enabled } from '@/../utils/legal/version';
+import PolicyReaderDialog from '@/components/legal/PolicyReaderDialog';
+import type { LegalPolicy } from '@/components/legal/LegalPolicyContent';
 
 function CreateAccountInner() {
   const sp = useSearchParams();
@@ -53,6 +56,9 @@ function CreateAccountInner() {
   const signupInFlight = useRef(false);
   const [err, setErr] = useState<string | null>(null);
   const [confirmationSent, setConfirmationSent] = useState(false);
+  const termsV2 = termsV2Enabled();
+  const [termsChecked, setTermsChecked] = useState(false);
+  const [readingPolicy, setReadingPolicy] = useState<LegalPolicy | null>(null);
 
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const redirectQuery = `returnTo=${encodeURIComponent(onboardingPath)}&role=${role}`;
@@ -107,6 +113,7 @@ function CreateAccountInner() {
         throw new Error('Username must be 3–24 characters using letters, numbers, dots, underscores or hyphens.');
       }
       if (!trimmedEmail) throw new Error('Please enter an email.');
+      if (termsV2 && !termsChecked) throw new Error("Please agree to Nettmark's Terms of Service and Privacy Policy to continue.");
 
       console.log('[SIGNUP] starting', { role, email: trimmedEmail, username: trimmedUsername });
 
@@ -115,6 +122,7 @@ function CreateAccountInner() {
         body: JSON.stringify({
           email: trimmedEmail,
           password,
+          ...(termsV2 ? { termsAccepted: { version: TERMS_VERSION } } : {}),
           options: {
             emailRedirectTo: authRedirect,
             data: { role, username: trimmedUsername, ...(isBusiness ? { business_plan_first_v2: true } : {}) },
@@ -438,9 +446,22 @@ function CreateAccountInner() {
                   </p>
                 )}
 
+                {termsV2 && (
+                  <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3 text-sm leading-6 text-white/85">
+                    <input type="checkbox" required checked={termsChecked} onChange={(event) => setTermsChecked(event.target.checked)} disabled={submitting}
+                      className="mt-1 h-5 w-5 shrink-0 accent-[#00C2CB]" data-testid="signup-terms-checkbox" />
+                    <span>
+                      I agree to Nettmark&apos;s{' '}
+                      <button type="button" onClick={() => setReadingPolicy('terms')} className="font-semibold text-[#63e8ee] underline underline-offset-2">Terms of Service</button>
+                      {' '}and{' '}
+                      <button type="button" onClick={() => setReadingPolicy('privacy')} className="font-semibold text-[#63e8ee] underline underline-offset-2">Privacy Policy</button>.
+                    </span>
+                  </label>
+                )}
+
                 <button
                   type="submit"
-                  disabled={submitting}
+                  disabled={submitting || (termsV2 && !termsChecked)}
                   className="group flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-[#00C2CB] px-6 text-sm font-semibold text-[#051012] shadow-[0_14px_44px_rgba(0,194,203,.16)] transition duration-300 hover:-translate-y-0.5 hover:bg-[#19d5dc] hover:shadow-[0_18px_55px_rgba(0,194,203,.22)] disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-55"
                 >
                   {submitting ? 'Creating account…' : 'Continue'}
@@ -451,10 +472,14 @@ function CreateAccountInner() {
               <div className="mt-7 flex items-start gap-3 border-t border-white/[0.06] pt-5 text-xs leading-5 text-white/32">
                 <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#00C2CB]/70" />
                 <p>
-                  {isBusiness
+                  {termsV2
+                    ? (isBusiness
+                      ? 'Next: choose Growth (14-day free trial, card required, then A$49/month unless you cancel) or Free (organic affiliates only, no paid ads). You will see the full trial terms before you start.'
+                      : 'No card required to join.')
+                    : <>{isBusiness
                     ? 'Next: start The 14-Day Affiliate-Funded Launch, then set up your offer. Growth requires a card and costs A$49/month after the trial unless you cancel. Free (Organic affiliates only, no paid ads) remains available at the next step. By continuing, you agree to our'
                     : 'No card required to join. By continuing, you agree to our'}
-                  {' '}<a className="underline" href="/legal/privacy/terms-of-service">Terms</a> and <a className="underline" href="/legal/privacy">Privacy Policy</a>.
+                  {' '}<a className="underline" href="/legal/privacy/terms-of-service">Terms</a> and <a className="underline" href="/legal/privacy">Privacy Policy</a>.</>}
                   {!isBusiness && ' Fee-based charges only apply later when money moves through wallets or payouts.'}
                 </p>
               </div>
@@ -462,6 +487,7 @@ function CreateAccountInner() {
           </div>
         </section>
       </main>
+      <PolicyReaderDialog policy={readingPolicy} onClose={() => setReadingPolicy(null)} />
     </div>
   );
 }

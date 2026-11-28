@@ -6,16 +6,21 @@ import { ArrowLeft, ChevronRight } from "lucide-react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { supabase } from "@/../utils/supabase/pages-client";
 import LegalPolicyContent, { POLICY_TITLES, type LegalPolicy } from "./legal/LegalPolicyContent";
+import { termsV2Enabled } from "../../utils/legal/version";
+import { recordTermsAcceptance } from "../../utils/legal/client";
 
 interface AcceptTermsModalProps {
   userId: string;
   onAccepted?: () => void;
+  /** The user accepted an earlier version; explain what changed. */
+  updatedTerms?: boolean;
 }
 
 // The repository's Database type only describes an example users table.
 const profileClient = supabase as unknown as SupabaseClient;
 
-export default function AcceptTermsModal({ userId, onAccepted }: AcceptTermsModalProps) {
+export default function AcceptTermsModal({ userId, onAccepted, updatedTerms = false }: AcceptTermsModalProps) {
+  const termsV2 = termsV2Enabled();
   const [checked, setChecked] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,10 +33,15 @@ export default function AcceptTermsModal({ userId, onAccepted }: AcceptTermsModa
     setLoading(true);
     setError(null);
     try {
-      const { error: saveError } = await profileClient.from("profiles")
-        .update({ terms_accepted: true, terms_accepted_at: new Date().toISOString() })
-        .eq("id", userId);
-      if (saveError) throw new Error("Acceptance failed");
+      if (termsV2) {
+        // Evidence-grade: version, time, IP and user agent recorded server-side.
+        await recordTermsAcceptance({ context: "modal" });
+      } else {
+        const { error: saveError } = await profileClient.from("profiles")
+          .update({ terms_accepted: true, terms_accepted_at: new Date().toISOString() })
+          .eq("id", userId);
+        if (saveError) throw new Error("Acceptance failed");
+      }
       onAccepted?.();
     } catch {
       setError("Failed to save acceptance. Please try again.");
@@ -62,6 +72,7 @@ export default function AcceptTermsModal({ userId, onAccepted }: AcceptTermsModa
           ) : (
             <>
               <div className="min-h-0 overflow-y-auto p-6">
+                {termsV2 && updatedTerms && <p className="mb-3 rounded-xl border border-[#00C2CB]/30 bg-[#00C2CB]/10 px-4 py-3 text-sm leading-6 text-white">We’ve updated our Terms, including clause 7 (Subscriptions, Cancellation and Refunds).</p>}
                 <p className="text-sm leading-6 text-gray-300">Agree to Nettmark’s Terms of Service and Privacy Policy to continue. You can read each policy here without leaving your setup.</p>
                 <div className="mt-4 space-y-2">
                   {(["terms", "privacy", "cookies"] as const).map(value => (
